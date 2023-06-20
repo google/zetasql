@@ -246,6 +246,13 @@ InputArgumentType InputArgumentType::LambdaInputArgumentType() {
   return type;
 }
 
+InputArgumentType InputArgumentType::SequenceInputArgumentType() {
+  InputArgumentType type;
+  type.category_ = kSequence;
+  type.type_ = nullptr;
+  return type;
+}
+
 bool InputArgumentTypeSet::Insert(
     const InputArgumentType& argument, bool set_dominant) {
   if (set_dominant) {

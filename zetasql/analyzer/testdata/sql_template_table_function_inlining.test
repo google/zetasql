@@ -19,7 +19,7 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
-        +-tvf=UnaryAbTableArgWithScalarArgsTempl((ANY TYPE a, ANY TABLE arg0, ANY TYPE b) -> ANY TABLE)
+        +-tvf=UnaryAbTableArgWithScalarArgsTempl((ANY TYPE x, ANY TABLE arg0, ANY TYPE y) -> ANY TABLE)
         +-signature=(literal INT64, TABLE<a INT64, b STRING, c DATE>, literal STRING) -> TABLE<a INT64, b STRING, c DATE>
         +-argument_list=
         | +-FunctionArgument
@@ -61,10 +61,10 @@ QueryStmt
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             | +-ColumnRef(type=INT64, column=arg0.a#1)
-            | +-ColumnRef(type=INT64, column=arg0.a#1)
+            | +-ArgumentRef(type=INT64, name="x")
             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
               +-ColumnRef(type=STRING, column=arg0.b#2)
-              +-ColumnRef(type=STRING, column=arg0.b#2)
+              +-ArgumentRef(type=STRING, name="y")
 
 [REWRITTEN AST]
 QueryStmt
@@ -94,10 +94,10 @@ QueryStmt
         |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgsTempl_scalar_args"
         |   +-with_subquery=
         |     +-ProjectScan
-        |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[a#7, b#8]
+        |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[x#7, y#8]
         |       +-expr_list=
-        |       | +-a#7 := Literal(type=INT64, value=1)
-        |       | +-b#8 := Literal(type=STRING, value="b")
+        |       | +-x#7 := Literal(type=INT64, value=1)
+        |       | +-y#8 := Literal(type=STRING, value="b")
         |       +-input_scan=
         |         +-SingleRowScan
         +-query=
@@ -112,10 +112,24 @@ QueryStmt
                   +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
                     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
                     | +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgsTempl.a#4)
-                    | +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgsTempl.a#4)
+                    | +-SubqueryExpr
+                    |   +-type=INT64
+                    |   +-subquery_type=SCALAR
+                    |   +-subquery=
+                    |     +-ProjectScan
+                    |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgsTempl.x#9]
+                    |       +-input_scan=
+                    |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[x#9, y#10], with_query_name="$inlined_UnaryAbTableArgWithScalarArgsTempl_scalar_args")
                     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
                       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgsTempl.b#5)
-                      +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgsTempl.b#5)
+                      +-SubqueryExpr
+                        +-type=STRING
+                        +-subquery_type=SCALAR
+                        +-subquery=
+                          +-ProjectScan
+                            +-column_list=[$inlined_UnaryAbTableArgWithScalarArgsTempl.y#12]
+                            +-input_scan=
+                              +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[x#11, y#12], with_query_name="$inlined_UnaryAbTableArgWithScalarArgsTempl_scalar_args")
 ==
 
 SELECT * FROM CallsUnaryAbTableArgWithScalarArgsTempl(DATE '2020-08-22');
@@ -153,7 +167,7 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
-        +-tvf=UnaryAbTableArgWithScalarArgsTempl((ANY TYPE a, ANY TABLE arg0, ANY TYPE b) -> ANY TABLE)
+        +-tvf=UnaryAbTableArgWithScalarArgsTempl((ANY TYPE x, ANY TABLE arg0, ANY TYPE y) -> ANY TABLE)
         +-signature=(literal INT64, TABLE<a INT64, b STRING, c DATE>, literal STRING) -> TABLE<a INT64, b STRING, c DATE>
         +-argument_list=
         | +-FunctionArgument
@@ -195,10 +209,10 @@ QueryStmt
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             | +-ColumnRef(type=INT64, column=arg0.a#1)
-            | +-ColumnRef(type=INT64, column=arg0.a#1)
+            | +-ArgumentRef(type=INT64, name="x")
             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
               +-ColumnRef(type=STRING, column=arg0.b#2)
-              +-ColumnRef(type=STRING, column=arg0.b#2)
+              +-ArgumentRef(type=STRING, name="y")
 
 [REWRITTEN AST]
 QueryStmt
@@ -244,10 +258,10 @@ QueryStmt
                 |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgsTempl_scalar_args"
                 |   +-with_subquery=
                 |     +-ProjectScan
-                |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[a#8, b#9]
+                |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[x#8, y#9]
                 |       +-expr_list=
-                |       | +-a#8 := Literal(type=INT64, value=1)
-                |       | +-b#9 := Literal(type=STRING, value="b")
+                |       | +-x#8 := Literal(type=INT64, value=1)
+                |       | +-y#9 := Literal(type=STRING, value="b")
                 |       +-input_scan=
                 |         +-SingleRowScan
                 +-query=
@@ -262,10 +276,24 @@ QueryStmt
                           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
                             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
                             | +-ColumnRef(type=INT64, column=CallsUnaryAbTableArgWithScalarArgsTempl.a#1)
-                            | +-ColumnRef(type=INT64, column=CallsUnaryAbTableArgWithScalarArgsTempl.a#1)
+                            | +-SubqueryExpr
+                            |   +-type=INT64
+                            |   +-subquery_type=SCALAR
+                            |   +-subquery=
+                            |     +-ProjectScan
+                            |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgsTempl.x#10]
+                            |       +-input_scan=
+                            |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[x#10, y#11], with_query_name="$inlined_UnaryAbTableArgWithScalarArgsTempl_scalar_args")
                             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
                               +-ColumnRef(type=STRING, column=CallsUnaryAbTableArgWithScalarArgsTempl.b#2)
-                              +-ColumnRef(type=STRING, column=CallsUnaryAbTableArgWithScalarArgsTempl.b#2)
+                              +-SubqueryExpr
+                                +-type=STRING
+                                +-subquery_type=SCALAR
+                                +-subquery=
+                                  +-ProjectScan
+                                    +-column_list=[$inlined_UnaryAbTableArgWithScalarArgsTempl.y#13]
+                                    +-input_scan=
+                                      +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[x#12, y#13], with_query_name="$inlined_UnaryAbTableArgWithScalarArgsTempl_scalar_args")
 ==
 
 [no_run_unparser]

@@ -67,4 +67,13 @@ TEST(JsonEscapeString, BigTest) {
                        R"("Σ\u2028Σ\u2029Σ\n\f\u0010\\\t")");
 }
 
+TEST(JsonEscapeString, Append) {
+  std::string buffer = "field_name:";
+
+  JsonEscapeAndAppendString("\b\f\n\r\t", &buffer);
+
+  // Appends escaped string to the buffer.
+  EXPECT_EQ(buffer, R"(field_name:"\b\f\n\r\t")");
+}
+
 }  // namespace zetasql

@@ -295,3 +295,89 @@ SELECT
   int32 AS c3
 FROM
   SimpleTypes
+==
+
+CREATE MATERIALIZED VIEW mv
+--
+ERROR: Syntax error: Expected keyword AS but got end of statement [at 1:28]
+CREATE MATERIALIZED VIEW mv
+                           ^
+==
+
+CREATE MATERIALIZED VIEW rm1 AS REPLICA OF src_ds.src
+--
+CreateMaterializedViewStatement [0-53] [CREATE MATERIALIZ...src_ds.src]
+  PathExpression [25-28] [rm1]
+    Identifier(rm1) [25-28] [rm1]
+  PathExpression [43-53] [src_ds.src]
+    Identifier(src_ds) [43-49] [src_ds]
+    Identifier(src) [50-53] [src]
+--
+CREATE MATERIALIZED VIEW rm1 AS REPLICA OF
+src_ds.src
+==
+
+CREATE MATERIALIZED VIEW rm1 OPTIONS (replica_interval_minutes = 300) AS REPLICA OF src_ds.src
+--
+CreateMaterializedViewStatement [0-94] [CREATE MATERIALIZ...src_ds.src]
+  PathExpression [25-28] [rm1]
+    Identifier(rm1) [25-28] [rm1]
+  OptionsList [37-69] [(replica_interval...tes = 300)]
+    OptionsEntry [38-68] [replica_interval_minutes = 300]
+      Identifier(replica_interval_minutes) [38-62] [replica_interval_minutes]
+      IntLiteral(300) [65-68] [300]
+  PathExpression [84-94] [src_ds.src]
+    Identifier(src_ds) [84-90] [src_ds]
+    Identifier(src) [91-94] [src]
+--
+CREATE MATERIALIZED VIEW rm1 OPTIONS(replica_interval_minutes = 300) AS REPLICA OF
+src_ds.src
+==
+
+CREATE MATERIALIZED VIEW rm1 AS REPLICA OF src_ds.src WHERE id = 'foo'
+--
+ERROR: Syntax error: Expected end of input but got keyword WHERE [at 1:55]
+CREATE MATERIALIZED VIEW rm1 AS REPLICA OF src_ds.src WHERE id = 'foo'
+                                                      ^
+==
+
+CREATE MATERIALIZED VIEW rm1
+CLUSTER BY c1
+AS REPLICA OF src_ds.src WHERE id = 'foo'
+--
+ERROR: Syntax error: Expected end of input but got keyword WHERE [at 3:26]
+AS REPLICA OF src_ds.src WHERE id = 'foo'
+                         ^
+==
+
+CREATE MATERIALIZED VIEW rm1
+PARTITION BY c1
+AS REPLICA OF src_ds.src
+--
+CreateMaterializedViewStatement [0-69] [CREATE MATERIALIZ...src_ds.src]
+  PathExpression [25-28] [rm1]
+    Identifier(rm1) [25-28] [rm1]
+  PartitionBy [29-44] [PARTITION BY c1]
+    PathExpression [42-44] [c1]
+      Identifier(c1) [42-44] [c1]
+  PathExpression [59-69] [src_ds.src]
+    Identifier(src_ds) [59-65] [src_ds]
+    Identifier(src) [66-69] [src]
+--
+CREATE MATERIALIZED VIEW rm1 PARTITION BY c1 AS REPLICA OF
+src_ds.src
+==
+
+CREATE MATERIALIZED VIEW rm1
+SQL SECURITY INVOKER
+AS REPLICA OF src_ds.src
+--
+CreateMaterializedViewStatement(SQL SECURITY INVOKER) [0-74] [CREATE MATERIALIZ...src_ds.src]
+  PathExpression [25-28] [rm1]
+    Identifier(rm1) [25-28] [rm1]
+  PathExpression [64-74] [src_ds.src]
+    Identifier(src_ds) [64-70] [src_ds]
+    Identifier(src) [71-74] [src]
+--
+CREATE MATERIALIZED VIEW rm1 SQL SECURITY INVOKER AS REPLICA OF
+src_ds.src

@@ -23,12 +23,12 @@
 
 #include <memory>
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"

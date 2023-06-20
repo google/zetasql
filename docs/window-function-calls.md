@@ -39,15 +39,6 @@ function_name ( [ argument_list ] ) OVER over_clause
   { ROWS | RANGE }
 </pre>
 
-**Notation rules**
-
-+ Square brackets `[ ]` indicate optional clauses.
-+ Parentheses `( )` indicate literal parentheses.
-+ The vertical bar `|` indicates a logical `OR`.
-+ Curly braces `{ }` enclose a set of options.
-+ A comma followed by an ellipsis within square brackets `[, ... ]` indicates that
-  the preceding item can repeat in a comma-separated list.
-
 **Description**
 
 A window function computes results over a group of rows. You can use the

@@ -34,7 +34,7 @@ genrule(
         "parse_tree_accept_methods.inc",
     ],
     cmd = "$(location :gen_extra_files_tool) $(SRCS) $(OUTS)",
-    exec_tools = [":gen_extra_files_tool"],
+    tools = [":gen_extra_files_tool"],
 )
 
 py_binary(
@@ -51,7 +51,7 @@ genrule(
     ],
     outs = ["parse_tree_generated.h"],
     cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
-    exec_tools = [":gen_parse_tree"],
+    tools = [":gen_parse_tree"],
 )
 
 genrule(
@@ -61,7 +61,7 @@ genrule(
     ],
     outs = ["parse_tree.proto"],
     cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
-    exec_tools = [":gen_parse_tree"],
+    tools = [":gen_parse_tree"],
 )
 
 genrule(
@@ -71,7 +71,7 @@ genrule(
     ],
     outs = ["parse_tree_serializer.cc"],
     cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
-    exec_tools = [":gen_parse_tree"],
+    tools = [":gen_parse_tree"],
 )
 
 genrule(
@@ -81,7 +81,7 @@ genrule(
     ],
     outs = ["parse_tree_serializer.h"],
     cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
-    exec_tools = [":gen_parse_tree"],
+    tools = [":gen_parse_tree"],
 )
 
 proto_library(
@@ -294,7 +294,6 @@ cc_library(
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
-        ":flex_istream",
         ":keywords",
         ":parse_tree",
         "//bazel:flex",
@@ -361,6 +360,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:variant",

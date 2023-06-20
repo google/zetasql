@@ -79,18 +79,6 @@ absl::Status TableNotFoundErrorWithPathPrefix(
          << " not found in catalog " << root_name;
 }
 
-::zetasql_base::StatusBuilder InconsistentFindStatusAndTableError(
-    const absl::Span<const std::string> path, absl::Status status,
-    const Table* table) {
-  const std::string table_message =
-      (table != nullptr) ? (" returns a table named " + table->FullName())
-                         : " does not return a valid table";
-  return ::zetasql_base::InternalErrorBuilder()
-         << "Catalog might have implementation bug; Find table with full "
-         << "identifier path " << absl::StrJoin(path, ".") << table_message
-         << ", and returns status " << status.ToString();
-}
-
 }  // namespace
 
 absl::Status Catalog::FindTableWithPathPrefixImpl(
@@ -137,11 +125,15 @@ absl::Status Catalog::FindTableWithPathPrefix(
   // First of all, try to find table with the full identifier path. In case
   // there are engine code that overrides FindTable with a different
   // implementation.
+  *num_names_consumed = 0;
+  *table = nullptr;
   absl::Status find_full_path_status = FindTable(path, table, options);
   if (!absl::IsNotFound(find_full_path_status)) {
-    ZETASQL_RET_CHECK_EQ(find_full_path_status.ok(), *table != nullptr)
-        << InconsistentFindStatusAndTableError(path, find_full_path_status,
-                                               *table);
+    // Errors other than NotFound should be propagated without further ado.
+    ZETASQL_RETURN_IF_ERROR(find_full_path_status);
+    ZETASQL_RET_CHECK(*table != nullptr)
+        << "FindTable with full identifier path " << absl::StrJoin(path, ".")
+        << " returns an OK status but leaves `table` null.";
     *num_names_consumed = static_cast<int>(path.size());
     return find_full_path_status;
   }
@@ -544,6 +536,11 @@ std::string Catalog::SuggestConstant(
 std::string Catalog::SuggestEnumValue(const EnumType* type,
                                       absl::string_view mistyped_value) {
   return ::zetasql::SuggestEnumValue(type, mistyped_value);
+}
+
+std::string Catalog::SuggestSequence(
+    const absl::Span<const std::string>& mistyped_path) {
+  return "";
 }
 
 absl::Status Catalog::GetTable(const std::string& name, const Table** table,

@@ -21,7 +21,6 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -30,6 +29,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
@@ -60,7 +60,7 @@ class TypeofFunctionRewriteVisitor : public ResolvedASTRewriteVisitor {
   TypeofFunctionRewriteVisitor(const AnalyzerOptions& analyzer_options,
                                Catalog* catalog, TypeFactory* type_factory)
       : analyzer_options_(analyzer_options),
-        fn_builder_(analyzer_options, *catalog),
+        fn_builder_(analyzer_options, *catalog, *type_factory),
         type_factory_(type_factory) {}
 
  private:

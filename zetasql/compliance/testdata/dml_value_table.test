@@ -55,7 +55,10 @@ ASSERT_ROWS_MODIFIED 0
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{0, ARRAY<INT64>[10, 20]}
+>{
+  0,
+  ARRAY<INT64>[unknown order:10, 20]
+}
 ==
 
 [name=proto_delete_nothing_with_assertion]
@@ -66,7 +69,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{0,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -87,7 +90,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{0,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"}
   ]}
@@ -213,7 +216,10 @@ ASSERT_ROWS_MODIFIED 0
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{0, ARRAY<INT64>[10, 20]}
+>{
+  0,
+  ARRAY<INT64>[unknown order:10, 20]
+}
 ==
 
 [name=proto_update_nothing_with_assertion]
@@ -224,7 +230,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{0,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -245,7 +251,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{0,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"}
   ]}
@@ -281,7 +287,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<INT64>[100, 100]
+  ARRAY<INT64>[unknown order:100, 100]
 }
 ==
 
@@ -293,7 +299,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 100
       int64_key_2: 11
@@ -314,7 +320,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {100, "fifty five"},
     {100, "seventy seven"}
   ]}
@@ -350,7 +356,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<INT64>[100, 20]
+  ARRAY<INT64>[unknown order:100, 20]
 }
 ==
 
@@ -362,7 +368,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 100
       int64_key_2: 11
@@ -383,7 +389,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {100, "fifty five"},
     {77, "seventy seven"}
   ]}
@@ -418,7 +424,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<INT64>[10, 20, NULL]
+  ARRAY<INT64>[unknown order:10, 20, NULL]
 }
 ==
 
@@ -429,7 +435,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -450,7 +456,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"},
     NULL
@@ -465,7 +471,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<INT64>[10, 20, NULL]
+  ARRAY<INT64>[unknown order:10, 20, NULL]
 }
 ==
 
@@ -476,7 +482,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -497,7 +503,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"},
     NULL
@@ -512,7 +518,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<INT64>[10, 20, NULL]
+  ARRAY<INT64>[unknown order:10, 20, NULL]
 }
 ==
 
@@ -523,7 +529,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -544,7 +550,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"},
     NULL
@@ -559,7 +565,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<INT64>[10, 20, 30]
+  ARRAY<INT64>[unknown order:10, 20, 30]
 }
 ==
 
@@ -570,7 +576,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -594,7 +600,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"},
     {100, "one hundred"}
@@ -609,7 +615,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<INT64>[10, 20, 30]
+  ARRAY<INT64>[unknown order:10, 20, 30]
 }
 ==
 
@@ -621,7 +627,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -645,7 +651,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"},
     {100, "one hundred"}
@@ -661,7 +667,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<INT64>[10, 20, 10, 20]
+  ARRAY<INT64>[unknown order:10, 20, 10, 20]
 }
 ==
 
@@ -672,7 +678,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -701,7 +707,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"},
     {55, "fifty five"},
@@ -717,7 +723,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<INT64>[10, 20, 10]
+  ARRAY<INT64>[unknown order:10, 20, 10]
 }
 ==
 
@@ -728,7 +734,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -752,7 +758,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"},
     {55, "fifty five"}
@@ -821,7 +827,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<INT64>[10, 20, 30, 40]
+  ARRAY<INT64>[unknown order:10, 20, 30, 40]
 }
 ==
 
@@ -834,7 +840,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -864,7 +870,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"},
     {100, "one hundred"},
@@ -880,7 +886,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<INT64>[10, 20, 30, 30]
+  ARRAY<INT64>[unknown order:10, 20, 30, 30]
 }
 ==
 
@@ -893,7 +899,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -923,7 +929,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<foo INT64, bar STRING>>[
+  ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
     {55, "fifty five"},
     {77, "seventy seven"},
     {100, "one hundred"},

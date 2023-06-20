@@ -21,7 +21,7 @@ Modules have the following key characteristics:
 ZetaSQL limits the duration and side effects of module objects to the
 invoking *session*. In the context of ZetaSQL modules, a session is a
 set of related statements and objects that form a [unit of work][unit-of-work]
-{.external}.
+{: .external}.
 
 ## Create a module
 
@@ -254,7 +254,7 @@ This imports a module and creates a namespace visible to the importing session
 containing public objects exported from the module.
 
 The `module_identifier_path` is a unique module name that corresponds to the
-path ID in the [module declaration](#declaring-a-module).
+path ID in the [module declaration](#declare-a-module).
 
 The `alias` provides the namespace that the `IMPORT MODULE` statement creates.
 If `alias` is absent, then the namespace will be the last name in the
@@ -313,7 +313,7 @@ SELECT some_module.Baz(a, b);
 ### Import a module into another module
 
 To import a module into another module, use the same syntax as when
-[importing a module into a session](#importing-a-module-into-a-session).
+[importing a module into a session](#import-a-module-into-a-session).
 
 +   Imports cannot be circular. For example, if `module1` imports `module2`,
     then `module2` cannot directly or indirectly import `module1`.

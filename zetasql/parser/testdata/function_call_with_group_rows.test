@@ -1168,9 +1168,10 @@ QueryStatement [0-81] [SELECT * FROM...WITH OFFSET]
           Location [26-27] [,]
           TablePathExpression [28-81] [UNNEST(KitchenSin...ITH OFFSET]
             UnnestExpression [28-69] [UNNEST(KitchenSin...ted_value)]
-              PathExpression [35-68] [KitchenSink...d_repeated_value]
-                Identifier(KitchenSink) [35-46] [KitchenSink]
-                Identifier(nested_repeated_value) [47-68] [nested_repeated_value]
+              ExpressionWithOptAlias [35-68] [KitchenSink...d_repeated_value]
+                PathExpression [35-68] [KitchenSink...d_repeated_value]
+                  Identifier(KitchenSink) [35-46] [KitchenSink]
+                  Identifier(nested_repeated_value) [47-68] [nested_repeated_value]
             WithOffset [70-81] [WITH OFFSET]
 --
 SELECT

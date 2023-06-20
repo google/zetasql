@@ -83,7 +83,7 @@ ARRAY<STRUCT<row_id INT64, x DOUBLE, y DOUBLE>>[
 SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(SUM(z - 1000) FOR y IN (100, 101, 103, NULL));
 --
-ARRAY<STRUCT<x INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[
+ARRAY<STRUCT<x INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[unknown order:
   {1, 10, 3, NULL, NULL},
   {2, 0, 1, NULL, 4}
 ]
@@ -93,7 +93,7 @@ ARRAY<STRUCT<x INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[
 SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(COUNT(*) FOR y IN (100, 101, 103, NULL));
 --
-ARRAY<STRUCT<x INT64, z INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[
+ARRAY<STRUCT<x INT64, z INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[unknown order:
   {1, 1000, 2, 1, 0, 0},
   {1, 1001, 1, 1, 0, 0},
   {1, 1002, 1, 1, 0, 0},
@@ -111,14 +111,14 @@ ARRAY<STRUCT<x INT64, z INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[
 SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(COUNT(z) FOR y IN (100));
 --
-ARRAY<STRUCT<x INT64, _100 INT64>>[{1, 6}, {2, 1}]
+ARRAY<STRUCT<x INT64, _100 INT64>>[unknown order:{1, 6}, {2, 1}]
 ==
 
 [name=pivot_count_distinct]
 SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(COUNT(DISTINCT z) FOR y IN (100));
 --
-ARRAY<STRUCT<x INT64, _100 INT64>>[{1, 5}, {2, 1}]
+ARRAY<STRUCT<x INT64, _100 INT64>>[unknown order:{1, 5}, {2, 1}]
 ==
 
 [required_features=V_1_3_PIVOT,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
@@ -127,11 +127,11 @@ SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(ARRAY_AGG(z IGNORE NULLS ORDER BY MOD(z, 3) ASC, z DESC)
   FOR y IN (100, 101 AS y_101, 103, NULL AS y_null));
 --
-ARRAY<STRUCT<x INT64, _100 ARRAY<>, y_101 ARRAY<>, _103 ARRAY<>, y_null ARRAY<>>>[
+ARRAY<STRUCT<x INT64, _100 ARRAY<>, y_101 ARRAY<>, _103 ARRAY<>, y_null ARRAY<>>>[unknown order:
   {
     1,
-    ARRAY<INT64>[1002, 1003, 1000, 1000, 1004, 1001],
-    ARRAY<INT64>[1002, 1000, 1001],
+    ARRAY<INT64>[unknown order:1002, 1003, 1000, 1000, 1004, 1001],
+    ARRAY<INT64>[known order:1002, 1000, 1001],
     ARRAY<INT64>(NULL),
     ARRAY<INT64>(NULL)
   },
@@ -140,7 +140,7 @@ ARRAY<STRUCT<x INT64, _100 ARRAY<>, y_101 ARRAY<>, _103 ARRAY<>, y_null ARRAY<>>
     ARRAY<INT64>[1000],
     ARRAY<INT64>[1001],
     ARRAY<INT64>(NULL),
-    ARRAY<INT64>[1002, 1002]
+    ARRAY<INT64>[unknown order:1002, 1002]
   }
 ]
 ==
@@ -171,7 +171,7 @@ ARRAY<STRUCT<
         pivot_bit_or_yyNULLyy INT64,
         pivot_bit_xor_yyNULLyy INT64
       >>
-[
+[unknown order:
   {1, 0, 7, 4, 0, 3, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, 0, 0, 0, 1, 1, 1, NULL, NULL, NULL, 2, 2, 0, 2, 2, 0}
 ]
@@ -197,7 +197,7 @@ ARRAY<STRUCT<
         pivot_count_yyNULLyy INT64,
         pivot_countif_yyNULLyy INT64
       >>
-[
+[unknown order:
   {1, 6, 3, 3, 2, 0, 0, 0, 0, 0, 0},
   {2, 1, 1, 1, 1, 0, 0, 2, 0, 2, 0}
 ]
@@ -223,7 +223,7 @@ ARRAY<STRUCT<
         pivot_sum_yyNULLyy INT64,
         pivot_avg_yyNULLyy DOUBLE
       >>
-[
+[unknown order:
   {1, 10, 1.6666666666666667, 3, 1, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, 0, 0, 1, 1, NULL, NULL, 4, 2, 4, 2}
 ]
@@ -249,7 +249,7 @@ ARRAY<STRUCT<
         pivot_logical_or_yyNULLyy BOOL,
         logical_or_yyNULLyy BOOL
       >>
-[
+[unknown order:
   {1, false, true, false, true, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, true, true, true, true, NULL, NULL, false, false, false, false}
 ]
@@ -275,7 +275,7 @@ ARRAY<STRUCT<
         pivot_min_yyNULLyy INT64,
         pivot_max_yyNULLyy INT64
       >>
-[
+[unknown order:
   {1, 0, 4, 0, 2, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, 0, 0, 1, 1, NULL, NULL, 2, 2, 2, 2}
 ]
@@ -296,15 +296,15 @@ ARRAY<STRUCT<
         pivot_concat_NULL STRING,
         pivot_concat_yyNULLyy STRING
       >>
-[{
-   1,
-   "1000-1000-1001-1002-1003-1004",
-   "1000-1001-1002",
-   NULL,
-   NULL,
-   NULL
- },
- {2, "1000", "1001", NULL, "1002-1002", "1002-1002"}]
+[unknown order:{
+                 1,
+                 "1000-1000-1001-1002-1003-1004",
+                 "1000-1001-1002",
+                 NULL,
+                 NULL,
+                 NULL
+               },
+               {2, "1000", "1001", NULL, "1002-1002", "1002-1002"}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -324,15 +324,15 @@ ARRAY<STRUCT<
         pivot_concat_NULL STRING,
         pivot_concat_yyNULLyy STRING
       >>
-[{
-   1,
-   "1000_,1000_,1001_,1002_,1003_,1004_",
-   "1000_,1001_,1002_",
-   NULL,
-   NULL,
-   NULL
- },
- {2, "1000_", "1001_", NULL, "1002_,1002_", "1002_,1002_"}]
+[unknown order:{
+                 1,
+                 "1000_,1000_,1001_,1002_,1003_,1004_",
+                 "1000_,1001_,1002_",
+                 NULL,
+                 NULL,
+                 NULL
+               },
+               {2, "1000_", "1001_", NULL, "1002_,1002_", "1002_,1002_"}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -439,20 +439,20 @@ SELECT * FROM (
   PIVOT(ARRAY_AGG(y)
   FOR z IN (1000, 1001 AS z_1001, 1002, NULL AS z_null));
 --
-ARRAY<STRUCT<x INT64, _1000 ARRAY<>, z_1001 ARRAY<>, _1002 ARRAY<>, z_null ARRAY<>>>[
+ARRAY<STRUCT<x INT64, _1000 ARRAY<>, z_1001 ARRAY<>, _1002 ARRAY<>, z_null ARRAY<>>>[unknown order:
   {
     1,
-    ARRAY<INT64>[101, 101, 100, 100, 100, 100],
-    ARRAY<INT64>[101, 101, 100, 100],
-    ARRAY<INT64>[101, 101, 100, 100],
+    ARRAY<INT64>[unknown order:101, 101, 100, 100, 100, 100],
+    ARRAY<INT64>[unknown order:101, 101, 100, 100],
+    ARRAY<INT64>[unknown order:101, 101, 100, 100],
     ARRAY<INT64>(NULL)
   },
   {
     2,
-    ARRAY<INT64>[100, 100],
-    ARRAY<INT64>[101, 101],
-    ARRAY<INT64>[NULL, NULL, NULL, NULL, 102, 102],
-    ARRAY<INT64>[102, 102, 102, 102]
+    ARRAY<INT64>[unknown order:100, 100],
+    ARRAY<INT64>[unknown order:101, 101],
+    ARRAY<INT64>[unknown order:NULL, NULL, NULL, NULL, 102, 102],
+    ARRAY<INT64>[unknown order:102, 102, 102, 102]
   }
 ]
 ==
@@ -482,7 +482,7 @@ ARRAY<STRUCT<cs_yx_true DOUBLE,
 SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(SUM(z - @p) FOR y IN (100, 101, 103, NULL));
 --
-ARRAY<STRUCT<x INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[
+ARRAY<STRUCT<x INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[unknown order:
   {1, 10, 3, NULL, NULL},
   {2, 0, 1, NULL, 4}
 ]
@@ -495,7 +495,7 @@ SELECT * FROM t1
     SUM((SELECT SUM(y) FROM t1))
     FOR x IN (0,1));
 --
-ARRAY<STRUCT<rowid INT64, y INT64, z INT64, _0 INT64, _1 INT64>>[
+ARRAY<STRUCT<rowid INT64, y INT64, z INT64, _0 INT64, _1 INT64>>[unknown order:
   {1, 100, 1000, NULL, 1410},
   {2, 100, 1000, NULL, 1410},
   {3, 100, 1001, NULL, 1410},
@@ -560,7 +560,7 @@ SELECT
 FROM (SELECT x, y, z FROM t1)
   PIVOT(ANY_VALUE(x) AS any_x FOR y IN (100, 500, NULL AS `null`));
 --
-ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[unknown order:
   {1000, true, true, NULL},
   {1002, true, true, true},
   {1004, true, true, NULL},
@@ -595,7 +595,7 @@ SELECT
 FROM (SELECT [x] AS x, y, z FROM t1)
   PIVOT(ANY_VALUE(x) AS any_x FOR y IN (100, 500, NULL AS `null`));
 --
-ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[unknown order:
   {1000, true, true, NULL},
   {1002, true, true, true},
   {1004, true, true, NULL},

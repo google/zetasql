@@ -6,6 +6,224 @@
 
 ZetaSQL supports the following array functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#array"><code>ARRAY</code></a>
+
+</td>
+  <td>
+    Produces an array with one element for each row in a subquery.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_avg"><code>ARRAY_AVG</code></a>
+
+</td>
+  <td>
+    Gets the average of non-<code>NULL</code> values in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_concat"><code>ARRAY_CONCAT</code></a>
+
+</td>
+  <td>
+    Concatenates one or more arrays with the same element type into a
+    single array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_filter"><code>ARRAY_FILTER</code></a>
+
+</td>
+  <td>
+    Takes an array, filters out unwanted elements, and returns the results
+    in a new array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_first"><code>ARRAY_FIRST</code></a>
+
+</td>
+  <td>
+    Gets the first element in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_includes"><code>ARRAY_INCLUDES</code></a>
+
+</td>
+  <td>
+    Checks to see if there is an element in the array that is
+    equal to a search value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_includes_all"><code>ARRAY_INCLUDES_ALL</code></a>
+
+</td>
+  <td>
+    Checks to see if all search values are in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_includes_any"><code>ARRAY_INCLUDES_ANY</code></a>
+
+</td>
+  <td>
+    Checks to see if any search values are in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_is_distinct"><code>ARRAY_IS_DISTINCT</code></a>
+
+</td>
+  <td>
+    Checks to see if an array contains no repeated elements.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_last"><code>ARRAY_LAST</code></a>
+
+</td>
+  <td>
+    Gets the last element in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_length"><code>ARRAY_LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the number of elements in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_max"><code>ARRAY_MAX</code></a>
+
+</td>
+  <td>
+    Gets the maximum non-<code>NULL</code> value in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_min"><code>ARRAY_MIN</code></a>
+
+</td>
+  <td>
+    Gets the minimum non-<code>NULL</code> value in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_reverse"><code>ARRAY_REVERSE</code></a>
+
+</td>
+  <td>
+    Reverses the order of elements in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_slice"><code>ARRAY_SLICE</code></a>
+
+</td>
+  <td>
+    Returns an array containing zero or more consecutive elements from an
+    input array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_sum"><code>ARRAY_SUM</code></a>
+
+</td>
+  <td>
+    Gets the sum of non-<code>NULL</code> values in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_to_string"><code>ARRAY_TO_STRING</code></a>
+
+</td>
+  <td>
+    Produces a concatenation of the elements in an array as a
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_transform"><code>ARRAY_TRANSFORM</code></a>
+
+</td>
+  <td>
+    Transforms the elements of an array, and returns the results in a new
+    array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#flatten"><code>FLATTEN</code></a>
+
+</td>
+  <td>
+    Flattens arrays of nested data to create a single flat array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#generate_array"><code>GENERATE_ARRAY</code></a>
+
+</td>
+  <td>
+    Generates an array of values in a range.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#generate_date_array"><code>GENERATE_DATE_ARRAY</code></a>
+
+</td>
+  <td>
+    Generates an array of dates in a range.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#generate_timestamp_array"><code>GENERATE_TIMESTAMP_ARRAY</code></a>
+
+</td>
+  <td>
+    Generates an array of timestamps in a range.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `ARRAY`
 
 ```sql

@@ -36,9 +36,11 @@ TEST(ExecuteQueryStreamWriterTest, Parsed) {
 }
 
 TEST(ExecuteQueryStreamWriterTest, ResolvedSelect) {
+  SimpleCatalog catalog("simple_catalog");
+  TypeFactory type_factory;
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
-  ZETASQL_EXPECT_OK(
-      AnalyzeStatement("SELECT 1", {}, nullptr, nullptr, &analyzer_output));
+  ZETASQL_EXPECT_OK(AnalyzeStatement("SELECT 1", {}, &catalog, &type_factory,
+                             &analyzer_output));
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQueryStreamWriter{output}.resolved(
       *analyzer_output->resolved_statement()));
@@ -57,9 +59,11 @@ TEST(ExecuteQueryStreamWriterTest, ResolvedSelect) {
 }
 
 TEST(ExecuteQueryStreamWriterTest, Explain) {
+  SimpleCatalog catalog("simple_catalog");
+  TypeFactory type_factory;
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
-  ZETASQL_EXPECT_OK(
-      AnalyzeStatement("SELECT 1", {}, nullptr, nullptr, &analyzer_output));
+  ZETASQL_EXPECT_OK(AnalyzeStatement("SELECT 1", {}, &catalog, &type_factory,
+                             &analyzer_output));
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQueryStreamWriter{output}.explained(
       *analyzer_output->resolved_statement(), "short explanation"));
@@ -67,9 +71,11 @@ TEST(ExecuteQueryStreamWriterTest, Explain) {
 }
 
 TEST(ExecuteQueryStreamWriterTest, Executed) {
+  SimpleCatalog catalog("simple_catalog");
+  TypeFactory type_factory;
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
-  ZETASQL_EXPECT_OK(
-      AnalyzeStatement("SELECT 1", {}, nullptr, nullptr, &analyzer_output));
+  ZETASQL_EXPECT_OK(AnalyzeStatement("SELECT 1", {}, &catalog, &type_factory,
+                             &analyzer_output));
   SimpleTable test_table{"TestTable", {{"col", types::Int64Type()}}};
   test_table.SetContents({{values::Int64(123)}});
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,

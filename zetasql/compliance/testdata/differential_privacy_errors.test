@@ -136,14 +136,3 @@ SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=cast(NULL as double), delta=0.0
 FROM TestTableWithUid;
 --
 ERROR: generic::invalid_argument: Differential privacy option EPSILON must be set and non-NULL
-==
-
-# Total aggregation, without max_rows_contributed.
-[name=differential_privacy_max_rows_contributed_unimplemented]
-[required_features=DIFFERENTIAL_PRIVACY]
-[labels=differential_privacy,Special:NoReference]
-SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
-  SUM(double_val)
-FROM TestTableWithUid;
---
-ERROR: generic::unimplemented: max_rows_contributed not implemented

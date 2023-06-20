@@ -43,7 +43,9 @@
 namespace zetasql {
 
 using ::zetasql::testing::EqualsProto;
+using ::testing::_;
 using ::testing::ElementsAreArray;
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 
@@ -95,7 +97,7 @@ TEST(ErrorHelpersTest, FormatError) {
 
   // Error with a zetasql payload but the wrong code.
   absl::Status status4 =
-      ::zetasql_base::UnknownErrorBuilder().Attach(
+      ::zetasql_base::UnknownErrorBuilder().AttachPayload(
           ParseLocationPoint::FromByteOffset(1).ToInternalErrorLocation())
       << "Message4";
   status4 = ConvertInternalErrorLocationToExternal(status4, dummy_query);
@@ -109,8 +111,9 @@ TEST(ErrorHelpersTest, FormatError) {
   extra_extension.set_value("abc");
 
   // Error with a non-ErrorLocation payload.
-  absl::Status status5 = ::zetasql_base::UnknownErrorBuilder().Attach(extra_extension)
-                         << "Message5";
+  absl::Status status5 =
+      ::zetasql_base::UnknownErrorBuilder().AttachPayload(extra_extension)
+      << "Message5";
   EXPECT_EQ(
       "generic::unknown: Message5 "
       "[zetasql_test__.TestStatusPayload] { value: \"abc\" }",
@@ -122,7 +125,7 @@ TEST(ErrorHelpersTest, FormatError) {
   // still prints.
   absl::Status status6 =
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(43))
-          .Attach(extra_extension)
+          .AttachPayload(extra_extension)
       << "Message6";
   status6 = ConvertInternalErrorLocationToExternal(status6, dummy_query);
   EXPECT_THAT(
@@ -150,7 +153,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
             internal::StatusToString(status1));
 
   absl::Status status2 =
-      ::zetasql_base::UnknownErrorBuilder().Attach(
+      ::zetasql_base::UnknownErrorBuilder().AttachPayload(
           ParseLocationPoint::FromByteOffset(1).ToInternalErrorLocation())
       << "Message2";
   status2 = ConvertInternalErrorLocationToExternal(status2, "123\n456");
@@ -176,7 +179,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
   // will just remove the ErrorLocation.
   absl::Status status3 =
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(11))
-          .Attach(extra_extension)
+          .AttachPayload(extra_extension)
       << "Message3";
   status3 = ConvertInternalErrorLocationToExternal(status3, "123\n456\n78901");
   std::string status3_str = internal::StatusToString(status3);
@@ -504,11 +507,9 @@ static void RunTests(
           internal::StatusToString(adjusted_status),
           "\nFormatError(adjusted_status): ", FormatError(adjusted_status));
 
-      // The adjusted status must not have an InternalErrorLocation under
-      // any mode.
-      EXPECT_FALSE(
-          internal::HasPayloadWithType<InternalErrorLocation>(adjusted_status))
-          << test_string;
+      // For this test, we do not care about the error message mode payload.
+      adjusted_status.ErasePayload(kErrorMessageModeUrl);
+
       // The adjusted status should match the expected status string.
       EXPECT_EQ(FormatError(adjusted_status), expected_error_string)
           << test_string;
@@ -575,24 +576,16 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
 
   // Status with InternalErrorLocation is not allowed in this API, resulting
   // in ZETASQL_RET_CHECK.
-  absl::Status status2 =
+  absl::Status status_with_internal_error_location =
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(74)) << "Message2";
   EXPECT_EQ("Message2 [zetasql.InternalErrorLocation] { byte_offset: 74 }",
-            FormatError(status2));
-  // InternalErrorLocations are not allowed, resulting in RET_CHECK
-  // regardless of <mode>.
-  for (const ErrorMessageMode mode :
-           zetasql_base::EnumerateEnumValues<ErrorMessageMode>()) {
-    EXPECT_THAT(
-        MaybeUpdateErrorFromPayload(mode, dummy_query, status2),
-        StatusIs(absl::StatusCode::kInternal,
-                 HasSubstr("Status must not have InternalErrorLocation")));
-  }
+            FormatError(status_with_internal_error_location));
 
   // Convert the status InternalErrorLocation to ErrorLocation for this test.
-  status2 = ConvertInternalErrorLocationToExternal(status2, dummy_query);
-  EXPECT_EQ("Message2 [at 4:9]",
-            FormatError(status2));
+  absl::Status status_with_error_location =
+      ConvertInternalErrorLocationToExternal(
+          status_with_internal_error_location, dummy_query);
+  EXPECT_EQ("Message2 [at 4:9]", FormatError(status_with_error_location));
   const std::string expected_string2 = "Message2 [at 4:9]";
   const std::string expected_caret_string2 =
       "Message2 [at 4:9]\n1234567890123456789_4\n        ^";
@@ -603,13 +596,27 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
                           expected_string2);
   zetasql_base::InsertIfNotPresent(&expected_result, ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
                           expected_caret_string2);
-  test_cases.emplace_back(dummy_query, status2, expected_result);
+  test_cases.emplace_back(dummy_query, status_with_error_location,
+                          expected_result);
+
+  test_cases.emplace_back(
+      dummy_query, status_with_internal_error_location,
+      std::map<ErrorMessageMode, std::string>{
+          // For internal error locations, the payload is shown as is.
+          {ERROR_MESSAGE_WITH_PAYLOAD,
+           "Message2 [zetasql.InternalErrorLocation] { byte_offset: 74 }"},
+          // For the non-payload applications, internal error locations are
+          // first converted to error locations, then formatted, so we expect
+          // the same output as when we manually convert.
+          {ERROR_MESSAGE_ONE_LINE, expected_string2},
+          {ERROR_MESSAGE_MULTI_LINE_WITH_CARET, expected_caret_string2},
+      });
 
   // Error with a zetasql payload but different/invalid code.
   // MaybeUpdateErrorFromPayload() doesn't consider the
   // error code.
   absl::Status status3 =
-      ::zetasql_base::UnknownErrorBuilder().Attach(
+      ::zetasql_base::UnknownErrorBuilder().AttachPayload(
           ParseLocationPoint::FromByteOffset(3).ToInternalErrorLocation())
       << "Message3";
   EXPECT_EQ("generic::unknown: Message3 "
@@ -643,7 +650,8 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
   zetasql_test__::TestStatusPayload extra_extension;
   extra_extension.set_value("abc");
   const absl::Status status4 =
-      ::zetasql_base::UnknownErrorBuilder().Attach(extra_extension) << "Message4";
+      ::zetasql_base::UnknownErrorBuilder().AttachPayload(extra_extension)
+      << "Message4";
   const std::string expected_string4 = FormatError(status4);
   expected_result.clear();
   zetasql_base::InsertIfNotPresent(&expected_result, ERROR_MESSAGE_WITH_PAYLOAD,
@@ -657,7 +665,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
   // Status with both an ErrorLocation and another payload.
   absl::Status status5 =
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(43))
-          .Attach(extra_extension)
+          .AttachPayload(extra_extension)
       << "Message5";
   EXPECT_THAT(
       FormatError(status5),
@@ -694,7 +702,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
   // MaybeUpdateErrorFromPayload() does not update the location.
   absl::Status status6 =
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(43))
-          .Attach(extra_extension)
+          .AttachPayload(extra_extension)
       << "Message6";
   status6 = ConvertInternalErrorLocationToExternal(status6, dummy_query);
   const std::string expected_payload_string6 =
@@ -739,7 +747,7 @@ TEST(ErrorHelpersTest, BasicErrorSourcePayloadTests) {
   error_source.set_error_message_caret_string(source_caret_string);
   *error_source.mutable_error_location() = source_error_location;
   *location.add_error_source() = error_source;
-  absl::Status status = MakeSqlError().Attach(location) << "Message2";
+  absl::Status status = MakeSqlError().AttachPayload(location) << "Message2";
 
   error_source.Clear();
   EXPECT_FALSE(error_source.has_error_message());
@@ -801,7 +809,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   location.set_filename("location_file");
   location.set_line(2);
   location.set_column(2);
-  status = MakeSqlError().Attach(location) << "Message1b";
+  status = MakeSqlError().AttachPayload(location) << "Message1b";
   expected_oneline_string = "Message1b [at location_file:2:2]";
   expected_payload_string = expected_oneline_string;
   expected_caret_string =
@@ -824,7 +832,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   error_source.set_error_message("error_source_message");
   location.clear_error_source();
   *location.add_error_source() = error_source;
-  status = MakeSqlError().Attach(location) << "Message2";
+  status = MakeSqlError().AttachPayload(location) << "Message2";
   expected_oneline_string =
       "Message2 [at location_file:2:2]; error_source_message";
   expected_payload_string = expected_oneline_string;
@@ -849,7 +857,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   error_source.set_error_message_caret_string("caret_string");
   location.clear_error_source();
   *location.add_error_source() = error_source;
-  status = MakeSqlError().Attach(location) << "Message3";
+  status = MakeSqlError().AttachPayload(location) << "Message3";
   expected_oneline_string = "Message3 [at location_file:2:2]";
   expected_payload_string = expected_oneline_string;
   expected_caret_string =
@@ -879,7 +887,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   *error_source.mutable_error_location() = error_location;
   location.clear_error_source();
   *location.add_error_source() = error_source;
-  status = MakeSqlError().Attach(location) << "Message4";
+  status = MakeSqlError().AttachPayload(location) << "Message4";
   expected_oneline_string = "Message4 [at location_file:2:2]";
   expected_payload_string = expected_oneline_string;
   expected_caret_string =
@@ -908,7 +916,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   error_source.set_error_message_caret_string("abcdefghijklmnopqrs\n      ^");
   location.clear_error_source();
   *location.add_error_source() = error_source;
-  status = MakeSqlError().Attach(location) << "Message5";
+  status = MakeSqlError().AttachPayload(location) << "Message5";
   expected_oneline_string = "Message5 [at location_file:2:2]";
   expected_payload_string = expected_oneline_string;
   expected_caret_string =
@@ -945,7 +953,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   error_source.set_error_message("Nested message 6");
   location.clear_error_source();
   *location.add_error_source() = error_source;
-  status = MakeSqlError().Attach(location) << "Message6";
+  status = MakeSqlError().AttachPayload(location) << "Message6";
   expected_oneline_string =
       "Message6 [at location_file:2:2]; "
       "Nested message 6 [at error_filename:1:7]";
@@ -974,8 +982,8 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   extra_extension.set_value("abc");
   location.clear_error_source();
   *location.add_error_source() = error_source;
-  status = MakeSqlError().Attach(location).Attach(extra_extension)
-      << "Message7";
+  status = MakeSqlError().AttachPayload(location).AttachPayload(extra_extension)
+           << "Message7";
 
   expected_oneline_string =
       "Message7 [at location_file:2:2]; "
@@ -1048,7 +1056,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromNestedErrorSourcePayloadTests) {
   extra_extension.set_value("abc");
 
   absl::Status status =
-      MakeSqlError().Attach(location).Attach(extra_extension)
+      MakeSqlError().AttachPayload(location).AttachPayload(extra_extension)
       << "ErrorMessage";
   std::string error_str = FormatError(status);
   EXPECT_THAT(
@@ -1118,7 +1126,8 @@ TEST(ErrorHelpersTest, UpdateErrorLocationPayloadWithFilenameIfNotPresentTests)
   error_location.set_line(1);
   error_location.set_column(3);
 
-  absl::Status status = MakeSqlError().Attach(error_location) << "ErrorMessage";
+  absl::Status status = MakeSqlError().AttachPayload(error_location)
+                        << "ErrorMessage";
   absl::Status updated_status =
       UpdateErrorLocationPayloadWithFilenameIfNotPresent(status,
                                                          "new_filename");
@@ -1133,7 +1142,7 @@ TEST(ErrorHelpersTest, UpdateErrorLocationPayloadWithFilenameIfNotPresentTests)
   error_location.set_line(2);
   error_location.set_column(4);
 
-  status = MakeSqlError().Attach(error_location) << "ErrorMessage";
+  status = MakeSqlError().AttachPayload(error_location) << "ErrorMessage";
   updated_status =
       UpdateErrorLocationPayloadWithFilenameIfNotPresent(status,
                                                          "new_filename");
@@ -1141,6 +1150,105 @@ TEST(ErrorHelpersTest, UpdateErrorLocationPayloadWithFilenameIfNotPresentTests)
 
   updated_status_location = internal::GetPayload<ErrorLocation>(updated_status);
   EXPECT_EQ("new_filename", updated_status_location.filename());
+}
+
+TEST(ErrorHelpersTest, CanKeepThePayloadAfterUpdatingTheStatus) {
+  const std::string dummy_query =
+      "1234567890123456789_1\n"
+      "1234567890123456789_2\n"
+      "1234567890123456789_3\n"
+      "1234567890123456789_4\n";
+
+  ErrorLocation error_location;
+  error_location.set_filename("filename");
+  error_location.set_line(1);
+  error_location.set_column(3);
+
+  absl::Status status = MakeSqlError().AttachPayload(error_location)
+                        << "ErrorMessage";
+  {
+    absl::Status updated_status_without_payload = MaybeUpdateErrorFromPayload(
+        ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+        /*keep_error_location_payload=*/false, dummy_query, status);
+    EXPECT_FALSE(internal::HasPayloadWithType<ErrorLocation>(
+        updated_status_without_payload));
+    EXPECT_THAT(updated_status_without_payload,
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("ErrorMessage [at filename:1:3]\n"
+                                   "1234567890123456789_1\n"
+                                   "  ^")));
+  }
+  {
+    absl::Status updated_status_with_payload = MaybeUpdateErrorFromPayload(
+        ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+        /*keep_error_location_payload=*/true, dummy_query, status);
+    EXPECT_TRUE(internal::HasPayloadWithType<ErrorLocation>(
+        updated_status_with_payload));
+    EXPECT_THAT(updated_status_with_payload,
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("ErrorMessage [at filename:1:3]\n"
+                                   "1234567890123456789_1\n"
+                                   "  ^")));
+  }
+}
+
+TEST(ErrorHelpersTest, UpdateFromPayloadIsIdempotent) {
+  const std::string dummy_query =
+      "1234567890123456789_1\n"
+      "1234567890123456789_2\n"
+      "1234567890123456789_3\n"
+      "1234567890123456789_4\n";
+
+  ErrorLocation error_location;
+  error_location.set_filename("filename");
+  error_location.set_line(1);
+  error_location.set_column(3);
+
+  absl::Status status = MakeSqlError().AttachPayload(error_location)
+                        << "ErrorMessage";
+  ASSERT_TRUE(internal::HasPayloadWithType<ErrorLocation>(status));
+  ASSERT_FALSE(status.GetPayload(kErrorMessageModeUrl).has_value());
+
+  absl::Status updated_status_with_payload = MaybeUpdateErrorFromPayload(
+      ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+      /*keep_error_location_payload=*/true, dummy_query, status);
+
+  EXPECT_THAT(updated_status_with_payload,
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       Eq("ErrorMessage [at filename:1:3]\n"
+                          "1234567890123456789_1\n"
+                          "  ^")));
+  EXPECT_TRUE(
+      updated_status_with_payload.GetPayload(kErrorMessageModeUrl).has_value());
+
+  EXPECT_THAT(
+      MaybeUpdateErrorFromPayload(ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+                                  /*keep_error_location_payload=*/true,
+                                  dummy_query, updated_status_with_payload),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               Eq("ErrorMessage [at filename:1:3]\n"
+                  "1234567890123456789_1\n"
+                  "  ^")));
+
+  // Payload mode detects conflict
+  EXPECT_THAT(
+      MaybeUpdateErrorFromPayload(ERROR_MESSAGE_WITH_PAYLOAD,
+                                  /*keep_error_location_payload=*/true,
+                                  dummy_query, updated_status_with_payload),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          AllOf(HasSubstr("RET_CHECK failure"),
+                HasSubstr("mode_already_applied.mode() == mode (2 vs. 0)"))));
+
+  // Also try with the other caret mode. This is a conflict.
+  EXPECT_THAT(
+      MaybeUpdateErrorFromPayload(ERROR_MESSAGE_ONE_LINE,
+                                  /*keep_error_location_payload=*/true,
+                                  dummy_query, updated_status_with_payload),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          AllOf(HasSubstr("RET_CHECK failure"),
+                HasSubstr("mode_already_applied.mode() == mode (2 vs. 1)"))));
 }
 
 }  // namespace zetasql

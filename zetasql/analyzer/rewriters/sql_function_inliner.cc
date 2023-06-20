@@ -14,7 +14,10 @@
 // limitations under the License.
 //
 
+#include "zetasql/analyzer/rewriters/sql_function_inliner.h"
+
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -23,30 +26,40 @@
 #include <vector>
 
 #include "zetasql/base/varsetter.h"
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/common/errors.h"
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
-#include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/sql_tvf.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -259,9 +272,10 @@ static absl::StatusOr<bool> IsCallInlinableAndCollectInfo(
 class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
  public:
   SqlFunctionInlineVistor(const AnalyzerOptions& analyzer_options,
-                          Catalog& catalog, ColumnFactory* column_factory)
+                          Catalog& catalog, ColumnFactory* column_factory,
+                          TypeFactory& type_factory)
       : column_factory_(column_factory),
-        fn_builder_(analyzer_options, catalog) {}
+        fn_builder_(analyzer_options, catalog, type_factory) {}
 
  private:
   absl::Status VisitResolvedFunctionCall(
@@ -341,7 +355,7 @@ class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
     }
 
     // Rewrite the function body so so that it references the columns in
-    // arg_exprs rather than having ResolvedArgumnetRefs
+    // arg_exprs rather than having ResolvedArgumentRefs
     ArgNameToScanMap table_args;
     ZETASQL_ASSIGN_OR_RETURN(body_expr, ResolvedArgumentRefReplacer::ReplaceArgs(
                                     std::move(body_expr), args, table_args));
@@ -365,7 +379,8 @@ class SqlFunctionInliner : public Rewriter {
     ColumnFactory column_factory(0, options.id_string_pool().get(),
                                  options.column_id_sequence_number());
 
-    SqlFunctionInlineVistor rewriter(options, catalog, &column_factory);
+    SqlFunctionInlineVistor rewriter(options, catalog, &column_factory,
+                                     type_factory);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
     return rewriter.ConsumeRootNode<ResolvedNode>();
   }
@@ -572,7 +587,7 @@ class SqlTableFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
     }
 
     // Rewrite the function body so so that it references the columns in
-    // scalar_arg_exprs rather than having ResolvedArgumnetRefs
+    // scalar_arg_exprs rather than having ResolvedArgumentRefs
     ZETASQL_ASSIGN_OR_RETURN(body_scan,
                      ResolvedArgumentRefReplacer::ReplaceArgs(
                          std::move(body_scan), scalar_args, table_args));
@@ -607,6 +622,104 @@ class SqlTvfInliner : public Rewriter {
   std::string Name() const override { return "SqlTvfInliner"; }
 };
 
+class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
+ public:
+  explicit SqlAggregateFunctionInlineVisitor(ColumnFactory& column_factory)
+      : column_factory_(column_factory) {}
+
+ private:
+  absl::StatusOr<bool> IsInlinable(const ResolvedAggregateFunctionCall* call) {
+    const ParseLocationRange* error_location =
+        call->GetParseLocationRangeOrNULL();
+    const Function* function = call->function();
+    if (call->error_mode() == ResolvedFunctionCall::SAFE_ERROR_MODE) {
+      // TODO: Support SAFE mode calls using IFERROR.
+      return MakeSqlErrorAtStart(error_location)
+             << "SAFE mode calls to aggregate function " << function->SQLName()
+             << " are not supported";
+    }
+    if (call->distinct()) {
+      // TODO: Decide semantics for this clause before inlining it.
+      return MakeSqlErrorAtStart(error_location)
+             << "DISTINCT is not supported on calls to aggregate function "
+             << function->SQLName();
+    }
+    if (call->limit() != nullptr) {
+      // TODO: Decide semantics for this clause before inlining it.
+      return MakeSqlErrorAtStart(error_location)
+             << "LIMIT is not supported on calls to aggregate function "
+             << function->SQLName();
+    }
+    if (call->order_by_item_list_size() > 0) {
+      // TODO: Decide semantics for this clause before inlining it.
+      return MakeSqlErrorAtStart(error_location)
+             << "ORDER BY is not supported on calls to aggregate function "
+             << function->SQLName();
+    }
+    if (call->having_modifier() != nullptr) {
+      // TODO: Decide semantics for this clause before inlining it.
+      return MakeSqlErrorAtStart(error_location)
+             << "HAVING is not supported on calls to aggregate function "
+             << function->SQLName();
+    }
+    if (call->null_handling_modifier() ==
+        ResolvedNonScalarFunctionCallBase::RESPECT_NULLS) {
+      // TODO: Decide semantics for this clause before inlining it.
+      return MakeSqlErrorAtStart(error_location)
+             << "RESPECT NULLS is not supported on calls to aggregate function "
+             << function->SQLName();
+    }
+    if (call->null_handling_modifier() ==
+        ResolvedNonScalarFunctionCallBase::IGNORE_NULLS) {
+      // TODO: Decide semantics for this clause before inlining it.
+      return MakeSqlErrorAtStart(error_location)
+             << "IGNORE NULLS is not supported on calls to aggregate function "
+             << function->SQLName();
+    }
+    if (function->Is<SQLFunctionInterface>()) {
+      return absl::UnimplementedError(
+          "Inlining concrete UDAs is not yet implemented");
+    }
+    if (function->Is<TemplatedSQLFunction>()) {
+      return absl::UnimplementedError(
+          "Inlining templated UDAs is not yet implemented");
+    }
+    return false;
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedAggregateScan(
+      std::unique_ptr<const ResolvedAggregateScan> node) override {
+    for (const auto& col : node->aggregate_list()) {
+      ZETASQL_RET_CHECK(col->expr()->Is<ResolvedAggregateFunctionCall>());
+      const ResolvedAggregateFunctionCall* aggr_function_call =
+          col->expr()->GetAs<ResolvedAggregateFunctionCall>();
+      ZETASQL_ASSIGN_OR_RETURN(bool is_inlinable, IsInlinable(aggr_function_call));
+      ZETASQL_RET_CHECK(!is_inlinable);
+    }
+    return node;
+  }
+
+ private:
+  ColumnFactory& column_factory_;
+};
+
+class SqlTvaInliner : public Rewriter {
+ public:
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+      const AnalyzerOptions& options, std::unique_ptr<const ResolvedNode> input,
+      Catalog& catalog, TypeFactory& type_factory,
+      AnalyzerOutputProperties& output_properties) const override {
+    ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
+    ColumnFactory column_factory(0, options.id_string_pool().get(),
+                                 options.column_id_sequence_number());
+    SqlAggregateFunctionInlineVisitor rewriter(column_factory);
+    return rewriter.VisitAll(std::move(input));
+  }
+
+  std::string Name() const override { return "SqlTvaInliner"; }
+};
+
 }  // namespace
 
 const Rewriter* GetSqlFunctionInliner() {
@@ -616,6 +729,11 @@ const Rewriter* GetSqlFunctionInliner() {
 
 const Rewriter* GetSqlTvfInliner() {
   static const auto* const kRewriter = new SqlTvfInliner;
+  return kRewriter;
+}
+
+const Rewriter* GetSqlAggregateInliner() {
+  static const auto* const kRewriter = new SqlTvaInliner;
   return kRewriter;
 }
 

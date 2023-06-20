@@ -3661,3 +3661,15 @@ create table function myfunc (  )
 ERROR: Type with collation name is not supported in table function signatures [at 2:26]
   returns table<x string collate 'und:ci'>;
                          ^
+==
+
+[disallow_duplicate_options]
+create table function fn(s string)
+  returns table<x string>
+  options ( a=b, a=c )
+  as
+    select "abc" as x;
+--
+ERROR: Duplicate option specified for 'a' [at 3:18]
+  options ( a=b, a=c )
+                 ^

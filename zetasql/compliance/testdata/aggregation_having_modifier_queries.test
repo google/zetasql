@@ -567,7 +567,12 @@ SELECT ARRAY_AGG(row_id HAVING MIN bytes_val ORDER BY row_id DESC LIMIT 2),
        ARRAY_AGG(row_id HAVING MAX bytes_val ORDER BY row_id DESC LIMIT 2)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<INT64>[16, 3], ARRAY<INT64>[10]}]
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<INT64>[known order:16, 3],
+    ARRAY<INT64>[10]
+  }
+]
 ==
 [name=aggregate_array_agg_id_having_bytes_val_order_by]
 [required_features=V_1_1_HAVING_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
@@ -577,7 +582,7 @@ FROM TableAllTypes
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<INT64>[1, 2, 3, 16],
+    ARRAY<INT64>[known order:1, 2, 3, 16],
     ARRAY<INT64>[10]
   }
 ]

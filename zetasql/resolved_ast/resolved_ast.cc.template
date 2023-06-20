@@ -501,6 +501,27 @@ absl::StatusOr<const Connection*> RestoreFromImpl(
 }
 
 static absl::Status SaveToImpl(
+    const Sequence* sequence,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    SequenceRefProto* proto) {
+  proto->set_name(sequence->Name());
+  proto->set_full_name(sequence->FullName());
+  return absl::OkStatus();
+}
+
+// The RestoreFrom functions reverse the effect of the SaveTo functions.
+template<>
+absl::StatusOr<const Sequence*> RestoreFromImpl(
+    const SequenceRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  const Sequence* sequence;
+  const std::vector<std::string> path = absl::StrSplit(proto.full_name(), '.');
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindSequence(path, &sequence,
+                                               Catalog::FindOptions()));
+  return sequence;
+}
+
+static absl::Status SaveToImpl(
     const Constant* constant,
     FileDescriptorSetMap* file_descriptor_set_map,
     ConstantRefProto* proto) {
@@ -1372,11 +1393,11 @@ void {{node.name}}::CollectDebugStringFields(
  # for field in node.fields
   # if field.is_node_ptr
   if ({{field.member_name}} != nullptr) {
-    fields->emplace_back("{{field.name}}", {{field.member_name}}.get());
+    fields->emplace_back("{{field.name}}", {{field.member_name}}.get(), {{field.member_name}}accessed());
   }
   # elif field.is_node_vector
   if (!{{field.member_name}}.empty()) {
-    fields->emplace_back("{{field.name}}", {{field.member_name}});
+    fields->emplace_back("{{field.name}}", {{field.member_name}}, {{field.member_name}}accessed());
   }
   # else
    # if field.is_not_ignorable
@@ -1384,7 +1405,7 @@ void {{node.name}}::CollectDebugStringFields(
    # else
   if (!IsDefaultValue({{field.member_name}})) {
    # endif
-    fields->emplace_back("{{field.name}}", {{field.to_string_method}}({{field.member_name}}));
+    fields->emplace_back("{{field.name}}", {{field.to_string_method}}({{field.member_name}}), {{field.member_name}}accessed());
   }
   # endif
  # endfor
@@ -1406,7 +1427,7 @@ absl::Status {{node.name}}::CheckFieldsAccessedImpl(
     return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC).LogError()
         << "Unimplemented feature "
            "({{node.name}}::{{field.name}} not accessed)\n"
-        << root->DebugString({annotation});
+        << root->DebugString(DebugStringConfig{ {annotation}, /*print_accessed=*/true});
   }
   # endif
   # if field.is_ignorable_default
@@ -1420,7 +1441,7 @@ absl::Status {{node.name}}::CheckFieldsAccessedImpl(
         << "Unimplemented feature "
            "({{node.name}}::{{field.name}} not accessed "
            "and has non-default value)\n"
-        << root->DebugString({annotation});
+        << root->DebugString(DebugStringConfig{ {annotation}, /*print_accessed=*/true});
   }
   # endif
  # endfor

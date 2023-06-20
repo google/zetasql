@@ -1267,7 +1267,7 @@ class EvaluatorTableScanOp final : public RelationalOp {
   static std::string GetIteratorDebugString(absl::string_view table_name);
 
   static absl::StatusOr<std::unique_ptr<EvaluatorTableScanOp>> Create(
-      const Table* table, const std::string& alias,
+      const Table* table, absl::string_view alias,
       absl::Span<const int> column_idxs,
       absl::Span<const std::string> column_names,
       absl::Span<const VariableId> variables,
@@ -3689,8 +3689,8 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
 
   // Maps a ResolvedColumn modified by 'stmt()' to its corresponding UpdateNode.
   using UpdateMap =
-      std::unordered_map<ResolvedColumn, std::unique_ptr<UpdateNode>,
-                         ResolvedColumnHasher>;
+      absl::node_hash_map<ResolvedColumn, std::unique_ptr<UpdateNode>,
+                          ResolvedColumnHasher>;
 
   // 'primary_key_type' may be NULL if the table doesn't have a primary key or
   // its primary key is not to be used in evaluting the DML expression.
@@ -3900,8 +3900,8 @@ class DMLInsertValueExpr final : public DMLValueExpr {
   // Stores index for information for the columns in
   // 'stmt()->insert_column_list()'.
   using InsertColumnMap =
-      std::unordered_map<ResolvedColumn, InsertColumnOffsets,
-                         ResolvedColumnHasher>;
+      absl::flat_hash_map<ResolvedColumn, InsertColumnOffsets,
+                          ResolvedColumnHasher>;
 
   // 'primary_key_type' may be NULL if the table doesn't have a primary key or
   // its primary key is not to be used in evaluting the DML expression.

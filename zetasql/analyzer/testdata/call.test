@@ -151,7 +151,7 @@ CallStmt
 
 call proc_on_any_any(1, "a")
 --
-ERROR: No matching signature for procedure proc_on_any_any for argument types: INT64, STRING. Supported signature: proc_on_any_any(ANY, ANY) [at 1:6]
+ERROR: No matching signature for procedure proc_on_any_any for argument types: INT64, STRING. Supported signature: proc_on_any_any(T1, T1) [at 1:6]
 call proc_on_any_any(1, "a")
      ^
 ==

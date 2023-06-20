@@ -17,3 +17,64 @@ ARRAY<STRUCT<BIGNUMERIC, BIGNUMERIC>>[{-12.34, 1.234}]
 SELECT CAST(NUMERIC '1.234' AS NUMERIC(4, 3))
 --
 ARRAY<STRUCT<NUMERIC>>[{1.234}]
+==
+
+[name=sum_numeric]
+[required_features=NUMERIC_TYPE]
+SELECT SUM(x) FROM UNNEST([NUMERIC '1', NUMERIC '2']) AS x;
+--
+ARRAY<STRUCT<NUMERIC>>[{3}]
+==
+
+[name=window_sum_numeric]
+[required_features=NUMERIC_TYPE,ANALYTIC_FUNCTIONS]
+SELECT SUM(price) OVER () FROM (
+SELECT "apple" as fruit, NUMERIC '1' AS price,
+UNION ALL SELECT "pear", NUMERIC '2'
+UNION ALL SELECT "banana", NUMERIC '3');
+--
+ARRAY<STRUCT<NUMERIC>>[unknown order:{6}, {6}, {6}]
+==
+
+[name=window_sum_numeric_partition_by]
+[required_features=NUMERIC_TYPE,ANALYTIC_FUNCTIONS]
+SELECT fruit, SUM(price) OVER (PARTITION BY fruit) FROM (
+SELECT "apple" as fruit, NUMERIC '1' AS price,
+UNION ALL SELECT "pear", NUMERIC '2'
+UNION ALL SELECT "banana", NUMERIC '3') ORDER BY fruit;
+--
+ARRAY<STRUCT<fruit STRING, NUMERIC>>[known order:
+  {"apple", 1},
+  {"banana", 3},
+  {"pear", 2}
+]
+==
+
+[name=window_sum_numeric_order_by]
+[required_features=NUMERIC_TYPE,ANALYTIC_FUNCTIONS]
+SELECT fruit, SUM(price) OVER (ORDER BY price) FROM (
+SELECT "apple" as fruit, NUMERIC '1' AS price,
+UNION ALL SELECT "pear", NUMERIC '2'
+UNION ALL SELECT "banana", NUMERIC '3') ORDER BY fruit;
+--
+ARRAY<STRUCT<fruit STRING, NUMERIC>>[known order:
+  {"apple", 1},
+  {"banana", 6},
+  {"pear", 3}
+]
+==
+
+[name=window_sum_numeric_order_by_with_range]
+[required_features=NUMERIC_TYPE,ANALYTIC_FUNCTIONS]
+SELECT fruit, SUM(price) OVER
+(ORDER BY price RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (
+SELECT "apple" as fruit, NUMERIC '1' AS price,
+UNION ALL SELECT "pear", NUMERIC '2'
+UNION ALL SELECT "banana", NUMERIC '3') ORDER BY fruit;
+--
+ARRAY<STRUCT<fruit STRING, NUMERIC>>[known order:
+  {"apple", 3},
+  {"banana", 5},
+  {"pear", 6}
+]
+

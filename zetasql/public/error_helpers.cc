@@ -19,13 +19,16 @@
 #include <ctype.h>
 
 #include <algorithm>
+#include <optional>
 #include <string>
+#include <utility>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"  
@@ -262,51 +265,77 @@ std::string GetErrorStringWithCaret(absl::string_view input,
 
 // Updates the <status> error string based on <input_text> and <mode>.
 // See header comment for MaybeUpdateErrorFromPayload for details.
-static absl::Status UpdateErrorFromPayload(const absl::Status& status,
+static absl::Status UpdateErrorFromPayload(absl::Status status,
                                            absl::string_view input_text,
-                                           ErrorMessageMode mode) {
+                                           ErrorMessageMode mode,
+                                           bool keep_error_location_payload) {
+  if (status.ok()) {
+    return status;
+  }
+
+  std::optional<absl::Cord> applied_mode_payload =
+      status.GetPayload(kErrorMessageModeUrl);
+  if (applied_mode_payload.has_value()) {
+    ErrorMessageModeForPayload mode_already_applied;
+    mode_already_applied.ParseFromString(
+        std::string(applied_mode_payload.value()));
+    ZETASQL_RET_CHECK_EQ(mode_already_applied.mode(), mode);
+    return status;
+  }
+
   if (mode == ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD) {
     // In this case, we do not update the error message and the payload
     // remains on the Status.
     return status;
   }
-  ZETASQL_RET_CHECK(!internal::HasPayloadWithType<InternalErrorLocation>(status))
-      << "Status must not have InternalErrorLocation: "
-      << internal::StatusToString(status);
-  if (!status.ok()) {
-    ErrorLocation location;
-    if (GetErrorLocation(status, &location)) {
-      std::string new_message =
-          absl::StrCat(status.message(), " ",
-                       FormatErrorLocation(location, input_text, mode));
-      // Update the message.  Leave everything else as is.
-      absl::Status new_status =
-          absl::Status(status.code(), new_message);
-      // Copy payloads
-      status.ForEachPayload([&new_status](
-          absl::string_view type_url, const absl::Cord& payload) {
-        new_status.SetPayload(type_url, payload);});
-      ClearErrorLocation(&new_status);
-      return new_status;
-    }
+
+  if (internal::HasPayloadWithType<InternalErrorLocation>(status)) {
+    // The error location is "internal", which means that it comes directly
+    // from the AST or ResolvedAST parse locations. We must first convert it
+    // to an ErrorLocation, which converts byte offsets to column number
+    // and line number. We do not return internal error locations, but customers
+    // may attach internal locations to errors e.g. during algebrization to
+    // allow users to trace algebra errors to SQL sources.
+    status = ConvertInternalErrorLocationToExternal(status, input_text);
   }
-  return status;
+
+  ErrorLocation location;
+  if (!GetErrorLocation(status, &location)) {
+    return status;
+  }
+
+  std::string new_message = absl::StrCat(
+      status.message(), " ", FormatErrorLocation(location, input_text, mode));
+  // Update the message.  Leave everything else as is.
+  absl::Status new_status =
+      absl::Status(status.code(), new_message);
+  // Copy payloads
+  status.ForEachPayload([&new_status](
+      absl::string_view type_url, const absl::Cord& payload) {
+    new_status.SetPayload(type_url, payload);});
+  ErrorMessageModeForPayload mode_wrapper;
+  mode_wrapper.set_mode(mode);
+  new_status.SetPayload(kErrorMessageModeUrl,
+                        absl::Cord(mode_wrapper.SerializeAsString()));
+  if (!keep_error_location_payload) {
+    ClearErrorLocation(&new_status);
+  }
+  return new_status;
 }
 
 absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
+                                         bool keep_error_location_payload,
                                          absl::string_view input_text,
                                          const absl::Status& status) {
-  ZETASQL_RET_CHECK(!internal::HasPayloadWithType<InternalErrorLocation>(status))
-      << "Status must not have InternalErrorLocation: "
-      << internal::StatusToString(status);
-  if (status.ok() || mode == ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD) {
+  if (status.ok()) {
     // We do not update the error string with error payload, which
     // could include location and/or nested errors.  We leave any payload
     // attached to the Status.
     return status;
   }
 
-  return UpdateErrorFromPayload(status, input_text, mode);
+  return UpdateErrorFromPayload(status, input_text, mode,
+                                keep_error_location_payload);
 }
 
 absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
@@ -325,6 +354,43 @@ absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
 
   absl::Status copy = status;
   ClearErrorLocation(&copy);
+  internal::AttachPayload(&copy, error_location);
+  return copy;
+}
+
+absl::Status ConvertInternalErrorLocationToExternal(absl::Status status,
+                                                    absl::string_view query) {
+  if (!internal::HasPayloadWithType<InternalErrorLocation>(status)) {
+    // Nothing to do.
+    return status;
+  }
+  const InternalErrorLocation internal_error_location =
+      internal::GetPayload<InternalErrorLocation>(status);
+
+  const ParseLocationPoint error_point =
+      ParseLocationPoint::FromInternalErrorLocation(internal_error_location);
+
+  ParseLocationTranslator location_translator(query);
+
+  std::pair<int, int> line_and_column;
+  ZETASQL_ASSIGN_OR_RETURN(
+      line_and_column,
+      location_translator.GetLineAndColumnAfterTabExpansion(error_point),
+      _ << "Location " << error_point.GetString() << " from status \""
+        << internal::StatusToString(status) << "\" not found in query:\n"
+        << query);
+  ErrorLocation error_location;
+  if (internal_error_location.has_filename()) {
+    error_location.set_filename(internal_error_location.filename());
+  }
+  error_location.set_line(line_and_column.first);
+  error_location.set_column(line_and_column.second);
+  // Copy ErrorSource information if present.
+  *error_location.mutable_error_source() =
+      internal_error_location.error_source();
+
+  absl::Status copy = status;
+  internal::ErasePayloadTyped<InternalErrorLocation>(&copy);
   internal::AttachPayload(&copy, error_location);
   return copy;
 }

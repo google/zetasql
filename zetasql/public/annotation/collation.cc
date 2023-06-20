@@ -16,9 +16,11 @@
 
 #include "zetasql/public/annotation/collation.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree_errors.h"
@@ -31,7 +33,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/ret_check.h"
-
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -118,7 +120,7 @@ absl::Status CollationAnnotation::CheckAndPropagateForFunctionCallBase(
   // Default propagation rules.
   if (signature.options().propagates_collation() && signature.IsConcrete() &&
       SupportsCollation(signature.result_type().type())) {
-    ZETASQL_ASSIGN_OR_RETURN(const AnnotationMap* collation_to_propagate,
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnnotationMap> collation_to_propagate,
                      GetCollationFromFunctionArguments(
                          /*error_location=*/nullptr, function_call,
                          FunctionEnums::AFFECTS_PROPAGATION));
@@ -130,27 +132,57 @@ absl::Status CollationAnnotation::CheckAndPropagateForFunctionCallBase(
           result_annotation_map->AsArrayMap()->mutable_element();
     }
     ZETASQL_RETURN_IF_ERROR(
-        MergeAnnotations(collation_to_propagate, *result_annotation_map));
+        MergeAnnotations(collation_to_propagate.get(), *result_annotation_map));
   }
   return absl::OkStatus();
 }
 
-absl::StatusOr<const AnnotationMap*>
+// TODO: Rewrite the util function
+// GetCollationFromFunctionArguments below with this function to avoid logic
+// duplication. Need to return some information from this function for proper
+// error message in the caller.
+absl::StatusOr<std::unique_ptr<AnnotationMap>>
+CollationAnnotation::GetCollationFromAnnotationMaps(
+    const Type* type,
+    const std::vector<const AnnotationMap*>& annotation_maps) {
+  std::unique_ptr<AnnotationMap> result_collation = nullptr;
+  // Shortcut for the case where the input type is not supported with collation.
+  if (!SupportsCollation(type)) {
+    return result_collation;
+  }
+  for (const AnnotationMap* annotation_map : annotation_maps) {
+    if (!CollationAnnotation::ExistsIn(annotation_map)) {
+      continue;
+    }
+    ZETASQL_RET_CHECK(annotation_map != nullptr &&
+              annotation_map->HasCompatibleStructure(type));
+    if (result_collation == nullptr) {
+      result_collation = AnnotationMap::Create(type);
+      // When merging the argument collation with the empty annotation map, we
+      // should not have compatible issue. Return an internal error rather than
+      // a user-facing error when this happens.
+      ZETASQL_RET_CHECK(MergeAnnotations(annotation_map, *result_collation).ok());
+    } else {
+      ZETASQL_RETURN_IF_ERROR(MergeAnnotations(annotation_map, *result_collation));
+    }
+  }
+  return result_collation;
+}
+
+absl::StatusOr<std::unique_ptr<AnnotationMap>>
 CollationAnnotation::GetCollationFromFunctionArguments(
     const ASTNode* error_location,
     const ResolvedFunctionCallBase& function_call,
     FunctionEnums::ArgumentCollationMode collation_mode_mask) {
   const FunctionSignature& signature = function_call.signature();
-  const AnnotationMap* candidate_collation = nullptr;
-  // Index or name of argument is kept for error message.
-  std::string argument_index_or_name;
+  std::unique_ptr<AnnotationMap> result_collation = nullptr;
   for (int i = 0; i < signature.NumConcreteArguments(); i++) {
     const zetasql::ResolvedExpr* arg_i = nullptr;
     // The <function_call> has exactly one of 'argument_list' or
-    // 'generic_argument_list' populated.  Usually 'argument_list' is used,
-    // but the 'generic_argument_list' is used when there is a non-expression
-    // argument (such as a lambda).  Only expressions can have collation, so
-    // we only look for arguments that are expression or lambda function body.
+    // 'generic_argument_list' populated. Usually 'argument_list' is used, but
+    // the 'generic_argument_list' is used when there is a non-expression
+    // argument (such as a lambda). Only expressions can have collation, so we
+    // only look for arguments that are expression or lambda function body.
     if (function_call.argument_list_size() > 0) {
       arg_i = function_call.argument_list(i);
     } else {
@@ -164,47 +196,65 @@ CollationAnnotation::GetCollationFromFunctionArguments(
     if (arg_i == nullptr) continue;
 
     const AnnotationMap* argi_annotation_map = arg_i->type_annotation_map();
-    const bool mode_matches =
-        (signature.ConcreteArgument(i).options().argument_collation_mode() &
-         collation_mode_mask) != 0;
-    if (mode_matches && CollationAnnotation::ExistsIn(argi_annotation_map)) {
-      // If an argument has option uses_array_element_for_collation enabled,
-      // uses the collation annotation on array element.
-      if (signature.ConcreteArgument(i)
-              .options()
-              .uses_array_element_for_collation()) {
+    const Type* argi_type = arg_i->type();
+    // If an argument has option uses_array_element_for_collation enabled,
+    // uses the collation annotation on array element.
+    if (signature.ConcreteArgument(i)
+            .options()
+            .uses_array_element_for_collation()) {
+      ZETASQL_RET_CHECK(argi_type->IsArray());
+      argi_type = argi_type->AsArray()->element_type();
+      if (argi_annotation_map != nullptr) {
         ZETASQL_RET_CHECK(argi_annotation_map->IsArrayMap());
         argi_annotation_map = argi_annotation_map->AsArrayMap()->element();
       }
-      // If there is collation from the argument, it must be the same as the
-      // previous arguments.
-      if (candidate_collation == nullptr) {
-        candidate_collation = argi_annotation_map;
-        argument_index_or_name = GetArgumentNameOrIndex(signature, i);
-      } else {
-        if (!candidate_collation->HasEqualAnnotations(*argi_annotation_map,
-                                                      GetId())) {
-          // TODO: Add function to zetasql::Type class to
-          // output collation within type like ARRAY<STRING COLLATE 'und:ci'>.
-          ::zetasql_base::StatusBuilder error =
-              MakeSqlError() << absl::Substitute(
-                  "Collation for $0 is different on argument $1 ($2) and "
-                  "argument $3 ($4)",
-                  function_call.function()->SQLName(), argument_index_or_name,
-                  candidate_collation->DebugString(GetId()),
-                  GetArgumentNameOrIndex(signature, i),
-                  argi_annotation_map->DebugString(GetId()));
-          if (error_location != nullptr) {
-            error.Attach(GetErrorLocationPoint(error_location,
-                                               /*include_leftmost_child=*/true)
-                             .ToInternalErrorLocation());
-          }
-          return error;
-        }
+    }
+
+    const bool mode_matches =
+        (signature.ConcreteArgument(i).options().argument_collation_mode() &
+         collation_mode_mask) != 0;
+
+    if (!mode_matches || !ExistsIn(argi_annotation_map)) {
+      continue;
+    }
+
+    if (result_collation == nullptr) {
+      result_collation = AnnotationMap::Create(argi_type);
+      // When merging the argument collation with the empty annotation map, we
+      // should not have compatible issue. Return an internal error rather than
+      // a user-facing error when this happens.
+      ZETASQL_RET_CHECK(MergeAnnotations(argi_annotation_map, *result_collation).ok());
+    } else {
+      absl::Status merge_status =
+          MergeAnnotations(argi_annotation_map, *result_collation);
+      if (merge_status.ok()) {
+        continue;
       }
+      // TODO: Use a better mechanism to detect the collation
+      // mismatch error from the result of MergeAnnotations function.
+      if (merge_status.code() == absl::StatusCode::kInternal) {
+        return merge_status;
+      }
+      // TODO: Add function to zetasql::Type class to output
+      // collation within type like ARRAY<STRING COLLATE 'und:ci'>. Also make
+      // the error message less confusing for functions that take two arguments.
+      ::zetasql_base::StatusBuilder error =
+          MakeSqlError() << absl::Substitute(
+              "$0. Collation on argument $1 ($2) in function $3 is not "
+              "compatible with other arguments",
+              merge_status.message(), GetArgumentNameOrIndex(signature, i),
+              argi_annotation_map->DebugString(GetId()),
+              function_call.function()->SQLName());
+      if (error_location != nullptr) {
+        error.AttachPayload(
+            GetErrorLocationPoint(error_location,
+                                  /*include_leftmost_child=*/true)
+                .ToInternalErrorLocation());
+      }
+      return error;
     }
   }
-  return candidate_collation;
+  return result_collation;
 }
 
 absl::Status CollationAnnotation::ResolveCollationForResolvedOrderByItem(

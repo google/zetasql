@@ -23,9 +23,9 @@ to a column or table. Expression subqueries can be
 ### Scalar subqueries 
 <a id="scalar_subquery_concepts"></a>
 
-```sql
+<pre>
 ( subquery )
-```
+</pre>
 
 **Description**
 
@@ -70,7 +70,7 @@ FROM
  *---------------------------*/
 ```
 
- In this example, an aggregate scalar
+In this example, an aggregate scalar
 subquery calculates `avg_level`, the average level of a user in the
 [`Players`][example-tables] table.
 
@@ -94,9 +94,9 @@ FROM
 ### Array subqueries 
 <a id="array_subquery_concepts"></a>
 
-```sql
+<pre>
 ARRAY ( subquery )
-```
+</pre>
 
 **Description**
 
@@ -140,9 +140,9 @@ SELECT
 ### `IN` subqueries 
 <a id="in_subquery_concepts"></a>
 
-```sql
+<pre>
 value [ NOT ] IN ( subquery )
-```
+</pre>
 
 **Description**
 
@@ -180,9 +180,9 @@ SELECT
 ### `EXISTS` subqueries 
 <a id="exists_subquery_concepts"></a>
 
-```sql
+<pre>
 EXISTS( subquery )
-```
+</pre>
 
 **Description**
 
@@ -210,9 +210,9 @@ SELECT
 ## Table subqueries 
 <a id="table_subquery_concepts"></a>
 
-```sql
+<pre>
 FROM ( subquery ) [ [ AS ] alias ]
-```
+</pre>
 
 **Description**
 

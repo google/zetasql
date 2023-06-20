@@ -1178,6 +1178,54 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) AS count_to_six;
  *--------------------------------------------------*/
 ```
 
+## Updating arrays
+
+Consider the following table called `arrays_table`. The first column in the
+table is an array of integers and the second column contains two nested arrays
+of integers.
+
+```sql
+WITH arrays_table AS (
+  SELECT
+    [1, 2] AS regular_array,
+    STRUCT([10, 20] AS first_array, [100, 200] AS second_array) AS nested_arrays
+  UNION ALL SELECT
+    [3, 4] AS regular_array,
+    STRUCT([30, 40] AS first_array, [300, 400] AS second_array) AS nested_arrays
+)
+SELECT * FROM arrays_table;
+
+/*---------------*---------------------------*----------------------------*
+ | regular_array | nested_arrays.first_array | nested_arrays.second_array |
+ +---------------+---------------------------+----------------------------+
+ | [1, 2]        | [10, 20]                  | [100, 200]                 |
+ | [3, 4]        | [30, 40]                  | [130, 400]                 |
+ *---------------*---------------------------*----------------------------*/
+```
+
+You can update arrays in a table by using the `UPDATE` statement. The following
+example inserts the number 5 into the `regular_array` column,
+and inserts the elements from the `first_array` field of the `nested_arrays`
+column into the `second_array` field:
+
+```sql
+UPDATE
+  arrays_table
+SET
+  regular_array = ARRAY_CONCAT(regular_array, [5]),
+  nested_arrays.second_array = ARRAY_CONCAT(nested_arrays.second_array,
+                                            nested_arrays.first_array)
+WHERE TRUE;
+SELECT * FROM arrays_table;
+
+/*---------------*---------------------------*----------------------------*
+ | regular_array | nested_arrays.first_array | nested_arrays.second_array |
+ +---------------+---------------------------+----------------------------+
+ | [1, 2, 5]     | [10, 20]                  | [100, 200, 10, 20]         |
+ | [3, 4, 5]     | [30, 40]                  | [130, 400, 30, 40]         |
+ *---------------*---------------------------*----------------------------*/
+```
+
 ## Zipping arrays
 
 Given two arrays of equal size, you can merge them into a single array

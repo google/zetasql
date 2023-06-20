@@ -163,12 +163,14 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {10, 11, ARRAY<INT64>[]},
     {20, 21, ARRAY<INT64>[]},
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=delete_everything_from_one_row]
@@ -177,16 +179,18 @@ UPDATE BasicTable SET (DELETE array_value WHERE True) WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {10, 11, ARRAY<INT64>[]},
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=delete_everything_from_null_row]
@@ -201,20 +205,22 @@ UPDATE BasicTable SET (DELETE array_value WHERE True) WHERE False
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{0,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=delete_nothing_from_all_non_null_rows]
@@ -225,20 +231,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=delete_nothing_from_null_row]
@@ -254,16 +262,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
-    {10, 11, ARRAY<INT64>[12, 14]},
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
+    {
+      10,
+      11,
+      ARRAY<INT64>[known order:12, 14]
+    },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # Same as above, but with another column in the table.
@@ -276,16 +290,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
-    {10, 11, ARRAY<INT64>[12, 14]},
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
+    {
+      10,
+      11,
+      ARRAY<INT64>[known order:12, 14]
+    },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # Same as above, but with parameters.
@@ -297,16 +317,22 @@ WHERE primary_key = @param2
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
-    {10, 11, ARRAY<INT64>[12, 14]},
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
+    {
+      10,
+      11,
+      ARRAY<INT64>[known order:12, 14]
+    },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=delete_with_offset]
@@ -318,12 +344,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
-    {10, 11, ARRAY<INT64>[12, 14]},
-    {20, 21, ARRAY<INT64>[22, 24]},
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
+    {
+      10,
+      11,
+      ARRAY<INT64>[known order:12, 14]
+    },
+    {
+      20,
+      21,
+      ARRAY<INT64>[known order:22, 24]
+    },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=delete_with_nontrivial_offset]
@@ -335,12 +371,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
-    {10, 11, ARRAY<INT64>[13, 14]},
-    {20, 21, ARRAY<INT64>[22, 24]},
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
+    {
+      10,
+      11,
+      ARRAY<INT64>[known order:13, 14]
+    },
+    {
+      20,
+      21,
+      ARRAY<INT64>[known order:22, 24]
+    },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=delete_with_null_offset]
@@ -352,20 +398,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=delete_with_out_of_range_offsets]
@@ -377,20 +425,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=delete_from_primary_key]
@@ -405,12 +455,18 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{4,
-  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[
+  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[unknown order:
     {ARRAY<INT64>[2], 100},
-    {ARRAY<INT64>[2, 3], 200},
-    {ARRAY<INT64>[2, 4], 300},
     {
-      ARRAY<INT64>[2, 3, 4],
+      ARRAY<INT64>[known order:2, 3],
+      200
+    },
+    {
+      ARRAY<INT64>[known order:2, 4],
+      300
+    },
+    {
+      ARRAY<INT64>[known order:2, 3, 4],
       400
     }
   ]}
@@ -455,16 +511,18 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {10, 11, ARRAY<INT64>[14]},
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_delete_assert_rows_modified_with_outer]
@@ -476,16 +534,18 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {10, 11, ARRAY<INT64>[14]},
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_no_op_delete_assert_rows_modified_with_outer]
@@ -497,20 +557,22 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_delete_assert_rows_modified_failure]
@@ -554,29 +616,31 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        repeated_int64_val: 101
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
-        }
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value1"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value2"
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 101
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
+       }
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value1"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value2"
+       }
+     }}
+  ]}
 ==
 
 # Same as above, but with an extension field.
@@ -595,27 +659,29 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        repeated_int64_val: 100
-        repeated_int64_val: 101
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
-        }
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value2"
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 100
+       repeated_int64_val: 101
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
+       }
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value2"
+       }
+     }}
+  ]}
 ==
 
 [name=two_nested_deletes]
@@ -627,16 +693,18 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {10, 11, ARRAY<INT64>[13]},
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=two_overlapping_deletes]
@@ -648,16 +716,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
-    {10, 11, ARRAY<INT64>[13, 14]},
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
+    {
+      10,
+      11,
+      ARRAY<INT64>[known order:13, 14]
+    },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=deletes_with_different_offsets]
@@ -670,12 +744,14 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {10, 11, ARRAY<INT64>[13]},
     {20, 21, ARRAY<INT64>[23]},
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=deletes_with_same_offset_twice]
@@ -688,12 +764,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
-    {10, 11, ARRAY<INT64>[13, 14]},
-    {20, 21, ARRAY<INT64>[23, 24]},
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
+    {
+      10,
+      11,
+      ARRAY<INT64>[known order:13, 14]
+    },
+    {
+      20,
+      21,
+      ARRAY<INT64>[known order:23, 24]
+    },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # Nested UPDATE.
@@ -705,20 +791,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[13, 14, 15]
+      ARRAY<INT64>[known order:13, 14, 15]
     },
     {
       20,
       21,
-      ARRAY<INT64>[23, 24, 25]
+      ARRAY<INT64>[known order:23, 24, 25]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=update_everything_from_one_row]
@@ -729,20 +817,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[13, 14, 15]
+      ARRAY<INT64>[known order:13, 14, 15]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=update_everything_from_one_null_row]
@@ -761,20 +851,22 @@ WHERE False
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{0,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=update_nothing_in_all_non_null_rows]
@@ -785,20 +877,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=update_nothing_in_null_row]
@@ -817,20 +911,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 13, 14]
+      ARRAY<INT64>[known order:100, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # Same as above, but with another column in the table.
@@ -845,20 +941,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 100, 14]
+      ARRAY<INT64>[known order:12, 100, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # Same as above, but with parameters.
@@ -871,20 +969,22 @@ WHERE primary_key = @param2
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 13, 14]
+      ARRAY<INT64>[known order:100, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_offset]
@@ -898,20 +998,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 14, 14]
+      ARRAY<INT64>[known order:12, 14, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 24, 24]
+      ARRAY<INT64>[known order:22, 24, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_offset_using_offset]
@@ -925,20 +1027,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 14, 14]
+      ARRAY<INT64>[known order:12, 14, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 24, 24]
+      ARRAY<INT64>[known order:22, 24, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_nontrivial_offset]
@@ -952,20 +1056,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[13, 13, 14]
+      ARRAY<INT64>[known order:13, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 24, 24]
+      ARRAY<INT64>[known order:22, 24, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_null_offset]
@@ -979,20 +1085,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_out_of_range_offsets]
@@ -1006,20 +1114,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # An intermediate state has a primary key collision, but the spec says that is
@@ -1037,18 +1147,21 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{4,
-  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[
-    {ARRAY<INT64>[1, 2], 100},
+  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[unknown order:
     {
-      ARRAY<INT64>[1, 2, 4],
+      ARRAY<INT64>[known order:1, 2],
+      100
+    },
+    {
+      ARRAY<INT64>[known order:1, 2, 4],
       200
     },
     {
-      ARRAY<INT64>[1, 2, 5],
+      ARRAY<INT64>[known order:1, 2, 5],
       300
     },
     {
-      ARRAY<INT64>[1, 2, 4, 5],
+      ARRAY<INT64>[known order:1, 2, 4, 5],
       400
     }
   ]}
@@ -1097,20 +1210,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 100, 14]
+      ARRAY<INT64>[known order:100, 100, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_update_assert_rows_modified_with_outer]
@@ -1123,20 +1238,22 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 100, 14]
+      ARRAY<INT64>[known order:100, 100, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_no_op_update_assert_rows_modified_with_outer]
@@ -1149,20 +1266,22 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_update_assert_rows_modified_failure]
@@ -1209,30 +1328,32 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        repeated_int64_val: 500
-        repeated_int64_val: 101
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
-        }
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value1"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value2"
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 500
+       repeated_int64_val: 101
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
+       }
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value1"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value2"
+       }
+     }}
+  ]}
 ==
 
 # Same as above, but with an extension field.
@@ -1252,30 +1373,32 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        repeated_int64_val: 100
-        repeated_int64_val: 101
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
-        }
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "new_value"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value2"
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 100
+       repeated_int64_val: 101
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
+       }
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "new_value"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value2"
+       }
+     }}
+  ]}
 ==
 
 [name=nested_update_extension_subfield_of_repeated_proto_field]
@@ -1296,30 +1419,32 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        repeated_int64_val: 100
-        repeated_int64_val: 101
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 1000
-        }
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value1"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value2"
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 100
+       repeated_int64_val: 101
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 1000
+       }
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value1"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value2"
+       }
+     }}
+  ]}
 ==
 
 [name=nested_update_containing_array_element_set]
@@ -1334,27 +1459,27 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
     {1,
-     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
        {
          110,
-         ARRAY<INT64>[10000, 1101]
+         ARRAY<INT64>[known order:10000, 1101]
        },
        {
          120,
-         ARRAY<INT64>[10000, 1201]
+         ARRAY<INT64>[known order:10000, 1201]
        }
      ]},
     {2,
-     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
        {
          210,
-         ARRAY<INT64>[10000, 201]
+         ARRAY<INT64>[known order:10000, 201]
        },
        {
          220,
-         ARRAY<INT64>[10000, 2201]
+         ARRAY<INT64>[known order:10000, 2201]
        }
      ]}
   ]}
@@ -1371,20 +1496,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 200, 14]
+      ARRAY<INT64>[known order:100, 200, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=two_overlapping_updates]
@@ -1410,20 +1537,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 13, 14]
+      ARRAY<INT64>[known order:100, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=updates_with_different_offsets]
@@ -1442,20 +1571,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[500, 13, 501]
+      ARRAY<INT64>[known order:500, 13, 501]
     },
     {
       20,
       21,
-      ARRAY<INT64>[500, 23, 501]
+      ARRAY<INT64>[known order:500, 23, 501]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=updates_with_same_offset_twice]
@@ -1480,20 +1611,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100, 200, 300]
+      ARRAY<INT64>[known order:12, 13, 14, 100, 200, 300]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24, 100, 200, 300]
+      ARRAY<INT64>[known order:22, 23, 24, 100, 200, 300]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=insert_into_no_rows]
@@ -1503,20 +1636,22 @@ WHERE False
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{0,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=insert_into_one_row]
@@ -1526,20 +1661,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100, 200, 300]
+      ARRAY<INT64>[known order:12, 13, 14, 100, 200, 300]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=insert_into_null_row]
@@ -1561,20 +1698,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100, 200, 300]
+      ARRAY<INT64>[known order:12, 13, 14, 100, 200, 300]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # Same as above, but with another column in the table.
@@ -1592,20 +1731,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100, 200, 10]
+      ARRAY<INT64>[known order:12, 13, 14, 100, 200, 10]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # Same as above, but with query parameters.
@@ -1621,20 +1762,22 @@ WHERE primary_key = @param2
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100, 200, 300]
+      ARRAY<INT64>[known order:12, 13, 14, 100, 200, 300]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # An intermediate state has a primary key collision, but the spec says that is
@@ -1651,21 +1794,21 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{4,
-  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[
+  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[unknown order:
     {
-      ARRAY<INT64>[1, 2, 4],
+      ARRAY<INT64>[known order:1, 2, 4],
       100
     },
     {
-      ARRAY<INT64>[1, 2, 3, 4],
+      ARRAY<INT64>[known order:1, 2, 3, 4],
       200
     },
     {
-      ARRAY<INT64>[1, 2, 4, 4],
+      ARRAY<INT64>[known order:1, 2, 4, 4],
       300
     },
     {
-      ARRAY<INT64>[1, 2, 3, 4, 4],
+      ARRAY<INT64>[known order:1, 2, 3, 4, 4],
       400
     }
   ]}
@@ -1712,20 +1855,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100, 200]
+      ARRAY<INT64>[known order:12, 13, 14, 100, 200]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_insert_assert_rows_modified_with_outer]
@@ -1737,20 +1882,22 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100, 200]
+      ARRAY<INT64>[known order:12, 13, 14, 100, 200]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_insert_assert_rows_modified_with_null]
@@ -1777,20 +1924,22 @@ UPDATE BasicTable SET (INSERT array_value (SELECT 20)) WHERE array_value IS NOT 
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 20]
+      ARRAY<INT64>[known order:12, 13, 14, 20]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24, 20]
+      ARRAY<INT64>[known order:22, 23, 24, 20]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # Test that a nested INSERT ... SELECT ... ORDERY BY honors the ORDER BY.
@@ -1806,20 +1955,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100, 200, 300]
+      ARRAY<INT64>[known order:12, 13, 14, 100, 200, 300]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24, 100, 200, 300]
+      ARRAY<INT64>[known order:22, 23, 24, 100, 200, 300]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=insert_query_using_other_column]
@@ -1831,20 +1982,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 11]
+      ARRAY<INT64>[known order:12, 13, 14, 11]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=insert_query_using_same_array_column]
@@ -1856,20 +2009,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 12, 13, 14]
+      ARRAY<INT64>[known order:12, 13, 14, 12, 13, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=insert_query_using_nested_reference]
@@ -1884,27 +2039,27 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
     {1,
-     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
        {
          110,
-         ARRAY<INT64>[1100, 1101, 111]
+         ARRAY<INT64>[known order:1100, 1101, 111]
        },
        {
          120,
-         ARRAY<INT64>[1200, 1201, 121]
+         ARRAY<INT64>[known order:1200, 1201, 121]
        }
      ]},
     {2,
-     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
        {
          210,
-         ARRAY<INT64>[200, 201]
+         ARRAY<INT64>[known order:200, 201]
        },
        {
          220,
-         ARRAY<INT64>[2200, 2201]
+         ARRAY<INT64>[known order:2200, 2201]
        }
      ]}
   ]}
@@ -1939,20 +2094,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100]
+      ARRAY<INT64>[known order:12, 13, 14, 100]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_insert_query_assert_rows_modified_with_outer]
@@ -1964,20 +2121,22 @@ ASSERT_ROWS_MODIFIED 2
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100]
+      ARRAY<INT64>[known order:12, 13, 14, 100]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24, 100]
+      ARRAY<INT64>[known order:22, 23, 24, 100]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 [name=nested_insert_query_assert_rows_modified_with_null]
@@ -2012,36 +2171,38 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        repeated_int64_val: 500
-        repeated_int64_val: 600
-        repeated_int64_val: 700
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        repeated_int64_val: 100
-        repeated_int64_val: 101
-        repeated_int64_val: 500
-        repeated_int64_val: 600
-        repeated_int64_val: 700
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
-        }
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value1"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value2"
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       repeated_int64_val: 500
+       repeated_int64_val: 600
+       repeated_int64_val: 700
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 100
+       repeated_int64_val: 101
+       repeated_int64_val: 500
+       repeated_int64_val: 600
+       repeated_int64_val: 700
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
+       }
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value1"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value2"
+       }
+     }}
+  ]}
 ==
 
 # Same as above, but with an extension field.
@@ -2062,48 +2223,50 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "new_value1"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "new_value2"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "new_value3"
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        repeated_int64_val: 100
-        repeated_int64_val: 101
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
-        }
-        nested_repeated_value {
-          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value1"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "value2"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "new_value1"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "new_value2"
-        }
-        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
-          value: "new_value3"
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "new_value1"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "new_value2"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "new_value3"
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 100
+       repeated_int64_val: 101
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
+       }
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value1"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value2"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "new_value1"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "new_value2"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "new_value3"
+       }
+     }}
+  ]}
 ==
 
 [name=two_nested_inserts]
@@ -2115,20 +2278,22 @@ WHERE array_value IS NOT NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[12, 13, 14, 100, 100, 200, 300]
+      ARRAY<INT64>[known order:12, 13, 14, 100, 100, 200, 300]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24, 100, 100, 200, 300]
+      ARRAY<INT64>[known order:22, 23, 24, 100, 100, 200, 300]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # Test mixing nested DELETE and UPDATE. The deleted element matches the WHERE
@@ -2143,20 +2308,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 14]
+      ARRAY<INT64>[known order:100, 14]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # The offset for the nested UPDATE is relative to the original array (before the
@@ -2177,20 +2344,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 14, 1000]
+      ARRAY<INT64>[known order:100, 14, 1000]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # The offset for the nested UPDATE is relative to the original array (before the
@@ -2213,20 +2382,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[13, 14, 1000]
+      ARRAY<INT64>[known order:13, 14, 1000]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # An intermediate state has a primary key collision, but the spec says that is
@@ -2245,18 +2416,21 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[
-    {ARRAY<INT64>[1, 2], 100},
+  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[unknown order:
     {
-      ARRAY<INT64>[1, 2, 3],
+      ARRAY<INT64>[known order:1, 2],
+      100
+    },
+    {
+      ARRAY<INT64>[known order:1, 2, 3],
       200
     },
     {
-      ARRAY<INT64>[1, 2, 4],
+      ARRAY<INT64>[known order:1, 2, 4],
       300
     },
     {
-      ARRAY<INT64>[1, 2, 5],
+      ARRAY<INT64>[known order:1, 2, 5],
       400
     }
   ]}
@@ -2286,20 +2460,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[13, 12, 14, 15]
+      ARRAY<INT64>[known order:13, 12, 14, 15]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # An intermediate state has a primary key collision, but the spec says that is
@@ -2317,18 +2493,21 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[
-    {ARRAY<INT64>[1, 2], 100},
+  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[unknown order:
     {
-      ARRAY<INT64>[1, 2, 3],
+      ARRAY<INT64>[known order:1, 2],
+      100
+    },
+    {
+      ARRAY<INT64>[known order:1, 2, 3],
       200
     },
     {
-      ARRAY<INT64>[1, 2, 4],
+      ARRAY<INT64>[known order:1, 2, 4],
       300
     },
     {
-      ARRAY<INT64>[1, 2, 3, 4],
+      ARRAY<INT64>[known order:1, 2, 3, 4],
       400
     }
   ]}
@@ -2358,20 +2537,22 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 100, 14, 12, 13]
+      ARRAY<INT64>[known order:100, 100, 14, 12, 13]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}
 ==
 
 # An intermediate state has a primary key collision, but the spec says that is
@@ -2390,18 +2571,21 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[
-    {ARRAY<INT64>[1, 2], 100},
+  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[unknown order:
     {
-      ARRAY<INT64>[1, 2, 3],
+      ARRAY<INT64>[known order:1, 2],
+      100
+    },
+    {
+      ARRAY<INT64>[known order:1, 2, 3],
       200
     },
     {
-      ARRAY<INT64>[1, 2, 3, 5],
+      ARRAY<INT64>[known order:1, 2, 3, 5],
       300
     },
     {
-      ARRAY<INT64>[1, 2, 3, 4],
+      ARRAY<INT64>[known order:1, 2, 3, 4],
       400
     }
   ]}
@@ -2433,17 +2617,19 @@ WHERE primary_key = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[unknown order:
     {
       10,
       11,
-      ARRAY<INT64>[100, 14, 12, 13]
+      ARRAY<INT64>[known order:100, 14, 12, 13]
     },
     {
       20,
       21,
-      ARRAY<INT64>[22, 23, 24]
+      ARRAY<INT64>[known order:22, 23, 24]
     },
     {30, 31, ARRAY<INT64>(NULL)}
-  ]}
+  ]
+}

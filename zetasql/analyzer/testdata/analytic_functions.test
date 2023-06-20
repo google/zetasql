@@ -63,7 +63,7 @@ QueryStmt
 
 ==
 
-[language_features=ANALYTIC_FUNCTIONS,ANALYTIC_FUNCTIONS,ANALYTIC_FUNCTIONS]
+[language_features=ANALYTIC_FUNCTIONS]
 select afn_agg(key) over ()
 from KeyValue;
 --
@@ -343,7 +343,39 @@ QueryStmt
           +-AnalyticFunctionGroup
             +-analytic_function_list=
               +-$analytic1#4 :=
-                +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING) -> INT64)
+                +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING weight) -> INT64)
+                  +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                  +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                  +-distinct=TRUE
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+# Aggregate analytic function with named argument.
+[language_features=ANALYTIC_FUNCTIONS,NAMED_ARGUMENTS]
+select afn_agg(distinct key, weight=>value) over ()
+from keyvalue
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING weight) -> INT64)
                   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
                   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
                   +-distinct=TRUE
@@ -1034,7 +1066,7 @@ QueryStmt
     |         | |     +-ColumnRef(type=STRING, column=$union_all.value#6)
     |         | +-analytic_function_list=
     |         |   +-$analytic2#8 :=
-    |         |     +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING) -> INT64)
+    |         |     +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING weight) -> INT64)
     |         |       +-ColumnRef(type=INT64, column=$union_all.key#5)
     |         |       +-ColumnRef(type=STRING, column=$union_all.value#6)
     |         |       +-window_frame=
@@ -2021,7 +2053,7 @@ QueryStmt
           +-AnalyticFunctionGroup
             +-analytic_function_list=
               +-$analytic1#4 :=
-                +-AnalyticFunctionCall(sample_functions:afn_null_handling(INT64, STRING) -> INT64)
+                +-AnalyticFunctionCall(sample_functions:afn_null_handling(INT64, STRING weight) -> INT64)
                   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
                   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
                   +-distinct=TRUE
@@ -2085,7 +2117,7 @@ QueryStmt
             |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
             +-analytic_function_list=
               +-$analytic1#4 :=
-                +-AnalyticFunctionCall(sample_functions:afn_null_handling(INT64, STRING) -> INT64)
+                +-AnalyticFunctionCall(sample_functions:afn_null_handling(INT64, STRING weight) -> INT64)
                   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
                   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
                   +-null_handling_modifier=RESPECT_NULLS

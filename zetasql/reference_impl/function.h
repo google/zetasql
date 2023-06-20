@@ -29,6 +29,7 @@
 #include "zetasql/public/cast.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/regexp.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
@@ -107,6 +108,8 @@ enum class FunctionKind {
   kAnonSumWithReportProto,
   kAnonSumWithReportJson,
   kAnonAvg,
+  kAnonAvgWithReportProto,
+  kAnonAvgWithReportJson,
   kAnonVarPop,
   kAnonStddevPop,
   kAnonQuantiles,
@@ -129,7 +132,9 @@ enum class FunctionKind {
   kLike,
   kLikeWithCollation,
   kLikeAny,
+  kLikeAnyWithCollation,
   kLikeAll,
+  kLikeAllWithCollation,
   kLikeAnyArray,
   kLikeAllArray,
   // BitCast functions
@@ -182,6 +187,9 @@ enum class FunctionKind {
   kCsch,
   kSech,
   kCoth,
+  kPi,
+  kPiNumeric,
+  kPiBigNumeric,
   // Least and greatest functions
   kLeast,
   kGreatest,
@@ -213,6 +221,10 @@ enum class FunctionKind {
   kArrayFirst,
   kArrayLast,
   kArraySlice,
+  kArrayFirstN,
+  kArrayLastN,
+  kArrayRemoveFirstN,
+  kArrayRemoveLastN,
   kArrayMin,
   kArrayMax,
   kArraySum,
@@ -249,6 +261,8 @@ enum class FunctionKind {
   kLaxDouble,
   kLaxString,
   kJsonArray,
+  kJsonObject,
+  kJsonRemove,
   // Proto functions
   kFromProto,
   kToProto,
@@ -430,6 +444,7 @@ enum class FunctionKind {
   kRangeEnd,
   kRangeOverlaps,
   kRangeIntersect,
+  kGenerateRangeArray,
 };
 
 // Provides two utility methods to look up a built-in function name or function
@@ -611,7 +626,7 @@ class UserDefinedScalarFunction : public ScalarFunctionBody {
  public:
   UserDefinedScalarFunction(const FunctionEvaluator& evaluator,
                             const Type* output_type,
-                            const std::string& function_name)
+                            absl::string_view function_name)
       : ScalarFunctionBody(output_type),
         evaluator_(evaluator),
         function_name_(function_name) {}
@@ -1915,6 +1930,14 @@ void MaybeSetNonDeterministicArrayOutput(const Value& array,
 // feature is not turned on.
 absl::Status ValidateMicrosPrecision(const Value& value,
                                      EvaluationContext* context);
+
+// Helper to create an absl::Status with an error indicating that a value
+// reached the size limit.
+absl::Status MakeMaxArrayValueByteSizeExceededError(
+    int64_t max_value_byte_size, const zetasql_base::SourceLocation& source_loc);
+
+// Returns TimestampScale to use based on language options.
+functions::TimestampScale GetTimestampScale(const LanguageOptions& options);
 
 }  // namespace zetasql
 

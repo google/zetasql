@@ -163,7 +163,7 @@ SELECT COUNT(row_id) OVER (PARTITION BY bool_val),
        COUNT(row_id) OVER (PARTITION BY timestamp_val, date_val)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64>>[
+ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64>>[unknown order:
   {3, 2, 2, 1, 2},
   {3, 2, 2, 2, 2},
   {3, 1, 3, 2, 1},
@@ -181,7 +181,7 @@ FROM (SELECT CAST(null AS INT64) as int_val UNION ALL
       SELECT CAST(null AS INT64) UNION ALL
       SELECT CAST(null AS INT64))
 --
-ARRAY<STRUCT<int_val INT64, INT64>>[
+ARRAY<STRUCT<int_val INT64, INT64>>[unknown order:
   {NULL, 4},
   {NULL, 4},
   {NULL, 4},
@@ -205,13 +205,13 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         INT64
       >>
-[{NULL, 0},
- {NULL, 0},
- {TESTENUM0, 1},
- {TESTENUM1, 2},
- {TESTENUM1, 2},
- {TESTENUM2, 2},
- {TESTENUM2, 2}]
+[unknown order:{NULL, 0},
+               {NULL, 0},
+               {TESTENUM0, 1},
+               {TESTENUM1, 2},
+               {TESTENUM1, 2},
+               {TESTENUM2, 2},
+               {TESTENUM2, 2}]
 ==
 
 [name=partitionby_struct]
@@ -226,7 +226,7 @@ ARRAY<STRUCT<
         struct_val STRUCT<INT64, INT64>,
         INT64
       >>
-[{{1, 5}, 1}, {{3, NULL}, 1}, {{3, 5}, 2}, {{3, 5}, 2}]
+[unknown order:{{1, 5}, 1}, {{3, NULL}, 1}, {{3, 5}, 2}, {{3, 5}, 2}]
 ==
 
 [name=partitionby_array]
@@ -235,17 +235,17 @@ SELECT array_val, ROW_NUMBER() OVER (PARTITION BY array_val)
 FROM (SELECT [1, 2, 3] array_val UNION ALL
       SELECT [2, 3, 4] UNION ALL SELECT [2, 3, 4])
 --
-ARRAY<STRUCT<array_val ARRAY<>, INT64>>[
+ARRAY<STRUCT<array_val ARRAY<>, INT64>>[unknown order:
   {
-    ARRAY<INT64>[1, 2, 3],
+    ARRAY<INT64>[known order:1, 2, 3],
     1
   },
   {
-    ARRAY<INT64>[2, 3, 4],
+    ARRAY<INT64>[known order:2, 3, 4],
     1
   },
   {
-    ARRAY<INT64>[2, 3, 4],
+    ARRAY<INT64>[known order:2, 3, 4],
     2
   }
 ]
@@ -268,7 +268,7 @@ FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      3 AS int64_key_1,
                      4 AS int64_key_2)) AS outer_table
 --
-ARRAY<STRUCT<int64_key_1 INT64, INT64>>[{3, NULL}, {1, 3}]
+ARRAY<STRUCT<int64_key_1 INT64, INT64>>[unknown order:{3, NULL}, {1, 3}]
 ==
 
 # Partition by a correlated column reference and a non-correlated reference.
@@ -287,14 +287,14 @@ FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      3 AS int64_key_1,
                      4 AS int64_key_2)) AS outer_table
 --
-ARRAY<STRUCT<int64_key_1 INT64, INT64>>[{3, NULL}, {1, 2}]
+ARRAY<STRUCT<int64_key_1 INT64, INT64>>[unknown order:{3, NULL}, {1, 2}]
 ==
 
 [name=orderby_supported_types_1]
 SELECT bool_val, RANK() OVER (ORDER BY bool_val)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<bool_val BOOL, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, INT64>>[unknown order:
   {false, 1},
   {false, 1},
   {true, 3},
@@ -308,7 +308,7 @@ SELECT int32_val, int64_val,
        RANK() OVER (ORDER BY int32_val DESC, int64_val)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, INT64>>[unknown order:
   {2, -1, 1},
   {1, -1, 2},
   {-1, -1, 3},
@@ -322,7 +322,7 @@ SELECT uint32_val, uint64_val,
        RANK() OVER (ORDER BY uint32_val, uint64_val DESC)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, INT64>>[unknown order:
   {1, 10, 1},
   {1, 10, 1},
   {10, 1, 3},
@@ -336,7 +336,7 @@ SELECT str_val, bytes_val,
        RANK() OVER (ORDER BY str_val, bytes_val)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, INT64>>[unknown order:
   {"1", b"3", 1},
   {"1", b"3", 1},
   {"11", b"1", 3},
@@ -355,38 +355,38 @@ ARRAY<STRUCT<
         date_val DATE,
         INT64
       >>
-[{
-   2014-01-01 00:00:01.011011+00,
-   2014-01-11,
-   1
- },
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   2
- },
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   2
- },
- {
-   2015-01-01 00:00:01.011011+00,
-   2014-01-01,
-   4
- },
- {
-   2015-01-01 01:00:01.011011+00,
-   2014-11-01,
-   5
- }]
+[unknown order:{
+                 2014-01-01 00:00:01.011011+00,
+                 2014-01-11,
+                 1
+               },
+               {
+                 2014-01-01 00:00:01.011011+00,
+                 2014-01-01,
+                 2
+               },
+               {
+                 2014-01-01 00:00:01.011011+00,
+                 2014-01-01,
+                 2
+               },
+               {
+                 2015-01-01 00:00:01.011011+00,
+                 2014-01-01,
+                 4
+               },
+               {
+                 2015-01-01 01:00:01.011011+00,
+                 2014-11-01,
+                 5
+               }]
 ==
 
 [name=orderby_float_1]
 SELECT float_val, double_val, RANK() OVER (ORDER BY float_val, double_val)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, INT64>>[unknown order:
   {nan, inf, 1},
   {0.125, 0.125, 2},
   {0.125, 0.25, 3},
@@ -400,7 +400,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, INT64>>[
 SELECT double_val, count(row_id) OVER (ORDER BY double_val RANGE 2 PRECEDING)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<double_val DOUBLE, INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, INT64>>[unknown order:
   {-inf, 2},
   {-inf, 2},
   {0.125, 1},
@@ -414,7 +414,7 @@ ARRAY<STRUCT<double_val DOUBLE, INT64>>[
 SELECT double_val, count(row_id) OVER (ORDER BY float_val RANGE 2 PRECEDING)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<double_val DOUBLE, INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, INT64>>[unknown order:
   {inf, 1},
   {0.125, 2},
   {0.25, 2},
@@ -436,7 +436,7 @@ FROM (SELECT CAST(0 AS DOUBLE) as double_val UNION ALL
       SELECT CAST("-inf" AS DOUBLE) UNION ALL
       SELECT CAST("-inf" AS DOUBLE))
 --
-ARRAY<STRUCT<double_val DOUBLE, INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, INT64>>[unknown order:
   {NULL, 1},
   {NULL, 2},
   {nan, 3},
@@ -465,7 +465,7 @@ FROM (SELECT CAST(0 AS DOUBLE) as double_val UNION ALL
       SELECT CAST("-inf" AS DOUBLE) UNION ALL
       SELECT CAST("-inf" AS DOUBLE))
 --
-ARRAY<STRUCT<double_val DOUBLE, INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, INT64>>[unknown order:
   {inf, 1},
   {inf, 1},
   {1, 3},
@@ -492,7 +492,7 @@ FROM (SELECT CAST(0 AS FLOAT) float_val UNION ALL
       SELECT CAST("-inf" AS FLOAT) UNION ALL
       SELECT CAST("-inf" AS FLOAT))
 --
-ARRAY<STRUCT<float_val FLOAT, INT64>>[
+ARRAY<STRUCT<float_val FLOAT, INT64>>[unknown order:
   {inf, 1},
   {inf, 1},
   {1, 3},
@@ -520,13 +520,13 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         INT64
       >>
-[{TESTENUM2, 1},
- {TESTENUM2, 1},
- {TESTENUM1, 3},
- {TESTENUM1, 3},
- {TESTENUM0, 5},
- {NULL, 6},
- {NULL, 6}]
+[unknown order:{TESTENUM2, 1},
+               {TESTENUM2, 1},
+               {TESTENUM1, 3},
+               {TESTENUM1, 3},
+               {TESTENUM0, 5},
+               {NULL, 6},
+               {NULL, 6}]
 ==
 
 [name=orderby_array]
@@ -535,13 +535,13 @@ SELECT array_val, RANK() OVER (ORDER BY array_val)
 FROM (SELECT [1, 2, 3] array_val UNION ALL
       SELECT [2, 3, 4])
 --
-ARRAY<STRUCT<array_val ARRAY<>, INT64>>[
+ARRAY<STRUCT<array_val ARRAY<>, INT64>>[unknown order:
   {
-    ARRAY<INT64>[1, 2, 3],
+    ARRAY<INT64>[known order:1, 2, 3],
     1
   },
   {
-    ARRAY<INT64>[2, 3, 4],
+    ARRAY<INT64>[known order:2, 3, 4],
     2
   }
 ]
@@ -554,7 +554,7 @@ SELECT str_val,
        RANK() OVER (ORDER BY str_val COLLATE "en_US")
 FROM unnest(['A', 'e', 'a', 'b', 'C', 'd', 'A']) as str_val
 --
-ARRAY<STRUCT<str_val STRING, INT64, INT64>>[
+ARRAY<STRUCT<str_val STRING, INT64, INT64>>[unknown order:
   {"a", 4, 1},
   {"A", 1, 2},
   {"A", 1, 2},
@@ -572,7 +572,7 @@ SELECT str_val,
        RANK() OVER (ORDER BY str_val)
 FROM unnest(['A', 'e', 'a', 'b', 'C', 'd', 'A']) as str_val
 --
-ARRAY<STRUCT<str_val STRING, INT64, INT64>>[
+ARRAY<STRUCT<str_val STRING, INT64, INT64>>[unknown order:
   {"A", 1, 1},
   {"A", 1, 1},
   {"C", 5, 3},
@@ -618,7 +618,7 @@ FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      ARRAY<UINT32>[7, 8]
                          as repeated_uint32_val), 6) AS outer_table
 --
-ARRAY<STRUCT<b INT64, INT64>>[{6, 2}, {5, 3}]
+ARRAY<STRUCT<b INT64, INT64>>[unknown order:{6, 2}, {5, 3}]
 ==
 
 # Order by a correlated column reference with a range-based cumulative
@@ -641,7 +641,7 @@ FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      ARRAY<UINT32>[7, 8]
                          as repeated_uint32_val) AS a, 6 b) AS outer_table
 --
-ARRAY<STRUCT<b INT64, INT64>>[{6, 2}, {NULL, 3}]
+ARRAY<STRUCT<b INT64, INT64>>[unknown order:{6, 2}, {NULL, 3}]
 ==
 
 # Order by a correlated column reference with a special range-based moving
@@ -665,7 +665,7 @@ FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      ARRAY<UINT32>[7, 8, 9]
                          as repeated_uint32_val) AS a, 6 b) AS outer_table
 --
-ARRAY<STRUCT<b INT64, INT64>>[{6, 0}, {NULL, 3}]
+ARRAY<STRUCT<b INT64, INT64>>[unknown order:{6, 0}, {NULL, 3}]
 ==
 
 # Order by a correlated column reference and a non-correlated reference.
@@ -687,7 +687,7 @@ FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      ARRAY<UINT32>[7, 8]
                          as repeated_uint32_val), 6) AS outer_table
 --
-ARRAY<STRUCT<b INT64, UINT32>>[{6, 8}, {5, 7}]
+ARRAY<STRUCT<b INT64, UINT32>>[unknown order:{6, 8}, {5, 7}]
 ==
 
 # Partition by and order by the same column with a range-based
@@ -698,7 +698,7 @@ SELECT int32_val, count(*) OVER (PARTITION BY int32_val ORDER BY int32_val
                                                CURRENT ROW)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<int32_val INT32, INT64>>[
+ARRAY<STRUCT<int32_val INT32, INT64>>[unknown order:
   {NULL, 2},
   {NULL, 2},
   {-1, 1},
@@ -715,7 +715,7 @@ SELECT int32_val, SUM(1) OVER (PARTITION BY int32_val ORDER BY int32_val
                                RANGE BETWEEN 2 PRECEDING AND 3 PRECEDING)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<int32_val INT32, INT64>>[
+ARRAY<STRUCT<int32_val INT32, INT64>>[unknown order:
   {NULL, 2},
   {NULL, 2},
   {-1, NULL},
@@ -730,7 +730,7 @@ OVER (PARTITION BY int32_val ORDER BY int32_val
       RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<int32_val INT32, INT64>>[
+ARRAY<STRUCT<int32_val INT32, INT64>>[unknown order:
   {NULL, 0},
   {NULL, 0},
   {-1, 0},
@@ -744,7 +744,7 @@ SELECT int32_val, countif(int32_val > 0)
 OVER (ORDER BY int32_val RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<int32_val INT32, INT64>>[
+ARRAY<STRUCT<int32_val INT32, INT64>>[unknown order:
   {NULL, 0},
   {NULL, 0},
   {-1, 0},
@@ -758,7 +758,7 @@ ARRAY<STRUCT<int32_val INT32, INT64>>[
 SELECT SUM(row_id) OVER (PARTITION BY 1)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<INT64>>[{15}, {15}, {15}, {15}, {15}]
+ARRAY<STRUCT<INT64>>[unknown order:{15}, {15}, {15}, {15}, {15}]
 ==
 
 # Partition by a mix of constant and non-constant expressions.
@@ -766,7 +766,7 @@ ARRAY<STRUCT<INT64>>[{15}, {15}, {15}, {15}, {15}]
 SELECT SUM(row_id) OVER (PARTITION BY bool_val, 1)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<INT64>>[{9}, {9}, {6}, {6}, {6}]
+ARRAY<STRUCT<INT64>>[unknown order:{9}, {9}, {6}, {6}, {6}]
 ==
 
 # Order by a constant expression.
@@ -774,7 +774,7 @@ ARRAY<STRUCT<INT64>>[{9}, {9}, {6}, {6}, {6}]
 SELECT SUM(row_id) OVER (ORDER BY 1)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<INT64>>[{15}, {15}, {15}, {15}, {15}]
+ARRAY<STRUCT<INT64>>[unknown order:{15}, {15}, {15}, {15}, {15}]
 ==
 
 # Order by a mix of constant and non-constant expressions.
@@ -782,4 +782,4 @@ ARRAY<STRUCT<INT64>>[{15}, {15}, {15}, {15}, {15}]
 SELECT SUM(row_id) OVER (ORDER BY bool_val, 1)
 FROM TableAllTypes
 --
-ARRAY<STRUCT<INT64>>[{9}, {9}, {15}, {15}, {15}]
+ARRAY<STRUCT<INT64>>[unknown order:{9}, {9}, {15}, {15}, {15}]

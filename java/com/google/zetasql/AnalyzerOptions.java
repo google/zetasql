@@ -359,6 +359,15 @@ public class AnalyzerOptions implements Serializable {
     return builder.getPreserveUnnecessaryCast();
   }
 
+  public void setShowFunctionSignatureMismatchDetails(
+      boolean showFunctionSignatureMismatchDetails) {
+    builder.setShowFunctionSignatureMismatchDetails(showFunctionSignatureMismatchDetails);
+  }
+
+  public boolean getShowFunctionSignatureMismatchDetails() {
+    return builder.getShowFunctionSignatureMismatchDetails();
+  }
+
   static AnalyzerOptions deserialize(
       AnalyzerOptionsProto proto, List<? extends DescriptorPool> pools, TypeFactory factory) {
     AnalyzerOptions options = new AnalyzerOptions();
@@ -379,6 +388,7 @@ public class AnalyzerOptions implements Serializable {
     setParameterMode(proto.getParameterMode());
     setPreserveColumnAliases(proto.getPreserveColumnAliases());
     setPreserveUnnecessaryCast(proto.getPreserveUnnecessaryCast());
+    setShowFunctionSignatureMismatchDetails(proto.getShowFunctionSignatureMismatchDetails());
 
     if (proto.hasInScopeExpressionColumn()) {
       setInScopeExpressionColumn(

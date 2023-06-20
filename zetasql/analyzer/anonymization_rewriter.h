@@ -19,9 +19,9 @@
 
 #include <memory>
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"

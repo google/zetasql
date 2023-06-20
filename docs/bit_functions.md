@@ -6,6 +6,65 @@
 
 ZetaSQL supports the following bit functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#bit_cast_to_int32"><code>BIT_CAST_TO_INT32</code></a>
+
+</td>
+  <td>
+    Cast bits to an <code>INT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_int64"><code>BIT_CAST_TO_INT64</code></a>
+
+</td>
+  <td>
+    Cast bits to an <code>INT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_uint32"><code>BIT_CAST_TO_UINT32</code></a>
+
+</td>
+  <td>
+    Cast bits to an <code>UINT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_uint64"><code>BIT_CAST_TO_UINT64</code></a>
+
+</td>
+  <td>
+    Cast bits to an <code>UINT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_count"><code>BIT_COUNT</code></a>
+
+</td>
+  <td>
+    Gets the number of bits that are set in an input expression.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `BIT_CAST_TO_INT32`
 
 ```sql

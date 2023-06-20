@@ -555,7 +555,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDateTrunc() {
 // <function_name> and wrapped results from the vector of CivilTimeTestCase.
 static std::vector<FunctionTestCall> PrepareCivilTimeTestCaseAsFunctionTestCall(
     const std::vector<CivilTimeTestCase>& test_cases,
-    const std::string& function_name) {
+    absl::string_view function_name) {
   std::vector<QueryParamsWithResult> cases_with_features;
   cases_with_features.reserve(test_cases.size());
   for (const auto& each : test_cases) {
@@ -2108,17 +2108,17 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampAdd() {
       functions::DateTimestampPart_descriptor();
   ZETASQL_CHECK_OK(type_factory()->MakeEnumType(enum_descriptor, &part_enum));
 
-  auto timestamp_add = [part_enum](const std::string& timestamp,
-                                   int64_t interval, const std::string& part,
-                                   const std::string& result) {
+  auto timestamp_add = [part_enum](absl::string_view timestamp,
+                                   int64_t interval, absl::string_view part,
+                                   absl::string_view result) {
     return FunctionTestCall(
         "timestamp_add",
         {TimestampFromStr(timestamp), Int64(interval), Enum(part_enum, part)},
         TimestampFromStr(result));
   };
-  auto timestamp_add_error = [part_enum](const std::string& timestamp,
+  auto timestamp_add_error = [part_enum](absl::string_view timestamp,
                                          int64_t interval,
-                                         const std::string& part) {
+                                         absl::string_view part) {
     return FunctionTestCall(
         "timestamp_add",
         {TimestampFromStr(timestamp), Int64(interval), Enum(part_enum, part)},
@@ -2340,9 +2340,8 @@ static std::vector<FunctionTestCall> GetFunctionTestsDateDiff() {
       functions::DateTimestampPart_descriptor();
   ZETASQL_CHECK_OK(type_factory()->MakeEnumType(part_descriptor, &part_type));
 
-  auto date_diff = [part_type](const std::string& date1,
-                               const std::string& date2,
-                               const std::string& part, int64_t result) {
+  auto date_diff = [part_type](absl::string_view date1, absl::string_view date2,
+                               absl::string_view part, int64_t result) {
     const Value part_value = Enum(part_type, part);
     QueryParamsWithResult test_case(
         {DateFromStr(date1), DateFromStr(date2), part_value}, Int64(result));
@@ -2653,7 +2652,7 @@ static Value Microsecond() {
 FunctionTestCall TimestampTruncTest(const std::string& timestamp_string,
                                     DateTimestampPart part,
                                     const std::string& expected_result,
-                                    const std::string& timezone = "UTC") {
+                                    absl::string_view timezone = "UTC") {
   int64_t timestamp;
   ZETASQL_CHECK_OK(ConvertStringToTimestamp(timestamp_string, timezone, kMicroseconds,
                                     &timestamp)) << timestamp_string;
@@ -2674,7 +2673,7 @@ FunctionTestCall TimestampTruncTest(const std::string& timestamp_string,
 FunctionTestCall TimestampTruncErrorTest(const std::string& timestamp_string,
                                          DateTimestampPart part,
                                          absl::StatusCode code,
-                                         const std::string& timezone = "UTC") {
+                                         absl::string_view timezone = "UTC") {
   int64_t timestamp;
   ZETASQL_CHECK_OK(ConvertStringToTimestamp(timestamp_string, timezone, kMicroseconds,
                                     &timestamp)) << timestamp_string;
@@ -4201,9 +4200,7 @@ struct ParseDateTimestampCommonTest {
 // Helper for ParseTimestamp invalid test result definitions.
 #define EXPECT_ERROR ""
 
-static bool IsExpectedError(const std::string& result) {
-  return result.empty();
-}
+static bool IsExpectedError(absl::string_view result) { return result.empty(); }
 
 // For the test cases returned by this function, they will have microsecond
 // precision if the subsecond part is relevant.
@@ -5408,21 +5405,21 @@ GetParseDateTimestampCommonTests() {
 
 class ParseTimestampTest {
  public:
-  ParseTimestampTest(const std::string& format,
-                     const std::string& timestamp_string,
-                     const std::string& default_time_zone,
-                     const std::string& expected_result)
+  ParseTimestampTest(absl::string_view format,
+                     absl::string_view timestamp_string,
+                     absl::string_view default_time_zone,
+                     absl::string_view expected_result)
       : format_(format),
         timestamp_string_(timestamp_string),
         default_time_zone_(default_time_zone),
         expected_result_(expected_result),
         nano_expected_result_(expected_result) {}
 
-  ParseTimestampTest(const std::string& format,
-                     const std::string& timestamp_string,
-                     const std::string& default_time_zone,
-                     const std::string& expected_result,
-                     const std::string& nano_expected_result)
+  ParseTimestampTest(absl::string_view format,
+                     absl::string_view timestamp_string,
+                     absl::string_view default_time_zone,
+                     absl::string_view expected_result,
+                     absl::string_view nano_expected_result)
       : format_(format),
         timestamp_string_(timestamp_string),
         default_time_zone_(default_time_zone),
@@ -5681,8 +5678,8 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseTime() {
 
   // Add nano test cases.
   for (const ParseTimestampTest& test : GetParseNanoTimestampSensitiveTests()) {
-    auto ConvertTimestampStringToTime = [](const std::string& timestamp_string,
-                                           const std::string& timezone_string,
+    auto ConvertTimestampStringToTime = [](absl::string_view timestamp_string,
+                                           absl::string_view timezone_string,
                                            functions::TimestampScale scale) {
       if (IsExpectedError(timestamp_string)) {
         return absl::StatusOr<Value>(FunctionEvalError());
@@ -5775,9 +5772,8 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseDatetime() {
   // Add nano test cases.
   for (const ParseTimestampTest& test : GetParseNanoTimestampSensitiveTests()) {
     auto ConvertTimestampStringToDatetime =
-        [](const std::string& timestamp_string,
-           const std::string& timezone_string,
-           functions::TimestampScale scale) {
+        [](absl::string_view timestamp_string,
+           absl::string_view timezone_string, functions::TimestampScale scale) {
           if (IsExpectedError(timestamp_string)) {
             return absl::StatusOr<Value>(FunctionEvalError());
           }
@@ -5939,44 +5935,50 @@ std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp() {
 struct CastStringToDateTimestampCommonTest : ParseDateTimestampCommonTest {
   int32_t current_date;
   std::string nano_expected_result;
-  CastStringToDateTimestampCommonTest(const std::string& format_string_in,
+  CastStringToDateTimestampCommonTest(absl::string_view format_string_in,
                                       TestFormatDateTimeParts parts_in,
-                                      const std::string& input_string_in,
+                                      absl::string_view input_string_in,
                                       int32_t current_date_in,
-                                      const std::string& expected_result_in)
-      : ParseDateTimestampCommonTest{format_string_in, parts_in,
-                                     input_string_in, expected_result_in},
+                                      absl::string_view expected_result_in)
+      : ParseDateTimestampCommonTest{std::string(format_string_in), parts_in,
+                                     std::string(input_string_in),
+                                     std::string(expected_result_in)},
         current_date(current_date_in),
         nano_expected_result(expected_result_in) {}
 
-  CastStringToDateTimestampCommonTest(
-      const std::string& format_string_in, TestFormatDateTimeParts parts_in,
-      const std::string& input_string_in, int32_t current_date_in,
-      const std::string& expected_result_in,
-      const std::string& nano_expected_result_in)
-      : ParseDateTimestampCommonTest{format_string_in, parts_in,
-                                     input_string_in, expected_result_in},
+  CastStringToDateTimestampCommonTest(absl::string_view format_string_in,
+                                      TestFormatDateTimeParts parts_in,
+                                      absl::string_view input_string_in,
+                                      int32_t current_date_in,
+                                      absl::string_view expected_result_in,
+                                      absl::string_view nano_expected_result_in)
+      : ParseDateTimestampCommonTest{std::string(format_string_in), parts_in,
+                                     std::string(input_string_in),
+                                     std::string(expected_result_in)},
         current_date(current_date_in),
         nano_expected_result(nano_expected_result_in) {}
 
-  CastStringToDateTimestampCommonTest(const std::string& format_string_in,
+  CastStringToDateTimestampCommonTest(absl::string_view format_string_in,
                                       TestFormatDateTimeParts parts_in,
-                                      const std::string& input_string_in,
-                                      const std::string& expected_result_in)
-      : ParseDateTimestampCommonTest{format_string_in, parts_in,
-                                     input_string_in, expected_result_in},
+                                      absl::string_view input_string_in,
+                                      absl::string_view expected_result_in)
+      : ParseDateTimestampCommonTest{std::string(format_string_in), parts_in,
+                                     std::string(input_string_in),
+                                     std::string(expected_result_in)},
         nano_expected_result(expected_result_in) {
     // Sets value of <current_date> to 1970-1-1 if not provided in constructor
     // arguments.
     ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &current_date));
   }
 
-  CastStringToDateTimestampCommonTest(
-      const std::string& format_string_in, TestFormatDateTimeParts parts_in,
-      const std::string& input_string_in, const std::string& expected_result_in,
-      const std::string& nano_expected_result_in)
-      : ParseDateTimestampCommonTest{format_string_in, parts_in,
-                                     input_string_in, expected_result_in},
+  CastStringToDateTimestampCommonTest(absl::string_view format_string_in,
+                                      TestFormatDateTimeParts parts_in,
+                                      absl::string_view input_string_in,
+                                      absl::string_view expected_result_in,
+                                      absl::string_view nano_expected_result_in)
+      : ParseDateTimestampCommonTest{std::string(format_string_in), parts_in,
+                                     std::string(input_string_in),
+                                     std::string(expected_result_in)},
         nano_expected_result(nano_expected_result_in) {
     // Sets value of <current_date> to 1970-1-1 if not provided in constructor
     // arguments.
@@ -6923,21 +6925,21 @@ GetCastStringToDateTimestampInvalidElementTests() {
 
 class CastStringToTimestampTest : public ParseTimestampTest {
  public:
-  CastStringToTimestampTest(const std::string& format,
-                            const std::string& timestamp_string,
-                            const std::string& default_time_zone,
+  CastStringToTimestampTest(absl::string_view format,
+                            absl::string_view timestamp_string,
+                            absl::string_view default_time_zone,
                             absl::Time current_timestamp,
-                            const std::string& expected_result)
+                            absl::string_view expected_result)
       : ParseTimestampTest(format, timestamp_string, default_time_zone,
                            expected_result),
         current_timestamp_(current_timestamp) {}
 
-  CastStringToTimestampTest(const std::string& format,
-                            const std::string& timestamp_string,
-                            const std::string& default_time_zone,
+  CastStringToTimestampTest(absl::string_view format,
+                            absl::string_view timestamp_string,
+                            absl::string_view default_time_zone,
                             absl::Time current_timestamp,
-                            const std::string& expected_result,
-                            const std::string& nano_expected_result)
+                            absl::string_view expected_result,
+                            absl::string_view nano_expected_result)
       : ParseTimestampTest(format, timestamp_string, default_time_zone,
                            expected_result, nano_expected_result),
         current_timestamp_(current_timestamp) {}
@@ -7090,11 +7092,13 @@ static std::vector<CastStringToTimestampTest> GetCastStringToTimestampTests() {
 struct CastStringToDateTest : ParseDateTest {
   int32_t current_date;
 
-  CastStringToDateTest(const std::string& format_string_in,
-                       const std::string& date_string_in,
+  CastStringToDateTest(absl::string_view format_string_in,
+                       absl::string_view date_string_in,
                        int32_t current_date_in,
-                       const std::string& expected_result_in)
-      : ParseDateTest{format_string_in, date_string_in, expected_result_in},
+                       absl::string_view expected_result_in)
+      : ParseDateTest{std::string(format_string_in),
+                      std::string(date_string_in),
+                      std::string(expected_result_in)},
         current_date(current_date_in) {}
 };
 
@@ -7132,7 +7136,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsCastStringToTime() {
        GetCastStringToDateTimestampCommonTests()) {
     if (common_test.parts == TEST_FORMAT_TIME ||
         common_test.parts == TEST_FORMAT_ANY) {
-      auto ConvertTimeStringToTime = [](const std::string& time_string,
+      auto ConvertTimeStringToTime = [](absl::string_view time_string,
                                         functions::TimestampScale scale) {
         if (IsExpectedError(time_string)) {
           return absl::StatusOr<Value>(FunctionEvalError());
@@ -7196,8 +7200,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsCastStringToDatetime() {
       continue;
     }
     auto ConvertDatetimeStringToDateTime =
-        [](const std::string& datetime_string,
-           functions::TimestampScale scale) {
+        [](absl::string_view datetime_string, functions::TimestampScale scale) {
           if (IsExpectedError(datetime_string)) {
             return absl::StatusOr<Value>(FunctionEvalError());
           }

@@ -117,7 +117,7 @@ select [cast(timestamp "2015-01-28" as string),
         cast(timestamp "2015-01-28 00:00:00.000000" as string)]
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>[
+  {ARRAY<STRING>[known order:
      "2015-01-28 00:00:00+00",
      "2015-01-28 00:00:00+00",
      "2015-01-28 00:00:00+00",
@@ -140,7 +140,7 @@ select [cast(timestamp "2015-01-28 00:00:00" as string),
         cast(timestamp "2015-01-28 00:00:00.000001" as string)]
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>[
+  {ARRAY<STRING>[known order:
      "2015-01-28 00:00:00+00",
      "2015-01-28 00:00:00.100+00",
      "2015-01-28 00:00:00.010+00",
@@ -156,7 +156,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 select cast(timestamp_val as string)
 from TzTable2
 --
-ARRAY<STRUCT<STRING>>[
+ARRAY<STRUCT<STRING>>[unknown order:
   {"1970-01-01 00:00:00.000001+00"},
   {"1970-01-01 00:00:00.000100+00"},
   {"1970-01-01 00:00:00.010+00"},

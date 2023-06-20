@@ -224,7 +224,7 @@ AlterTableStmt
       +-ColumnDefaultValue
         +-expression=
         | +-FunctionCall(ZetaSQL:array_to_string(ARRAY<STRING>, STRING, optional(0) STRING) -> STRING)
-        |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, LAMBDA(STRING->BOOL) condition) -> ARRAY<STRING>)
+        |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, FUNCTION<STRING->BOOL> condition) -> ARRAY<STRING>)
         |   | +-FunctionArgument
         |   | | +-expr=
         |   | |   +-Literal(type=ARRAY<STRING>, value=["a"])

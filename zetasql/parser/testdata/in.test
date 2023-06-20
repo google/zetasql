@@ -355,10 +355,11 @@ QueryStatement [0-29] [select 1 IN UNNEST([1, 2, 3])]
             IntLiteral(1) [7-8] [1]
             Location [9-11] [IN]
             UnnestExpression [12-29] [UNNEST([1, 2, 3])]
-              ArrayConstructor [19-28] [[1, 2, 3]]
-                IntLiteral(1) [20-21] [1]
-                IntLiteral(2) [23-24] [2]
-                IntLiteral(3) [26-27] [3]
+              ExpressionWithOptAlias [19-28] [[1, 2, 3]]
+                ArrayConstructor [19-28] [[1, 2, 3]]
+                  IntLiteral(1) [20-21] [1]
+                  IntLiteral(2) [23-24] [2]
+                  IntLiteral(3) [26-27] [3]
 --
 SELECT
   1 IN UNNEST(ARRAY[1, 2, 3])
@@ -656,7 +657,8 @@ QueryStatement [0-26] [select x NOT IN UNNEST([])]
               Identifier(x) [7-8] [x]
             Location [13-15] [IN]
             UnnestExpression [16-26] [UNNEST([])]
-              ArrayConstructor [23-25] [[]]
+              ExpressionWithOptAlias [23-25] [[]]
+                ArrayConstructor [23-25] [[]]
 --
 SELECT
   x NOT IN UNNEST(ARRAY[])
@@ -688,12 +690,13 @@ QueryStatement [0-47] [select x from...select 1) )]
             Identifier(x) [22-23] [x]
           Location [24-26] [IN]
           UnnestExpression [27-47] [UNNEST( (select 1) )]
-            ExpressionSubquery [35-45] [(select 1)]
-              Query [36-44] [select 1]
-                Select [36-44] [select 1]
-                  SelectList [43-44] [1]
-                    SelectColumn [43-44] [1]
-                      IntLiteral(1) [43-44] [1]
+            ExpressionWithOptAlias [35-45] [(select 1)]
+              ExpressionSubquery [35-45] [(select 1)]
+                Query [36-44] [select 1]
+                  Select [36-44] [select 1]
+                    SelectList [43-44] [1]
+                      SelectColumn [43-44] [1]
+                        IntLiteral(1) [43-44] [1]
 --
 SELECT
   x
@@ -728,19 +731,40 @@ QueryStatement [0-25] [select x IN UNNEST(x + y)]
               Identifier(x) [7-8] [x]
             Location [9-11] [IN]
             UnnestExpression [12-25] [UNNEST(x + y)]
-              BinaryExpression(+) [19-24] [x + y]
-                PathExpression [19-20] [x]
-                  Identifier(x) [19-20] [x]
-                PathExpression [23-24] [y]
-                  Identifier(y) [23-24] [y]
+              ExpressionWithOptAlias [19-24] [x + y]
+                BinaryExpression(+) [19-24] [x + y]
+                  PathExpression [19-20] [x]
+                    Identifier(x) [19-20] [x]
+                  PathExpression [23-24] [y]
+                    Identifier(y) [23-24] [y]
 --
 SELECT
   x IN UNNEST(x + y)
 ==
 
+# With the structure change of ASTUnnestExpression this syntax is now allowed by
+# parser. The check to disallow using it is moved to analyzer.
 select x IN UNNEST(x + y, x)
 --
-ERROR: Syntax error: Unexpected "," [at 1:25]
-select x IN UNNEST(x + y, x)
-                        ^
-==
+QueryStatement [0-28] [select x IN UNNEST(x + y, x)]
+  Query [0-28] [select x IN UNNEST(x + y, x)]
+    Select [0-28] [select x IN UNNEST(x + y, x)]
+      SelectList [7-28] [x IN UNNEST(x + y, x)]
+        SelectColumn [7-28] [x IN UNNEST(x + y, x)]
+          InExpression(IN) [7-28] [x IN UNNEST(x + y, x)]
+            PathExpression [7-8] [x]
+              Identifier(x) [7-8] [x]
+            Location [9-11] [IN]
+            UnnestExpression [12-28] [UNNEST(x + y, x)]
+              ExpressionWithOptAlias [19-24] [x + y]
+                BinaryExpression(+) [19-24] [x + y]
+                  PathExpression [19-20] [x]
+                    Identifier(x) [19-20] [x]
+                  PathExpression [23-24] [y]
+                    Identifier(y) [23-24] [y]
+              ExpressionWithOptAlias [26-27] [x]
+                PathExpression [26-27] [x]
+                  Identifier(x) [26-27] [x]
+--
+SELECT
+  x IN UNNEST(x + y, x)

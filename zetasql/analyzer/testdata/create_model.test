@@ -1262,3 +1262,12 @@ CreateModelStmt
       +-user_custom_holiday.region#2 AS region [STRING]
       +-user_custom_holiday.holiday_name#3 AS holiday_name [STRING]
       +-user_custom_holiday.primary_date#4 AS primary_date [DATE]
+==
+
+[disallow_duplicate_options]
+create model t1 options (abc = def, abc = 2)
+--
+
+ERROR: Duplicate option specified for 'abc' [at 1:37]
+create model t1 options (abc = def, abc = 2)
+                                    ^

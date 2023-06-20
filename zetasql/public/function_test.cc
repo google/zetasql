@@ -415,11 +415,16 @@ static FreestandingDeprecationWarning CreateDeprecationWarning() {
 TEST_F(FunctionSerializationTests, BuiltinFunctions) {
   TypeFactory type_factory;
   LanguageOptions language_options;
+  // Even functions that are "in_development" should serialize properly.
   language_options.EnableMaximumLanguageFeaturesForDevelopment();
+  // TODO: Extend this test to cover external product mode too.
   language_options.set_product_mode(PRODUCT_INTERNAL);
 
-  std::map<std::string, std::unique_ptr<Function>> functions;
-  GetZetaSQLFunctions(&type_factory, language_options, &functions);
+  absl::flat_hash_map<std::string, std::unique_ptr<Function>> functions;
+  absl::flat_hash_map<std::string, const Type*> types_ignored;
+  ZETASQL_ASSERT_OK(
+      GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(language_options),
+                                  type_factory, functions, types_ignored));
 
   for (const auto& pair : functions) {
     ZETASQL_LOG(INFO) << "Testing serialization of function " << pair.first;
@@ -479,9 +484,11 @@ TEST_F(FunctionSerializationTests,
       /*result_type=*/zetasql::types::Int64Type(),
       /*arguments=*/
       {{zetasql::types::Int32Type(),
-        FunctionArgumentTypeOptions().set_argument_name("arg_int32")},
+        FunctionArgumentTypeOptions().set_argument_name("arg_int32",
+                                                        kPositionalOrNamed)},
        {zetasql::types::Int64Type(),
-        FunctionArgumentTypeOptions().set_argument_name("arg_int64")}},
+        FunctionArgumentTypeOptions().set_argument_name("arg_int64",
+                                                        kPositionalOrNamed)}},
       /*context_id=*/-1);
   FileDescriptorSetMap file_descriptor_set_map;
   FunctionSignatureProto signature_proto;
@@ -558,45 +565,48 @@ TEST_F(FunctionSerializationTests,
       /*result_type=*/zetasql::types::Int64Type(),
       /*arguments=*/
       {
-          {types::StringType(), FunctionArgumentTypeOptions()
-                                    .set_argument_name("arg_string")
-                                    .set_cardinality(FunctionEnums::OPTIONAL)},
+          {types::StringType(),
+           FunctionArgumentTypeOptions()
+               .set_argument_name("arg_string", kPositionalOrNamed)
+               .set_cardinality(FunctionEnums::OPTIONAL)},
           {types::Int64Type(),
            FunctionArgumentTypeOptions()
-               .set_argument_name("arg_int64")
+               .set_argument_name("arg_int64", kPositionalOrNamed)
                .set_cardinality(FunctionEnums::OPTIONAL)
                .set_default(values::Int64(-123456778987654321))},
           {array_double_type,
            FunctionArgumentTypeOptions()
-               .set_argument_name("arg_double_arr")
+               .set_argument_name("arg_double_arr", kPositionalOrNamed)
                .set_cardinality(FunctionEnums::OPTIONAL)
                .set_default(values::EmptyArray(array_double_type))},
           {proto_type,
            FunctionArgumentTypeOptions()
-               .set_argument_name("arg_proto")
+               .set_argument_name("arg_proto", kPositionalOrNamed)
                .set_cardinality(FunctionEnums::OPTIONAL)
                .set_default(values::Proto(proto_type, proto_value))},
           {array_proto_type,
            FunctionArgumentTypeOptions()
-               .set_argument_name("arg_proto_arr")
+               .set_argument_name("arg_proto_arr", kPositionalOrNamed)
                .set_cardinality(FunctionEnums::OPTIONAL)
                .set_default(
                    values::Array(array_proto_type,
                                  {values::Proto(proto_type, proto_value),
                                   values::Proto(proto_type, proto_value)}))},
-          {proto_type, FunctionArgumentTypeOptions()
-                           .set_argument_name("arg_proto_null")
-                           .set_cardinality(FunctionEnums::OPTIONAL)
-                           .set_default(values::Null(proto_type))},
+          {proto_type,
+           FunctionArgumentTypeOptions()
+               .set_argument_name("arg_proto_null", kPositionalOrNamed)
+               .set_cardinality(FunctionEnums::OPTIONAL)
+               .set_default(values::Null(proto_type))},
           {array_proto_type,
            FunctionArgumentTypeOptions()
-               .set_argument_name("arg_proto_arr_null")
+               .set_argument_name("arg_proto_arr_null", kPositionalOrNamed)
                .set_cardinality(FunctionEnums::OPTIONAL)
                .set_default(values::Null(array_proto_type))},
-          {types::BytesType(), FunctionArgumentTypeOptions()
-                                   .set_argument_name("arg_bytes_null")
-                                   .set_cardinality(FunctionEnums::OPTIONAL)
-                                   .set_default(values::NullBytes())},
+          {types::BytesType(),
+           FunctionArgumentTypeOptions()
+               .set_argument_name("arg_bytes_null", kPositionalOrNamed)
+               .set_cardinality(FunctionEnums::OPTIONAL)
+               .set_default(values::NullBytes())},
       },
       /*context_id=*/-1);
   FileDescriptorSetMap file_descriptor_set_map;
@@ -682,33 +692,34 @@ TEST_F(FunctionSerializationTests,
       /*result_type=*/zetasql::types::Int64Type(),
       /*arguments=*/
       {{ARG_TYPE_ANY_1, FunctionArgumentTypeOptions()
-                            .set_argument_name("arg_any")
+                            .set_argument_name("arg_any", kPositionalOrNamed)
                             .set_cardinality(FunctionEnums::OPTIONAL)
                             .set_default(values::NullInt64())},
        {ARG_TYPE_ANY_2,
         FunctionArgumentTypeOptions()
-            .set_argument_name("arg_double_arr")
+            .set_argument_name("arg_double_arr", kPositionalOrNamed)
             .set_cardinality(FunctionEnums::OPTIONAL)
             .set_default(values::EmptyArray(array_double_type))},
        {ARG_PROTO_ANY,
         FunctionArgumentTypeOptions()
-            .set_argument_name("arg_proto")
+            .set_argument_name("arg_proto", kPositionalOrNamed)
             .set_cardinality(FunctionEnums::OPTIONAL)
             .set_default(values::Proto(proto_type, proto_value))},
        {ARG_ARRAY_TYPE_ANY_1,
         FunctionArgumentTypeOptions()
-            .set_argument_name("arg_proto_arr")
+            .set_argument_name("arg_proto_arr", kPositionalOrNamed)
             .set_cardinality(FunctionEnums::OPTIONAL)
             .set_default(values::Array(
                 array_proto_type, {values::Proto(proto_type, proto_value),
                                    values::Proto(proto_type, proto_value)}))},
-       {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()
-                                .set_argument_name("arg_proto_null")
-                                .set_cardinality(FunctionEnums::OPTIONAL)
-                                .set_default(values::Null(proto_type))},
+       {ARG_TYPE_ARBITRARY,
+        FunctionArgumentTypeOptions()
+            .set_argument_name("arg_proto_null", kPositionalOrNamed)
+            .set_cardinality(FunctionEnums::OPTIONAL)
+            .set_default(values::Null(proto_type))},
        {ARG_ARRAY_TYPE_ANY_2,
         FunctionArgumentTypeOptions()
-            .set_argument_name("arg_proto_arr_null")
+            .set_argument_name("arg_proto_arr_null", kPositionalOrNamed)
             .set_cardinality(FunctionEnums::OPTIONAL)
             .set_default(values::Null(array_proto_type))}},
       /*context_id=*/-1);

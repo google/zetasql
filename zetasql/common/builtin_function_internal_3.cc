@@ -43,6 +43,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
@@ -80,6 +81,17 @@ static std::string SupportedSignaturesForDPCountStar(
 static FunctionSignatureOptions SetRewriter(ResolvedASTRewrite rewriter) {
   return FunctionSignatureOptions().set_rewrite_options(
       FunctionSignatureRewriteOptions().set_rewriter(rewriter));
+}
+
+// Create a `FunctionSignatureOptions` that configures a SQL definition that
+// will be inlined by `REWRITE_BUILTIN_FUNCTION_INLINER`.
+static FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
+                                                         bool enabled = true) {
+  return FunctionSignatureOptions().set_rewrite_options(
+      FunctionSignatureRewriteOptions()
+          .set_enabled(enabled)
+          .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+          .set_sql(sql));
 }
 
 void GetStringFunctions(TypeFactory* type_factory,
@@ -652,6 +664,40 @@ void GetErrorHandlingFunctions(TypeFactory* type_factory,
                    SetRewriter(REWRITE_NULLIFERROR_FUNCTION)}});
 }
 
+static FunctionSignatureOnHeap NullIfZeroSig(const Type* type,
+                                             FunctionSignatureId id) {
+  constexpr absl::string_view kNullIfZeroTemplate = R"sql(
+    NULLIF(input, 0)
+  )sql";
+  FunctionArgumentType input_arg{
+      type, FunctionArgumentTypeOptions().set_argument_name("input",
+                                                            kPositionalOnly)};
+  return FunctionSignatureOnHeap(
+      type, {input_arg}, id,
+      FunctionSignatureOptions().set_rewrite_options(
+          FunctionSignatureRewriteOptions()
+              .set_enabled(true)
+              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+              .set_sql(kNullIfZeroTemplate)));
+}
+
+static FunctionSignatureOnHeap ZeroIfNullSig(const Type* type,
+                                             FunctionSignatureId id) {
+  constexpr absl::string_view kZeroIfNullTemplate = R"sql(
+    IFNULL(input, 0)
+  )sql";
+  FunctionArgumentType input_arg{
+      type, FunctionArgumentTypeOptions().set_argument_name("input",
+                                                            kPositionalOnly)};
+  return FunctionSignatureOnHeap(
+      type, {input_arg}, id,
+      FunctionSignatureOptions().set_rewrite_options(
+          FunctionSignatureRewriteOptions()
+              .set_enabled(true)
+              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+              .set_sql(kZeroIfNullTemplate)));
+}
+
 void GetConditionalFunctions(TypeFactory* type_factory,
                              const ZetaSQLBuiltinFunctionOptions& options,
                              NameToFunctionMap* functions) {
@@ -659,6 +705,14 @@ void GetConditionalFunctions(TypeFactory* type_factory,
   const FunctionArgumentType::ArgumentCardinality REPEATED =
       FunctionArgumentType::REPEATED;
   const Type* bool_type = type_factory->get_bool();
+  const Type* int32_type = type_factory->get_int32();
+  const Type* int64_type = type_factory->get_int64();
+  const Type* uint32_type = type_factory->get_uint32();
+  const Type* uint64_type = type_factory->get_uint64();
+  const Type* double_type = type_factory->get_double();
+  const Type* float_type = type_factory->get_float();
+  const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
 
   InsertSimpleFunction(
       functions, options, "if", SCALAR,
@@ -681,6 +735,33 @@ void GetConditionalFunctions(TypeFactory* type_factory,
       {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NULLIF}},
       FunctionOptions().set_post_resolution_argument_constraint(
           absl::bind_front(&CheckArgumentsSupportEquality, "NULLIF")));
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL)) {
+    // ZEROIFNULL(expr): if expr is not null, returns expr, else 0.
+    InsertFunction(
+        functions, options, "zeroifnull", SCALAR,
+        {{ZeroIfNullSig(int32_type, FN_ZEROIFNULL_INT32),
+          ZeroIfNullSig(uint32_type, FN_ZEROIFNULL_UINT32),
+          ZeroIfNullSig(float_type, FN_ZEROIFNULL_FLOAT),
+          ZeroIfNullSig(int64_type, FN_ZEROIFNULL_INT64),
+          ZeroIfNullSig(uint64_type, FN_ZEROIFNULL_UINT64),
+          ZeroIfNullSig(double_type, FN_ZEROIFNULL_DOUBLE),
+          ZeroIfNullSig(numeric_type, FN_ZEROIFNULL_NUMERIC),
+          ZeroIfNullSig(bignumeric_type, FN_ZEROIFNULL_BIGNUMERIC)}});
+
+    // NULLIFZERO(expr): NULL if expr = 0 otherwise returns expr.
+    InsertFunction(
+        functions, options, "nullifzero", SCALAR,
+        {{NullIfZeroSig(int32_type, FN_NULLIFZERO_INT32),
+          NullIfZeroSig(uint32_type, FN_NULLIFZERO_UINT32),
+          NullIfZeroSig(float_type, FN_NULLIFZERO_FLOAT),
+          NullIfZeroSig(int64_type, FN_NULLIFZERO_INT64),
+          NullIfZeroSig(uint64_type, FN_NULLIFZERO_UINT64),
+          NullIfZeroSig(double_type, FN_NULLIFZERO_DOUBLE),
+          NullIfZeroSig(numeric_type, FN_NULLIFZERO_NUMERIC),
+          NullIfZeroSig(bignumeric_type, FN_NULLIFZERO_BIGNUMERIC)}});
+  }
 
   // From the SQL language perspective, the ELSE clause is optional for both
   // CASE statement signatures.  However, the parser will normalize the
@@ -1181,15 +1262,11 @@ void GetJSONFunctions(TypeFactory* type_factory,
             FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS)) {
       zetasql::FunctionOptions function_options;
       if (options.language_options.product_mode() == PRODUCT_INTERNAL) {
-        function_options.set_alias_name("float64");
+        function_options.set_alias_name("double");
       }
       InsertFunction(functions, options, "int64", SCALAR,
                      {{int64_type, {json_type}, FN_JSON_TO_INT64}});
-      InsertFunction(functions, options,
-                     options.language_options.product_mode() == PRODUCT_EXTERNAL
-                         ? "float64"
-                         : "double",
-                     SCALAR,
+      InsertFunction(functions, options, "float64", SCALAR,
                      {{double_type,
                        {json_type,
                         {string_type,
@@ -1213,13 +1290,9 @@ void GetJSONFunctions(TypeFactory* type_factory,
                      {{int64_type, {json_type}, FN_JSON_LAX_TO_INT64}});
       zetasql::FunctionOptions function_options;
       if (options.language_options.product_mode() == PRODUCT_INTERNAL) {
-        function_options.set_alias_name("lax_float64");
+        function_options.set_alias_name("lax_double");
       }
-      InsertFunction(functions, options,
-                     options.language_options.product_mode() == PRODUCT_EXTERNAL
-                         ? "lax_float64"
-                         : "lax_double",
-                     SCALAR,
+      InsertFunction(functions, options, "lax_float64", SCALAR,
                      {{double_type, {json_type}, FN_JSON_LAX_TO_DOUBLE}},
                      function_options);
       InsertFunction(functions, options, "lax_string", SCALAR,
@@ -1281,6 +1354,33 @@ void GetJSONFunctions(TypeFactory* type_factory,
         {ARG_TYPE_ANY_1, {bool_type, FunctionArgumentType::OPTIONAL}},
         FN_TO_JSON_STRING,
         FunctionSignatureOptions().set_propagates_collation(false)}});
+
+  InsertFunction(
+      functions, options, "json_object", SCALAR,
+      {{json_type,
+        {{string_type, FunctionArgumentTypeOptions().set_cardinality(REPEATED)},
+         {ARG_TYPE_ARBITRARY,
+          FunctionArgumentTypeOptions().set_cardinality(REPEATED)}},
+        FN_JSON_OBJECT},
+       {json_type,
+        {{array_string_type}, {ARG_ARRAY_TYPE_ANY_1}},
+        FN_JSON_OBJECT_ARRAYS}},
+      FunctionOptions()
+          .add_required_language_feature(FEATURE_JSON_TYPE)
+          .add_required_language_feature(FEATURE_JSON_CONSTRUCTOR_FUNCTIONS));
+
+  InsertFunction(
+      functions, options, "json_remove", SCALAR,
+      {{json_type,
+        {json_type,
+         {string_type, FunctionArgumentTypeOptions().set_must_be_constant()},
+         {string_type, FunctionArgumentTypeOptions()
+                           .set_cardinality(REPEATED)
+                           .set_must_be_constant()}},
+        FN_JSON_REMOVE}},
+      FunctionOptions()
+          .add_required_language_feature(FEATURE_JSON_TYPE)
+          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 }
 
 absl::Status GetNumericFunctions(TypeFactory* type_factory,
@@ -1703,6 +1803,32 @@ void GetTrigonometricFunctions(TypeFactory* type_factory,
                        {{double_type, {double_type}, FN_SECH_DOUBLE}});
   InsertSimpleFunction(functions, options, "coth", SCALAR,
                        {{double_type, {double_type}, FN_COTH_DOUBLE}});
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_PI_FUNCTIONS)) {
+    constexpr absl::string_view kPiDoubleTemplate = R"sql(
+    3.1415926535897931
+    )sql";
+    constexpr absl::string_view kPiNumericTemplate = R"sql(
+    NUMERIC '3.141592654'
+    )sql";
+    constexpr absl::string_view kPiBigNumericTemplate = R"sql(
+    BIGNUMERIC '3.1415926535897932384626433832795028842'
+    )sql";
+    InsertFunction(functions, options, "pi", SCALAR,
+                   {{double_type,
+                     {},
+                     FN_PI_DOUBLE,
+                     SetDefinitionForInlining(kPiDoubleTemplate)}});
+    InsertFunction(functions, options, "pi_numeric", SCALAR,
+                   {{type_factory->get_numeric(),
+                     {},
+                     FN_PI_NUMERIC,
+                     SetDefinitionForInlining(kPiNumericTemplate)}});
+    InsertFunction(functions, options, "pi_bignumeric", SCALAR,
+                   {{type_factory->get_bignumeric(),
+                     {},
+                     FN_PI_BIGNUMERIC,
+                     SetDefinitionForInlining(kPiBigNumericTemplate)}});
+  }
 }
 
 absl::Status GetMathFunctions(TypeFactory* type_factory,
@@ -3416,7 +3542,8 @@ void GetDifferentialPrivacyFunctions(
                 argument.argument_name() != "report_format") {
               argument_texts.push_back(argument.UserFacingNameWithCardinality(
                   language_options.product_mode(),
-                  FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
+                  FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+                  /*print_template_details=*/true));
             } else {
               const std::string report_suffix =
                   signature.result_type().type()->IsJsonType()
@@ -3427,7 +3554,8 @@ void GetDifferentialPrivacyFunctions(
               argument_texts.push_back(absl::StrCat(
                   argument.UserFacingNameWithCardinality(
                       language_options.product_mode(),
-                      FunctionArgumentType::NamePrintingStyle::kIfNamedOnly),
+                      FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+                      /*print_template_details=*/true),
                   report_suffix));
             }
           }

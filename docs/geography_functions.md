@@ -1961,8 +1961,6 @@ SELECT ST_INTERIORRINGS(g) AS rings FROM geo;
  *----------------------------------------------------------------------------*/
 ```
 
- 
-
 ### `ST_INTERSECTION`
 
 ```sql
@@ -2149,8 +2147,6 @@ For example, the results of expressions `ST_GEOGFROMTEXT('POINT EMPTY')` and
 **Return type**
 
 `BOOL`
-
- 
 
 ### `ST_ISRING`
 

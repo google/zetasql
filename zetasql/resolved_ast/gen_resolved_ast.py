@@ -130,6 +130,7 @@ SCALAR_TABLE = ScalarType('const Table*', 'TableRefProto', 'Table')
 SCALAR_MODEL = ScalarType('const Model*', 'ModelRefProto', 'Model')
 SCALAR_CONNECTION = ScalarType('const Connection*', 'ConnectionRefProto',
                                'Connection')
+SCALAR_SEQUENCE = ScalarType('const Sequence*', 'SequenceRefProto', 'Sequence')
 SCALAR_RESOLVED_COLUMN = ScalarType(
     'ResolvedColumn', 'ResolvedColumnProto', passed_by_reference=True)
 SCALAR_CONSTANT = ScalarType('const Constant*', 'ConstantRefProto', 'Constant')
@@ -547,19 +548,19 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 233
+          Next tag_id: 241
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
       extra_defs: extra c++ definitions to put in this class and its builder.
       extra_defs_node_only: extra C++ definitions for this class but not to be
-          shared with the builder.
+        shared with the builder.
       emit_default_constructor: If True, emit default constructor for this class
       use_custom_debug_string: If True, use hand-written
-          CollectDebugStringFields and GetNameForDebugString c++ methods for
-          DebugString.
+        CollectDebugStringFields and GetNameForDebugString c++ methods for
+        DebugString.
       comment: Comment text for this node.  Text will be stripped and
-          de-indented.
+        de-indented.
     """
     assert name not in self.node_map, name
     assert name != ROOT_NODE_NAME, name
@@ -1123,6 +1124,23 @@ def main(unused_argv):
       ])
 
   gen.AddNode(
+      name='ResolvedGroupingSetMultiColumn',
+      tag_id=237,
+      parent='ResolvedArgument',
+      comment="""
+      A list of ResolvedColumnRef expression references that will be batched
+      together in rollup/cube when being expanded to grouping sets. For
+      example, ROLLUP((a, b), c) will be expanded to 3 grouping sets [(a, b, c),
+      (a, b), ()], (a, b) is a multi-column.
+
+      Duplicated columns are not allowed in the ResolvedGroupingSetMultiColumn
+      as they are equivalent to deduplicated columns. column_list must have
+      at least one element inside.
+              """,
+      fields=[Field('column_list', 'ResolvedColumnRef', tag_id=2, vector=True)],
+  )
+
+  gen.AddNode(
       name='ResolvedConstant',
       tag_id=103,
       parent='ResolvedExpr',
@@ -1193,6 +1211,18 @@ def main(unused_argv):
           Field('parameter_list', 'ResolvedColumnRef', tag_id=3, vector=True),
           Field('body', 'ResolvedExpr', tag_id=4),
       ])
+
+  gen.AddNode(
+      name='ResolvedSequence',
+      tag_id=233,
+      parent='ResolvedArgument',
+      comment="""
+      Represents a sequence as a function argument
+              """,
+      fields=[
+          Field('sequence', SCALAR_SEQUENCE, tag_id=2),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedFilterFieldArg',
@@ -2194,16 +2224,22 @@ value.
       represented as a single Scan that composes all input sources into
       a single row stream.
 
-      Each Scan has a <column_list> that says what columns are produced.
+      Each Scan has a `column_list` that says what columns are produced.
       The Scan logically produces a stream of output rows, where each row
       has exactly these columns.
 
-      Each Scan may have an attached <hint_list>, storing each hint as
+      Each Scan may have an attached `hint_list`, storing each hint as
       a ResolvedOption.
 
-      If <is_ordered> is true, this Scan produces an ordered output, either
+      If `is_ordered` is true, this Scan produces an ordered output, either
       by generating order itself (OrderByScan) or by preserving the order
       of its single input scan (LimitOffsetScan, ProjectScan, or WithScan).
+
+      Each Scan has a `node_source` field that, if populated, represents where
+      the scan was from or why it was added. This is used in some cases by the
+      resolver, rewriters or the random query generator to record why a node was
+      added. The SQLBuilder may also use `node_source` to influence which query
+      patterns to generate.
               """,
       fields=[
           Field(
@@ -2224,7 +2260,15 @@ value.
               SCALAR_BOOL,
               tag_id=4,
               ignorable=IGNORABLE,
-              is_constructor_arg=False)
+              is_constructor_arg=False,
+          ),
+          Field(
+              'node_source',
+              SCALAR_STRING,
+              tag_id=5,
+              ignorable=IGNORABLE,
+              is_constructor_arg=False,
+          ),
       ],
       extra_defs="""bool IsScan() const final { return true; }""")
 
@@ -2513,9 +2557,40 @@ value.
       ])
 
   gen.AddNode(
+      name='ResolvedGroupingCall',
+      tag_id=241,
+      parent='ResolvedArgument',
+      comment="""
+      A GROUPING function call. `group_by_column` must be a column from
+      the `group_by_list` in `ResolvedAggregateScan`.
+      `output_column` is a new column of type int64.
+      Its output value is 0 if `group_by_column` is included in the current
+      grouping set, or 1 if not.
+              """,
+      fields=[
+          Field('group_by_column', 'ResolvedColumnRef', tag_id=2),
+          Field('output_column', SCALAR_RESOLVED_COLUMN, tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGroupingSetBase',
+      tag_id=238,
+      parent='ResolvedArgument',
+      is_abstract=True,
+      comment="""
+      The parent node for grouping set, rollup and cube nodes.
+
+      This node exists for organizational purposes only, to cluster
+      grouping set, rollup and cube nodes. It doesn't have any actual fields.
+              """,
+      fields=[],
+  )
+
+  gen.AddNode(
       name='ResolvedGroupingSet',
       tag_id=93,
-      parent='ResolvedArgument',
+      parent='ResolvedGroupingSetBase',
       comment="""
       List of group by columns that form a grouping set.
 
@@ -2526,11 +2601,57 @@ value.
               """,
       fields=[
           Field(
-              'group_by_column_list',
-              'ResolvedColumnRef',
+              'group_by_column_list', 'ResolvedColumnRef', tag_id=2, vector=True
+          )
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedRollup',
+      tag_id=239,
+      parent='ResolvedGroupingSetBase',
+      comment="""
+      List of ResolvedGroupingSetMultiColumn that forms a rollup.
+
+      Each ResolvedGroupingSetMultiColumn is a list of column references that
+      will be batched together when expanding to grouping sets. E.g.
+      ROLLUP((a, b), c) is expanded to grouping sets [(a, b, c), (a, b), ()].
+      Both (a, b) and c are store in ResolvedGroupingSetMultiColumn for
+      convenience.
+
+      Column references in each ResolvedGroupingSetMultiColumn must come from
+      group_by_list in ResolvedAggregateScan. It is allowed to have
+      duplicated ResolvedGroupingSetMultiColumn in rollup_column_list.
+              """,
+      fields=[
+          Field(
+              'rollup_column_list',
+              'ResolvedGroupingSetMultiColumn',
               tag_id=2,
-              vector=True)
-      ])
+              vector=True,
+          )
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedCube',
+      tag_id=240,
+      parent='ResolvedGroupingSetBase',
+      comment="""
+      List of ResolvedGroupingSetMultiColumn that forms a cube in grouping sets.
+
+      See comments in ResolvdRollup for explanation about
+      ResolvedGroupingSetMultiColumn.
+              """,
+      fields=[
+          Field(
+              'cube_column_list',
+              'ResolvedGroupingSetMultiColumn',
+              tag_id=2,
+              vector=True,
+          )
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAggregateScanBase',
@@ -2593,6 +2714,11 @@ value.
 
       For each item in <grouping_set_list>, output additional rows computing the
       same <aggregate_list> over the input rows using a particular grouping set.
+      Each item in <grouping_set_list> is either a ResolvedGroupingSet,
+      ResolvedRollup, or ResolvedCube before the grouping set rewritter expands
+      the grouping set list. After rewriting, it will only contain
+      ResolvedGroupingSet that are expanded from grouping set, rollup and cube.
+
       The aggregation input values, including <input_scan>, computed columns in
       <group_by_list>, and aggregate function arguments in <aggregate_list>,
       should be computed just once and then reused as aggregation input for each
@@ -2605,21 +2731,36 @@ value.
       GROUP BY ROLLUP(...), if there was a ROLLUP clause, and is used only for
       rebuilding equivalent SQL for the resolved AST. Engines should refer to
       <grouping_set_list> rather than <rollup_column_list>.
+
+      <grouping_call_list> is the list of resolved group-by columns referenced
+      in GROUPING aggregate function calls. Each item in the grouping_call_list
+      is associated with a unique GROUPING function call in the SELECT list.
               """,
       fields=[
           Field(
               'grouping_set_list',
-              'ResolvedGroupingSet',
+              'ResolvedGroupingSetBase',
               tag_id=5,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'rollup_column_list',
               'ResolvedColumnRef',
               tag_id=6,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'grouping_call_list',
+              'ResolvedGroupingCall',
+              tag_id=7,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+          ),
+      ],
+  )
   gen.AddNode(
       name='ResolvedAnonymizedAggregateScan',
       tag_id=112,
@@ -3521,18 +3662,20 @@ value.
       parent='ResolvedArgument',
       comment="""
       This represents a generic argument to a function. The argument can be
-      semantically an expression, relation, model, connection or descriptor.
-      Only one of the five fields will be set.
+      semantically an expression, relation, model, connection descriptor, or
+      sequence.
+      Only one of the six fields will be set.
 
       <expr> represents a scalar function argument.
       <scan> represents a table-typed argument.
       <model> represents a ML model function argument.
       <connection> represents a connection object function argument.
       <descriptor_arg> represents a descriptor object function argument.
+      <sequence> represents a sequence object function argument.
 
       This node could be used in multiple places:
       * ResolvedTVFScan supports all of these.
-      * ResolvedFunctionCall supports only <expr>.
+      * ResolvedFunctionCall supports <expr> and <sequence>.
       * ResolvedCallStmt supports only <expr>.
 
       If the argument has type <scan>, <argument_column_list> maps columns from
@@ -3542,44 +3685,45 @@ value.
       specific input columns.
               """,
       fields=[
+          Field('expr', 'ResolvedExpr', ignorable=IGNORABLE_DEFAULT, tag_id=2),
+          Field('scan', 'ResolvedScan', ignorable=IGNORABLE_DEFAULT, tag_id=3),
           Field(
-              'expr',
-              'ResolvedExpr',
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=2),
-          Field(
-              'scan',
-              'ResolvedScan',
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=3),
-          Field(
-              'model',
-              'ResolvedModel',
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=5),
+              'model', 'ResolvedModel', ignorable=IGNORABLE_DEFAULT, tag_id=5
+          ),
           Field(
               'connection',
               'ResolvedConnection',
               ignorable=IGNORABLE_DEFAULT,
-              tag_id=6),
+              tag_id=6,
+          ),
           Field(
               # Can't name it 'descriptor' because of conflict in protos.
               'descriptor_arg',
               'ResolvedDescriptor',
               ignorable=IGNORABLE_DEFAULT,
-              tag_id=7),
+              tag_id=7,
+          ),
           Field(
               'argument_column_list',
               SCALAR_RESOLVED_COLUMN,
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'inline_lambda',
               'ResolvedInlineLambda',
               tag_id=8,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'sequence',
+              'ResolvedSequence',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=9,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedStatement',
@@ -4520,6 +4664,36 @@ value.
                       """),
           Field('query', 'ResolvedScan', tag_id=5)
       ])
+
+  gen.AddNode(
+      name='ResolvedExportMetadataStmt',
+      tag_id=234,
+      parent='ResolvedStatement',
+      comment="""
+      This statement:
+        EXPORT <schema_object_kind> METADATA FROM <name_path>
+        [WITH CONNECTION <connection>] [OPTIONS(<option_list>)]
+
+      <schema_object_kind> is a string identifier for the object for which the
+      metadata should be exported. Currently, only 'TABLE' object is supported.
+      <name_path> is a vector giving the identifier path for the object for
+      which the metadata should be exported.
+      <connection> connection reference for accessing destination source.
+      <option_list> identifies user specified options to use when exporting
+      object's metadata.
+          """,
+      fields=[
+          Field('schema_object_kind', SCALAR_STRING, tag_id=2),
+          Field('name_path', SCALAR_STRING, tag_id=3, vector=True),
+          Field(
+              'connection',
+              'ResolvedConnection',
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('option_list', 'ResolvedOption', vector=True, tag_id=5),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDefineTableStmt',
@@ -5868,7 +6042,8 @@ value.
 
       <privilege_list> is the list of privileges to be granted/revoked. ALL
       PRIVILEGES should be granted/fromed if it is empty.
-      <object_type> is an optional string identifier, e.g., TABLE, VIEW.
+      <object_type_list> is an optional list of string identifiers, e.g., TABLE,
+      VIEW, MATERIALIZED VIEW.
       <name_path> is a vector of segments of the object identifier's pathname.
       <grantee_list> (DEPRECATED) is the list of grantees (strings).
       <grantee_expr_list> is the list of grantees, and may include parameters.
@@ -5881,12 +6056,8 @@ value.
       one, then it should be marked as NOT_IGNORABLE.
               """,
       fields=[
-          Field(
-              'privilege_list',
-              'ResolvedPrivilege',
-              tag_id=2,
-              vector=True),
-          Field('object_type', SCALAR_STRING, tag_id=3),
+          Field('privilege_list', 'ResolvedPrivilege', tag_id=2, vector=True),
+          Field('object_type_list', SCALAR_STRING, tag_id=3, vector=True),
           Field('name_path', SCALAR_STRING, tag_id=4, vector=True),
           Field(
               'grantee_list',
@@ -5895,14 +6066,23 @@ value.
               tag_id=5,
               vector=True,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparated'),
+              java_to_string_method='toStringCommaSeparated',
+          ),
           Field(
               'grantee_expr_list',
               'ResolvedExpr',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=6,
-              vector=True)
-      ])
+              vector=True,
+          ),
+      ],
+      extra_defs="""
+      ABSL_DEPRECATED("Use `object_type_list()` instead")
+      inline const std::string& object_type() const {
+          return object_type_list()[0];
+      }
+         """,
+  )
 
   gen.AddNode(
       name='ResolvedGrantStmt',
@@ -5980,6 +6160,17 @@ value.
         ALTER MATERIALIZED VIEW [IF EXISTS] <name_path> <alter_action_list>
               """,
       fields=[])
+
+  gen.AddNode(
+      name='ResolvedAlterApproxViewStmt',
+      tag_id=236,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+        ALTER APPROX VIEW [IF EXISTS] <name_path> <alter_action_list>
+              """,
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterSchemaStmt',
@@ -7564,7 +7755,8 @@ ResolvedArgumentRef(y)
       comment="""
       This statement:
         CREATE MATERIALIZED VIEW <name> [(...)] [PARTITION BY expr, ...]
-        [CLUSTER BY expr, ...] [OPTIONS (...)] AS SELECT ...
+        [CLUSTER BY expr, ...] [OPTIONS (...)]
+        {AS SELECT ... | AS REPLICA OF ...}
 
       <partition_by_list> specifies the partitioning expressions for the
                           materialized view.
@@ -7577,14 +7769,41 @@ ResolvedArgumentRef(y)
               'ResolvedExpr',
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'cluster_by_list',
               'ResolvedExpr',
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'replica_source',
+              'ResolvedScan',
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedCreateApproxViewStmt',
+      tag_id=235,
+      parent='ResolvedCreateViewBase',
+      comment="""
+      This statement creates an APPROX VIEW:
+        CREATE APPROX VIEW <name> [(...)] [OPTIONS (...)] AS SELECT ...
+
+      An APPROX VIEW provides approximate results from the view query, as
+      opposed to a regular view which returns exact results from its view query.
+      APPROX VIEW is a generic operator whose behavior is implementation-defined
+      based on the OPTIONS and query engines.
+
+      See (broken link) for more details on APPROX VIEW.
+              """,
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedCreateProcedureStmt',
@@ -7594,7 +7813,8 @@ ResolvedArgumentRef(y)
       comment="""
       This statement creates a user-defined procedure:
         CREATE [OR REPLACE] [TEMP] PROCEDURE [IF NOT EXISTS] <name_path>
-        (<arg_list>) [WITH CONNECTION <connection>] [OPTIONS (<option_list>)]
+        (<arg_list>) [EXTERNAL SECURITY <external_security>]
+        [WITH CONNECTION <connection>] [OPTIONS (<option_list>)]
         [BEGIN <procedure_body> END | LANGUAGE <language> [AS <code>]];
 
         <name_path> is the identifier path of the procedure.
@@ -7602,6 +7822,8 @@ ResolvedArgumentRef(y)
         <signature> is the FunctionSignature of the created procedure, with all
                options.  This can be used to create a procedure to load into a
                Catalog for future queries.
+        <external_security> is the external security mode for the created
+               procedure. Values include 'INVOKER', 'DEFINER'.
         <connection> is the identifier path of the connection object.
         <option_list> has engine-specific directives for modifying procedures.
         <procedure_body> is a string literal that contains the SQL procedure
@@ -7631,36 +7853,46 @@ ResolvedArgumentRef(y)
               ignorable=NOT_IGNORABLE,
               vector=True,
               tag_id=2,
-              to_string_method='ToStringCommaSeparated'),
+              to_string_method='ToStringCommaSeparated',
+          ),
           Field(
               'signature',
               SCALAR_FUNCTION_SIGNATURE,
               tag_id=3,
               ignorable=NOT_IGNORABLE,
-              to_string_method='ToStringVerbose'),
+              to_string_method='ToStringVerbose',
+          ),
           Field(
               'option_list',
               'ResolvedOption',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=4,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'procedure_body',
               SCALAR_STRING,
               ignorable=IGNORABLE_DEFAULT,
-              tag_id=5),
+              tag_id=5,
+          ),
           Field(
               'connection',
               'ResolvedConnection',
               tag_id=6,
-              ignorable=IGNORABLE_DEFAULT),
-          Field(
-              'language',
-              SCALAR_STRING,
               ignorable=IGNORABLE_DEFAULT,
-              tag_id=7),
+          ),
+          Field(
+              'language', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=7
+          ),
           Field('code', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=8),
-      ])
+          Field(
+              'external_security',
+              SCALAR_SQL_SECURITY,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=9,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedExecuteImmediateArgument',
@@ -7724,15 +7956,19 @@ ResolvedArgumentRef(y)
               'target',
               'ResolvedExpr',
               tag_id=2,
-              comment='Target of the assignment.  Currently, this will be '
-              'either ResolvedSystemVariable, or a chain of ResolveGetField '
-              'operations around it.'),
+              comment="""
+                  Target of the assignment.  Currently, this will be
+                  either ResolvedSystemVariable, or a chain of ResolveGetField
+                  operations around it.
+                """),
           Field(
               'expr',
               'ResolvedExpr',
               tag_id=3,
-              comment='Value to assign into the target.  This will always be '
-              'the same type as the target.')
+              comment="""
+                  Value to assign into the target.  This will always be
+                  the same type as the target.
+                """)
       ])
 
   gen.AddNode(
@@ -8441,5 +8677,3 @@ if __name__ == '__main__':
   flags.mark_flag_as_required('input_templates')
   flags.mark_flag_as_required('output_files')
   app.run(main)
-
-

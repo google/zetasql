@@ -18,6 +18,9 @@
 #define ZETASQL_RESOLVED_AST_TEST_UTILS_H_
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/resolved_ast/resolved_ast.h"
 
@@ -32,6 +35,34 @@ std::unique_ptr<ResolvedFunctionCall> WrapInFunctionCall(
     TypeFactory* type_factory, std::unique_ptr<ResolvedExpr> arg1 = nullptr,
     std::unique_ptr<ResolvedExpr> arg2 = nullptr,
     std::unique_ptr<ResolvedExpr> arg3 = nullptr);
+
+// Convenience function to wrap resolved expression within collate function
+// for collation type provided in collation_str.
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>> MakeCollateCallForTest(
+    std::unique_ptr<const ResolvedExpr> expr, absl::string_view collation_str,
+    AnalyzerOptions& analyzer_options, Catalog& catalog,
+    TypeFactory& type_factory);
+
+// Convenience function to build a list of literals wrapped in collate function.
+// `literals` is a vector of pairs <data string, collation type string>
+absl::StatusOr<std::vector<std::unique_ptr<const ResolvedExpr>>>
+BuildResolvedLiteralsWithCollationForTest(
+    std::vector<std::pair<std::string, std::string>> literals,
+    AnalyzerOptions& analyzer_options, Catalog& catlog,
+    TypeFactory& type_factory);
+
+// Convenience function to create concat function for string literals.
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ConcatStringForTest(
+    const Type* argument_type,
+    std::vector<std::unique_ptr<const ResolvedExpr>>& elements,
+    AnalyzerOptions& analyzer_options, Catalog& catalog,
+    TypeFactory& type_factory);
+
+// Convenience function to retrieve a function from catalog.
+absl::StatusOr<const Function*> GetBuiltinFunctionFromCatalogForTest(
+    absl::string_view function_name, AnalyzerOptions& analyzer_options,
+    Catalog& catalog);
+
 }  // namespace testing
 }  // namespace zetasql
 

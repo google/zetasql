@@ -74,9 +74,11 @@ class QueryExpression {
       const std::string& set_op_type, const std::string& set_op_modifier,
       const std::string& set_op_column_match_mode,
       const std::string& query_hints);
-  bool TrySetGroupByClause(const std::map<int, std::string>& group_by_list,
-                           const std::string& group_by_hints,
-                           const std::vector<int>& rollup_column_id_list);
+  bool TrySetGroupByClause(
+      const std::map<int, std::string>& group_by_list,
+      const std::string& group_by_hints,
+      const std::vector<std::vector<int>>& grouping_set_id_list,
+      const std::vector<int>& rollup_column_id_list);
   bool TrySetOrderByClause(const std::vector<std::string>& order_by_list,
                            const std::string& order_by_hints);
   bool TrySetLimitClause(const std::string& limit);
@@ -108,9 +110,6 @@ class QueryExpression {
   bool HasFromClause() const { return !from_.empty(); }
   bool HasWhereClause() const { return !where_.empty(); }
   bool HasSetOpScanList() const { return !set_op_scan_list_.empty(); }
-  bool HasSetOperationColumnMatchMode() const {
-    return !set_op_column_match_mode_.empty();
-  }
   bool HasGroupByClause() const { return !group_by_list_.empty(); }
   bool HasOrderByClause() const { return !order_by_list_.empty(); }
   bool HasLimitClause() const { return !limit_.empty(); }
@@ -222,6 +221,8 @@ class QueryExpression {
   // string representations of these columns. Will be non-empty only if the
   // query used ROLLUP.
   std::vector<int> rollup_column_id_list_;
+  // Column IDs of group by keys in the GROUPING SET list.
+  std::vector<std::vector<int>> grouping_set_id_list_;
 
   std::string group_by_hints_;
 

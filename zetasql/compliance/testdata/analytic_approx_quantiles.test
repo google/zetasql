@@ -12,18 +12,18 @@
 SELECT APPROX_QUANTILES(x, 2) OVER () AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x
 --
-ARRAY<STRUCT<approx_quantiles ARRAY<>>>[
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]},
-  {ARRAY<INT64>[1, 5, 10]}
+ARRAY<STRUCT<approx_quantiles ARRAY<>>>[unknown order:
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]},
+  {ARRAY<INT64>[known order:1, 5, 10]}
 ]
 

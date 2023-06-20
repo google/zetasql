@@ -77,3 +77,10 @@ ERROR: COLLATE must be followed by a string literal [at 1:50]
 CREATE SCHEMA myProject.mySchema DEFAULT COLLATE @test_param_string;
                                                  ^
 ==
+
+[disallow_duplicate_options]
+CREATE SCHEMA myProject.mySchema OPTIONS(a="b", a="d");
+--
+ERROR: Duplicate option specified for 'a' [at 1:49]
+CREATE SCHEMA myProject.mySchema OPTIONS(a="b", a="d");
+                                                ^

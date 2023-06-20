@@ -107,7 +107,7 @@ select [cast(timestamp "2015-01-28" as string),
         cast(timestamp "2015-01-28 00:00:00.000000" as string)]
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>[
+  {ARRAY<STRING>[known order:
      "2015-01-28 00:00:00+13:45",
      "2015-01-28 00:00:00+13:45",
      "2015-01-28 00:00:00+13:45",
@@ -130,7 +130,7 @@ select [cast(timestamp "2015-01-28 00:00:00" as string),
         cast(timestamp "2015-01-28 00:00:00.000001" as string)]
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>[
+  {ARRAY<STRING>[known order:
      "2015-01-28 00:00:00+13:45",
      "2015-01-28 00:00:00.100+13:45",
      "2015-01-28 00:00:00.010+13:45",
@@ -146,7 +146,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 select cast(timestamp_val as string)
 from Table2
 --
-ARRAY<STRUCT<STRING>>[
+ARRAY<STRUCT<STRING>>[unknown order:
   {"1970-01-01 12:45:00.000001+12:45"},
   {"1970-01-01 12:45:00.000100+12:45"},
   {"1970-01-01 12:45:00.010+12:45"},

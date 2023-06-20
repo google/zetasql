@@ -425,7 +425,7 @@ FROM TestTableWithUid
 GROUP BY x
 ORDER BY x ASC;
 --
-ARRAY<STRUCT<x INT64, INT64>>[{1, 10}, {2, 10}, {3, 10}]
+ARRAY<STRUCT<x INT64, INT64>>[known order:{1, 10}, {2, 10}, {3, 10}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -496,7 +496,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
 SELECT VAR_POP(double_val), VAR_POP(int64_val)
   FROM TestTableWithUid2;
 --
-ARRAY<STRUCT<DOUBLE, DOUBLE>>[{2.359375, 1}, {2.359375, 1}]
+ARRAY<STRUCT<DOUBLE, DOUBLE>>[unknown order:{2.359375, 1}, {2.359375, 1}]
 ==
 
 # Same as the previous query.
@@ -525,7 +525,7 @@ SELECT VAR_POP(ClampedValue) FROM (SELECT
     AS ClampedValue
   FROM TestTableWithUid2)
 --
-ARRAY<STRUCT<DOUBLE>>[{0.125}, {0.1875}, {0.125}, {0.1875}]
+ARRAY<STRUCT<DOUBLE>>[unknown order:{0.125}, {0.1875}, {0.125}, {0.1875}]
 ==
 
 # For All-NULLs value, when bounds are explicitly set, the ANON_VAR_POP returns
@@ -539,7 +539,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
     ANON_VAR_POP(int64_val CLAMPED BETWEEN 10 AND 100),
   FROM TestTableWithUid4
 --
-ARRAY<STRUCT<DOUBLE>>[{2025}, {2025}]
+ARRAY<STRUCT<DOUBLE>>[unknown order:{2025}, {2025}]
 ==
 
 # With less than 5 rows and verify that the anonymized variance is equal to the
@@ -576,7 +576,7 @@ FROM TestTableWithUid2 UNION ALL
 SELECT STDDEV_POP(double_val), STDDEV_POP(int64_val)
   FROM TestTableWithUid2;
 --
-ARRAY<STRUCT<DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<DOUBLE, DOUBLE>>[unknown order:
   {1.5360257159305635, 1},
   {1.5360257159305635, 1}
 ]
@@ -609,7 +609,7 @@ SELECT STDDEV_POP(ClampedValue) FROM (SELECT
     AS ClampedValue
   FROM TestTableWithUid2)
 --
-ARRAY<STRUCT<DOUBLE>>[
+ARRAY<STRUCT<DOUBLE>>[unknown order:
   {0.35355339059327379},
   {0.4330127018922193},
   {0.35355339059327379},
@@ -629,7 +629,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
   ANON_STDDEV_POP(int64_val CLAMPED BETWEEN 2 AND 3),
 FROM TestTableWithUid4
 --
-ARRAY<STRUCT<DOUBLE>>[{0.5}, {0.5}]
+ARRAY<STRUCT<DOUBLE>>[unknown order:{0.5}, {0.5}]
 ==
 
 # ANON_PERCENTILE_CONT with null epsilon
@@ -710,7 +710,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
 (SELECT ABS(PERCENTILE_DISC(double_val, 0.1) OVER() + 1.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {true}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -735,7 +735,7 @@ NOTE: Reference implementation reports non-determinism.
 (SELECT ABS(PERCENTILE_DISC(double_val, 0.7) OVER() - 2.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {true}]
 
 NOTE: Reference implementation reports non-determinism.
 
@@ -927,7 +927,7 @@ FROM TestTableWithUid
 GROUP BY x
 ORDER BY x ASC;
 --
-ARRAY<STRUCT<x INT64, INT64>>[{1, 10}, {2, 10}, {3, 10}]
+ARRAY<STRUCT<x INT64, INT64>>[known order:{1, 10}, {2, 10}, {3, 10}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -998,7 +998,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
 SELECT VAR_POP(double_val), VAR_POP(int64_val)
   FROM TestTableWithUid2;
 --
-ARRAY<STRUCT<DOUBLE, DOUBLE>>[{2.359375, 1}, {2.359375, 1}]
+ARRAY<STRUCT<DOUBLE, DOUBLE>>[unknown order:{2.359375, 1}, {2.359375, 1}]
 ==
 
 # Same as the previous query.
@@ -1027,7 +1027,7 @@ SELECT VAR_POP(ClampedValue) FROM (SELECT
     AS ClampedValue
   FROM TestTableWithUid2)
 --
-ARRAY<STRUCT<DOUBLE>>[{0.125}, {0.1875}, {0.125}, {0.1875}]
+ARRAY<STRUCT<DOUBLE>>[unknown order:{0.125}, {0.1875}, {0.125}, {0.1875}]
 ==
 
 # For All-NULLs value, when bounds are explicitly set, the ANON_VAR_POP returns
@@ -1041,7 +1041,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
     ANON_VAR_POP(int64_val CLAMPED BETWEEN 10 AND 100),
   FROM TestTableWithUid4
 --
-ARRAY<STRUCT<DOUBLE>>[{2025}, {2025}]
+ARRAY<STRUCT<DOUBLE>>[unknown order:{2025}, {2025}]
 ==
 
 # With less than 5 rows and verify that the anonymized variance is equal to the
@@ -1078,7 +1078,7 @@ FROM TestTableWithUid2 UNION ALL
 SELECT STDDEV_POP(double_val), STDDEV_POP(int64_val)
   FROM TestTableWithUid2;
 --
-ARRAY<STRUCT<DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<DOUBLE, DOUBLE>>[unknown order:
   {1.5360257159305635, 1},
   {1.5360257159305635, 1}
 ]
@@ -1111,7 +1111,7 @@ SELECT STDDEV_POP(ClampedValue) FROM (SELECT
     AS ClampedValue
   FROM TestTableWithUid2)
 --
-ARRAY<STRUCT<DOUBLE>>[
+ARRAY<STRUCT<DOUBLE>>[unknown order:
   {0.35355339059327379},
   {0.4330127018922193},
   {0.35355339059327379},
@@ -1131,7 +1131,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
   ANON_STDDEV_POP(int64_val CLAMPED BETWEEN 2 AND 3),
 FROM TestTableWithUid4
 --
-ARRAY<STRUCT<DOUBLE>>[{0.5}, {0.5}]
+ARRAY<STRUCT<DOUBLE>>[unknown order:{0.5}, {0.5}]
 ==
 
 # ANON_PERCENTILE_CONT with null epsilon
@@ -1212,7 +1212,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
 (SELECT ABS(PERCENTILE_DISC(double_val, 0.1) OVER() + 1.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {true}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -1237,7 +1237,7 @@ NOTE: Reference implementation reports non-determinism.
 (SELECT ABS(PERCENTILE_DISC(double_val, 0.7) OVER() - 2.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {true}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -1333,7 +1333,7 @@ ARRAY<STRUCT<INT64, INT64>>[{6, 6}]
 (SELECT ABS(APPROX_QUANTILES(double_val, 10)[OFFSET(1)] + 1.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}]
 ==
 
 # Another case with a different quantile (0.1) with less than 5 rows per user
@@ -1353,7 +1353,7 @@ ARRAY<STRUCT<BOOL>>[{true}, {true}]
 (SELECT ABS(APPROX_QUANTILES(double_val, 10)[OFFSET(7)] - 2.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}]
 ==
 
 [name=anonymization_anon_sum_double_explicit_bounds_multi_user_with_report_proto]
@@ -1373,6 +1373,166 @@ ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
        }
      }
    }}
+]
+==
+
+[required_features=ANONYMIZATION]
+[name=anonymization_anon_avg_explicit_bounds_multi_user_with_report_proto_1]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_AVG(double_val CLAMPED BETWEEN 0 AND 10 WITH Report(format=Proto))
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
+  {{
+     value {
+       float_value: 1.3333333333333335
+       noise_confidence_interval {
+         lower_bound: 1.3333333333333335
+         upper_bound: 1.3333333333333335
+         confidence_level: 0.95
+       }
+     }
+   }}
+]
+==
+
+[required_features=ANONYMIZATION]
+[name=anonymization_anon_avg_explicit_bounds_multi_user_with_report_proto_2]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_AVG(int64_val CLAMPED BETWEEN 0 AND 10 WITH Report(format=Proto))
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
+  {{
+     value {
+       float_value: 1.6333333333333333
+       noise_confidence_interval {
+         lower_bound: 1.6333333333333333
+         upper_bound: 1.6333333333333333
+         confidence_level: 0.95
+       }
+     }
+   }}
+]
+==
+
+[required_features=ANONYMIZATION]
+[name=anonymization_anon_avg_implicit_bounds_multi_user_with_report_proto_1]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_AVG(double_val WITH Report(format=Proto))
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
+  {{
+     value {
+       float_value: 1.3333333333333333
+       noise_confidence_interval {
+         lower_bound: 1.3333333333333333
+         upper_bound: 1.3333333333333333
+         confidence_level: 0.95
+       }
+     }
+     bounding_report {
+       lower_bound {
+         float_value: 0.5
+       }
+       upper_bound {
+         float_value: 2
+       }
+       num_inputs: 3
+       num_outside: 0
+     }
+   }}
+]
+==
+
+[required_features=ANONYMIZATION]
+[name=anonymization_anon_avg_implicit_bounds_multi_user_with_report_proto_2]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_AVG(int64_val WITH Report(format=Proto))
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
+  {{
+     value {
+       float_value: 1.6333333333333333
+       noise_confidence_interval {
+         lower_bound: 1.6333333333333333
+         upper_bound: 1.6333333333333333
+         confidence_level: 0.95
+       }
+     }
+     bounding_report {
+       lower_bound {
+         float_value: 0.5
+       }
+       upper_bound {
+         float_value: 4
+       }
+       num_inputs: 3
+       num_outside: 0
+     }
+   }}
+]
+==
+
+[required_features=JSON_TYPE,ANONYMIZATION]
+[name=anonymization_anon_avg_explicit_bounds_multi_user_with_report_json_1]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_AVG(double_val CLAMPED BETWEEN 0 AND 10 WITH Report(format=Json))
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<JSON>>[
+  {
+    {"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":1.3333333333333335,"upper_bound":1.3333333333333335},"value":1.3333333333333335}}
+  }
+]
+==
+
+[required_features=JSON_TYPE,ANONYMIZATION]
+[name=anonymization_anon_avg_explicit_bounds_multi_user_with_report_json_2]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_AVG(int64_val CLAMPED BETWEEN 0 AND 10 WITH Report(format=Json))
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<JSON>>[
+  {
+    {"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":1.6333333333333333,"upper_bound":1.6333333333333333},"value":1.6333333333333333}}
+  }
+]
+==
+
+[required_features=JSON_TYPE,ANONYMIZATION]
+[name=anonymization_anon_avg_implicit_bounds_multi_user_with_report_json_1]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_AVG(double_val WITH Report(format=Json))
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<JSON>>[
+  {
+    {"bounding_report":{"lower_bound":0.5,"num_inputs":3.0,"num_outside":0.0,"upper_bound":2.0},"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":1.3333333333333333,"upper_bound":1.3333333333333333},"value":1.3333333333333333}}
+  }
+]
+==
+
+[required_features=JSON_TYPE,ANONYMIZATION]
+[name=anonymization_anon_avg_implicit_bounds_multi_user_with_report_json_2]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_AVG(int64_val WITH Report(format=Json))
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<JSON>>[
+  {
+    {"bounding_report":{"lower_bound":0.5,"num_inputs":3.0,"num_outside":0.0,"upper_bound":4.0},"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":1.6333333333333333,"upper_bound":1.6333333333333333},"value":1.6333333333333333}}
+  }
 ]
 ==
 
@@ -2296,3 +2456,25 @@ ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
      }
    }}
 ]
+==
+
+# Sum aggregation with max_rows_contributed.
+[name=anonymization_max_rows_contributed_sum]
+[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
+  SUM(double_val)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[{11}]
+==
+
+# Count star aggregation with max_rows_contributed.
+[name=anonymization_max_rows_contributed_count_star]
+[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
+  COUNT(*)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<INT64>>[{10}]

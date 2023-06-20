@@ -86,6 +86,7 @@ enum class InvalidTokenType {
   MULTILINE_COMMENT,
   SINGLE_QUOTE_STRING,
   DOUBLE_QUOTE_STRING,
+  BACKTICK_IDENTIFIER,
   MULTILINE_STRING_SINGLE_QUOTES,
   MULTILINE_STRING_DOUBLE_QUOTES,
 };
@@ -148,6 +149,12 @@ InvalidTokenType DetectTokenType(icu::StringCharacterIterator* current_char) {
         }
       }
       return InvalidTokenType::DOUBLE_QUOTE_STRING;
+    case '`':
+      if (!raw_string && !byte_string) {
+        return InvalidTokenType::BACKTICK_IDENTIFIER;
+      } else {
+        return InvalidTokenType::OTHER;
+      }
     case '/':
       if (raw_string || byte_string) {
         return InvalidTokenType::OTHER;
@@ -208,6 +215,15 @@ icu::StringCharacterIterator FindTokenEnd(icu::StringCharacterIterator it,
           return it;
         }
         break;
+      case InvalidTokenType::BACKTICK_IDENTIFIER:
+        if (ch == '`') {
+          // Token ends after the closing backtick.
+          it.next32();
+          return it;
+        } else if (ch == '\r' || ch == '\n') {
+          return it;
+        }
+        break;
       // For a """multiline string literals wait until closing triple quotes
       // """.
       case InvalidTokenType::MULTILINE_STRING_SINGLE_QUOTES:
@@ -254,8 +270,8 @@ icu::StringCharacterIterator FindTokenEnd(icu::StringCharacterIterator it,
       // (e.g., in "a.b" - token `a` ends at `.`).
       case InvalidTokenType::OTHER:
         static const auto* new_token_start = new zetasql_base::flat_set<char32_t>(
-            {'.', ',', ':', ';', '(', ')', '[', ']', '{', '}', '<', '>', '+',
-             '-', '*', '/', '=', '!', '#'});
+            {'.', ',', ':', ';', '(', ')', '[', ']', '{',  '}', '<',
+             '>', '+', '-', '*', '/', '=', '!', '#', '\'', '"', '`'});
         if (u_isUWhiteSpace(ch) || new_token_start->contains(ch)) {
           return it;
         }
@@ -682,7 +698,8 @@ bool IsJinjaExpressionStart(const ParseToken& parse_token,
                             const std::vector<Token>& tokens) {
   return (parse_token.GetImage() == "%" ||
           absl::StartsWith(parse_token.GetImage(), "#")) &&
-         !tokens.empty() && tokens.back().GetImage() == "{";
+         !tokens.empty() && tokens.back().GetImage() == "{" &&
+         !SpaceBetweenTokensInInput(tokens.back(), parse_token);
 }
 
 // Returns true if the `parse_token` starts a description of a legacy ASSERT
@@ -871,8 +888,11 @@ bool MaybeUpdateGroupingStateForCurlyBracesParameter(
       // Do not allow whitespaces inside a {token}.
       // Also, this might mean we reached the end of line.
       break;
-    }
-    if (it.current32() == '{') {
+    } else if (it.current32() == ':') {
+      // Do not allow colon - this might be a braced proto constructor, where
+      // user didn't put any spaces, e.g. "NEW foo{f:true}".
+      break;
+    } else if (it.current32() == '{') {
       curly_braces_count++;
     } else if (it.current32() == '}') {
       curly_braces_count--;
@@ -898,7 +918,7 @@ bool MaybeUpdateGroupingStateForCurlyBracesParameter(
 }
 
 // Searches for the end of Jinja expression and updates the grouping state
-// accordindly. Note that the expression might be multiline, so if there are
+// accordingly. Note that the expression might be multiline, so if there are
 // no closing braces, the rest of the input is considered as one big jinja
 // expression, thus disabling formatting for it.
 bool UpdateGroupingStateForJinjaExpression(const ParseToken& parse_token,
@@ -910,6 +930,7 @@ bool UpdateGroupingStateForJinjaExpression(const ParseToken& parse_token,
   icu::UnicodeString txt(sql_substr.data(),
                          static_cast<int32_t>(sql_substr.size()));
   icu::StringCharacterIterator it(txt);
+  bool found_closing_brace = false;
   while (it.hasNext()) {
     // Search for '%}' or '#}'.
     if (it.current32() != end_char) {
@@ -923,9 +944,14 @@ bool UpdateGroupingStateForJinjaExpression(const ParseToken& parse_token,
     if (it.current32() == '}') {
       // Found end of the jinja expression; move iterator past '}'.
       it.next32();
+      found_closing_brace = true;
       break;
     }
     it.next32();
+  }
+
+  if (!found_closing_brace) {
+    return false;
   }
 
   // Position of '{' that is arleady in parsed tokens.
@@ -1526,7 +1552,9 @@ bool Token::IsReservedKeyword() const {
   // reserved.
   return !IsIdentifier() && IsKeyword() &&
          !IsOneOf({Type::KEYWORD_AS_IDENTIFIER_FRAGMENT,
-                   Type::COMPLEX_TOKEN_CONTINUATION}) &&
+                   Type::COMPLEX_TOKEN_CONTINUATION,
+                   Type::MACRO_NAME_IN_DEFINE_STMT,
+                   Type::TABLE_NAME_IN_DEFINE_STMT}) &&
          CanBeReservedKeyword(GetKeyword());
 }
 

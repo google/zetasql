@@ -26,6 +26,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/container/btree_map.h"
 #include "absl/strings/match.h"
 #include "zetasql/base/status.h"
 
@@ -356,7 +357,7 @@ struct StatementPropertiesTestCase {
   ResolvedNodeKind statement_kind;    // The statement's kind
   StatementProperties::StatementCategory statement_category;  // DDL, DML, etc.
   bool is_create_temp_object;         // CREATE TEMP TABLE, etc.
-  std::map<std::string, std::string> hint_map;  // Statement level hints.
+  absl::btree_map<std::string, std::string> hint_map;  // Statement level hints.
 };
 
 std::vector<StatementPropertiesTestCase> GetStatementPropertiesTestCases() {
@@ -482,7 +483,7 @@ TEST(GetNextStatementPropertiesTest, BasicStatements) {
         << test_case.sql;
 
     // Create an ordered map for comparison.
-    std::map<std::string, std::string> statement_properties_hint_map(
+    absl::btree_map<std::string, std::string> statement_properties_hint_map(
         statement_properties.statement_level_hints.begin(),
         statement_properties.statement_level_hints.end());
 

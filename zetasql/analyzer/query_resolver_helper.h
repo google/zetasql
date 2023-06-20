@@ -48,6 +48,57 @@ class Resolver;
 class SelectColumnStateList;
 struct ExprResolutionInfo;
 
+using ResolvedComputedColumnList = std::vector<const ResolvedComputedColumn*>;
+
+// An enum kind for grouping set.
+enum class GroupingSetKind {
+  // It indicates the current grouping set is user-written grouping set, e.g.
+  // GROUPING SETS(x, y)
+  kGroupingSet,
+  // It indicates the grouping set is a rollup, e.g. ROLLUP(x, y), or a rollup
+  // inside GROUPING SETS, e.g. GROUPING SETS(ROLLUP(x, y))
+  kRollup,
+  // It incidates the grouping set is a cube, e.g. CUBE(x, y), or a cube inside
+  // GROUPING SETS, e.g. GROUPING SETS(CUBE(x, y))
+  kCube,
+};
+
+struct GroupingSetInfo {
+  // It contains a list of grouping set item in the current grouping set.
+  // Each grouping set item is stored as a list of computed columns to
+  // represent multi-columns in a grouping sets.
+  // When the current grouping set kind is kGroupingSet, we guarantee there is
+  // exactly one expression in the ResolvedComputedColumnList, as there aren't
+  // multi-columns in grouping set. E.g. In GROUPING SETS(x, (y, z)), grouping
+  // set x and y are stored the below accordingly:
+  // x: GroupingSetInfo {
+  //   grouping_set_item_list: {{x}}
+  //   kind: kGroupingSet
+  //}
+  // y: GroupingSetInfo {
+  //   grouping_set_item_list: {{y}, {z}}
+  //   kind: kGroupingSet
+  // }
+  // When the current grouping set is a rollup or cube, multi-columns will be
+  // stored as a list of columns in ResolvedComputedColumnList. In the query,
+  // GROUPING SETS(ROLLUP((x, y), z), CUBE((x, y), (y, z))), the grouping set
+  // rollup and cube are stored as the below accordindly.
+  // ROLLUP((x, y), z):
+  //   GroupingSetInfo {
+  //     grouping_set_item_list: {{x,y}, {z}}
+  //     kind: kRollup
+  //   }
+  // CUBE((x, y), (y, z)):
+  //   GroupingSetInfo {
+  //     grouping_set_item_list: {{x,y}, {y,z}}
+  //     kind: kCube
+  //   }
+  std::vector<ResolvedComputedColumnList> grouping_set_item_list;
+  // The kind of current grouping set, it can be a kGroupingSet, kRollup, or
+  // kCube.
+  GroupingSetKind kind;
+};
+
 struct OrderByItemInfo {
   OrderByItemInfo(const ASTNode* ast_location_in, int64_t index,
                   bool descending,
@@ -123,9 +174,14 @@ struct QueryGroupByAndAggregateInfo {
                      FieldPathHashOperator, FieldPathExpressionEqualsOperator>
       group_by_expr_map;
 
-  // Columns in the ROLLUP list, or an empty vector if the query does
-  // not use ROLLUP. Stores unowned pointers from <group_by_columns_to_compute>.
-  std::vector<const ResolvedComputedColumn*> rollup_column_list;
+  // This is a list of grouping sets, or an empty vector if the query doesn't
+  // have ROLLUP, CUBE, or GROPING SETS.
+  std::vector<GroupingSetInfo> grouping_set_list;
+
+  // Columns referenced by GROUPING function calls. A GROUPING function call
+  // has a single ResolvedComputedColumn argument per call as well as an
+  // output column to be referenced in column lists.
+  std::vector<std::unique_ptr<const ResolvedGroupingCall>> grouping_list;
 
   // Aggregate function calls that must be computed.
   // This is built up as expressions are resolved.  During expression
@@ -134,6 +190,11 @@ struct QueryGroupByAndAggregateInfo {
   // here.
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
       aggregate_columns_to_compute;
+
+  // A list of unique pointers that need to stick around until being cleaned
+  // up when the aggregate scan is built.
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+      grouping_output_columns;
 
   // Stores information about STRUCT or PROTO fields that appear in the
   // GROUP BY.
@@ -294,7 +355,7 @@ class SelectColumnStateList {
   // contains an aggregate or analytic function that is disallowed as per
   // <expr_resolution_info>.
   absl::Status FindAndValidateSelectColumnStateByOrdinal(
-      const std::string& expr_description, const ASTNode* ast_location,
+      absl::string_view expr_description, const ASTNode* ast_location,
       int64_t ordinal, const ExprResolutionInfo* expr_resolution_info,
       const SelectColumnState** select_column_state) const;
 
@@ -362,13 +423,24 @@ class QueryResolutionInfo {
   const ResolvedComputedColumn* GetEquivalentGroupByComputedColumnOrNull(
       const ResolvedExpr* expr) const;
 
-  // Adds a rollup column <column> that is present in the group by list.
-  // Does not transfer ownership.
-  void AddRollupColumn(const ResolvedComputedColumn* column);
+  // Adds a grouping set to the grouping_set_list.
+  void AddGroupingSet(const GroupingSetInfo& grouping_set);
+
+  // Adds a GROUPING <column> to the grouping_call_list.
+  void AddGroupingColumn(std::unique_ptr<const ResolvedGroupingCall> column);
+
+  // Adds a ResolvedAggregateFunctionCall to the aggregate_expression_map.
+  // It's argument will be evaluated for a group_by_column match later on and
+  // added to the grouping_call_list. This function is used in the
+  // ResolveSelectColumnFirstPass, while AddGroupingColumn is used in
+  // ResolveSelectColumnSecondPass.
+  absl::Status AddGroupingColumnToExprMap(
+      const ASTFunctionCall* ast_function_call,
+      std::unique_ptr<const ResolvedComputedColumn> grouping_output_col);
 
   // Returns the grouping sets and list of rollup columns for queries that use
-  // GROUP BY ROLLUP.  This clears columns previously added via AddRollupColumn.
-  void ReleaseGroupingSetsAndRollupList(
+  // GROUP BY ROLLUP.  This clears columns previously added via AddGroupingSet.
+  absl::Status ReleaseGroupingSetsAndRollupList(
       std::vector<std::unique_ptr<const ResolvedGroupingSet>>*
           grouping_set_list,
       std::vector<std::unique_ptr<const ResolvedColumnRef>>*
@@ -410,15 +482,23 @@ class QueryResolutionInfo {
            group_by_info_.has_aggregation;
   }
 
+  // TODO: Replace this method to HasGroupByGroupingSets, the
+  // deprecation will affect the error message and should be done separately.
   // Returns whether or not the query includes a GROUP BY ROLLUP.
   bool HasGroupByRollup() const {
-    return !group_by_info_.rollup_column_list.empty();
+    for (const GroupingSetInfo& grouping_set :
+         group_by_info_.grouping_set_list) {
+      if (grouping_set.kind == GroupingSetKind::kRollup) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // Returns whether or not the query includes analytic functions.
   bool HasAnalytic() const;
 
-  absl::Status CheckComputedColumnListsAreEmpty() const;
+  absl::Status CheckComputedColumnListsAreEmpty();
 
   void set_is_post_distinct(bool is_post_distinct) {
     group_by_info_.is_post_distinct = is_post_distinct;
@@ -438,6 +518,18 @@ class QueryResolutionInfo {
     std::vector<std::unique_ptr<const ResolvedComputedColumn>> tmp;
     group_by_info_.group_by_columns_to_compute.swap(tmp);
     return tmp;
+  }
+
+  std::vector<std::unique_ptr<const ResolvedGroupingCall>>
+  release_grouping_columns_list() {
+    std::vector<std::unique_ptr<const ResolvedGroupingCall>> tmp;
+    group_by_info_.grouping_list.swap(tmp);
+    return tmp;
+  }
+
+  const std::vector<std::unique_ptr<const ResolvedGroupingCall>>&
+  grouping_columns_list() const {
+    return group_by_info_.grouping_list;
   }
 
   const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
@@ -585,9 +677,13 @@ class QueryResolutionInfo {
 
   void set_has_having(bool has_having) { has_having_ = has_having; }
 
+  void set_has_qualify(bool has_qualify) { has_qualify_ = has_qualify; }
+
   void set_has_order_by(bool has_order_by) { has_order_by_ = has_order_by; }
 
-  bool HasHavingOrOrderBy() const { return has_having_ || has_order_by_; }
+  bool HasHavingOrQualifyOrOrderBy() const {
+    return has_having_ || has_qualify_ || has_order_by_;
+  }
 
   void set_is_resolving_returning_clause() {
     is_resolving_returning_clause_ = true;
@@ -691,6 +787,9 @@ class QueryResolutionInfo {
   // HAVING information.
 
   bool has_having_ = false;
+
+  // QUALIFY information.
+  bool has_qualify_ = false;
 
   // ORDER BY information.
 

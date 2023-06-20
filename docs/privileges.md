@@ -8,11 +8,11 @@ ZetaSQL supports statements for privileges.
 
 ## `GRANT` and `REVOKE`
 
-```
+<pre>
 GRANT privileges ON [object_type] object TO grantees;
 
 REVOKE privileges ON [object_type] object FROM grantees;
-```
+</pre>
 
 The `GRANT` and `REVOKE` statements have the same syntax. `GRANT` uses the `TO`
 keyword to assign privileges to a grantee, while `REVOKE` uses the `FROM`

@@ -34,6 +34,8 @@
 
 // All of the templates for the tests are defined here.
 // This file is critical to understand what is tested.
+#include "absl/container/btree_map.h"
+#include "absl/container/btree_set.h"
 #include "zetasql/base/map_util_test.h"
 
 namespace zetasql_base {
@@ -45,7 +47,7 @@ using ::testing::Pointee;
 using ::testing::UnorderedElementsAre;
 
 TEST(MapUtil, ImplicitTypeConversion) {
-  using Map = std::map<std::string, std::string>;
+  using Map = absl::btree_map<std::string, std::string>;
   Map m;
 
   // Check that I can use a type that's implicitly convertible to the
@@ -248,7 +250,7 @@ TEST(MapUtil, InsertKeysFromMap) {
   std::map<std::string, int> number_names_map(
       number_names_array, number_names_array + sizeof number_names_array /
                                                    sizeof *number_names_array);
-  std::set<std::string> names;
+  absl::btree_set<std::string> names;
   InsertKeysFromMap(number_names_map, &names);
   // No two numbers have the same name, so the container sizes must match.
   EXPECT_EQ(names.size(), number_names_map.size());

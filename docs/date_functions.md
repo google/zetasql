@@ -6,6 +6,130 @@
 
 ZetaSQL supports the following date functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#current_date"><code>CURRENT_DATE</code></a>
+
+</td>
+  <td>
+    Returns the current date as a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date"><code>DATE</code></a>
+
+</td>
+  <td>
+    Constructs a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_add"><code>DATE_ADD</code></a>
+
+</td>
+  <td>
+    Adds a specified time interval to a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_diff"><code>DATE_DIFF</code></a>
+
+</td>
+  <td>
+    Gets the number of intervals between two <code>DATE</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_from_unix_date"><code>DATE_FROM_UNIX_DATE</code></a>
+
+</td>
+  <td>
+    Interprets an <code>INT64</code> expression as the number of days
+    since 1970-01-01.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_sub"><code>DATE_SUB</code></a>
+
+</td>
+  <td>
+    Subtracts a specified time interval from a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_trunc"><code>DATE_TRUNC</code></a>
+
+</td>
+  <td>
+    Truncates a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts part of a date from a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_date"><code>FORMAT_DATE</code></a>
+
+</td>
+  <td>
+    Formats a <code>DATE</code> value according to a specified format string.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#last_day"><code>LAST_DAY</code></a>
+
+</td>
+  <td>
+    Gets the last day in a specified time period that contains a
+    <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_date"><code>PARSE_DATE</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_date"><code>UNIX_DATE</code></a>
+
+</td>
+  <td>
+    Converts a <code>DATE</code> value to the number of days since 1970-01-01.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CURRENT_DATE`
 
 ```sql
@@ -22,7 +146,8 @@ CURRENT_DATE
 
 **Description**
 
-Returns the current date.
+Returns the current date as a `DATE` object. Parentheses are optional when
+called with no arguments.
 
 This function supports the following arguments:
 
@@ -30,6 +155,10 @@ This function supports the following arguments:
   [time zone][date-timezone-definitions]. If no time zone is specified, the
   default time zone, which is implementation defined, is used. If this expression is
   used and it evaluates to `NULL`, this function returns `NULL`.
+
+The current date is recorded at the start of the query
+statement which contains this function, not when this specific function is
+evaluated.
 
 **Return Data Type**
 
@@ -746,10 +875,10 @@ each element in `date_string`.
 -- This works because elements on both sides match.
 SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008')
 
--- This doesn't work because the year element is in different locations.
+-- This produces an error because the year element is in different locations.
 SELECT PARSE_DATE('%Y %A %b %e', 'Thursday Dec 25 2008')
 
--- This doesn't work because one of the year elements is missing.
+-- This produces an error because one of the year elements is missing.
 SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008')
 
 -- This works because %F can find all matching elements in date_string.

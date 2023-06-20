@@ -17,10 +17,17 @@
 #include "zetasql/resolved_ast/test_utils.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/types/simple_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 
 namespace zetasql {
@@ -92,6 +99,107 @@ std::unique_ptr<ResolvedFunctionCall> WrapInFunctionCall(
   return MakeResolvedFunctionCall(type_factory->get_int64(), function, sig,
                                   std::move(args),
                                   ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+}
+
+absl::StatusOr<std::vector<std::unique_ptr<const ResolvedExpr>>>
+BuildResolvedLiteralsWithCollationForTest(
+    std::vector<std::pair<std::string, std::string>> literals,
+    AnalyzerOptions& analyzer_options, Catalog& catlog,
+    TypeFactory& type_factory) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> result;
+
+  for (const auto& [str, collation_str] : literals) {
+    std::unique_ptr<ResolvedLiteral> arg =
+        MakeResolvedLiteral(types::StringType(), Value::String(str),
+                            /*has_explicit_type=*/true);
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedExpr> expr,
+        MakeCollateCallForTest(std::move(arg), collation_str, analyzer_options,
+                               catlog, type_factory));
+    result.push_back(std::move(expr));
+  }
+  return result;
+}
+
+absl::StatusOr<const Function*> GetBuiltinFunctionFromCatalogForTest(
+    absl::string_view function_name, AnalyzerOptions& analyzer_options,
+    Catalog& catalog) {
+  const Function* fn_out = nullptr;
+  ZETASQL_RETURN_IF_ERROR(catalog.FindFunction({std::string(function_name)}, &fn_out,
+                                       analyzer_options.find_options()));
+  ZETASQL_RET_CHECK(fn_out != nullptr);
+  return fn_out;
+}
+
+absl::StatusOr<AnnotationMap*> GetOrCreateMutableTypeAnnotationMap(
+    ResolvedFunctionCall* resolved_func, TypeFactory& type_factory) {
+  ZETASQL_RET_CHECK(resolved_func != nullptr);
+  const AnnotationMap* annotation_map = resolved_func->type_annotation_map();
+  if (annotation_map == nullptr) {
+    std::unique_ptr<AnnotationMap> new_annotation_map =
+        AnnotationMap::Create(resolved_func->type());
+    annotation_map = new_annotation_map.get();
+    ZETASQL_ASSIGN_OR_RETURN(annotation_map,
+                     // Set `normalize = false` to avoid destroying internal
+                     // annotation map while transferring the ownership.
+                     type_factory.TakeOwnership(std::move(new_annotation_map),
+                                                /*normalize=*/false));
+    resolved_func->set_type_annotation_map(annotation_map);
+  }
+  return const_cast<AnnotationMap*>(annotation_map);
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ConcatStringForTest(
+    const Type* argument_type,
+    std::vector<std::unique_ptr<const ResolvedExpr>>& elements,
+    AnalyzerOptions& analyzer_options, Catalog& catalog,
+    TypeFactory& type_factory) {
+  ZETASQL_RET_CHECK(!elements.empty());
+  ZETASQL_ASSIGN_OR_RETURN(const Function* concat_fn,
+                   GetBuiltinFunctionFromCatalogForTest(
+                       "concat", analyzer_options, catalog));
+  ZETASQL_RET_CHECK(concat_fn != nullptr);
+
+  ZETASQL_RET_CHECK(!concat_fn->signatures().empty());
+  const FunctionSignature* concat_string_fn_signature =
+      concat_fn->GetSignature(0);
+  ZETASQL_RET_CHECK(concat_string_fn_signature != nullptr);
+
+  return MakeResolvedFunctionCall(
+      type_factory.MakeSimpleType(TypeKind::TYPE_STRING), concat_fn,
+      *concat_string_fn_signature, std::move(elements),
+      ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>> MakeCollateCallForTest(
+    std::unique_ptr<const ResolvedExpr> expr, absl::string_view collation_str,
+    AnalyzerOptions& analyzer_options, Catalog& catalog,
+    TypeFactory& type_factory) {
+  ZETASQL_RET_CHECK(expr != nullptr);
+  ZETASQL_ASSIGN_OR_RETURN(const Function* collate_function,
+                   GetBuiltinFunctionFromCatalogForTest(
+                       "collate", analyzer_options, catalog));
+  std::unique_ptr<ResolvedLiteral> collation_type =
+      MakeResolvedLiteral(Value::String(collation_str));
+  collation_type->set_preserve_in_literal_remover(true);
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  const Type* type = expr->type();
+  args.push_back(std::move(expr));
+  args.push_back(std::move(collation_type));
+  std::unique_ptr<ResolvedFunctionCall> collate_fn = MakeResolvedFunctionCall(
+      type, collate_function, *collate_function->GetSignature(0),
+      std::move(args), ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+
+  // Explicitly adjust annotation map for collate function.
+  if (!collation_str.empty()) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        AnnotationMap * annotation_map,
+        GetOrCreateMutableTypeAnnotationMap(collate_fn.get(), type_factory));
+    annotation_map->SetAnnotation<CollationAnnotation>(
+        SimpleValue::String(std::string(collation_str)));
+  }
+  return collate_fn;
 }
 
 }  // namespace testing

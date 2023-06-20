@@ -1,0 +1,10 @@
+# GROUP BY ALL is only supported in parser.
+select `int64`{{| AS a}}, sum(`int32`)
+from SimpleTypes
+group by all
+--
+ERROR: GROUP BY ALL is not supported [at 3:10]
+group by all
+         ^
+==
+

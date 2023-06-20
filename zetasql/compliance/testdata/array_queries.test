@@ -413,12 +413,12 @@ ARRAY<STRUCT<
 [name=select_bool_arrays]
 SELECT bool_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<bool_arrcol ARRAY<>>>[
-  {ARRAY<BOOL>[true, false, true]},
-  {ARRAY<BOOL>[true, NULL, true]},
-  {ARRAY<BOOL>[NULL, true]},
-  {ARRAY<BOOL>[true, NULL]},
-  {ARRAY<BOOL>[NULL, NULL]},
+ARRAY<STRUCT<bool_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<BOOL>[known order:true, false, true]},
+  {ARRAY<BOOL>[known order:true, NULL, true]},
+  {ARRAY<BOOL>[known order:NULL, true]},
+  {ARRAY<BOOL>[known order:true, NULL]},
+  {ARRAY<BOOL>[known order:NULL, NULL]},
   {ARRAY<BOOL>[NULL]},
   {ARRAY<BOOL>[true]},
   {ARRAY<BOOL>[]},
@@ -428,7 +428,7 @@ ARRAY<STRUCT<bool_arrcol ARRAY<>>>[
 [name=select_bool_array_unnest]
 SELECT elem FROM AllArraysTable t, t.bool_arrcol elem
 --
-ARRAY<STRUCT<elem BOOL>>[
+ARRAY<STRUCT<elem BOOL>>[unknown order:
   {NULL},
   {true},
   {true},
@@ -450,7 +450,7 @@ ARRAY<STRUCT<elem BOOL>>[
 [name=select_bool_array_unnest_from_table_name_array_path]
 SELECT elem FROM AllArraysTable.bool_arrcol elem
 --
-ARRAY<STRUCT<elem BOOL>>[
+ARRAY<STRUCT<elem BOOL>>[unknown order:
   {NULL},
   {true},
   {true},
@@ -471,12 +471,12 @@ ARRAY<STRUCT<elem BOOL>>[
 [name=select_int32_arrays]
 SELECT int32_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<int32_arrcol ARRAY<>>>[
-  {ARRAY<INT32>[1, 0, -1]},
-  {ARRAY<INT32>[1, NULL, -1]},
-  {ARRAY<INT32>[NULL, -1]},
-  {ARRAY<INT32>[1, NULL]},
-  {ARRAY<INT32>[NULL, NULL]},
+ARRAY<STRUCT<int32_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<INT32>[known order:1, 0, -1]},
+  {ARRAY<INT32>[known order:1, NULL, -1]},
+  {ARRAY<INT32>[known order:NULL, -1]},
+  {ARRAY<INT32>[known order:1, NULL]},
+  {ARRAY<INT32>[known order:NULL, NULL]},
   {ARRAY<INT32>[NULL]},
   {ARRAY<INT32>[1]},
   {ARRAY<INT32>[]},
@@ -486,7 +486,7 @@ ARRAY<STRUCT<int32_arrcol ARRAY<>>>[
 [name=select_int32_array_unnest]
 SELECT elem FROM AllArraysTable t, t.int32_arrcol elem
 --
-ARRAY<STRUCT<elem INT32>>[
+ARRAY<STRUCT<elem INT32>>[unknown order:
   {NULL},
   {1},
   {-1},
@@ -508,7 +508,7 @@ ARRAY<STRUCT<elem INT32>>[
 [name=select_int32_array_unnest_from_table_name_array_path]
 SELECT elem FROM AllArraysTable.int32_arrcol elem
 --
-ARRAY<STRUCT<elem INT32>>[
+ARRAY<STRUCT<elem INT32>>[unknown order:
   {NULL},
   {1},
   {-1},
@@ -529,12 +529,12 @@ ARRAY<STRUCT<elem INT32>>[
 [name=select_uint32_arrays]
 SELECT uint32_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<uint32_arrcol ARRAY<>>>[
-  {ARRAY<UINT32>[2, 1, 0]},
-  {ARRAY<UINT32>[2, NULL, 0]},
-  {ARRAY<UINT32>[NULL, 0]},
-  {ARRAY<UINT32>[2, NULL]},
-  {ARRAY<UINT32>[NULL, NULL]},
+ARRAY<STRUCT<uint32_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<UINT32>[known order:2, 1, 0]},
+  {ARRAY<UINT32>[known order:2, NULL, 0]},
+  {ARRAY<UINT32>[known order:NULL, 0]},
+  {ARRAY<UINT32>[known order:2, NULL]},
+  {ARRAY<UINT32>[known order:NULL, NULL]},
   {ARRAY<UINT32>[NULL]},
   {ARRAY<UINT32>[2]},
   {ARRAY<UINT32>[]},
@@ -544,7 +544,7 @@ ARRAY<STRUCT<uint32_arrcol ARRAY<>>>[
 [name=select_uint32_array_unnest]
 SELECT elem FROM AllArraysTable t, t.uint32_arrcol elem
 --
-ARRAY<STRUCT<elem UINT32>>[
+ARRAY<STRUCT<elem UINT32>>[unknown order:
   {NULL},
   {2},
   {0},
@@ -566,7 +566,7 @@ ARRAY<STRUCT<elem UINT32>>[
 [name=select_uint32_array_unnest_from_table_name_array_path]
 SELECT elem FROM AllArraysTable.uint32_arrcol elem
 --
-ARRAY<STRUCT<elem UINT32>>[
+ARRAY<STRUCT<elem UINT32>>[unknown order:
   {NULL},
   {2},
   {0},
@@ -587,12 +587,12 @@ ARRAY<STRUCT<elem UINT32>>[
 [name=select_int64_arrays]
 SELECT int64_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<int64_arrcol ARRAY<>>>[
-  {ARRAY<INT64>[8589934592, 0, -8589934592]},
-  {ARRAY<INT64>[8589934592, NULL, -8589934592]},
-  {ARRAY<INT64>[NULL, -8589934592]},
-  {ARRAY<INT64>[8589934592, NULL]},
-  {ARRAY<INT64>[NULL, NULL]},
+ARRAY<STRUCT<int64_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<INT64>[known order:8589934592, 0, -8589934592]},
+  {ARRAY<INT64>[known order:8589934592, NULL, -8589934592]},
+  {ARRAY<INT64>[known order:NULL, -8589934592]},
+  {ARRAY<INT64>[known order:8589934592, NULL]},
+  {ARRAY<INT64>[known order:NULL, NULL]},
   {ARRAY<INT64>[NULL]},
   {ARRAY<INT64>[8589934592]},
   {ARRAY<INT64>[]},
@@ -603,7 +603,7 @@ ARRAY<STRUCT<int64_arrcol ARRAY<>>>[
 [name=select_int64_array_unnest]
 SELECT elem FROM AllArraysTable t, t.int64_arrcol elem
 --
-ARRAY<STRUCT<elem INT64>>[
+ARRAY<STRUCT<elem INT64>>[unknown order:
   {NULL},
   {8589934592},
   {-8589934592},
@@ -625,7 +625,7 @@ ARRAY<STRUCT<elem INT64>>[
 [name=select_int64_array_unnest_from_table_name_array_path]
 SELECT elem FROM AllArraysTable.int64_arrcol elem
 --
-ARRAY<STRUCT<elem INT64>>[
+ARRAY<STRUCT<elem INT64>>[unknown order:
   {NULL},
   {8589934592},
   {-8589934592},
@@ -646,12 +646,12 @@ ARRAY<STRUCT<elem INT64>>[
 [name=select_uint64_arrays]
 SELECT uint64_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<uint64_arrcol ARRAY<>>>[
-  {ARRAY<UINT64>[8589934592, 1, 0]},
-  {ARRAY<UINT64>[8589934592, NULL, 0]},
-  {ARRAY<UINT64>[NULL, 0]},
-  {ARRAY<UINT64>[8589934592, NULL]},
-  {ARRAY<UINT64>[NULL, NULL]},
+ARRAY<STRUCT<uint64_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<UINT64>[known order:8589934592, 1, 0]},
+  {ARRAY<UINT64>[known order:8589934592, NULL, 0]},
+  {ARRAY<UINT64>[known order:NULL, 0]},
+  {ARRAY<UINT64>[known order:8589934592, NULL]},
+  {ARRAY<UINT64>[known order:NULL, NULL]},
   {ARRAY<UINT64>[NULL]},
   {ARRAY<UINT64>[8589934592]},
   {ARRAY<UINT64>[]},
@@ -661,7 +661,7 @@ ARRAY<STRUCT<uint64_arrcol ARRAY<>>>[
 [name=select_uint64_array_unnest]
 SELECT elem FROM AllArraysTable t, t.uint64_arrcol elem
 --
-ARRAY<STRUCT<elem UINT64>>[
+ARRAY<STRUCT<elem UINT64>>[unknown order:
   {NULL},
   {8589934592},
   {0},
@@ -681,12 +681,12 @@ ARRAY<STRUCT<elem UINT64>>[
 [name=select_float_arrays]
 SELECT float_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<float_arrcol ARRAY<>>>[
-  {ARRAY<FLOAT>[1.1, 0, -1.1]},
-  {ARRAY<FLOAT>[1.1, NULL, -1.1]},
-  {ARRAY<FLOAT>[NULL, -1.1]},
-  {ARRAY<FLOAT>[1.1, NULL]},
-  {ARRAY<FLOAT>[NULL, NULL]},
+ARRAY<STRUCT<float_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<FLOAT>[known order:1.1, 0, -1.1]},
+  {ARRAY<FLOAT>[known order:1.1, NULL, -1.1]},
+  {ARRAY<FLOAT>[known order:NULL, -1.1]},
+  {ARRAY<FLOAT>[known order:1.1, NULL]},
+  {ARRAY<FLOAT>[known order:NULL, NULL]},
   {ARRAY<FLOAT>[NULL]},
   {ARRAY<FLOAT>[1.1]},
   {ARRAY<FLOAT>[]},
@@ -696,7 +696,7 @@ ARRAY<STRUCT<float_arrcol ARRAY<>>>[
 [name=select_float_array_unnest]
 SELECT elem FROM AllArraysTable t, t.float_arrcol elem
 --
-ARRAY<STRUCT<elem FLOAT>>[
+ARRAY<STRUCT<elem FLOAT>>[unknown order:
   {NULL},
   {1.1},
   {-1.1},
@@ -716,12 +716,12 @@ ARRAY<STRUCT<elem FLOAT>>[
 [name=select_double_arrays]
 SELECT double_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<double_arrcol ARRAY<>>>[
-  {ARRAY<DOUBLE>[1.1, 0, -1.1]},
-  {ARRAY<DOUBLE>[1.1, NULL, -1.1]},
-  {ARRAY<DOUBLE>[NULL, -1.1]},
-  {ARRAY<DOUBLE>[1.1, NULL]},
-  {ARRAY<DOUBLE>[NULL, NULL]},
+ARRAY<STRUCT<double_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<DOUBLE>[known order:1.1, 0, -1.1]},
+  {ARRAY<DOUBLE>[known order:1.1, NULL, -1.1]},
+  {ARRAY<DOUBLE>[known order:NULL, -1.1]},
+  {ARRAY<DOUBLE>[known order:1.1, NULL]},
+  {ARRAY<DOUBLE>[known order:NULL, NULL]},
   {ARRAY<DOUBLE>[NULL]},
   {ARRAY<DOUBLE>[1.1]},
   {ARRAY<DOUBLE>[]},
@@ -731,7 +731,7 @@ ARRAY<STRUCT<double_arrcol ARRAY<>>>[
 [name=select_double_array_unnest]
 SELECT elem FROM AllArraysTable t, t.double_arrcol elem
 --
-ARRAY<STRUCT<elem DOUBLE>>[
+ARRAY<STRUCT<elem DOUBLE>>[unknown order:
   {NULL},
   {1.1},
   {-1.1},
@@ -751,12 +751,12 @@ ARRAY<STRUCT<elem DOUBLE>>[
 [name=select_string_arrays]
 SELECT string_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<string_arrcol ARRAY<>>>[
-  {ARRAY<STRING>["σ", "π", "⨝"]},
-  {ARRAY<STRING>["σ", NULL, "⨝"]},
-  {ARRAY<STRING>[NULL, "⨝"]},
-  {ARRAY<STRING>["σ", NULL]},
-  {ARRAY<STRING>[NULL, NULL]},
+ARRAY<STRUCT<string_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<STRING>[known order:"σ", "π", "⨝"]},
+  {ARRAY<STRING>[known order:"σ", NULL, "⨝"]},
+  {ARRAY<STRING>[known order:NULL, "⨝"]},
+  {ARRAY<STRING>[known order:"σ", NULL]},
+  {ARRAY<STRING>[known order:NULL, NULL]},
   {ARRAY<STRING>[NULL]},
   {ARRAY<STRING>["σ"]},
   {ARRAY<STRING>[]},
@@ -766,7 +766,7 @@ ARRAY<STRUCT<string_arrcol ARRAY<>>>[
 [name=select_string_array_unnest]
 SELECT elem FROM AllArraysTable t, t.string_arrcol elem
 --
-ARRAY<STRUCT<elem STRING>>[
+ARRAY<STRUCT<elem STRING>>[unknown order:
   {NULL},
   {"σ"},
   {"⨝"},
@@ -786,12 +786,12 @@ ARRAY<STRUCT<elem STRING>>[
 [name=select_bytes_arrays]
 SELECT bytes_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<bytes_arrcol ARRAY<>>>[
-  {ARRAY<BYTES>[b"a", b"b", b"c"]},
-  {ARRAY<BYTES>[b"a", NULL, b"c"]},
-  {ARRAY<BYTES>[NULL, b"c"]},
-  {ARRAY<BYTES>[b"a", NULL]},
-  {ARRAY<BYTES>[NULL, NULL]},
+ARRAY<STRUCT<bytes_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<BYTES>[known order:b"a", b"b", b"c"]},
+  {ARRAY<BYTES>[known order:b"a", NULL, b"c"]},
+  {ARRAY<BYTES>[known order:NULL, b"c"]},
+  {ARRAY<BYTES>[known order:b"a", NULL]},
+  {ARRAY<BYTES>[known order:NULL, NULL]},
   {ARRAY<BYTES>[NULL]},
   {ARRAY<BYTES>[b"a"]},
   {ARRAY<BYTES>[]},
@@ -801,7 +801,7 @@ ARRAY<STRUCT<bytes_arrcol ARRAY<>>>[
 [name=select_bytes_array_unnest]
 SELECT elem FROM AllArraysTable t, t.bytes_arrcol elem
 --
-ARRAY<STRUCT<elem BYTES>>[
+ARRAY<STRUCT<elem BYTES>>[unknown order:
   {NULL},
   {b"a"},
   {b"c"},
@@ -821,12 +821,12 @@ ARRAY<STRUCT<elem BYTES>>[
 [name=select_date_arrays]
 SELECT date_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<date_arrcol ARRAY<>>>[
-  {ARRAY<DATE>[1984-08-02, 2000-01-01, 2014-09-11]},
-  {ARRAY<DATE>[1984-08-02, NULL, 2014-09-11]},
-  {ARRAY<DATE>[NULL, 2014-09-11]},
-  {ARRAY<DATE>[1984-08-02, NULL]},
-  {ARRAY<DATE>[NULL, NULL]},
+ARRAY<STRUCT<date_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<DATE>[known order:1984-08-02, 2000-01-01, 2014-09-11]},
+  {ARRAY<DATE>[known order:1984-08-02, NULL, 2014-09-11]},
+  {ARRAY<DATE>[known order:NULL, 2014-09-11]},
+  {ARRAY<DATE>[known order:1984-08-02, NULL]},
+  {ARRAY<DATE>[known order:NULL, NULL]},
   {ARRAY<DATE>[NULL]},
   {ARRAY<DATE>[1984-08-02]},
   {ARRAY<DATE>[]},
@@ -836,7 +836,7 @@ ARRAY<STRUCT<date_arrcol ARRAY<>>>[
 [name=select_date_array_unnest]
 SELECT elem FROM AllArraysTable t, t.date_arrcol elem
 --
-ARRAY<STRUCT<elem DATE>>[
+ARRAY<STRUCT<elem DATE>>[unknown order:
   {NULL},
   {1984-08-02},
   {2014-09-11},
@@ -856,26 +856,26 @@ ARRAY<STRUCT<elem DATE>>[
 [name=select_timestamp_arrays]
 SELECT micros_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<micros_arrcol ARRAY<>>>[
-  {ARRAY<TIMESTAMP>[
+ARRAY<STRUCT<micros_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<TIMESTAMP>[known order:
      1984-08-02 01:01:01.001001+00,
      2000-01-01 01:01:01.001001+00,
      2014-09-11 01:01:01.001001+00
    ]},
-  {ARRAY<TIMESTAMP>[
+  {ARRAY<TIMESTAMP>[known order:
      1984-08-02 01:01:01.001001+00,
      NULL,
      2014-09-11 01:01:01.001001+00
    ]},
-  {ARRAY<TIMESTAMP>[
+  {ARRAY<TIMESTAMP>[known order:
      NULL,
      2014-09-11 01:01:01.001001+00
    ]},
-  {ARRAY<TIMESTAMP>[
+  {ARRAY<TIMESTAMP>[known order:
      1984-08-02 01:01:01.001001+00,
      NULL
    ]},
-  {ARRAY<TIMESTAMP>[NULL, NULL]},
+  {ARRAY<TIMESTAMP>[known order:NULL, NULL]},
   {ARRAY<TIMESTAMP>[NULL]},
   {ARRAY<TIMESTAMP>[1984-08-02 01:01:01.001001+00]},
   {ARRAY<TIMESTAMP>[]},
@@ -885,7 +885,7 @@ ARRAY<STRUCT<micros_arrcol ARRAY<>>>[
 [name=select_timestamp_array_unnest]
 SELECT elem FROM AllArraysTable t, t.micros_arrcol elem
 --
-ARRAY<STRUCT<elem TIMESTAMP>>[
+ARRAY<STRUCT<elem TIMESTAMP>>[unknown order:
   {NULL},
   {1984-08-02 01:01:01.001001+00},
   {2014-09-11 01:01:01.001001+00},
@@ -905,12 +905,16 @@ ARRAY<STRUCT<elem TIMESTAMP>>[
 [name=select_enum_arrays]
 SELECT enum_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<enum_arrcol ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, NULL, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, NULL]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL, NULL]},
+ARRAY<STRUCT<enum_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:
+     TESTENUM0,
+     TESTENUM1,
+     TESTENUM2
+   ]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:TESTENUM0, NULL, TESTENUM2]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:NULL, TESTENUM2]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:TESTENUM0, NULL]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:NULL, NULL]},
   {ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL]},
   {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0]},
   {ARRAY<ENUM<zetasql_test__.TestEnum>>[]},
@@ -920,7 +924,7 @@ ARRAY<STRUCT<enum_arrcol ARRAY<>>>[
 [name=select_enum_array_unnest]
 SELECT elem FROM AllArraysTable t, t.enum_arrcol elem
 --
-ARRAY<STRUCT<elem ENUM<zetasql_test__.TestEnum>>>[
+ARRAY<STRUCT<elem ENUM<zetasql_test__.TestEnum>>>[unknown order:
   {NULL},
   {TESTENUM0},
   {TESTENUM2},
@@ -940,8 +944,8 @@ ARRAY<STRUCT<elem ENUM<zetasql_test__.TestEnum>>>[
 [name=select_proto_arrays]
 SELECT proto_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<proto_arrcol ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+ARRAY<STRUCT<proto_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -955,7 +959,7 @@ ARRAY<STRUCT<proto_arrcol ARRAY<>>>[
        int64_key_2: 32
      }
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -966,21 +970,21 @@ ARRAY<STRUCT<proto_arrcol ARRAY<>>>[
        int64_key_2: 32
      }
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
      NULL,
      {
        int64_key_1: 31
        int64_key_2: 32
      }
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
      {
        int64_key_1: 11
        int64_key_2: 12
      },
      NULL
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[NULL, NULL]},
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:NULL, NULL]},
   {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[NULL]},
   {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
@@ -995,7 +999,7 @@ ARRAY<STRUCT<proto_arrcol ARRAY<>>>[
 [name=select_proto_array_unnest]
 SELECT elem FROM AllArraysTable t, t.proto_arrcol elem
 --
-ARRAY<STRUCT<elem PROTO<zetasql_test__.KitchenSinkPB>>>[
+ARRAY<STRUCT<elem PROTO<zetasql_test__.KitchenSinkPB>>>[unknown order:
   {NULL},
   {{
      int64_key_1: 11
@@ -1039,12 +1043,12 @@ ARRAY<STRUCT<elem PROTO<zetasql_test__.KitchenSinkPB>>>[
 [name=select_struct_arrays]
 SELECT struct_arrcol FROM AllArraysTable
 --
-ARRAY<STRUCT<struct_arrcol ARRAY<>>>[
-  {ARRAY<STRUCT<INT64, INT64>>[{11, 12}, {21, 22}, {31, 32}]},
-  {ARRAY<STRUCT<INT64, INT64>>[{11, 12}, NULL, {31, 32}]},
-  {ARRAY<STRUCT<INT64, INT64>>[NULL, {31, 32}]},
-  {ARRAY<STRUCT<INT64, INT64>>[{11, 12}, NULL]},
-  {ARRAY<STRUCT<INT64, INT64>>[NULL, NULL]},
+ARRAY<STRUCT<struct_arrcol ARRAY<>>>[unknown order:
+  {ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, {21, 22}, {31, 32}]},
+  {ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, NULL, {31, 32}]},
+  {ARRAY<STRUCT<INT64, INT64>>[known order:NULL, {31, 32}]},
+  {ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, NULL]},
+  {ARRAY<STRUCT<INT64, INT64>>[known order:NULL, NULL]},
   {ARRAY<STRUCT<INT64, INT64>>[NULL]},
   {ARRAY<STRUCT<INT64, INT64>>[{11, 12}]},
   {ARRAY<STRUCT<INT64, INT64>>[]},
@@ -1054,7 +1058,7 @@ ARRAY<STRUCT<struct_arrcol ARRAY<>>>[
 [name=select_struct_array_unnest]
 SELECT elem FROM AllArraysTable t, t.struct_arrcol elem
 --
-ARRAY<STRUCT<elem STRUCT<INT64, INT64>>>[
+ARRAY<STRUCT<elem STRUCT<INT64, INT64>>>[unknown order:
   {NULL},
   {{11, 12}},
   {{31, 32}},
@@ -1078,7 +1082,7 @@ ARRAY<STRUCT<elem STRUCT<INT64, INT64>>>[
 [name=select_string_array_unnest_explicit]
 SELECT elem FROM AllArraysTable t, UNNEST(t.string_arrcol) AS elem
 --
-ARRAY<STRUCT<elem STRING>>[
+ARRAY<STRUCT<elem STRING>>[unknown order:
   {NULL},
   {"σ"},
   {"⨝"},
@@ -1101,7 +1105,7 @@ ARRAY<STRUCT<elem STRING>>[
 [name=select_string_array_unnest_with_offset]
 SELECT elem, offset FROM AllArraysTable t, t.string_arrcol elem WITH OFFSET
 --
-ARRAY<STRUCT<elem STRING, offset INT64>>[
+ARRAY<STRUCT<elem STRING, offset INT64>>[unknown order:
   {NULL, 1},
   {"σ", 0},
   {"⨝", 2},
@@ -1121,7 +1125,7 @@ ARRAY<STRUCT<elem STRING, offset INT64>>[
 [name=select_string_array_unnest_with_offset_aliased]
 SELECT elem, off FROM AllArraysTable t, t.string_arrcol elem WITH OFFSET off
 --
-ARRAY<STRUCT<elem STRING, off INT64>>[
+ARRAY<STRUCT<elem STRING, off INT64>>[unknown order:
   {NULL, 1},
   {"σ", 0},
   {"⨝", 2},
@@ -1143,7 +1147,7 @@ SELECT elem, offset
 FROM AllArraysTable t, t.string_arrcol elem WITH OFFSET
 ORDER BY offset
 --
-ARRAY<STRUCT<elem STRING, offset INT64>>[
+ARRAY<STRUCT<elem STRING, offset INT64>>[unknown order:
   {"σ", 0},
   {NULL, 0},
   {"σ", 0},
@@ -1165,7 +1169,7 @@ SELECT elem, off
 FROM AllArraysTable t, t.string_arrcol elem WITH OFFSET off
 ORDER BY off
 --
-ARRAY<STRUCT<elem STRING, off INT64>>[
+ARRAY<STRUCT<elem STRING, off INT64>>[unknown order:
   {"σ", 0},
   {NULL, 0},
   {"σ", 0},
@@ -1186,14 +1190,22 @@ ARRAY<STRUCT<elem STRING, off INT64>>[
 SELECT ARRAY(SELECT AS STRUCT elem, off FROM t.string_arrcol elem WITH OFFSET off)
 FROM AllArraysTable t
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRUCT<elem STRING, off INT64>>[{NULL, 1}, {"σ", 0}, {"⨝", 2}]},
-  {ARRAY<STRUCT<elem STRING, off INT64>>[{NULL, 1}, {"σ", 0}]},
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<STRUCT<elem STRING, off INT64>>[unknown order:
+     {NULL, 1},
+     {"σ", 0},
+     {"⨝", 2}
+   ]},
+  {ARRAY<STRUCT<elem STRING, off INT64>>[unknown order:{NULL, 1}, {"σ", 0}]},
   {ARRAY<STRUCT<elem STRING, off INT64>>[{NULL, 0}]},
   {ARRAY<STRUCT<elem STRING, off INT64>>[]},
-  {ARRAY<STRUCT<elem STRING, off INT64>>[{"π", 1}, {"σ", 0}, {"⨝", 2}]},
-  {ARRAY<STRUCT<elem STRING, off INT64>>[{"⨝", 1}, {NULL, 0}]},
-  {ARRAY<STRUCT<elem STRING, off INT64>>[{NULL, 1}, {NULL, 0}]},
+  {ARRAY<STRUCT<elem STRING, off INT64>>[unknown order:
+     {"π", 1},
+     {"σ", 0},
+     {"⨝", 2}
+   ]},
+  {ARRAY<STRUCT<elem STRING, off INT64>>[unknown order:{"⨝", 1}, {NULL, 0}]},
+  {ARRAY<STRUCT<elem STRING, off INT64>>[unknown order:{NULL, 1}, {NULL, 0}]},
   {ARRAY<STRUCT<elem STRING, off INT64>>[{"σ", 0}]},
   {ARRAY<STRUCT<elem STRING, off INT64>>[]}
 ]
@@ -1295,142 +1307,152 @@ ARRAY<STRUCT<
         proto_arrcol ARRAY<>,
         struct_arrcol ARRAY<>
       >>
-[{
-   8,
-   ARRAY<BOOL>[],
-   ARRAY<INT32>[],
-   ARRAY<UINT32>[],
-   ARRAY<INT64>[],
-   ARRAY<UINT64>[],
-   ARRAY<FLOAT>[],
-   ARRAY<DOUBLE>[],
-   ARRAY<STRING>[],
-   ARRAY<BYTES>[],
-   ARRAY<DATE>[],
-   ARRAY<TIMESTAMP>[],
-   ARRAY<ENUM<zetasql_test__.TestEnum>>[],
-   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[],
-   ARRAY<STRUCT<INT64, INT64>>[],
-   8,
-   ARRAY<BOOL>[],
-   ARRAY<INT32>[],
-   ARRAY<UINT32>[],
-   ARRAY<INT64>[],
-   ARRAY<UINT64>[],
-   ARRAY<FLOAT>[],
-   ARRAY<DOUBLE>[],
-   ARRAY<STRING>[],
-   ARRAY<BYTES>[],
-   ARRAY<DATE>[],
-   ARRAY<TIMESTAMP>[],
-   ARRAY<ENUM<zetasql_test__.TestEnum>>[],
-   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[],
-   ARRAY<STRUCT<INT64, INT64>>[]
- },
- {1,
-  ARRAY<BOOL>[true, false, true],
-  ARRAY<INT32>[1, 0, -1],
-  ARRAY<UINT32>[2, 1, 0],
-  ARRAY<INT64>[8589934592, 0, -8589934592],
-  ARRAY<UINT64>[8589934592, 1, 0],
-  ARRAY<FLOAT>[1.1, 0, -1.1],
-  ARRAY<DOUBLE>[1.1, 0, -1.1],
-  ARRAY<STRING>["σ", "π", "⨝"],
-  ARRAY<BYTES>[b"a", b"b", b"c"],
-  ARRAY<DATE>[1984-08-02, 2000-01-01, 2014-09-11],
-  ARRAY<TIMESTAMP>[
-    1984-08-02 01:01:01.001001+00,
-    2000-01-01 01:01:01.001001+00,
-    2014-09-11 01:01:01.001001+00
-  ],
-  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2],
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
-    {
-      int64_key_1: 11
-      int64_key_2: 12
-    },
-    {
-      int64_key_1: 21
-      int64_key_2: 22
-    },
-    {
-      int64_key_1: 31
-      int64_key_2: 32
-    }
-  ],
-  ARRAY<STRUCT<INT64, INT64>>[{11, 12}, {21, 22}, {31, 32}],
-  1,
-  ARRAY<BOOL>[true, false, true],
-  ARRAY<INT32>[1, 0, -1],
-  ARRAY<UINT32>[2, 1, 0],
-  ARRAY<INT64>[8589934592, 0, -8589934592],
-  ARRAY<UINT64>[8589934592, 1, 0],
-  ARRAY<FLOAT>[1.1, 0, -1.1],
-  ARRAY<DOUBLE>[1.1, 0, -1.1],
-  ARRAY<STRING>["σ", "π", "⨝"],
-  ARRAY<BYTES>[b"a", b"b", b"c"],
-  ARRAY<DATE>[1984-08-02, 2000-01-01, 2014-09-11],
-  ARRAY<TIMESTAMP>[
-    1984-08-02 01:01:01.001001+00,
-    2000-01-01 01:01:01.001001+00,
-    2014-09-11 01:01:01.001001+00
-  ],
-  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2],
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
-    {
-      int64_key_1: 11
-      int64_key_2: 12
-    },
-    {
-      int64_key_1: 21
-      int64_key_2: 22
-    },
-    {
-      int64_key_1: 31
-      int64_key_2: 32
-    }
-  ],
-  ARRAY<STRUCT<INT64, INT64>>[{11, 12}, {21, 22}, {31, 32}]},
- {7,
-  ARRAY<BOOL>[true],
-  ARRAY<INT32>[1],
-  ARRAY<UINT32>[2],
-  ARRAY<INT64>[8589934592],
-  ARRAY<UINT64>[8589934592],
-  ARRAY<FLOAT>[1.1],
-  ARRAY<DOUBLE>[1.1],
-  ARRAY<STRING>["σ"],
-  ARRAY<BYTES>[b"a"],
-  ARRAY<DATE>[1984-08-02],
-  ARRAY<TIMESTAMP>[1984-08-02 01:01:01.001001+00],
-  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0],
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
-    {
-      int64_key_1: 11
-      int64_key_2: 12
-    }
-  ],
-  ARRAY<STRUCT<INT64, INT64>>[{11, 12}],
-  7,
-  ARRAY<BOOL>[true],
-  ARRAY<INT32>[1],
-  ARRAY<UINT32>[2],
-  ARRAY<INT64>[8589934592],
-  ARRAY<UINT64>[8589934592],
-  ARRAY<FLOAT>[1.1],
-  ARRAY<DOUBLE>[1.1],
-  ARRAY<STRING>["σ"],
-  ARRAY<BYTES>[b"a"],
-  ARRAY<DATE>[1984-08-02],
-  ARRAY<TIMESTAMP>[1984-08-02 01:01:01.001001+00],
-  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0],
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
-    {
-      int64_key_1: 11
-      int64_key_2: 12
-    }
-  ],
-  ARRAY<STRUCT<INT64, INT64>>[{11, 12}]}]
+[unknown order:
+  {
+    8,
+    ARRAY<BOOL>[],
+    ARRAY<INT32>[],
+    ARRAY<UINT32>[],
+    ARRAY<INT64>[],
+    ARRAY<UINT64>[],
+    ARRAY<FLOAT>[],
+    ARRAY<DOUBLE>[],
+    ARRAY<STRING>[],
+    ARRAY<BYTES>[],
+    ARRAY<DATE>[],
+    ARRAY<TIMESTAMP>[],
+    ARRAY<ENUM<zetasql_test__.TestEnum>>[],
+    ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[],
+    ARRAY<STRUCT<INT64, INT64>>[],
+    8,
+    ARRAY<BOOL>[],
+    ARRAY<INT32>[],
+    ARRAY<UINT32>[],
+    ARRAY<INT64>[],
+    ARRAY<UINT64>[],
+    ARRAY<FLOAT>[],
+    ARRAY<DOUBLE>[],
+    ARRAY<STRING>[],
+    ARRAY<BYTES>[],
+    ARRAY<DATE>[],
+    ARRAY<TIMESTAMP>[],
+    ARRAY<ENUM<zetasql_test__.TestEnum>>[],
+    ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[],
+    ARRAY<STRUCT<INT64, INT64>>[]
+  },
+  {1,
+   ARRAY<BOOL>[known order:true, false, true],
+   ARRAY<INT32>[known order:1, 0, -1],
+   ARRAY<UINT32>[known order:2, 1, 0],
+   ARRAY<INT64>[known order:8589934592, 0, -8589934592],
+   ARRAY<UINT64>[known order:8589934592, 1, 0],
+   ARRAY<FLOAT>[known order:1.1, 0, -1.1],
+   ARRAY<DOUBLE>[known order:1.1, 0, -1.1],
+   ARRAY<STRING>[known order:"σ", "π", "⨝"],
+   ARRAY<BYTES>[known order:b"a", b"b", b"c"],
+   ARRAY<DATE>[known order:1984-08-02, 2000-01-01, 2014-09-11],
+   ARRAY<TIMESTAMP>[known order:
+     1984-08-02 01:01:01.001001+00,
+     2000-01-01 01:01:01.001001+00,
+     2014-09-11 01:01:01.001001+00
+   ],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:
+     TESTENUM0,
+     TESTENUM1,
+     TESTENUM2
+   ],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     },
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+     },
+     {
+       int64_key_1: 31
+       int64_key_2: 32
+     }
+   ],
+   ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, {21, 22}, {31, 32}],
+   1,
+   ARRAY<BOOL>[known order:true, false, true],
+   ARRAY<INT32>[known order:1, 0, -1],
+   ARRAY<UINT32>[known order:2, 1, 0],
+   ARRAY<INT64>[known order:8589934592, 0, -8589934592],
+   ARRAY<UINT64>[known order:8589934592, 1, 0],
+   ARRAY<FLOAT>[known order:1.1, 0, -1.1],
+   ARRAY<DOUBLE>[known order:1.1, 0, -1.1],
+   ARRAY<STRING>[known order:"σ", "π", "⨝"],
+   ARRAY<BYTES>[known order:b"a", b"b", b"c"],
+   ARRAY<DATE>[known order:1984-08-02, 2000-01-01, 2014-09-11],
+   ARRAY<TIMESTAMP>[known order:
+     1984-08-02 01:01:01.001001+00,
+     2000-01-01 01:01:01.001001+00,
+     2014-09-11 01:01:01.001001+00
+   ],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:
+     TESTENUM0,
+     TESTENUM1,
+     TESTENUM2
+   ],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     },
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+     },
+     {
+       int64_key_1: 31
+       int64_key_2: 32
+     }
+   ],
+   ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, {21, 22}, {31, 32}]},
+  {7,
+   ARRAY<BOOL>[true],
+   ARRAY<INT32>[1],
+   ARRAY<UINT32>[2],
+   ARRAY<INT64>[8589934592],
+   ARRAY<UINT64>[8589934592],
+   ARRAY<FLOAT>[1.1],
+   ARRAY<DOUBLE>[1.1],
+   ARRAY<STRING>["σ"],
+   ARRAY<BYTES>[b"a"],
+   ARRAY<DATE>[1984-08-02],
+   ARRAY<TIMESTAMP>[1984-08-02 01:01:01.001001+00],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }
+   ],
+   ARRAY<STRUCT<INT64, INT64>>[{11, 12}],
+   7,
+   ARRAY<BOOL>[true],
+   ARRAY<INT32>[1],
+   ARRAY<UINT32>[2],
+   ARRAY<INT64>[8589934592],
+   ARRAY<UINT64>[8589934592],
+   ARRAY<FLOAT>[1.1],
+   ARRAY<DOUBLE>[1.1],
+   ARRAY<STRING>["σ"],
+   ARRAY<BYTES>[b"a"],
+   ARRAY<DATE>[1984-08-02],
+   ARRAY<TIMESTAMP>[1984-08-02 01:01:01.001001+00],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }
+   ],
+   ARRAY<STRUCT<INT64, INT64>>[{11, 12}]}
+]
 ==
 
 [required_features=V_1_1_ARRAY_EQUALITY]
@@ -1449,7 +1471,7 @@ SELECT bool_arrcol = bool_arrcol,
        struct_arrcol = struct_arrcol
 FROM AllArraysTable;
 --
-ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[unknown order:
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},

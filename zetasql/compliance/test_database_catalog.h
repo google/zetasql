@@ -17,17 +17,20 @@
 #ifndef ZETASQL_COMPLIANCE_TEST_DATABASE_CATALOG_H_
 #define ZETASQL_COMPLIANCE_TEST_DATABASE_CATALOG_H_
 
-#include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
-#include "google/protobuf/compiler/importer.h"
 #include "zetasql/compliance/test_driver.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "google/protobuf/compiler/importer.h"
 
 namespace zetasql {
 
@@ -55,7 +58,8 @@ class TestDatabaseCatalog {
     void DumpStats();
 
    private:
-    using BuiltinFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+    using BuiltinFunctionMap =
+        absl::flat_hash_map<std::string, std::unique_ptr<Function>>;
     using BuiltinTypeMap = absl::flat_hash_map<std::string, const Type*>;
     struct CacheEntry {
       BuiltinFunctionMap functions;

@@ -32,7 +32,10 @@ are [case-sensitive][case-sensitivity].
 + Have the same escape sequences as [string literals][string-literals].
 + If an identifier is the same as a [reserved keyword](#reserved_keywords), the
   identifier must be quoted. For example, the identifier `FROM` must be quoted.
-  Additional rules apply for [path expressions][path-expressions].
+  Additional rules apply for [path expressions][path-expressions]
+  ,
+  [table names][table-names], [column names][column-names], and
+  [field names][field-names].
 
 ### Identifier examples
 
@@ -193,6 +196,7 @@ as a struct,
 protocol buffer message, or JSON object.
 
 + A field name can be a quoted identifier or an unquoted identifier.
++ Field names must adhere to all of the rules for column names.
 
 ## Literals 
 <a id="literals"></a>
@@ -526,10 +530,13 @@ A struct literal represents a constant value of the
 Syntax:
 
 ```sql
-DATE 'YYYY-M[M]-D[D]'
+DATE 'date_canonical_format'
 ```
 
-Date literals contain the `DATE` keyword followed by a string literal that conforms to the canonical date format, enclosed in single quotation marks. Date literals support a range between the
+Date literals contain the `DATE` keyword followed by
+[`date_canonical_format`][date-format],
+a string literal that conforms to the canonical date format, enclosed in single
+quotation marks. Date literals support a range between the
 years 1 and 9999, inclusive. Dates outside of this range are invalid.
 
 For example, the following date literal represents September 27, 2014:
@@ -557,10 +564,11 @@ A date literal represents a constant value of the
 Syntax:
 
 ```sql
-TIME '[H]H:[M]M:[S]S[.DDDDDD]'
+TIME 'time_canonical_format'
 ```
 
-Time literals contain the `TIME` keyword and a string literal that conforms to
+Time literals contain the `TIME` keyword and
+[`time_canonical_format`][time-format], a string literal that conforms to
 the canonical time format, enclosed in single quotation marks.
 
 For example, the following time represents 12:30 p.m.:
@@ -577,10 +585,11 @@ A time literal represents a constant value of the
 Syntax:
 
 ```sql
-DATETIME 'YYYY-[M]M-[D]D [[H]H:[M]M:[S]S[.DDDDDD]]'
+DATETIME 'datetime_canonical_format'
 ```
 
-Datetime literals contain the `DATETIME` keyword and a string literal that
+Datetime literals contain the `DATETIME` keyword and
+[`datetime_canonical_format`][datetime-format], a string literal that
 conforms to the canonical datetime format, enclosed in single quotation marks.
 
 For example, the following datetime represents 12:30 p.m. on September 27,
@@ -606,8 +615,7 @@ WHERE datetime_col = "2014-09-27 12:30:00.45"
 In the query above, the string literal `"2014-09-27 12:30:00.45"` is coerced to
 a datetime literal.
 
-A datetime literal can also include the optional character `T` or `t`. This
-is a flag for time and is used as a separator between the date and time. If
+A datetime literal can also include the optional character `T` or `t`. If
 you use this character, a space can't be included before or after it.
 These are valid:
 
@@ -623,15 +631,12 @@ A datetime literal represents a constant value of the
 
 Syntax:
 
-```sql
-TIMESTAMP 'YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]] [time_zone]'
+```
+TIMESTAMP 'timestamp_canonical_format'
 ```
 
-```sql
-TIMESTAMP 'YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]][time_zone_offset]'
-```
-
-Timestamp literals contain the `TIMESTAMP` keyword and a string literal that
+Timestamp literals contain the `TIMESTAMP` keyword and
+[`timestamp_canonical_format`][timestamp-format], a string literal that
 conforms to the canonical timestamp format, enclosed in single quotation marks.
 
 Timestamp literals support a range between the years 1 and 9999, inclusive.
@@ -668,12 +673,11 @@ WHERE timestamp_col = "2014-09-27 12:30:00.45 America/Los_Angeles"
 
 A timestamp literal can include these optional characters:
 
-+  `T` or `t`: A flag for time. Use as a separator between the date and time.
-+  `Z` or `z`: A flag for the default timezone. This cannot be used with
-   `[timezone]`.
++  `T` or `t`
++  `Z` or `z`
 
-If you use one of these characters, a space can't be included before or after it.
-These are valid:
+If you use one of these characters, a space can't be included before or after
+it. These are valid:
 
 ```sql
 TIMESTAMP '2017-01-18T12:34:56.123456Z'
@@ -693,14 +697,8 @@ is necessary to correctly interpret a literal. If a time zone is not specified
 as part of the literal itself, then ZetaSQL uses the default time zone
 value, which the ZetaSQL implementation sets.
 
-ZetaSQL represents time zones using strings in the following canonical
-format, which represents the offset from Coordinated Universal Time (UTC).
-
-Format:
-
-```sql
-(+|-)H[H][:M[M]]
-```
+ZetaSQL can represent a time zones using a string, which represents
+the [offset from Coordinated Universal Time (UTC)][utc-offset].
 
 Examples:
 
@@ -712,17 +710,10 @@ Examples:
 '-7'
 ```
 
-Time zones can also be expressed using string time zone names from the
-[tz database][tz-database]{: class=external target=_blank }. For a less
-comprehensive but simpler reference, see the
-[List of tz database time zones][tz-database-time-zones]{: class=external target=_blank }
-on Wikipedia. Canonical time zone names have the format
-`<continent/[region/]city>`, such as `America/Los_Angeles`.
+Time zones can also be expressed using string
+[time zone names][time-zone-name].
 
-Note: Not all time zone names are interchangeable even if they do happen to
-report the same time during a given part of the year. For example, `America/Los_Angeles` reports the same time as `UTC-7:00` during Daylight Savings Time, but reports the same time as `UTC-8:00` outside of Daylight Savings Time.
-
-Example:
+Examples:
 
 ```sql
 TIMESTAMP '2014-09-27 12:30:00 America/Los_Angeles'
@@ -1308,10 +1299,6 @@ WHERE book = "Ulysses";
 
 [json-wiki]: https://en.wikipedia.org/wiki/JSON
 
-[tz-database]: http://www.iana.org/time-zones
-
-[tz-database-time-zones]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-
 [quoted-identifiers]: #quoted_identifiers
 
 [unquoted-identifiers]: #unquoted_identifiers
@@ -1329,6 +1316,10 @@ WHERE book = "Ulysses";
 [path-expressions]: #path_expressions
 
 [field-names]: #field_names
+
+[table-names]: #table_names
+
+[column-names]: #column_names
 
 [named-query-parameters]: #named_query_parameters
 
@@ -1358,11 +1349,23 @@ WHERE book = "Ulysses";
 
 [date-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
 
+[date-format]: https://github.com/google/zetasql/blob/master/docs/data-types.md#canonical_format_for_date_literals
+
 [time-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_type
+
+[time-format]: https://github.com/google/zetasql/blob/master/docs/data-types.md#canonical_format_for_time_literals
 
 [datetime-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#datetime_type
 
+[datetime-format]: https://github.com/google/zetasql/blob/master/docs/data-types.md#canonical_format_for_datetime_literals
+
 [timestamp-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
+
+[timestamp-format]: https://github.com/google/zetasql/blob/master/docs/data-types.md#canonical_format_for_timestamp_literals
+
+[utc-offset]: https://github.com/google/zetasql/blob/master/docs/data-types.md#utc_offset
+
+[time-zone-name]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zone_name
 
 [interval-literal-single]: #interval_literal_single
 

@@ -1021,52 +1021,64 @@ INSTANTIATE_TEST_SUITE_P(String, CodePointsTemplateTest,
 
 TEST(LikeRewriteTest, GetRewriteForLikePattern) {
   struct TestCase {
-    static TestCase NoRewriteBytes(const std::string& pattern) {
-      return TestCase{false, pattern, "", LikeRewriteType::kNoRewrite};
+    static TestCase NoRewriteBytes(absl::string_view pattern) {
+      return TestCase{false, std::string(pattern), "",
+                      LikeRewriteType::kNoRewrite};
     }
-    static TestCase NoRewriteString(const std::string& pattern) {
-      return TestCase{true, pattern, "", LikeRewriteType::kNoRewrite};
-    }
-
-    static TestCase StartsWithBytes(const std::string& pattern,
-                                    const std::string& substring) {
-      return TestCase{false, pattern, substring, LikeRewriteType::kStartsWith};
-    }
-    static TestCase StartsWithString(const std::string& pattern,
-                                     const std::string& substring) {
-      return TestCase{true, pattern, substring, LikeRewriteType::kStartsWith};
+    static TestCase NoRewriteString(absl::string_view pattern) {
+      return TestCase{true, std::string(pattern), "",
+                      LikeRewriteType::kNoRewrite};
     }
 
-    static TestCase EndsWithBytes(const std::string& pattern,
-                                  const std::string& substring) {
-      return TestCase{false, pattern, substring, LikeRewriteType::kEndsWith};
+    static TestCase StartsWithBytes(absl::string_view pattern,
+                                    absl::string_view substring) {
+      return TestCase{false, std::string(pattern), std::string(substring),
+                      LikeRewriteType::kStartsWith};
     }
-    static TestCase EndsWithString(const std::string& pattern,
-                                   const std::string& substring) {
-      return TestCase{true, pattern, substring, LikeRewriteType::kEndsWith};
-    }
-
-    static TestCase ContainsBytes(const std::string& pattern,
-                                  const std::string& substring) {
-      return TestCase{false, pattern, substring, LikeRewriteType::kContains};
-    }
-    static TestCase ContainsString(const std::string& pattern,
-                                   const std::string& substring) {
-      return TestCase{true, pattern, substring, LikeRewriteType::kContains};
+    static TestCase StartsWithString(absl::string_view pattern,
+                                     absl::string_view substring) {
+      return TestCase{true, std::string(pattern), std::string(substring),
+                      LikeRewriteType::kStartsWith};
     }
 
-    static TestCase EqualsBytes(const std::string& pattern) {
-      return TestCase{false, pattern, pattern, LikeRewriteType::kEquals};
+    static TestCase EndsWithBytes(absl::string_view pattern,
+                                  absl::string_view substring) {
+      return TestCase{false, std::string(pattern), std::string(substring),
+                      LikeRewriteType::kEndsWith};
     }
-    static TestCase EqualsString(const std::string& pattern) {
-      return TestCase{true, pattern, pattern, LikeRewriteType::kEquals};
+    static TestCase EndsWithString(absl::string_view pattern,
+                                   absl::string_view substring) {
+      return TestCase{true, std::string(pattern), std::string(substring),
+                      LikeRewriteType::kEndsWith};
     }
 
-    static TestCase NotNullBytes(const std::string& pattern) {
-      return TestCase{false, pattern, "", LikeRewriteType::kNotNull};
+    static TestCase ContainsBytes(absl::string_view pattern,
+                                  absl::string_view substring) {
+      return TestCase{false, std::string(pattern), std::string(substring),
+                      LikeRewriteType::kContains};
     }
-    static TestCase NotNullString(const std::string& pattern) {
-      return TestCase{true, pattern, "", LikeRewriteType::kNotNull};
+    static TestCase ContainsString(absl::string_view pattern,
+                                   absl::string_view substring) {
+      return TestCase{true, std::string(pattern), std::string(substring),
+                      LikeRewriteType::kContains};
+    }
+
+    static TestCase EqualsBytes(absl::string_view pattern) {
+      return TestCase{false, std::string(pattern), std::string(pattern),
+                      LikeRewriteType::kEquals};
+    }
+    static TestCase EqualsString(absl::string_view pattern) {
+      return TestCase{true, std::string(pattern), std::string(pattern),
+                      LikeRewriteType::kEquals};
+    }
+
+    static TestCase NotNullBytes(absl::string_view pattern) {
+      return TestCase{false, std::string(pattern), "",
+                      LikeRewriteType::kNotNull};
+    }
+    static TestCase NotNullString(absl::string_view pattern) {
+      return TestCase{true, std::string(pattern), "",
+                      LikeRewriteType::kNotNull};
     }
 
     bool is_string;

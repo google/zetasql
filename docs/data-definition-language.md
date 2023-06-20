@@ -48,9 +48,11 @@ CREATE DATABASE library OPTIONS(
  *--------------------*/
 ```
 
-<a id="create_table_statement"></a>
+[hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
 ### `CREATE TABLE`
+
+<a id="create_table_statement"></a>
 
 Note: Some documentation is pending for this feature.
 
@@ -157,11 +159,11 @@ CLUSTER BY last_name, first_name;
 
 <pre>
 <span class="var">column_definition:</span>
-   column_name
-   [ column_type ]
-   [ <span class="var">generation_clause</span> ]
-   [ <span class="var">column_attribute</span>, ... ]
-   [ OPTIONS (...) ]
+  column_name
+  [ column_type ]
+  [ <span class="var">generation_clause</span> ]
+  [ <span class="var">column_attribute</span>, ... ]
+  [ OPTIONS (...) ]
 
 <span class="var">column_attribute:</span>
   PRIMARY KEY
@@ -460,11 +462,23 @@ CREATE TABLE books AS (
   SELECT * FROM ancient_books);
 ```
 
+[create-table]: #create_table
+
+[hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
+
+[defining-columns]: #defining_columns
+
+[defining-constraints]: #defining_table_constraints
+
+[defining-foreign-reference]: #defining_foreign_references
+
+[primary-key]: #primary_key
+
 ### `CREATE VIEW`
 
 Note: The `RECURSIVE` keyword has been added, but documentation is pending.
 
-```
+<pre>
 CREATE
   [OR REPLACE]
   [TEMP[ORARY]]
@@ -474,7 +488,7 @@ CREATE
   [SQL SECURITY { INVOKER | DEFINER }]
   [OPTIONS (key=value, ...)]
 AS query;
-```
+</pre>
 
 **Description**
 
@@ -499,7 +513,7 @@ The `CREATE VIEW` statement creates a view based on a specific query.
 
 ### `CREATE EXTERNAL TABLE`
 
-```
+<pre>
 CREATE
   [OR REPLACE]
   [TEMP[ORARY]]
@@ -507,7 +521,7 @@ CREATE
   [IF NOT EXISTS]
   table_name
   [OPTIONS (key=value, ...)];
-```
+</pre>
 
 **Description**
 
@@ -532,7 +546,7 @@ Documentation is pending for this feature.
 
 ### `CREATE INDEX`
 
-```
+<pre>
 CREATE
   [OR REPLACE]
   [UNIQUE]
@@ -545,7 +559,7 @@ CREATE
   (key_expression [ASC|DESC], ...)
   [STORING (stored_expression, ...)]
   [OPTIONS (key=value, ...)];
-```
+</pre>
 
 **Description**
 
@@ -698,9 +712,11 @@ Use an implicit alias in the `STORING` clause.
 CREATE INDEX i1 ON KeyValue (Key) STORING (KeyValue);
 ```
 
-<a id="create_schema_statement"></a>
+[hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
-### `CREATE SCHEMA`
+### `CREATE_SCHEMA`
+
+<a id="create_schema_statement"></a>
 
 Documentation is pending for this feature.
 
@@ -769,12 +785,16 @@ These functions accept arguments and perform actions, returning the
 result of those actions as a value. To create a UDA,
 see [UDAs][udas].
 
+[udas]: https://github.com/google/zetasql/blob/master/docs/user-defined-aggregates.md#udas
+
 ### `CREATE FUNCTION`
 
 A user-defined function (UDF), enables you to create a scalar function using
 another SQL expression or another programming language.
 These functions accept arguments and perform actions, returning the
 result of those actions as a value. To create a UDF, see [UDFs][udfs].
+
+[udfs]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 
 ### `CREATE MODEL`
 
@@ -796,21 +816,21 @@ Documentation is pending for this feature.
 
 <pre>
 CREATE
-   [ OR REPLACE ]
-   PRIVILEGE RESTRICTION
-   [ IF NOT EXISTS ]
-   ON SELECT (<span class="var">column_list</span>)
-   ON <span class="var">object_type</span> object_path
-   [ RESTRICT TO (<span class="var">exemptee_list</span>) ];
+  [ OR REPLACE ]
+  PRIVILEGE RESTRICTION
+  [ IF NOT EXISTS ]
+  ON SELECT (<span class="var">column_list</span>)
+  ON <span class="var">object_type</span> object_path
+  [ RESTRICT TO (<span class="var">exemptee_list</span>) ];
 
 <span class="var">column_list:</span>
-   column_name[, ...]
+  column_name[, ...]
 
 <span class="var">object_type:</span>
-   { TABLE | VIEW }
+  { TABLE | VIEW }
 
 <span class="var">exemptee_list:</span>
-   { mdb_user | gaia_user | mdb_group }[, ...]
+  { mdb_user | gaia_user | mdb_group }[, ...]
 </pre>
 
 **Description**
@@ -852,21 +872,23 @@ A table function, also known as a table value function (TVF), is a function that
 returns a table.  A TVF is called in the `FROM` clause like a table subquery.
 To create a TVF, see [TVFs][tvfs].
 
+[tvfs]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
+
 ## `DEFINE TABLE`
 
-```
+<pre>
 DEFINE TABLE table_name (options);
-```
+</pre>
 
 **Description**
 
 The `DEFINE TABLE` statement allows queries to run against an exported data
 source.
 
+## `ALTER`
+
 <a id="alter_schema_collate_statement"></a>
 <a id="alter_table_collate_statement"></a>
-
-## `ALTER`
 
 Note: Some documentation is pending for this feature.
 
@@ -949,11 +971,13 @@ ADD COLUMN A STRUCT<
              >
 ```
 
+[hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
+
 ## `RENAME`
 
-```
+<pre>
 RENAME object_type old_name_path TO new_name_path;
-```
+</pre>
 
 **Description**
 
@@ -964,9 +988,9 @@ object to rename.
 
 Note: Some documentation is pending for this feature.
 
-```
+<pre>
 DROP object_type [IF EXISTS] object_path;
-```
+</pre>
 
 **Description**
 
@@ -1007,26 +1031,4 @@ primary key. For each row in this table, the tuple of values in the `title` and
 ```sql
 CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 ```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[primary-key]: #primary_key
-
-[create-table]: #create_table
-
-[hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
-
-[defining-columns]: #defining_columns
-
-[defining-constraints]: #defining_table_constraints
-
-[defining-foreign-reference]: #defining_foreign_references
-
-[tvfs]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
-
-[udfs]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
-
-[udas]: https://github.com/google/zetasql/blob/master/docs/user-defined-aggregates.md#udas
-
-<!-- mdlint on -->
 

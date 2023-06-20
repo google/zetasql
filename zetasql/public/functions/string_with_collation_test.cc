@@ -45,6 +45,8 @@ struct LikeMatchTestParams {
 
 std::vector<LikeMatchTestParams> LikeMatchTestCases() {
   return {
+      {"", "", TYPE_STRING, true},
+
       // '_' matches single character...
       {"_", "", TYPE_STRING, false},
       {"_", "a", TYPE_STRING, true},
@@ -65,6 +67,7 @@ std::vector<LikeMatchTestParams> LikeMatchTestCases() {
 
       // '%' should match any string
       {"%", "", TYPE_STRING, true},
+      {"%%", "", TYPE_STRING, true},
       {"%", "abc", TYPE_STRING, true},
       {"%", "фюы", TYPE_STRING, true},
 
@@ -90,6 +93,7 @@ std::vector<LikeMatchTestParams> LikeMatchTestCases() {
       {"foo%foo", "foobarfoobarfoo", TYPE_STRING, true},
       {"foo%bar", "foobarfoobarfoo", TYPE_STRING, false},
       {"%foo%foo%", "foobarbarbaz", TYPE_STRING, false},
+      {"ABB%BBD%A", "ABBBDA", TYPE_STRING, false},
       {"aba%aba", "ababa", TYPE_STRING, false},
       {"abababa", "ababa", TYPE_STRING, false},
       {"ababa", "abababa", TYPE_STRING, false},
@@ -132,6 +136,8 @@ std::vector<LikeMatchTestParams> LikeWithCollationMatchTestCases() {
       {"%foobar", "\u0001foobar", TYPE_STRING, true},
       {"foo%bar", "foo\u0001bar", TYPE_STRING, true},
       {"aba%aba", "ab\u0001aba", TYPE_STRING, false},
+      {"\u030A\u0001\u030A\u030A\u0001", "\u030A\u030A\u030A", TYPE_STRING,
+       true},
 
       // Below cases could have different results for different collations.
       // Using und:ci as an example.
@@ -186,6 +192,149 @@ std::vector<LikeMatchTestParams> LikeWithCollationMatchTestCases() {
       {"\u1EF1", "\u0055\u031B\u0323", TYPE_STRING, true},
       // "mw" and '㎿'
       {"mw", "\u33BF", TYPE_STRING, true},
+  };
+}
+
+std::vector<LikeMatchTestParams> LikeWithUnderscoreTestCases() {
+  return {
+      {"__", "AA", TYPE_STRING, true},
+      {"__AA", "AAAA", TYPE_STRING, true},
+      {"_", "A", TYPE_STRING, true},
+      {"__", "AAA", TYPE_STRING, false},
+      {"_", "", TYPE_STRING, false},
+      {"__", "", TYPE_STRING, false},
+      {"_A", "", TYPE_STRING, false},
+      {"A_", "", TYPE_STRING, false},
+      {"_%", "", TYPE_STRING, false},
+      {"%_", "", TYPE_STRING, false},
+      {"A_BA", "ABBA", TYPE_STRING, true},
+      {"a_bA", "ABBA", TYPE_STRING, true},
+      {"ABB_", "ABBA", TYPE_STRING, true},
+      {"A_BA", "ACCBA", TYPE_STRING, false},
+      {"C_A", "CCBA", TYPE_STRING, false},
+      {"_C_A", "CCBA", TYPE_STRING, true},
+      {"C___", "CCBA", TYPE_STRING, true},
+      {"C__A", "CCBA", TYPE_STRING, true},
+      {"C___A", "CCBA", TYPE_STRING, false},
+      {"C__", "CCBA", TYPE_STRING, false},
+      {"C___ABC", "CCBA", TYPE_STRING, false},
+      {"__b_", "CCBA", TYPE_STRING, true},
+      {"%c__", "CCBA", TYPE_STRING, true},
+      {"%c___", "CCBA", TYPE_STRING, true},
+      {"%__%", "abcde", TYPE_STRING, true},
+      {"_%_", "abc", TYPE_STRING, true},
+      {"A_b%c_d%", "abcdef", TYPE_STRING, false},
+      {"a%c_", "abcde", TYPE_STRING, false},
+      {"a%d_", "abcde", TYPE_STRING, true},
+      {"a%_e", "abcde", TYPE_STRING, true},
+      {"A%B_DE", "abcde", TYPE_STRING, true},
+
+      // Backtracking cases: Combine % and _
+      {"%_%%%", "", TYPE_STRING, false},
+      {"%_%_%", "A", TYPE_STRING, false},
+      {"_%%A%_", "Bab", TYPE_STRING, true},
+      {"%%_%%A%%_", "Bab", TYPE_STRING, true},
+      {"_%%A%_%%", "Bab", TYPE_STRING, true},
+      {"%%_%%A%%%_%%", "Bab", TYPE_STRING, true},
+      {"%_%_%", "AA", TYPE_STRING, true},
+      {"_%_%", "AA", TYPE_STRING, true},
+      {"%__%", "AA", TYPE_STRING, true},
+      {"%_%_", "AA", TYPE_STRING, true},
+      {"%A__C%", "AABBCA", TYPE_STRING, true},
+      {"%B_C%", "ABBBCA", TYPE_STRING, true},
+      {"%B_C%", "AAABBBBBCA", TYPE_STRING, true},
+      {"%B_C%", "BBBBBCA", TYPE_STRING, true},
+      {"%B_C%", "BBBBBC", TYPE_STRING, true},
+      {"%B_C%_C%", "ABBBCAC", TYPE_STRING, true},
+      {"%B_C%", "BBC", TYPE_STRING, true},
+      {"%B_A_A_A_C%", "ABBBABABABBBBBABABABCA", TYPE_STRING, true},
+      {"%B_C_AA", "ABBBCAAAAA", TYPE_STRING, false},
+      {"%B_C_AA", "ABBBCAAABBCAAA", TYPE_STRING, true},
+      {"%B_C%", "ABBBCA", TYPE_STRING, true},
+      {"%B_C%", "ABBBCA", TYPE_STRING, true},
+
+      // multiple backtrack attempts needed
+      {"%b_n%", "babana", TYPE_STRING, true},
+      {"%b_n_", "babana", TYPE_STRING, true},
+      {"b_%n_", "banana", TYPE_STRING, true},
+      {"b_%_n_", "banana", TYPE_STRING, true},
+      {"b__%_n_", "banana", TYPE_STRING, true},
+      {"b__%a__", "banana", TYPE_STRING, true},
+      {"b_%_a%_a", "banana", TYPE_STRING, true},
+      {"_A%", "banana", TYPE_STRING, true},
+      {"__A%", "banana", TYPE_STRING, false},
+      {"%1_22_333_C%", "aaa1a22a333aa11aaa22a1a22a333aaC1a22a333aCa",
+       TYPE_STRING, true},
+      {"%1_22_333_C", "aaa1a22a333aa11aaa22a1a22a333aaC1a22a333aC", TYPE_STRING,
+       true},
+      {"%1_22_333_C", "aaa1a22a333aa11aaa22a1a22a333aaC1a22a333aCa",
+       TYPE_STRING, false},
+      {"%1_22_333_C%", "aaa1a22a333aa11aaa22a1a22a333aaC1a22a333aaC",
+       TYPE_STRING, false},
+      {"%1_22_%333_1", "333a1a22333a1a22aa333aa1333a1", TYPE_STRING, true},
+      {"%1_22_%333_1", "333a1a22333a1a22aa333aa1333a1a", TYPE_STRING, false},
+      {"%1_22_%333_1_22", "333a1a22333a1a22aa333a1a2a1333a1a22", TYPE_STRING,
+       true},
+      {"%1_22_%333_1_22%", "333a1a22333a1a22aa333a1a2a1333a1a22", TYPE_STRING,
+       true},
+      {"%1_22_%333_1_22%", "333a1a22333a1a22aa333a1a2a1333a1a22a", TYPE_STRING,
+       true},
+      {"%1_22_%333_1%", "333a1a22333a1a22aa333aa1333a1a", TYPE_STRING, true},
+      {"%1_22_333_1%", "333a1a22333a1a22aa333aa1333a1a", TYPE_STRING, false},
+      {"%1_22_333_1%", "333a1a22333a1a22a333a1333a1a", TYPE_STRING, true},
+      {"1_22_333_1%", "333a1a22333a1a22a333aa1333a1a", TYPE_STRING, false},
+      {"122234%_2345", "1222345", TYPE_STRING, false},
+      {"122234%2345_", "1222345", TYPE_STRING, false},
+      {"122234%_2345", "1222342345", TYPE_STRING, false},
+      {"122234%_%%2345%", "1222342345", TYPE_STRING, false},
+
+      // Special Characters
+      {"_ß_", "ßẞß", TYPE_STRING, true},
+      // '\u0041\u030A' == '\u00C5' == 'Å'
+      {"_", "\u0041\u030A", TYPE_STRING, true},
+      {"__", "\u0041\u030A", TYPE_STRING, false},
+      {"_\u030A", "\u0041\u030A", TYPE_STRING, false},
+      {"\u0041_", "\u0041\u030A", TYPE_STRING, false},
+      {"_%\u030A", "\u0041\u030A", TYPE_STRING, false},
+      {"\u0041%_", "\u0041\u030A", TYPE_STRING, false},
+      {"_", "℡", TYPE_STRING, true},
+      {"___", "℡", TYPE_STRING, false},
+      {"_ephone", "℡ephone", TYPE_STRING, true},
+      // 𐧏 (U+109CF MEROITIC CURSIVE NUMBER SEVENTY) has 2 UTF-16 code units
+      {"_", "𐧏", TYPE_STRING, true},
+      {"%_abc", "𐧏abc", TYPE_STRING, true},
+      {"%abc", "𐧏abc", TYPE_STRING, true},
+      {"%__abc", "𐧏abc", TYPE_STRING, false},
+      {"%_𐧏abc", "𐧏𐧏abc", TYPE_STRING, true},
+      {"%_𐧏abc", "𐧏abc𐧏abc", TYPE_STRING, true},
+      {"%_𐧏abcd", "𐧏abcd𐧏abc", TYPE_STRING, false},
+      {"%_bc_", "abc𐧏", TYPE_STRING, true},
+      {"%bc_", "abc𐧏", TYPE_STRING, true},
+      // 🚲 (U+1F6B2 Bicycle) also has 2 UTF-1 code units
+      {"_", "🚲", TYPE_STRING, true},
+      {"%_", "a🚲aa", TYPE_STRING, true},
+      {"____", "a🚲aa", TYPE_STRING, true},
+
+      // Combining marks
+      // Note: Multiple combining marks without a base character forms one
+      // grapheme cluster.
+      {"_", "\u030A\u030A\u030A", TYPE_STRING, true},
+      {"%_%%", "\u030A\u030A\u030A", TYPE_STRING, true},
+      {"_%_", "\u030A\u030A\u030A", TYPE_STRING, false},
+      {"___", "\u030A\u030A\u030A", TYPE_STRING, false},
+      {"%___", "\u030A\u030A\u030A", TYPE_STRING, false},
+      {"%\u030A\u030A\u030A", "\u030A\u030A\u030A", TYPE_STRING, true},
+      {"%\u030A\u030A\u030A", "\u030A\u030A\u030A", TYPE_STRING, true},
+      {"%\u030A_\u030A_\u030A", "\u030A\u030A\u030A", TYPE_STRING, false},
+      {"%__\u030A", "\u030A\u030A\u030A", TYPE_STRING, false},
+      {"\u030A__", "\u030A\u030A\u030A", TYPE_STRING, false},
+      {"\u030A", "\u030A\u030A\u030A", TYPE_STRING, false},
+      // Ignorable characters
+      {"_\u0001\u0001", "A", TYPE_STRING, true},
+      {"_\u0001_", "ab", TYPE_STRING, true},
+      {"\u0001_\u0001_\u0001", "ab", TYPE_STRING, true},
+      {"\u0001_\u0001", "\u030A\u030A\u030A", TYPE_STRING, true},
+      {"_", "\u0001\u0001", TYPE_STRING, false},
   };
 }
 
@@ -365,7 +514,8 @@ TEST(LikeWithCollationMatchTest, MatchTest) {
                            params.pattern, params.input));
       ZETASQL_ASSERT_OK_AND_ASSIGN(
           bool result,
-          LikeWithUtf8WithCollation(params.input, params.pattern, *collator));
+          LikeWithUtf8WithCollation(params.input, params.pattern, *collator,
+                                    /*allow_underscore=*/true));
       EXPECT_EQ(params.expected_outcome, result)
           << params.input << " LIKE " << params.pattern;
       if (!absl::StrContains(absl::string_view(params.pattern), '%')) {
@@ -382,7 +532,8 @@ TEST(LikeWithCollationMatchTest, MatchTest) {
                                   params.pattern, params.input));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         bool result,
-        LikeWithUtf8WithCollation(params.input, params.pattern, *collator));
+        LikeWithUtf8WithCollation(params.input, params.pattern, *collator,
+                                  /*allow_underscore=*/true));
     EXPECT_EQ(params.expected_outcome, result)
         << params.input << " LIKE " << params.pattern;
     if (!absl::StrContains(absl::string_view(params.pattern), '%')) {
@@ -392,6 +543,16 @@ TEST(LikeWithCollationMatchTest, MatchTest) {
           collator->CompareUtf8(params.input, params.pattern, &error) == 0)
           << params.input << "==" << params.pattern;
     }
+  }
+  for (const LikeMatchTestParams& params : LikeWithUnderscoreTestCases()) {
+    SCOPED_TRACE(absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
+                                  params.pattern, params.input));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        bool result,
+        LikeWithUtf8WithCollation(params.input, params.pattern, *collator,
+                                  /*allow_underscore=*/true));
+    EXPECT_EQ(params.expected_outcome, result)
+        << params.input << " LIKE " << params.pattern;
   }
 }
 
@@ -408,14 +569,15 @@ TEST(LikeWithCollationMatchTest, BinaryMatchTest) {
           absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
                            pattern.string_value(), text.string_value()));
       if (!params.status().ok()) {
-        EXPECT_THAT(LikeWithUtf8WithCollation(
-                        text.string_value(), pattern.string_value(), *collator),
+        EXPECT_THAT(LikeWithUtf8WithCollation(text.string_value(),
+                                              pattern.string_value(), *collator,
+                                              /*allow_underscore=*/true),
                     zetasql_base::testing::StatusIs(params.status().code()));
       } else {
-        ZETASQL_ASSERT_OK_AND_ASSIGN(
-            bool result,
-            LikeWithUtf8WithCollation(text.string_value(),
-                                      pattern.string_value(), *collator));
+        ZETASQL_ASSERT_OK_AND_ASSIGN(bool result,
+                             LikeWithUtf8WithCollation(
+                                 text.string_value(), pattern.string_value(),
+                                 *collator, /*allow_underscore=*/true));
         EXPECT_EQ(params.result().bool_value(), result)
             << text.string_value() << " LIKE " << pattern.string_value();
       }
@@ -426,7 +588,8 @@ TEST(LikeWithCollationMatchTest, BinaryMatchTest) {
 TEST(LikeWithCollationMatchTest, BadPatternUTF8) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator("und:ci"));
-  EXPECT_THAT(LikeWithUtf8WithCollation("", "\xC2", *collator),
+  EXPECT_THAT(LikeWithUtf8WithCollation("", "\xC2", *collator,
+                                        /*allow_underscore=*/true),
               zetasql_base::testing::StatusIs(
                   absl::StatusCode::kOutOfRange,
                   testing::HasSubstr("The second operand of LIKE operator is "
@@ -436,21 +599,36 @@ TEST(LikeWithCollationMatchTest, BadPatternUTF8) {
 TEST(LikeWithCollationMatchTest, BadPatternEscape) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator("und:ci"));
-  EXPECT_THAT(LikeWithUtf8WithCollation("", "\\", *collator),
-              zetasql_base::testing::StatusIs(
-                  absl::StatusCode::kOutOfRange,
-                  testing::HasSubstr("LIKE pattern ends with a backslash")));
+  EXPECT_THAT(
+      LikeWithUtf8WithCollation("", "\\", *collator, /*allow_underscore=*/true),
+      zetasql_base::testing::StatusIs(
+          absl::StatusCode::kOutOfRange,
+          testing::HasSubstr("LIKE pattern ends with a backslash")));
 }
 
-TEST(LikeWithCollationMatchTest, BadPatternSpecifier) {
+TEST(LikeWithCollationMatchTest, UnderscoreNotAllowedWhenFeatureOff) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator("und:ci"));
   EXPECT_THAT(
-      LikeWithUtf8WithCollation(" ", "_", *collator),
+      LikeWithUtf8WithCollation(" ", "_", *collator,
+                                /*allow_underscore=*/false),
       zetasql_base::testing::StatusIs(
           absl::StatusCode::kOutOfRange,
           testing::HasSubstr("LIKE pattern has '_' which is not "
                              "allowed when its operands have collation")));
+}
+
+TEST(LikeWithCollationMatchTest, UnderscoreOnlyAllowedForUndci) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
+                       MakeSqlCollator("und:cs"));
+  EXPECT_THAT(
+      LikeWithUtf8WithCollation(" ", "_", *collator,
+                                /*allow_underscore=*/true),
+      zetasql_base::testing::StatusIs(
+          absl::StatusCode::kOutOfRange,
+          testing::HasSubstr("LIKE pattern has '_' which is not "
+                             "allowed when its operands have collation other "
+                             "than und:ci")));
 }
 
 }  // anonymous namespace

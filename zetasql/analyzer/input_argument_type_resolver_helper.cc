@@ -91,14 +91,20 @@ InputArgumentType GetInputArgumentTypeForExpr(const ResolvedExpr* expr) {
 static InputArgumentType GetInputArgumentTypeForGenericArgument(
     const ASTNode* argument_ast_node, const ResolvedExpr* expr) {
   ZETASQL_DCHECK(argument_ast_node != nullptr);
-  // Only lambdas uses nullptr as placeholder.
-  if (argument_ast_node->Is<ASTLambda>() || expr == nullptr) {
-    ZETASQL_DCHECK(expr == nullptr) << "Lambda must have a nullptr placeholder";
-    ZETASQL_DCHECK(argument_ast_node->Is<ASTLambda>())
-        << "A nullptr placeholder can only be used for a lambda argument";
-    return InputArgumentType::LambdaInputArgumentType();
+
+  bool expects_null_expr = argument_ast_node->Is<ASTLambda>() ||
+                           argument_ast_node->Is<ASTSequenceArg>();
+  if (expr == nullptr) {
+    ZETASQL_DCHECK(expects_null_expr);
+    if (argument_ast_node->Is<ASTLambda>()) {
+      return InputArgumentType::LambdaInputArgumentType();
+    } else if (argument_ast_node->Is<ASTSequenceArg>()) {
+      return InputArgumentType::SequenceInputArgumentType();
+    }
+    ZETASQL_DCHECK(false) << "A nullptr placeholder can only be used for a lambda or "
+                     "sequence argument";
   }
-  ZETASQL_DCHECK(expr != nullptr);
+  ZETASQL_DCHECK(!expects_null_expr);
   return GetInputArgumentTypeForExpr(expr);
 }
 

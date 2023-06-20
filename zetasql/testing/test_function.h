@@ -119,12 +119,13 @@ class QueryParamsWithResult {
   QueryParamsWithResult& AddRequiredFeature(LanguageFeature feature);
   QueryParamsWithResult& AddRequiredFeatures(const FeatureSet& feature);
 
-  // Adds a prohibited feautre to this test in-place and returns a reference
+  // Adds a prohibited feature to this test in-place and returns a reference
   // to the object so that calls to this function can be chained. Prohibited
   // features are applied to all existing results in the test. Tests that have
-  // prohibited features will not run when thest drivers enable the
+  // prohibited features will not run when test drivers enable the
   // LanguageFeature.
   QueryParamsWithResult& AddProhibitedFeature(LanguageFeature feature);
+  QueryParamsWithResult& AddProhibitedFeatures(const FeatureSet& feature);
 
   // Returns the list of parameters.
   const std::vector<Value>& params() const { return params_; }

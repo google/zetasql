@@ -38,6 +38,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/value.h"
+#include "absl/strings/string_view.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "absl/status/status.h"
@@ -437,7 +438,7 @@ class TestDriver {
   // import process.
   class ProtoSourceTree : public google::protobuf::compiler::SourceTree {
    public:
-    explicit ProtoSourceTree(const std::string& base_dir)
+    explicit ProtoSourceTree(absl::string_view base_dir)
         : base_dir_(base_dir) {}
       google::protobuf::io::ZeroCopyInputStream* Open(
           const std::string& filename) override {

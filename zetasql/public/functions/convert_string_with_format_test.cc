@@ -721,7 +721,7 @@ void ValidateOutput(const Value& value, absl::string_view format_string,
 
 void ValidateOutputInAllLetterCases(const Value& value,
                                     absl::string_view format_string,
-                                    const std::string& expected) {
+                                    absl::string_view expected) {
   ValidateOutput(value, format_string, expected);
   ValidateOutput(value, absl::AsciiStrToLower(format_string),
                  absl::AsciiStrToLower(expected));
@@ -730,7 +730,7 @@ void ValidateOutputInAllLetterCases(const Value& value,
 }
 
 void ValidateOutput(double v, absl::string_view format_string,
-                    const std::string& expected) {
+                    absl::string_view expected) {
   ValidateOutputInAllLetterCases(Value::Float(v), format_string, expected);
   ValidateOutputInAllLetterCases(Value::Double(v), format_string, expected);
   ValidateOutputInAllLetterCases(
@@ -742,7 +742,7 @@ void ValidateOutput(double v, absl::string_view format_string,
 }
 
 void ValidateOutput(int v, absl::string_view format_string,
-                    const std::string& expected) {
+                    absl::string_view expected) {
   ValidateOutputInAllLetterCases(Value::Int32(v), format_string, expected);
   ValidateOutputInAllLetterCases(Value::Int64(v), format_string, expected);
   if (v >= 0) {

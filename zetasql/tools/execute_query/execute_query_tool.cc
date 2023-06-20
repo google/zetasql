@@ -501,7 +501,10 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
   }
 
   if (config.tool_mode() == ToolMode::kUnAnalyze) {
-    SQLBuilder builder;
+    SQLBuilder::SQLBuilderOptions sql_builder_options;
+    sql_builder_options.language_options = config.analyzer_options().language();
+    sql_builder_options.catalog = &config.mutable_catalog();
+    SQLBuilder builder(sql_builder_options);
     ZETASQL_RETURN_IF_ERROR(builder.Process(*resolved_node));
     return writer.unanalyze(builder.sql());
   }

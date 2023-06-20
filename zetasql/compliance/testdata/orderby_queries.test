@@ -2496,26 +2496,26 @@ ARRAY<STRUCT<
 [name=orderby_1]
 SELECT * FROM (SELECT -2 a, 5 b UNION ALL SELECT 2, 7) t ORDER BY a DESC, a+5
 --
-ARRAY<STRUCT<a INT64, b INT64>>[{2, 7}, {-2, 5}]
+ARRAY<STRUCT<a INT64, b INT64>>[known order:{2, 7}, {-2, 5}]
 ==
 # All rows agree on the first part of the computed key (a*a). Second part 'b'
 # matters.
 [name=orderby_2]
 SELECT * FROM (SELECT -2 a, 5 b UNION ALL SELECT 2, 7) t ORDER BY a*a, b DESC
 --
-ARRAY<STRUCT<a INT64, b INT64>>[{2, 7}, {-2, 5}]
+ARRAY<STRUCT<a INT64, b INT64>>[known order:{2, 7}, {-2, 5}]
 ==
 # NULL sorts first if ASC.
 [name=orderby_3]
 SELECT * FROM (SELECT 1 x UNION ALL SELECT NULL) ORDER BY x ASC
 --
-ARRAY<STRUCT<x INT64>>[{NULL}, {1}]
+ARRAY<STRUCT<x INT64>>[known order:{NULL}, {1}]
 ==
 # NULL sorts last if DESC.
 [name=orderby_4]
 SELECT * FROM (SELECT 1 x UNION ALL SELECT NULL) ORDER BY x DESC
 --
-ARRAY<STRUCT<x INT64>>[{1}, {NULL}]
+ARRAY<STRUCT<x INT64>>[known order:{1}, {NULL}]
 ==
 # Duplicate columns in the SELECT list.  Note that the ORDER BY cannot
 # reference a SELECT list alias if two different SELECT list expressions
@@ -2545,7 +2545,7 @@ SELECT bool_val, int32_val, row_id FROM AllTypesTable t
 WHERE row_id IN (1, 4, 8)
 ORDER BY bool_val ASC
 --
-ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {false, -2, 4},
   {true, -1, 1}
@@ -2556,7 +2556,7 @@ SELECT int32_val, int64_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY int32_val ASC
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {-24, -14, 15},
   {-4, -4, 7},
@@ -2575,7 +2575,7 @@ SELECT int64_val, uint32_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY int64_val ASC
 --
-ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {-14, 41, 15},
   {-4, 4, 7},
@@ -2594,7 +2594,7 @@ SELECT uint32_val, uint64_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 10, 13, 16, 17)
 ORDER BY uint32_val ASC
 --
-ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {1, 1, 1},
   {2, 2, 4},
@@ -2611,7 +2611,7 @@ SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 13, 16, 17)
 ORDER BY uint64_val ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {1, 0.125, 1},
   {2, 0.25, 4},
@@ -2627,7 +2627,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
 [name=orderby_single_base_column_float_asc]
 SELECT float_val, double_val, row_id FROM AllTypesTable t ORDER BY float_val ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[unknown order:
   {NULL, NULL, 8},
   {NULL, -0, 16},
   {nan, inf, 2},
@@ -2650,7 +2650,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
 [name=orderby_single_base_column_double_asc]
 SELECT double_val, str_val, row_id FROM AllTypesTable t ORDER BY double_val ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[unknown order:
   {NULL, NULL, 8},
   {NULL, "1", 17},
   {nan, NULL, 9},
@@ -2675,7 +2675,7 @@ SELECT str_val, bytes_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY str_val ASC
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {"1", b"1", 1},
   {"123", b"123", 11},
@@ -2694,7 +2694,7 @@ SELECT bytes_val, date_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY bytes_val ASC
 --
-ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {b"1", 2014-01-01, 1},
   {b"123", 2014-02-01, 11},
@@ -2718,58 +2718,58 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   2014-01-02,
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   2014-01-03,
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   2014-01-04,
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   2014-01-06,
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {
-   2014-01-08,
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   2014-02-01,
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   2014-02-02,
-   2014-01-05 00:00:02.022022+00,
-   12
- },
- {2014-02-04, NULL, 17},
- {
-   2014-02-04,
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {
-   2014-05-02,
-   2014-05-02 00:00:02.022022+00,
-   13
- }]
+[unknown order:{NULL, NULL, 8},
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 1
+               },
+               {
+                 2014-01-02,
+                 2014-01-02 00:00:02.022022+00,
+                 4
+               },
+               {
+                 2014-01-03,
+                 2014-01-03 00:00:03.033033+00,
+                 6
+               },
+               {
+                 2014-01-04,
+                 2014-01-04 00:00:04.044044+00,
+                 7
+               },
+               {
+                 2014-01-06,
+                 2014-01-04 00:00:03.033033+00,
+                 14
+               },
+               {
+                 2014-01-08,
+                 2014-01-02 00:00:01.011011+00,
+                 10
+               },
+               {
+                 2014-02-01,
+                 2014-04-01 00:00:01.011011+00,
+                 11
+               },
+               {
+                 2014-02-02,
+                 2014-01-05 00:00:02.022022+00,
+                 12
+               },
+               {2014-02-04, NULL, 17},
+               {
+                 2014-02-04,
+                 2014-02-04 00:00:04.044044+00,
+                 15
+               },
+               {
+                 2014-05-02,
+                 2014-05-02 00:00:02.022022+00,
+                 13
+               }]
 ==
 [name=orderby_single_base_column_timestamp_asc]
 SELECT timestamp_val, date_val, row_id FROM AllTypesTable t
@@ -2781,57 +2781,57 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   1
- },
- {
-   2014-01-02 00:00:01.011011+00,
-   2014-01-08,
-   10
- },
- {
-   2014-01-02 00:00:02.022022+00,
-   2014-01-02,
-   4
- },
- {
-   2014-01-03 00:00:03.033033+00,
-   2014-01-03,
-   6
- },
- {
-   2014-01-04 00:00:03.033033+00,
-   2014-01-06,
-   14
- },
- {
-   2014-01-04 00:00:04.044044+00,
-   2014-01-04,
-   7
- },
- {
-   2014-01-05 00:00:02.022022+00,
-   2014-02-02,
-   12
- },
- {
-   2014-02-04 00:00:04.044044+00,
-   2014-02-04,
-   15
- },
- {
-   2014-04-01 00:00:01.011011+00,
-   2014-02-01,
-   11
- },
- {
-   2014-05-02 00:00:02.022022+00,
-   2014-05-02,
-   13
- }]
+[known order:{NULL, NULL, 8},
+             {
+               2014-01-01 00:00:01.011011+00,
+               2014-01-01,
+               1
+             },
+             {
+               2014-01-02 00:00:01.011011+00,
+               2014-01-08,
+               10
+             },
+             {
+               2014-01-02 00:00:02.022022+00,
+               2014-01-02,
+               4
+             },
+             {
+               2014-01-03 00:00:03.033033+00,
+               2014-01-03,
+               6
+             },
+             {
+               2014-01-04 00:00:03.033033+00,
+               2014-01-06,
+               14
+             },
+             {
+               2014-01-04 00:00:04.044044+00,
+               2014-01-04,
+               7
+             },
+             {
+               2014-01-05 00:00:02.022022+00,
+               2014-02-02,
+               12
+             },
+             {
+               2014-02-04 00:00:04.044044+00,
+               2014-02-04,
+               15
+             },
+             {
+               2014-04-01 00:00:01.011011+00,
+               2014-02-01,
+               11
+             },
+             {
+               2014-05-02 00:00:02.022022+00,
+               2014-05-02,
+               13
+             }]
 ==
 [required_features=NUMERIC_TYPE]
 [name=orderby_single_base_column_numeric_asc]
@@ -2839,7 +2839,7 @@ SELECT numeric_val, int64_val, row_id FROM AllTypesNumericTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY numeric_val ASC
 --
-ARRAY<STRUCT<numeric_val NUMERIC, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<numeric_val NUMERIC, int64_val INT64, row_id INT64>>[unknown order:
   {NULL, NULL, 8},
   {-123456789.123456789, -14, 15},
   {-1000.10101, 9, 13},
@@ -2864,29 +2864,29 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {
-   -123456789.1234567890123456789,
-   -14,
-   15
- },
- {
-   -1000.0000000000000000001,
-   9,
-   13
- },
- {-5.34, 3, 11},
- {1, 1, 10},
- {1, -1, 1},
- {2, -2, 4},
- {3, -3, 6},
- {4, -4, 7},
- {222, 23, 14},
- {
-   999.9999999999999999999,
-   16,
-   12
- }]
+[unknown order:{NULL, NULL, 8},
+               {
+                 -123456789.1234567890123456789,
+                 -14,
+                 15
+               },
+               {
+                 -1000.0000000000000000001,
+                 9,
+                 13
+               },
+               {-5.34, 3, 11},
+               {1, 1, 10},
+               {1, -1, 1},
+               {2, -2, 4},
+               {3, -3, 6},
+               {4, -4, 7},
+               {222, 23, 14},
+               {
+                 999.9999999999999999999,
+                 16,
+                 12
+               }]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_single_base_column_range_timestamp_asc]
@@ -2899,55 +2899,55 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {[
-    NULL,
-    2013-10-15 00:00:00+00
-  ),
-  23,
-  14},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  -1,
-  1},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  -2,
-  4},
- {[
-    2013-01-01 00:00:00+00,
-    2013-10-15 00:00:00+00
-  ),
-  -3,
-  6},
- {[
-    2014-01-01 00:00:00+00,
-    2014-10-15 00:00:00+00
-  ),
-  -4,
-  7},
- {[
-    2015-01-01 00:00:00+00,
-    2015-10-15 00:00:00+00
-  ),
-  3,
-  11},
- {[
-    2017-01-01 00:00:00+00,
-    NULL
-  ),
-  -14,
-  15},
- {[
-    2019-01-01 00:00:00+00,
-    2019-10-15 00:00:00+00
-  ),
-  9,
-  13}]
+[known order:{NULL, NULL, 8},
+             {[
+                NULL,
+                2013-10-15 00:00:00+00
+              ),
+              23,
+              14},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              -1,
+              1},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              -2,
+              4},
+             {[
+                2013-01-01 00:00:00+00,
+                2013-10-15 00:00:00+00
+              ),
+              -3,
+              6},
+             {[
+                2014-01-01 00:00:00+00,
+                2014-10-15 00:00:00+00
+              ),
+              -4,
+              7},
+             {[
+                2015-01-01 00:00:00+00,
+                2015-10-15 00:00:00+00
+              ),
+              3,
+              11},
+             {[
+                2017-01-01 00:00:00+00,
+                NULL
+              ),
+              -14,
+              15},
+             {[
+                2019-01-01 00:00:00+00,
+                2019-10-15 00:00:00+00
+              ),
+              9,
+              13}]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_single_base_column_range_date_asc]
@@ -2960,44 +2960,44 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{NULL, -1, 16},
- {[NULL, 2007-10-15), -14, 15},
- {
-   [2007-01-01, 2007-10-15),
-   NULL,
-   17
- },
- {
-   [2011-01-01, 2011-10-15),
-   -1,
-   1
- },
- {
-   [2012-01-01, 2012-10-15),
-   -2,
-   4
- },
- {
-   [2013-01-01, 2013-10-15),
-   -3,
-   6
- },
- {
-   [2014-01-01, 2014-10-15),
-   -4,
-   7
- },
- {[2017-01-01, NULL), 23, 14},
- {
-   [2019-01-01, 2019-10-15),
-   9,
-   13
- },
- {
-   [2026-01-01, 2026-10-15),
-   16,
-   12
- }]
+[known order:{NULL, -1, 16},
+             {[NULL, 2007-10-15), -14, 15},
+             {
+               [2007-01-01, 2007-10-15),
+               NULL,
+               17
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               -1,
+               1
+             },
+             {
+               [2012-01-01, 2012-10-15),
+               -2,
+               4
+             },
+             {
+               [2013-01-01, 2013-10-15),
+               -3,
+               6
+             },
+             {
+               [2014-01-01, 2014-10-15),
+               -4,
+               7
+             },
+             {[2017-01-01, NULL), 23, 14},
+             {
+               [2019-01-01, 2019-10-15),
+               9,
+               13
+             },
+             {
+               [2026-01-01, 2026-10-15),
+               16,
+               12
+             }]
 ==
 [required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
 [name=orderby_single_base_column_range_datetime_asc]
@@ -3010,52 +3010,52 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {
-   [NULL, 2013-10-15 00:00:00),
-   23,
-   14
- },
- {
-   [2004-01-01 00:00:00, 2004-10-15 00:00:00),
-   -1,
-   16
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   -1,
-   1
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   -2,
-   4
- },
- {
-   [2013-01-01 00:00:00, 2013-10-15 00:00:00),
-   -3,
-   6
- },
- {
-   [2014-01-01 00:00:00, 2014-10-15 00:00:00),
-   -4,
-   7
- },
- {
-   [2015-01-01 00:00:00, 2015-10-15 00:00:00),
-   3,
-   11
- },
- {
-   [2017-01-01 00:00:00, NULL),
-   -14,
-   15
- },
- {
-   [2019-01-01 00:00:00, 2019-10-15 00:00:00),
-   9,
-   13
- }]
+[known order:{NULL, NULL, 8},
+             {
+               [NULL, 2013-10-15 00:00:00),
+               23,
+               14
+             },
+             {
+               [2004-01-01 00:00:00, 2004-10-15 00:00:00),
+               -1,
+               16
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               -1,
+               1
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               -2,
+               4
+             },
+             {
+               [2013-01-01 00:00:00, 2013-10-15 00:00:00),
+               -3,
+               6
+             },
+             {
+               [2014-01-01 00:00:00, 2014-10-15 00:00:00),
+               -4,
+               7
+             },
+             {
+               [2015-01-01 00:00:00, 2015-10-15 00:00:00),
+               3,
+               11
+             },
+             {
+               [2017-01-01 00:00:00, NULL),
+               -14,
+               15
+             },
+             {
+               [2019-01-01 00:00:00, 2019-10-15 00:00:00),
+               9,
+               13
+             }]
 ==
 #
 # Single base table column descending
@@ -3065,7 +3065,7 @@ SELECT bool_val, int32_val, row_id FROM AllTypesTable t
 WHERE row_id IN (1, 4, 8)
 ORDER BY bool_val DESC
 --
-ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[known order:
   {true, -1, 1},
   {false, -2, 4},
   {NULL, NULL, 8}
@@ -3076,7 +3076,7 @@ SELECT int32_val, int64_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY int32_val DESC
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[known order:
   {13, 23, 14},
   {9, 9, 13},
   {5, 3, 11},
@@ -3095,7 +3095,7 @@ SELECT int64_val, uint32_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY int64_val DESC
 --
-ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[known order:
   {23, 31, 14},
   {16, 5, 12},
   {9, 4, 13},
@@ -3114,7 +3114,7 @@ SELECT uint32_val, uint64_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 10, 13, 16, 17)
 ORDER BY uint32_val DESC
 --
-ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
   {41, 54, 15},
   {31, 32, 14},
   {11, 8, 11},
@@ -3131,7 +3131,7 @@ SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 13, 16, 17)
 ORDER BY uint64_val DESC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
   {54, -0.5, 15},
   {32, -0.375, 14},
   {11, 0.625, 10},
@@ -3147,7 +3147,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
 [name=orderby_single_base_column_float_desc]
 SELECT float_val, double_val, row_id FROM AllTypesTable t ORDER BY float_val DESC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[unknown order:
   {inf, -inf, 3},
   {0.75, -0.25, 12},
   {0.625, 0.625, 10},
@@ -3170,7 +3170,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
 [name=orderby_single_base_column_double_desc]
 SELECT double_val, str_val, row_id FROM AllTypesTable t ORDER BY double_val DESC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[unknown order:
   {inf, "1", 2},
   {0.625, "6", 10},
   {0.5, "4", 7},
@@ -3195,7 +3195,7 @@ SELECT str_val, bytes_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY str_val DESC
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[known order:
   {"6", b"7", 10},
   {"432", b"433", 15},
   {"4", b"4", 7},
@@ -3214,7 +3214,7 @@ SELECT bytes_val, date_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY bytes_val DESC
 --
-ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[known order:
   {b"7", 2014-01-08, 10},
   {b"433", 2014-02-04, 15},
   {b"4", 2014-01-04, 7},
@@ -3238,58 +3238,58 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{
-   2014-05-02,
-   2014-05-02 00:00:02.022022+00,
-   13
- },
- {2014-02-04, NULL, 17},
- {
-   2014-02-04,
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {
-   2014-02-02,
-   2014-01-05 00:00:02.022022+00,
-   12
- },
- {
-   2014-02-01,
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   2014-01-08,
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   2014-01-06,
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {
-   2014-01-04,
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   2014-01-03,
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   2014-01-02,
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {NULL, NULL, 8}]
+[unknown order:{
+                 2014-05-02,
+                 2014-05-02 00:00:02.022022+00,
+                 13
+               },
+               {2014-02-04, NULL, 17},
+               {
+                 2014-02-04,
+                 2014-02-04 00:00:04.044044+00,
+                 15
+               },
+               {
+                 2014-02-02,
+                 2014-01-05 00:00:02.022022+00,
+                 12
+               },
+               {
+                 2014-02-01,
+                 2014-04-01 00:00:01.011011+00,
+                 11
+               },
+               {
+                 2014-01-08,
+                 2014-01-02 00:00:01.011011+00,
+                 10
+               },
+               {
+                 2014-01-06,
+                 2014-01-04 00:00:03.033033+00,
+                 14
+               },
+               {
+                 2014-01-04,
+                 2014-01-04 00:00:04.044044+00,
+                 7
+               },
+               {
+                 2014-01-03,
+                 2014-01-03 00:00:03.033033+00,
+                 6
+               },
+               {
+                 2014-01-02,
+                 2014-01-02 00:00:02.022022+00,
+                 4
+               },
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 1
+               },
+               {NULL, NULL, 8}]
 ==
 [name=orderby_single_base_column_timestamp_desc]
 SELECT timestamp_val, date_val, row_id FROM AllTypesTable t
@@ -3301,57 +3301,57 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{
-   2014-05-02 00:00:02.022022+00,
-   2014-05-02,
-   13
- },
- {
-   2014-04-01 00:00:01.011011+00,
-   2014-02-01,
-   11
- },
- {
-   2014-02-04 00:00:04.044044+00,
-   2014-02-04,
-   15
- },
- {
-   2014-01-05 00:00:02.022022+00,
-   2014-02-02,
-   12
- },
- {
-   2014-01-04 00:00:04.044044+00,
-   2014-01-04,
-   7
- },
- {
-   2014-01-04 00:00:03.033033+00,
-   2014-01-06,
-   14
- },
- {
-   2014-01-03 00:00:03.033033+00,
-   2014-01-03,
-   6
- },
- {
-   2014-01-02 00:00:02.022022+00,
-   2014-01-02,
-   4
- },
- {
-   2014-01-02 00:00:01.011011+00,
-   2014-01-08,
-   10
- },
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   1
- },
- {NULL, NULL, 8}]
+[known order:{
+               2014-05-02 00:00:02.022022+00,
+               2014-05-02,
+               13
+             },
+             {
+               2014-04-01 00:00:01.011011+00,
+               2014-02-01,
+               11
+             },
+             {
+               2014-02-04 00:00:04.044044+00,
+               2014-02-04,
+               15
+             },
+             {
+               2014-01-05 00:00:02.022022+00,
+               2014-02-02,
+               12
+             },
+             {
+               2014-01-04 00:00:04.044044+00,
+               2014-01-04,
+               7
+             },
+             {
+               2014-01-04 00:00:03.033033+00,
+               2014-01-06,
+               14
+             },
+             {
+               2014-01-03 00:00:03.033033+00,
+               2014-01-03,
+               6
+             },
+             {
+               2014-01-02 00:00:02.022022+00,
+               2014-01-02,
+               4
+             },
+             {
+               2014-01-02 00:00:01.011011+00,
+               2014-01-08,
+               10
+             },
+             {
+               2014-01-01 00:00:01.011011+00,
+               2014-01-01,
+               1
+             },
+             {NULL, NULL, 8}]
 ==
 [required_features=NUMERIC_TYPE]
 [name=orderby_single_base_column_numeric_desc]
@@ -3359,7 +3359,7 @@ SELECT numeric_val, int64_val, row_id FROM AllTypesNumericTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY numeric_val ASC
 --
-ARRAY<STRUCT<numeric_val NUMERIC, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<numeric_val NUMERIC, int64_val INT64, row_id INT64>>[unknown order:
   {NULL, NULL, 8},
   {-123456789.123456789, -14, 15},
   {-1000.10101, 9, 13},
@@ -3384,29 +3384,29 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {
-   -123456789.1234567890123456789,
-   -14,
-   15
- },
- {
-   -1000.0000000000000000001,
-   9,
-   13
- },
- {-5.34, 3, 11},
- {1, 1, 10},
- {1, -1, 1},
- {2, -2, 4},
- {3, -3, 6},
- {4, -4, 7},
- {222, 23, 14},
- {
-   999.9999999999999999999,
-   16,
-   12
- }]
+[unknown order:{NULL, NULL, 8},
+               {
+                 -123456789.1234567890123456789,
+                 -14,
+                 15
+               },
+               {
+                 -1000.0000000000000000001,
+                 9,
+                 13
+               },
+               {-5.34, 3, 11},
+               {1, 1, 10},
+               {1, -1, 1},
+               {2, -2, 4},
+               {3, -3, 6},
+               {4, -4, 7},
+               {222, 23, 14},
+               {
+                 999.9999999999999999999,
+                 16,
+                 12
+               }]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_single_base_column_range_timestamp_desc]
@@ -3419,55 +3419,55 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{[
-    2019-01-01 00:00:00+00,
-    2019-10-15 00:00:00+00
-  ),
-  9,
-  13},
- {[
-    2017-01-01 00:00:00+00,
-    NULL
-  ),
-  -14,
-  15},
- {[
-    2015-01-01 00:00:00+00,
-    2015-10-15 00:00:00+00
-  ),
-  3,
-  11},
- {[
-    2014-01-01 00:00:00+00,
-    2014-10-15 00:00:00+00
-  ),
-  -4,
-  7},
- {[
-    2013-01-01 00:00:00+00,
-    2013-10-15 00:00:00+00
-  ),
-  -3,
-  6},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  -2,
-  4},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  -1,
-  1},
- {[
-    NULL,
-    2013-10-15 00:00:00+00
-  ),
-  23,
-  14},
- {NULL, NULL, 8}]
+[known order:{[
+                2019-01-01 00:00:00+00,
+                2019-10-15 00:00:00+00
+              ),
+              9,
+              13},
+             {[
+                2017-01-01 00:00:00+00,
+                NULL
+              ),
+              -14,
+              15},
+             {[
+                2015-01-01 00:00:00+00,
+                2015-10-15 00:00:00+00
+              ),
+              3,
+              11},
+             {[
+                2014-01-01 00:00:00+00,
+                2014-10-15 00:00:00+00
+              ),
+              -4,
+              7},
+             {[
+                2013-01-01 00:00:00+00,
+                2013-10-15 00:00:00+00
+              ),
+              -3,
+              6},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              -2,
+              4},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              -1,
+              1},
+             {[
+                NULL,
+                2013-10-15 00:00:00+00
+              ),
+              23,
+              14},
+             {NULL, NULL, 8}]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_single_base_column_range_date_desc]
@@ -3480,44 +3480,44 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{
-   [2026-01-01, 2026-10-15),
-   16,
-   12
- },
- {
-   [2019-01-01, 2019-10-15),
-   9,
-   13
- },
- {[2017-01-01, NULL), 23, 14},
- {
-   [2014-01-01, 2014-10-15),
-   -4,
-   7
- },
- {
-   [2013-01-01, 2013-10-15),
-   -3,
-   6
- },
- {
-   [2012-01-01, 2012-10-15),
-   -2,
-   4
- },
- {
-   [2011-01-01, 2011-10-15),
-   -1,
-   1
- },
- {
-   [2007-01-01, 2007-10-15),
-   NULL,
-   17
- },
- {[NULL, 2007-10-15), -14, 15},
- {NULL, -1, 16}]
+[known order:{
+               [2026-01-01, 2026-10-15),
+               16,
+               12
+             },
+             {
+               [2019-01-01, 2019-10-15),
+               9,
+               13
+             },
+             {[2017-01-01, NULL), 23, 14},
+             {
+               [2014-01-01, 2014-10-15),
+               -4,
+               7
+             },
+             {
+               [2013-01-01, 2013-10-15),
+               -3,
+               6
+             },
+             {
+               [2012-01-01, 2012-10-15),
+               -2,
+               4
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               -1,
+               1
+             },
+             {
+               [2007-01-01, 2007-10-15),
+               NULL,
+               17
+             },
+             {[NULL, 2007-10-15), -14, 15},
+             {NULL, -1, 16}]
 ==
 [required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
 [name=orderby_single_base_column_range_datetime_desc]
@@ -3530,52 +3530,52 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{
-   [2019-01-01 00:00:00, 2019-10-15 00:00:00),
-   9,
-   13
- },
- {
-   [2017-01-01 00:00:00, NULL),
-   -14,
-   15
- },
- {
-   [2015-01-01 00:00:00, 2015-10-15 00:00:00),
-   3,
-   11
- },
- {
-   [2014-01-01 00:00:00, 2014-10-15 00:00:00),
-   -4,
-   7
- },
- {
-   [2013-01-01 00:00:00, 2013-10-15 00:00:00),
-   -3,
-   6
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   -2,
-   4
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   -1,
-   1
- },
- {
-   [2004-01-01 00:00:00, 2004-10-15 00:00:00),
-   -1,
-   16
- },
- {
-   [NULL, 2013-10-15 00:00:00),
-   23,
-   14
- },
- {NULL, NULL, 8}]
+[known order:{
+               [2019-01-01 00:00:00, 2019-10-15 00:00:00),
+               9,
+               13
+             },
+             {
+               [2017-01-01 00:00:00, NULL),
+               -14,
+               15
+             },
+             {
+               [2015-01-01 00:00:00, 2015-10-15 00:00:00),
+               3,
+               11
+             },
+             {
+               [2014-01-01 00:00:00, 2014-10-15 00:00:00),
+               -4,
+               7
+             },
+             {
+               [2013-01-01 00:00:00, 2013-10-15 00:00:00),
+               -3,
+               6
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               -2,
+               4
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               -1,
+               1
+             },
+             {
+               [2004-01-01 00:00:00, 2004-10-15 00:00:00),
+               -1,
+               16
+             },
+             {
+               [NULL, 2013-10-15 00:00:00),
+               23,
+               14
+             },
+             {NULL, NULL, 8}]
 ==
 #
 # Single computed column ascending
@@ -3585,7 +3585,7 @@ SELECT bool_val, int32_val, row_id FROM AllTypesTable t
 WHERE row_id IN (1, 4, 8)
 ORDER BY (NOT bool_val) ASC
 --
-ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {true, -1, 1},
   {false, -2, 4}
@@ -3596,7 +3596,7 @@ SELECT int32_val, int64_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY int32_val + 1 ASC
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {-24, -14, 15},
   {-4, -4, 7},
@@ -3615,7 +3615,7 @@ SELECT int64_val, uint32_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY int64_val * 2 ASC
 --
-ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {-14, 41, 15},
   {-4, 4, 7},
@@ -3634,7 +3634,7 @@ SELECT uint32_val, uint64_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 10, 13, 16, 17)
 ORDER BY uint32_val + 7 ASC
 --
-ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {1, 1, 1},
   {2, 2, 4},
@@ -3651,7 +3651,7 @@ SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 13, 16, 17)
 ORDER BY uint64_val * 3 ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {1, 0.125, 1},
   {2, 0.25, 4},
@@ -3667,7 +3667,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
 [name=orderby_single_computed_column_float_asc]
 SELECT float_val, double_val, row_id FROM AllTypesTable t ORDER BY float_val + 0.125 ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[unknown order:
   {NULL, NULL, 8},
   {NULL, -0, 16},
   {nan, inf, 2},
@@ -3690,7 +3690,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
 [name=orderby_single_computed_column_double_asc]
 SELECT double_val, str_val, row_id FROM AllTypesTable t ORDER BY double_val * 2 ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[unknown order:
   {NULL, NULL, 8},
   {NULL, "1", 17},
   {nan, NULL, 9},
@@ -3715,7 +3715,7 @@ SELECT str_val, bytes_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY LTRIM(str_val) ASC
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {"1", b"1", 1},
   {"123", b"123", 11},
@@ -3734,7 +3734,7 @@ SELECT bytes_val, date_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY UPPER(bytes_val) ASC
 --
-ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {b"1", 2014-01-01, 1},
   {b"123", 2014-02-01, 11},
@@ -3756,7 +3756,7 @@ SELECT bool_val, int32_val, row_id FROM AllTypesTable t
 WHERE row_id IN (1, 4, 8)
 ORDER BY NOT bool_val DESC
 --
-ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[known order:
   {false, -2, 4},
   {true, -1, 1},
   {NULL, NULL, 8}
@@ -3767,7 +3767,7 @@ SELECT int32_val, int64_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY int32_val + 1 DESC
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[known order:
   {13, 23, 14},
   {9, 9, 13},
   {5, 3, 11},
@@ -3786,7 +3786,7 @@ SELECT int64_val, uint32_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY int64_val * 2 DESC
 --
-ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[known order:
   {23, 31, 14},
   {16, 5, 12},
   {9, 4, 13},
@@ -3805,7 +3805,7 @@ SELECT uint32_val, uint64_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 10, 13, 16, 17)
 ORDER BY uint32_val + 7 DESC
 --
-ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
   {41, 54, 15},
   {31, 32, 14},
   {11, 8, 11},
@@ -3822,7 +3822,7 @@ SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 13, 16, 17)
 ORDER BY uint64_val * 3 DESC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
   {54, -0.5, 15},
   {32, -0.375, 14},
   {11, 0.625, 10},
@@ -3839,7 +3839,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
 SELECT float_val, double_val, row_id FROM AllTypesTable t
 ORDER BY float_val + 0.125 DESC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[unknown order:
   {inf, -inf, 3},
   {0.75, -0.25, 12},
   {0.625, 0.625, 10},
@@ -3863,7 +3863,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
 SELECT double_val, str_val, row_id FROM AllTypesTable t
 ORDER BY double_val * 2 DESC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[unknown order:
   {inf, "1", 2},
   {0.625, "6", 10},
   {0.5, "4", 7},
@@ -3888,7 +3888,7 @@ SELECT str_val, bytes_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY LTRIM(str_val) DESC
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[known order:
   {"6", b"7", 10},
   {"432", b"433", 15},
   {"4", b"4", 7},
@@ -3907,7 +3907,7 @@ SELECT bytes_val, date_val, row_id FROM AllTypesTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY LOWER(bytes_val) DESC
 --
-ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[known order:
   {b"7", 2014-01-08, 10},
   {b"433", 2014-02-04, 15},
   {b"4", 2014-01-04, 7},
@@ -3927,7 +3927,7 @@ SELECT numeric_val, date_val, row_id FROM AllTypesNumericTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 16, 17)
 ORDER BY numeric_val * 2 DESC
 --
-ARRAY<STRUCT<numeric_val NUMERIC, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<numeric_val NUMERIC, date_val DATE, row_id INT64>>[unknown order:
   {999.999, 2014-02-02, 12},
   {222, 2014-01-06, 14},
   {4, 2014-01-04, 7},
@@ -3952,29 +3952,29 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{
-   999.9999999999999999999,
-   2014-02-02,
-   12
- },
- {222, 2014-01-06, 14},
- {4, 2014-01-04, 7},
- {3, 2014-01-03, 6},
- {2, 2014-01-02, 4},
- {1, 2014-01-08, 10},
- {1, 2014-01-01, 1},
- {-5.34, 2014-02-01, 11},
- {
-   -1000.0000000000000000001,
-   2014-05-02,
-   13
- },
- {
-   -123456789.1234567890123456789,
-   2014-02-04,
-   15
- },
- {NULL, NULL, 8}]
+[unknown order:{
+                 999.9999999999999999999,
+                 2014-02-02,
+                 12
+               },
+               {222, 2014-01-06, 14},
+               {4, 2014-01-04, 7},
+               {3, 2014-01-03, 6},
+               {2, 2014-01-02, 4},
+               {1, 2014-01-08, 10},
+               {1, 2014-01-01, 1},
+               {-5.34, 2014-02-01, 11},
+               {
+                 -1000.0000000000000000001,
+                 2014-05-02,
+                 13
+               },
+               {
+                 -123456789.1234567890123456789,
+                 2014-02-04,
+                 15
+               },
+               {NULL, NULL, 8}]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_single_computed_column_range_timestamp_desc]
@@ -3990,55 +3990,55 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{[
-    2019-01-01 00:00:00+00,
-    2019-10-15 00:00:00+00
-  ),
-  9,
-  13},
- {[
-    2017-01-01 00:00:00+00,
-    NULL
-  ),
-  -14,
-  15},
- {[
-    2015-01-01 00:00:00+00,
-    2015-10-15 00:00:00+00
-  ),
-  3,
-  11},
- {[
-    2014-01-01 00:00:00+00,
-    2014-10-15 00:00:00+00
-  ),
-  -4,
-  7},
- {[
-    2013-01-01 00:00:00+00,
-    2013-10-15 00:00:00+00
-  ),
-  -3,
-  6},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  -2,
-  4},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  -1,
-  1},
- {[
-    NULL,
-    2013-10-15 00:00:00+00
-  ),
-  23,
-  14},
- {NULL, NULL, 8}]
+[known order:{[
+                2019-01-01 00:00:00+00,
+                2019-10-15 00:00:00+00
+              ),
+              9,
+              13},
+             {[
+                2017-01-01 00:00:00+00,
+                NULL
+              ),
+              -14,
+              15},
+             {[
+                2015-01-01 00:00:00+00,
+                2015-10-15 00:00:00+00
+              ),
+              3,
+              11},
+             {[
+                2014-01-01 00:00:00+00,
+                2014-10-15 00:00:00+00
+              ),
+              -4,
+              7},
+             {[
+                2013-01-01 00:00:00+00,
+                2013-10-15 00:00:00+00
+              ),
+              -3,
+              6},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              -2,
+              4},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              -1,
+              1},
+             {[
+                NULL,
+                2013-10-15 00:00:00+00
+              ),
+              23,
+              14},
+             {NULL, NULL, 8}]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_single_computed_column_range_date_desc]
@@ -4054,44 +4054,44 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{
-   [2026-01-01, 2026-10-15),
-   16,
-   12
- },
- {
-   [2019-01-01, 2019-10-15),
-   9,
-   13
- },
- {[2017-01-01, NULL), 23, 14},
- {
-   [2014-01-01, 2014-10-15),
-   -4,
-   7
- },
- {
-   [2013-01-01, 2013-10-15),
-   -3,
-   6
- },
- {
-   [2012-01-01, 2012-10-15),
-   -2,
-   4
- },
- {
-   [2011-01-01, 2011-10-15),
-   -1,
-   1
- },
- {
-   [2007-01-01, 2007-10-15),
-   NULL,
-   17
- },
- {[NULL, 2007-10-15), -14, 15},
- {NULL, -1, 16}]
+[known order:{
+               [2026-01-01, 2026-10-15),
+               16,
+               12
+             },
+             {
+               [2019-01-01, 2019-10-15),
+               9,
+               13
+             },
+             {[2017-01-01, NULL), 23, 14},
+             {
+               [2014-01-01, 2014-10-15),
+               -4,
+               7
+             },
+             {
+               [2013-01-01, 2013-10-15),
+               -3,
+               6
+             },
+             {
+               [2012-01-01, 2012-10-15),
+               -2,
+               4
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               -1,
+               1
+             },
+             {
+               [2007-01-01, 2007-10-15),
+               NULL,
+               17
+             },
+             {[NULL, 2007-10-15), -14, 15},
+             {NULL, -1, 16}]
 ==
 [required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
 [name=orderby_single_computed_column_range_datetime_desc]
@@ -4107,52 +4107,52 @@ ARRAY<STRUCT<
         int64_val INT64,
         row_id INT64
       >>
-[{
-   [2019-01-01 00:00:00, 2019-10-15 00:00:00),
-   9,
-   13
- },
- {
-   [2017-01-01 00:00:00, NULL),
-   -14,
-   15
- },
- {
-   [2015-01-01 00:00:00, 2015-10-15 00:00:00),
-   3,
-   11
- },
- {
-   [2014-01-01 00:00:00, 2014-10-15 00:00:00),
-   -4,
-   7
- },
- {
-   [2013-01-01 00:00:00, 2013-10-15 00:00:00),
-   -3,
-   6
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   -2,
-   4
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   -1,
-   1
- },
- {
-   [2004-01-01 00:00:00, 2004-10-15 00:00:00),
-   -1,
-   16
- },
- {
-   [NULL, 2013-10-15 00:00:00),
-   23,
-   14
- },
- {NULL, NULL, 8}]
+[known order:{
+               [2019-01-01 00:00:00, 2019-10-15 00:00:00),
+               9,
+               13
+             },
+             {
+               [2017-01-01 00:00:00, NULL),
+               -14,
+               15
+             },
+             {
+               [2015-01-01 00:00:00, 2015-10-15 00:00:00),
+               3,
+               11
+             },
+             {
+               [2014-01-01 00:00:00, 2014-10-15 00:00:00),
+               -4,
+               7
+             },
+             {
+               [2013-01-01 00:00:00, 2013-10-15 00:00:00),
+               -3,
+               6
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               -2,
+               4
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               -1,
+               1
+             },
+             {
+               [2004-01-01 00:00:00, 2004-10-15 00:00:00),
+               -1,
+               16
+             },
+             {
+               [NULL, 2013-10-15 00:00:00),
+               23,
+               14
+             },
+             {NULL, NULL, 8}]
 ==
 #
 # Multiple columns, with first as base table column ascending
@@ -4161,7 +4161,7 @@ ARRAY<STRUCT<
 SELECT bool_val, int32_val, row_id FROM AllTypesTable t
 ORDER BY bool_val ASC, int32_val DESC, row_id ASC
 --
-ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[known order:
   {NULL, -1, 17},
   {NULL, NULL, 8},
   {NULL, NULL, 9},
@@ -4185,7 +4185,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
 SELECT int32_val, int64_val, row_id FROM AllTypesTable t
 ORDER BY int32_val ASC, -int64_val ASC, row_id ASC
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, NULL, 9},
   {NULL, -1, 16},
@@ -4209,7 +4209,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
 SELECT int64_val, uint32_val, row_id FROM AllTypesTable t
 ORDER BY int64_val ASC, uint32_val + 2 DESC, row_id ASC
 --
-ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[known order:
   {NULL, 1, 17},
   {NULL, NULL, 8},
   {NULL, NULL, 9},
@@ -4233,7 +4233,7 @@ ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
 SELECT uint32_val, uint64_val, row_id FROM AllTypesTable t
 ORDER BY uint32_val ASC, uint64_val * 2 ASC, row_id ASC
 --
-ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, NULL, 9},
   {NULL, 1, 16},
@@ -4257,7 +4257,7 @@ ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
 SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 ORDER BY uint64_val ASC, float_val DESC, row_id ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
   {NULL, -0, 9},
   {NULL, 0, 17},
   {NULL, NULL, 8},
@@ -4281,7 +4281,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
 SELECT float_val, double_val, row_id FROM AllTypesTable t
 ORDER BY float_val ASC, double_val ASC, row_id ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, -0, 16},
   {nan, inf, 2},
@@ -4305,7 +4305,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
 SELECT double_val, str_val, row_id FROM AllTypesTable t
 ORDER BY double_val ASC, str_val DESC, row_id ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[known order:
   {NULL, "1", 17},
   {NULL, NULL, 8},
   {nan, NULL, 9},
@@ -4329,7 +4329,7 @@ ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
 SELECT str_val, bytes_val, row_id FROM AllTypesTable t
 ORDER BY str_val ASC, bytes_val ASC, row_id ASC
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, NULL, 9},
   {NULL, b"1", 16},
@@ -4353,7 +4353,7 @@ ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
 SELECT bytes_val, date_val, row_id FROM AllTypesTable t
 ORDER BY bytes_val ASC, date_val ASC, row_id ASC
 --
-ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, NULL, 9},
   {NULL, 2014-02-04, 17},
@@ -4382,79 +4382,79 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {NULL, NULL, 9},
- {
-   NULL,
-   2014-02-04 00:00:04.044044+00,
-   16
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   3
- },
- {
-   2014-01-02,
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   2014-01-02,
-   2014-01-02 00:00:02.022022+00,
-   5
- },
- {
-   2014-01-03,
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   2014-01-04,
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   2014-01-06,
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {
-   2014-01-08,
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   2014-02-01,
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   2014-02-02,
-   2014-01-05 00:00:02.022022+00,
-   12
- },
- {2014-02-04, NULL, 17},
- {
-   2014-02-04,
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {
-   2014-05-02,
-   2014-05-02 00:00:02.022022+00,
-   13
- }]
+[known order:{NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {
+               NULL,
+               2014-02-04 00:00:04.044044+00,
+               16
+             },
+             {
+               2014-01-01,
+               2014-01-01 00:00:01.011011+00,
+               1
+             },
+             {
+               2014-01-01,
+               2014-01-01 00:00:01.011011+00,
+               2
+             },
+             {
+               2014-01-01,
+               2014-01-01 00:00:01.011011+00,
+               3
+             },
+             {
+               2014-01-02,
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               2014-01-02,
+               2014-01-02 00:00:02.022022+00,
+               5
+             },
+             {
+               2014-01-03,
+               2014-01-03 00:00:03.033033+00,
+               6
+             },
+             {
+               2014-01-04,
+               2014-01-04 00:00:04.044044+00,
+               7
+             },
+             {
+               2014-01-06,
+               2014-01-04 00:00:03.033033+00,
+               14
+             },
+             {
+               2014-01-08,
+               2014-01-02 00:00:01.011011+00,
+               10
+             },
+             {
+               2014-02-01,
+               2014-04-01 00:00:01.011011+00,
+               11
+             },
+             {
+               2014-02-02,
+               2014-01-05 00:00:02.022022+00,
+               12
+             },
+             {2014-02-04, NULL, 17},
+             {
+               2014-02-04,
+               2014-02-04 00:00:04.044044+00,
+               15
+             },
+             {
+               2014-05-02,
+               2014-05-02 00:00:02.022022+00,
+               13
+             }]
 ==
 [name=orderby_multi_base_column_timestamp_asc]
 SELECT timestamp_val, date_val, row_id FROM AllTypesTable t
@@ -4465,86 +4465,86 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, 2014-02-04, 17},
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   1
- },
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   2
- },
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   3
- },
- {
-   2014-01-02 00:00:01.011011+00,
-   2014-01-08,
-   10
- },
- {
-   2014-01-02 00:00:02.022022+00,
-   2014-01-02,
-   4
- },
- {
-   2014-01-02 00:00:02.022022+00,
-   2014-01-02,
-   5
- },
- {
-   2014-01-03 00:00:03.033033+00,
-   2014-01-03,
-   6
- },
- {
-   2014-01-04 00:00:03.033033+00,
-   2014-01-06,
-   14
- },
- {
-   2014-01-04 00:00:04.044044+00,
-   2014-01-04,
-   7
- },
- {
-   2014-01-05 00:00:02.022022+00,
-   2014-02-02,
-   12
- },
- {
-   2014-02-04 00:00:04.044044+00,
-   NULL,
-   16
- },
- {
-   2014-02-04 00:00:04.044044+00,
-   2014-02-04,
-   15
- },
- {
-   2014-04-01 00:00:01.011011+00,
-   2014-02-01,
-   11
- },
- {
-   2014-05-02 00:00:02.022022+00,
-   2014-05-02,
-   13
- }]
+[known order:{NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, 2014-02-04, 17},
+             {
+               2014-01-01 00:00:01.011011+00,
+               2014-01-01,
+               1
+             },
+             {
+               2014-01-01 00:00:01.011011+00,
+               2014-01-01,
+               2
+             },
+             {
+               2014-01-01 00:00:01.011011+00,
+               2014-01-01,
+               3
+             },
+             {
+               2014-01-02 00:00:01.011011+00,
+               2014-01-08,
+               10
+             },
+             {
+               2014-01-02 00:00:02.022022+00,
+               2014-01-02,
+               4
+             },
+             {
+               2014-01-02 00:00:02.022022+00,
+               2014-01-02,
+               5
+             },
+             {
+               2014-01-03 00:00:03.033033+00,
+               2014-01-03,
+               6
+             },
+             {
+               2014-01-04 00:00:03.033033+00,
+               2014-01-06,
+               14
+             },
+             {
+               2014-01-04 00:00:04.044044+00,
+               2014-01-04,
+               7
+             },
+             {
+               2014-01-05 00:00:02.022022+00,
+               2014-02-02,
+               12
+             },
+             {
+               2014-02-04 00:00:04.044044+00,
+               NULL,
+               16
+             },
+             {
+               2014-02-04 00:00:04.044044+00,
+               2014-02-04,
+               15
+             },
+             {
+               2014-04-01 00:00:01.011011+00,
+               2014-02-01,
+               11
+             },
+             {
+               2014-05-02 00:00:02.022022+00,
+               2014-05-02,
+               13
+             }]
 ==
 [required_features=NUMERIC_TYPE]
 [name=orderby_multi_base_column_numeric_asc]
 SELECT numeric_val, date_val, row_id FROM AllTypesNumericTable t
 ORDER BY numeric_val ASC, date_val ASC, row_id ASC
 --
-ARRAY<STRUCT<numeric_val NUMERIC, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<numeric_val NUMERIC, date_val DATE, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, NULL, 9},
   {NULL, NULL, 16},
@@ -4574,39 +4574,39 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, NULL, 16},
- {
-   -123456789.1234567890123456789,
-   2014-02-04,
-   15
- },
- {
-   -123456789.1234567890123456789,
-   2014-02-04,
-   17
- },
- {
-   -1000.0000000000000000001,
-   2014-05-02,
-   13
- },
- {-5.34, 2014-02-01, 11},
- {1, 2014-01-01, 1},
- {1, 2014-01-01, 2},
- {1, 2014-01-01, 3},
- {1, 2014-01-08, 10},
- {2, 2014-01-02, 4},
- {3, 2014-01-03, 6},
- {4, 2014-01-04, 7},
- {93, 2014-01-02, 5},
- {222, 2014-01-06, 14},
- {
-   999.9999999999999999999,
-   2014-02-02,
-   12
- }]
+[known order:{NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, NULL, 16},
+             {
+               -123456789.1234567890123456789,
+               2014-02-04,
+               15
+             },
+             {
+               -123456789.1234567890123456789,
+               2014-02-04,
+               17
+             },
+             {
+               -1000.0000000000000000001,
+               2014-05-02,
+               13
+             },
+             {-5.34, 2014-02-01, 11},
+             {1, 2014-01-01, 1},
+             {1, 2014-01-01, 2},
+             {1, 2014-01-01, 3},
+             {1, 2014-01-08, 10},
+             {2, 2014-01-02, 4},
+             {3, 2014-01-03, 6},
+             {4, 2014-01-04, 7},
+             {93, 2014-01-02, 5},
+             {222, 2014-01-06, 14},
+             {
+               999.9999999999999999999,
+               2014-02-02,
+               12
+             }]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_multi_base_column_range_timestamp_asc]
@@ -4618,93 +4618,93 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, 2014-02-04, 17},
- {[
-    NULL,
-    2013-10-15 00:00:00+00
-  ),
-  2014-01-06,
-  14},
- {[
-    2004-01-01 00:00:00+00,
-    2004-10-15 00:00:00+00
-  ),
-  NULL,
-  16},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-01,
-  1},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-01,
-  2},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-01,
-  3},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-08,
-  10},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  2014-01-02,
-  4},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  2014-01-02,
-  5},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  2014-02-02,
-  12},
- {[
-    2013-01-01 00:00:00+00,
-    2013-10-15 00:00:00+00
-  ),
-  2014-01-03,
-  6},
- {[
-    2014-01-01 00:00:00+00,
-    2014-10-15 00:00:00+00
-  ),
-  2014-01-04,
-  7},
- {[
-    2015-01-01 00:00:00+00,
-    2015-10-15 00:00:00+00
-  ),
-  2014-02-01,
-  11},
- {[
-    2017-01-01 00:00:00+00,
-    NULL
-  ),
-  2014-02-04,
-  15},
- {[
-    2019-01-01 00:00:00+00,
-    2019-10-15 00:00:00+00
-  ),
-  2014-05-02,
-  13}]
+[known order:{NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, 2014-02-04, 17},
+             {[
+                NULL,
+                2013-10-15 00:00:00+00
+              ),
+              2014-01-06,
+              14},
+             {[
+                2004-01-01 00:00:00+00,
+                2004-10-15 00:00:00+00
+              ),
+              NULL,
+              16},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-01,
+              1},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-01,
+              2},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-01,
+              3},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-08,
+              10},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              2014-01-02,
+              4},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              2014-01-02,
+              5},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              2014-02-02,
+              12},
+             {[
+                2013-01-01 00:00:00+00,
+                2013-10-15 00:00:00+00
+              ),
+              2014-01-03,
+              6},
+             {[
+                2014-01-01 00:00:00+00,
+                2014-10-15 00:00:00+00
+              ),
+              2014-01-04,
+              7},
+             {[
+                2015-01-01 00:00:00+00,
+                2015-10-15 00:00:00+00
+              ),
+              2014-02-01,
+              11},
+             {[
+                2017-01-01 00:00:00+00,
+                NULL
+              ),
+              2014-02-04,
+              15},
+             {[
+                2019-01-01 00:00:00+00,
+                2019-10-15 00:00:00+00
+              ),
+              2014-05-02,
+              13}]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_multi_base_column_range_date_asc]
@@ -4716,83 +4716,83 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {NULL, NULL, 9},
- {
-   NULL,
-   2014-02-04 00:00:04.044044+00,
-   16
- },
- {
-   [NULL, 2007-10-15),
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {
-   [2007-01-01, 2007-10-15),
-   NULL,
-   17
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-01 00:00:01.011011+00,
-   3
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   [2012-01-01, 2012-10-15),
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   [2012-01-01, 2012-10-15),
-   2014-01-02 00:00:02.022022+00,
-   5
- },
- {
-   [2013-01-01, 2013-10-15),
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   [2013-01-01, 2013-10-15),
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   [2014-01-01, 2014-10-15),
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   [2017-01-01, NULL),
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {
-   [2019-01-01, 2019-10-15),
-   2014-05-02 00:00:02.022022+00,
-   13
- },
- {
-   [2026-01-01, 2026-10-15),
-   2014-01-05 00:00:02.022022+00,
-   12
- }]
+[known order:{NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {
+               NULL,
+               2014-02-04 00:00:04.044044+00,
+               16
+             },
+             {
+               [NULL, 2007-10-15),
+               2014-02-04 00:00:04.044044+00,
+               15
+             },
+             {
+               [2007-01-01, 2007-10-15),
+               NULL,
+               17
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-01 00:00:01.011011+00,
+               1
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-01 00:00:01.011011+00,
+               2
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-01 00:00:01.011011+00,
+               3
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-02 00:00:01.011011+00,
+               10
+             },
+             {
+               [2012-01-01, 2012-10-15),
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               [2012-01-01, 2012-10-15),
+               2014-01-02 00:00:02.022022+00,
+               5
+             },
+             {
+               [2013-01-01, 2013-10-15),
+               2014-01-03 00:00:03.033033+00,
+               6
+             },
+             {
+               [2013-01-01, 2013-10-15),
+               2014-04-01 00:00:01.011011+00,
+               11
+             },
+             {
+               [2014-01-01, 2014-10-15),
+               2014-01-04 00:00:04.044044+00,
+               7
+             },
+             {
+               [2017-01-01, NULL),
+               2014-01-04 00:00:03.033033+00,
+               14
+             },
+             {
+               [2019-01-01, 2019-10-15),
+               2014-05-02 00:00:02.022022+00,
+               13
+             },
+             {
+               [2026-01-01, 2026-10-15),
+               2014-01-05 00:00:02.022022+00,
+               12
+             }]
 ==
 [required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
 [name=orderby_multi_base_column_range_datetime_asc]
@@ -4804,79 +4804,79 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, NULL, 17},
- {
-   [NULL, 2013-10-15 00:00:00),
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {
-   [2004-01-01 00:00:00, 2004-10-15 00:00:00),
-   2014-02-04 00:00:04.044044+00,
-   16
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-01 00:00:01.011011+00,
-   3
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   2014-01-02 00:00:02.022022+00,
-   5
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   2014-01-05 00:00:02.022022+00,
-   12
- },
- {
-   [2013-01-01 00:00:00, 2013-10-15 00:00:00),
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   [2014-01-01 00:00:00, 2014-10-15 00:00:00),
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   [2015-01-01 00:00:00, 2015-10-15 00:00:00),
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   [2017-01-01 00:00:00, NULL),
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {
-   [2019-01-01 00:00:00, 2019-10-15 00:00:00),
-   2014-05-02 00:00:02.022022+00,
-   13
- }]
+[known order:{NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, NULL, 17},
+             {
+               [NULL, 2013-10-15 00:00:00),
+               2014-01-04 00:00:03.033033+00,
+               14
+             },
+             {
+               [2004-01-01 00:00:00, 2004-10-15 00:00:00),
+               2014-02-04 00:00:04.044044+00,
+               16
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-01 00:00:01.011011+00,
+               1
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-01 00:00:01.011011+00,
+               2
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-01 00:00:01.011011+00,
+               3
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-02 00:00:01.011011+00,
+               10
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               2014-01-02 00:00:02.022022+00,
+               5
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               2014-01-05 00:00:02.022022+00,
+               12
+             },
+             {
+               [2013-01-01 00:00:00, 2013-10-15 00:00:00),
+               2014-01-03 00:00:03.033033+00,
+               6
+             },
+             {
+               [2014-01-01 00:00:00, 2014-10-15 00:00:00),
+               2014-01-04 00:00:04.044044+00,
+               7
+             },
+             {
+               [2015-01-01 00:00:00, 2015-10-15 00:00:00),
+               2014-04-01 00:00:01.011011+00,
+               11
+             },
+             {
+               [2017-01-01 00:00:00, NULL),
+               2014-02-04 00:00:04.044044+00,
+               15
+             },
+             {
+               [2019-01-01 00:00:00, 2019-10-15 00:00:00),
+               2014-05-02 00:00:02.022022+00,
+               13
+             }]
 ==
 #
 # Multiple columns, with first as base table column descending
@@ -4885,7 +4885,7 @@ ARRAY<STRUCT<
 SELECT bool_val, int32_val, row_id FROM AllTypesTable t
 ORDER BY bool_val DESC, int32_val DESC, row_id ASC
 --
-ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[known order:
   {true, 13, 14},
   {true, 1, 10},
   {true, -1, 1},
@@ -4909,7 +4909,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
 SELECT int32_val, int64_val, row_id FROM AllTypesTable t
 ORDER BY int32_val DESC, -int64_val ASC, row_id ASC
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[known order:
   {13, 23, 14},
   {9, 9, 13},
   {5, 3, 11},
@@ -4933,7 +4933,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
 SELECT int64_val, uint32_val, row_id FROM AllTypesTable t
 ORDER BY int64_val DESC, uint32_val + 2 DESC, row_id ASC
 --
-ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[known order:
   {23, 31, 14},
   {16, 5, 12},
   {9, 4, 13},
@@ -4957,7 +4957,7 @@ ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
 SELECT uint32_val, uint64_val, row_id FROM AllTypesTable t
 ORDER BY uint32_val DESC, uint64_val * 2 ASC, row_id ASC
 --
-ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
   {41, 54, 15},
   {31, 32, 14},
   {11, 8, 11},
@@ -4981,7 +4981,7 @@ ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
 SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 ORDER BY uint64_val DESC, float_val DESC, row_id ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
   {54, -0.5, 15},
   {32, -0.375, 14},
   {11, 0.625, 10},
@@ -5005,7 +5005,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
 SELECT float_val, double_val, row_id FROM AllTypesTable t
 ORDER BY float_val DESC, double_val ASC, row_id ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
   {inf, -inf, 3},
   {0.75, -0.25, 12},
   {0.625, 0.625, 10},
@@ -5029,7 +5029,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
 SELECT double_val, str_val, row_id FROM AllTypesTable t
 ORDER BY double_val DESC, str_val DESC, row_id ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[known order:
   {inf, "1", 2},
   {0.625, "6", 10},
   {0.5, "4", 7},
@@ -5053,7 +5053,7 @@ ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
 SELECT str_val, bytes_val, row_id FROM AllTypesTable t
 ORDER BY str_val DESC, bytes_val ASC, row_id ASC
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[known order:
   {"6", b"7", 10},
   {"432", b"433", 15},
   {"4", b"4", 7},
@@ -5077,7 +5077,7 @@ ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
 SELECT bytes_val, date_val, row_id FROM AllTypesTable t
 ORDER BY bytes_val DESC, date_val ASC, row_id ASC
 --
-ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[known order:
   {b"7", 2014-01-08, 10},
   {b"433", 2014-02-04, 15},
   {b"4", 2014-01-04, 7},
@@ -5106,79 +5106,79 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{
-   2014-05-02,
-   2014-05-02 00:00:02.022022+00,
-   13
- },
- {2014-02-04, NULL, 17},
- {
-   2014-02-04,
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {
-   2014-02-02,
-   2014-01-05 00:00:02.022022+00,
-   12
- },
- {
-   2014-02-01,
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   2014-01-08,
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   2014-01-06,
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {
-   2014-01-04,
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   2014-01-03,
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   2014-01-02,
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   2014-01-02,
-   2014-01-02 00:00:02.022022+00,
-   5
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   3
- },
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {
-   NULL,
-   2014-02-04 00:00:04.044044+00,
-   16
- }]
+[known order:{
+               2014-05-02,
+               2014-05-02 00:00:02.022022+00,
+               13
+             },
+             {2014-02-04, NULL, 17},
+             {
+               2014-02-04,
+               2014-02-04 00:00:04.044044+00,
+               15
+             },
+             {
+               2014-02-02,
+               2014-01-05 00:00:02.022022+00,
+               12
+             },
+             {
+               2014-02-01,
+               2014-04-01 00:00:01.011011+00,
+               11
+             },
+             {
+               2014-01-08,
+               2014-01-02 00:00:01.011011+00,
+               10
+             },
+             {
+               2014-01-06,
+               2014-01-04 00:00:03.033033+00,
+               14
+             },
+             {
+               2014-01-04,
+               2014-01-04 00:00:04.044044+00,
+               7
+             },
+             {
+               2014-01-03,
+               2014-01-03 00:00:03.033033+00,
+               6
+             },
+             {
+               2014-01-02,
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               2014-01-02,
+               2014-01-02 00:00:02.022022+00,
+               5
+             },
+             {
+               2014-01-01,
+               2014-01-01 00:00:01.011011+00,
+               1
+             },
+             {
+               2014-01-01,
+               2014-01-01 00:00:01.011011+00,
+               2
+             },
+             {
+               2014-01-01,
+               2014-01-01 00:00:01.011011+00,
+               3
+             },
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {
+               NULL,
+               2014-02-04 00:00:04.044044+00,
+               16
+             }]
 ==
 [name=orderby_multi_base_column_timestamp_desc]
 SELECT timestamp_val, date_val, row_id FROM AllTypesTable t
@@ -5189,86 +5189,86 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{
-   2014-05-02 00:00:02.022022+00,
-   2014-05-02,
-   13
- },
- {
-   2014-04-01 00:00:01.011011+00,
-   2014-02-01,
-   11
- },
- {
-   2014-02-04 00:00:04.044044+00,
-   NULL,
-   16
- },
- {
-   2014-02-04 00:00:04.044044+00,
-   2014-02-04,
-   15
- },
- {
-   2014-01-05 00:00:02.022022+00,
-   2014-02-02,
-   12
- },
- {
-   2014-01-04 00:00:04.044044+00,
-   2014-01-04,
-   7
- },
- {
-   2014-01-04 00:00:03.033033+00,
-   2014-01-06,
-   14
- },
- {
-   2014-01-03 00:00:03.033033+00,
-   2014-01-03,
-   6
- },
- {
-   2014-01-02 00:00:02.022022+00,
-   2014-01-02,
-   4
- },
- {
-   2014-01-02 00:00:02.022022+00,
-   2014-01-02,
-   5
- },
- {
-   2014-01-02 00:00:01.011011+00,
-   2014-01-08,
-   10
- },
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   1
- },
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   2
- },
- {
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01,
-   3
- },
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, 2014-02-04, 17}]
+[known order:{
+               2014-05-02 00:00:02.022022+00,
+               2014-05-02,
+               13
+             },
+             {
+               2014-04-01 00:00:01.011011+00,
+               2014-02-01,
+               11
+             },
+             {
+               2014-02-04 00:00:04.044044+00,
+               NULL,
+               16
+             },
+             {
+               2014-02-04 00:00:04.044044+00,
+               2014-02-04,
+               15
+             },
+             {
+               2014-01-05 00:00:02.022022+00,
+               2014-02-02,
+               12
+             },
+             {
+               2014-01-04 00:00:04.044044+00,
+               2014-01-04,
+               7
+             },
+             {
+               2014-01-04 00:00:03.033033+00,
+               2014-01-06,
+               14
+             },
+             {
+               2014-01-03 00:00:03.033033+00,
+               2014-01-03,
+               6
+             },
+             {
+               2014-01-02 00:00:02.022022+00,
+               2014-01-02,
+               4
+             },
+             {
+               2014-01-02 00:00:02.022022+00,
+               2014-01-02,
+               5
+             },
+             {
+               2014-01-02 00:00:01.011011+00,
+               2014-01-08,
+               10
+             },
+             {
+               2014-01-01 00:00:01.011011+00,
+               2014-01-01,
+               1
+             },
+             {
+               2014-01-01 00:00:01.011011+00,
+               2014-01-01,
+               2
+             },
+             {
+               2014-01-01 00:00:01.011011+00,
+               2014-01-01,
+               3
+             },
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, 2014-02-04, 17}]
 ==
 [required_features=NUMERIC_TYPE]
 [name=orderby_multi_base_column_numeric_desc]
 SELECT numeric_val, date_val, row_id FROM AllTypesNumericTable t
 ORDER BY numeric_val DESC, date_val ASC, row_id ASC
 --
-ARRAY<STRUCT<numeric_val NUMERIC, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<numeric_val NUMERIC, date_val DATE, row_id INT64>>[known order:
   {999.999, 2014-02-02, 12},
   {222, 2014-01-06, 14},
   {93, 2014-01-02, 5},
@@ -5298,39 +5298,39 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{
-   999.9999999999999999999,
-   2014-02-02,
-   12
- },
- {222, 2014-01-06, 14},
- {93, 2014-01-02, 5},
- {4, 2014-01-04, 7},
- {3, 2014-01-03, 6},
- {2, 2014-01-02, 4},
- {1, 2014-01-01, 1},
- {1, 2014-01-01, 2},
- {1, 2014-01-01, 3},
- {1, 2014-01-08, 10},
- {-5.34, 2014-02-01, 11},
- {
-   -1000.0000000000000000001,
-   2014-05-02,
-   13
- },
- {
-   -123456789.1234567890123456789,
-   2014-02-04,
-   15
- },
- {
-   -123456789.1234567890123456789,
-   2014-02-04,
-   17
- },
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, NULL, 16}]
+[known order:{
+               999.9999999999999999999,
+               2014-02-02,
+               12
+             },
+             {222, 2014-01-06, 14},
+             {93, 2014-01-02, 5},
+             {4, 2014-01-04, 7},
+             {3, 2014-01-03, 6},
+             {2, 2014-01-02, 4},
+             {1, 2014-01-01, 1},
+             {1, 2014-01-01, 2},
+             {1, 2014-01-01, 3},
+             {1, 2014-01-08, 10},
+             {-5.34, 2014-02-01, 11},
+             {
+               -1000.0000000000000000001,
+               2014-05-02,
+               13
+             },
+             {
+               -123456789.1234567890123456789,
+               2014-02-04,
+               15
+             },
+             {
+               -123456789.1234567890123456789,
+               2014-02-04,
+               17
+             },
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, NULL, 16}]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_multi_base_column_range_timestamp_desc]
@@ -5342,93 +5342,93 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{[
-    2019-01-01 00:00:00+00,
-    2019-10-15 00:00:00+00
-  ),
-  2014-05-02,
-  13},
- {[
-    2017-01-01 00:00:00+00,
-    NULL
-  ),
-  2014-02-04,
-  15},
- {[
-    2015-01-01 00:00:00+00,
-    2015-10-15 00:00:00+00
-  ),
-  2014-02-01,
-  11},
- {[
-    2014-01-01 00:00:00+00,
-    2014-10-15 00:00:00+00
-  ),
-  2014-01-04,
-  7},
- {[
-    2013-01-01 00:00:00+00,
-    2013-10-15 00:00:00+00
-  ),
-  2014-01-03,
-  6},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  2014-01-02,
-  4},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  2014-01-02,
-  5},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  2014-02-02,
-  12},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-01,
-  1},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-01,
-  2},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-01,
-  3},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-08,
-  10},
- {[
-    2004-01-01 00:00:00+00,
-    2004-10-15 00:00:00+00
-  ),
-  NULL,
-  16},
- {[
-    NULL,
-    2013-10-15 00:00:00+00
-  ),
-  2014-01-06,
-  14},
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, 2014-02-04, 17}]
+[known order:{[
+                2019-01-01 00:00:00+00,
+                2019-10-15 00:00:00+00
+              ),
+              2014-05-02,
+              13},
+             {[
+                2017-01-01 00:00:00+00,
+                NULL
+              ),
+              2014-02-04,
+              15},
+             {[
+                2015-01-01 00:00:00+00,
+                2015-10-15 00:00:00+00
+              ),
+              2014-02-01,
+              11},
+             {[
+                2014-01-01 00:00:00+00,
+                2014-10-15 00:00:00+00
+              ),
+              2014-01-04,
+              7},
+             {[
+                2013-01-01 00:00:00+00,
+                2013-10-15 00:00:00+00
+              ),
+              2014-01-03,
+              6},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              2014-01-02,
+              4},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              2014-01-02,
+              5},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              2014-02-02,
+              12},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-01,
+              1},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-01,
+              2},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-01,
+              3},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-08,
+              10},
+             {[
+                2004-01-01 00:00:00+00,
+                2004-10-15 00:00:00+00
+              ),
+              NULL,
+              16},
+             {[
+                NULL,
+                2013-10-15 00:00:00+00
+              ),
+              2014-01-06,
+              14},
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, 2014-02-04, 17}]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_multi_base_column_range_date_desc]
@@ -5440,83 +5440,83 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{
-   [2026-01-01, 2026-10-15),
-   2014-01-05 00:00:02.022022+00,
-   12
- },
- {
-   [2019-01-01, 2019-10-15),
-   2014-05-02 00:00:02.022022+00,
-   13
- },
- {
-   [2017-01-01, NULL),
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {
-   [2014-01-01, 2014-10-15),
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   [2013-01-01, 2013-10-15),
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   [2013-01-01, 2013-10-15),
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   [2012-01-01, 2012-10-15),
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   [2012-01-01, 2012-10-15),
-   2014-01-02 00:00:02.022022+00,
-   5
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-01 00:00:01.011011+00,
-   3
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   [2007-01-01, 2007-10-15),
-   NULL,
-   17
- },
- {
-   [NULL, 2007-10-15),
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {
-   NULL,
-   2014-02-04 00:00:04.044044+00,
-   16
- }]
+[known order:{
+               [2026-01-01, 2026-10-15),
+               2014-01-05 00:00:02.022022+00,
+               12
+             },
+             {
+               [2019-01-01, 2019-10-15),
+               2014-05-02 00:00:02.022022+00,
+               13
+             },
+             {
+               [2017-01-01, NULL),
+               2014-01-04 00:00:03.033033+00,
+               14
+             },
+             {
+               [2014-01-01, 2014-10-15),
+               2014-01-04 00:00:04.044044+00,
+               7
+             },
+             {
+               [2013-01-01, 2013-10-15),
+               2014-01-03 00:00:03.033033+00,
+               6
+             },
+             {
+               [2013-01-01, 2013-10-15),
+               2014-04-01 00:00:01.011011+00,
+               11
+             },
+             {
+               [2012-01-01, 2012-10-15),
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               [2012-01-01, 2012-10-15),
+               2014-01-02 00:00:02.022022+00,
+               5
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-01 00:00:01.011011+00,
+               1
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-01 00:00:01.011011+00,
+               2
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-01 00:00:01.011011+00,
+               3
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-02 00:00:01.011011+00,
+               10
+             },
+             {
+               [2007-01-01, 2007-10-15),
+               NULL,
+               17
+             },
+             {
+               [NULL, 2007-10-15),
+               2014-02-04 00:00:04.044044+00,
+               15
+             },
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {
+               NULL,
+               2014-02-04 00:00:04.044044+00,
+               16
+             }]
 ==
 [required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
 [name=orderby_multi_base_column_range_datetime_desc]
@@ -5528,79 +5528,79 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{
-   [2019-01-01 00:00:00, 2019-10-15 00:00:00),
-   2014-05-02 00:00:02.022022+00,
-   13
- },
- {
-   [2017-01-01 00:00:00, NULL),
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {
-   [2015-01-01 00:00:00, 2015-10-15 00:00:00),
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   [2014-01-01 00:00:00, 2014-10-15 00:00:00),
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   [2013-01-01 00:00:00, 2013-10-15 00:00:00),
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   2014-01-02 00:00:02.022022+00,
-   5
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   2014-01-05 00:00:02.022022+00,
-   12
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-01 00:00:01.011011+00,
-   3
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   [2004-01-01 00:00:00, 2004-10-15 00:00:00),
-   2014-02-04 00:00:04.044044+00,
-   16
- },
- {
-   [NULL, 2013-10-15 00:00:00),
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, NULL, 17}]
+[known order:{
+               [2019-01-01 00:00:00, 2019-10-15 00:00:00),
+               2014-05-02 00:00:02.022022+00,
+               13
+             },
+             {
+               [2017-01-01 00:00:00, NULL),
+               2014-02-04 00:00:04.044044+00,
+               15
+             },
+             {
+               [2015-01-01 00:00:00, 2015-10-15 00:00:00),
+               2014-04-01 00:00:01.011011+00,
+               11
+             },
+             {
+               [2014-01-01 00:00:00, 2014-10-15 00:00:00),
+               2014-01-04 00:00:04.044044+00,
+               7
+             },
+             {
+               [2013-01-01 00:00:00, 2013-10-15 00:00:00),
+               2014-01-03 00:00:03.033033+00,
+               6
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               2014-01-02 00:00:02.022022+00,
+               5
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               2014-01-05 00:00:02.022022+00,
+               12
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-01 00:00:01.011011+00,
+               1
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-01 00:00:01.011011+00,
+               2
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-01 00:00:01.011011+00,
+               3
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-02 00:00:01.011011+00,
+               10
+             },
+             {
+               [2004-01-01 00:00:00, 2004-10-15 00:00:00),
+               2014-02-04 00:00:04.044044+00,
+               16
+             },
+             {
+               [NULL, 2013-10-15 00:00:00),
+               2014-01-04 00:00:03.033033+00,
+               14
+             },
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, NULL, 17}]
 ==
 #
 # Multiple columns, with first as computed column ascending
@@ -5609,7 +5609,7 @@ ARRAY<STRUCT<
 SELECT bool_val, int32_val, row_id FROM AllTypesTable t
 ORDER BY (NOT bool_val) ASC, int32_val DESC, row_id ASC
 --
-ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[known order:
   {NULL, -1, 17},
   {NULL, NULL, 8},
   {NULL, NULL, 9},
@@ -5633,7 +5633,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
 SELECT int32_val, int64_val, row_id FROM AllTypesTable t
 ORDER BY int32_val * 2 ASC, -int64_val ASC, row_id ASC
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, NULL, 9},
   {NULL, -1, 16},
@@ -5657,7 +5657,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
 SELECT int64_val, uint32_val, row_id FROM AllTypesTable t
 ORDER BY int64_val + 2 ASC, uint32_val + 2 DESC, row_id ASC
 --
-ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[known order:
   {NULL, 1, 17},
   {NULL, NULL, 8},
   {NULL, NULL, 9},
@@ -5681,7 +5681,7 @@ ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
 SELECT uint32_val, uint64_val, row_id FROM AllTypesTable t
 ORDER BY uint32_val + 7 ASC, uint64_val * 2 ASC, row_id ASC
 --
-ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, NULL, 9},
   {NULL, 1, 16},
@@ -5705,7 +5705,7 @@ ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
 SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 ORDER BY uint64_val * 4 ASC, float_val DESC, row_id ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
   {NULL, -0, 9},
   {NULL, 0, 17},
   {NULL, NULL, 8},
@@ -5729,7 +5729,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
 SELECT float_val, double_val, row_id FROM AllTypesTable t
 ORDER BY float_val + 0.5 ASC, double_val ASC, row_id ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, -0, 16},
   {nan, inf, 2},
@@ -5753,7 +5753,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
 SELECT double_val, str_val, row_id FROM AllTypesTable t
 ORDER BY double_val - 0.75 ASC, str_val DESC, row_id ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[known order:
   {NULL, "1", 17},
   {NULL, NULL, 8},
   {nan, NULL, 9},
@@ -5777,7 +5777,7 @@ ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
 SELECT str_val, bytes_val, row_id FROM AllTypesTable t
 ORDER BY RTRIM(str_val) ASC, bytes_val ASC, row_id ASC
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, NULL, 9},
   {NULL, b"1", 16},
@@ -5801,7 +5801,7 @@ ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
 SELECT bytes_val, date_val, row_id FROM AllTypesTable t
 ORDER BY UPPER(bytes_val) ASC, date_val ASC, row_id ASC
 --
-ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[known order:
   {NULL, NULL, 8},
   {NULL, NULL, 9},
   {NULL, 2014-02-04, 17},
@@ -5828,7 +5828,7 @@ ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
 SELECT bool_val, int32_val, row_id FROM AllTypesTable t
 ORDER BY (NOT bool_val) DESC, int32_val DESC, row_id ASC
 --
-ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[known order:
   {false, 9, 13},
   {false, 5, 11},
   {false, 2, 12},
@@ -5852,7 +5852,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32, row_id INT64>>[
 SELECT int32_val, int64_val, row_id FROM AllTypesTable t
 ORDER BY int32_val - 9 DESC, -int64_val ASC, row_id ASC
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[known order:
   {13, 23, 14},
   {9, 9, 13},
   {5, 3, 11},
@@ -5876,7 +5876,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64, row_id INT64>>[
 SELECT int64_val, uint32_val, row_id FROM AllTypesTable t
 ORDER BY int64_val * -2 DESC, uint32_val + 2 DESC, row_id ASC
 --
-ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[known order:
   {-14, 41, 15},
   {-4, 4, 7},
   {-3, 3, 6},
@@ -5900,7 +5900,7 @@ ARRAY<STRUCT<int64_val INT64, uint32_val UINT32, row_id INT64>>[
 SELECT uint32_val, uint64_val, row_id FROM AllTypesTable t
 ORDER BY uint32_val + 17 DESC, uint64_val * 2 ASC, row_id ASC
 --
-ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[known order:
   {41, 54, 15},
   {31, 32, 14},
   {11, 8, 11},
@@ -5924,7 +5924,7 @@ ARRAY<STRUCT<uint32_val UINT32, uint64_val UINT64, row_id INT64>>[
 SELECT uint64_val, float_val, row_id FROM AllTypesTable t
 ORDER BY uint64_val + 123456789 DESC, float_val DESC, row_id ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[known order:
   {54, -0.5, 15},
   {32, -0.375, 14},
   {11, 0.625, 10},
@@ -5948,7 +5948,7 @@ ARRAY<STRUCT<uint64_val UINT64, float_val FLOAT, row_id INT64>>[
 SELECT float_val, double_val, row_id FROM AllTypesTable t
 ORDER BY float_val * 0.125 DESC, double_val ASC, row_id ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[known order:
   {inf, -inf, 3},
   {0.75, -0.25, 12},
   {0.625, 0.625, 10},
@@ -5972,7 +5972,7 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, row_id INT64>>[
 SELECT double_val, str_val, row_id FROM AllTypesTable t
 ORDER BY double_val / 0.125 DESC, str_val DESC, row_id ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[known order:
   {inf, "1", 2},
   {0.625, "6", 10},
   {0.5, "4", 7},
@@ -5996,7 +5996,7 @@ ARRAY<STRUCT<double_val DOUBLE, str_val STRING, row_id INT64>>[
 SELECT str_val, bytes_val, row_id FROM AllTypesTable t
 ORDER BY LOWER(str_val) DESC, bytes_val ASC, row_id ASC
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[known order:
   {"6", b"7", 10},
   {"432", b"433", 15},
   {"4", b"4", 7},
@@ -6020,7 +6020,7 @@ ARRAY<STRUCT<str_val STRING, bytes_val BYTES, row_id INT64>>[
 SELECT bytes_val, date_val, row_id FROM AllTypesTable t
 ORDER BY UPPER(bytes_val) DESC, date_val ASC, row_id ASC
 --
-ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[known order:
   {b"7", 2014-01-08, 10},
   {b"433", 2014-02-04, 15},
   {b"4", 2014-01-04, 7},
@@ -6045,7 +6045,7 @@ ARRAY<STRUCT<bytes_val BYTES, date_val DATE, row_id INT64>>[
 SELECT numeric_val, date_val, row_id FROM AllTypesNumericTable t
 ORDER BY numeric_val * 2 DESC, date_val ASC, row_id ASC
 --
-ARRAY<STRUCT<numeric_val NUMERIC, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<numeric_val NUMERIC, date_val DATE, row_id INT64>>[known order:
   {999.999, 2014-02-02, 12},
   {222, 2014-01-06, 14},
   {93, 2014-01-02, 5},
@@ -6075,39 +6075,39 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{
-   999.9999999999999999999,
-   2014-02-02,
-   12
- },
- {222, 2014-01-06, 14},
- {93, 2014-01-02, 5},
- {4, 2014-01-04, 7},
- {3, 2014-01-03, 6},
- {2, 2014-01-02, 4},
- {1, 2014-01-01, 1},
- {1, 2014-01-01, 2},
- {1, 2014-01-01, 3},
- {1, 2014-01-08, 10},
- {-5.34, 2014-02-01, 11},
- {
-   -1000.0000000000000000001,
-   2014-05-02,
-   13
- },
- {
-   -123456789.1234567890123456789,
-   2014-02-04,
-   15
- },
- {
-   -123456789.1234567890123456789,
-   2014-02-04,
-   17
- },
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, NULL, 16}]
+[known order:{
+               999.9999999999999999999,
+               2014-02-02,
+               12
+             },
+             {222, 2014-01-06, 14},
+             {93, 2014-01-02, 5},
+             {4, 2014-01-04, 7},
+             {3, 2014-01-03, 6},
+             {2, 2014-01-02, 4},
+             {1, 2014-01-01, 1},
+             {1, 2014-01-01, 2},
+             {1, 2014-01-01, 3},
+             {1, 2014-01-08, 10},
+             {-5.34, 2014-02-01, 11},
+             {
+               -1000.0000000000000000001,
+               2014-05-02,
+               13
+             },
+             {
+               -123456789.1234567890123456789,
+               2014-02-04,
+               15
+             },
+             {
+               -123456789.1234567890123456789,
+               2014-02-04,
+               17
+             },
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, NULL, 16}]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_multi_computed_column_range_timestamp_desc]
@@ -6124,93 +6124,93 @@ ARRAY<STRUCT<
         date_val DATE,
         row_id INT64
       >>
-[{[
-    2019-01-01 00:00:00+00,
-    2019-10-15 00:00:00+00
-  ),
-  2014-05-02,
-  13},
- {[
-    2017-01-01 00:00:00+00,
-    NULL
-  ),
-  2014-02-04,
-  15},
- {[
-    2015-01-01 00:00:00+00,
-    2015-10-15 00:00:00+00
-  ),
-  2014-02-01,
-  11},
- {[
-    2014-01-01 00:00:00+00,
-    2014-10-15 00:00:00+00
-  ),
-  2014-01-04,
-  7},
- {[
-    2013-01-01 00:00:00+00,
-    2013-10-15 00:00:00+00
-  ),
-  2014-01-03,
-  6},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  2014-01-02,
-  4},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  2014-01-02,
-  5},
- {[
-    2012-01-01 00:00:00+00,
-    2012-10-15 00:00:00+00
-  ),
-  2014-02-02,
-  12},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-01,
-  1},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-01,
-  2},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-01,
-  3},
- {[
-    2011-01-01 00:00:00+00,
-    2011-10-15 00:00:00+00
-  ),
-  2014-01-08,
-  10},
- {[
-    2004-01-01 00:00:00+00,
-    2004-10-15 00:00:00+00
-  ),
-  NULL,
-  16},
- {[
-    NULL,
-    2013-10-15 00:00:00+00
-  ),
-  2014-01-06,
-  14},
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, 2014-02-04, 17}]
+[known order:{[
+                2019-01-01 00:00:00+00,
+                2019-10-15 00:00:00+00
+              ),
+              2014-05-02,
+              13},
+             {[
+                2017-01-01 00:00:00+00,
+                NULL
+              ),
+              2014-02-04,
+              15},
+             {[
+                2015-01-01 00:00:00+00,
+                2015-10-15 00:00:00+00
+              ),
+              2014-02-01,
+              11},
+             {[
+                2014-01-01 00:00:00+00,
+                2014-10-15 00:00:00+00
+              ),
+              2014-01-04,
+              7},
+             {[
+                2013-01-01 00:00:00+00,
+                2013-10-15 00:00:00+00
+              ),
+              2014-01-03,
+              6},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              2014-01-02,
+              4},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              2014-01-02,
+              5},
+             {[
+                2012-01-01 00:00:00+00,
+                2012-10-15 00:00:00+00
+              ),
+              2014-02-02,
+              12},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-01,
+              1},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-01,
+              2},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-01,
+              3},
+             {[
+                2011-01-01 00:00:00+00,
+                2011-10-15 00:00:00+00
+              ),
+              2014-01-08,
+              10},
+             {[
+                2004-01-01 00:00:00+00,
+                2004-10-15 00:00:00+00
+              ),
+              NULL,
+              16},
+             {[
+                NULL,
+                2013-10-15 00:00:00+00
+              ),
+              2014-01-06,
+              14},
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, 2014-02-04, 17}]
 ==
 [required_features=RANGE_TYPE]
 [name=orderby_multi_computed_column_range_date_desc]
@@ -6227,83 +6227,83 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{
-   [2026-01-01, 2026-10-15),
-   2014-01-05 00:00:02.022022+00,
-   12
- },
- {
-   [2019-01-01, 2019-10-15),
-   2014-05-02 00:00:02.022022+00,
-   13
- },
- {
-   [2017-01-01, NULL),
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {
-   [2014-01-01, 2014-10-15),
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   [2013-01-01, 2013-10-15),
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   [2013-01-01, 2013-10-15),
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   [2012-01-01, 2012-10-15),
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   [2012-01-01, 2012-10-15),
-   2014-01-02 00:00:02.022022+00,
-   5
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-01 00:00:01.011011+00,
-   3
- },
- {
-   [2011-01-01, 2011-10-15),
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   [2007-01-01, 2007-10-15),
-   NULL,
-   17
- },
- {
-   [NULL, 2007-10-15),
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {
-   NULL,
-   2014-02-04 00:00:04.044044+00,
-   16
- }]
+[known order:{
+               [2026-01-01, 2026-10-15),
+               2014-01-05 00:00:02.022022+00,
+               12
+             },
+             {
+               [2019-01-01, 2019-10-15),
+               2014-05-02 00:00:02.022022+00,
+               13
+             },
+             {
+               [2017-01-01, NULL),
+               2014-01-04 00:00:03.033033+00,
+               14
+             },
+             {
+               [2014-01-01, 2014-10-15),
+               2014-01-04 00:00:04.044044+00,
+               7
+             },
+             {
+               [2013-01-01, 2013-10-15),
+               2014-01-03 00:00:03.033033+00,
+               6
+             },
+             {
+               [2013-01-01, 2013-10-15),
+               2014-04-01 00:00:01.011011+00,
+               11
+             },
+             {
+               [2012-01-01, 2012-10-15),
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               [2012-01-01, 2012-10-15),
+               2014-01-02 00:00:02.022022+00,
+               5
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-01 00:00:01.011011+00,
+               1
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-01 00:00:01.011011+00,
+               2
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-01 00:00:01.011011+00,
+               3
+             },
+             {
+               [2011-01-01, 2011-10-15),
+               2014-01-02 00:00:01.011011+00,
+               10
+             },
+             {
+               [2007-01-01, 2007-10-15),
+               NULL,
+               17
+             },
+             {
+               [NULL, 2007-10-15),
+               2014-02-04 00:00:04.044044+00,
+               15
+             },
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {
+               NULL,
+               2014-02-04 00:00:04.044044+00,
+               16
+             }]
 ==
 [required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
 [name=orderby_multi_computed_column_range_datetime_desc]
@@ -6320,79 +6320,79 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{
-   [2019-01-01 00:00:00, 2019-10-15 00:00:00),
-   2014-05-02 00:00:02.022022+00,
-   13
- },
- {
-   [2017-01-01 00:00:00, NULL),
-   2014-02-04 00:00:04.044044+00,
-   15
- },
- {
-   [2015-01-01 00:00:00, 2015-10-15 00:00:00),
-   2014-04-01 00:00:01.011011+00,
-   11
- },
- {
-   [2014-01-01 00:00:00, 2014-10-15 00:00:00),
-   2014-01-04 00:00:04.044044+00,
-   7
- },
- {
-   [2013-01-01 00:00:00, 2013-10-15 00:00:00),
-   2014-01-03 00:00:03.033033+00,
-   6
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   2014-01-02 00:00:02.022022+00,
-   5
- },
- {
-   [2012-01-01 00:00:00, 2012-10-15 00:00:00),
-   2014-01-05 00:00:02.022022+00,
-   12
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-01 00:00:01.011011+00,
-   3
- },
- {
-   [2011-01-01 00:00:00, 2011-10-15 00:00:00),
-   2014-01-02 00:00:01.011011+00,
-   10
- },
- {
-   [2004-01-01 00:00:00, 2004-10-15 00:00:00),
-   2014-02-04 00:00:04.044044+00,
-   16
- },
- {
-   [NULL, 2013-10-15 00:00:00),
-   2014-01-04 00:00:03.033033+00,
-   14
- },
- {NULL, NULL, 8},
- {NULL, NULL, 9},
- {NULL, NULL, 17}]
+[known order:{
+               [2019-01-01 00:00:00, 2019-10-15 00:00:00),
+               2014-05-02 00:00:02.022022+00,
+               13
+             },
+             {
+               [2017-01-01 00:00:00, NULL),
+               2014-02-04 00:00:04.044044+00,
+               15
+             },
+             {
+               [2015-01-01 00:00:00, 2015-10-15 00:00:00),
+               2014-04-01 00:00:01.011011+00,
+               11
+             },
+             {
+               [2014-01-01 00:00:00, 2014-10-15 00:00:00),
+               2014-01-04 00:00:04.044044+00,
+               7
+             },
+             {
+               [2013-01-01 00:00:00, 2013-10-15 00:00:00),
+               2014-01-03 00:00:03.033033+00,
+               6
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               2014-01-02 00:00:02.022022+00,
+               5
+             },
+             {
+               [2012-01-01 00:00:00, 2012-10-15 00:00:00),
+               2014-01-05 00:00:02.022022+00,
+               12
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-01 00:00:01.011011+00,
+               1
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-01 00:00:01.011011+00,
+               2
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-01 00:00:01.011011+00,
+               3
+             },
+             {
+               [2011-01-01 00:00:00, 2011-10-15 00:00:00),
+               2014-01-02 00:00:01.011011+00,
+               10
+             },
+             {
+               [2004-01-01 00:00:00, 2004-10-15 00:00:00),
+               2014-02-04 00:00:04.044044+00,
+               16
+             },
+             {
+               [NULL, 2013-10-15 00:00:00),
+               2014-01-04 00:00:03.033033+00,
+               14
+             },
+             {NULL, NULL, 8},
+             {NULL, NULL, 9},
+             {NULL, NULL, 17}]
 ==
 #
 # Single base table column ascending with duplicates
@@ -6403,7 +6403,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY bool_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x BOOL, POS INT64>>[
+ARRAY<STRUCT<x BOOL, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6429,7 +6429,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY int32_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x INT32, POS INT64>>[
+ARRAY<STRUCT<x INT32, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6455,7 +6455,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY int64_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x INT64, POS INT64>>[
+ARRAY<STRUCT<x INT64, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6481,7 +6481,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY uint32_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x UINT32, POS INT64>>[
+ARRAY<STRUCT<x UINT32, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6507,7 +6507,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY uint64_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x UINT64, POS INT64>>[
+ARRAY<STRUCT<x UINT64, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6533,7 +6533,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY float_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x FLOAT, POS INT64>>[
+ARRAY<STRUCT<x FLOAT, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {nan, 2},
@@ -6559,7 +6559,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY double_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x DOUBLE, POS INT64>>[
+ARRAY<STRUCT<x DOUBLE, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {nan, 2},
@@ -6585,7 +6585,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY str_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x STRING, POS INT64>>[
+ARRAY<STRUCT<x STRING, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6611,7 +6611,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY bytes_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x BYTES, POS INT64>>[
+ARRAY<STRUCT<x BYTES, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6637,7 +6637,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY date_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x DATE, POS INT64>>[
+ARRAY<STRUCT<x DATE, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6663,7 +6663,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY timestamp_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x TIMESTAMP, POS INT64>>[
+ARRAY<STRUCT<x TIMESTAMP, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6732,7 +6732,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY numeric_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x NUMERIC, POS INT64>>[
+ARRAY<STRUCT<x NUMERIC, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6759,7 +6759,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY bignumeric_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x BIGNUMERIC, POS INT64>>[
+ARRAY<STRUCT<x BIGNUMERIC, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6798,7 +6798,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY range_timestamp_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x RANGE<TIMESTAMP>, POS INT64>>[
+ARRAY<STRUCT<x RANGE<TIMESTAMP>, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6881,7 +6881,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY range_date_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x RANGE<DATE>, POS INT64>>[
+ARRAY<STRUCT<x RANGE<DATE>, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -6944,7 +6944,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY range_datetime_val ASC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x RANGE<DATETIME>, POS INT64>>[
+ARRAY<STRUCT<x RANGE<DATETIME>, POS INT64>>[unknown order:
   {NULL, 0},
   {NULL, 1},
   {NULL, 2},
@@ -7012,7 +7012,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY bool_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x BOOL, POS INT64>>[
+ARRAY<STRUCT<x BOOL, POS INT64>>[unknown order:
   {true, 0},
   {true, 1},
   {true, 2},
@@ -7038,7 +7038,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY int32_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x INT32, POS INT64>>[
+ARRAY<STRUCT<x INT32, POS INT64>>[unknown order:
   {13, 0},
   {9, 1},
   {5, 2},
@@ -7064,7 +7064,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY int64_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x INT64, POS INT64>>[
+ARRAY<STRUCT<x INT64, POS INT64>>[unknown order:
   {23, 0},
   {16, 1},
   {9, 2},
@@ -7090,7 +7090,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY uint32_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x UINT32, POS INT64>>[
+ARRAY<STRUCT<x UINT32, POS INT64>>[unknown order:
   {41, 0},
   {31, 1},
   {11, 2},
@@ -7116,7 +7116,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY uint64_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x UINT64, POS INT64>>[
+ARRAY<STRUCT<x UINT64, POS INT64>>[unknown order:
   {54, 0},
   {32, 1},
   {11, 2},
@@ -7142,7 +7142,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY float_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x FLOAT, POS INT64>>[
+ARRAY<STRUCT<x FLOAT, POS INT64>>[unknown order:
   {inf, 0},
   {0.75, 1},
   {0.625, 2},
@@ -7168,7 +7168,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY double_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x DOUBLE, POS INT64>>[
+ARRAY<STRUCT<x DOUBLE, POS INT64>>[unknown order:
   {inf, 0},
   {0.625, 1},
   {0.5, 2},
@@ -7194,7 +7194,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY str_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x STRING, POS INT64>>[
+ARRAY<STRUCT<x STRING, POS INT64>>[unknown order:
   {"6", 0},
   {"432", 1},
   {"4", 2},
@@ -7220,7 +7220,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY bytes_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x BYTES, POS INT64>>[
+ARRAY<STRUCT<x BYTES, POS INT64>>[unknown order:
   {b"7", 0},
   {b"433", 1},
   {b"4", 2},
@@ -7246,7 +7246,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY date_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x DATE, POS INT64>>[
+ARRAY<STRUCT<x DATE, POS INT64>>[unknown order:
   {2014-05-02, 0},
   {2014-02-04, 1},
   {2014-02-04, 2},
@@ -7272,7 +7272,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY timestamp_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x TIMESTAMP, POS INT64>>[
+ARRAY<STRUCT<x TIMESTAMP, POS INT64>>[unknown order:
   {
     2014-05-02 00:00:02.022022+00,
     0
@@ -7341,7 +7341,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY numeric_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x NUMERIC, POS INT64>>[
+ARRAY<STRUCT<x NUMERIC, POS INT64>>[unknown order:
   {999.999, 0},
   {222, 1},
   {93, 2},
@@ -7368,7 +7368,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY bignumeric_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x BIGNUMERIC, POS INT64>>[
+ARRAY<STRUCT<x BIGNUMERIC, POS INT64>>[unknown order:
   {
     999.9999999999999999999,
     0
@@ -7407,7 +7407,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY range_timestamp_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x RANGE<TIMESTAMP>, POS INT64>>[
+ARRAY<STRUCT<x RANGE<TIMESTAMP>, POS INT64>>[unknown order:
   {[
      2019-01-01 00:00:00+00,
      2019-10-15 00:00:00+00
@@ -7490,7 +7490,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY range_date_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x RANGE<DATE>, POS INT64>>[
+ARRAY<STRUCT<x RANGE<DATE>, POS INT64>>[unknown order:
   {
     [2026-01-01, 2026-10-15),
     0
@@ -7553,7 +7553,7 @@ SELECT * FROM UNNEST(ARRAY(
   ORDER BY range_datetime_val DESC
 )) x WITH OFFSET POS
 --
-ARRAY<STRUCT<x RANGE<DATETIME>, POS INT64>>[
+ARRAY<STRUCT<x RANGE<DATETIME>, POS INT64>>[unknown order:
   {
     [2019-01-01 00:00:00, 2019-10-15 00:00:00),
     0
@@ -7657,7 +7657,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         row_id INT64
       >>
-[
+[known order:
   {TESTENUM0, 1},
   {TESTENUM1, 3},
   {TESTENUM2, 5},
@@ -7703,7 +7703,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         row_id INT64
       >>
-[
+[known order:
   {TESTENUM2147483647, 7},
   {TESTENUM2, 5},
   {TESTENUM1, 3},
@@ -7748,7 +7748,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         row_id INT64
       >>
-[
+[known order:
   {NULL, 9},
   {NULL, 10},
   {TESTENUM0, 1},
@@ -7799,7 +7799,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         row_id INT64
       >>
-[
+[known order:
   {TESTENUM2147483647, 7},
   {TESTENUM2147483647, 8},
   {TESTENUM2, 5},
@@ -7852,7 +7852,7 @@ ARRAY<STRUCT<
         x ENUM<zetasql_test__.TestEnum>,
         POS INT64
       >>
-[
+[unknown order:
   {NULL, 0},
   {NULL, 1},
   {TESTENUM0, 2},
@@ -7905,7 +7905,7 @@ ARRAY<STRUCT<
         x ENUM<zetasql_test__.TestEnum>,
         POS INT64
       >>
-[
+[unknown order:
   {TESTENUM2147483647, 0},
   {TESTENUM2147483647, 1},
   {TESTENUM2, 2},
@@ -7976,52 +7976,52 @@ ARRAY<STRUCT<
         primary_double_sort_key DOUBLE,
         secondary_int_sort_key INT64
       >>
-[{NULL, 82},
- {NULL, 142},
- {NULL, 242},
- {NULL, 302},
- {nan, 30},
- {nan, 31},
- {nan, 32},
- {nan, 33},
- {nan, 34},
- {nan, 35},
- {nan, 36},
- {nan, 37},
- {nan, 38},
- {-inf, 26},
- {-inf, 27},
- {-inf, 28},
- {-inf, 29},
- {-1, 141},
- {-1, 301},
- {-0, 1},
- {0, 2},
- {0, 3},
- {-0, 4},
- {0, 5},
- {-0, 6},
- {-0, 7},
- {0, 8},
- {0, 9},
- {-0, 10},
- {0, 11},
- {0, 12},
- {-0, 13},
- {0, 14},
- {0, 15},
- {0, 16},
- {-0, 17},
- {0, 18},
- {1, 81},
- {1, 241},
- {inf, 19},
- {inf, 20},
- {inf, 21},
- {inf, 22},
- {inf, 23},
- {inf, 24},
- {inf, 25}]
+[known order:{NULL, 82},
+             {NULL, 142},
+             {NULL, 242},
+             {NULL, 302},
+             {nan, 30},
+             {nan, 31},
+             {nan, 32},
+             {nan, 33},
+             {nan, 34},
+             {nan, 35},
+             {nan, 36},
+             {nan, 37},
+             {nan, 38},
+             {-inf, 26},
+             {-inf, 27},
+             {-inf, 28},
+             {-inf, 29},
+             {-1, 141},
+             {-1, 301},
+             {-0, 1},
+             {0, 2},
+             {0, 3},
+             {-0, 4},
+             {0, 5},
+             {-0, 6},
+             {-0, 7},
+             {0, 8},
+             {0, 9},
+             {-0, 10},
+             {0, 11},
+             {0, 12},
+             {-0, 13},
+             {0, 14},
+             {0, 15},
+             {0, 16},
+             {-0, 17},
+             {0, 18},
+             {1, 81},
+             {1, 241},
+             {inf, 19},
+             {inf, 20},
+             {inf, 21},
+             {inf, 22},
+             {inf, 23},
+             {inf, 24},
+             {inf, 25}]
 ==
 
 # -------------------
@@ -8082,59 +8082,59 @@ ARRAY<STRUCT<
         primary_float_sort_key FLOAT,
         secondary_int_sort_key INT64
       >>
-[{NULL, 52},
- {NULL, 102},
- {NULL, 202},
- {NULL, 262},
- {nan, 30},
- {nan, 31},
- {nan, 32},
- {nan, 33},
- {nan, 34},
- {nan, 35},
- {nan, 36},
- {nan, 37},
- {nan, 38},
- {-inf, 26},
- {-inf, 27},
- {-inf, 28},
- {-inf, 29},
- {-1, 101},
- {-1, 261},
- {-0, 1},
- {0, 2},
- {0, 3},
- {-0, 4},
- {0, 5},
- {-0, 6},
- {-0, 7},
- {0, 8},
- {0, 9},
- {-0, 10},
- {0, 11},
- {0, 12},
- {-0, 13},
- {0, 14},
- {0, 15},
- {0, 16},
- {-0, 17},
- {0, 18},
- {1, 51},
- {1, 201},
- {inf, 19},
- {inf, 20},
- {inf, 21},
- {inf, 22},
- {inf, 23},
- {inf, 24},
- {inf, 25}]
+[known order:{NULL, 52},
+             {NULL, 102},
+             {NULL, 202},
+             {NULL, 262},
+             {nan, 30},
+             {nan, 31},
+             {nan, 32},
+             {nan, 33},
+             {nan, 34},
+             {nan, 35},
+             {nan, 36},
+             {nan, 37},
+             {nan, 38},
+             {-inf, 26},
+             {-inf, 27},
+             {-inf, 28},
+             {-inf, 29},
+             {-1, 101},
+             {-1, 261},
+             {-0, 1},
+             {0, 2},
+             {0, 3},
+             {-0, 4},
+             {0, 5},
+             {-0, 6},
+             {-0, 7},
+             {0, 8},
+             {0, 9},
+             {-0, 10},
+             {0, 11},
+             {0, 12},
+             {-0, 13},
+             {0, 14},
+             {0, 15},
+             {0, 16},
+             {-0, 17},
+             {0, 18},
+             {1, 51},
+             {1, 201},
+             {inf, 19},
+             {inf, 20},
+             {inf, 21},
+             {inf, 22},
+             {inf, 23},
+             {inf, 24},
+             {inf, 25}]
 ==
 
 [name=order_by_subquery_constant]
 select row_id from AllTypesTable
 order by (select 'abc'), row_id
 --
-ARRAY<STRUCT<row_id INT64>>[
+ARRAY<STRUCT<row_id INT64>>[known order:
   {1},
   {2},
   {3},
@@ -8159,7 +8159,7 @@ ARRAY<STRUCT<row_id INT64>>[
 select row_id from AllTypesTable
 order by (select row_id)
 --
-ARRAY<STRUCT<row_id INT64>>[
+ARRAY<STRUCT<row_id INT64>>[known order:
   {1},
   {2},
   {3},
@@ -8184,7 +8184,7 @@ ARRAY<STRUCT<row_id INT64>>[
 select t1.row_id from AllTypesTable t1
 order by (select count(*) from AllTypesTable), row_id
 --
-ARRAY<STRUCT<row_id INT64>>[
+ARRAY<STRUCT<row_id INT64>>[known order:
   {1},
   {2},
   {3},
@@ -8216,7 +8216,7 @@ from (select new zetasql_test__.KitchenSinkPB(
                      ARRAY<UINT32>[7, 8, 9]
                          as repeated_uint32_val) as a) as outer_table
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT32>[7, 8, 9]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT32>[unknown order:7, 8, 9]}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -8231,7 +8231,7 @@ from (select new zetasql_test__.KitchenSinkPB(
                      ARRAY<UINT32>[7, 8, 9]
                          as repeated_uint32_val) as a) as outer_table
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT32>[8, 9, 7]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT32>[unknown order:8, 9, 7]}]
 ==
 
 # The order by has undefined ordering, but only for the y column.
@@ -8269,15 +8269,15 @@ from (select array<int64>[] as arrayval
       select array<int64>[6, 1] as arrayval)
 order by arrayval asc;
 --
-ARRAY<STRUCT<arrayval ARRAY<>>>[
+ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
   {ARRAY<INT64>(NULL)},
   {ARRAY<INT64>[]},
   {ARRAY<INT64>[NULL]},
-  {ARRAY<INT64>[4, 7]},
+  {ARRAY<INT64>[known order:4, 7]},
   {ARRAY<INT64>[5]},
-  {ARRAY<INT64>[5, 3]},
-  {ARRAY<INT64>[6, 1]},
-  {ARRAY<INT64>[6, 1, 8]}
+  {ARRAY<INT64>[known order:5, 3]},
+  {ARRAY<INT64>[known order:6, 1]},
+  {ARRAY<INT64>[known order:6, 1, 8]}
 ]
 ==
 
@@ -8301,12 +8301,12 @@ from (select array<int64>[] as arrayval
       select array<int64>[6, 1] as arrayval)
 order by arrayval desc;
 --
-ARRAY<STRUCT<arrayval ARRAY<>>>[
-  {ARRAY<INT64>[6, 1, 8]},
-  {ARRAY<INT64>[6, 1]},
-  {ARRAY<INT64>[5, 3]},
+ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
+  {ARRAY<INT64>[known order:6, 1, 8]},
+  {ARRAY<INT64>[known order:6, 1]},
+  {ARRAY<INT64>[known order:5, 3]},
   {ARRAY<INT64>[5]},
-  {ARRAY<INT64>[4, 7]},
+  {ARRAY<INT64>[known order:4, 7]},
   {ARRAY<INT64>[NULL]},
   {ARRAY<INT64>[]},
   {ARRAY<INT64>(NULL)}
@@ -8335,16 +8335,16 @@ from (select array<double>[] as arrayval
       select array<double>[6, 1] as arrayval)
 order by arrayval asc;
 --
-ARRAY<STRUCT<arrayval ARRAY<>>>[
+ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
   {ARRAY<DOUBLE>(NULL)},
   {ARRAY<DOUBLE>[]},
   {ARRAY<DOUBLE>[nan]},
-  {ARRAY<DOUBLE>[4, 7]},
+  {ARRAY<DOUBLE>[known order:4, 7]},
   {ARRAY<DOUBLE>[5]},
-  {ARRAY<DOUBLE>[5, 3]},
-  {ARRAY<DOUBLE>[6, nan]},
-  {ARRAY<DOUBLE>[6, 1]},
-  {ARRAY<DOUBLE>[6, 1, 8]}
+  {ARRAY<DOUBLE>[known order:5, 3]},
+  {ARRAY<DOUBLE>[known order:6, nan]},
+  {ARRAY<DOUBLE>[known order:6, 1]},
+  {ARRAY<DOUBLE>[known order:6, 1, 8]}
 ]
 ==
 
@@ -8370,13 +8370,13 @@ from (select array<double>[] as arrayval
       select array<double>[6, 1] as arrayval)
 order by arrayval desc;
 --
-ARRAY<STRUCT<arrayval ARRAY<>>>[
-  {ARRAY<DOUBLE>[6, 1, 8]},
-  {ARRAY<DOUBLE>[6, 1]},
-  {ARRAY<DOUBLE>[6, nan]},
-  {ARRAY<DOUBLE>[5, 3]},
+ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
+  {ARRAY<DOUBLE>[known order:6, 1, 8]},
+  {ARRAY<DOUBLE>[known order:6, 1]},
+  {ARRAY<DOUBLE>[known order:6, nan]},
+  {ARRAY<DOUBLE>[known order:5, 3]},
   {ARRAY<DOUBLE>[5]},
-  {ARRAY<DOUBLE>[4, 7]},
+  {ARRAY<DOUBLE>[known order:4, 7]},
   {ARRAY<DOUBLE>[nan]},
   {ARRAY<DOUBLE>[]},
   {ARRAY<DOUBLE>(NULL)}
@@ -8397,7 +8397,7 @@ from (select array<double>[] as arrayval
       select array<double>[3.0] as arrayval)
 order by arrayval asc;
 --
-ARRAY<STRUCT<arrayval ARRAY<>>>[
+ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
   {ARRAY<DOUBLE>(NULL)},
   {ARRAY<DOUBLE>[]},
   {ARRAY<DOUBLE>[NULL]},
@@ -8420,7 +8420,7 @@ from (select array<double>[] as arrayval
       select array<double>[3.0] as arrayval)
 order by arrayval desc;
 --
-ARRAY<STRUCT<arrayval ARRAY<>>>[
+ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
   {ARRAY<DOUBLE>[3]},
   {ARRAY<DOUBLE>[nan]},
   {ARRAY<DOUBLE>[NULL]},
@@ -8434,7 +8434,7 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[
 SELECT int64_val, row_id FROM AllTypesTable t
 ORDER BY int64_val DESC NULLS FIRST
 --
-ARRAY<STRUCT<int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, row_id INT64>>[unknown order:
   {NULL, 8},
   {NULL, 9},
   {NULL, 17},
@@ -8461,7 +8461,7 @@ ARRAY<STRUCT<int64_val INT64, row_id INT64>>[
 SELECT int64_val, row_id FROM AllTypesTable t
 ORDER BY int64_val NULLS LAST
 --
-ARRAY<STRUCT<int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<int64_val INT64, row_id INT64>>[unknown order:
   {-14, 15},
   {-4, 7},
   {-3, 6},
@@ -8493,7 +8493,7 @@ SELECT
 FROM AllTypesTable
 ORDER BY bool_val NULLS LAST, int64_val DESC NULLS FIRST, row_id
 --
-ARRAY<STRUCT<bool_val BOOL, int64_val INT64, row_id INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64, row_id INT64>>[known order:
   {false, NULL, 11},
   {false, NULL, 13},
   {false, NULL, 16},
@@ -8525,7 +8525,7 @@ FROM UNNEST([STRUCT([1] AS field),
              STRUCT([2])]) AS elem
 ORDER BY elem.field NULLS FIRST;
 --
-ARRAY<STRUCT<field ARRAY<>>>[
+ARRAY<STRUCT<field ARRAY<>>>[known order:
   {ARRAY<INT64>(NULL)},
   {ARRAY<INT64>[NULL]},
   {ARRAY<INT64>[1]},
@@ -8543,7 +8543,7 @@ FROM UNNEST([STRUCT([1] AS field),
              STRUCT([2])]) AS elem
 ORDER BY elem.field NULLS LAST;
 --
-ARRAY<STRUCT<field ARRAY<>>>[
+ARRAY<STRUCT<field ARRAY<>>>[known order:
   {ARRAY<INT64>[NULL]},
   {ARRAY<INT64>[1]},
   {ARRAY<INT64>[2]},
@@ -8556,7 +8556,7 @@ ARRAY<STRUCT<field ARRAY<>>>[
 SELECT int64_val FROM AllTypesTable t
 ORDER BY int64_val NULLS LAST LIMIT 5
 --
-ARRAY<STRUCT<int64_val INT64>>[{-14}, {-4}, {-3}, {-2}, {-2}]
+ARRAY<STRUCT<int64_val INT64>>[known order:{-14}, {-4}, {-3}, {-2}, {-2}]
 
 ==
 
@@ -8565,4 +8565,4 @@ ARRAY<STRUCT<int64_val INT64>>[{-14}, {-4}, {-3}, {-2}, {-2}]
 SELECT int64_val FROM AllTypesTable t
 ORDER BY int64_val DESC NULLS FIRST LIMIT 5
 --
-ARRAY<STRUCT<int64_val INT64>>[{NULL}, {NULL}, {NULL}, {23}, {16}]
+ARRAY<STRUCT<int64_val INT64>>[known order:{NULL}, {NULL}, {NULL}, {23}, {16}]

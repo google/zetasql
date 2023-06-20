@@ -257,36 +257,51 @@ public class FunctionTest {
 
   @Test
   public void testSerializationAndDeserialization() {
-    FunctionOptionsProto options =
-        FunctionOptionsProto.newBuilder()
-            .setAliasName("test_function")
-            .setAllowExternalUsage(false)
-            .setArgumentsAreCoercible(false)
-            .setIsDeprecated(true)
-            .setSupportsOverClause(false)
-            .setSupportsWindowFraming(true)
-            .setWindowOrderingSupport(WindowOrderSupport.ORDER_REQUIRED)
-            .build();
-    FunctionArgumentType resultType =
-        new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
-    FunctionSignatureOptionsProto signatureOptions =
-        FunctionSignatureOptionsProto.newBuilder()
-            .setIsDeprecated(true)
-            .build();
-    ImmutableList<FunctionSignature> signatures =
-        ImmutableList.of(
-            new FunctionSignature(
-                resultType, Lists.<FunctionArgumentType>newArrayList(), 1, signatureOptions),
-            new FunctionSignature(
-                resultType, Lists.<FunctionArgumentType>newArrayList(), -1, signatureOptions));
     Function fn =
         new Function(
             "test_function_name",
             Function.ZETASQL_FUNCTION_GROUP_NAME,
             Mode.SCALAR,
-            signatures,
-            options);
+            getSignaturesForSerializationDeserialization(),
+            getOptionsForSerializationDeserialization());
     checkSerializeAndDeserialize(fn);
+  }
+
+  @Test
+  public void testTemplateFunctionSerializationAndDeserialization() {
+    Function fn =
+        new Function.TemplatedSQLFunction(
+            ImmutableList.of("test_function_name"),
+            getSignaturesForSerializationDeserialization().get(0),
+            ImmutableList.of(),
+            new ParseResumeLocation("filename", "input"),
+            Mode.AGGREGATE,
+            getOptionsForSerializationDeserialization());
+    checkSerializeAndDeserialize(fn);
+  }
+
+  private static FunctionOptionsProto getOptionsForSerializationDeserialization() {
+    return FunctionOptionsProto.newBuilder()
+        .setAliasName("test_function")
+        .setAllowExternalUsage(false)
+        .setArgumentsAreCoercible(false)
+        .setIsDeprecated(true)
+        .setSupportsOverClause(false)
+        .setSupportsWindowFraming(true)
+        .setWindowOrderingSupport(WindowOrderSupport.ORDER_REQUIRED)
+        .build();
+  }
+
+  private static ImmutableList<FunctionSignature> getSignaturesForSerializationDeserialization() {
+    FunctionArgumentType resultType =
+        new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
+    FunctionSignatureOptionsProto signatureOptions =
+        FunctionSignatureOptionsProto.newBuilder().setIsDeprecated(true).build();
+    return ImmutableList.of(
+        new FunctionSignature(
+            resultType, Lists.<FunctionArgumentType>newArrayList(), 1, signatureOptions),
+        new FunctionSignature(
+            resultType, Lists.<FunctionArgumentType>newArrayList(), -1, signatureOptions));
   }
 
   private static void checkSerializeAndDeserialize(Function function) {

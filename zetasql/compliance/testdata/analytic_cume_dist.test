@@ -108,7 +108,7 @@ SELECT bool_val, int64_val,
        CUME_DIST() OVER (PARTITION BY bool_val ORDER BY int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, int64_val INT64, DOUBLE>>[
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64, DOUBLE>>[unknown order:
   {NULL, NULL, 1},
   {false, 1, 0.75},
   {false, 1, 0.75},
@@ -126,7 +126,7 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64, DOUBLE>>[
 SELECT bool_val, CUME_DIST() OVER (ORDER BY bool_val)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, DOUBLE>>[
+ARRAY<STRUCT<bool_val BOOL, DOUBLE>>[unknown order:
   {NULL, 0.1},
   {false, 0.5},
   {false, 0.5},
@@ -145,7 +145,7 @@ SELECT str_val, int64_val,
        CUME_DIST() OVER (ORDER BY str_val, int64_val DESC)
 FROM TestTable
 --
-ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
+ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[unknown order:
   {NULL, NULL, 0.2},
   {NULL, NULL, 0.2},
   {"A", 1, 0.4},
@@ -166,7 +166,7 @@ SELECT str_val, int64_val,
 FROM TestTable
 ORDER BY str_val COLLATE "en_US"
 --
-ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
+ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[unknown order:
   {NULL, NULL, 0.2},
   {NULL, NULL, 0.2},
   {"a", 1, 0.4},
@@ -185,7 +185,7 @@ SELECT int32_val, cast(int64_val as uint64),
        CUME_DIST() OVER (ORDER BY int32_val, cast(int64_val as uint64) ASC)
 FROM TestTable
 --
-ARRAY<STRUCT<int32_val INT32, UINT64, DOUBLE>>[
+ARRAY<STRUCT<int32_val INT32, UINT64, DOUBLE>>[unknown order:
   {NULL, NULL, 0.2},
   {NULL, NULL, 0.2},
   {1, 1, 0.4},
@@ -204,7 +204,7 @@ SELECT cast(int32_val as uint32), int64_val,
        CUME_DIST() OVER (ORDER BY cast(int32_val as uint32), int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<UINT32, int64_val INT64, DOUBLE>>[
+ARRAY<STRUCT<UINT32, int64_val INT64, DOUBLE>>[unknown order:
   {NULL, NULL, 0.2},
   {NULL, NULL, 0.2},
   {1, 1, 0.4},
@@ -232,7 +232,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         DOUBLE
       >>
-[
+[unknown order:
   {TESTENUM2, 0.2857142857142857},
   {TESTENUM2, 0.2857142857142857},
   {TESTENUM1, 0.5714285714285714},
@@ -256,7 +256,7 @@ FROM (SELECT CAST(0 AS DOUBLE) as double_val UNION ALL
       SELECT CAST("-inf" AS DOUBLE)          UNION ALL
       SELECT CAST("-inf" AS DOUBLE))
 --
-ARRAY<STRUCT<double_val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, DOUBLE>>[unknown order:
   {NULL, 0.2},
   {NULL, 0.2},
   {nan, 0.4},
@@ -283,7 +283,7 @@ FROM (SELECT CAST(0 AS FLOAT) as float_val  UNION ALL
       SELECT CAST("-inf" AS FLOAT)          UNION ALL
       SELECT CAST("-inf" AS FLOAT))
 --
-ARRAY<STRUCT<float_val FLOAT, DOUBLE>>[
+ARRAY<STRUCT<float_val FLOAT, DOUBLE>>[unknown order:
   {NULL, 0.2},
   {NULL, 0.2},
   {nan, 0.4},
@@ -307,32 +307,32 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         DOUBLE
       >>
-[{NULL, NULL, 0.16666666666666666},
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   0.5
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   0.5
- },
- {
-   2014-01-01,
-   2015-01-01 00:00:01.011011+00,
-   0.66666666666666663
- },
- {
-   2015-01-01,
-   2013-01-01 00:00:01.011011+00,
-   0.83333333333333337
- },
- {
-   2015-01-01,
-   2014-01-01 00:00:01.011011+00,
-   1
- }]
+[unknown order:{NULL, NULL, 0.16666666666666666},
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 0.5
+               },
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 0.5
+               },
+               {
+                 2014-01-01,
+                 2015-01-01 00:00:01.011011+00,
+                 0.66666666666666663
+               },
+               {
+                 2015-01-01,
+                 2013-01-01 00:00:01.011011+00,
+                 0.83333333333333337
+               },
+               {
+                 2015-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 1
+               }]
 ==
 
 [name=cume_dist_bytes]
@@ -340,7 +340,7 @@ SELECT bytes_val,
        CUME_DIST() OVER (ORDER BY bytes_val)
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<bytes_val BYTES, DOUBLE>>[
+ARRAY<STRUCT<bytes_val BYTES, DOUBLE>>[unknown order:
   {NULL, 0.16666666666666666},
   {b"1", 0.5},
   {b"1", 0.5},
@@ -362,7 +362,7 @@ FROM (SELECT CAST(NULL as NUMERIC) numeric_val UNION ALL
       SELECT CAST(@max_val AS NUMERIC)         UNION ALL
       SELECT CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<DOUBLE>>[
+ARRAY<STRUCT<DOUBLE>>[unknown order:
   {0.16666666666666666},
   {0.33333333333333331},
   {0.5},

@@ -17,6 +17,9 @@
 #ifndef ZETASQL_PUBLIC_ANNOTATION_COLLATION_H_
 #define ZETASQL_PUBLIC_ANNOTATION_COLLATION_H_
 
+#include <memory>
+#include <vector>
+
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/public/annotation/default_annotation_spec.h"
 #include "zetasql/public/type.h"
@@ -53,13 +56,25 @@ class CollationAnnotation : public DefaultAnnotationSpec {
     return map != nullptr && map->Has<CollationAnnotation>();
   }
 
+  // Create an AnnotationMap with the input <type> and then set its
+  // collation annotation by merging collation annotations from input
+  // <annotation_maps>. Returns the result annotation map on success, and
+  // returns error otherwise.
+  //
+  // Note that the output annotation map only contains collation annotation and
+  // it is not normalized.
+  absl::StatusOr<std::unique_ptr<AnnotationMap>> GetCollationFromAnnotationMaps(
+      const Type* type,
+      const std::vector<const AnnotationMap*>& annotation_maps);
+
   // Validates that all collations present on function arguments (if any) are
-  // consistent, and returns that collation.  Only function arguments which have
+  // compatible, and returns that collation. Only function arguments which have
   // the option argument_collation_mode matching the <collation_mode_mask> are
-  // considered.  Returns nullptr to indicate no (non-default) collation. Throws
+  // considered. Returns nullptr to indicate no (non-default) collation. Throws
   // an error if function arguments have different collations.  If non-null,
   // <error_location> is used for error messages.
-  static absl::StatusOr<const AnnotationMap*> GetCollationFromFunctionArguments(
+  absl::StatusOr<std::unique_ptr<AnnotationMap>>
+  GetCollationFromFunctionArguments(
       const ASTNode* error_location,
       const ResolvedFunctionCallBase& function_call,
       FunctionEnums::ArgumentCollationMode collation_mode_mask);

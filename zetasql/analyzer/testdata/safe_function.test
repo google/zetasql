@@ -469,7 +469,7 @@ QueryStmt
     +-column_list=$query.[$col1#4, $col2#5, $col3#6, $col4#7, $col5#8, $col6#9]
     +-expr_list=
     | +-$col1#4 :=
-    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA(INT64->DOUBLE) transformation) -> ARRAY<DOUBLE>)
+    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<INT64->DOUBLE> transformation) -> ARRAY<DOUBLE>)
     | |   +-FunctionArgument
     | |   | +-expr=
     | |   |   +-Literal(type=ARRAY<INT64>, value=[-1, 0, 10])
@@ -483,7 +483,7 @@ QueryStmt
     | |             +-Cast(INT64 -> DOUBLE)
     | |               +-ColumnRef(type=INT64, column=$lambda_arg.e#1)
     | +-$col2#5 :=
-    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
+    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, FUNCTION<INT64->BOOL> condition) -> ARRAY<INT64>)
     | |   +-FunctionArgument
     | |   | +-expr=
     | |   |   +-Literal(type=ARRAY<INT64>, value=[-1, 0, 10])
@@ -503,7 +503,7 @@ QueryStmt
     | |   +-Literal(type=ARRAY<INT64>, value=[-1, 0, 10])
     | |   +-Literal(type=INT64, value=0)
     | +-$col4#7 :=
-    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_includes(ARRAY<INT64> array_to_search, LAMBDA(INT64->BOOL) condition) -> BOOL)
+    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_includes(ARRAY<INT64> array_to_search, FUNCTION<INT64->BOOL> condition) -> BOOL)
     | |   +-FunctionArgument
     | |   | +-expr=
     | |   |   +-Literal(type=ARRAY<INT64>, value=[-1, 0, 10])
@@ -554,7 +554,7 @@ QueryStmt
     +-column_list=$query.[$col1#4, $col2#5, $col3#6, $col4#7, $col5#8, $col6#9]
     +-expr_list=
     | +-$col1#4 :=
-    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA(INT64->DOUBLE) transformation) -> ARRAY<DOUBLE>)
+    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<INT64->DOUBLE> transformation) -> ARRAY<DOUBLE>)
     | |   +-FunctionArgument
     | |   | +-expr=
     | |   |   +-Literal(type=ARRAY<INT64>, value=[-1, 0, 10])
@@ -568,7 +568,7 @@ QueryStmt
     | |             +-Cast(INT64 -> DOUBLE)
     | |               +-ColumnRef(type=INT64, column=$lambda_arg.e#1)
     | +-$col2#5 :=
-    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
+    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, FUNCTION<INT64->BOOL> condition) -> ARRAY<INT64>)
     | |   +-FunctionArgument
     | |   | +-expr=
     | |   |   +-Literal(type=ARRAY<INT64>, value=[-1, 0, 10])
@@ -588,7 +588,7 @@ QueryStmt
     | |   +-Literal(type=ARRAY<INT64>, value=[-1, 0, 10])
     | |   +-Literal(type=INT64, value=0)
     | +-$col4#7 :=
-    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_includes(ARRAY<INT64> array_to_search, LAMBDA(INT64->BOOL) condition) -> BOOL)
+    | | +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_includes(ARRAY<INT64> array_to_search, FUNCTION<INT64->BOOL> condition) -> BOOL)
     | |   +-FunctionArgument
     | |   | +-expr=
     | |   |   +-Literal(type=ARRAY<INT64>, value=[-1, 0, 10])

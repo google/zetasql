@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -29,6 +28,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -68,7 +68,7 @@ class UnpivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       : analyzer_options_(*analyzer_options),
         catalog_(catalog),
         type_factory_(type_factory),
-        fn_builder_(*analyzer_options, *catalog) {}
+        fn_builder_(*analyzer_options, *catalog, *type_factory) {}
 
   UnpivotRewriterVisitor(const UnpivotRewriterVisitor&) = delete;
   UnpivotRewriterVisitor& operator=(const UnpivotRewriterVisitor&) = delete;

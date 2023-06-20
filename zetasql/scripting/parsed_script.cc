@@ -241,7 +241,7 @@ class ValidateVariableDeclarationsVisitor
             MakeSqlErrorAtPoint(source_location) << source_message,
             script_text),
         parsed_script_->error_message_mode(), script_text);
-    return MakeSqlError().Attach(location) << error_message;
+    return MakeSqlError().AttachPayload(location) << error_message;
   }
 
   absl::Status MakeVariableDeclarationErrorSkipSourceLocation(
@@ -253,7 +253,7 @@ class ValidateVariableDeclarationsVisitor
         ConvertInternalErrorLocationToExternal(MakeSqlError() << source_message,
                                                script_text),
         parsed_script_->error_message_mode(), script_text);
-    return MakeSqlError().Attach(location) << error_message;
+    return MakeSqlError().AttachPayload(location) << error_message;
   }
 
   // Check with existing variables for variable redeclaration. Local variables

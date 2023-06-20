@@ -20,7 +20,9 @@ package zetasql;
 
 import "zetasql/proto/function.proto";
 import "zetasql/proto/options.proto";
+import "zetasql/public/simple_connection.proto";
 import "zetasql/public/simple_constant.proto";
+import "zetasql/public/simple_model.proto";
 import "zetasql/public/simple_table.proto";
 import "zetasql/public/type.proto";
 
@@ -47,4 +49,6 @@ message SimpleCatalogProto {
   optional int32 file_descriptor_set_index = 7 [default = -1];
   repeated ProcedureProto procedure = 8;
   repeated SimpleConstantProto constant = 10;
+  repeated SimpleConnectionProto connection = 12;
+  repeated SimpleModelProto model = 13;
 }

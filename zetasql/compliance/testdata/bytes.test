@@ -405,9 +405,9 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRA
   {
     ARRAY<BYTES>(NULL),
     ARRAY<BYTES>(NULL),
-    ARRAY<BYTES>[b"", b"", b""],
-    ARRAY<BYTES>[b"abc", b"abc"],
-    ARRAY<BYTES>[b"ab", b"ab"],
+    ARRAY<BYTES>[known order:b"", b"", b""],
+    ARRAY<BYTES>[known order:b"abc", b"abc"],
+    ARRAY<BYTES>[known order:b"ab", b"ab"],
     ARRAY<BYTES>[],
     ARRAY<BYTES>[b"ana"],
     ARRAY<BYTES>[b"n"]
@@ -424,29 +424,29 @@ FROM (
                b"abcdef ghi"]) AS input
 ) t, UNNEST(t.arr) AS extracted WITH OFFSET off
 --
-ARRAY<STRUCT<arr ARRAY<>, extracted BYTES, off INT64>>[
+ARRAY<STRUCT<arr ARRAY<>, extracted BYTES, off INT64>>[unknown order:
   {
-    ARRAY<BYTES>[b"foo", b"bar", b"baz"],
+    ARRAY<BYTES>[known order:b"foo", b"bar", b"baz"],
     b"bar",
     1
   },
   {
-    ARRAY<BYTES>[b"foo", b"bar", b"baz"],
+    ARRAY<BYTES>[known order:b"foo", b"bar", b"baz"],
     b"foo",
     0
   },
   {
-    ARRAY<BYTES>[b"foo", b"bar", b"baz"],
+    ARRAY<BYTES>[known order:b"foo", b"bar", b"baz"],
     b"baz",
     2
   },
   {
-    ARRAY<BYTES>[b"abcdef", b"ghi"],
+    ARRAY<BYTES>[known order:b"abcdef", b"ghi"],
     b"ghi",
     1
   },
   {
-    ARRAY<BYTES>[b"abcdef", b"ghi"],
+    ARRAY<BYTES>[known order:b"abcdef", b"ghi"],
     b"abcdef",
     0
   }
@@ -492,8 +492,8 @@ select split(b"192.0.0.1", b"."), split(b"ab\000c\000", b"\000")
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<BYTES>[b"192", b"0", b"0", b"1"],
-    ARRAY<BYTES>[b"ab", b"c", b""]
+    ARRAY<BYTES>[known order:b"192", b"0", b"0", b"1"],
+    ARRAY<BYTES>[known order:b"ab", b"c", b""]
   }
 ]
 ==
@@ -504,7 +504,7 @@ select split(b"", b""), split(b"\000\002", b"")
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
     ARRAY<BYTES>[b""],
-    ARRAY<BYTES>[b"\x00", b"\x02"]
+    ARRAY<BYTES>[known order:b"\x00", b"\x02"]
   }
 ]
 ==
@@ -520,8 +520,8 @@ select split(b"aaaaa", b"aa"), split(b"ab", b"abc"), split(b"x\001\002y\001\002z
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<BYTES>[b"", b"", b"a"],
+    ARRAY<BYTES>[known order:b"", b"", b"a"],
     ARRAY<BYTES>[b"ab"],
-    ARRAY<BYTES>[b"x", b"y", b"z"]
+    ARRAY<BYTES>[known order:b"x", b"y", b"z"]
   }
 ]

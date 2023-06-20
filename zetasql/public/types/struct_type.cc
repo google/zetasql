@@ -29,6 +29,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/unicode_utils.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
@@ -277,14 +278,16 @@ const StructType::StructField* StructType::FindField(absl::string_view name,
   if (ABSL_PREDICT_FALSE(name.empty())) {
     return nullptr;
   }
-
+  // Get casefolded (lowercase) normalized field name for lookup.
+  const std::string casefolded_name =
+      zetasql::GetNormalizedAndCasefoldedString(name);
   int field_index = -2;  // -1 used for ambiguous fields
   {
     // Use a shared lock for the common case of access after lazy
     // initialization, to avoid contention
     absl::ReaderMutexLock rlock(&mutex_);
     if (!ABSL_PREDICT_FALSE(field_name_to_index_map_.empty())) {
-      const auto iter = field_name_to_index_map_.find(name);
+      const auto iter = field_name_to_index_map_.find(casefolded_name);
       if (ABSL_PREDICT_FALSE(iter == field_name_to_index_map_.end())) {
         return nullptr;
       }
@@ -297,18 +300,22 @@ const StructType::StructField* StructType::FindField(absl::string_view name,
     absl::MutexLock lock(&mutex_);
     if (field_name_to_index_map_.empty()) {
       for (int i = 0; i < num_fields(); ++i) {
-        const std::string& field_name = field(i).name;
+        // Convert to casefolded (lowercase) normalized name before adding it to
+        // the field map.
+        const std::string casefolded_field_name =
+            zetasql::GetNormalizedAndCasefoldedString(field(i).name);
         // Empty names indicate unnamed fields, not fields which can be looked
         // up by name. They are not added to the map.
-        if (!field_name.empty()) {
-          auto result = field_name_to_index_map_.emplace(field_name, i);
+        if (!casefolded_field_name.empty()) {
+          auto result =
+              field_name_to_index_map_.emplace(casefolded_field_name, i);
           // If the name has already been added to the map, we know any lookup
           // on that name would be ambiguous.
           if (!result.second) result.first->second = -1;
         }
       }
     }
-    const auto iter = field_name_to_index_map_.find(name);
+    const auto iter = field_name_to_index_map_.find(casefolded_name);
     if (ABSL_PREDICT_FALSE(iter == field_name_to_index_map_.end())) {
       return nullptr;
     }
@@ -375,7 +382,9 @@ bool StructType::FieldEqualsImpl(const StructType::StructField& field1,
                                  const StructType::StructField& field2,
                                  bool equivalent) {
   // Ignore field names if we are doing an equivalence check.
-  if (!equivalent && !zetasql_base::CaseEqual(field1.name, field2.name)) {
+  if (!equivalent &&
+      zetasql::GetNormalizedAndCasefoldedString(field1.name) !=
+          zetasql::GetNormalizedAndCasefoldedString(field2.name)) {
     return false;
   }
   return field1.type->EqualsImpl(field2.type, equivalent);

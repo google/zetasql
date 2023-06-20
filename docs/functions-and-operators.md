@@ -768,10 +768,21 @@ Input values:
   `my_array` array expression:
 
   ```sql
-  WITH T AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
+  WITH MyTable AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
   SELECT FLATTEN(my_array.items)
-  FROM T
+  FROM MyTable
   ```
+
+  These data types have fields:
+
+  
+  
+
+  + `STRUCT`
+  + `PROTO`
+  + `JSON`
+
+  
 + `array_element`: If the field to access is an array field (`array_field`),
   you can additionally access a specific position in the field
   with the [array subscript operator][array-subscript-operator]
@@ -782,9 +793,9 @@ Input values:
   array field:
 
   ```sql
-  WITH T AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
+  WITH MyTable AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
   SELECT FLATTEN(my_array.items[OFFSET(0)])
-  FROM T
+  FROM MyTable
   ```
 
 Details:
@@ -796,7 +807,7 @@ and can only be interpreted by the following operations:
 +  [`FLATTEN` operation][flatten-operation]: Returns an array. For example:
 
    ```sql
-   FLATTEN(x.y.z)
+   FLATTEN(my_array.sales.prices)
    ```
 +  [`UNNEST` operation][operators-link-to-unnest]: Returns a table.
    `array_expression` must be a path expression.
@@ -804,27 +815,28 @@ and can only be interpreted by the following operations:
    For example, these do the same thing:
 
    ```sql
-   UNNEST(x.y.z)
+   UNNEST(my_array.sales.prices)
    ```
 
    ```sql
-   UNNEST(FLATTEN(x.y.z))
+   UNNEST(FLATTEN(my_array.sales.prices))
    ```
-+  [`FROM` operation][operators-link-to-from-clause]: Returns a table.
++  [`FROM` clause][operators-link-to-from-clause]: Returns a table.
    `array_expression` must be a path expression.
    Implicitly implements the `UNNEST` operator and the `FLATTEN` operator.
-   For example, these do the same thing:
+   For example, these unnesting operations produce the same values for
+   `results`:
 
    ```sql
-   SELECT * FROM T, T.x.y.z;
+   SELECT results FROM SalesTable, SalesTable.my_array.sales.prices AS results;
    ```
 
    ```sql
-   SELECT * FROM T, UNNEST(x.y.z);
+   SELECT results FROM SalesTable, UNNEST(my_array.sales.prices) AS results;
    ```
 
    ```sql
-   SELECT * FROM T, UNNEST(FLATTEN(x.y.z));
+   SELECT results FROM SalesTable, UNNEST(FLATTEN(my_array.sales.prices)) AS results;
    ```
 
 If `NULL` array elements are encountered, they are added to the resulting array.
@@ -867,12 +879,12 @@ to the resulting array.
 
 **Examples**
 
-The next examples in this section reference a table called `T`, that contains
-a nested struct in an array called `my_array`:
+The next examples in this section reference a table called `SalesTable`, that
+contains a nested struct in an array called `my_array`:
 
 ```sql
 WITH
-  T AS (
+  SalesTable AS (
     SELECT
       [
         STRUCT(
@@ -883,7 +895,7 @@ WITH
         )
       ] AS my_array
   )
-SELECT * FROM T;
+SELECT * FROM SalesTable;
 
 /*----------------------------------------------*
  | my_array                                     |
@@ -896,7 +908,7 @@ This is what the array elements field access operator looks like in the
 `FLATTEN` operator:
 
 ```sql
-SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM SalesTable;
 
 /*--------------*
  | all_prices   |
@@ -909,7 +921,7 @@ This is how you use the array subscript operator to only return values at a
 specific index in the `prices` array:
 
 ```sql
-SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM SalesTable;
 
 /*--------------*
  | first_prices |
@@ -922,7 +934,7 @@ This is an example of an explicit `UNNEST` operation that includes the
 array elements field access operator:
 
 ```sql
-SELECT all_prices FROM T, UNNEST(my_array.sales.prices) AS all_prices
+SELECT all_prices FROM SalesTable, UNNEST(my_array.sales.prices) AS all_prices
 
 /*------------*
  | all_prices |
@@ -937,7 +949,7 @@ This is an example of an implicit `UNNEST` operation that includes the
 array elements field access operator:
 
 ```sql
-SELECT all_prices FROM T, T.my_array.sales.prices AS all_prices
+SELECT all_prices FROM SalesTable, SalesTable.my_array.sales.prices AS all_prices
 
 /*------------*
  | all_prices |
@@ -952,7 +964,7 @@ This query produces an error because one of the `prices` arrays does not have
 an element at index `1` and `OFFSET` is used:
 
 ```sql
-SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM SalesTable;
 
 -- Error
 ```
@@ -961,7 +973,7 @@ This query is like the previous query, but `SAFE_OFFSET` is used. This
 produces a `NULL` value instead of an error.
 
 ```sql
-SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM SalesTable;
 
 /*---------------*
  | second_prices |
@@ -975,7 +987,7 @@ the query. These contribute no elements to the result.
 
 ```sql
 WITH
-  T AS (
+  SalesTable AS (
     SELECT
       [
         STRUCT(
@@ -988,7 +1000,7 @@ WITH
         )
       ] AS my_array
   )
-SELECT FLATTEN(my_array.sales.prices) AS first_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices) AS first_prices FROM SalesTable;
 
 /*--------------*
  | first_prices |
@@ -2585,6 +2597,8 @@ FROM UNNEST([
 
 [array-subscript-operator]: #array_subscript_operator
 
+[field-access-operator]: #field_access_operator
+
 [struct-subscript-operator]: #struct_subscript_operator
 
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
@@ -2775,9 +2789,9 @@ COALESCE(expr[, ...])
 
 **Description**
 
-Returns the value of the first non-`NULL` expression. The remaining
-expressions aren't evaluated. An input expression can be any type.
-There may be multiple input expression types.
+Returns the value of the first non-`NULL` expression, if any, otherwise
+`NULL`. The remaining expressions aren't evaluated. An input expression can be
+any type. There may be multiple input expression types.
 All input expressions must be implicitly coercible to a common
 [supertype][cond-exp-supertype].
 
@@ -2953,6 +2967,157 @@ SELECT NULLIF(10, 0) as result
 ZetaSQL supports the following general aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#any_value"><code>ANY_VALUE</code></a>
+
+</td>
+  <td>
+    Returns an expression for some row.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_agg"><code>ARRAY_AGG</code></a>
+
+</td>
+  <td>
+    Returns an array of values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_concat_agg"><code>ARRAY_CONCAT_AGG</code></a>
+
+</td>
+  <td>
+    Concatenates arrays and returns a single array as a result.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#avg"><code>AVG</code></a>
+
+</td>
+  <td>
+    Returns the average of non-<code>NULL</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_and"><code>BIT_AND</code></a>
+
+</td>
+  <td>
+    Performs a bitwise AND operation on an expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_or"><code>BIT_OR</code></a>
+
+</td>
+  <td>
+    Performs a bitwise OR operation on an expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_xor"><code>BIT_XOR</code></a>
+
+</td>
+  <td>
+    Performs a bitwise XOR operation on an expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#count"><code>COUNT</code></a>
+
+</td>
+  <td>
+    Returns the number of rows in the input, or the number of rows with an
+    expression evaluated to any value other than <code>NULL</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#countif"><code>COUNTIF</code></a>
+
+</td>
+  <td>
+    Returns the count of <code>TRUE</code> values for an expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#logical_and"><code>LOGICAL_AND</code></a>
+
+</td>
+  <td>
+    Returns the logical AND of all non-<code>NULL</code> expressions.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#logical_or"><code>LOGICAL_OR</code></a>
+
+</td>
+  <td>
+    Returns the logical OR of all non-<code>NULL</code> expressions.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#max"><code>MAX</code></a>
+
+</td>
+  <td>
+    Returns the maximum non-<code>NULL</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#min"><code>MIN</code></a>
+
+</td>
+  <td>
+    Returns the minimum non-<code>NULL</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string_agg"><code>STRING_AGG</code></a>
+
+</td>
+  <td>
+    Returns a <code>STRING</code> or <code>BYTES</code> value obtained by
+    concatenating non-<code>NULL</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sum"><code>SUM</code></a>
+
+</td>
+  <td>
+    Returns the sum of non-<code>NULL</code> values.
+  </td>
+</tr>
+
+  </tbody>
+</table>
 
 ### `ANY_VALUE`
 
@@ -3390,7 +3555,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
-`AVG` can be used with differential privacy. To learn more, see
+`AVG` can be used with differential privacy. For more information, see
 [Differentially private aggregate functions][dp-functions].
 
 Caveats:
@@ -3693,7 +3858,7 @@ This function with DISTINCT supports specifying [collation][collation].
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
-`COUNT` can be used with differential privacy. To learn more, see
+`COUNT` can be used with differential privacy. For more information, see
 [Differentially private aggregate functions][dp-functions].
 
 **Supported Argument Types**
@@ -4425,7 +4590,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
-`SUM` can be used with differential privacy. To learn more, see
+`SUM` can be used with differential privacy. For more information, see
 [Differentially private aggregate functions][dp-functions].
 
 Caveats:
@@ -4551,6 +4716,101 @@ ZetaSQL supports statistical aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#corr"><code>CORR</code></a>
+
+</td>
+  <td>
+    Returns the Pearson coefficient of correlation of a set of number pairs.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#covar_pop"><code>COVAR_POP</code></a>
+
+</td>
+  <td>
+    Returns the population covariance of a set of number pairs.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#covar_samp"><code>COVAR_SAMP</code></a>
+
+</td>
+  <td>
+    Returns the sample covariance of a set of number pairs.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#stddev_pop"><code>STDDEV_POP</code></a>
+
+</td>
+  <td>
+    Returns the population (biased) standard deviation of the values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#stddev_samp"><code>STDDEV_SAMP</code></a>
+
+</td>
+  <td>
+    Returns the sample (unbiased) standard deviation of the values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#stddev"><code>STDDEV</code></a>
+
+</td>
+  <td>
+    An alias of the <code>STDDEV_SAMP</code> function.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#var_pop"><code>VAR_POP</code></a>
+
+</td>
+  <td>
+    Returns the population (biased) variance of the values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#var_samp"><code>VAR_SAMP</code></a>
+
+</td>
+  <td>
+    Returns the sample (unbiased) variance of the values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#variance"><code>VARIANCE</code></a>
+
+</td>
+  <td>
+    An alias of <code>VAR_SAMP</code>.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CORR`
 
 ```sql
@@ -4585,9 +4845,16 @@ stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
 
-This function ignores any input pairs that contain one or more NULL values. If
-there are fewer than two input pairs without NULL values, this function returns
-NULL.
+This function ignores any input pairs that contain one or more `NULL` values. If
+there are fewer than two input pairs without `NULL` values, this function
+returns `NULL`.
+
+`NaN` is produced if:
+
++ Any input value is `NaN`
++ Any input value is positive infinity or negative infinity.
++ The variance of `X1` or `X2` is `0`.
++ The covariance of `X1` and `X2` is `0`.
 
 To learn more about the optional aggregate clauses that you can pass
 into this function, see
@@ -4611,6 +4878,96 @@ To learn more about the `OVER` clause and how to use it, see
 **Return Data Type**
 
 `DOUBLE`
+
+**Examples**
+
+```sql
+SELECT CORR(y, x) AS results
+FROM
+  UNNEST(
+    [
+      STRUCT(1.0 AS y, 5.0 AS x),
+      (3.0, 9.0),
+      (4.0, 7.0)]);
+
+/*--------------------*
+ | results            |
+ +--------------------+
+ | 0.6546536707079772 |
+ *--------------------*/
+```
+
+```sql
+SELECT CORR(y, x) AS results
+FROM
+  UNNEST(
+    [
+      STRUCT(1.0 AS y, 5.0 AS x),
+      (3.0, 9.0),
+      (4.0, NULL)]);
+
+/*---------*
+ | results |
+ +---------+
+ | 1       |
+ *---------*/
+```
+
+```sql
+SELECT CORR(y, x) AS results
+FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT CORR(y, x) AS results
+FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT CORR(y, x) AS results
+FROM
+  UNNEST(
+    [
+      STRUCT(1.0 AS y, 5.0 AS x),
+      (3.0, 9.0),
+      (4.0, 7.0),
+      (5.0, 1.0),
+      (7.0, CAST('Infinity' as DOUBLE))])
+
+/*---------*
+ | results |
+ +---------+
+ | NaN     |
+ *---------*/
+```
+
+```sql
+SELECT CORR(x, y) AS results
+FROM
+  (
+    SELECT 0 AS x, 0 AS y
+    UNION ALL
+    SELECT 0 AS x, 0 AS y
+  )
+
+/*---------*
+ | results |
+ +---------+
+ | NaN     |
+ *---------*/
+```
 
 [stat-agg-link-to-pearson-coefficient]: https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient
 
@@ -4647,9 +5004,15 @@ stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
 
-This function ignores any input pairs that contain one or more NULL values. If
-there is no input pair without NULL values, this function returns NULL. If there
-is exactly one input pair without NULL values, this function returns 0.
+This function ignores any input pairs that contain one or more `NULL` values. If
+there is no input pair without `NULL` values, this function returns `NULL`.
+If there is exactly one input pair without `NULL` values, this function returns
+`0`.
+
+`NaN` is produced if:
+
++ Any input value is `NaN`
++ Any input value is positive infinity or negative infinity.
 
 To learn more about the optional aggregate clauses that you can pass
 into this function, see
@@ -4673,6 +5036,84 @@ To learn more about the `OVER` clause and how to use it, see
 **Return Data Type**
 
 `DOUBLE`
+
+**Examples**
+
+```sql
+SELECT COVAR_POP(y, x) AS results
+FROM
+  UNNEST(
+    [
+      STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (9.0, 3.0)])
+
+/*---------------------*
+ | results             |
+ +---------------------+
+ | -1.6800000000000002 |
+ *---------------------*/
+```
+
+```sql
+SELECT COVAR_POP(y, x) AS results
+FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
+
+/*---------*
+ | results |
+ +---------+
+ | 0       |
+ *---------*/
+```
+
+```sql
+SELECT COVAR_POP(y, x) AS results
+FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT COVAR_POP(y, x) AS results
+FROM
+  UNNEST(
+    [
+      STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (NULL, 3.0)])
+
+/*---------*
+ | results |
+ +---------+
+ | -1      |
+ *---------*/
+```
+
+```sql
+SELECT COVAR_POP(y, x) AS results
+FROM
+  UNNEST(
+    [
+      STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (CAST('Infinity' as DOUBLE), 3.0)])
+
+/*---------*
+ | results |
+ +---------+
+ | NaN     |
+ *---------*/
+```
 
 [stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
@@ -4709,9 +5150,14 @@ stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
 
-This function ignores any input pairs that contain one or more NULL values. If
-there are fewer than two input pairs without NULL values, this function returns
-NULL.
+This function ignores any input pairs that contain one or more `NULL` values. If
+there are fewer than two input pairs without `NULL` values, this function
+returns `NULL`.
+
+`NaN` is produced if:
+
++ Any input value is `NaN`
++ Any input value is positive infinity or negative infinity.
 
 To learn more about the optional aggregate clauses that you can pass
 into this function, see
@@ -4735,6 +5181,84 @@ To learn more about the `OVER` clause and how to use it, see
 **Return Data Type**
 
 `DOUBLE`
+
+**Examples**
+
+```sql
+SELECT COVAR_SAMP(y, x) AS results
+FROM
+  UNNEST(
+    [
+      STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (9.0, 3.0)])
+
+/*---------*
+ | results |
+ +---------+
+ | -2.1    |
+ *---------*/
+```
+
+```sql
+SELECT COVAR_SAMP(y, x) AS results
+FROM
+  UNNEST(
+    [
+      STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (NULL, 3.0)])
+
+/*----------------------*
+ | results              |
+ +----------------------+
+ | --1.3333333333333333 |
+ *----------------------*/
+```
+
+```sql
+SELECT COVAR_SAMP(y, x) AS results
+FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, 3.0)])
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT COVAR_SAMP(y, x) AS results
+FROM UNNEST([STRUCT(1.0 AS y, NULL AS x),(9.0, NULL)])
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT COVAR_SAMP(y, x) AS results
+FROM
+  UNNEST(
+    [
+      STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (CAST('Infinity' as DOUBLE), 3.0)])
+
+/*---------*
+ | results |
+ +---------+
+ | NaN     |
+ *---------*/
+```
 
 [stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
@@ -4770,10 +5294,14 @@ stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
 
-This function ignores any NULL inputs. If all inputs are ignored, this function
-returns NULL.
+This function ignores any `NULL` inputs. If all inputs are ignored, this
+function returns `NULL`. If this function receives a single non-`NULL` input,
+it returns `0`.
 
-If this function receives a single non-NULL input, it returns `0`.
+`NaN` is produced if:
+
++ Any input value is `NaN`
++ Any input value is positive infinity or negative infinity.
 
 To learn more about the optional aggregate clauses that you can pass
 into this function, see
@@ -4800,6 +5328,58 @@ To learn more about the `OVER` clause and how to use it, see
 **Return Data Type**
 
 `DOUBLE`
+
+**Examples**
+
+```sql
+SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
+
+/*-------------------*
+ | results           |
+ +-------------------+
+ | 3.265986323710904 |
+ *-------------------*/
+```
+
+```sql
+SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | 2       |
+ *---------*/
+```
+
+```sql
+SELECT STDDEV_POP(x) AS results FROM UNNEST([10, NULL]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | 0       |
+ *---------*/
+```
+
+```sql
+SELECT STDDEV_POP(x) AS results FROM UNNEST([NULL]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT STDDEV_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NaN     |
+ *---------*/
+```
 
 [dp-functions]: #aggregate-dp-functions
 
@@ -4835,8 +5415,13 @@ stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
 
-This function ignores any NULL inputs. If there are fewer than two non-NULL
-inputs, this function returns NULL.
+This function ignores any `NULL` inputs. If there are fewer than two non-`NULL`
+inputs, this function returns `NULL`.
+
+`NaN` is produced if:
+
++ Any input value is `NaN`
++ Any input value is positive infinity or negative infinity.
 
 To learn more about the optional aggregate clauses that you can pass
 into this function, see
@@ -4860,6 +5445,58 @@ To learn more about the `OVER` clause and how to use it, see
 **Return Data Type**
 
 `DOUBLE`
+
+**Examples**
+
+```sql
+SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | 4       |
+ *---------*/
+```
+
+```sql
+SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
+
+/*--------------------*
+ | results            |
+ +--------------------+
+ | 2.8284271247461903 |
+ *--------------------*/
+```
+
+```sql
+SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT STDDEV_SAMP(x) AS results FROM UNNEST([NULL]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NaN     |
+ *---------*/
+```
 
 ### `STDDEV`
 
@@ -4920,10 +5557,14 @@ stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
 
-This function ignores any NULL inputs. If all inputs are ignored, this function
-returns NULL.
+This function ignores any `NULL` inputs. If all inputs are ignored, this
+function returns `NULL`. If this function receives a single non-`NULL` input,
+it returns `0`.
 
-If this function receives a single non-NULL input, it returns `0`.
+`NaN` is produced if:
+
++ Any input value is `NaN`
++ Any input value is positive infinity or negative infinity.
 
 To learn more about the `OVER` clause and how to use it, see
 [Window function calls][window-function-calls].
@@ -4940,6 +5581,58 @@ To learn more about the `OVER` clause and how to use it, see
 **Return Data Type**
 
 `DOUBLE`
+
+**Examples**
+
+```sql
+SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, 18]) AS x
+
+/*--------------------*
+ | results            |
+ +--------------------+
+ | 10.666666666666666 |
+ *--------------------*/
+```
+
+```sql
+SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
+
+/*----------*
+ | results |
+ +---------+
+ | 4       |
+ *---------*/
+```
+
+```sql
+SELECT VAR_POP(x) AS results FROM UNNEST([10, NULL]) AS x
+
+/*----------*
+ | results |
+ +---------+
+ | 0       |
+ *---------*/
+```
+
+```sql
+SELECT VAR_POP(x) AS results FROM UNNEST([NULL]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT VAR_POP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NaN     |
+ *---------*/
+```
 
 [dp-functions]: #aggregate-dp-functions
 
@@ -4975,8 +5668,13 @@ stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
 
-This function ignores any NULL inputs. If there are fewer than two non-NULL
-inputs, this function returns NULL.
+This function ignores any `NULL` inputs. If there are fewer than two non-`NULL`
+inputs, this function returns `NULL`.
+
+`NaN` is produced if:
+
++ Any input value is `NaN`
++ Any input value is positive infinity or negative infinity.
 
 To learn more about the optional aggregate clauses that you can pass
 into this function, see
@@ -5000,6 +5698,58 @@ To learn more about the `OVER` clause and how to use it, see
 **Return Data Type**
 
 `DOUBLE`
+
+**Examples**
+
+```sql
+SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, 18]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | 16      |
+ *---------*/
+```
+
+```sql
+SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, NULL]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | 8       |
+ *---------*/
+```
+
+```sql
+SELECT VAR_SAMP(x) AS results FROM UNNEST([10, NULL]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT VAR_SAMP(x) AS results FROM UNNEST([NULL]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT VAR_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)]) AS x
+
+/*---------*
+ | results |
+ +---------+
+ | NaN     |
+ *---------*/
+```
 
 ### `VARIANCE`
 
@@ -5037,8 +5787,161 @@ ZetaSQL supports differentially private aggregate functions.
 For an explanation of how aggregate functions work, see
 [Aggregate function calls][agg-function-calls].
 
-Differentially private aggregate functions can only be
-used with [differentially private queries][dp-syntax].
+You can only use differentially private aggregate functions with
+[differentially private queries][dp-guide] in a
+[differential privacy clause][dp-syntax].
+
+Note: In this topic, the privacy parameters in the examples are not
+recommendations. You should work with your privacy or security officer to
+determine the optimal privacy parameters for your dataset and organization.
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#anon_avg"><code>ANON_AVG</code></a>
+
+</td>
+  <td>
+    Gets the differentially-private average of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with an
+    <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_count"><code>ANON_COUNT</code></a>
+
+</td>
+  <td>
+    Signature 1: Gets the differentially-private count of rows in a query
+    with an <code>ANONYMIZATION</code> clause.
+    <br/>
+    <br/>
+    Signature 2: Gets the differentially-private count of rows with a
+    non-<code>NULL</code> expression in a query with an
+    <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_percentile_cont"><code>ANON_PERCENTILE_CONT</code></a>
+
+</td>
+  <td>
+    Computes a differentially-private percentile across privacy unit columns
+    in a query with an <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_quantiles"><code>ANON_QUANTILES</code></a>
+
+</td>
+  <td>
+    Produces an array of differentially-private quantile boundaries
+    in a query with an <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_stddev_pop"><code>ANON_STDDEV_POP</code></a>
+
+</td>
+  <td>
+    Computes a differentially-private population (biased) standard deviation of
+    values in a query with an <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_sum"><code>ANON_SUM</code></a>
+
+</td>
+  <td>
+    Gets the differentially-private sum of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with an
+    <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_var_pop"><code>ANON_VAR_POP</code></a>
+
+</td>
+  <td>
+    Computes a differentially-private population (biased) variance of values
+    in a query with an <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_avg"><code>AVG</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Gets the differentially-private average of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_count"><code>COUNT</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Signature 1: Gets the differentially-private count of rows in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br/>
+    <br/>
+    Signature 2: Gets the differentially-private count of rows with a
+    non-<code>NULL</code> expression in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_percentile_cont"><code>PERCENTILE_CONT</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Computes a differentially-private percentile across privacy unit columns
+    in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_sum"><code>SUM</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Gets the differentially-private sum of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_var_pop"><code>VAR_POP</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Computes the differentially-private population (biased) variance of values
+    in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+  </tbody>
+</table>
 
 ### `ANON_AVG` 
 <a id="anon_avg"></a>
@@ -5069,11 +5972,11 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the average number of each item
-requested per professor. Smaller aggregations may not be included. This query
+requested per professor. Smaller aggregations might not be included. This query
 references a view called [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -5083,7 +5986,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+------------------*
  | item     | average_quantity |
  +----------+------------------+
@@ -5093,7 +5996,8 @@ GROUP BY item;
 ```
 
 ```sql
--- Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
@@ -5156,7 +6060,7 @@ each item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -5166,7 +6070,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | times_requested |
  +----------+-----------------+
@@ -5176,7 +6080,8 @@ GROUP BY item;
 ```
 
 ```sql
---Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
@@ -5240,7 +6145,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | times_requested |
  +----------+-----------------+
@@ -5306,8 +6211,8 @@ can support these arguments:
   Perform [clamping][dp-clamp-between] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -5316,11 +6221,11 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the percentile of items
-requested. Smaller aggregations may not be included. This query references a
+requested. Smaller aggregations might not be included. This query references a
 view called [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -5330,7 +6235,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+----------------------*
  | item     | percentile_requested |
  +----------+----------------------+
@@ -5369,8 +6274,8 @@ can support these arguments:
   Perform [clamping][dp-clamp-between] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -5380,11 +6285,11 @@ can support these arguments:
 
 The following differentially private query gets the five quantile boundaries of
 the four quartiles of the number of items requested. Smaller aggregations
-may not be included. This query references a view called
+might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -5394,7 +6299,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+----------------------------------------------------------------------*
  | item     | quantiles_requested                                                  |
  +----------+----------------------------------------------------------------------+
@@ -5430,8 +6335,8 @@ can support these arguments:
   Perform [clamping][dp-clamp-between] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -5441,11 +6346,11 @@ can support these arguments:
 
 The following differentially private query gets the
 population (biased) standard deviation of items requested. Smaller aggregations
-may not be included. This query references a view called
+might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -5455,7 +6360,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+------------------------*
  | item     | pop_standard_deviation |
  +----------+------------------------+
@@ -5501,11 +6406,11 @@ One of the following [supertypes][dp-supertype]:
 **Examples**
 
 The following differentially private query gets the sum of items requested.
-Smaller aggregations may not be included. This query references a view called
+Smaller aggregations might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -5515,7 +6420,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------*
  | item     | quantity  |
  +----------+-----------+
@@ -5525,7 +6430,8 @@ GROUP BY item;
 ```
 
 ```sql
--- Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
@@ -5580,8 +6486,8 @@ can support these arguments:
   Perform [clamping][dp-clamp-between] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -5590,12 +6496,12 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the
-population (biased) variance of items requested. Smaller aggregations may not
+population (biased) variance of items requested. Smaller aggregations might not
 be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -5605,7 +6511,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | pop_variance    |
  +----------+-----------------+
@@ -5635,8 +6541,8 @@ Returns the average of non-`NULL`, non-`NaN` values in the expression.
 This function first computes the average per privacy unit column, and then
 computes the final result by averaging these averages.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support these arguments:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support the following arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
@@ -5652,11 +6558,11 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the average number of each item
-requested per professor. Smaller aggregations may not be included. This query
+requested per professor. Smaller aggregations might not be included. This query
 references a table called [`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -5666,7 +6572,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+------------------*
  | item     | average_quantity |
  +----------+------------------+
@@ -5676,7 +6582,8 @@ GROUP BY item;
 ```
 
 ```sql
--- Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -5695,8 +6602,8 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-Note: You can learn more about when and when not to use
-noise [here][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
@@ -5704,11 +6611,15 @@ noise [here][dp-noise].
 
 [dp-clamped-named]: #dp_clamped_named
 
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
+
 ### `COUNT` (differential privacy) 
 <a id="dp_count"></a>
 
-+ [Signature 1](#dp_count_signature1)
-+ [Signature 2](#dp_count_signature2)
++ [Signature 1](#dp_count_signature1): Returns the number of rows in a
+  differentially private `FROM` clause.
++ [Signature 2](#dp_count_signature2): Returns the number of non-`NULL`
+  values in an expression.
 
 #### Signature 1 
 <a id="dp_count_signature1"></a>
@@ -5722,10 +6633,10 @@ WITH DIFFERENTIAL_PRIVACY ...
 
 Returns the number of rows in the
 [differentially private][dp-from-clause] `FROM` clause. The final result
-is an aggregation across privacy unit columns.
+is an aggregation across a privacy unit column.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support the following argument:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support the following argument:
 
 + `contribution_bounds_per_group`: The
   [contribution bounds named argument][dp-clamped-named].
@@ -5743,7 +6654,7 @@ each item. This query references a table called
 [`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -5753,7 +6664,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | times_requested |
  +----------+-----------------+
@@ -5763,7 +6674,8 @@ GROUP BY item;
 ```
 
 ```sql
---Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -5782,8 +6694,8 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-Note: You can learn more about when and when not to use
-noise [here][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
 #### Signature 2 
 <a id="dp_count_signature2"></a>
@@ -5796,13 +6708,13 @@ WITH DIFFERENTIAL_PRIVACY ...
 **Description**
 
 Returns the number of non-`NULL` expression values. The final result is an
-aggregation across privacy unit columns.
+aggregation across a privacy unit column.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support these arguments:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support these arguments:
 
-+ `expression`: The input expression. This can be any numeric input type,
-  such as `INT64`.
++ `expression`: The input expression. This expression can be any
+  numeric input type, such as `INT64`.
 + `contribution_bounds_per_group`: The
   [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
@@ -5819,7 +6731,7 @@ for each type of item. This query references a table called
 [`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -5829,7 +6741,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | times_requested |
  +----------+-----------------+
@@ -5839,7 +6751,8 @@ GROUP BY item;
 ```
 
 ```sql
---Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -5858,8 +6771,8 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-Note: You can learn more about when and when not to use
-noise [here][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
 [dp-clamp-implicit]: #dp_implicit_clamping
 
@@ -5868,6 +6781,8 @@ noise [here][dp-noise].
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
+
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 [dp-clamped-named]: #dp_clamped_named
 
@@ -5884,21 +6799,21 @@ WITH DIFFERENTIAL_PRIVACY ...
 Takes an expression and computes a percentile for it. The final result is an
 aggregation across privacy unit columns.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support these arguments:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support these arguments:
 
 + `expression`: The input expression. This can be most numeric input types,
-  such as `INT64`. `NULL`s are always ignored.
+  such as `INT64`. `NULL` values are always ignored.
 + `percentile`: The percentile to compute. The percentile must be a literal in
-  the range [0, 1]
+  the range `[0, 1]`.
 + `contribution_bounds_per_row`: The
   [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each row separately before performing intermediate
   grouping on the privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -5907,11 +6822,11 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the percentile of items
-requested. Smaller aggregations may not be included. This query references a
+requested. Smaller aggregations might not be included. This query references a
 view called [`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -5921,7 +6836,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
  /*----------+----------------------*
   | item     | percentile_requested |
   +----------+----------------------+
@@ -5934,6 +6849,8 @@ GROUP BY item;
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-clamped-named]: #dp_clamped_named
+
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 ### `SUM` (differential privacy) 
 <a id="dp_sum"></a>
@@ -5948,19 +6865,19 @@ WITH DIFFERENTIAL_PRIVACY ...
 Returns the sum of non-`NULL`, non-`NaN` values in the expression. The final
 result is an aggregation across privacy unit columns.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support these arguments:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support these arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
-  such as `INT64`. `NULL`s are always ignored.
+  such as `INT64`. `NULL` values are always ignored.
 + `contribution_bounds_per_group`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
 **Return type**
 
-One of the following [supertypes][anon-supertype]:
+One of the following [supertypes][dp-supertype]:
 
 + `INT64`
 + `UINT64`
@@ -5969,11 +6886,11 @@ One of the following [supertypes][anon-supertype]:
 **Examples**
 
 The following differentially private query gets the sum of items requested.
-Smaller aggregations may not be included. This query references a view called
-[`professors`][anon-example-tables].
+Smaller aggregations might not be included. This query references a view called
+[`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -5983,7 +6900,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------*
  | item     | quantity  |
  +----------+-----------+
@@ -5993,7 +6910,8 @@ GROUP BY item;
 ```
 
 ```sql
--- Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -6012,16 +6930,18 @@ GROUP BY item;
  *----------+----------*/
 ```
 
-Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+Note: For more information about when and when not to use
+noise, see [Use differential privacy][dp-noise].
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
-[anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+[dp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
-[anon-clamped-named]: #dp_clamped_named
+[dp-clamped-named]: #dp_clamped_named
+
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 ### `VAR_POP` (differential privacy) 
 <a id="dp_var_pop"></a>
@@ -6050,8 +6970,8 @@ can support these arguments:
   grouping on individual user values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -6096,13 +7016,59 @@ GROUP BY item;
 
 In [differentially private queries][dp-syntax],
 aggregation clamping is used to limit the contribution of outliers. You can
-clamp [implicitly][dp-imp-clamp] or [explicitly][dp-exp-clamp].
+clamp explicitly or implicitly as follows:
 
-If you clamp explicitly, you can clamp values with the
-[contribution bounds named argument][dp-clamped-named] (recommended) or
-the [`CLAMPED BETWEEN`][dp-clamp-between] clause.
++ [Clamp explicitly in the `DIFFERENTIAL_PRIVACY` clause][dp-clamped-named].
++ [Clamp implicitly in the `DIFFERENTIAL_PRIVACY` clause][dp-clamped-named-imp].
++ [Clamp explicitly in the `ANONYMIZATION` clause][dp-clamp-between].
++ [Clamp implicitly in the `ANONYMIZATION` clause][dp-clamp-between-imp].
 
-#### Clamp with the contribution bounds named argument 
+To learn more about explicit and implicit clamping, see the following:
+
++ [About implicit clamping][dp-imp-clamp].
++ [About explicit clamping][dp-exp-clamp].
+
+#### Implicitly clamp values in the `DIFFERENTIAL_PRIVACY` clause 
+<a id="dp_clamped_named_implicit"></a>
+
+If you don't include the contribution bounds named argument with the
+`DIFFERENTIAL_PRIVACY` clause, clamping is [implicit][dp-imp-clamp], which
+means bounds are derived from the data itself in a differentially private way.
+
+Implicit bounding works best when computed using large datasets. For more
+information, see [Implicit bounding limitations for small datasets][implicit-limits].
+
+**Example**
+
+The following anonymized query clamps each aggregate contribution for each
+differential privacy ID and within a derived range from the data itself.
+As long as all or most values fall within this range, your results
+will be accurate. This query references a view called
+[`view_on_professors`][dp-example-views].
+
+```sql
+--Without noise (this un-noised version is for demonstration only)
+SELECT WITH DIFFERENTIAL_PRIVACY
+  OPTIONS (
+    epsilon = 1e20,
+    delta = .01,
+    privacy_unit_column=id
+  )
+  item,
+  AVG(quantity) average_quantity
+FROM view_on_professors
+GROUP BY item;
+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 72               |
+ | pen      | 18.5             |
+ *----------+------------------*/
+```
+
+#### Explicitly clamp values in the `DIFFERENTIAL_PRIVACY` clause 
 <a id="dp_clamped_named"></a>
 
 ```sql
@@ -6113,11 +7079,14 @@ contribution_bounds_per_group => (lower_bound,upper_bound)
 contribution_bounds_per_row => (lower_bound,upper_bound)
 ```
 
-Use this named argument to clamp values per group or
-per row between a lower and upper bound.
+Use the contribution bounds named argument to [explicitly clamp][dp-exp-clamp]
+values per group or per row between a lower and upper bound in a
+`DIFFERENTIAL_PRIVACY` clause.
+
+Input values:
 
 + `contribution_bounds_per_row`: Contributions per privacy unit are clamped
-  on a per-row (per-record) basis. This means that:
+  on a per-row (per-record) basis. This means the following:
   +  Upper and lower bounds are applied to column values in individual
     rows produced by the input subquery independently.
   +  The maximum possible contribution per privacy unit (and per grouping set)
@@ -6151,7 +7120,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY
     privacy_unit_column=id
   )
   item,
-  AVG(quantity, contribution_bounds_per_group=>(0,100)) average_quantity
+  AVG(quantity, contribution_bounds_per_group=>(0,100)) AS average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -6178,7 +7147,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY
     privacy_unit_column=id
   )
   item,
-  AVG(quantity, contribution_bounds_per_group=>(50,100)) average_quantity
+  AVG(quantity, contribution_bounds_per_group=>(50,100)) AS average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -6191,17 +7160,60 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-To learn more about when and when not to use noise in
-differentially private queries, see [Differentially privacy][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
-#### Clamp with the `CLAMPED BETWEEN` clause 
+#### Implicitly clamp values in the `ANONYMIZATION` clause 
+<a id="dp_clamp_between_implicit"></a>
+
+If you don't include the `CLAMPED BETWEEN` clause with the
+`ANONYMIZATION` clause, clamping is [implicit][dp-imp-clamp], which means bounds
+are derived from the data itself in a differentially private way.
+
+Implicit bounding works best when computed using large datasets. For more
+information, see [Implicit bounding limitations for small datasets][implicit-limits].
+
+**Example**
+
+The following anonymized query clamps each aggregate contribution for each
+differential privacy ID and within a derived range from the data itself.
+As long as all or most values fall within this range, your results
+will be accurate. This query references a view called
+[`view_on_professors`][dp-example-views].
+
+```sql
+--Without noise (this un-noised version is for demonstration only)
+SELECT WITH ANONYMIZATION
+  OPTIONS (
+    epsilon = 1e20,
+    delta = .01,
+    max_groups_contributed = 1
+  )
+  item,
+  AVG(quantity) AS average_quantity
+FROM view_on_professors
+GROUP BY item;
+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 72               |
+ | pen      | 18.5             |
+ *----------+------------------*/
+```
+
+#### Explicitly clamp values in the `ANONYMIZATION` clause 
 <a id="dp_clamp_between"></a>
 
 ```sql
 CLAMPED BETWEEN lower_bound AND upper_bound
 ```
 
-Use this clause to clamp values between a lower and an upper bound.
+Use the `CLAMPED BETWEEN` clause to [explicitly clamp][dp-exp-clamp] values
+between a lower and an upper bound in an `ANONYMIZATION` clause.
+
+Input values:
 
 + `lower_bound`: Numeric literal that represents the smallest value to
   include in an aggregation.
@@ -6230,7 +7242,7 @@ SELECT WITH ANONYMIZATION
     max_groups_contributed = 1
   )
   item,
-  AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+  ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) AS average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -6257,7 +7269,7 @@ SELECT WITH ANONYMIZATION
     max_groups_contributed = 1
   )
   item,
-  AVG(quantity CLAMPED BETWEEN 50 AND 100) average_quantity
+  ANON_AVG(quantity CLAMPED BETWEEN 50 AND 100) AS average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -6270,10 +7282,10 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-To learn more about when and when not to use noise in
-differentially private queries, see [Differentially privacy][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
-#### Explicit clamping 
+#### About explicit clamping 
 <a id="dp_explicit_clamping"></a>
 
 In differentially private aggregate functions, clamping explicitly clamps the
@@ -6294,7 +7306,7 @@ Important: The results of the query reveal the explicit bounds. Do not use
 explicit bounds based on the entity data; explicit bounds should be based on
 public information.
 
-#### Implicit clamping 
+#### About implicit clamping 
 <a id="dp_implicit_clamping"></a>
 
 In differentially private aggregate functions, explicit clamping is optional.
@@ -6317,6 +7329,8 @@ information.
 When clamping is implicit, part of the total epsilon is spent picking bounds.
 This leaves less epsilon for aggregations, so these aggregations are noisier.
 
+[dp-guide]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+
 [dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
@@ -6329,9 +7343,15 @@ This leaves less epsilon for aggregations, so these aggregations are noisier.
 
 [dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
+[implicit-limits]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#implicit_limits
+
 [dp-clamp-between]: #dp_clamp_between
 
+[dp-clamp-between-imp]: #dp_clamp_between_implicit
+
 [dp-clamped-named]: #dp_clamped_named
+
+[dp-clamped-named-imp]: #dp_clamped_named_implicit
 
 ## Approximate aggregate functions
 
@@ -6354,6 +7374,57 @@ sketches. If you would like to specify precision with sketches, see:
 
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
 +  [KLL functions][kll-functions] to estimate quantile values.
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#approx_count_distinct"><code>APPROX_COUNT_DISTINCT</code></a>
+
+</td>
+  <td>
+    Returns the approximate result for <code>COUNT(DISTINCT expression)</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#approx_quantiles"><code>APPROX_QUANTILES</code></a>
+
+</td>
+  <td>
+    Returns the approximate quantile boundaries.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#approx_top_count"><code>APPROX_TOP_COUNT</code></a>
+
+</td>
+  <td>
+    Returns the approximate top elements and their approximate count.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#approx_top_sum"><code>APPROX_TOP_SUM</code></a>
+
+</td>
+  <td>
+    Returns the approximate top elements and sum, based on the approximate sum
+    of an assigned weight.
+  </td>
+</tr>
+
+  </tbody>
+</table>
 
 ### `APPROX_COUNT_DISTINCT`
 
@@ -7094,7 +8165,7 @@ Takes a single KLL sketch as `BYTES` and returns a single quantile.
 The `phi` argument specifies the quantile to return as a fraction of the total
 number of rows in the input, normalized between 0 and 1. This means that the
 function will return a value *v* such that approximately Φ * *n* inputs are less
-than or equal to *v*, and a (1-Φ) / *n* inputs are greater than or equal to *v*.
+than or equal to *v*, and a (1-Φ) * *n* inputs are greater than or equal to *v*.
 This is a scalar function.
 
 Returns an error if the underlying type of the input sketch is not compatible
@@ -8150,6 +9221,65 @@ FROM finishers;
 
 ZetaSQL supports the following bit functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#bit_cast_to_int32"><code>BIT_CAST_TO_INT32</code></a>
+
+</td>
+  <td>
+    Cast bits to an <code>INT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_int64"><code>BIT_CAST_TO_INT64</code></a>
+
+</td>
+  <td>
+    Cast bits to an <code>INT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_uint32"><code>BIT_CAST_TO_UINT32</code></a>
+
+</td>
+  <td>
+    Cast bits to an <code>UINT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_cast_to_uint64"><code>BIT_CAST_TO_UINT64</code></a>
+
+</td>
+  <td>
+    Cast bits to an <code>UINT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_count"><code>BIT_COUNT</code></a>
+
+</td>
+  <td>
+    Gets the number of bits that are set in an input expression.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `BIT_CAST_TO_INT32`
 
 ```sql
@@ -8330,6 +9460,39 @@ FROM UNNEST([
 ZetaSQL supports conversion functions. These data type
 conversions are explicit, but some conversions can happen implicitly. You can
 learn more about implicit and explicit conversion [here][conversion-rules].
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#cast"><code>CAST</code></a>
+
+</td>
+  <td>
+    Convert the results of an expression to the given type.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_casting"><code>SAFE_CAST</code></a>
+
+</td>
+  <td>
+    Similar to the <code>CAST</code> function, but returns <code>NULL</code>
+    when a runtime error is produced.
+  </td>
+</tr>
+
+  </tbody>
+</table>
 
 ### `CAST` 
 <a id="cast"></a>
@@ -8587,7 +9750,6 @@ ZetaSQL supports [casting][con-func-cast] to `DATE`. The `expression`
 parameter can represent an expression for these data types:
 
 + `STRING`
-+ `TIME`
 + `DATETIME`
 + `TIMESTAMP`
 
@@ -8642,7 +9804,6 @@ ZetaSQL supports [casting][con-func-cast] to `DATETIME`. The
 `expression` parameter can represent an expression for these data types:
 
 + `STRING`
-+ `TIME`
 + `DATETIME`
 + `TIMESTAMP`
 
@@ -9441,7 +10602,6 @@ ZetaSQL supports [casting][con-func-cast] to `TIMESTAMP`. The
 `expression` parameter can represent an expression for these data types:
 
 + `STRING`
-+ `TIME`
 + `DATETIME`
 + `TIMESTAMP`
 
@@ -9539,15 +10699,15 @@ The following examples cast a string-formatted date and time as a timestamp.
 These examples return the same output as the previous example.
 
 ```sql
-SELECT CAST("06/02/2020 17:00:53.110" AS TIMESTAMP FORMAT 'MM/DD/YYYY HH:MI:SS' AT TIME ZONE 'America/Los_Angeles') AS as_timestamp
+SELECT CAST('06/02/2020 17:00:53.110' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:MI:SS.FF3' AT TIME ZONE 'UTC') AS as_timestamp
 ```
 
 ```sql
-SELECT CAST("06/02/2020 17:00:53.110" AS TIMESTAMP FORMAT 'MM/DD/YYYY HH:MI:SS' AT TIME ZONE '00') AS as_timestamp
+SELECT CAST('06/02/2020 17:00:53.110' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:MI:SS.FF3' AT TIME ZONE '+00') AS as_timestamp
 ```
 
 ```sql
-SELECT CAST('06/02/2020 17:00:53.110 +00' AS TIMESTAMP FORMAT 'YYYY-MM-DD HH:MI:SS TZH') AS as_timestamp
+SELECT CAST('06/02/2020 17:00:53.110 +00' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:MI:SS.FF3 TZH') AS as_timestamp
 ```
 
 [formatting-syntax]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#formatting_syntax
@@ -9583,8 +10743,9 @@ SELECT CAST("apple" AS INT64) AS not_a_number;
 ```
 
 If you want to protect your queries from these types of errors, you can use
-`SAFE_CAST`. `SAFE_CAST` is identical to `CAST`, except it returns `NULL`
-instead of raising an error.
+`SAFE_CAST`. `SAFE_CAST` replaces runtime errors with `NULL`s.  However, during
+static analysis, impossible casts between two non-castable types still produce
+an error because the query is invalid.
 
 ```sql
 SELECT SAFE_CAST("apple" AS INT64) AS not_a_number;
@@ -11540,8 +12701,8 @@ SAFE_ADD(X, Y)
 
 **Description**
 
-Equivalent to the addition operator (<code>+</code>), but returns
-<code>NULL</code> if overflow occurs.
+Equivalent to the addition operator (`+`), but returns
+`NULL` if overflow occurs.
 
 <table>
   <thead>
@@ -11590,8 +12751,8 @@ SAFE_DIVIDE(X, Y)
 
 **Description**
 
-Equivalent to the division operator (<code>X / Y</code>), but returns
-<code>NULL</code> if an error occurs, such as a division by zero error.
+Equivalent to the division operator (`X / Y`), but returns
+`NULL` if an error occurs, such as a division by zero error.
 
 <table>
   <thead>
@@ -11650,8 +12811,8 @@ SAFE_MULTIPLY(X, Y)
 
 **Description**
 
-Equivalent to the multiplication operator (<code>*</code>), but returns
-<code>NULL</code> if overflow occurs.
+Equivalent to the multiplication operator (`*`), but returns
+`NULL` if overflow occurs.
 
 <table>
   <thead>
@@ -11700,8 +12861,8 @@ SAFE_NEGATE(X)
 
 **Description**
 
-Equivalent to the unary minus operator (<code>-</code>), but returns
-<code>NULL</code> if overflow occurs.
+Equivalent to the unary minus operator (`-`), but returns
+`NULL` if overflow occurs.
 
 <table>
   <thead>
@@ -11750,8 +12911,8 @@ SAFE_SUBTRACT(X, Y)
 **Description**
 
 Returns the result of Y subtracted from X.
-Equivalent to the subtraction operator (<code>-</code>), but returns
-<code>NULL</code> if overflow occurs.
+Equivalent to the subtraction operator (`-`), but returns
+`NULL` if overflow occurs.
 
 <table>
   <thead>
@@ -13101,7 +14262,8 @@ FROM example;
 
 [hash-link-to-farmhash-github]: https://github.com/google/farmhash
 
-### `FINGERPRINT`
+### `FINGERPRINT` (DEPRECATED) 
+<a id="fingerprint"></a>
 
 ```
 FINGERPRINT(input)
@@ -13111,6 +14273,9 @@ FINGERPRINT(input)
 
 Computes the fingerprint of the `STRING`
 or `BYTES` input using Fingerprint.
+
+This function is deprecated. For better hash quality, use another fingerprint
+hashing function.
 
 **Return type**
 
@@ -13141,6 +14306,9 @@ Computes the hash of the input using the
 `STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 16 bytes.
+
+Warning: MD5 is no longer considered secure.
+For increased security use another hashing function.
 
 **Return type**
 
@@ -13173,6 +14341,9 @@ Computes the hash of the input using the
 `STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 20 bytes.
+
+Warning: SHA1 is no longer considered secure.
+For increased security, use another hashing function.
 
 **Return type**
 
@@ -13730,13 +14901,13 @@ FROM Employees;
 ### `ENDS_WITH`
 
 ```sql
-ENDS_WITH(value1, value2)
+ENDS_WITH(value, suffix)
 ```
 
 **Description**
 
-Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second
-value is a suffix of the first.
+Takes two `STRING` or `BYTES` values. Returns `TRUE` if `suffix`
+is a suffix of `value`.
 
 This function supports specifying [collation][collation].
 
@@ -14411,6 +15582,11 @@ The `STRING` is formatted as follows:
       e.g. b"abc\x01\x02"
     </td>
   </tr>
+  <tr>
+    <td>BOOL</td>
+    <td>boolean value</td>
+    <td>boolean value</td>
+  </tr>
 
   <tr>
     <td>ENUM</td>
@@ -14751,23 +15927,23 @@ SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM examp
 ### `INSTR`
 
 ```sql
-INSTR(source_value, search_value[, position[, occurrence]])
+INSTR(value, subvalue[, position[, occurrence]])
 ```
 
 **Description**
 
-Returns the lowest 1-based position of `search_value` in `source_value`.
-`source_value` and `search_value` must be the same type, either
+Returns the lowest 1-based position of `subvalue` in `value`.
+`value` and `subvalue` must be the same type, either
 `STRING` or `BYTES`.
 
 If `position` is specified, the search starts at this position in
-`source_value`, otherwise it starts at `1`, which is the beginning of
-`source_value`. If `position` is negative, the function searches backwards
-from the end of `source_value`, with `-1` indicating the last character.
+`value`, otherwise it starts at `1`, which is the beginning of
+`value`. If `position` is negative, the function searches backwards
+from the end of `value`, with `-1` indicating the last character.
 `position` is of type `INT64` and cannot be `0`.
 
 If `occurrence` is specified, the search returns the position of a specific
-instance of `search_value` in `source_value`. If not specified, `occurrence`
+instance of `subvalue` in `value`. If not specified, `occurrence`
 defaults to `1` and returns the position of the first occurrence.
 For `occurrence` > `1`, the function includes overlapping occurrences.
 `occurrence` is of type `INT64` and must be positive.
@@ -14780,7 +15956,7 @@ Returns `0` if:
 
 + No match is found.
 + If `occurrence` is greater than the number of matches found.
-+ If `position` is greater than the length of `source_value`.
++ If `position` is greater than the length of `value`.
 
 Returns `NULL` if:
 
@@ -14799,31 +15975,31 @@ Returns an error if:
 
 ```sql
 WITH example AS
-(SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 1 as
+(SELECT 'banana' as value, 'an' as subvalue, 1 as position, 1 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 2 as
+SELECT 'banana' as value, 'an' as subvalue, 1 as position, 2 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 3 as
+SELECT 'banana' as value, 'an' as subvalue, 1 as position, 3 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, 3 as position, 1 as
+SELECT 'banana' as value, 'an' as subvalue, 3 as position, 1 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, -1 as position, 1 as
+SELECT 'banana' as value, 'an' as subvalue, -1 as position, 1 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, -3 as position, 1 as
+SELECT 'banana' as value, 'an' as subvalue, -3 as position, 1 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'ann' as search_value, 1 as position, 1 as
+SELECT 'banana' as value, 'ann' as subvalue, 1 as position, 1 as
 occurrence UNION ALL
-SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 1 as
+SELECT 'helloooo' as value, 'oo' as subvalue, 1 as position, 1 as
 occurrence UNION ALL
-SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 2 as
+SELECT 'helloooo' as value, 'oo' as subvalue, 1 as position, 2 as
 occurrence
 )
-SELECT source_value, search_value, position, occurrence, INSTR(source_value,
-search_value, position, occurrence) AS instr
+SELECT value, subvalue, position, occurrence, INSTR(value,
+subvalue, position, occurrence) AS instr
 FROM example;
 
 /*--------------+--------------+----------+------------+-------*
- | source_value | search_value | position | occurrence | instr |
+ | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 1          | 2     |
  | banana       | an           | 1        | 2          | 4     |
@@ -15608,69 +16784,69 @@ Returns an error if:
 
 ```sql
 WITH example AS (
-  SELECT 'ab@gmail.com' AS source_value, '@[^.]*' AS regexp UNION ALL
-  SELECT 'ab@mail.com', '@[^.]*' UNION ALL
-  SELECT 'abc@gmail.com', '@[^.]*' UNION ALL
-  SELECT 'abc.com', '@[^.]*')
+  SELECT 'ab@cd-ef' AS source_value, '@[^-]*' AS regexp UNION ALL
+  SELECT 'ab@d-ef', '@[^-]*' UNION ALL
+  SELECT 'abc@cd-ef', '@[^-]*' UNION ALL
+  SELECT 'abc-ef', '@[^-]*')
 SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) AS instr
 FROM example;
 
-/*---------------+--------+-------*
- | source_value  | regexp | instr |
- +---------------+--------+-------+
- | ab@gmail.com  | @[^.]* | 3     |
- | ab@mail.com   | @[^.]* | 3     |
- | abc@gmail.com | @[^.]* | 4     |
- | abc.com       | @[^.]* | 0     |
- *---------------+--------+-------*/
+/*--------------+--------+-------*
+ | source_value | regexp | instr |
+ +--------------+--------+-------+
+ | ab@cd-ef     | @[^-]* | 3     |
+ | ab@d-ef      | @[^-]* | 3     |
+ | abc@cd-ef    | @[^-]* | 4     |
+ | abc-ef       | @[^-]* | 0     |
+ *--------------+--------+-------*/
 ```
 
 ```sql
 WITH example AS (
-  SELECT 'a@gmail.com b@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position UNION ALL
-  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 2 UNION ALL
-  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 3 UNION ALL
-  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 4)
+  SELECT 'a@cd-ef b@cd-ef' AS source_value, '@[^-]*' AS regexp, 1 AS position UNION ALL
+  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 2 UNION ALL
+  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 3 UNION ALL
+  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 4)
 SELECT
   source_value, regexp, position,
   REGEXP_INSTR(source_value, regexp, position) AS instr
 FROM example;
 
-/*-------------------------+--------+----------+-------*
- | source_value            | regexp | position | instr |
- +-------------------------+--------+----------+-------+
- | a@gmail.com b@gmail.com | @[^.]* | 1        | 2     |
- | a@gmail.com b@gmail.com | @[^.]* | 2        | 2     |
- | a@gmail.com b@gmail.com | @[^.]* | 3        | 14    |
- | a@gmail.com b@gmail.com | @[^.]* | 4        | 14    |
- *-------------------------+--------+----------+-------*/
+/*-----------------+--------+----------+-------*
+ | source_value    | regexp | position | instr |
+ +-----------------+--------+----------+-------+
+ | a@cd-ef b@cd-ef | @[^-]* | 1        | 2     |
+ | a@cd-ef b@cd-ef | @[^-]* | 2        | 2     |
+ | a@cd-ef b@cd-ef | @[^-]* | 3        | 10    |
+ | a@cd-ef b@cd-ef | @[^-]* | 4        | 10    |
+ *-----------------+--------+----------+-------*/
 ```
 
 ```sql
 WITH example AS (
-  SELECT 'a@gmail.com b@gmail.com c@gmail.com' AS source_value,
-         '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
-  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 2 UNION ALL
-  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 3)
+  SELECT 'a@cd-ef b@cd-ef c@cd-ef' AS source_value,
+         '@[^-]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
+  SELECT 'a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 2 UNION ALL
+  SELECT 'a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 3)
 SELECT
   source_value, regexp, position, occurrence,
   REGEXP_INSTR(source_value, regexp, position, occurrence) AS instr
 FROM example;
 
-/*-------------------------------------+--------+----------+------------+-------*
- | source_value                        | regexp | position | occurrence | instr |
- +-------------------------------------+--------+----------+------------+-------+
- | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 1          | 2     |
- | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 2          | 14    |
- | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 3          | 26    |
- *-------------------------------------+--------+----------+------------+-------*/
+/*-------------------------+--------+----------+------------+-------*
+ | source_value            | regexp | position | occurrence | instr |
+ +-------------------------+--------+----------+------------+-------+
+ | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 1          | 2     |
+ | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 2          | 10    |
+ | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 3          | 18    |
+ *-------------------------+--------+----------+------------+-------*/
 ```
 
 ```sql
 WITH example AS (
-  SELECT 'a@gmail.com' AS source_value, '@[^.]*' AS regexp,
+  SELECT 'a@cd-ef' AS source_value, '@[^-]*' AS regexp,
          1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
-  SELECT 'a@gmail.com', '@[^.]*', 1, 1, 1)
+  SELECT 'a@cd-ef', '@[^-]*', 1, 1, 1)
 SELECT
   source_value, regexp, position, occurrence, o_position,
   REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) AS instr
@@ -15679,8 +16855,8 @@ FROM example;
 /*--------------+--------+----------+------------+------------+-------*
  | source_value | regexp | position | occurrence | o_position | instr |
  +--------------+--------+----------+------------+------------+-------+
- | a@gmail.com  | @[^.]* | 1        | 1          | 0          | 2     |
- | a@gmail.com  | @[^.]* | 1        | 1          | 1          | 8     |
+ | a@cd-ef      | @[^-]* | 1        | 1          | 0          | 2     |
+ | a@cd-ef      | @[^-]* | 1        | 1          | 1          | 5     |
  *--------------+--------+----------+------------+------------+-------*/
 ```
 
@@ -16279,13 +17455,13 @@ FROM letters;
 ### `STARTS_WITH`
 
 ```sql
-STARTS_WITH(value1, value2)
+STARTS_WITH(value, prefix)
 ```
 
 **Description**
 
-Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second value is a
-prefix of the first.
+Takes two `STRING` or `BYTES` values. Returns `TRUE` if `prefix` is a
+prefix of `value`.
 
 This function supports specifying [collation][collation].
 
@@ -16321,13 +17497,13 @@ FROM items;
 ### `STRPOS`
 
 ```sql
-STRPOS(value1, value2)
+STRPOS(value, subvalue)
 ```
 
 **Description**
 
 Takes two `STRING` or `BYTES` values. Returns the 1-based position of the first
-occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
+occurrence of `subvalue` inside `value`. Returns `0` if `subvalue` is not found.
 
 This function supports specifying [collation][collation].
 
@@ -19404,6 +20580,224 @@ FROM t;
 
 ZetaSQL supports the following array functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#array"><code>ARRAY</code></a>
+
+</td>
+  <td>
+    Produces an array with one element for each row in a subquery.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_avg"><code>ARRAY_AVG</code></a>
+
+</td>
+  <td>
+    Gets the average of non-<code>NULL</code> values in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_concat"><code>ARRAY_CONCAT</code></a>
+
+</td>
+  <td>
+    Concatenates one or more arrays with the same element type into a
+    single array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_filter"><code>ARRAY_FILTER</code></a>
+
+</td>
+  <td>
+    Takes an array, filters out unwanted elements, and returns the results
+    in a new array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_first"><code>ARRAY_FIRST</code></a>
+
+</td>
+  <td>
+    Gets the first element in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_includes"><code>ARRAY_INCLUDES</code></a>
+
+</td>
+  <td>
+    Checks to see if there is an element in the array that is
+    equal to a search value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_includes_all"><code>ARRAY_INCLUDES_ALL</code></a>
+
+</td>
+  <td>
+    Checks to see if all search values are in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_includes_any"><code>ARRAY_INCLUDES_ANY</code></a>
+
+</td>
+  <td>
+    Checks to see if any search values are in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_is_distinct"><code>ARRAY_IS_DISTINCT</code></a>
+
+</td>
+  <td>
+    Checks to see if an array contains no repeated elements.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_last"><code>ARRAY_LAST</code></a>
+
+</td>
+  <td>
+    Gets the last element in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_length"><code>ARRAY_LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the number of elements in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_max"><code>ARRAY_MAX</code></a>
+
+</td>
+  <td>
+    Gets the maximum non-<code>NULL</code> value in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_min"><code>ARRAY_MIN</code></a>
+
+</td>
+  <td>
+    Gets the minimum non-<code>NULL</code> value in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_reverse"><code>ARRAY_REVERSE</code></a>
+
+</td>
+  <td>
+    Reverses the order of elements in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_slice"><code>ARRAY_SLICE</code></a>
+
+</td>
+  <td>
+    Returns an array containing zero or more consecutive elements from an
+    input array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_sum"><code>ARRAY_SUM</code></a>
+
+</td>
+  <td>
+    Gets the sum of non-<code>NULL</code> values in an array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_to_string"><code>ARRAY_TO_STRING</code></a>
+
+</td>
+  <td>
+    Produces a concatenation of the elements in an array as a
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_transform"><code>ARRAY_TRANSFORM</code></a>
+
+</td>
+  <td>
+    Transforms the elements of an array, and returns the results in a new
+    array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#flatten"><code>FLATTEN</code></a>
+
+</td>
+  <td>
+    Flattens arrays of nested data to create a single flat array.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#generate_array"><code>GENERATE_ARRAY</code></a>
+
+</td>
+  <td>
+    Generates an array of values in a range.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#generate_date_array"><code>GENERATE_DATE_ARRAY</code></a>
+
+</td>
+  <td>
+    Generates an array of dates in a range.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#generate_timestamp_array"><code>GENERATE_TIMESTAMP_ARRAY</code></a>
+
+</td>
+  <td>
+    Generates an array of timestamps in a range.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `ARRAY`
 
 ```sql
@@ -21006,6 +22400,130 @@ elements][accessing-array-elements].
 
 ZetaSQL supports the following date functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#current_date"><code>CURRENT_DATE</code></a>
+
+</td>
+  <td>
+    Returns the current date as a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date"><code>DATE</code></a>
+
+</td>
+  <td>
+    Constructs a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_add"><code>DATE_ADD</code></a>
+
+</td>
+  <td>
+    Adds a specified time interval to a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_diff"><code>DATE_DIFF</code></a>
+
+</td>
+  <td>
+    Gets the number of intervals between two <code>DATE</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_from_unix_date"><code>DATE_FROM_UNIX_DATE</code></a>
+
+</td>
+  <td>
+    Interprets an <code>INT64</code> expression as the number of days
+    since 1970-01-01.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_sub"><code>DATE_SUB</code></a>
+
+</td>
+  <td>
+    Subtracts a specified time interval from a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_trunc"><code>DATE_TRUNC</code></a>
+
+</td>
+  <td>
+    Truncates a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts part of a date from a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_date"><code>FORMAT_DATE</code></a>
+
+</td>
+  <td>
+    Formats a <code>DATE</code> value according to a specified format string.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#last_day"><code>LAST_DAY</code></a>
+
+</td>
+  <td>
+    Gets the last day in a specified time period that contains a
+    <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_date"><code>PARSE_DATE</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>DATE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_date"><code>UNIX_DATE</code></a>
+
+</td>
+  <td>
+    Converts a <code>DATE</code> value to the number of days since 1970-01-01.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CURRENT_DATE`
 
 ```sql
@@ -21022,7 +22540,8 @@ CURRENT_DATE
 
 **Description**
 
-Returns the current date.
+Returns the current date as a `DATE` object. Parentheses are optional when
+called with no arguments.
 
 This function supports the following arguments:
 
@@ -21030,6 +22549,10 @@ This function supports the following arguments:
   [time zone][date-timezone-definitions]. If no time zone is specified, the
   default time zone, which is implementation defined, is used. If this expression is
   used and it evaluates to `NULL`, this function returns `NULL`.
+
+The current date is recorded at the start of the query
+statement which contains this function, not when this specific function is
+evaluated.
 
 **Return Data Type**
 
@@ -21746,10 +23269,10 @@ each element in `date_string`.
 -- This works because elements on both sides match.
 SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008')
 
--- This doesn't work because the year element is in different locations.
+-- This produces an error because the year element is in different locations.
 SELECT PARSE_DATE('%Y %A %b %e', 'Thursday Dec 25 2008')
 
--- This doesn't work because one of the year elements is missing.
+-- This produces an error because one of the year elements is missing.
 SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008')
 
 -- This works because %F can find all matching elements in date_string.
@@ -21833,10 +23356,120 @@ SELECT UNIX_DATE(DATE '2008-12-25') AS days_from_epoch;
 
 ZetaSQL supports the following datetime functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#current_datetime"><code>CURRENT_DATETIME</code></a>
+
+</td>
+  <td>
+    Returns the current date and time as a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime"><code>DATETIME</code></a>
+
+</td>
+  <td>
+    Constructs a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_add"><code>DATETIME_ADD</code></a>
+
+</td>
+  <td>
+    Adds a specified time interval to a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_diff"><code>DATETIME_DIFF</code></a>
+
+</td>
+  <td>
+    Gets the number of intervals between two <code>DATETIME</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_sub"><code>DATETIME_SUB</code></a>
+
+</td>
+  <td>
+    Subtracts a specified time interval from a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_trunc"><code>DATETIME_TRUNC</code></a>
+
+</td>
+  <td>
+    Truncates a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts part of a date and time from a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_datetime"><code>FORMAT_DATETIME</code></a>
+
+</td>
+  <td>
+    Formats a <code>DATETIME</code> value according to a specified
+    format string.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#last_day"><code>LAST_DAY</code></a>
+
+</td>
+  <td>
+    Gets the last day in a specified time period that contains a
+    <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_datetime"><code>PARSE_DATETIME</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CURRENT_DATETIME`
 
 ```sql
 CURRENT_DATETIME([time_zone])
+```
+
+```sql
+CURRENT_DATETIME
 ```
 
 **Description**
@@ -21847,6 +23480,10 @@ called with no arguments.
 This function supports an optional `time_zone` parameter.
 See [Time zone definitions][datetime-timezone-definitions] for
 information on how to specify a time zone.
+
+The current date and time is recorded at the start of the query
+statement which contains this function, not when this specific function is
+evaluated.
 
 **Return Data Type**
 
@@ -22551,10 +24188,10 @@ each element in `datetime_string`.
 -- This works because elements on both sides match.
 SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
 
--- This doesn't work because the year element is in different locations.
+-- This produces an error because the year element is in different locations.
 SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
--- This doesn't work because one of the year elements is missing.
+-- This produces an error because one of the year elements is missing.
 SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
 -- This works because %c can find all matching elements in datetime_string.
@@ -22641,6 +24278,10 @@ ZetaSQL supports the following time functions.
 CURRENT_TIME([time_zone])
 ```
 
+```sql
+CURRENT_TIME
+```
+
 **Description**
 
 Returns the current time as a `TIME` object. Parentheses are optional when
@@ -22649,6 +24290,10 @@ called with no arguments.
 This function supports an optional `time_zone` parameter.
 See [Time zone definitions][time-link-to-timezone-definitions] for information
 on how to specify a time zone.
+
+The current time is recorded at the start of the query
+statement which contains this function, not when this specific function is
+evaluated.
 
 **Return Data Type**
 
@@ -22781,10 +24426,10 @@ each element in `time_string`.
 -- This works because elements on both sides match.
 SELECT PARSE_TIME("%I:%M:%S", "07:30:00")
 
--- This doesn't work because the seconds element is in different locations.
+-- This produces an error because the seconds element is in different locations.
 SELECT PARSE_TIME("%S:%I:%M", "07:30:00")
 
--- This doesn't work because one of the seconds elements is missing.
+-- This produces an error because one of the seconds elements is missing.
 SELECT PARSE_TIME("%I:%M", "07:30:00")
 
 -- This works because %T can find all matching elements in time_string.
@@ -23063,8 +24708,8 @@ To learn more, see
 [How time zones work with timestamp functions][timestamp-link-to-timezone-definitions].
 
 NOTE: These functions return a runtime error if overflow occurs; result
-values are bounded by the defined [date][data-types-link-to-date_type]
-and [timestamp][data-types-link-to-timestamp_type] min/max values.
+values are bounded by the defined [`DATE` range][data-types-link-to-date_type]
+and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 ### `CURRENT_TIMESTAMP`
 
@@ -23072,14 +24717,22 @@ and [timestamp][data-types-link-to-timestamp_type] min/max values.
 CURRENT_TIMESTAMP()
 ```
 
+```sql
+CURRENT_TIMESTAMP
+```
+
 **Description**
 
-`CURRENT_TIMESTAMP()` produces a TIMESTAMP value that is continuous,
-non-ambiguous, has exactly 60 seconds per minute and does not repeat values over
-the leap second. Parentheses are optional.
+Returns the current date and time as a timestamp object. The timestamp is
+continuous, non-ambiguous, has exactly 60 seconds per minute and does not repeat
+values over the leap second. Parentheses are optional.
 
 This function handles leap seconds by smearing them across a window of 20 hours
 around the inserted leap second.
+
+The current date and time is recorded at the start of the query
+statement which contains this function, not when this specific function is
+evaluated.
 
 **Supported Input Types**
 
@@ -23105,7 +24758,7 @@ When a column named `current_timestamp` is present, the column name and the
 function call without parentheses are ambiguous. To ensure the function call,
 add parentheses; to ensure the column name, qualify it with its
 [range variable][timestamp-functions-link-to-range-variables]. For example, the
-following query will select the function in the `now` column and the table
+following query selects the function in the `now` column and the table
 column in the `current_timestamp` column.
 
 ```sql
@@ -23173,11 +24826,9 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 
 **Return Data Type**
 
-`INT64`, except when:
+`INT64`, except in the following cases:
 
-+ `part` is `DATE`, returns a `DATE` object.
-+ `part` is `DATETIME`, returns a `DATETIME` object.
-+ `part` is `TIME`, returns a `TIME` object.
++ If `part` is `DATE`, the function returns a `DATE` object.
 
 **Examples**
 
@@ -23199,7 +24850,7 @@ FROM Input
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
-time parts from a column of timestamps.
+time parts from a column of type `TIMESTAMP`.
 
 ```sql
 WITH Timestamps AS (
@@ -23268,7 +24919,7 @@ FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
 
 Formats a timestamp according to the specified `format_string`.
 
-See [Supported Format Elements For TIMESTAMP][timestamp-format-elements]
+See [Format elements for date and time parts][timestamp-format-elements]
 for a list of format elements that this function supports.
 
 **Return Data Type**
@@ -23331,10 +24982,10 @@ each element in `timestamp_string`.
 -- This works because elements on both sides match.
 SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
 
--- This doesn't work because the year element is in different locations.
+-- This produces an error because the year element is in different locations.
 SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
--- This doesn't work because one of the year elements is missing.
+-- This produces an error because one of the year elements is missing.
 SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
 -- This works because %c can find all matching elements in timestamp_string.
@@ -23389,7 +25040,7 @@ STRING(timestamp_expression[, time_zone])
 
 **Description**
 
-Converts a `timestamp_expression` to a STRING data type. Supports an optional
+Converts a timestamp to a string. Supports an optional
 parameter to specify a time zone. See
 [Time zone definitions][timestamp-link-to-timezone-definitions] for information
 on how to specify a time zone.
@@ -23422,17 +25073,17 @@ TIMESTAMP(datetime_expression[, time_zone])
 
 **Description**
 
-+  `string_expression[, time_zone]`: Converts a STRING expression to a TIMESTAMP
-   data type. `string_expression` must include a
++  `string_expression[, time_zone]`: Converts a string to a
+   timestamp. `string_expression` must include a
    timestamp literal.
-   If `string_expression` includes a time_zone in the timestamp literal, do not
-   include an explicit `time_zone`
+   If `string_expression` includes a time zone in the timestamp literal, do
+   not include an explicit `time_zone`
    argument.
-+  `date_expression[, time_zone]`: Converts a DATE object to a TIMESTAMP
-   data type. The value returned is the earliest timestamp that falls within the
-   given date.
++  `date_expression[, time_zone]`: Converts a date to a timestamp.
+   The value returned is the earliest timestamp that falls within
+   the given date.
 +  `datetime_expression[, time_zone]`: Converts a
-   DATETIME object to a TIMESTAMP data type.
+   datetime to a timestamp.
 
 This function supports an optional
 parameter to [specify a time zone][timestamp-link-to-timezone-definitions]. If
@@ -23523,8 +25174,8 @@ any time zone.
 + `MILLISECOND`
 + `SECOND`
 + `MINUTE`
-+ `HOUR`. Equivalent to 60 `MINUTE`s.
-+ `DAY`. Equivalent to 24 `HOUR`s.
++ `HOUR`. Equivalent to 60 `MINUTE` parts.
++ `DAY`. Equivalent to 24 `HOUR` parts.
 
 **Return Data Types**
 
@@ -23554,12 +25205,12 @@ TIMESTAMP_DIFF(timestamp_expression_a, timestamp_expression_b, date_part)
 **Description**
 
 Returns the whole number of specified `date_part` intervals between two
-`TIMESTAMP` objects (`timestamp_expression_a` - `timestamp_expression_b`).
-If the first `TIMESTAMP` is earlier than the second one,
-the output is negative. Throws an error if the computation overflows the
+timestamps (`timestamp_expression_a` - `timestamp_expression_b`).
+If the first timestamp is earlier than the second one,
+the output is negative. Produces an error if the computation overflows the
 result type, such as if the difference in
 nanoseconds
-between the two `TIMESTAMP` objects would overflow an
+between the two timestamps would overflow an
 `INT64` value.
 
 `TIMESTAMP_DIFF` supports the following values for `date_part`:
@@ -23593,8 +25244,8 @@ SELECT
  *---------------------------------------------+---------------------------------------------+-------*/
 ```
 
-In the following example, the first timestamp occurs before the second
-timestamp, resulting in a negative output.
+In the following example, the first timestamp occurs before the
+second timestamp, resulting in a negative output.
 
 ```sql
 SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS negative_diff;
@@ -23821,8 +25472,8 @@ independent of any time zone.
 + `MILLISECOND`
 + `SECOND`
 + `MINUTE`
-+ `HOUR`. Equivalent to 60 `MINUTE`s.
-+ `DAY`. Equivalent to 24 `HOUR`s.
++ `HOUR`. Equivalent to 60 `MINUTE` parts.
++ `DAY`. Equivalent to 24 `HOUR` parts.
 
 **Return Data Type**
 
@@ -23851,8 +25502,8 @@ TIMESTAMP_TRUNC(timestamp_expression, date_time_part[, time_zone])
 
 **Description**
 
-Truncates a `TIMESTAMP` value to the granularity of `date_time_part`.
-The `TIMESTAMP` value is always rounded to the beginning of `date_time_part`,
+Truncates a timestamp to the granularity of `date_time_part`.
+The timestamp is always rounded to the beginning of `date_time_part`,
 which can be one of the following:
 
 + `NANOSECOND`: If used, nothing is truncated from the value.
@@ -23911,13 +25562,13 @@ Use this parameter if you want to use a time zone other than the
 default time zone, which is implementation defined, as part of the
 truncate operation.
 
-When truncating a `TIMESTAMP` to `MINUTE`
-or`HOUR`, `TIMESTAMP_TRUNC` determines the civil time of the
-`TIMESTAMP` in the specified (or default) time zone
-and subtracts the minutes and seconds (when truncating to HOUR) or the seconds
-(when truncating to MINUTE) from that `TIMESTAMP`.
+When truncating a timestamp to `MINUTE`
+or`HOUR` parts, `TIMESTAMP_TRUNC` determines the civil time of the
+timestamp in the specified (or default) time zone
+and subtracts the minutes and seconds (when truncating to `HOUR`) or the seconds
+(when truncating to `MINUTE`) from that timestamp.
 While this provides intuitive results in most cases, the result is
-non-intuitive near daylight savings transitions that are not hour aligned.
+non-intuitive near daylight savings transitions that are not hour-aligned.
 
 **Return Data Type**
 
@@ -23944,7 +25595,7 @@ column shows the output of `TIMESTAMP_TRUNC` using weeks that start on Monday.
 Because the `timestamp_expression` falls on a Sunday in UTC, `TIMESTAMP_TRUNC`
 truncates it to the preceding Monday. The third column shows the same function
 with the optional [Time zone definition][timestamp-link-to-timezone-definitions]
-argument 'Pacific/Auckland'. Here the function truncates the
+argument 'Pacific/Auckland'. Here, the function truncates the
 `timestamp_expression` using New Zealand Daylight Time, where it falls on a
 Monday.
 
@@ -24101,15 +25752,17 @@ SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
 ### How time zones work with timestamp functions 
 <a id="timezone_definitions"></a>
 
-A timestamp represents an absolute point in time, independent of any time zone.
-However, when a timestamp value is displayed, it is usually converted to a
-human-readable format consisting of a civil date and time (YYYY-MM-DD HH:MM:SS)
-and a time zone. Note that _this is not the internal representation of the
-timestamp_; it is only a human-understandable way to describe the point in time
+A timestamp represents an absolute point in time, independent of any time
+zone. However, when a timestamp value is displayed, it is usually converted to
+a human-readable format consisting of a civil date and time
+(YYYY-MM-DD HH:MM:SS)
+and a time zone. This is not the internal representation of the
+`TIMESTAMP`; it is only a human-understandable way to describe the point in time
 that the timestamp represents.
 
 Some timestamp functions have a time zone argument. A time zone is needed to
-convert between civil time (YYYY-MM-DD HH:MM:SS) and absolute time (timestamps).
+convert between civil time (YYYY-MM-DD HH:MM:SS) and the absolute time
+represented by a timestamp.
 A function like `PARSE_TIMESTAMP` takes an input string that represents a
 civil time and returns a timestamp that represents an absolute time. A
 time zone is needed for this conversion. A function like `EXTRACT` takes an
@@ -24120,10 +25773,10 @@ is used.
 
 Certain date and timestamp functions allow you to override the default time zone
 and specify a different one. You can specify a time zone by either supplying
-the [time zone name][timezone-by-name] (for example, `America/Los_Angeles`)
+the time zone name (for example, `America/Los_Angeles`)
 or time zone offset from UTC (for example, -08).
 
-To learn more about how time zones work with timestamps, see
+To learn more about how time zones work with the `TIMESTAMP` type, see
 [Time zones][data-types-timezones].
 
 [timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
@@ -24308,14 +25961,14 @@ SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 ### `MAKE_INTERVAL`
 
 ```sql
-MAKE_INTERVAL(year, month, day, hour, minute, second)
+MAKE_INTERVAL([year][, month][, day][, hour][, minute][, second])
 ```
 
 **Description**
 
-Constructs an `INTERVAL` object using `INT64` values representing the year,
-month, day, hour, minute, and second. All arguments are optional with default
-value of 0 and can be used as named arguments.
+Constructs an [`INTERVAL`][interval-type] object using `INT64` values
+representing the year, month, day, hour, minute, and second. All arguments are
+optional, `0` by default, and can be [named arguments][named-arguments].
 
 **Return Data Type**
 
@@ -24335,6 +25988,10 @@ SELECT
  | 1-6 15 0:0:0 | 0-0 0 10:0:20 | 1-0 2 0:5:0 |
  *--------------+---------------+-------------*/
 ```
+
+[interval-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#interval_type
+
+[named-arguments]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#named_arguments
 
 ## Geography functions
 
@@ -26295,8 +27952,6 @@ SELECT ST_INTERIORRINGS(g) AS rings FROM geo;
  *----------------------------------------------------------------------------*/
 ```
 
- 
-
 ### `ST_INTERSECTION`
 
 ```sql
@@ -26483,8 +28138,6 @@ For example, the results of expressions `ST_GEOGFROMTEXT('POINT EMPTY')` and
 **Return type**
 
 `BOOL`
-
- 
 
 ### `ST_ISRING`
 
@@ -27301,7 +28954,8 @@ FROM
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
-### `EXTRACT` {#proto_extract}
+### `EXTRACT` 
+<a id="proto_extract"></a>
 
 ```sql
 EXTRACT( extraction_type (proto_field) FROM proto_expression )
@@ -28299,7 +29953,8 @@ SELECT SESSION_USER() as user;
 
 ZetaSQL supports the following Net functions.
 
-### `NET.FORMAT_IP` (DEPRECATED)
+### `NET.FORMAT_IP` (DEPRECATED) 
+<a id="net_format_ip_dep"></a>
 
 ```
 NET.FORMAT_IP(integer)
@@ -28319,7 +29974,8 @@ STRING
 
 [net-link-to-ipv4-from-int64]: #netipv4_from_int64
 
-### `NET.FORMAT_PACKED_IP` (DEPRECATED)
+### `NET.FORMAT_PACKED_IP` (DEPRECATED) 
+<a id="net_format_packed_ip_dep"></a>
 
 ```
 NET.FORMAT_PACKED_IP(bytes_value)
@@ -28343,19 +29999,18 @@ NET.HOST(url)
 
 **Description**
 
-Takes a URL as a STRING and returns the host as a STRING. For best results, URL
+Takes a URL as a `STRING` value and returns the host. For best results, URL
 values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply with RFC 3986 formatting,
-this function makes a best effort to parse the input and return a relevant
-result. If the function cannot parse the input, it
-returns NULL.
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+with RFC 3986 formatting, this function makes a best effort to parse the input
+and return a relevant result. If the function cannot parse the input, it
+returns `NULL`.
 
-<p class="note"><b>Note:</b> The function does not perform any normalization.</a>
-</p>
+Note: The function does not perform any normalization.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -28729,7 +30384,8 @@ STRING
 
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
-### `NET.PARSE_IP` (DEPRECATED)
+### `NET.PARSE_IP` (DEPRECATED) 
+<a id="net_parse_ip_dep"></a>
 
 ```
 NET.PARSE_IP(addr_str)
@@ -28750,7 +30406,8 @@ INT64
 
 [net-link-to-ipv4-to-int64]: #netipv4_to_int64
 
-### `NET.PARSE_PACKED_IP` (DEPRECATED)
+### `NET.PARSE_PACKED_IP` (DEPRECATED) 
+<a id="net_parse_packed_ip_dep"></a>
 
 ```
 NET.PARSE_PACKED_IP(addr_str)
@@ -28777,41 +30434,40 @@ NET.PUBLIC_SUFFIX(url)
 
 **Description**
 
-Takes a URL as a STRING and returns the public suffix (such as `com`, `org`,
-or `net`) as a STRING. A public suffix is an ICANN domain registered at
+Takes a URL as a `STRING` value and returns the public suffix (such as `com`,
+`org`, or `net`). A public suffix is an ICANN domain registered at
 [publicsuffix.org][net-link-to-public-suffix]. For best results, URL values
 should comply with the format as defined by
 [RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
 with RFC 3986 formatting, this function makes a best effort to parse the input
 and return a relevant result.
 
-This function returns NULL if any of the following is true:
+This function returns `NULL` if any of the following is true:
 
 + It cannot parse the host from the input;
-+ The parsed host contains adjacent dots in the middle (not leading or trailing);
++ The parsed host contains adjacent dots in the middle
+  (not leading or trailing);
 + The parsed host does not contain any public suffix.
 
 Before looking up the public suffix, this function temporarily normalizes the
-host by converting upper case English letters to lower case and encoding all
+host by converting uppercase English letters to lowercase and encoding all
 non-ASCII characters with [Punycode][net-link-to-punycode].
 The function then returns the public suffix as part of the original host instead
 of the normalized host.
 
-<p class="note"><b>Note:</b> The function does not perform
-<a href="https://en.wikipedia.org/wiki/Unicode_equivalence">Unicode normalization</a>.
-</p>
+Note: The function does not perform
+[Unicode normalization][unicode-normalization].
 
-<p class="note"><b>Note:</b> The public suffix data at
-<a href="https://publicsuffix.org/list/">publicsuffix.org</a> also contains
-private domains. This function ignores the private domains.</p>
+Note: The public suffix data at
+[publicsuffix.org][net-link-to-public-suffix] also contains
+private domains. This function ignores the private domains.
 
-<p class="note"><b>Note:</b> The public suffix data may change over time.
-Consequently, input that produces a NULL result now may produce a non-NULL value
-in the future.</p>
+Note: The public suffix data may change over time. Consequently, input that
+produces a `NULL` result now may produce a non-`NULL` value in the future.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -28845,6 +30501,8 @@ FROM (
 | "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;"| non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK |
 | "mailto:?to=&subject=&body="                                       | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
+[unicode-normalization]: https://en.wikipedia.org/wiki/Unicode_equivalence
+
 [net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 
 [net-link-to-public-suffix]: https://publicsuffix.org/list/
@@ -28859,46 +30517,45 @@ NET.REG_DOMAIN(url)
 
 **Description**
 
-Takes a URL as a STRING and returns the registered or registerable domain (the
+Takes a URL as a string and returns the registered or registrable domain (the
 [public suffix](#netpublic_suffix) plus one preceding label), as a
-STRING. For best results, URL values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply with RFC 3986 formatting,
-this function makes a best effort to parse the input and return a relevant
-result.
+string. For best results, URL values should comply with the format as defined by
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+with RFC 3986 formatting, this function makes a best effort to parse the input
+and return a relevant result.
 
-This function returns NULL if any of the following is true:
+This function returns `NULL` if any of the following is true:
 
 + It cannot parse the host from the input;
-+ The parsed host contains adjacent dots in the middle (not leading or trailing);
++ The parsed host contains adjacent dots in the middle
+  (not leading or trailing);
 + The parsed host does not contain any public suffix;
 + The parsed host contains only a public suffix without any preceding label.
 
 Before looking up the public suffix, this function temporarily normalizes the
-host by converting upper case English letters to lowercase and encoding all
-non-ASCII characters with [Punycode][net-link-to-punycode]. The function then returns
-the registered or registerable domain as part of the original host instead of
-the normalized host.
+host by converting uppercase English letters to lowercase and encoding all
+non-ASCII characters with [Punycode][net-link-to-punycode]. The function then
+returns the registered or registerable domain as part of the original host
+instead of the normalized host.
 
-<p class="note"><b>Note:</b> The function does not perform
-<a href="https://en.wikipedia.org/wiki/Unicode_equivalence">Unicode normalization</a>.
-</p>
+Note: The function does not perform
+[Unicode normalization][unicode-normalization].
 
-<p class="note"><b>Note:</b> The public suffix data at
-<a href="https://publicsuffix.org/list/">publicsuffix.org</a> also contains
+Note: The public suffix data at
+[publicsuffix.org][net-link-to-public-suffix] also contains
 private domains. This function does not treat a private domain as a public
-suffix. For example, if "us.com" is a private domain in the public suffix data,
-NET.REG_DOMAIN("foo.us.com") returns "us.com" (the public suffix "com" plus
-the preceding label "us") rather than "foo.us.com" (the private domain "us.com"
-plus the preceding label "foo").
-</p>
+suffix. For example, if `us.com` is a private domain in the public suffix data,
+`NET.REG_DOMAIN("foo.us.com")` returns `us.com` (the public suffix `com` plus
+the preceding label `us`) rather than `foo.us.com` (the private domain `us.com`
+plus the preceding label `foo`).
 
-<p class="note"><b>Note:</b> The public suffix data may change over time.
-Consequently, input that produces a NULL result now may produce a non-NULL value
-in the future.</p>
+Note: The public suffix data may change over time.
+Consequently, input that produces a `NULL` result now may produce a non-`NULL`
+value in the future.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -28931,6 +30588,10 @@ FROM (
 | "http://例子.卷筒纸.中国"                                            | standard URL with internationalized domain name                               | "例子.卷筒纸.中国"    | "中国"  | "卷筒纸.中国"  |
 | "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;"| non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK"|
 | "mailto:?to=&subject=&body="                                       | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
+
+[unicode-normalization]: https://en.wikipedia.org/wiki/Unicode_equivalence
+
+[net-link-to-public-suffix]: https://publicsuffix.org/list/
 
 [net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 
@@ -28985,6 +30646,59 @@ FROM UNNEST([
 ## Debugging functions
 
 ZetaSQL supports the following debugging functions.
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#error"><code>ERROR</code></a>
+
+</td>
+  <td>
+    Produces an error with a custom error message.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#iferror"><code>IFERROR</code></a>
+
+</td>
+  <td>
+    Evaluates a try expression, and if an evaluation error is produced, returns
+    the result of a catch expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#iserror"><code>ISERROR</code></a>
+
+</td>
+  <td>
+    Evaluates a try expression, and if an evaluation error is produced, returns
+    <code>TRUE</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nulliferror"><code>NULLIFERROR</code></a>
+
+</td>
+  <td>
+    Evaluates a try expression, and if an evaluation error is produced, returns
+    <code>NULL</code>.
+  </td>
+</tr>
+
+  </tbody>
+</table>
 
 ### `ERROR`
 

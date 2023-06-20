@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_ANALYZER_REWRITERS_REWRITER_INTERFACE_H_
-#define ZETASQL_ANALYZER_REWRITERS_REWRITER_INTERFACE_H_
+#ifndef ZETASQL_PUBLIC_REWRITER_INTERFACE_H_
+#define ZETASQL_PUBLIC_REWRITER_INTERFACE_H_
 
 #include <memory>
 #include <string>
@@ -101,4 +101,4 @@ class Rewriter {
 
 }  // namespace zetasql
 
-#endif  // ZETASQL_ANALYZER_REWRITERS_REWRITER_INTERFACE_H_
+#endif  // ZETASQL_PUBLIC_REWRITER_INTERFACE_H_

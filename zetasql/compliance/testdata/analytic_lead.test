@@ -165,7 +165,7 @@ SELECT row_id, LEAD(row_id, 0) OVER test_window
 FROM TestTable
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64>>[unknown order:
   {1, 1},
   {2, 2},
   {3, 3},
@@ -186,7 +186,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64, INT64>>[unknown order:
   {1, 2, 2},
   {2, 3, 3},
   {3, 4, 4},
@@ -208,7 +208,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, INT64, INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64, INT64, INT64>>[unknown order:
   {1, 4, 5, NULL},
   {2, 5, 6, NULL},
   {3, 6, 7, NULL},
@@ -228,7 +228,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64>>[unknown order:
   {1, NULL},
   {2, NULL},
   {3, NULL},
@@ -267,7 +267,7 @@ SELECT row_id, bool_val,
 FROM TestTable
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, bool_val BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<row_id INT64, bool_val BOOL, BOOL, BOOL>>[unknown order:
   {1, NULL, true, false},
   {2, true, false, true},
   {3, false, true, false},
@@ -289,7 +289,7 @@ FROM TestTable
 WINDOW test_window AS (ORDER BY row_id DESC)
 ORDER BY row_id DESC
 --
-ARRAY<STRUCT<row_id INT64, int32_val INT32, INT32, UINT32>>[
+ARRAY<STRUCT<row_id INT64, int32_val INT32, INT32, UINT32>>[known order:
   {10, 1, 3, 2},
   {9, 3, 2, 5},
   {8, 2, 6, 2},
@@ -310,7 +310,7 @@ SELECT row_id, int64_val,
 FROM TestTable
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, int64_val INT64, INT64, UINT64>>[
+ARRAY<STRUCT<row_id INT64, int64_val INT64, INT64, UINT64>>[unknown order:
   {1, NULL, 2, 1},
   {2, NULL, 8, 4},
   {3, 1, 4, 2},
@@ -334,7 +334,7 @@ FROM TestTable
 WINDOW test_window AS (ORDER BY row_id DESC)
 ORDER BY row_id DESC
 --
-ARRAY<STRUCT<row_id INT64, int64_val INT64, FLOAT, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, int64_val INT64, FLOAT, DOUBLE>>[known order:
   {10, 3, 1, 1},
   {9, 2, NULL, NULL},
   {8, 4, NULL, NULL},
@@ -353,7 +353,7 @@ SELECT row_id, str_val,
        LEAD(str_val, 2, "default string value") OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, str_val STRING, STRING>>[
+ARRAY<STRUCT<row_id INT64, str_val STRING, STRING>>[unknown order:
   {1, NULL, "A"},
   {2, NULL, "A"},
   {3, "A", "aA"},
@@ -381,7 +381,7 @@ SELECT row_id, date_val,
 FROM TableDateTimeBytes
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, date_val DATE, DATE>>[
+ARRAY<STRUCT<row_id INT64, date_val DATE, DATE>>[unknown order:
   {1, NULL, 2014-01-01},
   {2, 2014-01-01, 2014-01-01},
   {3, 2014-01-01, 2015-01-01},
@@ -397,7 +397,7 @@ SELECT row_id, date_val,
 FROM TableDateTimeBytes
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, date_val DATE, DATE>>[
+ARRAY<STRUCT<row_id INT64, date_val DATE, DATE>>[unknown order:
   {1, NULL, 2014-01-01},
   {2, 2014-01-01, 2015-01-01},
   {3, 2014-01-01, 2015-01-01},
@@ -418,36 +418,36 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         TIMESTAMP
       >>
-[{
-   1,
-   NULL,
-   2014-01-01 00:00:01.011011+00
- },
- {
-   2,
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01 00:00:01.011011+00
- },
- {
-   3,
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01 00:00:01.011011+00
- },
- {
-   4,
-   2014-01-01 00:00:01.011011+00,
-   2013-01-01 00:00:01.011011+00
- },
- {
-   5,
-   2013-01-01 00:00:01.011011+00,
-   2015-01-01 00:00:01.011011+00
- },
- {
-   6,
-   2015-01-01 00:00:01.011011+00,
-   NULL
- }]
+[unknown order:{
+                 1,
+                 NULL,
+                 2014-01-01 00:00:01.011011+00
+               },
+               {
+                 2,
+                 2014-01-01 00:00:01.011011+00,
+                 2014-01-01 00:00:01.011011+00
+               },
+               {
+                 3,
+                 2014-01-01 00:00:01.011011+00,
+                 2014-01-01 00:00:01.011011+00
+               },
+               {
+                 4,
+                 2014-01-01 00:00:01.011011+00,
+                 2013-01-01 00:00:01.011011+00
+               },
+               {
+                 5,
+                 2013-01-01 00:00:01.011011+00,
+                 2015-01-01 00:00:01.011011+00
+               },
+               {
+                 6,
+                 2015-01-01 00:00:01.011011+00,
+                 NULL
+               }]
 ==
 
 [name=lead_timestamp_default_expression]
@@ -461,36 +461,36 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         TIMESTAMP
       >>
-[{
-   1,
-   NULL,
-   2014-01-01 00:00:01.011011+00
- },
- {
-   2,
-   2014-01-01 00:00:01.011011+00,
-   2014-01-01 00:00:01.011011+00
- },
- {
-   3,
-   2014-01-01 00:00:01.011011+00,
-   2013-01-01 00:00:01.011011+00
- },
- {
-   4,
-   2014-01-01 00:00:01.011011+00,
-   2015-01-01 00:00:01.011011+00
- },
- {
-   5,
-   2013-01-01 00:00:01.011011+00,
-   7777-11-12 06:33:44.888888+00
- },
- {
-   6,
-   2015-01-01 00:00:01.011011+00,
-   7777-11-12 06:33:44.888888+00
- }]
+[unknown order:{
+                 1,
+                 NULL,
+                 2014-01-01 00:00:01.011011+00
+               },
+               {
+                 2,
+                 2014-01-01 00:00:01.011011+00,
+                 2014-01-01 00:00:01.011011+00
+               },
+               {
+                 3,
+                 2014-01-01 00:00:01.011011+00,
+                 2013-01-01 00:00:01.011011+00
+               },
+               {
+                 4,
+                 2014-01-01 00:00:01.011011+00,
+                 2015-01-01 00:00:01.011011+00
+               },
+               {
+                 5,
+                 2013-01-01 00:00:01.011011+00,
+                 7777-11-12 06:33:44.888888+00
+               },
+               {
+                 6,
+                 2015-01-01 00:00:01.011011+00,
+                 7777-11-12 06:33:44.888888+00
+               }]
 ==
 
 [name=lead_bytes]
@@ -499,7 +499,7 @@ SELECT row_id, bytes_val,
 FROM TableDateTimeBytes
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[
+ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[unknown order:
   {1, NULL, b"1"},
   {2, b"1", b"2"},
   {3, b"2", b"1"},
@@ -515,7 +515,7 @@ SELECT row_id, bytes_val,
 FROM TableDateTimeBytes
 WINDOW test_window AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[
+ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[unknown order:
   {1, NULL, b"2"},
   {2, b"1", b"1"},
   {3, b"2", b"2"},
@@ -536,7 +536,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         ENUM<zetasql_test__.TestEnum>
       >>
-[
+[unknown order:
   {1, NULL, TESTENUM1},
   {2, TESTENUM1, TESTENUM1},
   {3, TESTENUM1, TESTENUM2},
@@ -556,7 +556,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         ENUM<zetasql_test__.TestEnum>
       >>
-[
+[unknown order:
   {1, NULL, TESTENUM1},
   {2, TESTENUM1, TESTENUM2},
   {3, TESTENUM1, TESTENUM0},
@@ -576,45 +576,45 @@ ARRAY<STRUCT<
         proto_val PROTO<zetasql_test__.KitchenSinkPB>,
         PROTO<zetasql_test__.KitchenSinkPB>
       >>
-[{1,
-  NULL,
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  }},
- {2,
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  },
-  {
-    int64_key_1: 5
-    int64_key_2: 6
-  }},
- {3,
-  {
-    int64_key_1: 5
-    int64_key_2: 6
-  },
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  }},
- {4,
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  },
-  {
-    int64_key_1: 5
-    int64_key_2: 7
-  }},
- {5,
-  {
-    int64_key_1: 5
-    int64_key_2: 7
-  },
-  NULL}]
+[unknown order:{1,
+                NULL,
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                }},
+               {2,
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                },
+                {
+                  int64_key_1: 5
+                  int64_key_2: 6
+                }},
+               {3,
+                {
+                  int64_key_1: 5
+                  int64_key_2: 6
+                },
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                }},
+               {4,
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                },
+                {
+                  int64_key_1: 5
+                  int64_key_2: 7
+                }},
+               {5,
+                {
+                  int64_key_1: 5
+                  int64_key_2: 7
+                },
+                NULL}]
 ==
 
 [name=lead_proto_default_expression]
@@ -629,48 +629,48 @@ ARRAY<STRUCT<
         proto_val PROTO<zetasql_test__.KitchenSinkPB>,
         PROTO<zetasql_test__.KitchenSinkPB>
       >>
-[{1,
-  NULL,
-  {
-    int64_key_1: 5
-    int64_key_2: 6
-  }},
- {2,
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  },
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  }},
- {3,
-  {
-    int64_key_1: 5
-    int64_key_2: 6
-  },
-  {
-    int64_key_1: 5
-    int64_key_2: 7
-  }},
- {4,
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  },
-  {
-    int64_key_1: 999
-    int64_key_2: 999
-  }},
- {5,
-  {
-    int64_key_1: 5
-    int64_key_2: 7
-  },
-  {
-    int64_key_1: 999
-    int64_key_2: 999
-  }}]
+[unknown order:{1,
+                NULL,
+                {
+                  int64_key_1: 5
+                  int64_key_2: 6
+                }},
+               {2,
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                },
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                }},
+               {3,
+                {
+                  int64_key_1: 5
+                  int64_key_2: 6
+                },
+                {
+                  int64_key_1: 5
+                  int64_key_2: 7
+                }},
+               {4,
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                },
+                {
+                  int64_key_1: 999
+                  int64_key_2: 999
+                }},
+               {5,
+                {
+                  int64_key_1: 5
+                  int64_key_2: 7
+                },
+                {
+                  int64_key_1: 999
+                  int64_key_2: 999
+                }}]
 ==
 
 [name=lead_struct]
@@ -684,7 +684,7 @@ ARRAY<STRUCT<
         struct_val STRUCT<a INT64, b INT64>,
         lead_struct_val STRUCT<a INT64, b INT64>
       >>
-[
+[unknown order:
   {1, NULL, {2, 4}},
   {2, {2, 4}, {2, 4}},
   {3, {2, 4}, {3, 4}},
@@ -705,7 +705,7 @@ FROM (SELECT CAST(NULL as NUMERIC) numeric_val UNION ALL
       SELECT CAST(@max_val AS NUMERIC)         UNION ALL
       SELECT CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<NUMERIC>>[
+ARRAY<STRUCT<NUMERIC>>[unknown order:
   {-99999999999999999999999999999.999999999},
   {-1.230000001},
   {0},
@@ -727,7 +727,7 @@ ARRAY<STRUCT<
         struct_val STRUCT<a INT64, b INT64>,
         lead_struct_val STRUCT<a INT64, b INT64>
       >>
-[
+[unknown order:
   {1, NULL, {2, 4}},
   {2, {2, 4}, {3, 4}},
   {3, {2, 4}, {2, NULL}},
@@ -745,7 +745,7 @@ FROM (
   WINDOW test_window AS (ORDER BY row_id)
 )
 --
-ARRAY<STRUCT<row_id INT64, a INT64, b INT64, a INT64, b INT64>>[
+ARRAY<STRUCT<row_id INT64, a INT64, b INT64, a INT64, b INT64>>[unknown order:
   {2, 2, 4, 2, 4},
   {4, 3, 4, 2, NULL},
   {1, NULL, NULL, 2, 4},
@@ -764,24 +764,32 @@ FROM (SELECT 1 row_id, [1, 2, 3] array_val UNION ALL
       SELECT 6, [6, 5] UNION ALL
       SELECT 7, CAST(null as ARRAY<int64>))
 --
-ARRAY<STRUCT<row_id INT64, array_val ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<row_id INT64, array_val ARRAY<>, ARRAY<>>>[unknown order:
   {
     1,
-    ARRAY<INT64>[1, 2, 3],
-    ARRAY<INT64>[2, 3, 4]
+    ARRAY<INT64>[known order:1, 2, 3],
+    ARRAY<INT64>[known order:2, 3, 4]
   },
   {
     2,
-    ARRAY<INT64>[2, 3, 4],
-    ARRAY<INT64>[3, 4, 5]
+    ARRAY<INT64>[known order:2, 3, 4],
+    ARRAY<INT64>[known order:3, 4, 5]
   },
   {
     3,
-    ARRAY<INT64>[3, 4, 5],
+    ARRAY<INT64>[known order:3, 4, 5],
     ARRAY<INT64>(NULL)
   },
-  {5, ARRAY<INT64>(NULL), ARRAY<INT64>[6, 5]},
-  {6, ARRAY<INT64>[6, 5], ARRAY<INT64>(NULL)},
+  {
+    5,
+    ARRAY<INT64>(NULL),
+    ARRAY<INT64>[known order:6, 5]
+  },
+  {
+    6,
+    ARRAY<INT64>[known order:6, 5],
+    ARRAY<INT64>(NULL)
+  },
   {7, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
 ]
 ==
@@ -796,32 +804,32 @@ FROM (SELECT 1 row_id, [1, 2, 3] array_val UNION ALL
       SELECT 6, [6, 5] UNION ALL
       SELECT 7, CAST(null as ARRAY<int64>))
 --
-ARRAY<STRUCT<row_id INT64, array_val ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<row_id INT64, array_val ARRAY<>, ARRAY<>>>[unknown order:
   {
     1,
-    ARRAY<INT64>[1, 2, 3],
-    ARRAY<INT64>[3, 4, 5]
+    ARRAY<INT64>[known order:1, 2, 3],
+    ARRAY<INT64>[known order:3, 4, 5]
   },
   {
     2,
-    ARRAY<INT64>[2, 3, 4],
+    ARRAY<INT64>[known order:2, 3, 4],
     ARRAY<INT64>(NULL)
   },
   {
     3,
-    ARRAY<INT64>[3, 4, 5],
-    ARRAY<INT64>[6, 5]
+    ARRAY<INT64>[known order:3, 4, 5],
+    ARRAY<INT64>[known order:6, 5]
   },
   {5, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)},
   {
     6,
-    ARRAY<INT64>[6, 5],
-    ARRAY<INT64>[-1, -1, -1]
+    ARRAY<INT64>[known order:6, 5],
+    ARRAY<INT64>[known order:-1, -1, -1]
   },
   {
     7,
     ARRAY<INT64>(NULL),
-    ARRAY<INT64>[-1, -1, -1]
+    ARRAY<INT64>[known order:-1, -1, -1]
   }
 ]
 ==
@@ -832,7 +840,7 @@ SELECT bool_val, row_id, int64_val,
 FROM TestTable
 WINDOW test_window AS (PARTITION BY bool_val ORDER BY row_id)
 --
-ARRAY<STRUCT<bool_val BOOL, row_id INT64, int64_val INT64, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, row_id INT64, int64_val INT64, INT64>>[unknown order:
   {NULL, 1, NULL, NULL},
   {false, 3, 1, 1},
   {false, 5, 1, 1},
@@ -859,7 +867,18 @@ ARRAY<STRUCT<bool_val BOOL, row_id INT64, int64_val INT64, INT64>>[]
 SELECT LEAD(int64_val, 2, NULL) OVER (ORDER BY int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<INT64>>[{1}, {1}, {1}, {2}, {2}, {2}, {3}, {4}, {NULL}, {NULL}]
+ARRAY<STRUCT<INT64>>[unknown order:
+  {1},
+  {1},
+  {1},
+  {2},
+  {2},
+  {2},
+  {3},
+  {4},
+  {NULL},
+  {NULL}
+]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -886,7 +905,7 @@ WINDOW window_frame AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOW...
 SELECT int64_val, LEAD(int64_val, 1) OVER (ORDER BY int64_val DESC NULLS LAST)
 FROM TestTable t
 --
-ARRAY<STRUCT<int64_val INT64, INT64>>[
+ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
   {4, 3},
   {3, 2},
   {2, 2},
@@ -907,7 +926,7 @@ NOTE: Reference implementation reports non-determinism.
 SELECT int64_val, LEAD(int64_val, 1) OVER (ORDER BY int64_val DESC NULLS FIRST)
 FROM TestTable t
 --
-ARRAY<STRUCT<int64_val INT64, INT64>>[
+ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
   {NULL, NULL},
   {NULL, 4},
   {4, 3},

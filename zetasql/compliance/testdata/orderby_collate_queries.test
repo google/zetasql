@@ -42,7 +42,7 @@ ARRAY<STRUCT<primary_Key INT64, col STRING>>[
 [name=orderby_without_collate]
 select primary_key, col from StringTable ORDER BY col
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[unknown order:
   {7, NULL},
   {13, NULL},
   {10, ""},
@@ -67,7 +67,7 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
 [default required_features=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col from StringTable ORDER BY col COLLATE "binary"
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[unknown order:
   {7, NULL},
   {13, NULL},
   {10, ""},
@@ -92,7 +92,7 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
 [name=order_by_collate_english]
 select primary_key, col from StringTable ORDER BY col COLLATE "en", 1 ASC
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[known order:
   {7, NULL},
   {13, NULL},
   {1, ""},
@@ -116,7 +116,7 @@ select primary_key, col
 from StringTable
 ORDER BY col COLLATE "en_US" DESC, primary_key ASC
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[known order:
   {15, "Г"},
   {2, "hello"},
   {14, "hello"},
@@ -157,7 +157,7 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US:cs" ASC, 2 ASC
 --
-ARRAY<STRUCT<str STRING, int INT64>>[
+ARRAY<STRUCT<str STRING, int INT64>>[known order:
   {"a", 8},
   {"aa", 13},
   {"aA", 3},
@@ -194,7 +194,7 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US:cs" DESC, 2 ASC
 --
-ARRAY<STRUCT<str STRING, int INT64>>[
+ARRAY<STRUCT<str STRING, int INT64>>[known order:
   {"AC", 2},
   {"Ac", 12},
   {"aC", 7},
@@ -233,7 +233,7 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US" ASC, 2 ASC
 --
-ARRAY<STRUCT<str STRING, int INT64>>[
+ARRAY<STRUCT<str STRING, int INT64>>[known order:
   {"a", 8},
   {"aa", 13},
   {"aA", 3},
@@ -270,7 +270,7 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US" DESC, 2 ASC
 --
-ARRAY<STRUCT<str STRING, int INT64>>[
+ARRAY<STRUCT<str STRING, int INT64>>[known order:
   {"AC", 2},
   {"Ac", 12},
   {"aC", 7},
@@ -306,7 +306,7 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US:ci" ASC, 2 ASC
 --
-ARRAY<STRUCT<str STRING, int INT64>>[
+ARRAY<STRUCT<str STRING, int INT64>>[known order:
   {"a", 8},
   {"aA", 3},
   {"Aa", 5},
@@ -342,7 +342,7 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US:ci" DESC, 2 ASC
 --
-ARRAY<STRUCT<str STRING, int INT64>>[
+ARRAY<STRUCT<str STRING, int INT64>>[known order:
   {"AC", 2},
   {"ac", 4},
   {"aC", 7},
@@ -368,7 +368,7 @@ from (select 1 primary_key, "c" col UNION ALL
       select 5, "h")
 ORDER BY col COLLATE "cs"
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[known order:
   {1, "c"},
   {2, "cg"},
   {4, "ci"},
@@ -386,7 +386,7 @@ from (select 1 primary_key, "ßd" col UNION ALL
       select 4, "ssa")
 ORDER BY col COLLATE "de"
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[known order:
   {4, "ssa"},
   {3, "ßb"},
   {2, "ssc"},
@@ -403,7 +403,7 @@ from (select 1 primary_key, "ßd" col UNION ALL
       select 4, "ssa")
 ORDER BY col COLLATE @collation_name
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[known order:
   {4, "ssa"},
   {3, "ßb"},
   {2, "ssc"},
@@ -419,7 +419,7 @@ from (select 1 primary_key, "ßß" col UNION ALL
       select 4, "ssss")
 ORDER BY col COLLATE "de", col COLLATE "en"
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[known order:
   {4, "ssss"},
   {3, "ssß"},
   {2, "ßss"},
@@ -434,7 +434,7 @@ from (select 1 primary_key, "Ca" col UNION ALL
       select 4, "cb")
 ORDER BY col COLLATE "und:ci"
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[unknown order:
   {2, "ca"},
   {1, "Ca"},
   {4, "cb"},
@@ -451,7 +451,7 @@ from (select 1 primary_key, "Ca" col UNION ALL
       select 4, "cb")
 ORDER BY col COLLATE @collation_name
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[unknown order:
   {2, "ca"},
   {1, "Ca"},
   {4, "cb"},
@@ -502,7 +502,7 @@ from (select 1 primary_key, "Ca" col UNION ALL
       select 4, "cb")
 ORDER BY col COLLATE "unicode:ci"
 --
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
+ARRAY<STRUCT<primary_key INT64, col STRING>>[unknown order:
   {2, "ca"},
   {1, "Ca"},
   {4, "cb"},

@@ -501,16 +501,18 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 100
-        int64_key_2: 200
-      }},
-     {2,
-      {
-        int64_key_1: 100
-        int64_key_2: 200
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 100
+       int64_key_2: 200
+     }},
+    {2,
+     {
+       int64_key_1: 100
+       int64_key_2: 200
+     }}
+  ]}
 ==
 
 [name=assign_proto_column_null]
@@ -524,7 +526,7 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1, NULL}, {2, NULL}]}
+  [unknown order:{1, NULL}, {2, NULL}]}
 ==
 
 [name=assign_proto_column_default]
@@ -538,7 +540,7 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1, NULL}, {2, NULL}]}
+  [unknown order:{1, NULL}, {2, NULL}]}
 ==
 
 [name=assign_null_proto_column_subfield]
@@ -558,21 +560,23 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 100
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 100
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 100
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 100
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+       date: 5
+     }}
+  ]}
 ==
 
 # Attempting to clear a required field is an error.
@@ -594,21 +598,23 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+       date: 5
+     }}
+  ]}
 ==
 
 # Assigning DEFAULT to a proto field clears it (same as assigning NULL).
@@ -629,22 +635,24 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        int64_val: 100
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 100
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       int64_val: 100
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 100
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+       date: 5
+     }}
+  ]}
 ==
 
 # Setting an optional proto field to NULL clears it.
@@ -659,20 +667,22 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+       date: 5
+     }}
+  ]}
 ==
 
 # Setting an optional proto field to DEFAULT clears it.
@@ -687,20 +697,22 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+       date: 5
+     }}
+  ]}
 ==
 
 [name=assign_extension_proto_field]
@@ -718,19 +730,21 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        [zetasql_test__.int_top_level_extension]: 1000
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        [zetasql_test__.int_top_level_extension]: 1100
-        [zetasql_test__.date_extension]: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       [zetasql_test__.int_top_level_extension]: 1000
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       [zetasql_test__.int_top_level_extension]: 1100
+       [zetasql_test__.date_extension]: 5
+     }}
+  ]}
 ==
 
 [name=clear_extension_proto_field]
@@ -747,17 +761,19 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        [zetasql_test__.date_extension]: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       [zetasql_test__.date_extension]: 5
+     }}
+  ]}
 ==
 
 [name=assign_extension_proto_field_default]
@@ -774,17 +790,19 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        [zetasql_test__.date_extension]: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       [zetasql_test__.date_extension]: 5
+     }}
+  ]}
 ==
 
 [name=assign_proto_field_with_format_annotation]
@@ -798,22 +816,24 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        date: 17515
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-        date: 17515
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       date: 17515
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+       date: 17515
+     }}
+  ]}
 ==
 
 [name=assign_proto_field_with_format_annotation_null]
@@ -827,20 +847,22 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+     }}
+  ]}
 ==
 
 [name=assign_proto_field_with_format_annotation_default]
@@ -854,20 +876,22 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+     }}
+  ]}
 ==
 
 [name=assign_extension_proto_field_with_format_annotation]
@@ -884,19 +908,21 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        [zetasql_test__.date_extension]: 17515
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        [zetasql_test__.int_top_level_extension]: 100
-        [zetasql_test__.date_extension]: 17515
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       [zetasql_test__.date_extension]: 17515
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       [zetasql_test__.int_top_level_extension]: 100
+       [zetasql_test__.date_extension]: 17515
+     }}
+  ]}
 ==
 
 [name=assign_extension_proto_field_with_format_annotation_null]
@@ -913,17 +939,19 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        [zetasql_test__.int_top_level_extension]: 100
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       [zetasql_test__.int_top_level_extension]: 100
+     }}
+  ]}
 ==
 
 [name=assign_extension_proto_field_with_format_annotation_default]
@@ -940,17 +968,19 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        [zetasql_test__.int_top_level_extension]: 100
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       [zetasql_test__.int_top_level_extension]: 100
+     }}
+  ]}
 ==
 
 [name=assign_repeated_proto_field]
@@ -966,24 +996,26 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        repeated_int64_val: 1000
-        repeated_int64_val: 2000
-        repeated_int64_val: 3000
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 1000
-        repeated_int64_val: 2000
-        repeated_int64_val: 3000
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       repeated_int64_val: 1000
+       repeated_int64_val: 2000
+       repeated_int64_val: 3000
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 1000
+       repeated_int64_val: 2000
+       repeated_int64_val: 3000
+       date: 5
+     }}
+  ]}
 ==
 
 [name=assign_repeated_proto_field_null]
@@ -997,18 +1029,20 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       date: 5
+     }}
+  ]}
 ==
 
 # Repeated fields cannot represent NULL elements.
@@ -1031,18 +1065,20 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       date: 5
+     }}
+  ]}
 ==
 
 [name=update_repeated_proto_field_first_element_with_set]
@@ -1058,21 +1094,23 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 1000
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 1000
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+       date: 5
+     }}
+  ]}
 ==
 
 [name=update_repeated_proto_field_first_element_with_set_null_proto]
@@ -1106,21 +1144,23 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 100
-        repeated_int64_val: 1000
-        repeated_int64_val: 300
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 100
+       repeated_int64_val: 1000
+       repeated_int64_val: 300
+       date: 5
+     }}
+  ]}
 ==
 
 [name=update_repeated_proto_field_with_set_nonliteral_offset]
@@ -1137,21 +1177,23 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 1000
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 1000
+       date: 5
+     }}
+  ]}
 ==
 
 [name=update_two_elements_of_repeated_proto_field_with_set]
@@ -1169,21 +1211,23 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        int64_val: 23
-        repeated_int64_val: 1000
-        repeated_int64_val: 2000
-        repeated_int64_val: 300
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       int64_val: 23
+       repeated_int64_val: 1000
+       repeated_int64_val: 2000
+       repeated_int64_val: 300
+       date: 5
+     }}
+  ]}
 ==
 
 [name=update_duplicate_elements_of_repeated_proto_field_with_set]
@@ -1289,32 +1333,34 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-          nested_repeated_int64: 10000
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+         nested_repeated_int64: 10000
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=update_repeated_proto_field_of_proto_type_first_element_to_null_with_set]
@@ -1331,30 +1377,32 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-        nested_repeated_value {
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+       nested_repeated_value {
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=update_repeated_proto_field_of_proto_type_second_element_with_set]
@@ -1371,32 +1419,34 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-          nested_repeated_int64: 10000
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+         nested_repeated_int64: 10000
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=update_repeated_proto_field_of_proto_type_with_set_nonliteral_offset]
@@ -1414,32 +1464,34 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-          nested_repeated_int64: 10000
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+         nested_repeated_int64: 10000
+       }
+     }}
+  ]}
 ==
 
 [name=update_two_elements_of_repeated_proto_field_of_proto_type_with_set]
@@ -1459,33 +1511,35 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-          nested_repeated_int64: 10000
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-          nested_repeated_int64: 20000
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+         nested_repeated_int64: 10000
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+         nested_repeated_int64: 20000
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=update_duplicate_elements_of_repeated_proto_field_of_proto_type_with_set]
@@ -1609,9 +1663,9 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
     {1,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 1000
          int64_key_2: 112
@@ -1629,7 +1683,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 1000
          int64_key_2: 212
@@ -1662,9 +1716,9 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
     {1,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 111
          int64_key_2: 112
@@ -1681,7 +1735,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 211
          int64_key_2: 212
@@ -1713,9 +1767,9 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
     {1,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 111
          int64_key_2: 112
@@ -1733,7 +1787,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 211
          int64_key_2: 212
@@ -1767,9 +1821,9 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
     {1,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 111
          int64_key_2: 112
@@ -1787,7 +1841,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 211
          int64_key_2: 212
@@ -1822,9 +1876,9 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
     {1,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 1000
          int64_key_2: 112
@@ -1842,7 +1896,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 1000
          int64_key_2: 212
@@ -1947,7 +2001,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
     {1,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 11
          int64_key_2: 12
@@ -1984,7 +2038,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
     {1,
-     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
        {
          int64_key_1: 11
          int64_key_2: 12
@@ -2019,31 +2073,33 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        nested_value {
-          nested_int64: 1000
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 1000
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       nested_value {
+         nested_int64: 1000
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 1000
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=assign_empty_proto_message_field]
@@ -2057,29 +2113,31 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        nested_value {
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       nested_value {
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=clear_proto_message_field]
@@ -2093,25 +2151,27 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=assign_proto_message_field_default]
@@ -2125,25 +2185,27 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 # Fails because proto_value.nested_value is not set in all rows.
@@ -2167,31 +2229,33 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 1000
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 1000
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=clear_proto_subfield]
@@ -2206,30 +2270,32 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=assign_proto_subfield_default]
@@ -2244,30 +2310,32 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=assign_proto_repeated_subfield]
@@ -2283,31 +2351,33 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-          nested_repeated_int64: 1001
-          nested_repeated_int64: 2001
-          nested_repeated_int64: 3001
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+         nested_repeated_int64: 1001
+         nested_repeated_int64: 2001
+         nested_repeated_int64: 3001
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=assign_proto_repeated_subfield_null]
@@ -2323,28 +2393,30 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=assign_proto_repeated_subfield_default]
@@ -2360,28 +2432,30 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}
 ==
 
 [name=assign_repeated_proto_message_field]
@@ -2399,40 +2473,42 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        nested_repeated_value {
-          nested_int64: 50
-        }
-        nested_repeated_value {
-          nested_int64: 51
-        }
-        nested_repeated_value {
-          nested_int64: 52
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-        nested_repeated_value {
-          nested_int64: 50
-        }
-        nested_repeated_value {
-          nested_int64: 51
-        }
-        nested_repeated_value {
-          nested_int64: 52
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       nested_repeated_value {
+         nested_int64: 50
+       }
+       nested_repeated_value {
+         nested_int64: 51
+       }
+       nested_repeated_value {
+         nested_int64: 52
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+       nested_repeated_value {
+         nested_int64: 50
+       }
+       nested_repeated_value {
+         nested_int64: 51
+       }
+       nested_repeated_value {
+         nested_int64: 52
+       }
+     }}
+  ]}
 ==
 
 [name=assign_repeated_proto_message_field_null]
@@ -2446,22 +2522,24 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+     }}
+  ]}
 ==
 
 [name=assign_repeated_proto_message_field_default]
@@ -2477,22 +2555,24 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 10
-          nested_repeated_int64: 110
-          nested_repeated_int64: 120
-          nested_repeated_int64: 130
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 10
+         nested_repeated_int64: 110
+         nested_repeated_int64: 120
+         nested_repeated_int64: 130
+       }
+     }}
+  ]}
 ==
 
 # Wire format annotations have no effect on statement semantics.
@@ -2507,28 +2587,30 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        nullable_int {
-          value: 100
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nullable_int {
-          value: 100
-        }
-        nullable_int_array {
-          value: 500
-        }
-        nullable_int_array {
-          value: 501
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       nullable_int {
+         value: 100
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nullable_int {
+         value: 100
+       }
+       nullable_int_array {
+         value: 500
+       }
+       nullable_int_array {
+         value: 501
+       }
+     }}
+  ]}
 ==
 
 [name=assign_proto_wrapper_message_field_empty]
@@ -2542,26 +2624,28 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        nullable_int {
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nullable_int {
-        }
-        nullable_int_array {
-          value: 500
-        }
-        nullable_int_array {
-          value: 501
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       nullable_int {
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nullable_int {
+       }
+       nullable_int_array {
+         value: 500
+       }
+       nullable_int_array {
+         value: 501
+       }
+     }}
+  ]}
 ==
 
 [name=clear_proto_wrapper_message_field]
@@ -2575,22 +2659,24 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nullable_int_array {
-          value: 500
-        }
-        nullable_int_array {
-          value: 501
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nullable_int_array {
+         value: 500
+       }
+       nullable_int_array {
+         value: 501
+       }
+     }}
+  ]}
 ==
 
 [name=assign_proto_wrapper_message_subfield]
@@ -2605,25 +2691,27 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nullable_int {
-          value: 100
-        }
-        nullable_int_array {
-          value: 500
-        }
-        nullable_int_array {
-          value: 501
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nullable_int {
+         value: 100
+       }
+       nullable_int_array {
+         value: 500
+       }
+       nullable_int_array {
+         value: 501
+       }
+     }}
+  ]}
 ==
 
 [name=clear_proto_wrapper_message_subfield]
@@ -2638,24 +2726,26 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nullable_int {
-        }
-        nullable_int_array {
-          value: 500
-        }
-        nullable_int_array {
-          value: 501
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nullable_int {
+       }
+       nullable_int_array {
+         value: 500
+       }
+       nullable_int_array {
+         value: 501
+       }
+     }}
+  ]}
 ==
 
 # Wire format annotations have no effect on statement semantics.
@@ -2674,37 +2764,39 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        nullable_int_array {
-          value: 100
-        }
-        nullable_int_array {
-          value: 101
-        }
-        nullable_int_array {
-          value: 102
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nullable_int {
-          value: 50
-        }
-        nullable_int_array {
-          value: 100
-        }
-        nullable_int_array {
-          value: 101
-        }
-        nullable_int_array {
-          value: 102
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       nullable_int_array {
+         value: 100
+       }
+       nullable_int_array {
+         value: 101
+       }
+       nullable_int_array {
+         value: 102
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nullable_int {
+         value: 50
+       }
+       nullable_int_array {
+         value: 100
+       }
+       nullable_int_array {
+         value: 101
+       }
+       nullable_int_array {
+         value: 102
+       }
+     }}
+  ]}
 ==
 
 [name=clear_repeated_proto_wrapper_message]
@@ -2718,19 +2810,21 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        nullable_int {
-          value: 50
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       nullable_int {
+         value: 50
+       }
+     }}
+  ]}
 ==
 
 # Wire format annotations have no effect on statement semantics.
@@ -2747,32 +2841,34 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        key_value {
-          key: "foo"
-          value: 100
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        key_value {
-          key: "foo"
-          value: 100
-        }
-        key_value_array {
-          key: "key1"
-          value: 5001
-        }
-        key_value_array {
-          key: "key2"
-          value: 5002
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       key_value {
+         key: "foo"
+         value: 100
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       key_value {
+         key: "foo"
+         value: 100
+       }
+       key_value_array {
+         key: "key1"
+         value: 5001
+       }
+       key_value_array {
+         key: "key2"
+         value: 5002
+       }
+     }}
+  ]}
 ==
 
 [name=assign_proto_struct_message_subfield_empty]
@@ -2786,28 +2882,30 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        key_value {
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        key_value {
-        }
-        key_value_array {
-          key: "key1"
-          value: 5001
-        }
-        key_value_array {
-          key: "key2"
-          value: 5002
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       key_value {
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       key_value {
+       }
+       key_value_array {
+         key: "key1"
+         value: 5001
+       }
+       key_value_array {
+         key: "key2"
+         value: 5002
+       }
+     }}
+  ]}
 ==
 
 [name=clear_proto_struct_message_subfield]
@@ -2821,24 +2919,26 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        key_value_array {
-          key: "key1"
-          value: 5001
-        }
-        key_value_array {
-          key: "key2"
-          value: 5002
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       key_value_array {
+         key: "key1"
+         value: 5001
+       }
+       key_value_array {
+         key: "key2"
+         value: 5002
+       }
+     }}
+  ]}
 ==
 
 [name=assign_proto_struct_message_sub_subfield]
@@ -2853,28 +2953,30 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        key_value {
-          key: "foo"
-          value: 5000
-        }
-        key_value_array {
-          key: "key1"
-          value: 5001
-        }
-        key_value_array {
-          key: "key2"
-          value: 5002
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       key_value {
+         key: "foo"
+         value: 5000
+       }
+       key_value_array {
+         key: "key1"
+         value: 5001
+       }
+       key_value_array {
+         key: "key2"
+         value: 5002
+       }
+     }}
+  ]}
 ==
 
 [name=clear_proto_struct_message_sub_subfield]
@@ -2889,27 +2991,29 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        key_value {
-          value: 5000
-        }
-        key_value_array {
-          key: "key1"
-          value: 5001
-        }
-        key_value_array {
-          key: "key2"
-          value: 5002
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       key_value {
+         value: 5000
+       }
+       key_value_array {
+         key: "key1"
+         value: 5001
+       }
+       key_value_array {
+         key: "key2"
+         value: 5002
+       }
+     }}
+  ]}
 ==
 
 # Wire format annotations have no effect on statement semantics.
@@ -2928,44 +3032,46 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-        key_value_array {
-          key: "foo1"
-          value: 1000
-        }
-        key_value_array {
-          key: "foo2"
-          value: 2000
-        }
-        key_value_array {
-          key: "foo3"
-          value: 3000
-        }
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        key_value {
-          key: "key"
-          value: 5000
-        }
-        key_value_array {
-          key: "foo1"
-          value: 1000
-        }
-        key_value_array {
-          key: "foo2"
-          value: 2000
-        }
-        key_value_array {
-          key: "foo3"
-          value: 3000
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       key_value_array {
+         key: "foo1"
+         value: 1000
+       }
+       key_value_array {
+         key: "foo2"
+         value: 2000
+       }
+       key_value_array {
+         key: "foo3"
+         value: 3000
+       }
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       key_value {
+         key: "key"
+         value: 5000
+       }
+       key_value_array {
+         key: "foo1"
+         value: 1000
+       }
+       key_value_array {
+         key: "foo2"
+         value: 2000
+       }
+       key_value_array {
+         key: "foo3"
+         value: 3000
+       }
+     }}
+  ]}
 ==
 
 [name=clear_repeated_proto_struct_message]
@@ -2979,20 +3085,22 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 21
-        int64_key_2: 22
-        key_value {
-          key: "key"
-          value: 5000
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       key_value {
+         key: "key"
+         value: 5000
+       }
+     }}
+  ]}
 ==
 
 [name=assign_two_proto_fields]
@@ -3009,21 +3117,23 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 1000
-        int64_key_2: 2000
-      }},
-     {2,
-      {
-        int64_key_1: 1000
-        int64_key_2: 2000
-        int64_val: 23
-        repeated_int64_val: 100
-        repeated_int64_val: 200
-        repeated_int64_val: 300
-        date: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 1000
+       int64_key_2: 2000
+     }},
+    {2,
+     {
+       int64_key_1: 1000
+       int64_key_2: 2000
+       int64_val: 23
+       repeated_int64_val: 100
+       repeated_int64_val: 200
+       repeated_int64_val: 300
+       date: 5
+     }}
+  ]}
 ==
 
 [name=assign_extension_field_and_two_proto_fields]
@@ -3042,19 +3152,21 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 1000
-        int64_key_2: 2000
-        [zetasql_test__.int_top_level_extension]: 3000
-      }},
-     {2,
-      {
-        int64_key_1: 1000
-        int64_key_2: 2000
-        [zetasql_test__.int_top_level_extension]: 3000
-        [zetasql_test__.date_extension]: 5
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 1000
+       int64_key_2: 2000
+       [zetasql_test__.int_top_level_extension]: 3000
+     }},
+    {2,
+     {
+       int64_key_1: 1000
+       int64_key_2: 2000
+       [zetasql_test__.int_top_level_extension]: 3000
+       [zetasql_test__.date_extension]: 5
+     }}
+  ]}
 ==
 
 [name=assign_proto_field_and_two_subfields_of_another_field]
@@ -3072,27 +3184,29 @@ STRUCT<
           primary_key INT64,
           proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
-  [{1,
-      {
-        int64_key_1: 11
-        int64_key_2: 12
-      }},
-     {2,
-      {
-        int64_key_1: 1000
-        int64_key_2: 22
-        nested_value {
-          nested_int64: 5000
-          nested_repeated_int64: 5001
-          nested_repeated_int64: 5002
-        }
-        nested_repeated_value {
-          nested_int64: 1010
-        }
-        nested_repeated_value {
-          nested_int64: 1020
-        }
-        nested_repeated_value {
-          nested_int64: 1030
-        }
-      }}]}
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+     }},
+    {2,
+     {
+       int64_key_1: 1000
+       int64_key_2: 22
+       nested_value {
+         nested_int64: 5000
+         nested_repeated_int64: 5001
+         nested_repeated_int64: 5002
+       }
+       nested_repeated_value {
+         nested_int64: 1010
+       }
+       nested_repeated_value {
+         nested_int64: 1020
+       }
+       nested_repeated_value {
+         nested_int64: 1030
+       }
+     }}
+  ]}

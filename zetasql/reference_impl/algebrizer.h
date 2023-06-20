@@ -306,7 +306,6 @@ class Algebrizer {
       kGE,  // Include both > and >=
       kEquals,
       kBetween,
-      kIn,
       kInArray,
       kOther
     };
@@ -380,8 +379,8 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeJoinScan(
       const ResolvedJoinScan* join_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
-  // Returns an algebrized right scan with the given active conjuncts.
-  using RightScanAlgebrizerCb =
+  // Returns an algebrized scan with the given active conjuncts.
+  using ScanAlgebrizerCallback =
       std::function<absl::StatusOr<std::unique_ptr<RelationalOp>>(
           std::vector<FilterConjunctInfo*>*)>;
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeJoinScanInternal(
@@ -389,10 +388,14 @@ class Algebrizer {
       const ResolvedExpr* join_expr,  // May be NULL
       const ResolvedScan* left_scan,
       const std::vector<ResolvedColumn>& right_output_column_list,
-      const RightScanAlgebrizerCb& right_scan_algebrizer_cb,
+      const ScanAlgebrizerCallback& right_scan_algebrizer_cb,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeFilterScan(
       const ResolvedFilterScan* filter_scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeFilterScanInternal(
+      const ResolvedExpr* filter_expr,
+      const ScanAlgebrizerCallback& scan_algebrizer_cb,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSampleScan(
       const ResolvedSampleScan* sample_scan,

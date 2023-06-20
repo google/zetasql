@@ -6,6 +6,59 @@
 
 ZetaSQL supports the following debugging functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#error"><code>ERROR</code></a>
+
+</td>
+  <td>
+    Produces an error with a custom error message.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#iferror"><code>IFERROR</code></a>
+
+</td>
+  <td>
+    Evaluates a try expression, and if an evaluation error is produced, returns
+    the result of a catch expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#iserror"><code>ISERROR</code></a>
+
+</td>
+  <td>
+    Evaluates a try expression, and if an evaluation error is produced, returns
+    <code>TRUE</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nulliferror"><code>NULLIFERROR</code></a>
+
+</td>
+  <td>
+    Evaluates a try expression, and if an evaluation error is produced, returns
+    <code>NULL</code>.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `ERROR`
 
 ```sql

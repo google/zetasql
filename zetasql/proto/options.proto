@@ -81,6 +81,7 @@ message AllowedHintsAndOptionsProto {
   repeated OptionProto option = 4;
   repeated OptionProto anonymization_option = 5;
   repeated OptionProto differential_privacy_option = 6;
+  optional bool disallow_duplicate_option_names = 7;
 }
 
 // Serialized form of AnalyzerOptions.
@@ -123,6 +124,7 @@ message AnalyzerOptionsProto {
   repeated ResolvedASTRewrite enabled_rewrites = 21;
   optional ParseLocationRecordType parse_location_record_type = 23;
   optional bool preserve_unnecessary_cast = 24;
+  optional bool show_function_signature_mismatch_details = 27;
   optional string default_anon_function_report_format = 25;
   optional int64 default_anon_kappa_value = 26;
 }

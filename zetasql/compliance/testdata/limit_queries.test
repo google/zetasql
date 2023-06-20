@@ -147,17 +147,17 @@ ARRAY<STRUCT<a DOUBLE>>[{1.1}]
 [name=orderby_limit_2]
 SELECT a FROM (SELECT 2.2 a UNION ALL SELECT 1.1 UNION ALL SELECT 3.3) ORDER BY a LIMIT 2
 --
-ARRAY<STRUCT<a DOUBLE>>[{1.1}, {2.2}]
+ARRAY<STRUCT<a DOUBLE>>[known order:{1.1}, {2.2}]
 ==
 [name=orderby_limit_3]
 SELECT a FROM (SELECT 3.3 a UNION ALL SELECT 1.1 UNION ALL SELECT 2.2) ORDER BY a LIMIT 3
 --
-ARRAY<STRUCT<a DOUBLE>>[{1.1}, {2.2}, {3.3}]
+ARRAY<STRUCT<a DOUBLE>>[known order:{1.1}, {2.2}, {3.3}]
 ==
 [name=orderby_limit_4]
 SELECT a FROM (SELECT 3.3 a UNION ALL SELECT 1.1 UNION ALL SELECT 2.2) ORDER BY a LIMIT 4
 --
-ARRAY<STRUCT<a DOUBLE>>[{1.1}, {2.2}, {3.3}]
+ARRAY<STRUCT<a DOUBLE>>[known order:{1.1}, {2.2}, {3.3}]
 ==
 [name=orderby_desc_limit_1]
 SELECT a FROM (SELECT 3.3 a UNION ALL SELECT 1.1 UNION ALL SELECT 2.2) ORDER BY a DESC LIMIT 1
@@ -192,12 +192,12 @@ ARRAY<STRUCT<a STRING>>[]
 [name=orderby_limit_2_offset_0]
 SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT 2 OFFSET 0
 --
-ARRAY<STRUCT<a STRING>>[{"a"}, {"b"}]
+ARRAY<STRUCT<a STRING>>[known order:{"a"}, {"b"}]
 ==
 [name=orderby_limit_2_offset_1]
 SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT 2 OFFSET 1
 --
-ARRAY<STRUCT<a STRING>>[{"b"}, {"c"}]
+ARRAY<STRUCT<a STRING>>[known order:{"b"}, {"c"}]
 ==
 [name=orderby_limit_2_offset_2]
 SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT 2 OFFSET 2
@@ -217,7 +217,7 @@ ARRAY<STRUCT<a STRING>>[]
 [name=cross_apply_limit_0]
 SELECT key, ARRAY(SELECT v FROM t.values v LIMIT 0) FROM Table1 t ORDER BY key
 --
-ARRAY<STRUCT<key INT64, ARRAY<>>>[
+ARRAY<STRUCT<key INT64, ARRAY<>>>[known order:
   {NULL, ARRAY<STRING>[]},
   {0, ARRAY<STRING>[]},
   {1, ARRAY<STRING>[]},
@@ -229,7 +229,7 @@ ARRAY<STRUCT<key INT64, ARRAY<>>>[
 [name=cross_apply_limit_1]
 SELECT key, ARRAY(SELECT v FROM t.values v ORDER BY v LIMIT 1) FROM Table1 t ORDER BY key
 --
-ARRAY<STRUCT<key INT64, ARRAY<>>>[
+ARRAY<STRUCT<key INT64, ARRAY<>>>[known order:
   {NULL, ARRAY<STRING>[NULL]},
   {0, ARRAY<STRING>[]},
   {1, ARRAY<STRING>["one"]},
@@ -241,42 +241,42 @@ ARRAY<STRUCT<key INT64, ARRAY<>>>[
 [name=cross_apply_limit_2]
 SELECT key, ARRAY(SELECT v FROM t.values v ORDER BY v LIMIT 2) FROM Table1 t ORDER BY key
 --
-ARRAY<STRUCT<key INT64, ARRAY<>>>[
+ARRAY<STRUCT<key INT64, ARRAY<>>>[known order:
   {NULL, ARRAY<STRING>[NULL]},
   {0, ARRAY<STRING>[]},
   {1, ARRAY<STRING>["one"]},
   {
     2,
-    ARRAY<STRING>["a", "c"]
+    ARRAY<STRING>[known order:"a", "c"]
   },
   {
     3,
-    ARRAY<STRING>["x", "y"]
+    ARRAY<STRING>[known order:"x", "y"]
   },
   {
     4,
-    ARRAY<STRING>["w", "w"]
+    ARRAY<STRING>[known order:"w", "w"]
   }
 ]
 ==
 [name=cross_apply_limit_100]
 SELECT key, ARRAY(SELECT v FROM t.values v ORDER BY v LIMIT 100) FROM Table1 t ORDER BY key
 --
-ARRAY<STRUCT<key INT64, ARRAY<>>>[
+ARRAY<STRUCT<key INT64, ARRAY<>>>[known order:
   {NULL, ARRAY<STRING>[NULL]},
   {0, ARRAY<STRING>[]},
   {1, ARRAY<STRING>["one"]},
   {
     2,
-    ARRAY<STRING>["a", "c"]
+    ARRAY<STRING>[known order:"a", "c"]
   },
   {
     3,
-    ARRAY<STRING>["x", "y", "z"]
+    ARRAY<STRING>[known order:"x", "y", "z"]
   },
   {
     4,
-    ARRAY<STRING>["w", "w", "w", "w"]
+    ARRAY<STRING>[known order:"w", "w", "w", "w"]
   }
 ]
 ==
@@ -288,7 +288,7 @@ ARRAY<STRUCT<key INT64, ARRAY<>>>[
 [name=cross_apply_limit_1_offset_1]
 SELECT key, ARRAY(SELECT v FROM t.values v ORDER BY v LIMIT 1 OFFSET 1) FROM Table1 t ORDER BY key
 --
-ARRAY<STRUCT<key INT64, ARRAY<>>>[
+ARRAY<STRUCT<key INT64, ARRAY<>>>[known order:
   {NULL, ARRAY<STRING>[]},
   {0, ARRAY<STRING>[]},
   {1, ARRAY<STRING>[]},
@@ -300,25 +300,25 @@ ARRAY<STRUCT<key INT64, ARRAY<>>>[
 [name=cross_apply_limit_100_offset_1]
 SELECT key, ARRAY(SELECT v FROM t.values v ORDER BY v LIMIT 100 OFFSET 1) FROM Table1 t ORDER BY key
 --
-ARRAY<STRUCT<key INT64, ARRAY<>>>[
+ARRAY<STRUCT<key INT64, ARRAY<>>>[known order:
   {NULL, ARRAY<STRING>[]},
   {0, ARRAY<STRING>[]},
   {1, ARRAY<STRING>[]},
   {2, ARRAY<STRING>["c"]},
   {
     3,
-    ARRAY<STRING>["y", "z"]
+    ARRAY<STRING>[known order:"y", "z"]
   },
   {
     4,
-    ARRAY<STRING>["w", "w", "w"]
+    ARRAY<STRING>[known order:"w", "w", "w"]
   }
 ]
 ==
 [name=cross_apply_limit_1_offset_100]
 SELECT key, ARRAY(SELECT v FROM t.values v ORDER BY v LIMIT 1 OFFSET 100) FROM Table1 t ORDER BY key
 --
-ARRAY<STRUCT<key INT64, ARRAY<>>>[
+ARRAY<STRUCT<key INT64, ARRAY<>>>[known order:
   {NULL, ARRAY<STRING>[]},
   {0, ARRAY<STRING>[]},
   {1, ARRAY<STRING>[]},
@@ -390,12 +390,12 @@ ARRAY<STRUCT<a TIMESTAMP>>[{2000-01-23 12:13:14.123456+00}]
 [name=type_array_int64]
 SELECT a FROM (SELECT [1,2,3] a) LIMIT 1
 --
-ARRAY<STRUCT<a ARRAY<>>>[{ARRAY<INT64>[1, 2, 3]}]
+ARRAY<STRUCT<a ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3]}]
 ==
 [name=type_array_string]
 SELECT a FROM (SELECT ARRAY(SELECT 'x' UNION ALL SELECT 'y') a) LIMIT 1
 --
-ARRAY<STRUCT<a ARRAY<>>>[{ARRAY<STRING>["x", "y"]}]
+ARRAY<STRUCT<a ARRAY<>>>[{ARRAY<STRING>[unknown order:"x", "y"]}]
 ==
 [name=type_struct]
 SELECT (SELECT s FROM (SELECT 'x' a, 5 b) s) LIMIT 1
@@ -427,7 +427,7 @@ ARRAY<STRUCT<
   1,
   "foo",
   9.18,
-  ARRAY<DOUBLE>[1, -2e-05],
+  ARRAY<DOUBLE>[known order:1, -2e-05],
   {
     int64_key_1: 7
     int64_key_2: 8

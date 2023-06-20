@@ -60,7 +60,8 @@ FROM
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
-### `EXTRACT` {#proto_extract}
+### `EXTRACT` 
+<a id="proto_extract"></a>
 
 ```sql
 EXTRACT( extraction_type (proto_field) FROM proto_expression )

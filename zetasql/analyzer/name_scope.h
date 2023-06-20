@@ -41,19 +41,19 @@ class ASTNode;
 class ASTPathExpression;
 class NameList;
 
-typedef std::shared_ptr<const NameList> NameListPtr;
+using NameListPtr = std::shared_ptr<const NameList>;
 
 // The set of ResolvedColumns referenced in a particular subquery that resolved
 // as correlated references to values from a parent NameScope.
 // The bool value is true if the reference is to a column from more than one
 // enclosing NameScope away; i.e. a column that was already a correlated
 // reference in the enclosing query.
-typedef std::map<ResolvedColumn, bool> CorrelatedColumnsSet;
+using CorrelatedColumnsSet = std::map<ResolvedColumn, bool>;
 
 // A list of the CorrelatedColumnsSets attached to all NameScopes traversed
 // while looking up a name.  The sets are ordered from child scopes to
 // parent scopes; i.e. the outermost query's NameScope is last.
-typedef std::vector<CorrelatedColumnsSet*> CorrelatedColumnsSetList;
+using CorrelatedColumnsSetList = std::vector<CorrelatedColumnsSet*>;
 
 // Identifies valid name path (i.e., 'a.b.c') that resolves to the
 // specified ResolvedColumn target.
@@ -63,12 +63,13 @@ typedef std::vector<CorrelatedColumnsSet*> CorrelatedColumnsSetList;
 // to 'target_column_'.
 class ValidNamePath {
  public:
-  ValidNamePath() {}
   ValidNamePath(const std::vector<IdString>& name_path,
                 const ResolvedColumn& target_column)
       : name_path_(name_path),
         target_column_(target_column) {}
-  ~ValidNamePath() {}
+
+  ValidNamePath() = default;
+  ~ValidNamePath() = default;
 
   const std::vector<IdString>& name_path() const {
     return name_path_;
@@ -112,7 +113,7 @@ typedef absl::flat_hash_map<ResolvedColumn, std::unique_ptr<ValidNamePathList>,
 // valid to access from that ResolvedColumn.
 class ValidFieldInfoMap {
  public:
-  ValidFieldInfoMap() {}
+  ValidFieldInfoMap() = default;
   ValidFieldInfoMap(const ValidFieldInfoMap&) = delete;
   ValidFieldInfoMap& operator=(const ValidFieldInfoMap&) = delete;
   ~ValidFieldInfoMap();
@@ -137,7 +138,7 @@ class ValidFieldInfoMap {
   const ResolvedColumnToValidNamePathsMap& map() const {
     return column_to_valid_name_paths_map_;
   }
-  std::string DebugString(const std::string& indent = "") const;
+  std::string DebugString(absl::string_view indent = "") const;
 
  private:
   // A map from a ResolvedColumn to a name path list that is valid
@@ -147,33 +148,45 @@ class ValidFieldInfoMap {
 
 // A NamedColumn is an element of a NameList, associating a name with a
 // ResolvedColumn.
-struct NamedColumn {
+class NamedColumn {
  public:
-  NamedColumn() {}
   // Constructor for non-value table columns.
-  NamedColumn(IdString name_in, const ResolvedColumn& column_in,
-              bool is_explicit_in)
-      : name(name_in), column(column_in), is_explicit(is_explicit_in),
-        is_value_table_column(false) {}
+  NamedColumn(IdString name, const ResolvedColumn& column, bool is_explicit)
+      : name_(name),
+        column_(column),
+        is_explicit_(is_explicit),
+        is_value_table_column_(false) {}
   // Constructor for value table columns.
-  NamedColumn(IdString name_in, const ResolvedColumn& column_in,
-              bool is_explicit_in,
-              const IdStringSetCase& excluded_field_names_in)
-      : name(name_in), column(column_in), is_explicit(is_explicit_in),
-        is_value_table_column(true),
-        excluded_field_names(excluded_field_names_in) {}
+  NamedColumn(IdString name, const ResolvedColumn& column, bool is_explicit,
+              const IdStringSetCase& excluded_field_names)
+      : name_(name),
+        column_(column),
+        is_explicit_(is_explicit),
+        is_value_table_column_(true),
+        excluded_field_names_(excluded_field_names) {}
 
   // Having a move constructor makes storing this in STL containers more
   // efficient.
+  NamedColumn() = default;
   NamedColumn(NamedColumn&& old) = default;
   NamedColumn(const NamedColumn& other) = default;
   NamedColumn& operator=(const NamedColumn& other) = default;
 
   std::string DebugString(absl::string_view prefix = "") const;
 
-  IdString name;
+  IdString name() const { return name_; }
+  const ResolvedColumn& column() const { return column_; }
+  bool is_explicit() const { return is_explicit_; }
+  bool is_value_table_column() const { return is_value_table_column_; }
+  const IdStringSetCase& excluded_field_names() const {
+    return excluded_field_names_;
+  }
+  IdStringSetCase& excluded_Field_names() { return excluded_field_names_; }
 
-  ResolvedColumn column;
+ private:
+  IdString name_;
+
+  ResolvedColumn column_;
 
   // True if the alias for this column is an explicit name. Generally, explicit
   // names come directly from the query text, and implicit names are those that
@@ -182,12 +195,12 @@ struct NamedColumn {
   // any scoping behavior except for the final check in strict mode that may
   // raise an error. For more information, please see the beginning of
   // (broken link).
-  bool is_explicit = false;
+  bool is_explicit_ = false;
 
   // True if this column is the value produced in a value table scan.
   // The name acts more like a range variable in this case, but is
   // stored in columns_ so it shows up in the right order in SELECT *.
-  bool is_value_table_column = false;
+  bool is_value_table_column_ = false;
 
   // Only relevant for value table columns.  Indicates field names that
   // should be ignored for implicit lookups from the containing NameList.
@@ -202,9 +215,7 @@ struct NamedColumn {
   // TODO I think using a CopyOnWrite of a HashSet here may be
   // worthwhile.  We copy identical sets around a lot, and using CopyOnWrite
   // would let us use a HashSet without making copy or destruct too expensive.
-  IdStringSetCase excluded_field_names;
-
-  // Copyable.
+  IdStringSetCase excluded_field_names_;
 };
 
 // A target that a name in a NameScope points at.
@@ -279,8 +290,6 @@ class NameTarget {
       : kind_(FIELD_OF), column_(column), field_id_(field_id) {
   }
 
-  // Having a move constructor makes storing this in STL containers more
-  // efficient.
   NameTarget(NameTarget&& old) = default;
   NameTarget(const NameTarget& other) = default;
   NameTarget& operator=(const NameTarget& other) = default;
@@ -608,7 +617,7 @@ class NameScope {
   // are range variables.
   bool HasLocalRangeVariables() const;
 
-  std::string DebugString(const std::string& indent = "") const;
+  std::string DebugString(absl::string_view indent = "") const;
 
   const NameScope* previous_scope() const { return previous_scope_; }
 
@@ -635,32 +644,41 @@ class NameScope {
   // returned error NameTarget identifies any field paths that are valid
   // to access, allowing the caller to access them if appropriate even
   // if 'vt1' itself is not valid to access.
-  struct ValueTableColumn {
-    ResolvedColumn column;
-    IdStringSetCase excluded_field_names;
-    bool is_valid_to_access = false;
-    ValidNamePathList valid_name_path_list;
+  class ValueTableColumn {
+   public:
+    ValueTableColumn(const ResolvedColumn& column,
+                     const IdStringSetCase& excluded_field_names,
+                     bool is_valid_to_access,
+                     const ValidNamePathList& valid_name_path_list)
+        : column_(column),
+          excluded_field_names_(excluded_field_names),
+          is_valid_to_access_(is_valid_to_access),
+          valid_name_path_list_(valid_name_path_list) {}
 
-    std::string DebugString() const;
-
-    ValueTableColumn() {}
-    ValueTableColumn(
-        const ResolvedColumn& column_in,
-        const IdStringSetCase& excluded_field_names_in,
-        bool is_valid_to_access_in,
-        const ValidNamePathList& valid_name_path_list_in)
-        : column(column_in),
-          excluded_field_names(excluded_field_names_in),
-          is_valid_to_access(is_valid_to_access_in),
-          valid_name_path_list(valid_name_path_list_in) {}
-
-    // Having a move constructor makes storing this in STL containers more
-    // efficient.
+    ValueTableColumn() = default;
     ValueTableColumn(ValueTableColumn&& old) = default;
     ValueTableColumn(const ValueTableColumn& other) = default;
     ValueTableColumn& operator=(const ValueTableColumn& other) = default;
 
     // Copyable.
+    std::string DebugString() const;
+
+    ResolvedColumn column() const { return column_; }
+    const IdStringSetCase& excluded_field_names() const {
+      return excluded_field_names_;
+    }
+    IdStringSetCase& excluded_field_names() { return excluded_field_names_; }
+
+    bool is_valid_to_access() const { return is_valid_to_access_; }
+    const ValidNamePathList& valid_name_path_list() const {
+      return valid_name_path_list_;
+    }
+
+   private:
+    ResolvedColumn column_;
+    IdStringSetCase excluded_field_names_;
+    bool is_valid_to_access_ = false;
+    ValidNamePathList valid_name_path_list_;
   };
 
   // A private constructor for internal use only, taking already-constructed
@@ -852,7 +870,7 @@ class NameList {
 
   // Prepare this NameList for 'size' new columns. This is for efficiency
   // purposes only.
-  void ReserveColumns(int size) { columns_.reserve(size); }
+  void ReserveColumns(size_t size) { columns_.reserve(size); }
 
   // Add a named column.
   // <is_explicit> should be true if the alias for this column is an explicit

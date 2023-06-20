@@ -25,6 +25,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/json.h"
 #include "zetasql/public/functions/json_format.h"
+#include "zetasql/public/functions/json_internal.h"
 #include "zetasql/public/functions/to_json.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/type.pb.h"
@@ -35,6 +36,8 @@
 
 namespace zetasql {
 namespace {
+
+using functions::json_internal::StrictJSONPathIterator;
 
 absl::StatusOr<JSONValueConstRef> GetJSONValueConstRef(
     const Value& json, const JSONParsingOptions& json_parsing_options,
@@ -173,6 +176,26 @@ class JsonArrayFunction : public SimpleBuiltinScalarFunction {
  public:
   JsonArrayFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kJsonArray,
+                                    types::JsonType()) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class JsonObjectFunction : public SimpleBuiltinScalarFunction {
+ public:
+  JsonObjectFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kJsonObject,
+                                    types::JsonType()) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class JsonRemoveFunction : public SimpleBuiltinScalarFunction {
+ public:
+  JsonRemoveFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kJsonRemove,
                                     types::JsonType()) {}
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
@@ -671,6 +694,127 @@ absl::StatusOr<Value> JsonArrayFunction::Eval(
   return Value::Json(*std::move(result));
 }
 
+absl::StatusOr<Value> JsonObjectFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  // JSON_OBJECT has 2 signatures:
+  // 1. JSON_OBJECT(STRING, ANY, ...)
+  // 2. JSON_OBJECT(ARRAY<STRING>, ARRAY<ANY>)
+  // 'is_array_args' indicates it is the second one.
+  bool is_array_args = false;
+  if (args.size() == 2 && args[0].type()->IsArray()) {
+    is_array_args = true;
+    ZETASQL_RET_CHECK(args[0].type()->AsArray()->element_type()->IsString());
+    ZETASQL_RET_CHECK(args[1].type()->IsArray());
+    if (args[0].is_null()) {
+      return MakeEvalError()
+             << "Invalid input to JSON_OBJECT: The keys array cannot be NULL";
+    }
+    if (args[1].is_null()) {
+      return MakeEvalError()
+             << "Invalid input to JSON_OBJECT: The values array cannot be NULL";
+    }
+    if (args[0].num_elements() != args[1].num_elements()) {
+      return MakeEvalError() << "Invalid input to JSON_OBJECT: The number of "
+                                "keys and values must match";
+    }
+  }
+
+  for (const Value& arg : args) {
+    ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(arg, context));
+  }
+
+  const size_t num_keys =
+      is_array_args ? args[0].num_elements() : args.size() / 2;
+
+  std::vector<absl::string_view> keys;
+  std::vector<const Value*> values;
+  keys.reserve(num_keys);
+  values.reserve(num_keys);
+
+  if (is_array_args) {
+    for (const Value& key : args[0].elements()) {
+      if (key.is_null()) {
+        return MakeEvalError()
+               << "Invalid input to JSON_OBJECT: A key cannot be NULL";
+      }
+      keys.push_back(key.string_value());
+    }
+    for (const Value& value : args[1].elements()) {
+      values.push_back(&value);
+    }
+  } else {
+    for (int i = 0; i < args.size(); ++i) {
+      if (i % 2 == 0) {
+        if (args[i].is_null()) {
+          return MakeEvalError()
+                 << "Invalid input to JSON_OBJECT: A key cannot be NULL";
+        }
+        ZETASQL_RET_CHECK(args[i].type()->IsString());
+        keys.push_back(args[i].string_value());
+      } else {
+        values.push_back(&args[i]);
+      }
+    }
+  }
+
+  functions::JsonObjectBuilder builder(context->GetLanguageOptions(),
+                                       /*canonicalize_zero=*/true);
+  auto result = functions::JsonObject(keys, absl::MakeSpan(values), builder);
+
+  if (!result.ok()) {
+    return MakeEvalError() << "Invalid input to JSON_OBJECT: "
+                           << result.status().message();
+  }
+  for (const Value& arg : args) {
+    MaybeSetNonDeterministicContext(arg, context);
+  }
+  return Value::Json(*std::move(result));
+}
+
+absl::StatusOr<Value> JsonRemoveFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_GE(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+
+  const LanguageOptions& language_options = context->GetLanguageOptions();
+
+  JSONValue result;
+  if (args[0].is_validated_json()) {
+    result = JSONValue::CopyFrom(args[0].json_value());
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(
+        result,
+        JSONValue::ParseJSONString(
+            args[0].json_value_unparsed(),
+            JSONParsingOptions{
+                .wide_number_mode =
+                    (language_options.LanguageFeatureEnabled(
+                         FEATURE_JSON_STRICT_NUMBER_PARSING)
+                         ? JSONParsingOptions::WideNumberMode::kExact
+                         : JSONParsingOptions::WideNumberMode::kRound)}));
+  }
+  JSONValueRef ref = result.GetRef();
+
+  for (int i = 1; i < args.size(); ++i) {
+    auto path_iterator = StrictJSONPathIterator::Create(args[i].string_value());
+    if (!path_iterator.ok()) {
+      return MakeEvalError() << "Invalid input to JSON_REMOVE: "
+                             << path_iterator.status().message();
+    }
+    auto status = functions::JsonRemove(ref, **path_iterator).status();
+    if (!status.ok()) {
+      return MakeEvalError()
+             << "Invalid input to JSON_REMOVE: " << status.message();
+    }
+  }
+
+  return Value::Json(std::move(result));
+}
+
 }  // namespace
 
 void RegisterBuiltinJsonFunctions() {
@@ -725,6 +869,16 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kJsonArray},
       [](FunctionKind kind, const zetasql::Type* output_type) {
         return new JsonArrayFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kJsonObject},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new JsonObjectFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kJsonRemove},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new JsonRemoveFunction();
       });
 }
 

@@ -55,8 +55,10 @@
 namespace zetasql {
 
 using ::zetasql::testing::EqualsProto;
+using ::testing::Eq;
 using ::testing::IsEmpty;
 using ::testing::Not;
+using ::testing::UnorderedElementsAre;
 using ::zetasql_base::testing::IsOk;
 using ::zetasql_base::testing::StatusIs;
 namespace local_service {
@@ -2489,8 +2491,10 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {
 
   ZETASQL_ASSERT_OK(GetBuiltinFunctions(proto, &response));
   EXPECT_EQ(response.function_size(), 2);
-  EXPECT_EQ(function1.DebugString(), response.function(0).DebugString());
-  EXPECT_EQ(function2.DebugString(), response.function(1).DebugString());
+  std::vector<std::string> responses = {response.function(0).DebugString(),
+                                        response.function(1).DebugString()};
+  EXPECT_THAT(responses, UnorderedElementsAre(Eq(function1.DebugString()),
+                                              Eq(function2.DebugString())));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctionsReturnsTypes) {

@@ -130,16 +130,18 @@ ARRAY<STRUCT<STRING>>[{"success"}]
 SELECT MODIFY_MAP(value.string_int32_map, "foo", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
-     {
-       key: "bar"
-       value: 456
-     },
-     {
-       key: "foo"
-       value: 789
-     }
-   ]}
+  {
+    ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[unknown order:
+      {
+        key: "bar"
+        value: 456
+      },
+      {
+        key: "foo"
+        value: 789
+      }
+    ]
+  }
 ]
 ==
 
@@ -168,20 +170,22 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT MODIFY_MAP(value.string_int32_map, "foo", 789, "quux", 1337) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
-     {
-       key: "bar"
-       value: 456
-     },
-     {
-       key: "foo"
-       value: 789
-     },
-     {
-       key: "quux"
-       value: 1337
-     }
-   ]}
+  {
+    ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[unknown order:
+      {
+        key: "bar"
+        value: 456
+      },
+      {
+        key: "foo"
+        value: 789
+      },
+      {
+        key: "quux"
+        value: 1337
+      }
+    ]
+  }
 ]
 ==
 
@@ -189,16 +193,18 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT MODIFY_MAP(value.string_int32_map, "foo", CAST(value.string_int32_map[KEY("bar")] + 1 AS INT32)) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
-     {
-       key: "bar"
-       value: 456
-     },
-     {
-       key: "foo"
-       value: 457
-     }
-   ]}
+  {
+    ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[unknown order:
+      {
+        key: "bar"
+        value: 456
+      },
+      {
+        key: "foo"
+        value: 457
+      }
+    ]
+  }
 ]
 ==
 
@@ -212,20 +218,22 @@ ERROR: generic::out_of_range: MODIFY_MAP: Only one instance of each key is allow
 SELECT MODIFY_MAP(value.string_int32_map, "baz", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
-     {
-       key: "foo"
-       value: 123
-     },
-     {
-       key: "bar"
-       value: 456
-     },
-     {
-       key: "baz"
-       value: 789
-     }
-   ]}
+  {
+    ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[unknown order:
+      {
+        key: "foo"
+        value: 123
+      },
+      {
+        key: "bar"
+        value: 456
+      },
+      {
+        key: "baz"
+        value: 789
+      }
+    ]
+  }
 ]
 ==
 
@@ -256,16 +264,18 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT MODIFY_MAP(value.string_int32_map, "quux", NULL) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
-     {
-       key: "foo"
-       value: 123
-     },
-     {
-       key: "bar"
-       value: 456
-     }
-   ]}
+  {
+    ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[unknown order:
+      {
+        key: "foo"
+        value: 123
+      },
+      {
+        key: "bar"
+        value: 456
+      }
+    ]
+  }
 ]
 ==
 
@@ -391,18 +401,20 @@ SELECT [
 AS result
 --
 ARRAY<STRUCT<result ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringDoubleMapEntry>>[
-     {
-       key: "foo"
-       value: 123
-     },
-     {
-       key: "foo"
-       value: 456
-     },
-     {
-       key: "foo"
-       value: 789
-     }
-   ]}
+  {
+    ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringDoubleMapEntry>>[known order:
+      {
+        key: "foo"
+        value: 123
+      },
+      {
+        key: "foo"
+        value: 456
+      },
+      {
+        key: "foo"
+        value: 789
+      }
+    ]
+  }
 ]

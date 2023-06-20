@@ -16,10 +16,20 @@ FROM UNNEST([STRUCT("apple" AS x, 3 AS weight),
                    ("banana", 5),
                    ("pear", 4)])
 --
-ARRAY<STRUCT<approx_top_sum ARRAY<>>>[
-  {ARRAY<STRUCT<value STRING, sum INT64>>[{"pear", 6}, {"banana", 5}]},
-  {ARRAY<STRUCT<value STRING, sum INT64>>[{"pear", 6}, {"banana", 5}]},
-  {ARRAY<STRUCT<value STRING, sum INT64>>[{"pear", 6}, {"banana", 5}]},
-  {ARRAY<STRUCT<value STRING, sum INT64>>[{"pear", 6}, {"banana", 5}]},
-  {ARRAY<STRUCT<value STRING, sum INT64>>[{"pear", 6}, {"banana", 5}]}
+ARRAY<STRUCT<approx_top_sum ARRAY<>>>[unknown order:
+  {
+    ARRAY<STRUCT<value STRING, sum INT64>>[known order:{"pear", 6}, {"banana", 5}]
+  },
+  {
+    ARRAY<STRUCT<value STRING, sum INT64>>[known order:{"pear", 6}, {"banana", 5}]
+  },
+  {
+    ARRAY<STRUCT<value STRING, sum INT64>>[known order:{"pear", 6}, {"banana", 5}]
+  },
+  {
+    ARRAY<STRUCT<value STRING, sum INT64>>[known order:{"pear", 6}, {"banana", 5}]
+  },
+  {
+    ARRAY<STRUCT<value STRING, sum INT64>>[known order:{"pear", 6}, {"banana", 5}]
+  }
 ]

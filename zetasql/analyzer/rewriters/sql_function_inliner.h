@@ -17,7 +17,7 @@
 #ifndef ZETASQL_ANALYZER_REWRITERS_SQL_FUNCTION_INLINER_H_
 #define ZETASQL_ANALYZER_REWRITERS_SQL_FUNCTION_INLINER_H_
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/public/rewriter_interface.h"
 
 namespace zetasql {
 
@@ -28,6 +28,10 @@ const Rewriter* GetSqlFunctionInliner();
 // Gets a pointer to the sql table function inliner. This inliner handles table
 // sql functions and table sql function templates.
 const Rewriter* GetSqlTvfInliner();
+
+// Gets a pointer to the sql aggregate function inliner.  This inliner handles
+// aggregate sql functions and aggregate sql function templates.
+const Rewriter* GetSqlAggregateInliner();
 
 }  // namespace zetasql
 

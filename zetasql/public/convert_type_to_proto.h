@@ -27,6 +27,8 @@
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/node_hash_map.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -67,8 +69,9 @@ struct ConvertTypeToProtoOptions {
   //
   // Callers can ignore the map keys and just use the map values if they
   // only need to see the set of Descriptors without the field mapping.
-  typedef std::map<const google::protobuf::FieldDescriptorProto*,
-              MessageOrEnumDescriptor> FieldDescriptorMap;
+  typedef absl::flat_hash_map<const google::protobuf::FieldDescriptorProto*,
+                              MessageOrEnumDescriptor>
+      FieldDescriptorMap;
   FieldDescriptorMap* output_field_descriptor_map = nullptr;
 
   // If true, add import statements to the generated FileDescriptorProto with

@@ -111,7 +111,7 @@ group by distinct_2
 having count(*) > 1
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64>>[{16, 1}, {24, 2}]
+ARRAY<STRUCT<INT64, distinct_2 INT64>>[known order:{16, 1}, {24, 2}]
 ==
 [name=with_subquery]
 select sum(distinct_4) from TableDistincts
@@ -119,7 +119,7 @@ group by distinct_2
 having (select count(*) from TableDistincts) > 1
 order by 1
 --
-ARRAY<STRUCT<INT64>>[{16}, {24}]
+ARRAY<STRUCT<INT64>>[known order:{16}, {24}]
 ==
 [name=subquery_and_aggregation]
 select sum(distinct_4) from TableDistincts
@@ -135,7 +135,7 @@ group by distinct_2
 having 1 < 2
 order by 1
 --
-ARRAY<STRUCT<INT64>>[{16}, {24}]
+ARRAY<STRUCT<INT64>>[known order:{16}, {24}]
 ==
 [name=constants2]
 select sum(distinct_4) from TableDistincts
@@ -149,7 +149,7 @@ select sum(distinct_4) from TableDistincts
 group by distinct_2
 having sum(distinct_4) > 14
 --
-ARRAY<STRUCT<INT64>>[{24}, {16}]
+ARRAY<STRUCT<INT64>>[unknown order:{24}, {16}]
 ==
 [name=same_aggregation_and_constant]
 select sum(distinct_4) from TableDistincts
@@ -170,14 +170,14 @@ select sum(distinct_4) from TableDistincts
 group by distinct_2
 having sum(distinct_4) > 14 or null
 --
-ARRAY<STRUCT<INT64>>[{24}, {16}]
+ARRAY<STRUCT<INT64>>[unknown order:{24}, {16}]
 ==
 [name=aggregation_and_key]
 select sum(distinct_4), distinct_2 from TableDistincts
 group by distinct_2
 having sum(distinct_4) > 14 + distinct_2
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64>>[{24, 2}, {16, 1}]
+ARRAY<STRUCT<INT64, distinct_2 INT64>>[unknown order:{24, 2}, {16, 1}]
 ==
 [name=key_only]
 select sum(distinct_4), distinct_2 from TableDistincts
@@ -199,7 +199,7 @@ group by distinct_2, distinct_4
 having max(distinct_8 + distinct_16 + 5) > 0
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[known order:
   {12, 1, 1},
   {16, 2, 2},
   {20, 1, 3},
@@ -233,7 +233,7 @@ group by distinct_2, distinct_4
 having string_agg(distinct cast(distinct_8 as string)) like '%,%'
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[known order:
   {12, 1, 1, 3},
   {16, 2, 2, 3},
   {20, 1, 3, 3},
@@ -248,7 +248,7 @@ group by distinct_2, distinct_4
 having exists (select * from unnest([distinct_2, distinct_4]) foo)
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[known order:
   {12, 1, 1},
   {16, 2, 2},
   {20, 1, 3},
@@ -274,7 +274,7 @@ having (select count(distinct(a))
         from (select distinct_2 a union all select distinct_4) foo) > 0
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[known order:
   {12, 1, 1, 1},
   {16, 2, 2, 1},
   {20, 1, 3, 2},
@@ -292,7 +292,7 @@ having (select count(distinct(a))
         in (select 1 union all select 3)
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[known order:
   {12, 1, 1, 1},
   {16, 2, 2, 1}
 ]
@@ -303,14 +303,14 @@ group by distinct_2
 having count(*) > 1
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64>>[{12, NULL}, {24, 2}]
+ARRAY<STRUCT<INT64, distinct_2 INT64>>[known order:{12, NULL}, {24, 2}]
 ==
 [name=data_with_nulls_and_with_subquery]
 select sum(distinct_4) from TableDistinctsWithNulls
 group by distinct_2
 having (select count(*) from TableDistinctsWithNulls) > 1
 --
-ARRAY<STRUCT<INT64>>[{24}, {12}]
+ARRAY<STRUCT<INT64>>[unknown order:{24}, {12}]
 ==
 [name=data_with_nulls_and_subquery_and_aggregation]
 select sum(distinct_4) from TableDistinctsWithNulls
@@ -326,7 +326,7 @@ group by distinct_2
 having 1 < 2
 order by 1
 --
-ARRAY<STRUCT<INT64>>[{12}, {24}]
+ARRAY<STRUCT<INT64>>[known order:{12}, {24}]
 ==
 [name=data_with_nulls_and_constants2]
 select sum(distinct_4) from TableDistinctsWithNulls
@@ -392,7 +392,7 @@ group by distinct_2, distinct_4
 having max(distinct_8 + distinct_16 + 5) > 0
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[known order:
   {10, NULL, NULL},
   {16, 2, 2},
   {20, NULL, 3},
@@ -416,7 +416,7 @@ having min(distinct cast(distinct_8 as string)) > '0'
   and max(distinct cast(distinct_8 as string)) > '0'
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[known order:
   {10, NULL, NULL},
   {16, 2, 2},
   {20, NULL, 3},
@@ -440,7 +440,7 @@ group by distinct_2, distinct_4
 having exists (select * from unnest([distinct_2, distinct_4]) foo)
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[known order:
   {10, NULL, NULL},
   {16, 2, 2},
   {20, NULL, 3},
@@ -468,7 +468,7 @@ having (select count(distinct(a))
         from (select distinct_2 a union all select distinct_4) foo) > 0
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[known order:
   {16, 2, 2, 1},
   {20, NULL, 3, 1},
   {24, 2, 4, 2}
@@ -485,7 +485,7 @@ having (select count(distinct(a))
         in (select 1 union all select 3)
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[known order:
   {16, 2, 2, 1},
   {20, NULL, 3, 1}
 ]
@@ -509,7 +509,7 @@ select sum(distinct_4) foo1, distinct_2 foo2 from TableDistincts
 group by distinct_2
 having foo1 > 14 + foo2
 --
-ARRAY<STRUCT<foo1 INT64, foo2 INT64>>[{24, 2}, {16, 1}]
+ARRAY<STRUCT<foo1 INT64, foo2 INT64>>[unknown order:{24, 2}, {16, 1}]
 ==
 [name=data_with_nulls_and_aliased_aggregation_and_key]
 select sum(distinct_4) foo1, distinct_2 foo2 from TableDistinctsWithNulls
@@ -527,7 +527,7 @@ group by distinct_2, distinct_4
 having alias1 > 0 and alias2 > 1
 order by 1
 --
-ARRAY<STRUCT<INT64, alias2 INT64, distinct_4 INT64, alias1 INT64>>[
+ARRAY<STRUCT<INT64, alias2 INT64, distinct_4 INT64, alias1 INT64>>[known order:
   {16, 2, 2, 1},
   {24, 2, 4, 2}
 ]
@@ -541,7 +541,7 @@ group by distinct_2, distinct_4
 having alias1 > 0 and alias2 > 2
 order by 1
 --
-ARRAY<STRUCT<INT64, distinct_2 INT64, alias2 INT64, alias1 INT64>>[
+ARRAY<STRUCT<INT64, distinct_2 INT64, alias2 INT64, alias1 INT64>>[known order:
   {20, NULL, 3, 1},
   {24, 2, 4, 2}
 ]

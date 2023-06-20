@@ -32,7 +32,9 @@
 #include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/constant.h"
 #include "zetasql/public/procedure.h"
+#include "zetasql/public/simple_connection.pb.h"
 #include "zetasql/public/simple_constant.pb.h"
+#include "zetasql/public/simple_model.pb.h"
 #include "zetasql/public/simple_table.pb.h"
 #include "zetasql/public/sql_view.h"
 #include "zetasql/public/strings.h"
@@ -40,7 +42,10 @@
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/base/case.h"
+#include "absl/container/btree_map.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
@@ -567,6 +572,17 @@ void SimpleCatalog::AddOwnedModel(const Model* model) {
   AddOwnedModel(absl::WrapUnique(model));
 }
 
+bool SimpleCatalog::AddOwnedModelIfNotPresent(
+    std::unique_ptr<const Model> model) {
+  absl::MutexLock l(&mutex_);
+  if (!zetasql_base::InsertIfNotPresent(&models_, absl::AsciiStrToLower(model->Name()),
+                               model.get())) {
+    return false;
+  }
+  owned_models_.push_back(std::move(model));
+  return true;
+}
+
 void SimpleCatalog::AddOwnedCatalog(std::unique_ptr<Catalog> catalog) {
   absl::MutexLock l(&mutex_);
   const std::string name = catalog->FullName();
@@ -694,6 +710,32 @@ bool SimpleCatalog::AddOwnedConstantIfNotPresent(
 
 void SimpleCatalog::AddOwnedConstant(const Constant* constant) {
   AddOwnedConstant(absl::WrapUnique(constant));
+}
+
+void SimpleCatalog::AddOwnedConnection(
+    const std::string& name, std::unique_ptr<const Connection> connection) {
+  AddConnection(name, connection.get());
+  absl::MutexLock l(&mutex_);
+  owned_connections_.push_back(std::move(connection));
+}
+
+void SimpleCatalog::AddOwnedConnection(
+    std::unique_ptr<const Connection> connection) {
+  AddConnection(connection.get());
+  absl::MutexLock l(&mutex_);
+  owned_connections_.push_back(std::move(connection));
+}
+
+bool SimpleCatalog::AddOwnedConnectionIfNotPresent(
+    std::unique_ptr<const Connection> connection) {
+  absl::MutexLock l(&mutex_);
+  if (!zetasql_base::InsertIfNotPresent(&connections_,
+                               absl::AsciiStrToLower(connection->Name()),
+                               connection.get())) {
+    return false;
+  }
+  owned_connections_.push_back(std::move(connection));
+  return true;
 }
 
 SimpleCatalog* SimpleCatalog::MakeOwnedSimpleCatalog(const std::string& name) {
@@ -1032,11 +1074,32 @@ absl::Status SimpleCatalog::DeserializeImpl(
     }
   }
 
+  for (const auto& connection_proto : proto.connection()) {
+    std::unique_ptr<SimpleConnection> connection =
+        SimpleConnection::Deserialize(connection_proto);
+    const std::string name = connection->Name();
+    if (!AddOwnedConnectionIfNotPresent(std::move(connection))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate connection '" << name << "' in serialized catalog";
+    }
+  }
+
+  for (const auto& model_proto : proto.model()) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<Model> model,
+                     SimpleModel::Deserialize(model_proto, type_deserializer));
+    const std::string name = model->Name();
+    if (!AddOwnedModelIfNotPresent(std::move(model))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate model '" << name << "' in serialized catalog";
+    }
+  }
+
   if (proto.has_file_descriptor_set_index()) {
     SetDescriptorPool(
         type_deserializer
             .descriptor_pools()[proto.file_descriptor_set_index()]);
   }
+
   return absl::OkStatus();
 }
 
@@ -1087,22 +1150,25 @@ absl::Status SimpleCatalog::SerializeImpl(
 
   // Convert hash maps to std::maps so that the serialization output is
   // deterministic.
-  const std::map<std::string, const Table*> tables(tables_.begin(),
-                                                   tables_.end());
-  const std::map<std::string, const Model*> models(models_.begin(),
-                                                   models_.end());
-  const std::map<std::string, const Type*> types(types_.begin(), types_.end());
-  const std::map<std::string, const Function*> functions(functions_.begin(),
-                                                         functions_.end());
-  const std::map<std::string, const TableValuedFunction*>
+  const absl::btree_map<std::string, const Table*> tables(tables_.begin(),
+                                                          tables_.end());
+  const absl::flat_hash_map<std::string, const Model*> models(models_.begin(),
+                                                              models_.end());
+  const absl::btree_map<std::string, const Type*> types(types_.begin(),
+                                                        types_.end());
+  const absl::btree_map<std::string, const Function*> functions(
+      functions_.begin(), functions_.end());
+  const absl::btree_map<std::string, const TableValuedFunction*>
       table_valued_functions(table_valued_functions_.begin(),
                              table_valued_functions_.end());
-  const std::map<std::string, const Procedure*> procedures(procedures_.begin(),
-                                                           procedures_.end());
-  const std::map<std::string, const Catalog*> catalogs(catalogs_.begin(),
-                                                       catalogs_.end());
-  const std::map<std::string, const Constant*> constants(constants_.begin(),
-                                                         constants_.end());
+  const absl::flat_hash_map<std::string, const Procedure*> procedures(
+      procedures_.begin(), procedures_.end());
+  const absl::btree_map<std::string, const Catalog*> catalogs(catalogs_.begin(),
+                                                              catalogs_.end());
+  const absl::btree_map<std::string, const Constant*> constants(
+      constants_.begin(), constants_.end());
+  const absl::flat_hash_map<std::string, const Connection*> connections(
+      connections_.begin(), connections_.end());
 
   for (const auto& entry : tables) {
     const std::string& table_name = entry.first;
@@ -1202,6 +1268,30 @@ absl::Status SimpleCatalog::SerializeImpl(
         constant->GetAs<SimpleConstant>();
     ZETASQL_RETURN_IF_ERROR(simple_constant->Serialize(file_descriptor_set_map,
                                                proto->add_constant()));
+  }
+
+  for (const auto& entry : connections) {
+    const std::string& connection_name = entry.first;
+    const Connection* const connection = entry.second;
+    if (!connection->Is<SimpleConnection>()) {
+      return ::zetasql_base::UnknownErrorBuilder()
+             << "Cannot serialize non-SimpleConnection " << connection_name;
+    }
+    const SimpleConnection* const simple_connection =
+        connection->GetAs<SimpleConnection>();
+    simple_connection->Serialize(proto->add_connection());
+  }
+
+  for (const auto& entry : models) {
+    const std::string& model_name = entry.first;
+    const Model* const model = entry.second;
+    if (!model->Is<SimpleModel>()) {
+      return ::zetasql_base::UnknownErrorBuilder()
+             << "Cannot serialize non-SimpleModel " << model_name;
+    }
+    const SimpleModel* const simple_model = model->GetAs<SimpleModel>();
+    ZETASQL_RETURN_IF_ERROR(
+        simple_model->Serialize(file_descriptor_set_map, proto->add_model()));
   }
 
   return absl::OkStatus();
@@ -1314,6 +1404,20 @@ std::vector<Catalog*> SimpleCatalog::catalogs() const {
   return catalogs;
 }
 
+std::vector<std::string> SimpleCatalog::model_names() const {
+  absl::MutexLock l(&mutex_);
+  std::vector<std::string> model_names;
+  zetasql_base::AppendKeysFromMap(models_, &model_names);
+  return model_names;
+}
+
+std::vector<const Model*> SimpleCatalog::models() const {
+  absl::MutexLock l(&mutex_);
+  std::vector<const Model*> models;
+  zetasql_base::AppendValuesFromMap(models_, &models);
+  return models;
+}
+
 std::vector<std::string> SimpleCatalog::constant_names() const {
   absl::MutexLock l(&mutex_);
   std::vector<std::string> constant_names;
@@ -1326,6 +1430,20 @@ std::vector<const Constant*> SimpleCatalog::constants() const {
   std::vector<const Constant*> constants;
   zetasql_base::AppendValuesFromMap(constants_, &constants);
   return constants;
+}
+
+std::vector<std::string> SimpleCatalog::connection_names() const {
+  absl::MutexLock l(&mutex_);
+  std::vector<std::string> connection_names;
+  zetasql_base::AppendKeysFromMap(connections_, &connection_names);
+  return connection_names;
+}
+
+std::vector<const Connection*> SimpleCatalog::connections() const {
+  absl::MutexLock l(&mutex_);
+  std::vector<const Connection*> connections;
+  zetasql_base::AppendValuesFromMap(connections_, &connections);
+  return connections;
 }
 
 SimpleTable::SimpleTable(absl::string_view name,
@@ -1782,6 +1900,62 @@ absl::Status SimpleModel::AddOutput(const Column* column, bool is_owned) {
     owned_inputs_outputs_.emplace_back(std::move(column_owner));
   }
   return absl::OkStatus();
+}
+
+absl::Status SimpleModel::Serialize(
+    FileDescriptorSetMap* file_descriptor_set_map,
+    SimpleModelProto* proto) const {
+  proto->Clear();
+  proto->set_id(id_);
+  proto->set_name(name_);
+
+  for (const Column* input : inputs_) {
+    SimpleColumnProto* input_proto = proto->add_input();
+    input_proto->set_name(input->Name());
+    ZETASQL_RETURN_IF_ERROR(
+        input->GetType()->SerializeToProtoAndDistinctFileDescriptors(
+            input_proto->mutable_type(), file_descriptor_set_map));
+  }
+
+  for (const Column* output : outputs_) {
+    SimpleColumnProto* output_proto = proto->add_output();
+    output_proto->set_name(output->Name());
+    ZETASQL_RETURN_IF_ERROR(
+        output->GetType()->SerializeToProtoAndDistinctFileDescriptors(
+            output_proto->mutable_type(), file_descriptor_set_map));
+  }
+
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<SimpleModel>> SimpleModel::Deserialize(
+    const SimpleModelProto& proto, const TypeDeserializer& type_deserializer) {
+  std::vector<NameAndType> inputs;
+  for (const SimpleColumnProto& input_proto : proto.input()) {
+    ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                     type_deserializer.Deserialize(input_proto.type()));
+    inputs.push_back(std::make_pair(input_proto.name(), type));
+  }
+
+  std::vector<NameAndType> outputs;
+  for (const SimpleColumnProto& output_proto : proto.output()) {
+    ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                     type_deserializer.Deserialize(output_proto.type()));
+    outputs.push_back(std::make_pair(output_proto.name(), type));
+  }
+
+  return std::make_unique<SimpleModel>(proto.name(), inputs, outputs,
+                                       proto.id());
+}
+
+void SimpleConnection::Serialize(SimpleConnectionProto* proto) const {
+  proto->Clear();
+  proto->set_name(name_);
+}
+
+std::unique_ptr<SimpleConnection> SimpleConnection::Deserialize(
+    const SimpleConnectionProto& proto) {
+  return std::make_unique<SimpleConnection>(proto.name());
 }
 
 }  // namespace zetasql

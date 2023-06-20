@@ -787,7 +787,17 @@ void Unparser::visitASTCreateViewStatement(
 
 void Unparser::visitASTCreateApproxViewStatement(
     const ASTCreateApproxViewStatement* node, void* data) {
-  print(GetCreateStatementPrefix(node, "APPROX VIEW"));
+  print("CREATE");
+
+  if (node->is_or_replace()) print("OR REPLACE");
+  print("APPROX");
+  if (node->recursive()) {
+    print("RECURSIVE");
+  }
+  print("VIEW");
+  if (node->is_if_not_exists()) {
+    print("IF NOT EXISTS");
+  }
   node->name()->Accept(this, data);
   if (node->column_with_options_list() != nullptr) {
     node->column_with_options_list()->Accept(this, data);
@@ -833,8 +843,13 @@ void Unparser::visitASTCreateMaterializedViewStatement(
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
-  println("AS");
-  node->query()->Accept(this, data);
+  if (node->query() != nullptr) {
+    println("AS");
+    node->query()->Accept(this, data);
+  } else if (node->replica_source() != nullptr) {
+    println("AS REPLICA OF");
+    node->replica_source()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTColumnWithOptions(const ASTColumnWithOptions* node,
@@ -901,21 +916,6 @@ void Unparser::visitASTCreateSnapshotTableStatement(
   node->name()->Accept(this, data);
   print("CLONE");
   node->clone_data_source()->Accept(this, data);
-  if (node->options_list() != nullptr) {
-    print("OPTIONS");
-    node->options_list()->Accept(this, data);
-  }
-}
-
-void Unparser::visitASTCreateReplicaMaterializedViewStatement(
-    const ASTCreateReplicaMaterializedViewStatement* node, void* data) {
-  print("CREATE");
-  if (node->is_or_replace()) print("OR REPLACE");
-  print("REPLICA MATERIALIZED VIEW");
-  if (node->is_if_not_exists()) print("IF NOT EXISTS");
-  node->name()->Accept(this, data);
-  print("FROM");
-  node->data_source()->Accept(this, data);
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
@@ -1039,6 +1039,24 @@ void Unparser::visitASTExportModelStatement(const ASTExportModelStatement* node,
   if (node->model_name_path() != nullptr) {
     node->model_name_path()->Accept(this, data);
   }
+
+  if (node->with_connection_clause() != nullptr) {
+    node->with_connection_clause()->Accept(this, data);
+  }
+
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTExportMetadataStatement(
+    const ASTExportMetadataStatement* node, void* data) {
+  print("EXPORT");
+  print(SchemaObjectKindToName(node->schema_object_kind()));
+  print("METADATA FROM");
+  ZETASQL_DCHECK(node->name_path() != nullptr);
+  node->name_path()->Accept(this, data);
 
   if (node->with_connection_clause() != nullptr) {
     node->with_connection_clause()->Accept(this, data);
@@ -1554,7 +1572,16 @@ void Unparser::visitASTWithOffset(const ASTWithOffset* node, void* data) {
 void Unparser::visitASTUnnestExpression(const ASTUnnestExpression* node,
                                         void* data) {
   print("UNNEST(");
-  visitASTChildren(node, data);
+  for (int i = 0; i < node->expressions().size(); i++) {
+    if (i > 0) {
+      print(", ");
+    }
+    node->expressions(i)->Accept(this, data);
+  }
+  if (node->array_zip_mode() != nullptr) {
+    print(", ");
+    node->array_zip_mode()->Accept(this, data);
+  }
   print(")");
 }
 
@@ -1664,13 +1691,54 @@ void Unparser::visitASTRollup(const ASTRollup* node, void* data) {
   print(")");
 }
 
-void Unparser::visitASTGroupingItem(const ASTGroupingItem* node, void* data) {
+void Unparser::visitASTCube(const ASTCube* node, void* data) {
+  print("CUBE(");
+  UnparseVectorWithSeparator(node->expressions(), data, ",");
+  print(")");
+}
+
+void Unparser::visitASTGroupingSet(const ASTGroupingSet* node, void* data) {
+  ZETASQL_DCHECK_LE((node->expression() != nullptr) + (node->rollup() != nullptr) +
+                (node->cube() != nullptr),
+            1)
+      << "at most one of expressions, rollup, and cube can exist";
+
   if (node->expression() != nullptr) {
-    ZETASQL_DCHECK(node->rollup() == nullptr);
     node->expression()->Accept(this, data);
-  } else {
-    ZETASQL_DCHECK(node->rollup() != nullptr);
+  } else if (node->rollup() != nullptr) {
     node->rollup()->Accept(this, data);
+  } else if (node->cube() != nullptr) {
+    node->cube()->Accept(this, data);
+  } else {
+    // Indicate this is an empty grouping set.
+    print("()");
+  }
+}
+
+void Unparser::visitASTGroupingSetList(const ASTGroupingSetList* node,
+                                       void* data) {
+  print("GROUPING SETS(");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    UnparseVectorWithSeparator(node->grouping_sets(), data, ",");
+  }
+  print(")");
+}
+
+void Unparser::visitASTGroupingItem(const ASTGroupingItem* node, void* data) {
+  ZETASQL_DCHECK_EQ((node->expression() != nullptr) + (node->rollup() != nullptr) +
+                (node->cube() != nullptr) +
+                (node->grouping_set_list() != nullptr),
+            1)
+      << "Exact one of expression, rollup, cube, and grouping_set_list exist";
+  if (node->expression() != nullptr) {
+    node->expression()->Accept(this, data);
+  } else if (node->rollup() != nullptr) {
+    node->rollup()->Accept(this, data);
+  } else if (node->cube() != nullptr) {
+    node->cube()->Accept(this, data);
+  } else {
+    node->grouping_set_list()->Accept(this, data);
   }
 }
 
@@ -1681,10 +1749,16 @@ void Unparser::visitASTGroupBy(const ASTGroupBy* node, void* data) {
     node->hint()->Accept(this, data);
   }
   print("BY");
-  {
+  if (node->all() != nullptr) {
+    node->all()->Accept(this, data);
+  } else {
     Formatter::Indenter indenter(&formatter_);
     UnparseVectorWithSeparator(node->grouping_items(), data, ",");
   }
+}
+
+void Unparser::visitASTGroupByAll(const ASTGroupByAll* node, void* data) {
+  print("ALL");
 }
 
 void Unparser::visitASTHaving(const ASTHaving* node, void* data) {
@@ -3055,9 +3129,8 @@ void Unparser::visitASTGrantStatement(const ASTGrantStatement* node,
   print("GRANT");
   node->privileges()->Accept(this, data);
   print("ON");
-  if (node->target_type() != nullptr) {
-    node->target_type()->Accept(this, data);
-  }
+  // TODO: target_type_parts should be in upper case in unparsing.
+  UnparseVectorWithSeparator(node->target_type_parts(), data, "");
   node->target_path()->Accept(this, data);
   print("TO");
   node->grantee_list()->Accept(this, data);
@@ -3068,9 +3141,8 @@ void Unparser::visitASTRevokeStatement(const ASTRevokeStatement* node,
   print("REVOKE");
   node->privileges()->Accept(this, data);
   print("ON");
-  if (node->target_type() != nullptr) {
-    node->target_type()->Accept(this, data);
-  }
+  // TODO: target_type_parts should be in upper case in unparsing.
+  UnparseVectorWithSeparator(node->target_type_parts(), data, "");
   node->target_path()->Accept(this, data);
   print("FROM");
   node->grantee_list()->Accept(this, data);
@@ -3917,6 +3989,10 @@ void Unparser::visitASTCreateProcedureStatement(
   node->name()->Accept(this, data);
   node->parameters()->Accept(this, data);
   println();
+  if (node->external_security() !=
+      ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
+    print(node->GetSqlForExternalSecurity());
+  }
   if (node->with_connection_clause() != nullptr) {
     node->with_connection_clause()->Accept(this, data);
   }
@@ -4232,6 +4308,14 @@ void Unparser::visitASTSetOperationColumnPropagationMode(
       break;
     case ASTSetOperation::INNER:
       break;
+  }
+}
+
+void Unparser::visitASTExpressionWithOptAlias(
+    const ASTExpressionWithOptAlias* node, void* data) {
+  node->expression()->Accept(this, data);
+  if (node->optional_alias() != nullptr) {
+    node->optional_alias()->Accept(this, data);
   }
 }
 

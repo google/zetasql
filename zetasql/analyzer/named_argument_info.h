@@ -73,7 +73,7 @@ class NamedArgumentInfo {
   // the provided named argument is encountered.
   zetasql_base::StatusBuilder MakeSQLError() const {
     if (argument_error_location_.has_value()) {
-      return MakeSqlError().Attach(
+      return MakeSqlError().AttachPayload(
           argument_error_location_->ToInternalErrorLocation());
     }
     return MakeSqlError();

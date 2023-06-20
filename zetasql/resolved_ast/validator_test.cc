@@ -633,7 +633,9 @@ TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureNotEnabled) {
           /*procedure_body=*/"",
           /*connection=*/nullptr,
           /*language=*/"PYTHON",
-          /*code=*/"");
+          /*code=*/"",
+          /*external_security=*/
+          ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED);
 
   Validator validator;
   ASSERT_THAT(
@@ -654,7 +656,9 @@ TEST(ValidateTest, CreateProcedureStmtNonSQLConnectionFeatureNotEnabled) {
           /*procedure_body=*/"",
           /*connection=*/MakeResolvedConnection(&connection),
           /*language=*/"PYTHON",
-          /*code=*/"");
+          /*code=*/"",
+          /*external_security=*/
+          ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED);
 
   Validator validator;
   ASSERT_THAT(
@@ -674,7 +678,9 @@ TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabledMissingLanguage) {
           /*procedure_body=*/"sql",
           /*connection=*/nullptr,
           /*language=*/"",
-          /*code=*/"code");
+          /*code=*/"code",
+          /*external_security=*/
+          ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED);
 
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
@@ -695,7 +701,9 @@ TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabledHasBodyAndLanguage) {
           /*procedure_body=*/"body",
           /*connection=*/nullptr,
           /*language=*/"python",
-          /*code=*/"");
+          /*code=*/"",
+          /*external_security=*/
+          ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED);
 
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
@@ -716,7 +724,9 @@ TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabledHasLanguage) {
           /*procedure_body=*/"",
           /*connection=*/nullptr,
           /*language=*/"PYTHON",
-          /*code=*/"");
+          /*code=*/"",
+          /*external_security=*/
+          ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED);
 
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
@@ -736,7 +746,9 @@ TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabledHasLanguageAndCode) {
           /*procedure_body=*/"",
           /*connection=*/nullptr,
           /*language=*/"PYTHON",
-          /*code=*/"code");
+          /*code=*/"code",
+          /*external_security=*/
+          ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED);
 
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
@@ -757,10 +769,59 @@ TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabled) {
           /*procedure_body=*/"",
           /*connection=*/MakeResolvedConnection(&connection),
           /*language=*/"PYTHON",
-          /*code=*/"code");
+          /*code=*/"code",
+          /*external_security=*/
+          ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED);
 
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
+  Validator validator(language_options);
+  ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_procedure_stmt.get()));
+}
+
+TEST(ValidateTest, CreateProcedureStmtExternalSecurityFeatureNotEnabled) {
+  SimpleConnection connection("connection_id");
+  std::unique_ptr<ResolvedCreateProcedureStmt> create_procedure_stmt =
+      MakeResolvedCreateProcedureStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*option_list=*/{},
+          /*procedure_body=*/"",
+          /*connection=*/MakeResolvedConnection(&connection),
+          /*language=*/"PYTHON",
+          /*code=*/"code",
+          /*external_security=*/
+          ResolvedCreateStatement::SQL_SECURITY_INVOKER);
+
+  Validator validator;
+  ASSERT_THAT(validator.ValidateResolvedStatement(create_procedure_stmt.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("stmt->external_security()")));
+}
+
+TEST(ValidateTest, CreateProcedureStmtExternalSecurityFeatureEnabled) {
+  SimpleConnection connection("connection_id");
+  std::unique_ptr<ResolvedCreateProcedureStmt> create_procedure_stmt =
+      MakeResolvedCreateProcedureStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*option_list=*/{},
+          /*procedure_body=*/"",
+          /*connection=*/MakeResolvedConnection(&connection),
+          /*language=*/"PYTHON",
+          /*code=*/"code",
+          /*external_security=*/
+          ResolvedCreateStatement::SQL_SECURITY_INVOKER);
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
+  language_options.EnableLanguageFeature(FEATURE_EXTERNAL_SECURITY_PROCEDURE);
   Validator validator(language_options);
   ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_procedure_stmt.get()));
 }

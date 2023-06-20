@@ -17,19 +17,43 @@
 
 package com.google.zetasql;
 
+import com.google.zetasql.SimpleConnectionProtos.SimpleConnectionProto;
+
 /** SimpleConnection is a concrete implementation of the Connection interface. */
-// TODO: Finish the implementation of SimpleConnection.
 public final class SimpleConnection implements Connection {
 
-  public SimpleConnection() {}
+  private final String name;
+
+  public SimpleConnection(String name) {
+    this.name = name;
+  }
 
   @Override
   public String getName() {
-    return "";
+    return this.name;
   }
 
   @Override
   public String getFullName() {
-    return "";
+    return this.name;
+  }
+
+  public SimpleConnectionProto serialize() {
+    return SimpleConnectionProto.newBuilder().setName(this.name).build();
+  }
+
+  public static SimpleConnection deserialize(SimpleConnectionProto proto) {
+    return new SimpleConnection(proto.getName());
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof SimpleConnection
+        && ((SimpleConnection) other).getName().equals(this.name);
+  }
+
+  @Override
+  public int hashCode() {
+    return this.name.hashCode();
   }
 }

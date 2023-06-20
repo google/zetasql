@@ -60,6 +60,8 @@ import com.google.zetasql.ProcedureRefProto;
 import com.google.zetasql.ResolvedCollationProto;
 import com.google.zetasql.ResolvedColumnProto;
 import com.google.zetasql.ResolvedNodeProto;
+import com.google.zetasql.Sequence;
+import com.google.zetasql.SequenceRefProto;
 import com.google.zetasql.Table;
 import com.google.zetasql.TableRefProto;
 import com.google.zetasql.TableValuedFunction;
@@ -236,6 +238,10 @@ public final class ResolvedNodes {
 
   static ConnectionRefProto serialize(Connection connection, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     return ConnectionRefProto.newBuilder().setName(connection.getName()).build();
+  }
+
+  static SequenceRefProto serialize(Sequence sequence, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    return SequenceRefProto.newBuilder().setName(sequence.getName()).build();
   }
 
   static ProcedureRefProto serialize(Procedure procedure,

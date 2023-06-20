@@ -94,10 +94,14 @@ class Validator {
       const std::set<ResolvedColumn>& visible_columns);
   absl::Status ValidateResolvedCreateTableAsSelectStmt(
       const ResolvedCreateTableAsSelectStmt* stmt);
+  absl::Status ValidateResolvedCreateViewBase(
+      const ResolvedCreateViewBase* stmt);
   absl::Status ValidateResolvedCreateViewStmt(
       const ResolvedCreateViewStmt* stmt);
   absl::Status ValidateResolvedCreateMaterializedViewStmt(
       const ResolvedCreateMaterializedViewStmt* stmt);
+  absl::Status ValidateResolvedCreateApproxViewStmt(
+      const ResolvedCreateApproxViewStmt* stmt);
   absl::Status ValidateResolvedCreateExternalTableStmt(
       const ResolvedCreateExternalTableStmt* stmt);
   absl::Status ValidateResolvedCreatePrivilegeRestrictionStmt(
@@ -122,6 +126,8 @@ class Validator {
       const ResolvedExportDataStmt* stmt);
   absl::Status ValidateResolvedExportModelStmt(
       const ResolvedExportModelStmt* stmt);
+  absl::Status ValidateResolvedExportMetadataStmt(
+      const ResolvedExportMetadataStmt* stmt);
   absl::Status ValidateResolvedCallStmt(const ResolvedCallStmt* stmt);
   absl::Status ValidateResolvedDefineTableStmt(
       const ResolvedDefineTableStmt* stmt);
@@ -389,6 +395,12 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedComputedColumn* computed_column);
 
+  absl::Status ValidateGroupingFunctionCallList(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::vector<std::unique_ptr<const ResolvedGroupingCall>>&
+          grouping_call_list,
+      const std::set<ResolvedColumn>& group_by_columns);
+
   absl::Status ValidateResolvedComputedColumnList(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
@@ -509,9 +521,17 @@ class Validator {
   absl::Status AddColumnFromComputedColumn(
       const ResolvedComputedColumn* computed_column,
       std::set<ResolvedColumn>* visible_columns);
+  absl::Status AddGroupingFunctionCallColumn(
+      ResolvedColumn grouping_call_column,
+      std::set<ResolvedColumn>* visible_columns);
   absl::Status AddColumnsFromComputedColumnList(
       const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
           computed_column_list,
+      std::set<ResolvedColumn>* visible_columns);
+
+  absl::Status AddColumnsFromGroupingCallList(
+      const std::vector<std::unique_ptr<const ResolvedGroupingCall>>&
+          grouping_call_list,
       std::set<ResolvedColumn>* visible_columns);
 
   absl::Status ValidateResolvedOrderByItem(

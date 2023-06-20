@@ -17,21 +17,37 @@
 #include "zetasql/public/simple_catalog_util.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/sql_function.h"
+#include "zetasql/public/sql_view.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
 absl::Status AddFunctionFromCreateFunction(
     absl::string_view create_sql_stmt, const AnalyzerOptions& analyzer_options,
+    bool allow_persistent_function,
+    std::optional<FunctionOptions> function_options,
     std::unique_ptr<const AnalyzerOutput>& analyzer_output,
-    SimpleCatalog& catalog, bool allow_persistent_function) {
+    SimpleCatalog& catalog) {
   ZETASQL_RET_CHECK(analyzer_options.language().SupportsStatementKind(
       RESOLVED_CREATE_FUNCTION_STMT));
   ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(create_sql_stmt, analyzer_options, &catalog,
@@ -45,27 +61,40 @@ absl::Status AddFunctionFromCreateFunction(
     ZETASQL_RET_CHECK_EQ(resolved_create->create_scope(),
                  ResolvedCreateStatementEnums::CREATE_TEMP);
   }
+  FunctionOptions options;
+  if (function_options.has_value()) {
+    options = *function_options;
+  } else {
+    // Use-defined functions often use CamelCase. Upper casing that makes it
+    // unreadable.
+    options.set_uses_upper_case_sql_name(false);
+  }
+  FunctionEnums::Mode function_mode = resolved_create->is_aggregate()
+                                          ? FunctionEnums::AGGREGATE
+                                          : FunctionEnums::SCALAR;
   std::unique_ptr<Function> function;
   if (resolved_create->function_expression() != nullptr) {
     std::unique_ptr<SQLFunction> sql_function;
-    ZETASQL_RETURN_IF_ERROR(SQLFunction::Create(
-        absl::StrJoin(resolved_create->name_path(), "."), FunctionEnums::SCALAR,
-        {resolved_create->signature()},
-        /*function_options=*/{}, resolved_create->function_expression(),
-        resolved_create->argument_name_list(),
-        /*aggregate_expression_list=*/{},
-        /*parse_resume_location=*/{}, &sql_function));
+    ZETASQL_RETURN_IF_ERROR(
+        SQLFunction::Create(absl::StrJoin(resolved_create->name_path(), "."),
+                            function_mode, {resolved_create->signature()},
+                            options, resolved_create->function_expression(),
+                            resolved_create->argument_name_list(),
+                            &resolved_create->aggregate_expression_list(),
+                            /*parse_resume_location=*/{}, &sql_function));
     function = std::move(sql_function);
   } else {
     function = std::make_unique<TemplatedSQLFunction>(
         resolved_create->name_path(), resolved_create->signature(),
         resolved_create->argument_name_list(),
-        ParseResumeLocation::FromStringView(resolved_create->code()));
+        ParseResumeLocation::FromStringView(resolved_create->code()),
+        function_mode, options);
   }
 
   function->set_sql_security(resolved_create->sql_security());
 
-  ZETASQL_RET_CHECK(catalog.AddOwnedFunctionIfNotPresent(&function));
+  ZETASQL_RET_CHECK(catalog.AddOwnedFunctionIfNotPresent(&function))
+      << absl::StrJoin(resolved_create->name_path(), ".");
   return absl::OkStatus();
 }
 

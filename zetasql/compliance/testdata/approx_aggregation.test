@@ -156,7 +156,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 [name=approx_quantiles_bool]
 SELECT APPROX_QUANTILES(x,1) FROM UNNEST([true, false, true, false, true]) x
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[false, true]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[known order:false, true]}]
 
 ==
 [name=approx_quantiles_ignores_nulls]
@@ -179,14 +179,14 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 SELECT APPROX_QUANTILES(x,1 RESPECT NULLS)
 FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[NULL, NULL]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:NULL, NULL]}]
 
 ==
 [name=approx_quantiles_ignores_nulls2]
 SELECT APPROX_QUANTILES(x,1)
 FROM UNNEST([1, NULL, 1, NULL, NULL]) x
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 1]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 1]}]
 
 ==
 [required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
@@ -194,7 +194,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 1]}]
 SELECT APPROX_QUANTILES(x,1 IGNORE NULLS)
 FROM UNNEST([1, NULL, 1, NULL, NULL]) x
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 1]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 1]}]
 
 ==
 [required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
@@ -202,7 +202,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 1]}]
 SELECT APPROX_QUANTILES(x,1 RESPECT NULLS)
 FROM UNNEST([1, NULL, 1, NULL, NULL]) x
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[NULL, 1]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:NULL, 1]}]
 
 ==
 [name=approx_quantiles_invalid_0]
@@ -298,7 +298,9 @@ ARRAY<STRUCT<BOOL>>[{true}]
 SELECT APPROX_QUANTILES(x, 3)
 FROM UNNEST(['foo', 'foo', 'foo', 'foo', 'foo', 'foo', 'foo', 'foo', 'foo']) x
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo", "foo", "foo", "foo"]}]
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>[known order:"foo", "foo", "foo", "foo"]}
+]
 
 ==
 [name=approx_quantiles_boundaries_are_same_as_min_max]
@@ -342,16 +344,16 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>,
              ARRAY<>>>
-[{ARRAY<DOUBLE>[1, 1],
-  ARRAY<FLOAT>[1, 1],
-  ARRAY<UINT32>[1, 1],
-  ARRAY<INT32>[1, 1],
-  ARRAY<UINT64>[1, 1],
-  ARRAY<INT64>[1, 1],
-  ARRAY<STRING>["1", "1"],
-  ARRAY<BYTES>[b"1", b"1"],
-  ARRAY<DATE>[2001-01-01, 2001-01-01],
-  ARRAY<TIMESTAMP>[
+[{ARRAY<DOUBLE>[known order:1, 1],
+  ARRAY<FLOAT>[known order:1, 1],
+  ARRAY<UINT32>[known order:1, 1],
+  ARRAY<INT32>[known order:1, 1],
+  ARRAY<UINT64>[known order:1, 1],
+  ARRAY<INT64>[known order:1, 1],
+  ARRAY<STRING>[known order:"1", "1"],
+  ARRAY<BYTES>[known order:b"1", b"1"],
+  ARRAY<DATE>[known order:2001-01-01, 2001-01-01],
+  ARRAY<TIMESTAMP>[known order:
     2001-01-01 00:00:00+00,
     2001-01-01 00:00:00+00
   ]}]
@@ -362,7 +364,7 @@ ARRAY<STRUCT<ARRAY<>,
 SELECT APPROX_QUANTILES(x, 1)
 FROM UNNEST([NUMERIC "1.23", NUMERIC "1.23", NUMERIC "1.23"]) x
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<NUMERIC>[1.23, 1.23]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<NUMERIC>[known order:1.23, 1.23]}]
 
 ==
 [required_features=BIGNUMERIC_TYPE]
@@ -370,7 +372,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<NUMERIC>[1.23, 1.23]}]
 SELECT APPROX_QUANTILES(x, 1)
 FROM UNNEST([BIGNUMERIC "1.23", BIGNUMERIC "1.23", BIGNUMERIC "1.23"]) x
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BIGNUMERIC>[1.23, 1.23]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BIGNUMERIC>[known order:1.23, 1.23]}]
 
 # ----------------------------------------------------------------------------
 # APPROX_TOP_COUNT
@@ -546,7 +548,7 @@ FROM TableAllTypes
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<STRUCT<value ARRAY<>, count INT64>>[
      {
-       ARRAY<INT64>[1, 2, 3],
+       ARRAY<INT64>[known order:1, 2, 3],
        1
      }
    ]}
@@ -610,7 +612,10 @@ FROM (
 )
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRUCT<value STRING, sum DOUBLE>>[{"null+inf", inf}, {"70+50", 120}]}
+  {ARRAY<STRUCT<value STRING, sum DOUBLE>>[known order:
+     {"null+inf", inf},
+     {"70+50", 120}
+   ]}
 ]
 
 ==
@@ -811,7 +816,7 @@ FROM TableAllTypes
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<STRUCT<value ARRAY<>, sum DOUBLE>>[
      {
-       ARRAY<INT64>[1, 2, 3],
+       ARRAY<INT64>[known order:1, 2, 3],
        1
      }
    ]}

@@ -18,9 +18,44 @@
 #define ZETASQL_RESOLVED_AST_RESOLVED_AST_HELPER_H_
 
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 
 namespace zetasql {
+
+// A visitor which collects free ResolvedColumnRef that are referenced, but not
+// local to this expression.
+class ColumnRefVisitor : public ResolvedASTVisitor {
+ public:
+  ColumnRefVisitor() = default;
+
+ protected:
+  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override;
+
+  absl::Status VisitResolvedSubqueryExpr(
+      const ResolvedSubqueryExpr* node) override;
+
+  absl::Status VisitResolvedInlineLambda(
+      const ResolvedInlineLambda* node) override;
+
+  absl::Status VisitResolvedWithExpr(const ResolvedWithExpr* node) override;
+
+  bool IsLocalColumn(const ResolvedColumn& column) const {
+    return local_columns_.contains(column);
+  }
+
+ private:
+  // Columns that are local to an expression -- that is they are defined,
+  // populated, and consumed fully within the expression -- should not be
+  // collected by this code.
+  absl::flat_hash_set<ResolvedColumn> local_columns_;
+};
+
+// Returns all ResolvedColumnRef's from the tree under `node` that are
+// references to free columns. Note that, a "free" column means that it is not
+// defined within the tree under `node`.
+absl::StatusOr<absl::flat_hash_set<const ResolvedColumnRef*>>
+CollectFreeColumnRefs(const ResolvedNode& node);
 
 // Find the ResolvedComputedColumn in a ResolvedProjectScan producing <column>.
 // Return NULL if <column> is not computed by <project>.
@@ -29,8 +64,8 @@ const ResolvedComputedColumn* FindProjectComputedColumn(
 
 // Find the ResolvedExpr in a ResolvedProjectScan producing <column>.
 // Return NULL if <column> is not computed by <project>.
-const ResolvedExpr* FindProjectExpr(
-    const ResolvedProjectScan* project, const ResolvedColumn& column);
+const ResolvedExpr* FindProjectExpr(const ResolvedProjectScan* project,
+                                    const ResolvedColumn& column);
 
 }  // namespace zetasql
 

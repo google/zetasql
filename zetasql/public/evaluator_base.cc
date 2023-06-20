@@ -47,6 +47,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/validator.h"
 #include "zetasql/base/case.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -720,7 +721,7 @@ absl::StatusOr<int> Evaluator::GetPositionalParameterCount() const {
 absl::Status Evaluator::TranslateParameterValueMapToList(
     const ParameterValueMap& parameters_map, const ParameterMap& variable_map,
     ParameterKind kind, ParameterValueList* variable_values) const {
-  absl::node_hash_map<std::string, const Value*> normalized_parameters;
+  absl::flat_hash_map<std::string, const Value*> normalized_parameters;
   for (const auto& value : parameters_map) {
     normalized_parameters[absl::AsciiStrToLower(value.first)] = &value.second;
   }

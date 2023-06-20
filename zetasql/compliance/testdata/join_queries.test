@@ -380,7 +380,7 @@ ARRAY<STRUCT<a INT64>>[{1}]
 [name=join_2]
 SELECT R.id, S.id, R.a, S.b FROM R LEFT JOIN S ON R.id = S.id
 --
-ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[
+ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[unknown order:
   {2, 2, "a2", "b22"},
   {2, 2, "a2", "b21"},
   {1, NULL, "a1", NULL}
@@ -389,7 +389,7 @@ ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[
 [name=join_3]
 SELECT R.id, S.id, R.a, S.b FROM R RIGHT JOIN S ON R.id = S.id
 --
-ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[
+ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[unknown order:
   {2, 2, "a2", "b22"},
   {2, 2, "a2", "b21"},
   {NULL, 3, NULL, "b3"}
@@ -398,7 +398,7 @@ ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[
 [name=join_4]
 SELECT R.id, S.id, R.a, S.b FROM R FULL JOIN S ON R.id = S.id
 --
-ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[
+ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[unknown order:
   {2, 2, "a2", "b22"},
   {2, 2, "a2", "b21"},
   {1, NULL, "a1", NULL},
@@ -408,7 +408,7 @@ ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[
 [name=join_5]
 SELECT id, a, b FROM R FULL JOIN S USING (id)
 --
-ARRAY<STRUCT<id INT64, a STRING, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, b STRING>>[unknown order:
   {2, "a2", "b21"},
   {3, NULL, "b3"},
   {2, "a2", "b22"},
@@ -443,28 +443,28 @@ ARRAY<STRUCT<
         date_val DATE,
         timestamp_val TIMESTAMP
       >>
-[{
-   2,
-   2,
-   "a2",
-   1,
-   2,
-   "b21",
-   2,
-   2018-02-03,
-   2013-02-03 12:05:06+00
- },
- {
-   2,
-   2,
-   "a2",
-   2,
-   2,
-   "b22",
-   2,
-   2018-02-03,
-   2013-02-03 12:05:06+00
- }]
+[unknown order:{
+                 2,
+                 2,
+                 "a2",
+                 1,
+                 2,
+                 "b21",
+                 2,
+                 2018-02-03,
+                 2013-02-03 12:05:06+00
+               },
+               {
+                 2,
+                 2,
+                 "a2",
+                 2,
+                 2,
+                 "b22",
+                 2,
+                 2018-02-03,
+                 2013-02-03 12:05:06+00
+               }]
 ==
 # With the consecutive feature on, this query will be equivalent to the case
 # join_8.
@@ -483,28 +483,28 @@ ARRAY<STRUCT<
         date_val DATE,
         timestamp_val TIMESTAMP
       >>
-[{
-   2,
-   2,
-   "a2",
-   1,
-   2,
-   "b21",
-   2,
-   2018-02-03,
-   2013-02-03 12:05:06+00
- },
- {
-   2,
-   2,
-   "a2",
-   2,
-   2,
-   "b22",
-   2,
-   2018-02-03,
-   2013-02-03 12:05:06+00
- }]
+[unknown order:{
+                 2,
+                 2,
+                 "a2",
+                 1,
+                 2,
+                 "b21",
+                 2,
+                 2018-02-03,
+                 2013-02-03 12:05:06+00
+               },
+               {
+                 2,
+                 2,
+                 "a2",
+                 2,
+                 2,
+                 "b22",
+                 2,
+                 2018-02-03,
+                 2013-02-03 12:05:06+00
+               }]
 ==
 [name=empty_inner_join]
 SELECT t1.id, t2.id
@@ -528,12 +528,15 @@ ARRAY<STRUCT<y INT64, y INT64>>[{4, 3}]
 SELECT r.*, s.* FROM
 (SELECT x, x FROM (SELECT 2 x)) r FULL JOIN (SELECT 3) s ON false
 --
-ARRAY<STRUCT<x INT64, x INT64, INT64>>[{2, 2, NULL}, {NULL, NULL, 3}]
+ARRAY<STRUCT<x INT64, x INT64, INT64>>[unknown order:
+  {2, 2, NULL},
+  {NULL, NULL, 3}
+]
 ==
 [name=select_star_using]
 SELECT * FROM R JOIN S USING(id)
 --
-ARRAY<STRUCT<id INT64, primary_key INT64, a STRING, primary_key INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, primary_key INT64, a STRING, primary_key INT64, b STRING>>[unknown order:
   {2, 2, "a2", 2, "b22"},
   {2, 2, "a2", 1, "b21"}
 ]
@@ -547,7 +550,7 @@ ARRAY<STRUCT<primary_key INT64,
              primary_key INT64,
              id INT64,
              b STRING>>
-[
+[unknown order:
   {2, 2, "a2", 2, 2, "b22"},
   {2, 2, "a2", 1, 2, "b21"}
 ]
@@ -561,7 +564,7 @@ ARRAY<STRUCT<primary_key INT64,
              primary_key INT64,
              id INT64,
              b STRING>>
-[
+[unknown order:
   {2, 2, "a2", 2, 2, "b22"},
   {2, 2, "a2", 1, 2, "b21"}
 ]
@@ -569,7 +572,7 @@ ARRAY<STRUCT<primary_key INT64,
 [name=predicate_match_inner]
 SELECT R.id, R.a, S.id, S.b FROM R INNER JOIN S ON R.id = S.id AND R.id + S.id = 4
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", 2, "b22"},
   {2, "a2", 2, "b21"}
 ]
@@ -582,7 +585,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[]
 [name=predicate_only_match_inner]
 SELECT R.id, R.a, S.id, S.b FROM R INNER JOIN S ON R.id + S.id = 4
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", 2, "b22"},
   {2, "a2", 2, "b21"},
   {1, "a1", 3, "b3"}
@@ -596,7 +599,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[]
 [name=predicate_match_left]
 SELECT R.id, R.a, S.id, S.b FROM R LEFT OUTER JOIN S ON R.id = S.id AND R.id + S.id = 4
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", 2, "b22"},
   {2, "a2", 2, "b21"},
   {1, "a1", NULL, NULL}
@@ -605,7 +608,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_nomatch_left]
 SELECT R.id, R.a, S.id, S.b FROM R LEFT OUTER JOIN S ON R.id = S.id AND R.id + S.id = 6
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", NULL, NULL},
   {1, "a1", NULL, NULL}
 ]
@@ -613,7 +616,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_only_match_left]
 SELECT R.id, R.a, S.id, S.b FROM R LEFT OUTER JOIN S ON R.id + S.id = 4
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", 2, "b22"},
   {2, "a2", 2, "b21"},
   {1, "a1", 3, "b3"}
@@ -622,7 +625,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_only_nomatch_left]
 SELECT R.id, R.a, S.id, S.b FROM R LEFT OUTER JOIN S ON R.id + S.id = 6
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", NULL, NULL},
   {1, "a1", NULL, NULL}
 ]
@@ -630,7 +633,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_match_right]
 SELECT R.id, R.a, S.id, S.b FROM R RIGHT OUTER JOIN S ON R.id = S.id AND R.id + S.id = 4
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", 2, "b22"},
   {2, "a2", 2, "b21"},
   {NULL, NULL, 3, "b3"}
@@ -639,7 +642,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_nomatch_right]
 SELECT R.id, R.a, S.id, S.b FROM R RIGHT OUTER JOIN S ON R.id = S.id AND R.id + S.id = 6
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {NULL, NULL, 2, "b22"},
   {NULL, NULL, 2, "b21"},
   {NULL, NULL, 3, "b3"}
@@ -648,7 +651,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_only_match_right]
 SELECT R.id, R.a, S.id, S.b FROM R RIGHT OUTER JOIN S ON R.id + S.id = 4
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", 2, "b22"},
   {2, "a2", 2, "b21"},
   {1, "a1", 3, "b3"}
@@ -657,7 +660,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_only_nomatch_right]
 SELECT R.id, R.a, S.id, S.b FROM R RIGHT OUTER JOIN S ON R.id + S.id = 6
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {NULL, NULL, 2, "b22"},
   {NULL, NULL, 2, "b21"},
   {NULL, NULL, 3, "b3"}
@@ -666,7 +669,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_match_full]
 SELECT R.id, R.a, S.id, S.b FROM R FULL OUTER JOIN S ON R.id = S.id AND R.id + S.id = 4
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", 2, "b22"},
   {2, "a2", 2, "b21"},
   {1, "a1", NULL, NULL},
@@ -676,7 +679,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_nomatch_full]
 SELECT R.id, R.a, S.id, S.b FROM R FULL OUTER JOIN S ON R.id = S.id AND R.id + S.id = 6
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", NULL, NULL},
   {1, "a1", NULL, NULL},
   {NULL, NULL, 2, "b22"},
@@ -687,7 +690,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_only_match_full]
 SELECT R.id, R.a, S.id, S.b FROM R FULL OUTER JOIN S ON R.id + S.id = 4
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", 2, "b22"},
   {2, "a2", 2, "b21"},
   {1, "a1", 3, "b3"}
@@ -696,7 +699,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=predicate_only_nomatch_full]
 SELECT R.id, R.a, S.id, S.b FROM R FULL OUTER JOIN S ON R.id + S.id = 6
 --
-ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
   {2, "a2", NULL, NULL},
   {1, "a1", NULL, NULL},
   {NULL, NULL, 2, "b22"},
@@ -707,7 +710,7 @@ ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
 [name=int64_uint64_equality_full]
 SELECT T1.primary_key, T2.id FROM T AS T1 FULL OUTER JOIN T AS T2 ON T1.primary_key = T2.id
 --
-ARRAY<STRUCT<primary_key INT64, id UINT64>>[
+ARRAY<STRUCT<primary_key INT64, id UINT64>>[unknown order:
   {0, 0},
   {9223372036854775807, 9223372036854775807},
   {-1, NULL},
@@ -717,7 +720,7 @@ ARRAY<STRUCT<primary_key INT64, id UINT64>>[
 [name=uint64_int64_equality_full]
 SELECT T1.id, T2.primary_key FROM T AS T1 FULL OUTER JOIN T AS T2 ON T1.id = T2.primary_key
 --
-ARRAY<STRUCT<id UINT64, primary_key INT64>>[
+ARRAY<STRUCT<id UINT64, primary_key INT64>>[unknown order:
   {9223372036854775807, 9223372036854775807},
   {9223372036854775808, NULL},
   {0, 0},
@@ -727,7 +730,7 @@ ARRAY<STRUCT<id UINT64, primary_key INT64>>[
 [name=int64_uint64_with_predicate_full]
 SELECT T1.primary_key, T2.id FROM T AS T1 FULL OUTER JOIN (SELECT IF(id < 0, NULL, id) AS id FROM T) AS T2 ON T1.primary_key = T2.id - 1
 --
-ARRAY<STRUCT<primary_key INT64, id UINT64>>[
+ARRAY<STRUCT<primary_key INT64, id UINT64>>[unknown order:
   {0, NULL},
   {9223372036854775807, 9223372036854775808},
   {-1, 0},
@@ -773,7 +776,7 @@ INNER JOIN
 USING (value)
 ORDER BY t1.id, t2.id
 --
-ARRAY<STRUCT<value DOUBLE, id STRING, value DOUBLE, id STRING>>[
+ARRAY<STRUCT<value DOUBLE, id STRING, value DOUBLE, id STRING>>[known order:
   {-0.25, "-1/4", -0.25, "-1/4"},
   {-inf, "-infinity", -inf, "-infinity"},
   {0.25, "1/4", 0.25, "1/4"},
@@ -792,7 +795,7 @@ LEFT JOIN
 USING (value)
 ORDER BY t1.id, t2.id
 --
-ARRAY<STRUCT<value DOUBLE, id STRING, value DOUBLE, id STRING>>[
+ARRAY<STRUCT<value DOUBLE, id STRING, value DOUBLE, id STRING>>[known order:
   {-0.25, "-1/4", -0.25, "-1/4"},
   {nan, "-NaN", NULL, NULL},
   {-inf, "-infinity", -inf, "-infinity"},
@@ -813,7 +816,7 @@ INNER JOIN
 USING (date_val)
 ORDER BY t1.row_id, t2.row_id
 --
-ARRAY<STRUCT<date_val DATE, row_id INT64, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<date_val DATE, row_id INT64, date_val DATE, row_id INT64>>[known order:
   {2018-02-03, 1, 2018-02-03, 1},
   {2018-02-03, 1, 2018-02-03, 2},
   {2018-02-03, 2, 2018-02-03, 1},
@@ -829,7 +832,7 @@ LEFT JOIN
 USING (date_val)
 ORDER BY t1.row_id, t2.row_id
 --
-ARRAY<STRUCT<date_val DATE, row_id INT64, date_val DATE, row_id INT64>>[
+ARRAY<STRUCT<date_val DATE, row_id INT64, date_val DATE, row_id INT64>>[known order:
   {2018-02-03, 1, 2018-02-03, 1},
   {2018-02-03, 1, 2018-02-03, 2},
   {2018-02-03, 2, 2018-02-03, 1},
@@ -852,36 +855,36 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{
-   2013-02-03 12:05:06+00,
-   1,
-   2013-02-03 12:05:06+00,
-   1
- },
- {
-   2013-02-03 12:05:06+00,
-   1,
-   2013-02-03 12:05:06+00,
-   2
- },
- {
-   2013-02-03 12:05:06+00,
-   2,
-   2013-02-03 12:05:06+00,
-   1
- },
- {
-   2013-02-03 12:05:06+00,
-   2,
-   2013-02-03 12:05:06+00,
-   2
- },
- {
-   2013-02-03 12:05:07+00,
-   3,
-   2013-02-03 12:05:07+00,
-   3
- }]
+[known order:{
+               2013-02-03 12:05:06+00,
+               1,
+               2013-02-03 12:05:06+00,
+               1
+             },
+             {
+               2013-02-03 12:05:06+00,
+               1,
+               2013-02-03 12:05:06+00,
+               2
+             },
+             {
+               2013-02-03 12:05:06+00,
+               2,
+               2013-02-03 12:05:06+00,
+               1
+             },
+             {
+               2013-02-03 12:05:06+00,
+               2,
+               2013-02-03 12:05:06+00,
+               2
+             },
+             {
+               2013-02-03 12:05:07+00,
+               3,
+               2013-02-03 12:05:07+00,
+               3
+             }]
 ==
 [name=timestamp_key_left_join]
 SELECT t1.timestamp_val, t1.row_id, t2.timestamp_val, t2.row_id FROM
@@ -897,37 +900,37 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         row_id INT64
       >>
-[{
-   2013-02-03 12:05:06+00,
-   1,
-   2013-02-03 12:05:06+00,
-   1
- },
- {
-   2013-02-03 12:05:06+00,
-   1,
-   2013-02-03 12:05:06+00,
-   2
- },
- {
-   2013-02-03 12:05:06+00,
-   2,
-   2013-02-03 12:05:06+00,
-   1
- },
- {
-   2013-02-03 12:05:06+00,
-   2,
-   2013-02-03 12:05:06+00,
-   2
- },
- {
-   2013-02-03 12:05:07+00,
-   3,
-   2013-02-03 12:05:07+00,
-   3
- },
- {NULL, 4, NULL, NULL}]
+[known order:{
+               2013-02-03 12:05:06+00,
+               1,
+               2013-02-03 12:05:06+00,
+               1
+             },
+             {
+               2013-02-03 12:05:06+00,
+               1,
+               2013-02-03 12:05:06+00,
+               2
+             },
+             {
+               2013-02-03 12:05:06+00,
+               2,
+               2013-02-03 12:05:06+00,
+               1
+             },
+             {
+               2013-02-03 12:05:06+00,
+               2,
+               2013-02-03 12:05:06+00,
+               2
+             },
+             {
+               2013-02-03 12:05:07+00,
+               3,
+               2013-02-03 12:05:07+00,
+               3
+             },
+             {NULL, 4, NULL, NULL}]
 ==
 [name=time_key_inner_join]
 [required_features=V_1_2_CIVIL_TIME]
@@ -938,7 +941,7 @@ INNER JOIN
 USING (time_val)
 ORDER BY t1.row_id, t2.row_id
 --
-ARRAY<STRUCT<time_val TIME, row_id INT64, time_val TIME, row_id INT64>>[
+ARRAY<STRUCT<time_val TIME, row_id INT64, time_val TIME, row_id INT64>>[known order:
   {12:34:56.789, 1, 12:34:56.789, 1},
   {12:34:56.789, 1, 12:34:56.789, 2},
   {12:34:56.789, 2, 12:34:56.789, 1},
@@ -955,7 +958,7 @@ LEFT JOIN
 USING (time_val)
 ORDER BY t1.row_id, t2.row_id
 --
-ARRAY<STRUCT<time_val TIME, row_id INT64, time_val TIME, row_id INT64>>[
+ARRAY<STRUCT<time_val TIME, row_id INT64, time_val TIME, row_id INT64>>[known order:
   {12:34:56.789, 1, 12:34:56.789, 1},
   {12:34:56.789, 1, 12:34:56.789, 2},
   {12:34:56.789, 2, 12:34:56.789, 1},
@@ -979,7 +982,7 @@ ARRAY<STRUCT<
         datetime_val DATETIME,
         row_id INT64
       >>
-[
+[known order:
   {2013-02-03 04:05:06, 1, 2013-02-03 04:05:06, 1},
   {2013-02-03 04:05:06, 1, 2013-02-03 04:05:06, 2},
   {2013-02-03 04:05:06, 2, 2013-02-03 04:05:06, 1},
@@ -1002,7 +1005,7 @@ ARRAY<STRUCT<
         datetime_val DATETIME,
         row_id INT64
       >>
-[
+[known order:
   {2013-02-03 04:05:06, 1, 2013-02-03 04:05:06, 1},
   {2013-02-03 04:05:06, 1, 2013-02-03 04:05:06, 2},
   {2013-02-03 04:05:06, 2, 2013-02-03 04:05:06, 1},
@@ -1037,7 +1040,7 @@ LEFT JOIN (
 ) AS t2
 USING (numeric_val)
 --
-ARRAY<STRUCT<numeric_val NUMERIC, row_id INT64, numeric_val NUMERIC, row_id INT64>>[
+ARRAY<STRUCT<numeric_val NUMERIC, row_id INT64, numeric_val NUMERIC, row_id INT64>>[unknown order:
   {-345, 4, NULL, NULL},
   {1.234, 2, 1.234, 3},
   {9999999.999999999, 6, NULL, NULL}
@@ -1078,7 +1081,7 @@ ARRAY<STRUCT<
         bignumeric_val BIGNUMERIC,
         row_id INT64
       >>
-[
+[unknown order:
   {-345, 4, NULL, NULL},
   {3.141592653589793238, 2, 3.141592653589793238, 3},
   {
@@ -1107,7 +1110,7 @@ ARRAY<STRUCT<
         date_range_val RANGE<DATE>,
         id INT64
       >>
-[
+[known order:
   {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 6},
   {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 8},
   {[NULL, NULL), 4, [NULL, NULL), 7},
@@ -1133,19 +1136,19 @@ ARRAY<STRUCT<
         date_range_val RANGE<DATE>,
         id INT64
       >>
-[{
-   [2014-01-01, 2015-01-01),
-   1,
-   NULL,
-   NULL
- },
- {[2014-01-01, NULL), 2, NULL, NULL},
- {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 6},
- {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 8},
- {[NULL, NULL), 4, [NULL, NULL), 7},
- {[NULL, NULL), 4, [NULL, NULL), 9},
- {[NULL, NULL), 4, [NULL, NULL), 10},
- {NULL, 5, NULL, NULL}]
+[known order:{
+               [2014-01-01, 2015-01-01),
+               1,
+               NULL,
+               NULL
+             },
+             {[2014-01-01, NULL), 2, NULL, NULL},
+             {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 6},
+             {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 8},
+             {[NULL, NULL), 4, [NULL, NULL), 7},
+             {[NULL, NULL), 4, [NULL, NULL), 9},
+             {[NULL, NULL), 4, [NULL, NULL), 10},
+             {NULL, 5, NULL, NULL}]
 ==
 
 [required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
@@ -1165,21 +1168,21 @@ ARRAY<STRUCT<
         datetime_range_val RANGE<DATETIME>,
         id INT64
       >>
-[{
-   [NULL, 2017-01-01 12:00:00),
-   3,
-   [NULL, 2017-01-01 12:00:00),
-   6
- },
- {
-   [NULL, 2017-01-01 12:00:00),
-   3,
-   [NULL, 2017-01-01 12:00:00),
-   8
- },
- {[NULL, NULL), 4, [NULL, NULL), 7},
- {[NULL, NULL), 4, [NULL, NULL), 9},
- {[NULL, NULL), 4, [NULL, NULL), 10}]
+[known order:{
+               [NULL, 2017-01-01 12:00:00),
+               3,
+               [NULL, 2017-01-01 12:00:00),
+               6
+             },
+             {
+               [NULL, 2017-01-01 12:00:00),
+               3,
+               [NULL, 2017-01-01 12:00:00),
+               8
+             },
+             {[NULL, NULL), 4, [NULL, NULL), 7},
+             {[NULL, NULL), 4, [NULL, NULL), 9},
+             {[NULL, NULL), 4, [NULL, NULL), 10}]
 ==
 
 [required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
@@ -1199,34 +1202,34 @@ ARRAY<STRUCT<
         datetime_range_val RANGE<DATETIME>,
         id INT64
       >>
-[{
-   [2016-01-01 12:00:00, 2017-01-01 12:00:00),
-   1,
-   NULL,
-   NULL
- },
- {
-   [2016-01-01 12:00:00, NULL),
-   2,
-   NULL,
-   NULL
- },
- {
-   [NULL, 2017-01-01 12:00:00),
-   3,
-   [NULL, 2017-01-01 12:00:00),
-   6
- },
- {
-   [NULL, 2017-01-01 12:00:00),
-   3,
-   [NULL, 2017-01-01 12:00:00),
-   8
- },
- {[NULL, NULL), 4, [NULL, NULL), 7},
- {[NULL, NULL), 4, [NULL, NULL), 9},
- {[NULL, NULL), 4, [NULL, NULL), 10},
- {NULL, 5, NULL, NULL}]
+[known order:{
+               [2016-01-01 12:00:00, 2017-01-01 12:00:00),
+               1,
+               NULL,
+               NULL
+             },
+             {
+               [2016-01-01 12:00:00, NULL),
+               2,
+               NULL,
+               NULL
+             },
+             {
+               [NULL, 2017-01-01 12:00:00),
+               3,
+               [NULL, 2017-01-01 12:00:00),
+               6
+             },
+             {
+               [NULL, 2017-01-01 12:00:00),
+               3,
+               [NULL, 2017-01-01 12:00:00),
+               8
+             },
+             {[NULL, NULL), 4, [NULL, NULL), 7},
+             {[NULL, NULL), 4, [NULL, NULL), 9},
+             {[NULL, NULL), 4, [NULL, NULL), 10},
+             {NULL, 5, NULL, NULL}]
 ==
 
 [required_features=RANGE_TYPE]
@@ -1246,47 +1249,47 @@ ARRAY<STRUCT<
         timestamp_range_val RANGE<TIMESTAMP>,
         id INT64
       >>
-[{[
-    2018-10-01 04:00:00+00,
-    NULL
-  ),
-  2,
-  [
-    2018-10-01 04:00:00+00,
-    NULL
-  ),
-  6},
- {[
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  3,
-  [
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  7},
- {[
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  3,
-  [
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  8},
- {[
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  3,
-  [
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  9},
- {[NULL, NULL), 4, [NULL, NULL), 10}]
+[known order:{[
+                2018-10-01 04:00:00+00,
+                NULL
+              ),
+              2,
+              [
+                2018-10-01 04:00:00+00,
+                NULL
+              ),
+              6},
+             {[
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              3,
+              [
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              7},
+             {[
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              3,
+              [
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              8},
+             {[
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              3,
+              [
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              9},
+             {[NULL, NULL), 4, [NULL, NULL), 10}]
 ==
 
 [required_features=RANGE_TYPE]
@@ -1306,53 +1309,65 @@ ARRAY<STRUCT<
         timestamp_range_val RANGE<TIMESTAMP>,
         id INT64
       >>
-[{[
-    2018-10-01 04:00:00+00,
-    2019-01-01 04:00:00+00
-  ),
-  1,
-  NULL,
-  NULL},
- {[
-    2018-10-01 04:00:00+00,
-    NULL
-  ),
-  2,
-  [
-    2018-10-01 04:00:00+00,
-    NULL
-  ),
-  6},
- {[
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  3,
-  [
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  7},
- {[
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  3,
-  [
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  8},
- {[
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  3,
-  [
-    NULL,
-    2019-01-01 04:00:00+00
-  ),
-  9},
- {[NULL, NULL), 4, [NULL, NULL), 10},
- {NULL, 5, NULL, NULL}]
+[known order:{[
+                2018-10-01 04:00:00+00,
+                2019-01-01 04:00:00+00
+              ),
+              1,
+              NULL,
+              NULL},
+             {[
+                2018-10-01 04:00:00+00,
+                NULL
+              ),
+              2,
+              [
+                2018-10-01 04:00:00+00,
+                NULL
+              ),
+              6},
+             {[
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              3,
+              [
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              7},
+             {[
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              3,
+              [
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              8},
+             {[
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              3,
+              [
+                NULL,
+                2019-01-01 04:00:00+00
+              ),
+              9},
+             {[NULL, NULL), 4, [NULL, NULL), 10},
+             {NULL, 5, NULL, NULL}]
 ==
+# b/282197704: IN() should not be pushed down since it's not always NULL For
+# NULL arguments, e.g. `1 IN (1, x)` is true even if x is NULL.
+# This test protects the fix. The bug caused the result to be empty.
+[name=predicate_nomatch_left_with_further_conjuncts]
+SELECT R.id, R.a, S.id, S.b
+FROM R LEFT OUTER JOIN S ON R.id = 10 * S.id
+WHERE 1 IN (1, S.id)
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[unknown order:
+  {1, "a1", NULL, NULL},
+  {2, "a2", NULL, NULL}
+]

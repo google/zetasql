@@ -186,6 +186,30 @@ std::string QueryExpression::GetSQLQuery() const {
                               out, zetasql_base::FindOrDie(group_by_list_, column_id));
                         }),
           ")");
+    } else if (!grouping_set_id_list_.empty()) {
+      std::vector<std::string> grouping_set_strs;
+      for (const std::vector<int>& grouping_set_ids : grouping_set_id_list_) {
+        std::string grouping_set_str = "";
+        if (grouping_set_ids.empty()) {
+          grouping_set_str = "()";
+        }
+        if (grouping_set_ids.size() > 1) {
+          absl::StrAppend(&grouping_set_str, "(");
+        }
+        absl::StrAppend(
+            &grouping_set_str,
+            absl::StrJoin(grouping_set_ids, ", ",
+                          [this](std::string* out, int column_id) {
+                            absl::StrAppend(
+                                out, zetasql_base::FindOrDie(group_by_list_, column_id));
+                          }));
+        if (grouping_set_ids.size() > 1) {
+          absl::StrAppend(&grouping_set_str, ")");
+        }
+        grouping_set_strs.push_back(grouping_set_str);
+      }
+      absl::StrAppend(&sql, " GROUPING SETS(",
+                      absl::StrJoin(grouping_set_strs, ", "), ")");
     } else {
       // We assume while iterating the group_by_list_, the entries will be
       // sorted by the column id.
@@ -296,6 +320,7 @@ bool QueryExpression::TrySetSetOpScanList(
 bool QueryExpression::TrySetGroupByClause(
     const std::map<int, std::string>& group_by_list,
     const std::string& group_by_hints,
+    const std::vector<std::vector<int>>& grouping_set_id_list,
     const std::vector<int>& rollup_column_id_list) {
   if (!CanSetGroupByClause()) {
     return false;
@@ -303,6 +328,7 @@ bool QueryExpression::TrySetGroupByClause(
   group_by_list_ = group_by_list;
   ZETASQL_DCHECK(group_by_hints_.empty());
   group_by_hints_ = group_by_hints;
+  grouping_set_id_list_ = grouping_set_id_list;
   rollup_column_id_list_ = rollup_column_id_list;
   return true;
 }

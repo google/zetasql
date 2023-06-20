@@ -62,7 +62,7 @@ ARRAY<STRUCT<BOOL>>[{true}]
 [name=timestamp_trunc]
 select tz, timestamp_trunc(timestamp '2010-10-20 10:20:30.456789', DAY, tz) from Timezones
 --
-ARRAY<STRUCT<tz STRING, TIMESTAMP>>[
+ARRAY<STRUCT<tz STRING, TIMESTAMP>>[unknown order:
   {
     "Europe/Amsterdam",
     2010-10-19 22:00:00+00
@@ -118,7 +118,7 @@ ARRAY<STRUCT<tz STRING, TIMESTAMP>>[
 [name=extract_from_timestamp]
 select tz, extract(date from timestamp '2000-01-01 00:00:00' AT TIME ZONE tz) from Timezones
 --
-ARRAY<STRUCT<tz STRING, DATE>>[
+ARRAY<STRUCT<tz STRING, DATE>>[unknown order:
   {"Europe/Amsterdam", 2000-01-01},
   {"Asia/Dubai", 2000-01-01},
   {"Australia/Eucla", 2000-01-01},
@@ -139,7 +139,7 @@ ARRAY<STRUCT<tz STRING, DATE>>[
 [name=extract_time_from_timestamp]
 select tz, extract(time from timestamp '2000-01-01 00:00:00' AT TIME ZONE tz) from Timezones
 --
-ARRAY<STRUCT<tz STRING, TIME>>[
+ARRAY<STRUCT<tz STRING, TIME>>[unknown order:
   {"Europe/Amsterdam", 09:00:00},
   {"Asia/Dubai", 12:00:00},
   {"Australia/Eucla", 16:45:00},
@@ -160,7 +160,7 @@ ARRAY<STRUCT<tz STRING, TIME>>[
 [name=extract_datetime_from_timestamp]
 select tz, extract(datetime from timestamp '2000-01-01 00:00:00' AT TIME ZONE tz) from Timezones
 --
-ARRAY<STRUCT<tz STRING, DATETIME>>[
+ARRAY<STRUCT<tz STRING, DATETIME>>[unknown order:
   {"Europe/Amsterdam", 2000-01-01 09:00:00},
   {"Asia/Dubai", 2000-01-01 12:00:00},
   {"Australia/Eucla", 2000-01-01 16:45:00},
@@ -180,7 +180,7 @@ ARRAY<STRUCT<tz STRING, DATETIME>>[
 [name=parse_timestamp]
 select tz, parse_timestamp('%y', '0', tz) from Timezones
 --
-ARRAY<STRUCT<tz STRING, TIMESTAMP>>[
+ARRAY<STRUCT<tz STRING, TIMESTAMP>>[unknown order:
   {
     "Europe/Amsterdam",
     1999-12-31 23:00:00+00
@@ -236,7 +236,7 @@ ARRAY<STRUCT<tz STRING, TIMESTAMP>>[
 [name=format_timestamp]
 select tz, format_timestamp('%y', timestamp '2000-01-01 00:00:00', tz) from Timezones
 --
-ARRAY<STRUCT<tz STRING, STRING>>[
+ARRAY<STRUCT<tz STRING, STRING>>[unknown order:
   {"Europe/Amsterdam", "00"},
   {"Asia/Dubai", "00"},
   {"Australia/Eucla", "00"},
@@ -256,7 +256,7 @@ ARRAY<STRUCT<tz STRING, STRING>>[
 [name=string_from_timestamp]
 select tz, string(timestamp '2014-02-28 10:20:30', tz) from Timezones
 --
-ARRAY<STRUCT<tz STRING, STRING>>[
+ARRAY<STRUCT<tz STRING, STRING>>[unknown order:
   {
     "Europe/Amsterdam",
     "2014-02-28 19:20:30+01"

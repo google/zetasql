@@ -23,45 +23,42 @@
 
 namespace zetasql {
 
-void JsonEscapeString(absl::string_view raw, std::string* value_string) {
-  value_string->clear();
-  value_string->reserve(raw.size() + 2);
-
-  value_string->push_back('"');
+void JsonEscapeAndAppendString(absl::string_view raw, std::string* output) {
+  output->push_back('"');
   const size_t length = raw.length();
   for (size_t i = 0; i < length; ++i) {
     const unsigned char c = raw[i];
     if (c < 0x20) {
       // Not printable.
-      value_string->push_back('\\');
+      output->push_back('\\');
       switch (c) {
         case '\b':
-          value_string->push_back('b');
+          output->push_back('b');
           break;
         case '\f':
-          value_string->push_back('f');
+          output->push_back('f');
           break;
         case '\n':
-          value_string->push_back('n');
+          output->push_back('n');
           break;
         case '\r':
-          value_string->push_back('r');
+          output->push_back('r');
           break;
         case '\t':
-          value_string->push_back('t');
+          output->push_back('t');
           break;
         default:
-          absl::StrAppendFormat(value_string, "u%04x", c);
+          absl::StrAppendFormat(output, "u%04x", c);
       }
       continue;
     }
 
     switch (c) {
       case '\"':
-        value_string->append("\\\"");
+        output->append("\\\"");
         continue;
       case '\\':
-        value_string->append("\\\\");
+        output->append("\\\\");
         continue;
 
       // Escape U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH SEPARATOR).
@@ -75,24 +72,30 @@ void JsonEscapeString(absl::string_view raw, std::string* value_string) {
       case 0xe2: {
         if ((i + 2 < length) && (raw[i + 1] == '\x80')) {
           if (raw[i + 2] == '\xa8') {
-            value_string->append("\\u2028");
+            output->append("\\u2028");
             i += 2;
             continue;
           } else if (raw[i + 2] == '\xa9') {
-            value_string->append("\\u2029");
+            output->append("\\u2029");
             i += 2;
             continue;
           }
         }
-        value_string->push_back(c);
+        output->push_back(c);
         continue;
       }
     }
 
     // Character should not be escaped.
-    value_string->push_back(c);
+    output->push_back(c);
   }
-  value_string->push_back('"');
+  output->push_back('"');
+}
+
+void JsonEscapeString(absl::string_view raw, std::string* value_string) {
+  value_string->clear();
+  value_string->reserve(raw.size() + 2);
+  JsonEscapeAndAppendString(raw, value_string);
 }
 
 bool JsonStringNeedsEscaping(absl::string_view raw) {

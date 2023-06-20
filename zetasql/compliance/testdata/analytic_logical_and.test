@@ -52,7 +52,7 @@ OVER()
 FROM TestTable t
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BOOL>>[
+ARRAY<STRUCT<row_id INT64, BOOL>>[known order:
   {1, false},
   {2, false},
   {3, false},
@@ -81,7 +81,7 @@ OVER(ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
 FROM TestTable t
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BOOL>>[
+ARRAY<STRUCT<row_id INT64, BOOL>>[known order:
   {1, true},
   {2, false},
   {3, false},
@@ -110,7 +110,7 @@ OVER(ORDER BY row_id ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
 FROM TestTable t
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BOOL>>[
+ARRAY<STRUCT<row_id INT64, BOOL>>[known order:
   {1, false},
   {2, false},
   {3, false},
@@ -139,7 +139,7 @@ OVER(ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
 FROM TestTable t
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BOOL>>[
+ARRAY<STRUCT<row_id INT64, BOOL>>[known order:
   {1, NULL},
   {2, true},
   {3, false},

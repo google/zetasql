@@ -141,11 +141,13 @@ UPDATE TableInt64Values SET value1 = 5 WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 5, 100, 1000},
     {2, 5, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=assign_column_null]
@@ -154,11 +156,13 @@ UPDATE TableInt64Values SET value1 = NULL WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, NULL, 100, 1000},
     {2, NULL, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=assign_column_default]
@@ -167,11 +171,13 @@ UPDATE TableInt64Values SET value1 = DEFAULT WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, NULL, 100, 1000},
     {2, NULL, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 # Column assignment does nothing if the where clause doesn't match any rows.
@@ -181,11 +187,13 @@ UPDATE TableInt64Values SET value1 = NULL WHERE False
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{0,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=assign_column_where_null]
@@ -194,11 +202,13 @@ UPDATE TableInt64Values SET value1 = 10000 WHERE NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{0,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=assign_column_where_expr_null]
@@ -208,11 +218,13 @@ WHERE IF(primary_key = 1, True, NULL)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 10000, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 # Set a column to a value that depends on the previous value of that column.
@@ -222,11 +234,13 @@ UPDATE TableInt64Values SET value1 = value1 + 1000 WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 1010, 100, 1000},
     {2, 1020, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 # Set a column to a value that depends on another column.
@@ -236,11 +250,13 @@ UPDATE TableInt64Values SET value1 = primary_key + 1 WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 2, 100, 1000},
     {2, 3, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=assert_rows_modified_failure]
@@ -257,11 +273,13 @@ ASSERT_ROWS_MODIFIED 2
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 5, 100, 1000},
     {2, 5, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=assert_rows_modified_no_op_success]
@@ -271,11 +289,13 @@ ASSERT_ROWS_MODIFIED 2
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 # A negative value for ASSERT_ROWS_MODIFIED will always result in failure.
@@ -302,11 +322,13 @@ UPDATE TableInt64Values SET value1 = 5 WHERE primary_key = 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 5, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 # Non-trivial WHERE clause involving the column being modified.
@@ -316,11 +338,13 @@ UPDATE TableInt64Values SET value1 = 5 WHERE value1 = 10
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 5, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 # Same as above, but with parameters.
@@ -331,11 +355,13 @@ UPDATE TableInt64Values SET value1 = @param1 WHERE value1 = @param2
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 5, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 # Engines that do not support primary keys can skip this test by overriding
@@ -349,11 +375,13 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {100, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_primary_key_assert_rows_modified_no_pk_update]
@@ -375,11 +403,13 @@ UPDATE TableInt64Values SET primary_key = 100 WHERE primary_key = 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {100, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_primary_key_no_pk_update]
@@ -400,11 +430,13 @@ UPDATE TableInt64Values SET primary_key = NULL WHERE primary_key = 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {NULL, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_primary_key_null_no_null_pks]
@@ -434,11 +466,13 @@ UPDATE TableInt64Values SET primary_key = DEFAULT WHERE primary_key = 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {NULL, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_primary_key_default_no_null_pks]
@@ -470,11 +504,13 @@ UPDATE TableInt64Values SET primary_key = primary_key WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_primary_key_to_itself_no_pk_update]
@@ -565,10 +601,11 @@ UPDATE TableInt32Value SET int32_value = CAST(5 AS INT64) WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  2,
-  ARRAY<STRUCT<primary_key INT64, int32_value INT32>>[{1, 5}, {2, 5}]
-}
+>{2,
+  ARRAY<STRUCT<primary_key INT64, int32_value INT32>>[unknown order:
+    {1, 5},
+    {2, 5}
+  ]}
 ==
 
 # Same as above, but the coercion fails.
@@ -586,10 +623,11 @@ UPDATE TableInt32Value SET int32_value = (CAST(1 AS INT64) << 60) WHERE False
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  0,
-  ARRAY<STRUCT<primary_key INT64, int32_value INT32>>[{1, 10}, {2, 20}]
-}
+>{0,
+  ARRAY<STRUCT<primary_key INT64, int32_value INT32>>[unknown order:
+    {1, 10},
+    {2, 20}
+  ]}
 ==
 
 # An update that explicitly requires UINT64 -> UINT32 assignment coercion.
@@ -599,10 +637,11 @@ UPDATE TableUInt32Value SET uint32_value = CAST(5 AS UINT64) WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  2,
-  ARRAY<STRUCT<primary_key INT64, uint32_value UINT32>>[{1, 5}, {2, 5}]
-}
+>{2,
+  ARRAY<STRUCT<primary_key INT64, uint32_value UINT32>>[unknown order:
+    {1, 5},
+    {2, 5}
+  ]}
 ==
 
 # Same as above, but the coercion fails.
@@ -620,10 +659,11 @@ UPDATE TableUInt32Value SET uint32_value = (CAST(1 AS UINT64) << 60) WHERE False
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  0,
-  ARRAY<STRUCT<primary_key INT64, uint32_value UINT32>>[{1, 10}, {2, 20}]
-}
+>{0,
+  ARRAY<STRUCT<primary_key INT64, uint32_value UINT32>>[unknown order:
+    {1, 10},
+    {2, 20}
+  ]}
 ==
 
 [name=assign_array_column]
@@ -634,20 +674,20 @@ STRUCT<
   all_rows ARRAY<>
 >{
   3,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
-      ARRAY<INT64>[100, 200, 300],
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:100, 200, 300],
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
-      ARRAY<INT64>[100, 200, 300],
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:100, 200, 300],
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {
       3,
-      ARRAY<INT64>[100, 200, 300],
+      ARRAY<INT64>[known order:100, 200, 300],
       ARRAY<INT64>(NULL)
     }
   ]
@@ -662,16 +702,16 @@ STRUCT<
   all_rows ARRAY<>
 >{
   3,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
       ARRAY<INT64>(NULL),
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
       ARRAY<INT64>(NULL),
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
   ]
@@ -686,20 +726,20 @@ STRUCT<
   all_rows ARRAY<>
 >{
   3,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
-      ARRAY<INT64>[1, NULL, 3],
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:1, NULL, 3],
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
-      ARRAY<INT64>[1, NULL, 3],
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:1, NULL, 3],
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {
       3,
-      ARRAY<INT64>[1, NULL, 3],
+      ARRAY<INT64>[known order:1, NULL, 3],
       ARRAY<INT64>(NULL)
     }
   ]
@@ -714,16 +754,16 @@ STRUCT<
   all_rows ARRAY<>
 >{
   3,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
       ARRAY<INT64>(NULL),
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
       ARRAY<INT64>(NULL),
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
   ]
@@ -739,16 +779,16 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
-      ARRAY<INT64>[100, 12, 13],
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:100, 12, 13],
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
-      ARRAY<INT64>[100, 22, 23],
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:100, 22, 23],
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
   ]
@@ -764,16 +804,16 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
-      ARRAY<INT64>[NULL, 12, 13],
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:NULL, 12, 13],
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
-      ARRAY<INT64>[NULL, 22, 23],
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:NULL, 22, 23],
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
   ]
@@ -789,16 +829,16 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
-      ARRAY<INT64>[11, 100, 13],
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:11, 100, 13],
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
-      ARRAY<INT64>[21, 100, 23],
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:21, 100, 23],
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
   ]
@@ -816,16 +856,16 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
-      ARRAY<INT64>[11, 100, 13],
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:11, 100, 13],
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
-      ARRAY<INT64>[21, 22, 100],
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:21, 22, 100],
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
   ]
@@ -845,16 +885,16 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
-      ARRAY<INT64>[100, 12, 13],
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:100, 12, 13],
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
-      ARRAY<INT64>[21, 100, 23],
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:21, 100, 23],
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
   ]
@@ -873,16 +913,16 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
-      ARRAY<INT64>[100, 200, 13],
-      ARRAY<INT64>[111, 112, 112]
+      ARRAY<INT64>[known order:100, 200, 13],
+      ARRAY<INT64>[known order:111, 112, 112]
     },
     {
       2,
-      ARRAY<INT64>[100, 200, 23],
-      ARRAY<INT64>[221, 222, 223]
+      ARRAY<INT64>[known order:100, 200, 23],
+      ARRAY<INT64>[known order:221, 222, 223]
     },
     {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
   ]
@@ -986,13 +1026,13 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[
+  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[unknown order:
     {
-      ARRAY<INT64>[1, 2, 3],
+      ARRAY<INT64>[known order:1, 2, 3],
       100
     },
     {
-      ARRAY<INT64>[10, 11, 12],
+      ARRAY<INT64>[known order:10, 11, 12],
       200
     }
   ]}
@@ -1092,11 +1132,13 @@ UPDATE TableInt64Values SET value1 = 5, value2 = 10 WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 5, 10, 1000},
     {2, 5, 10, 2000}
-  ]}
+  ]
+}
 ==
 
 # All right hand side values are evaluated before anything is changed.
@@ -1107,11 +1149,13 @@ UPDATE TableInt64Values SET value1 = value2, value2 = value1 WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 100, 10, 1000},
     {2, 200, 20, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=modify_two_arrays_twice]
@@ -1128,16 +1172,16 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[unknown order:
     {
       1,
-      ARRAY<INT64>[1000, 2000, 13],
-      ARRAY<INT64>[3000, 112, 4000]
+      ARRAY<INT64>[known order:1000, 2000, 13],
+      ARRAY<INT64>[known order:3000, 112, 4000]
     },
     {
       2,
-      ARRAY<INT64>[1000, 2000, 23],
-      ARRAY<INT64>[3000, 222, 4000]
+      ARRAY<INT64>[known order:1000, 2000, 23],
+      ARRAY<INT64>[known order:3000, 222, 4000]
     },
     {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
   ]
@@ -1154,11 +1198,13 @@ WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{2,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 110, 100, 1000},
     {2, 220, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_join_no_join_condition]
@@ -1171,11 +1217,13 @@ WHERE TableInt64Values.value1 = 10 AND TableInt64Values2.value1 = 100
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 1100, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 # The FROM/WHERE does not join with any rows, so the table is unmodified.
@@ -1190,11 +1238,13 @@ WHERE TableInt64Values.primary_key < 0
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{0,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 # No rows are modified because we are trying to join with an empty table.
@@ -1208,11 +1258,13 @@ WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{0,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 10, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_double_join]
@@ -1230,11 +1282,13 @@ WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 2010, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_join_on]
@@ -1253,11 +1307,13 @@ WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 2010, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_join_to_self]
@@ -1274,7 +1330,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{3,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
     {1, 101},
     {2, 101},
     {3, 103},
@@ -1305,11 +1361,13 @@ WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 13010, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_join_too_many_rows]
@@ -1334,11 +1392,13 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
     {1, 110, 100, 1000},
     {2, 20, 200, 2000}
-  ]}
+  ]
+}
 ==
 
 [name=update_with_join_assert_rows_modified_failure]

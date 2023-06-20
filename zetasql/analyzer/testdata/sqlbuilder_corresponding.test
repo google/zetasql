@@ -13725,3 +13725,148 @@ SELECT
   1 AS a_2
 );
 ==
+
+# Edge case: SELECT DISTINCT. The first query's scan.column_list = [int64, int32],
+# but the final column_list should be [int32, int64]. We handle this by wrapping
+# a project scan.
+[show_resolved_ast]
+SELECT DISTINCT int64 AS a, int32 AS b, int64 AS c FROM SimpleTypes
+EXCEPT DISTINCT CORRESPONDING
+SELECT int32 AS b, int64 AS c FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$except_distinct.b#39 AS b [INT32]
+| +-$except_distinct.c#40 AS c [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[b#39, c#40]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-AggregateScan
+    | | |   +-column_list=$distinct.[int64#19, int32#20]
+    | | |   +-input_scan=
+    | | |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | |   +-group_by_list=
+    | | |     +-int64#19 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | | |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | | +-output_column_list=$distinct.[int32#20, int64#19]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=SimpleTypes.[int32#21, int64#22]
+    |   |   +-input_scan=
+    |   |     +-TableScan(column_list=SimpleTypes.[int32#21, int64#22], table=SimpleTypes, column_index_list=[0, 1])
+    |   +-output_column_list=SimpleTypes.[int32#21, int64#22]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=INNER
+
+[UNPARSED_SQL]
+(
+SELECT
+  aggregatescan_8.a_7 AS b,
+  aggregatescan_8.a_6 AS c
+FROM
+  (
+    SELECT
+      simpletypes_5.a_4 AS a_6,
+      simpletypes_5.a_3 AS a_7
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_3,
+          SimpleTypes.int64 AS a_4
+        FROM
+          SimpleTypes
+      ) AS simpletypes_5
+    GROUP BY 1, 2
+  ) AS aggregatescan_8
+) EXCEPT DISTINCT CORRESPONDING(
+SELECT
+  simpletypes_11.a_9 AS b,
+  simpletypes_11.a_10 AS c
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_9,
+      SimpleTypes.int64 AS a_10
+    FROM
+      SimpleTypes
+  ) AS simpletypes_11
+);
+==
+
+# Edge case: Both queries are SELECT DISINCT.
+[show_resolved_ast]
+SELECT DISTINCT int64 AS a, int32 AS b, int64 AS c FROM SimpleTypes
+EXCEPT DISTINCT CORRESPONDING
+SELECT DISTINCT int32 AS b, int64 AS c, int64 AS d FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$except_distinct.b#41 AS b [INT32]
+| +-$except_distinct.c#42 AS c [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[b#41, c#42]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-AggregateScan
+    | | |   +-column_list=$distinct.[int64#19, int32#20]
+    | | |   +-input_scan=
+    | | |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | |   +-group_by_list=
+    | | |     +-int64#19 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | | |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | | +-output_column_list=$distinct.[int32#20, int64#19]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-AggregateScan
+    |   |   +-column_list=$distinct.[int32#39, int64#40]
+    |   |   +-input_scan=
+    |   |   | +-TableScan(column_list=SimpleTypes.[int32#21, int64#22], table=SimpleTypes, column_index_list=[0, 1])
+    |   |   +-group_by_list=
+    |   |     +-int32#39 := ColumnRef(type=INT32, column=SimpleTypes.int32#21)
+    |   |     +-int64#40 := ColumnRef(type=INT64, column=SimpleTypes.int64#22)
+    |   +-output_column_list=$distinct.[int32#39, int64#40]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=INNER
+
+[UNPARSED_SQL]
+(
+SELECT
+  aggregatescan_8.a_7 AS b,
+  aggregatescan_8.a_6 AS c
+FROM
+  (
+    SELECT
+      simpletypes_5.a_4 AS a_6,
+      simpletypes_5.a_3 AS a_7
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_3,
+          SimpleTypes.int64 AS a_4
+        FROM
+          SimpleTypes
+      ) AS simpletypes_5
+    GROUP BY 1, 2
+  ) AS aggregatescan_8
+) EXCEPT DISTINCT CORRESPONDING(
+SELECT
+  simpletypes_11.a_9 AS b,
+  simpletypes_11.a_10 AS c
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_9,
+      SimpleTypes.int64 AS a_10
+    FROM
+      SimpleTypes
+  ) AS simpletypes_11
+GROUP BY 1, 2
+);

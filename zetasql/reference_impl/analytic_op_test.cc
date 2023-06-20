@@ -46,6 +46,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <cstdint>
+#include "absl/container/btree_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -2579,7 +2580,7 @@ AnalyticWindowTest::GetRangeWindowTestsWithOptions(TypeKind type_kind,
   // The tuple ids that need to be kept in the test relation.
   // Use set to ensure the ordering of the ids so that the new relation
   // follows the same order as the original relation.
-  std::set<int> left_ids;
+  absl::btree_set<int> left_ids;
   zetasql_base::STLSetDifference(orig_ids, tuple_ids_to_remove, &left_ids);
 
   // Generate the new relation by removing those in <tuple_ids_to_remove>.

@@ -31,7 +31,9 @@
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/signature_match_result.h"
@@ -42,13 +44,13 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
-#include "absl/memory/memory.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -89,11 +91,25 @@ class FunctionSignatureMatcher {
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature,
       const ResolveLambdaCallback* resolve_lambda_callback,
-      std::unique_ptr<FunctionSignature>* result_signature,
+      std::unique_ptr<FunctionSignature>* concrete_result_signature,
       SignatureMatchResult* signature_match_result,
       std::vector<FunctionArgumentOverride>* arg_overrides = nullptr) const;
 
  private:
+  // Shorthands to make message generation statements short.
+  std::string ShortTypeName(const Type* type) const {
+    return type->ShortTypeName(language_.product_mode());
+  }
+
+  std::string UserFacingName(const FunctionArgumentType& input_arg_type) const {
+    return input_arg_type.UserFacingName(language_.product_mode(),
+                                         /*print_template_details=*/true);
+  }
+
+  std::string UserFacingName(const InputArgumentType& input_arg_type) const {
+    return input_arg_type.UserFacingName(language_.product_mode());
+  }
+
   const LanguageOptions& language_;  // Not owned.
   const Coercer& coercer_;           // Not owned.
   const bool allow_argument_coercion_;
@@ -288,7 +304,8 @@ class FunctionSignatureMatcher {
   // by CheckArgumentTypesAndCollectTemplatedArguments().
   bool DetermineResolvedTypesForTemplatedArguments(
       const ArgKindToInputTypesMap& templated_argument_map,
-      ArgKindToResolvedTypeMap* resolved_templated_arguments) const;
+      ArgKindToResolvedTypeMap* resolved_templated_arguments,
+      SignatureMatchResult* signature_match_result) const;
 };
 
 FunctionSignatureMatcher::FunctionSignatureMatcher(
@@ -372,7 +389,8 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
     options.clear_default();
   }
   if (argument.IsTemplated() && !argument.IsRelation() && !argument.IsModel() &&
-      !argument.IsConnection() && !argument.IsLambda()) {
+      !argument.IsConnection() && !argument.IsLambda() &&
+      !argument.IsSequence()) {
     const Type* const* found_type =
         zetasql_base::FindOrNull(templated_argument_map, argument.kind());
     if (found_type == nullptr) {
@@ -394,6 +412,9 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
   } else if (argument.IsConnection()) {
     *output_argument = std::make_unique<FunctionArgumentType>(
         ARG_TYPE_CONNECTION, argument.options(), num_occurrences);
+  } else if (argument.IsSequence()) {
+    *output_argument = std::make_unique<FunctionArgumentType>(
+        ARG_TYPE_SEQUENCE, argument.options(), num_occurrences);
   } else if (argument.IsLambda()) {
     std::vector<FunctionArgumentType> concrete_arg_types;
     for (const FunctionArgumentType& arg_type :
@@ -443,11 +464,11 @@ FunctionSignatureMatcher::GetConcreteArguments(
     FunctionArgumentTypeList resolved_argument_list;
     resolved_argument_list.reserve(signature.arguments().size());
     for (int i = 0; i < signature.arguments().size(); ++i) {
-      const FunctionArgumentType& argument = signature.argument(i);
-      if (argument.kind() == ARG_TYPE_ARBITRARY) {
+      const FunctionArgumentType& signature_argument = signature.argument(i);
+      if (signature_argument.kind() == ARG_TYPE_ARBITRARY) {
         // For arbitrary type arguments the type is derived from the input.
-        resolved_argument_list.emplace_back(input_arguments[i].type(),
-                                            argument.cardinality(), 1);
+        resolved_argument_list.emplace_back(
+            input_arguments[i].type(), signature_argument.cardinality(), 1);
       } else {
         std::unique_ptr<FunctionArgumentType> argument_type;
         // GetConcreteArgument may fail if templated argument's type is not
@@ -455,7 +476,7 @@ FunctionSignatureMatcher::GetConcreteArguments(
         // not expected here.
         ZETASQL_ASSIGN_OR_RETURN(
             const bool matches,
-            GetConcreteArgument(argument, /*num_occurrences=*/1,
+            GetConcreteArgument(signature_argument, /*num_occurrences=*/1,
                                 templated_argument_map, &argument_type));
         ZETASQL_RET_CHECK(matches);
         resolved_argument_list.push_back(*argument_type);
@@ -465,8 +486,9 @@ FunctionSignatureMatcher::GetConcreteArguments(
   }
 
   bool has_repeated_arbitrary = false;
-  for (const FunctionArgumentType& argument : signature.arguments()) {
-    if (argument.repeated() && argument.kind() == ARG_TYPE_ARBITRARY) {
+  for (const FunctionArgumentType& signature_argument : signature.arguments()) {
+    if (signature_argument.repeated() &&
+        signature_argument.kind() == ARG_TYPE_ARBITRARY) {
       has_repeated_arbitrary = true;
     }
   }
@@ -477,57 +499,58 @@ FunctionSignatureMatcher::GetConcreteArguments(
   int last_repeated_index = signature.LastRepeatedArgumentIndex();
   int input_position = 0;
   for (int i = 0; i < signature.arguments().size(); ++i) {
-    const FunctionArgumentType& argument = signature.argument(i);
+    const FunctionArgumentType& signature_argument = signature.argument(i);
     int num_occurrences = 1;
-    if (argument.repeated()) {
+    if (signature_argument.repeated()) {
       num_occurrences =
           (has_repeated_arbitrary && repetitions > 0) ? 1 : repetitions;
-    } else if (argument.optional()) {
+    } else if (signature_argument.optional()) {
       if (optionals == 0) {
         num_occurrences = 0;
       }
       optionals -= num_occurrences;
     }
 
-    // Sanity check about the default argument value.
+    // Sanity check about the default signature_argument value.
     if (num_occurrences > 0) {
       ZETASQL_RET_CHECK_LT(input_position, input_arguments.size());
       const InputArgumentType& input_arg = input_arguments[input_position];
       if (input_arg.is_default_argument_value()) {
         ZETASQL_RET_CHECK(input_arg.is_literal()) << input_arg.DebugString();
-        ZETASQL_RET_CHECK(argument.HasDefault())
-            << argument.DebugString() << "; " << input_arg.DebugString();
+        ZETASQL_RET_CHECK(signature_argument.HasDefault())
+            << signature_argument.DebugString() << "; "
+            << input_arg.DebugString();
       }
     }
 
-    if (argument.kind() == ARG_TYPE_ARBITRARY) {
+    if (signature_argument.kind() == ARG_TYPE_ARBITRARY) {
       // Make a copy of the arg type options, so that we can clear the default
-      // argument value to avoid conflicting with the concrete type which is a
-      // fatal error FunctionSignature::IsValid().
-      // It is assumed that the <argument> already carries the default value as
-      // a literal which can be referenced later. So it is safe to remove the
-      // default from the argument options.
-      FunctionArgumentTypeOptions options(argument.options());
+      // signature_argument value to avoid conflicting with the concrete type
+      // which is a fatal error FunctionSignature::IsValid(). It is assumed that
+      // the <signature_argument> already carries the default value as a literal
+      // which can be referenced later. So it is safe to remove the default from
+      // the signature_argument options.
+      FunctionArgumentTypeOptions options(signature_argument.options());
       options.clear_default();
       if (num_occurrences > 0) {
         resolved_argument_list.emplace_back(
             input_arguments[input_position].type(), options, 1);
       } else {
-        resolved_argument_list.emplace_back(argument.kind(), options,
+        resolved_argument_list.emplace_back(signature_argument.kind(), options,
                                             num_occurrences);
       }
     } else {
       std::unique_ptr<FunctionArgumentType> argument_type;
-      // GetConcreteArgument may fail if templated argument's type is not
-      // in the map. This can only happen if num_occurrences=0.
+      // GetConcreteArgument may fail if templated signature_argument's type is
+      // not in the map. This can only happen if num_occurrences=0.
       ZETASQL_ASSIGN_OR_RETURN(
           const bool matches,
-          GetConcreteArgument(argument, num_occurrences, templated_argument_map,
-                              &argument_type));
+          GetConcreteArgument(signature_argument, num_occurrences,
+                              templated_argument_map, &argument_type));
       if (!matches) {
         ZETASQL_RET_CHECK_EQ(0, num_occurrences);
         argument_type = std::make_unique<FunctionArgumentType>(
-            argument.kind(), argument.cardinality(), 0);
+            signature_argument.kind(), signature_argument.cardinality(), 0);
       }
       resolved_argument_list.push_back(*argument_type);
     }
@@ -535,7 +558,8 @@ FunctionSignatureMatcher::GetConcreteArguments(
     if (i == last_repeated_index) {
       // This is the end of the block of repeated arguments.
       // Decrease "repetitions" by the num_occurrences we've just output,
-      // And, if necessary, go back to the first repeated argument again.
+      // And, if necessary, go back to the first repeated signature_argument
+      // again.
       repetitions -= num_occurrences;
       if (repetitions > 0) {
         i = first_repeated_index - 1;
@@ -547,22 +571,38 @@ FunctionSignatureMatcher::GetConcreteArguments(
   return resolved_argument_list;
 }
 
-}  // namespace
+// Assumes availability of local variable `signature_match_result` and
+// `arg_idx`.
+#define SET_MISMATCH_ERROR_WITH_INDEX(msg)                  \
+  if (signature_match_result->allow_mismatch_message()) {   \
+    signature_match_result->set_mismatch_message(           \
+        absl::StrCat("Argument ", arg_idx + 1, ": ", msg)); \
+  }
 
-bool SignatureArgumentCountMatches(const FunctionSignature& signature,
-                                   int input_arguments_size, int* repetitions,
-                                   int* optionals) {
-  const int num_required = signature.NumRequiredArguments();
+// Assumes availability of local variable `signature_match_result`.
+#define SET_MISMATCH_ERROR(msg)                           \
+  if (signature_match_result->allow_mismatch_message()) { \
+    signature_match_result->set_mismatch_message(msg);    \
+  }
+
+bool SignatureArgumentCountMatches(
+    const FunctionSignature& signature, int input_arguments_size,
+    int* repetitions, int* optionals,
+    SignatureMatchResult* signature_match_result) {
+  const int signature_num_required = signature.NumRequiredArguments();
 
   *repetitions = 0;
   *optionals = 0;
 
-  if (num_required == input_arguments_size) {
+  if (signature_num_required == input_arguments_size) {
     // Fast path: exactly the required arguments passed, return early.
     return true;
   }
-  if (num_required > input_arguments_size) {
+  if (signature_num_required > input_arguments_size) {
     // Fast path: fewer required arguments provided, return early.
+    SET_MISMATCH_ERROR(
+        absl::StrFormat("Signature requires %d arguments, found %d arguments",
+                        signature_num_required, input_arguments_size));
     return false;
   }
 
@@ -574,22 +614,35 @@ bool SignatureArgumentCountMatches(const FunctionSignature& signature,
   //   input_arguments_size = sig.num_required + x*sig.num_repeated + y
   // where 0 < y <= sig.num_optional.
   if (num_repeated > 0) {
-    while (input_arguments_size >
-           num_required + *repetitions * num_repeated + num_optional) {
+    while (input_arguments_size > signature_num_required +
+                                      *repetitions * num_repeated +
+                                      num_optional) {
       ++(*repetitions);
     }
   }
 
-  const int opts =
-      input_arguments_size - num_required - *repetitions * num_repeated;
+  const int opts = input_arguments_size - signature_num_required -
+                   *repetitions * num_repeated;
   if (opts < 0 || opts > num_optional) {
     // We do not have enough optionals to match the arguments size, and
     // repeating the repeated block again would require too many arguments.
+    SET_MISMATCH_ERROR("Wrong number of arguments");
     return false;
   }
 
   *optionals = opts;
   return true;
+}
+
+}  // namespace
+
+bool SignatureArgumentCountMatches(const FunctionSignature& signature,
+                                   int input_arguments_size, int* repetitions,
+                                   int* optionals) {
+  SignatureMatchResult unused_signature_match_result;
+  return SignatureArgumentCountMatches(signature, input_arguments_size,
+                                       repetitions, optionals,
+                                       &unused_signature_match_result);
 }
 
 namespace {
@@ -628,6 +681,7 @@ bool FunctionSignatureMatcher::
   // shouldn't fail here.
   ZETASQL_DCHECK_OK(arg_names_or.status()) << "Failed to extract lambda argument names";
   if (!arg_names_or.ok()) {
+    SET_MISMATCH_ERROR("Failed to extract lambda argument names");
     return false;
   }
   const std::vector<IdString>& arg_names = arg_names_or.value();
@@ -638,13 +692,17 @@ bool FunctionSignatureMatcher::
   const FunctionArgumentTypeList& sig_arg_types =
       arg_type_lambda.argument_types();
   if (arg_names.size() != sig_arg_types.size()) {
+    SET_MISMATCH_ERROR_WITH_INDEX(
+        absl::StrFormat("lambda requires %d arguments but %d is provided",
+                        sig_arg_types.size(), arg_names.size()));
     return false;
   }
 
   // Get types of lambda argument list.
   std::vector<const Type*> concrete_arg_types;
   concrete_arg_types.reserve(sig_arg_types.size());
-  for (const FunctionArgumentType& sig_arg_type : sig_arg_types) {
+  for (int sig_arg_idx = 0; sig_arg_idx < sig_arg_types.size(); sig_arg_idx++) {
+    const FunctionArgumentType& sig_arg_type = sig_arg_types[sig_arg_idx];
     // Use the type if it is explicitly specified by signature.
     if (sig_arg_type.type() != nullptr) {
       concrete_arg_types.push_back(sig_arg_type.type());
@@ -658,6 +716,9 @@ bool FunctionSignatureMatcher::
     // lambda must have been seen before the lambda argument.
     ZETASQL_DCHECK_NE(param_typeset, nullptr);
     if (param_typeset == nullptr) {
+      SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
+          "failed to infer type for %dth argument (%s) of lambda",
+          sig_arg_idx + 1, arg_names[sig_arg_idx].ToString()));
       return false;
     }
     // Untyped arguments get their types after all templated args are
@@ -665,17 +726,22 @@ bool FunctionSignatureMatcher::
     // We are not able to infer types of lambda arguments.
     if (param_typeset->kind() !=
         SignatureArgumentKindTypeSet::TYPED_ARGUMENTS) {
+      SET_MISMATCH_ERROR_WITH_INDEX(
+          absl::StrFormat("failed to infer type for %d-th argument (%s) of "
+                          "lambda from other untyped arguments",
+                          sig_arg_idx, arg_names[sig_arg_idx].ToString()));
       return false;
     }
     // Get the type from typeset.
     const Type* common_supertype = nullptr;
     const absl::Status s = coercer_.GetCommonSuperType(
         param_typeset->typed_arguments(), &common_supertype);
-    if (!s.ok()) {
-      return false;
-    }
     // Failed to deduce type
-    if (common_supertype == nullptr) {
+    if (!s.ok() || common_supertype == nullptr) {
+      SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
+          "failed to infer type for %d-th argument (%s) for lambda because "
+          "common super type of templated arguments doesn't exist",
+          sig_arg_idx, arg_names[sig_arg_idx].ToString()));
       return false;
     }
     concrete_arg_types.push_back(common_supertype);
@@ -708,13 +774,19 @@ bool FunctionSignatureMatcher::
       ast_lambda, arg_names, concrete_arg_types, body_result_type,
       allow_argument_coercion_, &resolved_lambda);
   if (!s.ok()) {
-    ZETASQL_VLOG(2) << "Failed to resolve lambda: " << s;
+    SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
+        "failed to resolve lambda body, error: %s", s.message()));
     return false;
   }
   ZETASQL_DCHECK(resolved_lambda != nullptr);
+
+  const Type* resolved_body_type = resolved_lambda->body()->type();
   // Body result type doesn't match signature specification.
   if (body_result_type != nullptr &&
-      !resolved_lambda->body()->type()->Equals(body_result_type)) {
+      !resolved_body_type->Equals(body_result_type)) {
+    SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
+        "expected the lambda body of type %s, found %s",
+        ShortTypeName(body_result_type), ShortTypeName(resolved_body_type)));
     return false;
   }
 
@@ -730,6 +802,11 @@ bool FunctionSignatureMatcher::
             arg_type_lambda.body_type(), resolve_lambda_callback,
             templated_argument_map, signature_match_result,
             /*arg_overrides=*/nullptr)) {
+      SET_MISMATCH_ERROR_WITH_INDEX(
+          absl::StrFormat("lambda body type %s is not compatible with other "
+                          "arguments for the templated type %s",
+                          ShortTypeName(resolved_body_type),
+                          UserFacingName(arg_type_lambda.body_type())));
       return false;
     }
   }
@@ -764,6 +841,9 @@ bool FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
             arg_idx, arg_ast, input_argument, signature_argument,
             resolve_lambda_callback, templated_argument_map,
             signature_match_result, arg_overrides)) {
+      ZETASQL_DCHECK(!signature_match_result->allow_mismatch_message() ||
+             !signature_match_result->mismatch_message().empty())
+          << "Mismatch error message should have been set.";
       return false;
     }
 
@@ -826,6 +906,14 @@ absl::StatusOr<MapEntryTypes> GetMapEntryTypes(const Type* map_type,
                                             &value_type));
   return {{key_type, value_type}};
 }
+
+#define SET_ARG_KIND_MISMATCH_ERROR()                                     \
+  SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(                          \
+      "expected %s, found %s",                                            \
+      signature_argument.UserFacingName(language_.product_mode(),         \
+                                        /*print_template_details=*/true), \
+      input_argument.UserFacingName(language_.product_mode())));
+
 }  // namespace
 
 // Utility used by above function
@@ -844,22 +932,32 @@ bool FunctionSignatureMatcher::
   if (signature_argument.IsRelation() != input_argument.is_relation()) {
     // Relation signature argument types match only relation input arguments.
     // No other signature argument types match relation input arguments.
+    SET_ARG_KIND_MISMATCH_ERROR();
     return false;
   }
   if (signature_argument.IsModel() != input_argument.is_model()) {
     // Model signature argument types match only model input arguments.
     // No other signature argument types match model input arguments.
+    SET_ARG_KIND_MISMATCH_ERROR();
     return false;
   }
   if (signature_argument.IsConnection() != input_argument.is_connection()) {
     // Connection signature argument types match only connection input
     // arguments.
     // No other signature argument types match connection input arguments.
+    SET_ARG_KIND_MISMATCH_ERROR();
+    return false;
+  }
+  if (signature_argument.IsSequence() != input_argument.is_sequence()) {
+    // Sequence signature argument types match only sequence input
+    // arguments.
+    SET_ARG_KIND_MISMATCH_ERROR();
     return false;
   }
   if (signature_argument.IsLambda() != input_argument.is_lambda()) {
     // Lambda signature argument types match only lambda input arguments.
     // No other signature argument types match lambda input arguments.
+    SET_ARG_KIND_MISMATCH_ERROR();
     return false;
   }
   if (signature_argument.IsRelation()) {
@@ -877,6 +975,8 @@ bool FunctionSignatureMatcher::
     ZETASQL_DCHECK(input_argument.is_connection());
     // We currently only support ANY CONNECTION signatures and there is no
     // need to to check for coercion given that the connections are templated.
+  } else if (signature_argument.IsSequence()) {
+    ZETASQL_DCHECK(input_argument.is_sequence());
   } else if (signature_argument.kind() == ARG_TYPE_ARBITRARY) {
     // Arbitrary kind arguments match any input argument type.
   } else if (signature_argument.IsLambda()) {
@@ -894,6 +994,10 @@ bool FunctionSignatureMatcher::
          (!coercer_.CoercesTo(input_argument, signature_argument.type(),
                               /*is_explicit=*/false, signature_match_result) &&
           !signature_argument.AllowCoercionFrom(input_argument.type())))) {
+      SET_MISMATCH_ERROR_WITH_INDEX(
+          absl::StrFormat("Unable to coerce type %s to expected type %s",
+                          ShortTypeName(input_argument.type()),
+                          ShortTypeName(signature_argument.type())));
       return false;
     }
   } else if (input_argument.is_untyped()) {
@@ -916,6 +1020,9 @@ bool FunctionSignatureMatcher::
       // entry is specific to the field it is sourced from. So untyped null
       // is not resolvable for ARG_PROTO_MAP_ANY-taking function arguments.
       signature_match_result->incr_non_matched_arguments();
+      SET_MISMATCH_ERROR_WITH_INDEX(
+          absl::StrFormat("expected proto map type but found: %s",
+                          UserFacingName(input_argument)));
       return false;
     }
     if (kind == ARG_PROTO_MAP_KEY_ANY || kind == ARG_PROTO_MAP_VALUE_ANY) {
@@ -938,11 +1045,17 @@ bool FunctionSignatureMatcher::
     // coercible to arrays.
     if (IsArgKind_ARRAY_ANY_K(signature_argument_kind) &&
         !input_argument.type()->IsArray()) {
+      SET_MISMATCH_ERROR_WITH_INDEX(
+          absl::StrFormat("expected array type but found %s",
+                          ShortTypeName(input_argument.type())));
       return false;
     }
 
     if (signature_argument_kind == ARG_PROTO_MAP_ANY &&
         !IsProtoMap(input_argument.type())) {
+      SET_MISMATCH_ERROR_WITH_INDEX(
+          absl::StrFormat("expected proto map type but found %s",
+                          ShortTypeName(input_argument.type())));
       return false;
     }
 
@@ -950,6 +1063,9 @@ bool FunctionSignatureMatcher::
     // RANGE, then they do not match.
     if (signature_argument_kind == ARG_RANGE_TYPE_ANY &&
         !input_argument.type()->IsRangeType()) {
+      SET_MISMATCH_ERROR_WITH_INDEX(
+          absl::StrFormat("expected range type but found %s",
+                          ShortTypeName(input_argument.type())));
       return false;
     }
 
@@ -961,6 +1077,11 @@ bool FunctionSignatureMatcher::
          !input_argument.type()->IsProto()) ||
         (signature_argument_kind == ARG_STRUCT_ANY &&
          !input_argument.type()->IsStruct())) {
+      SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
+          "expected %s but found %s",
+          signature_argument.UserFacingName(language_.product_mode(),
+                                            /*print_template_details=*/true),
+          ShortTypeName(input_argument.type())));
       return false;
     }
 
@@ -1006,6 +1127,9 @@ bool FunctionSignatureMatcher::
           GetMapEntryTypes(input_argument.type(), *type_factory_);
       if (!entry_types.ok()) {
         ZETASQL_VLOG(1) << "Error computing map entry types: " << entry_types.status();
+        SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
+            "failed to infer type for proto map key or value with error: %s",
+            entry_types.status().message()));
         return false;
       }
       // For map entry functions, the template type is dominant. Other arguments
@@ -1057,7 +1181,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
                .second) {
         // There was a duplicate column name in the input relation. This is
         // invalid.
-        signature_match_result->set_mismatch_message(absl::StrCat(
+        signature_match_result->set_tvf_mismatch_message(absl::StrCat(
             "Table-valued function does not allow duplicate input ",
             "columns named \"", provided_col_name, "\" for argument ",
             arg_idx + 1));
@@ -1071,7 +1195,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
                !provided_schema.is_value_table()) {
       // There was a column name in the input relation not specified in the
       // required output schema, and the signature does not allow this.
-      signature_match_result->set_mismatch_message(
+      signature_match_result->set_tvf_mismatch_message(
           absl::StrCat("Function does not allow extra input column named \"",
                        provided_col_name, "\" for argument ", arg_idx + 1));
       signature_match_result->set_tvf_bad_argument_index(arg_idx);
@@ -1098,7 +1222,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
         // The required value table was not found in the provided input
         // relation. Generate a descriptive error message.
         ZETASQL_RET_CHECK_EQ(1, required_schema.num_columns());
-        signature_match_result->set_mismatch_message(
+        signature_match_result->set_tvf_mismatch_message(
             absl::StrCat("Expected value table of type ",
                          required_schema.column(0).type->ShortTypeName(
                              language_.product_mode()),
@@ -1113,7 +1237,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
       if (lookup == nullptr) {
         // The required column name was not found in the provided input
         // relation. Generate a descriptive error message.
-        signature_match_result->set_mismatch_message(absl::StrCat(
+        signature_match_result->set_tvf_mismatch_message(absl::StrCat(
             "Required column \"", required_col_name,
             "\" not found in table passed as argument ", arg_idx + 1));
         signature_match_result->set_tvf_bad_argument_index(arg_idx);
@@ -1128,17 +1252,18 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
         provided_schema.column(provided_col_idx).type;
     if (provided_col_type->Equals(required_col_type)) {
       // The provided column type is acceptable. Continue.
-    } else if (allow_argument_coercion_ &&
+    } else if (SignatureMatchResult unused_result;
+               allow_argument_coercion_ &&
                coercer_.CoercesTo(InputArgumentType(provided_col_type),
                                   required_col_type, /*is_explicit=*/false,
-                                  signature_match_result)) {
+                                  &unused_result)) {
       // Make a note to coerce the relation argument later and continue.
       signature_match_result->AddTVFRelationCoercionEntry(
           arg_idx, provided_col_idx, required_col_type);
     } else {
       // The provided column type is invalid. Mark the argument index and
       // column name to return a descriptive error later.
-      signature_match_result->set_mismatch_message(absl::StrCat(
+      signature_match_result->set_tvf_mismatch_message(absl::StrCat(
           "Invalid type ",
           provided_col_type->ShortTypeName(language_.product_mode()),
           (required_schema.is_value_table()
@@ -1157,7 +1282,8 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
 
 bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
     const ArgKindToInputTypesMap& templated_argument_map,
-    ArgKindToResolvedTypeMap* resolved_templated_arguments) const {
+    ArgKindToResolvedTypeMap* resolved_templated_arguments,
+    SignatureMatchResult* signature_match_result) const {
   for (const auto& templated_argument_entry : templated_argument_map) {
     const SignatureArgumentKind& kind = templated_argument_entry.first;
 
@@ -1177,13 +1303,21 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
       if (dominant_type == nullptr) {
         ZETASQL_DLOG(FATAL) << "Dominant type should be set for map key and value in "
                     << "all cases";
+        SET_MISMATCH_ERROR(absl::StrCat(
+            "Unable to determine type for ",
+            FunctionArgumentType::SignatureArgumentKindToString(kind)));
         return false;
       }
 
-      for (const auto& other_type : type_set.typed_arguments().arguments()) {
+      for (const InputArgumentType& other_type :
+           type_set.typed_arguments().arguments()) {
         SignatureMatchResult unused_result;
         if (!coercer_.CoercesTo(other_type, dominant_type->type(),
                                 /*is_explicit=*/false, &unused_result)) {
+          SET_MISMATCH_ERROR(absl::StrFormat(
+              "Unable to coerce type %s to resolved type %s for %s",
+              UserFacingName(other_type), ShortTypeName(dominant_type->type()),
+              FunctionArgumentType::SignatureArgumentKindToString(kind)));
           return false;
         }
       }
@@ -1224,6 +1358,10 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
             // For a templated proto, enum, or struct type we do not know what
             // the actual type is given just a NULL argument, so we cannot match
             // the signature with all untyped null arguments.
+            SET_MISMATCH_ERROR(absl::StrFormat(
+                "Unable to determine type for untyped null for argument kind "
+                "%s",
+                FunctionArgumentType::SignatureArgumentKindToString(kind)));
             return false;
           }
           // Untyped non-array arguments have type INT64. InsertOrDie() is safe
@@ -1236,6 +1374,9 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
               kind == ARG_ENUM_ANY) {
             // An untyped empty array cannot be matched to a templated proto,
             // enum, or struct type.
+            SET_MISMATCH_ERROR(absl::StrFormat(
+                "Unexpected untyped empty array for argument type %s",
+                FunctionArgumentType::SignatureArgumentKindToString(kind)));
             return false;
           }
           // Untyped array arguments have type ARRAY<INT64>. InsertOrDie() is
@@ -1247,6 +1388,9 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
           const Type* common_supertype =
               coercer_.GetCommonSuperType(type_set.typed_arguments());
           if (common_supertype == nullptr) {
+            SET_MISMATCH_ERROR(absl::StrFormat(
+                "Unable to find common supertype for templated argument %s",
+                FunctionArgumentType::SignatureArgumentKindToString(kind)));
             return false;
           }
           // InsertOrDie() is safe because 'kind' only occurs once in
@@ -1267,6 +1411,9 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
 
       if ((*element_type)->IsArray()) {
         // Arrays of arrays are not supported.
+        SET_MISMATCH_ERROR(absl::StrFormat(
+            "%s is inferred to be array of array, which is not supported",
+            FunctionArgumentType::SignatureArgumentKindToString(kind)));
         return false;
       }
 
@@ -1280,6 +1427,11 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
           SignatureMatchResult unused_result;
           if (!coercer_.CoercesTo(argument, new_array_type,
                                   /*is_explicit=*/false, &unused_result)) {
+            SET_MISMATCH_ERROR(absl::StrFormat(
+                "Unable to coerce type %s to inferred array type %s for "
+                "argument %s",
+                UserFacingName(argument), ShortTypeName(new_array_type),
+                FunctionArgumentType::SignatureArgumentKindToString(kind)));
             return false;
           }
         }
@@ -1298,7 +1450,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature,
     const ResolveLambdaCallback* resolve_lambda_callback,
-    std::unique_ptr<FunctionSignature>* result_signature,
+    std::unique_ptr<FunctionSignature>* concrete_result_signature,
     SignatureMatchResult* signature_match_result,
     std::vector<FunctionArgumentOverride>* arg_overrides) const {
   ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
@@ -1306,10 +1458,12 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
       "during signature matching");
   if (!signature.options().check_all_required_features_are_enabled(
           language_.GetEnabledLanguageFeatures())) {
+    // Signature will be hidden in error message, so no need to set mismatch
+    // message.
     return false;
   }
 
-  result_signature->reset();
+  concrete_result_signature->reset();
 
   int repetitions = 0;
   int optionals = 0;
@@ -1321,9 +1475,11 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   // into account optional and repeated arguments.  Find x and y such that:
   //   input_arguments.size() = sig.num_required + x*sig.num_repeated + y
   // where 0 < y <= sig.num_optional.
-  if (!SignatureArgumentCountMatches(signature,
-                                     static_cast<int>(input_arguments.size()),
-                                     &repetitions, &optionals)) {
+  if (!SignatureArgumentCountMatches(
+          signature, static_cast<int>(input_arguments.size()), &repetitions,
+          &optionals, signature_match_result)) {
+    ZETASQL_RET_CHECK(!signature_match_result->allow_mismatch_message() ||
+              !signature_match_result->mismatch_message().empty());
     return false;
   }
 
@@ -1333,11 +1489,15 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   // non-matched arguments and non-templated arguments.
   ArgKindToInputTypesMap templated_argument_map;
   SignatureMatchResult local_signature_match_result;
+  local_signature_match_result.set_allow_mismatch_message(
+      signature_match_result->allow_mismatch_message());
   if (!CheckArgumentTypesAndCollectTemplatedArguments(
           arg_ast_nodes, input_arguments, signature, repetitions,
           resolve_lambda_callback, &templated_argument_map,
           &local_signature_match_result, arg_overrides)) {
     signature_match_result->UpdateFromResult(local_signature_match_result);
+    ZETASQL_RET_CHECK(!signature_match_result->allow_mismatch_message() ||
+              !signature_match_result->mismatch_message().empty());
     return false;
   }
 
@@ -1347,8 +1507,11 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   // not currently have a function definition that needs this.
   ArgKindToResolvedTypeMap resolved_templated_arguments;
   if (!DetermineResolvedTypesForTemplatedArguments(
-          templated_argument_map, &resolved_templated_arguments)) {
+          templated_argument_map, &resolved_templated_arguments,
+          &local_signature_match_result)) {
     signature_match_result->UpdateFromResult(local_signature_match_result);
+    ZETASQL_RET_CHECK(!signature_match_result->allow_mismatch_message() ||
+              !signature_match_result->mismatch_message().empty());
     return false;
   }
 
@@ -1398,6 +1561,9 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
                             resolved_templated_arguments, &result_type));
     if (!matches) {
       signature_match_result->UpdateFromResult(local_signature_match_result);
+      SET_MISMATCH_ERROR(absl::StrFormat(
+          "Unable to determine type for function return type of kind %s",
+          UserFacingName(signature.result_type())));
       return false;
     }
   }
@@ -1405,7 +1571,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
       FunctionArgumentTypeList arg_list,
       GetConcreteArguments(input_arguments, signature, repetitions, optionals,
                            resolved_templated_arguments));
-  *result_signature = std::make_unique<FunctionSignature>(
+  *concrete_result_signature = std::make_unique<FunctionSignature>(
       *result_type, arg_list, signature.context_id(), signature.options());
 
   // We have a matching concrete signature, so update <signature_match_result>
@@ -1413,14 +1579,15 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   for (int idx = 0; idx < input_arguments.size(); ++idx) {
     if (input_arguments[idx].is_relation() || input_arguments[idx].is_model() ||
         input_arguments[idx].is_connection() ||
-        input_arguments[idx].is_lambda()) {
+        input_arguments[idx].is_lambda() ||
+        input_arguments[idx].is_sequence()) {
       // The cost of matching a relation/model/connection-type argument is not
       // currently considered in the SignatureMatchResult.
       continue;
     }
     const Type* input_argument_type = input_arguments[idx].type();
     const Type* signature_argument_type =
-        (*result_signature)->ConcreteArgumentType(idx);
+        (*concrete_result_signature)->ConcreteArgumentType(idx);
     if (!input_argument_type->Equals(signature_argument_type)) {
       if (input_arguments[idx].is_untyped()) {
         // Ideally, the coercion cost should be 0 if the argument is any
@@ -1469,14 +1636,14 @@ absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const FunctionSignature& signature, bool allow_argument_coercion,
     TypeFactory* type_factory,
     const ResolveLambdaCallback* resolve_lambda_callback,
-    std::unique_ptr<FunctionSignature>* result_signature,
+    std::unique_ptr<FunctionSignature>* concrete_result_signature,
     SignatureMatchResult* signature_match_result,
     std::vector<FunctionArgumentOverride>* arg_overrides) {
   FunctionSignatureMatcher signature_matcher(
       language_options, coercer, allow_argument_coercion, type_factory);
   return signature_matcher.SignatureMatches(
       arg_ast_nodes, input_arguments, signature, resolve_lambda_callback,
-      result_signature, signature_match_result, arg_overrides);
+      concrete_result_signature, signature_match_result, arg_overrides);
 }
 
 }  // namespace zetasql

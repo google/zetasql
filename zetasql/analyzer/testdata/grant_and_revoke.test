@@ -1,6 +1,6 @@
 grant all on KeyValue to "mdbuser/user";
 --
-GrantStmt(object_type="", name_path=KeyValue, grantee_list=[`mdbuser/user`])
+GrantStmt(object_type_list=``, name_path=KeyValue, grantee_list=[`mdbuser/user`])
 ==
 
 grant select on KeyValue to "mdbuser/user";
@@ -8,7 +8,7 @@ grant select on KeyValue to "mdbuser/user";
 GrantStmt
 +-privilege_list=
 | +-Privilege(action_type="select")
-+-object_type=""
++-object_type_list=``
 +-name_path=KeyValue
 +-grantee_list=[`mdbuser/user`]
 ==
@@ -29,7 +29,7 @@ RevokeStmt
 +-privilege_list=
 | +-Privilege(action_type="select")
 | +-Privilege(action_type="insert")
-+-object_type=""
++-object_type_list=``
 +-name_path=KeyValue
 +-grantee_expr_list=
   +-Literal(type=STRING, value="mdbuser/user")
@@ -55,7 +55,7 @@ RevokeStmt
 +-privilege_list=
 | +-Privilege(action_type="select")
 | +-Privilege(action_type="insert")
-+-object_type=""
++-object_type_list=``
 +-name_path=KeyValue
 +-grantee_expr_list=
   +-Literal(type=STRING, value="mdbuser/user")
@@ -76,7 +76,7 @@ RevokeStmt
 |   +-action_type="insert"
 |   +-unit_list=
 |     +-ObjectUnit(name_path=col2)
-+-object_type="table"
++-object_type_list=table
 +-name_path=KeyValue
 +-grantee_list=[`user@google.com`]
 ==
@@ -111,4 +111,24 @@ revoke select (doubly_nested_struct.e, doubly_nested_struct.f.c) on DoublyNested
 ERROR: Privileges on nested fields are not supported in REVOKE [at 1:16]
 revoke select (doubly_nested_struct.e, doubly_nested_struct.f.c) on DoublyNes...
                ^
+==
+
+grant select on materialized view foo to 'user@google.com'
+--
+GrantStmt
++-privilege_list=
+| +-Privilege(action_type="select")
++-object_type_list=materialized.view
++-name_path=foo
++-grantee_list=[`user@google.com`]
+==
+
+revoke select on materialized view foo from 'user@google.com'
+--
+RevokeStmt
++-privilege_list=
+| +-Privilege(action_type="select")
++-object_type_list=materialized.view
++-name_path=foo
++-grantee_list=[`user@google.com`]
 ==

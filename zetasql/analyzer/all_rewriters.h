@@ -19,7 +19,7 @@
 
 #include <vector>
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/public/rewriter_interface.h"
 
 namespace zetasql {
 

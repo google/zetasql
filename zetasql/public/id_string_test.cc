@@ -18,13 +18,16 @@
 
 #include <algorithm>
 #include <set>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
+#include "zetasql/common/unicode_utils.h"
 #include "zetasql/base/case.h"
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
+#include "absl/flags/flag.h"
 #include "absl/hash/hash.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
@@ -272,6 +275,73 @@ TEST(IdString, CaseLessThan) {
           zetasql_base::CaseLess()(test_cases[i], test_cases[j]))
           << "input1 = " << test_cases[i] << ", input2 = " << test_cases[j];
     }
+  }
+}
+
+TEST(IdString, Equals_Unicode) {
+  absl::SetFlag(&FLAGS_zetasql_idstring_allow_unicode_characters, true);
+  IdStringPool pool;
+
+  // Test cases covers
+  // - Unicode strings that are different only in case
+  // - Unicode strings that are different both in case and encoding
+  // - Long unicode strings that has one different character in case
+  // - Unicode strings that have different trailing paddings
+  std::vector<std::string> test_string_1 = {"å", "ô", "𐌰𐌰𐌰𐌰ô𐌰𐌰𐌰𐌰",
+                                            "𐌰𐌰𐌰𐌰ô𐌰𐌰𐌰𐌰\0\0\0"};
+  std::vector<std::string> test_string_2 = {"Å", "O\u0302", "𐌰𐌰𐌰𐌰Ô𐌰𐌰𐌰𐌰",
+                                            "𐌰𐌰𐌰𐌰Ô𐌰𐌰𐌰𐌰\0\0\0\0\0"};
+
+  for (int i = 0; i < test_string_1.size(); ++i) {
+    IdString id_string_1 = pool.Make(test_string_1[i]);
+    IdString id_string_2 = pool.Make(test_string_2[i]);
+    EXPECT_FALSE(id_string_1.Equals(id_string_2));
+  }
+}
+
+TEST(IdString, CaseEquals_Unicode) {
+  absl::SetFlag(&FLAGS_zetasql_idstring_allow_unicode_characters, true);
+  IdStringPool pool;
+
+  // Test cases covers
+  // - Unicode strings that are different only in case
+  // - Unicode strings that are different both in case and encoding
+  // - Unicode strings that are the same
+  // - Long unicode strings that has one different character in case
+  // - Unicode strings that have different trailing paddings
+  // - Unicode strings with character expansion like ß => ss
+  std::vector<std::string> test_string_1 = {
+      "å", "ô", "学", "𐌰𐌰𐌰𐌰ô𐌰𐌰𐌰𐌰", "𐌰𐌰𐌰𐌰ô𐌰𐌰𐌰𐌰\0\0\0", "ßſA"};
+  std::vector<std::string> test_string_2 = {
+      "Å", "O\u0302", "学", "𐌰𐌰𐌰𐌰Ô𐌰𐌰𐌰𐌰", "𐌰𐌰𐌰𐌰Ô𐌰𐌰𐌰𐌰\0\0\0\0\0", "sssa"};
+
+  for (int i = 0; i < test_string_1.size(); ++i) {
+    IdString id_string_1 = pool.Make(test_string_1[i]);
+    IdString id_string_2 = pool.Make(test_string_2[i]);
+    EXPECT_TRUE(id_string_1.CaseEquals(id_string_2));
+  }
+}
+
+TEST(IdString, CaseEquals_InvalidUTF8) {
+  // Test cases cover two ill-formed UTF-8 strings, in 1 byte and 4
+  // bytes. Why they are ill-formed can be found in
+  // https://en.wikipedia.org/wiki/UTF-8#Encoding. This test verifies that they
+  // can be handled correctly.
+  absl::SetFlag(&FLAGS_zetasql_idstring_allow_unicode_characters, true);
+  IdStringPool pool;
+
+  // 11000000
+  const std::string invalid_utf8_1 = {(char)0xc0};
+
+  // 11111110 11111110 11111111 11111111
+  const std::string invalid_utf8_2 = {(char)0xfe, (char)0xfe, (char)0xff,
+                                      (char)0xff};
+  std::vector<std::string> test_strings = {invalid_utf8_1, invalid_utf8_2};
+
+  for (int i = 0; i < test_strings.size(); ++i) {
+    IdString id_string_1 = pool.Make(test_strings[i]);
+    IdString id_string_2 = pool.Make(test_strings[i]);
+    EXPECT_TRUE(id_string_1.CaseEquals(id_string_2));
   }
 }
 

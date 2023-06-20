@@ -176,13 +176,6 @@ class Unparser : public ParseTreeVisitor {
                                     void* data) override;
   void visitASTCreateSnapshotTableStatement(
       const ASTCreateSnapshotTableStatement* node, void* data) override;
-  void visitASTCreateReplicaMaterializedViewStatement(
-      const ASTCreateReplicaMaterializedViewStatement* node,
-      void* data) override;
-  void visitASTReplicaMaterializedViewDataSource(
-      const ASTReplicaMaterializedViewDataSource* node, void* data) override {
-    UnparseASTTableDataSource(node, data);
-  }
   void visitASTCreateEntityStatement(const ASTCreateEntityStatement* node,
                                      void* data) override;
   void visitASTAlterEntityStatement(const ASTAlterEntityStatement* node,
@@ -213,6 +206,8 @@ class Unparser : public ParseTreeVisitor {
                                    void* data) override;
   void visitASTExportModelStatement(const ASTExportModelStatement* node,
                                     void* data) override;
+  void visitASTExportMetadataStatement(const ASTExportMetadataStatement* node,
+                                       void* data) override;
   void visitASTCallStatement(const ASTCallStatement* node, void* data) override;
   void visitASTDefineTableStatement(const ASTDefineTableStatement* node,
                                     void* data) override;
@@ -317,10 +312,15 @@ class Unparser : public ParseTreeVisitor {
   void visitASTUsingClause(const ASTUsingClause* node, void* data) override;
   void visitASTWhereClause(const ASTWhereClause* node, void* data) override;
   void visitASTRollup(const ASTRollup* node, void* data) override;
+  void visitASTCube(const ASTCube* node, void* data) override;
   void visitASTGeneratedColumnInfo(const ASTGeneratedColumnInfo* node,
                                    void* data) override;
   void visitASTGroupingItem(const ASTGroupingItem* node, void* data) override;
+  void visitASTGroupingSet(const ASTGroupingSet* node, void* data) override;
+  void visitASTGroupingSetList(const ASTGroupingSetList* node,
+                               void* data) override;
   void visitASTGroupBy(const ASTGroupBy* node, void* data) override;
+  void visitASTGroupByAll(const ASTGroupByAll* node, void* data) override;
   void visitASTHaving(const ASTHaving* node, void* data) override;
   void visitASTQualify(const ASTQualify* node, void* data) override;
   void visitASTCollate(const ASTCollate* node, void* data) override;
@@ -756,6 +756,9 @@ class Unparser : public ParseTreeVisitor {
 
   void visitASTSetOperationColumnPropagationMode(
       const ASTSetOperationColumnPropagationMode* node, void* data) override;
+
+  void visitASTExpressionWithOptAlias(const ASTExpressionWithOptAlias* node,
+                                      void* data) override;
 
   // Spanner-related nodes
   void visitASTSpannerAlterColumnAction(const ASTSpannerAlterColumnAction* node,

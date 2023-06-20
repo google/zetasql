@@ -23,6 +23,7 @@ cc_library(
     deps = [
         ":default_annotation",
         "//zetasql/base:ret_check",
+        "//zetasql/base:status",
         "//zetasql/common:errors",
         "//zetasql/parser:parse_tree",
         "//zetasql/public:builtin_function_cc_proto",

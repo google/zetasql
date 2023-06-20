@@ -30,6 +30,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "unicode/coll.h"
 #include "unicode/errorcode.h"
 #include "unicode/tblcoll.h"
@@ -161,9 +162,9 @@ static absl::Status ValidateCollationName(
 class ZetaSqlCollatorIcu : public ZetaSqlCollator {
  public:
   ZetaSqlCollatorIcu(
-      CollatorMode mode,
+      absl::string_view collation_name, CollatorMode mode,
       std::unique_ptr<const icu::RuleBasedCollator> icu_collator);
-  ~ZetaSqlCollatorIcu() override {}
+  ~ZetaSqlCollatorIcu() override = default;
 
   int64_t CompareUtf8(absl::string_view s1, absl::string_view s2,
                       absl::Status* error) const override;
@@ -185,9 +186,11 @@ class ZetaSqlCollatorIcu : public ZetaSqlCollator {
 };
 
 ZetaSqlCollatorIcu::ZetaSqlCollatorIcu(
-    CollatorMode mode,
+    absl::string_view collation_name, CollatorMode mode,
     std::unique_ptr<const icu::RuleBasedCollator> icu_collator)
-    : mode_(mode), icu_collator_(std::move(icu_collator)) {}
+    : ZetaSqlCollator(collation_name),
+      mode_(mode),
+      icu_collator_(std::move(icu_collator)) {}
 
 int64_t ZetaSqlCollatorIcu::CompareUtf8(const absl::string_view s1,
                                           const absl::string_view s2,
@@ -288,7 +291,8 @@ absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
       ) {
     // Don't need icu for this case.
     return std::make_unique<const ZetaSqlCollatorIcu>(
-        collator_mode, /*icu_collator=*/nullptr);
+        collation_name, collator_mode,
+        /*icu_collator=*/nullptr);
   }
 
   std::unique_ptr<icu::RuleBasedCollator> icu_collator;
@@ -317,8 +321,8 @@ absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
     // We do nothing here as comparisons are case-sensitive by default in
     // icu::RuleBasedCollator.
   }
-  return std::make_unique<const ZetaSqlCollatorIcu>(collator_mode,
-                                                      std::move(icu_collator));
+  return std::make_unique<const ZetaSqlCollatorIcu>(
+      collation_name, collator_mode, std::move(icu_collator));
 }
 
 }  // namespace zetasql

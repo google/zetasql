@@ -6,7 +6,8 @@
 
 ZetaSQL supports the following Net functions.
 
-### `NET.FORMAT_IP` (DEPRECATED)
+### `NET.FORMAT_IP` (DEPRECATED) 
+<a id="net_format_ip_dep"></a>
 
 ```
 NET.FORMAT_IP(integer)
@@ -26,7 +27,8 @@ STRING
 
 [net-link-to-ipv4-from-int64]: #netipv4_from_int64
 
-### `NET.FORMAT_PACKED_IP` (DEPRECATED)
+### `NET.FORMAT_PACKED_IP` (DEPRECATED) 
+<a id="net_format_packed_ip_dep"></a>
 
 ```
 NET.FORMAT_PACKED_IP(bytes_value)
@@ -50,19 +52,18 @@ NET.HOST(url)
 
 **Description**
 
-Takes a URL as a STRING and returns the host as a STRING. For best results, URL
+Takes a URL as a `STRING` value and returns the host. For best results, URL
 values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply with RFC 3986 formatting,
-this function makes a best effort to parse the input and return a relevant
-result. If the function cannot parse the input, it
-returns NULL.
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+with RFC 3986 formatting, this function makes a best effort to parse the input
+and return a relevant result. If the function cannot parse the input, it
+returns `NULL`.
 
-<p class="note"><b>Note:</b> The function does not perform any normalization.</a>
-</p>
+Note: The function does not perform any normalization.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -436,7 +437,8 @@ STRING
 
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
-### `NET.PARSE_IP` (DEPRECATED)
+### `NET.PARSE_IP` (DEPRECATED) 
+<a id="net_parse_ip_dep"></a>
 
 ```
 NET.PARSE_IP(addr_str)
@@ -457,7 +459,8 @@ INT64
 
 [net-link-to-ipv4-to-int64]: #netipv4_to_int64
 
-### `NET.PARSE_PACKED_IP` (DEPRECATED)
+### `NET.PARSE_PACKED_IP` (DEPRECATED) 
+<a id="net_parse_packed_ip_dep"></a>
 
 ```
 NET.PARSE_PACKED_IP(addr_str)
@@ -484,41 +487,40 @@ NET.PUBLIC_SUFFIX(url)
 
 **Description**
 
-Takes a URL as a STRING and returns the public suffix (such as `com`, `org`,
-or `net`) as a STRING. A public suffix is an ICANN domain registered at
+Takes a URL as a `STRING` value and returns the public suffix (such as `com`,
+`org`, or `net`). A public suffix is an ICANN domain registered at
 [publicsuffix.org][net-link-to-public-suffix]. For best results, URL values
 should comply with the format as defined by
 [RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
 with RFC 3986 formatting, this function makes a best effort to parse the input
 and return a relevant result.
 
-This function returns NULL if any of the following is true:
+This function returns `NULL` if any of the following is true:
 
 + It cannot parse the host from the input;
-+ The parsed host contains adjacent dots in the middle (not leading or trailing);
++ The parsed host contains adjacent dots in the middle
+  (not leading or trailing);
 + The parsed host does not contain any public suffix.
 
 Before looking up the public suffix, this function temporarily normalizes the
-host by converting upper case English letters to lower case and encoding all
+host by converting uppercase English letters to lowercase and encoding all
 non-ASCII characters with [Punycode][net-link-to-punycode].
 The function then returns the public suffix as part of the original host instead
 of the normalized host.
 
-<p class="note"><b>Note:</b> The function does not perform
-<a href="https://en.wikipedia.org/wiki/Unicode_equivalence">Unicode normalization</a>.
-</p>
+Note: The function does not perform
+[Unicode normalization][unicode-normalization].
 
-<p class="note"><b>Note:</b> The public suffix data at
-<a href="https://publicsuffix.org/list/">publicsuffix.org</a> also contains
-private domains. This function ignores the private domains.</p>
+Note: The public suffix data at
+[publicsuffix.org][net-link-to-public-suffix] also contains
+private domains. This function ignores the private domains.
 
-<p class="note"><b>Note:</b> The public suffix data may change over time.
-Consequently, input that produces a NULL result now may produce a non-NULL value
-in the future.</p>
+Note: The public suffix data may change over time. Consequently, input that
+produces a `NULL` result now may produce a non-`NULL` value in the future.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -552,6 +554,8 @@ FROM (
 | "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;"| non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK |
 | "mailto:?to=&subject=&body="                                       | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
+[unicode-normalization]: https://en.wikipedia.org/wiki/Unicode_equivalence
+
 [net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 
 [net-link-to-public-suffix]: https://publicsuffix.org/list/
@@ -566,46 +570,45 @@ NET.REG_DOMAIN(url)
 
 **Description**
 
-Takes a URL as a STRING and returns the registered or registerable domain (the
+Takes a URL as a string and returns the registered or registrable domain (the
 [public suffix](#netpublic_suffix) plus one preceding label), as a
-STRING. For best results, URL values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply with RFC 3986 formatting,
-this function makes a best effort to parse the input and return a relevant
-result.
+string. For best results, URL values should comply with the format as defined by
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply
+with RFC 3986 formatting, this function makes a best effort to parse the input
+and return a relevant result.
 
-This function returns NULL if any of the following is true:
+This function returns `NULL` if any of the following is true:
 
 + It cannot parse the host from the input;
-+ The parsed host contains adjacent dots in the middle (not leading or trailing);
++ The parsed host contains adjacent dots in the middle
+  (not leading or trailing);
 + The parsed host does not contain any public suffix;
 + The parsed host contains only a public suffix without any preceding label.
 
 Before looking up the public suffix, this function temporarily normalizes the
-host by converting upper case English letters to lowercase and encoding all
-non-ASCII characters with [Punycode][net-link-to-punycode]. The function then returns
-the registered or registerable domain as part of the original host instead of
-the normalized host.
+host by converting uppercase English letters to lowercase and encoding all
+non-ASCII characters with [Punycode][net-link-to-punycode]. The function then
+returns the registered or registerable domain as part of the original host
+instead of the normalized host.
 
-<p class="note"><b>Note:</b> The function does not perform
-<a href="https://en.wikipedia.org/wiki/Unicode_equivalence">Unicode normalization</a>.
-</p>
+Note: The function does not perform
+[Unicode normalization][unicode-normalization].
 
-<p class="note"><b>Note:</b> The public suffix data at
-<a href="https://publicsuffix.org/list/">publicsuffix.org</a> also contains
+Note: The public suffix data at
+[publicsuffix.org][net-link-to-public-suffix] also contains
 private domains. This function does not treat a private domain as a public
-suffix. For example, if "us.com" is a private domain in the public suffix data,
-NET.REG_DOMAIN("foo.us.com") returns "us.com" (the public suffix "com" plus
-the preceding label "us") rather than "foo.us.com" (the private domain "us.com"
-plus the preceding label "foo").
-</p>
+suffix. For example, if `us.com` is a private domain in the public suffix data,
+`NET.REG_DOMAIN("foo.us.com")` returns `us.com` (the public suffix `com` plus
+the preceding label `us`) rather than `foo.us.com` (the private domain `us.com`
+plus the preceding label `foo`).
 
-<p class="note"><b>Note:</b> The public suffix data may change over time.
-Consequently, input that produces a NULL result now may produce a non-NULL value
-in the future.</p>
+Note: The public suffix data may change over time.
+Consequently, input that produces a `NULL` result now may produce a non-`NULL`
+value in the future.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -638,6 +641,10 @@ FROM (
 | "http://例子.卷筒纸.中国"                                            | standard URL with internationalized domain name                               | "例子.卷筒纸.中国"    | "中国"  | "卷筒纸.中国"  |
 | "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;"| non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK"|
 | "mailto:?to=&subject=&body="                                       | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
+
+[unicode-normalization]: https://en.wikipedia.org/wiki/Unicode_equivalence
+
+[net-link-to-public-suffix]: https://publicsuffix.org/list/
 
 [net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 

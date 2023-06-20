@@ -75,10 +75,12 @@ INSERT Table1 (primary_key, value) VALUES (NULL, 1)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 1}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {NULL, 1}
+  ]}
 ==
 [name=insert_null_primary_key_no_null_pk]
 [primary_key_mode=first_column_is_primary_key]
@@ -98,10 +100,12 @@ INSERT Table1 (primary_key, value) SELECT NULL, 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 1}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {NULL, 1}
+  ]}
 ==
 [name=insert_null_primary_key_query_no_null_pk]
 [primary_key_mode=first_column_is_primary_key]
@@ -117,10 +121,12 @@ INSERT Table1 (primary_key, value) VALUES (30, NULL)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, NULL}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {30, NULL}
+  ]}
 ==
 
 [name=insert_null_query]
@@ -129,10 +135,12 @@ INSERT Table1 (primary_key, value) SELECT 30, NULL
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, NULL}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {30, NULL}
+  ]}
 ==
 
 # Inserting a DEFAULT value is the same as inserting NULL for a test table.
@@ -142,10 +150,12 @@ INSERT Table1 (primary_key, value) VALUES (30, DEFAULT)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, NULL}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {30, NULL}
+  ]}
 ==
 
 [name=insert_all_columns]
@@ -154,10 +164,12 @@ INSERT Table1 (primary_key, value) VALUES (30, 31)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, 31}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {30, 31}
+  ]}
 ==
 
 [name=insert_all_columns_query]
@@ -166,10 +178,12 @@ INSERT Table1 (primary_key, value) SELECT 30, 31
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, 31}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {30, 31}
+  ]}
 ==
 
 [name=insert_all_columns_query_duplicate]
@@ -183,7 +197,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
     {1, 10},
     {2, 20},
     {100, 100},
@@ -202,7 +216,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
     {1, 10},
     {2, 20},
     {100, 100},
@@ -219,7 +233,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
     {1, 10},
     {2, 20},
     {20, 200},
@@ -234,12 +248,14 @@ INSERT Table3 (primary_key, int32_value) VALUES (3, CAST(30 AS INT64))
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, int32_value INT32, int64_value INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, int32_value INT32, int64_value INT64>>[unknown order:
     {1, 10, 100},
     {2, 20, 200},
     {3, 30, NULL}
-  ]}
+  ]
+}
 ==
 
 # An insertion that explicitly requires UINT64 -> UINT32 assignment coercion.
@@ -249,12 +265,14 @@ INSERT Table4 (primary_key, uint32_value) VALUES (3, CAST(30 AS UINT64))
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
-  ARRAY<STRUCT<primary_key INT64, uint32_value UINT32, int64_value INT64>>[
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, uint32_value UINT32, int64_value INT64>>[unknown order:
     {1, 10, 100},
     {2, 20, 200},
     {3, 30, NULL}
-  ]}
+  ]
+}
 ==
 
 # An insertion that passes the analyzer due to assignment coercion, but the cast
@@ -310,10 +328,12 @@ INSERT IGNORE Table1 (primary_key, value) VALUES (30, 31)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, 31}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {30, 31}
+  ]}
 ==
 
 [name=insert_all_columns_out_of_order]
@@ -322,10 +342,12 @@ INSERT Table1 (value, primary_key) VALUES (30, 3)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 30}
+  ]}
 ==
 
 [name=insert_all_columns_out_of_order_query]
@@ -334,10 +356,12 @@ INSERT Table1 (value, primary_key) SELECT 30, 3
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 30}
+  ]}
 ==
 
 [name=insert_just_primary_key]
@@ -346,10 +370,12 @@ INSERT Table1 (primary_key) VALUES (3)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, NULL}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, NULL}
+  ]}
 ==
 
 [name=insert_just_primary_key_query]
@@ -358,10 +384,12 @@ INSERT Table1 (primary_key) SELECT 3
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, NULL}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, NULL}
+  ]}
 ==
 
 # Some engines allow inserting a NULL primary key. Others can just mark this as
@@ -373,10 +401,12 @@ INSERT Table1 (value) VALUES (31)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 31}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {NULL, 31}
+  ]}
 ==
 
 # Some engines allow inserting a NULL primary key. Others can just mark this as
@@ -388,10 +418,12 @@ INSERT Table1 (value) SELECT 31
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 31}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {NULL, 31}
+  ]}
 ==
 
 [name=assert_rows_modified_null]
@@ -419,10 +451,12 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 30}
+  ]}
 ==
 
 [name=assert_rows_modified_failure]
@@ -439,10 +473,12 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 30}
+  ]}
 ==
 
 [name=assert_rows_modified_query_failure]
@@ -466,7 +502,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
     {1, 10},
     {2, 20},
     {1, 10},
@@ -513,7 +549,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
     {1, 10},
     {2, 20},
     {3, 30},
@@ -549,7 +585,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   0,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 10}, {2, 20}]
 }
 ==
 
@@ -571,7 +607,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   0,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 10}, {2, 20}]
 }
 ==
 
@@ -592,7 +628,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   0,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 10}, {2, 20}]
 }
 ==
 
@@ -603,10 +639,12 @@ INSERT IGNORE Table1 (primary_key, value) VALUES (3, 30), (1, 100)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 30}
+  ]}
 ==
 
 # Note that the second row is completely ignored, including from
@@ -619,10 +657,12 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 100}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 100}
+  ]}
 ==
 
 [name=insert_ignore_two_new_rows_with_null_primary_key]
@@ -633,10 +673,12 @@ INSERT IGNORE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 100}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {NULL, 100}
+  ]}
 ==
 
 [name=insert_ignore_two_new_rows_with_null_primary_key_no_null_pk]
@@ -663,10 +705,12 @@ INSERT IGNORE Table1 (primary_key, value)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 30}
+  ]}
 ==
 
 # Note that the second row is completely ignored, including from
@@ -682,10 +726,12 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 100}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 100}
+  ]}
 ==
 
 [name=insert_replace_assert_rows_modified_null]
@@ -716,7 +762,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 100}, {2, 20}]
 }
 ==
 
@@ -738,7 +784,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 100}, {2, 20}]
 }
 ==
 
@@ -759,7 +805,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 100}, {2, 20}]
 }
 ==
 
@@ -779,7 +825,7 @@ STRUCT<
           int64_value INT64,
           other_int64_value INT64
         >>
-  [{1, 100, NULL}, {2, 20, 200}]}
+  [unknown order:{1, 100, NULL}, {2, 20, 200}]}
 ==
 
 [name=insert_replace_one_new_row_one_duplicate_row]
@@ -789,10 +835,12 @@ INSERT REPLACE Table1 (primary_key, value) VALUES (3, 30), (1, 100)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  2,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}, {3, 30}]
-}
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 100},
+    {2, 20},
+    {3, 30}
+  ]}
 ==
 
 # Note that inserting the same row twice counts as 1 row modification.
@@ -804,10 +852,12 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 200}
+  ]}
 ==
 
 [name=insert_replace_two_new_rows_with_null_primary_key]
@@ -818,10 +868,12 @@ INSERT REPLACE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 200}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {NULL, 200}
+  ]}
 ==
 
 [name=insert_replace_two_new_rows_with_null_primary_key_no_null_pk]
@@ -848,10 +900,12 @@ INSERT REPLACE Table1 (primary_key, value)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 200}
+  ]}
 ==
 
 # Note that inserting the same row twice counts as 1 row modification.
@@ -866,10 +920,12 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 200}
+  ]}
 ==
 
 [name=insert_update_assert_rows_modified_null]
@@ -900,7 +956,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 100}, {2, 20}]
 }
 ==
 
@@ -922,7 +978,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 100}, {2, 20}]
 }
 ==
 
@@ -943,7 +999,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 100}, {2, 20}]
 }
 ==
 
@@ -963,7 +1019,7 @@ STRUCT<
           int64_value INT64,
           other_int64_value INT64
         >>
-  [{1, 500, 100}, {2, 20, 200}]}
+  [unknown order:{1, 500, 100}, {2, 20, 200}]}
 ==
 
 # Same as above, but the insert column list is not a prefix of the columns in
@@ -981,7 +1037,7 @@ STRUCT<
           int64_value INT64,
           other_int64_value INT64
         >>
-  [{1, 10, 500}, {2, 20, 200}]}
+  [unknown order:{1, 10, 500}, {2, 20, 200}]}
 ==
 
 [name=insert_update_one_new_row_one_duplicate_row]
@@ -991,10 +1047,12 @@ INSERT UPDATE Table1 (primary_key, value) VALUES (3, 30), (1, 100)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  2,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}, {3, 30}]
-}
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 100},
+    {2, 20},
+    {3, 30}
+  ]}
 ==
 
 # Note that updating the same row twice counts as 1 row modification.
@@ -1006,10 +1064,12 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 200}
+  ]}
 ==
 
 [name=insert_update_two_new_rows_with_null_primary_key]
@@ -1020,10 +1080,12 @@ INSERT UPDATE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 200}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {NULL, 200}
+  ]}
 ==
 
 [name=insert_update_two_new_rows_with_null_primary_key_no_null_pk]
@@ -1050,10 +1112,12 @@ INSERT UPDATE Table1 (primary_key, value)
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 200}
+  ]}
 ==
 
 # Note that updating the same row twice counts as 1 row modification.
@@ -1068,10 +1132,12 @@ ASSERT_ROWS_MODIFIED 1
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  1,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
-}
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:
+    {1, 10},
+    {2, 20},
+    {3, 200}
+  ]}
 ==
 
 # Insert using SELECT DISTINCT (b/117789638)
@@ -1084,7 +1150,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   1,
-  ARRAY<STRUCT<distinct_1 INT64, distinct_2 INT64, distinct_3 INT64, distinct_4 INT64>>[
+  ARRAY<STRUCT<distinct_1 INT64, distinct_2 INT64, distinct_3 INT64, distinct_4 INT64>>[unknown order:
     {1, 1, 1, 1},
     {35, 36, 36, 35}
   ]

@@ -111,6 +111,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSafeAtOffset();
 std::vector<QueryParamsWithResult> GetFunctionTestsIf();
 std::vector<QueryParamsWithResult> GetFunctionTestsIfNull();
 std::vector<QueryParamsWithResult> GetFunctionTestsNullIf();
+std::vector<QueryParamsWithResult> GetFunctionTestsZeroIfNull_NullIfZero(
+    bool is_zero_if_null = true, bool is_safe = false);
 std::vector<QueryParamsWithResult> GetFunctionTestsCoalesce();
 
 std::vector<QueryParamsWithResult> GetFunctionTestsGreatest();
@@ -130,8 +132,14 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArrayMax(bool is_safe);
 std::vector<QueryParamsWithResult> GetFunctionTestsArraySum(bool is_safe);
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayAvg(bool is_safe);
 
-// Test function for ARRAY_SLICE
+// Test function for ARRAY_SLICE, FIRST_N, and LAST_N
 std::vector<QueryParamsWithResult> GetFunctionTestsArraySlice(bool is_safe);
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirstN(bool is_safe);
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayLastN(bool is_safe);
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayRemoveFirstN(
+    bool is_safe);
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayRemoveLastN(
+    bool is_safe);
 
 // Test function for ARRAY_OFFSET and ARRAY_FIND
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayOffset(bool is_safe);
@@ -216,6 +224,8 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding();
 std::vector<FunctionTestCall> GetFunctionTestsTrigonometric();
 std::vector<FunctionTestCall> GetFunctionTestsInverseTrigonometric();
 std::vector<FunctionTestCall> GetFunctionTestsDegreesRadiansPi();
+std::vector<FunctionTestCall> GetFunctionTestsPi(
+    bool include_safe_calls = false);
 std::vector<FunctionTestCall> GetFunctionTestsCbrt();
 
 std::vector<FunctionTestCall> GetFunctionTestsAscii();
@@ -287,6 +297,7 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertJson();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJsonIncompatibleTypes();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxBool();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxInt64();
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxFloat64();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxDouble();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxString();
 std::vector<FunctionTestCall> GetFunctionTestsJsonArray();
@@ -294,6 +305,7 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonObject(
     bool include_null_key_tests = true);
 std::vector<FunctionTestCall> GetFunctionTestsJsonObjectArrays(
     bool include_null_key_tests = true);
+std::vector<FunctionTestCall> GetFunctionTestsJsonRemove();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();
@@ -305,6 +317,11 @@ std::vector<FunctionTestCall> GetFunctionTestsBytesStringConversion();
 std::vector<FunctionTestCall> GetFunctionTestsRangeComparisons();
 std::vector<FunctionTestCall> GetFunctionTestsRangeOverlaps();
 std::vector<FunctionTestCall> GetFunctionTestsRangeIntersect();
+std::vector<FunctionTestCall> GetFunctionTestsGenerateTimestampRangeArray();
+std::vector<FunctionTestCall>
+GetFunctionTestsGenerateTimestampRangeArrayExtras();
+std::vector<FunctionTestCall> GetFunctionTestsGenerateDateRangeArray();
+std::vector<FunctionTestCall> GetFunctionTestsGenerateDatetimeRangeArray();
 
 }  // namespace zetasql
 

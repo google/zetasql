@@ -78,10 +78,15 @@ absl::Status TemplatedSQLFunction::Deserialize(
     argument_names.push_back(name);
   }
 
+  std::unique_ptr<FunctionOptions> function_options;
+  ZETASQL_RETURN_IF_ERROR(
+      FunctionOptions::Deserialize(proto.options(), &function_options));
+
   ZETASQL_RET_CHECK(proto.has_parse_resume_location()) << proto.DebugString();
   *result = std::make_unique<TemplatedSQLFunction>(
       name_path, *function_signature, argument_names,
-      ParseResumeLocation::FromProto(proto.parse_resume_location()));
+      ParseResumeLocation::FromProto(proto.parse_resume_location()),
+      proto.mode(), *function_options);
   return absl::OkStatus();
 }
 

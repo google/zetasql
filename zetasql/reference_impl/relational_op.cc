@@ -73,9 +73,9 @@ namespace zetasql {
 RelationalArg::RelationalArg(std::unique_ptr<RelationalOp> op)
     : AlgebraArg(VariableId(), std::move(op)) {}
 
-RelationalArg::~RelationalArg() {}
+RelationalArg::~RelationalArg() = default;
 
-RelationalOp::~RelationalOp() {}
+RelationalOp::~RelationalOp() = default;
 
 // -------------------------------------------------------
 // RelationalOp
@@ -315,7 +315,7 @@ std::string EvaluatorTableScanOp::GetIteratorDebugString(
 
 absl::StatusOr<std::unique_ptr<EvaluatorTableScanOp>>
 EvaluatorTableScanOp::Create(
-    const Table* table, const std::string& alias,
+    const Table* table, absl::string_view alias,
     absl::Span<const int> column_idxs,
     absl::Span<const std::string> column_names,
     absl::Span<const VariableId> variables,

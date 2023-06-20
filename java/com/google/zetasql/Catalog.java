@@ -48,6 +48,45 @@ public abstract class Catalog implements Serializable {
   }
 
   /**
+   * Looks up an object of type Connection from this Catalog on {@code path}.
+   *
+   * <p>Searches for the Connection by traversing nested Catalogs until it reaches the last level of
+   * the path, and then calls getConnection.
+   *
+   * @throws NotFoundException if the Connection can not be found
+   */
+  public final Connection findConnection(List<String> path) throws NotFoundException {
+    return findConnection(path, new FindOptions());
+  }
+
+  public final Connection findConnection(List<String> path, FindOptions options)
+      throws NotFoundException {
+    Preconditions.checkNotNull(path, "Invalid null Connection name path");
+    Preconditions.checkArgument(!path.isEmpty(), "Invalid empty Connection name path");
+    final String name = path.get(0);
+    if (path.size() > 1) {
+      Catalog catalog = getCatalog(name, options);
+      if (catalog == null) {
+        throw new NotFoundException(
+            String.format(
+                "Connections not found: Catalog %s not found in Catalog %s",
+                ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+      }
+      final List<String> pathSuffix = path.subList(1, path.size());
+      return catalog.findConnection(pathSuffix, options);
+    } else {
+      Connection connection = getConnection(name, options);
+      if (connection == null) {
+        throw new NotFoundException(
+            String.format(
+                "Connection not found: %s not found in Catalog %s",
+                ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+      }
+      return connection;
+    }
+  }
+
+  /**
    * Looks up an object of Constant from this Catalog on {@code path}.
    *
    * <p>Searches for the Constant by traversing nested Catalogs until it reaches the last level of
@@ -87,22 +126,58 @@ public abstract class Catalog implements Serializable {
   }
 
   /**
+   * Looks up an object of type Model from this Catalog on {@code path}.
+   *
+   * <p>Searches for the Model by traversing nested Catalogs until it reaches the last level of the
+   * path, and then calls getConnection.
+   *
+   * @throws NotFoundException if the Model can not be found
+   */
+  public final Model findModel(List<String> path) throws NotFoundException {
+    return findModel(path, new FindOptions());
+  }
+
+  public final Model findModel(List<String> path, FindOptions options) throws NotFoundException {
+    Preconditions.checkNotNull(path, "Invalid null Model name path");
+    Preconditions.checkArgument(!path.isEmpty(), "Invalid empty Model name path");
+    final String name = path.get(0);
+    if (path.size() > 1) {
+      Catalog catalog = getCatalog(name, options);
+      if (catalog == null) {
+        throw new NotFoundException(
+            String.format(
+                "Model not found: Catalog %s not found in Catalog %s",
+                ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+      }
+      final List<String> pathSuffix = path.subList(1, path.size());
+      return catalog.findModel(pathSuffix, options);
+    } else {
+      Model model = getModel(name, options);
+      if (model == null) {
+        throw new NotFoundException(
+            String.format(
+                "Model not found: %s not found in Catalog %s",
+                ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+      }
+      return model;
+    }
+  }
+
+  /**
    * Look up an object of Table from this Catalog on {@code path}.
    *
-   * <p>If a Catalog implementation supports looking up Table by path, it
-   * should implement the findTable method. Alternatively, a Catalog can
-   * also contain nested catalogs, and implement FindTable method on
-   * the inner-most Catalog.
+   * <p>If a Catalog implementation supports looking up Table by path, it should implement the
+   * findTable method. Alternatively, a Catalog can also contain nested catalogs, and implement
+   * FindTable method on the inner-most Catalog.
    *
-   * <p>The default findTable implementation traverses nested Catalogs until it reaches
-   * a Catalog that overrides findTable, or until it gets to the last level of the
-   * path and then calls getTable.
+   * <p>The default findTable implementation traverses nested Catalogs until it reaches a Catalog
+   * that overrides findTable, or until it gets to the last level of the path and then calls
+   * getTable.
    *
-   * <p>NOTE: The findTable methods take precedence over getTable methods and will always
-   * be called first. So getTable method does not need to be implemented if findTable
-   * method is implemented. If both getTable and findTable are implemented(though not
-   * recommended), it is the implementation's responsibility to keep them
-   * consistent.
+   * <p>NOTE: The findTable methods take precedence over getTable methods and will always be called
+   * first. So getTable method does not need to be implemented if findTable method is implemented.
+   * If both getTable and findTable are implemented(though not recommended), it is the
+   * implementation's responsibility to keep them consistent.
    *
    * @throws NotFoundException if the Type can not be found
    */
@@ -365,6 +440,29 @@ public abstract class Catalog implements Serializable {
   }
 
   /**
+   * Get an object of type Connection from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>Returns null if the object doesn't exist.
+   *
+   * <p>The default implementations always return null.
+   *
+   * @return Connection object if found, null if not found
+   */
+  protected final Connection getConnection(String name) {
+    return getConnection(name, new FindOptions());
+  }
+
+  /**
+   * Get an object of type Connection from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>Returns null if the object doesn't exist.
+   *
+   * @return Connection object if found, null if not found
+   */
+  protected abstract Connection getConnection(
+      @SuppressWarnings("unused") String name, @SuppressWarnings("unused") FindOptions options);
+
+  /**
    * Get an object of Constant from this Catalog, without looking at any nested Catalogs.
    *
    * <p>Returns null if the object doesn't exist.
@@ -388,8 +486,30 @@ public abstract class Catalog implements Serializable {
       @SuppressWarnings("unused") String name, @SuppressWarnings("unused") FindOptions options);
 
   /**
-   * Get an object of Table from this Catalog, without
-   * looking at any nested Catalogs.
+   * Get an object of type Model from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>Returns null if the object doesn't exist.
+   *
+   * <p>The default implementations always return null.
+   *
+   * @return Model object if found, null if not found
+   */
+  protected final Model getModel(String name) {
+    return getModel(name, new FindOptions());
+  }
+
+  /**
+   * Get an object of type Model from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>Returns null if the object doesn't exist.
+   *
+   * @return Model object if found, null if not found
+   */
+  protected abstract Model getModel(
+      @SuppressWarnings("unused") String name, @SuppressWarnings("unused") FindOptions options);
+
+  /**
+   * Get an object of Table from this Catalog, without looking at any nested Catalogs.
    *
    * <p>A NULL pointer should be returned if the object doesn't exist.
    *

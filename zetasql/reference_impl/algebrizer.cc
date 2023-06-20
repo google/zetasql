@@ -302,7 +302,8 @@ absl::Status GetCollatedFunctionNameAndArguments(
   } else if (function_name == "replace" || function_name == "split" ||
              function_name == "strpos" || function_name == "instr" ||
              function_name == "starts_with" || function_name == "ends_with" ||
-             function_name == "$like") {
+             function_name == "$like" || function_name == "$like_any" ||
+             function_name == "$like_all") {
     // For string functions whose collated version take an extra collator
     // argument, we insert the <collation_name> as a String argument at the
     // beginning of the <arguments> vector. We append the postfix to
@@ -422,9 +423,9 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
     return AlgebrizeIfError(std::move(arguments));
   } else if (name == "iserror") {
     return AlgebrizeIsError(std::move(arguments));
-  } else if (name == "ifnull") {
+  } else if (name == "ifnull" || name == "zeroifnull") {
     return AlgebrizeIfNull(function_call->type(), std::move(arguments));
-  } else if (name == "nullif") {
+  } else if (name == "nullif" || name == "nullifzero") {
     return AlgebrizeNullIf(function_call->type(), std::move(arguments));
   } else if (name == "nulliferror") {
     return CreateNullIfErrorExpr(std::move(arguments));
@@ -607,9 +608,46 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIsError(
   return is_error_expr;
 }
 
+// Generates a ConstExpr with the value of 0 based on the input type. Only
+// the following types are supported: INT32, INT64, UINT32, UINT64, FLOAT,
+// DOUBLE, NUMERIC, BIGNUMERIC.
+static absl::StatusOr<std::unique_ptr<ValueExpr>> CreateTypedZero(
+    const Type* type) {
+  switch (type->kind()) {
+    case TYPE_INT32:
+      return ConstExpr::Create(Value::Int32(0));
+    case TYPE_INT64:
+      return ConstExpr::Create(Value::Int64(0));
+    case TYPE_UINT32:
+      return ConstExpr::Create(Value::Uint32(0));
+    case TYPE_UINT64:
+      return ConstExpr::Create(Value::Uint64(0));
+    case TYPE_FLOAT:
+      return ConstExpr::Create(Value::Float(0));
+    case TYPE_DOUBLE:
+      return ConstExpr::Create(Value::Double(0));
+    case TYPE_NUMERIC:
+      return ConstExpr::Create(Value::Numeric(NumericValue(0)));
+    case TYPE_BIGNUMERIC:
+      return ConstExpr::Create(Value::BigNumeric(BigNumericValue(0)));
+    default: {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected argument type in CreateTypedZero: "
+                       << type->DebugString();
+    }
+  }
+}
+
 // IfNull(v0, v1) = WithExpr(x:=v0, IfExpr(IsNull(x), v1, x))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIfNull(
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
+  // If ZeroIfNull is being invoked, we augment args with the value 0 based on
+  // the appropriate type.
+  // ZeroIfNull = IfNull(v0, 0)
+  if (args.size() == 1) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> zero,
+                     CreateTypedZero(output_type));
+    args.push_back(std::move(zero));
+  }
   ZETASQL_RET_CHECK_EQ(2, args.size());
   const VariableId x = variable_gen_->GetNewVariableName("x");
 
@@ -639,6 +677,14 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIfNull(
 // NullIf(v0, v1) = WithExpr(x:=v0, IfExpr(x=v1, NULL, x))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeNullIf(
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
+  // If NullIfZero is being invoked, we augment args with the value 0 based on
+  // the appropriate type.
+  // NullIfZero = NullIf(v0, 0)
+  if (args.size() == 1) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> zero,
+                     CreateTypedZero(output_type));
+    args.push_back(std::move(zero));
+  }
   ZETASQL_RET_CHECK_EQ(2, args.size());
   const VariableId x = variable_gen_->GetNewVariableName("x");
 
@@ -1815,6 +1861,7 @@ static bool IsNonVolatile(const ResolvedExpr* expr) {
 absl::StatusOr<std::unique_ptr<Algebrizer::FilterConjunctInfo>>
 Algebrizer::FilterConjunctInfo::Create(const ResolvedExpr* conjunct) {
   auto info = std::make_unique<FilterConjunctInfo>();
+  info->kind = kOther;
   info->conjunct = conjunct;
   info->is_non_volatile = IsNonVolatile(info->conjunct);
   ZETASQL_ASSIGN_OR_RETURN(info->referenced_columns,
@@ -1842,6 +1889,10 @@ Algebrizer::FilterConjunctInfo::Create(const ResolvedExpr* conjunct) {
 
   const std::string name = function->FullName(/*include_group=*/false);
 
+  // Only consider conjuncts that are guaranteed to be NULL if any of their
+  // arguments is NULL. Otherwise, the conjunct should go into kOther.
+  // For example, `x IS NULL` and `1 IN (1, x)` evaluate to TRUE, even if x
+  // is NULL.
   if (name == "$less" || name == "$less_or_equal") {
     info->kind = kLE;
   } else if (name == "$greater" || name == "$greater_or_equal") {
@@ -1850,12 +1901,10 @@ Algebrizer::FilterConjunctInfo::Create(const ResolvedExpr* conjunct) {
     info->kind = kEquals;
   } else if (name == "$between") {
     info->kind = kBetween;
-  } else if (name == "$in") {
-    info->kind = kIn;
   } else if (name == "$in_array") {
     info->kind = kInArray;
   } else {
-    info->kind = kOther;
+    ZETASQL_RET_CHECK_EQ(info->kind, kOther);
   }
 
   return info;
@@ -2092,7 +2141,6 @@ absl::Status Algebrizer::TryAlgebrizeFilterConjunctAsColumnFilterArgs(
       and_filters->push_back(std::move(upper_bound_restriction));
       break;
     }
-    case FilterConjunctInfo::kIn:
     case FilterConjunctInfo::kInArray: {
       ZETASQL_RET_CHECK(!conjunct_info.arguments.empty());
 
@@ -2494,7 +2542,7 @@ Algebrizer::AlgebrizeJoinScanInternal(
     JoinOp::JoinKind join_kind, const ResolvedExpr* join_expr,
     const ResolvedScan* left_scan,
     const std::vector<ResolvedColumn>& right_output_column_list,
-    const RightScanAlgebrizerCb& right_scan_algebrizer_cb,
+    const ScanAlgebrizerCallback& right_scan_algebrizer_cb,
     std::vector<FilterConjunctInfo*>* active_conjuncts) {
   std::vector<std::unique_ptr<FilterConjunctInfo>> conjunct_infos;
   if (join_expr != nullptr) {
@@ -2928,12 +2976,12 @@ absl::Status Algebrizer::RemapJoinColumns(
   return absl::OkStatus();
 }
 
-absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeFilterScan(
-    const ResolvedFilterScan* filter_scan,
+absl::StatusOr<std::unique_ptr<RelationalOp>>
+Algebrizer::AlgebrizeFilterScanInternal(
+    const ResolvedExpr* filter_expr,
+    const ScanAlgebrizerCallback& scan_algebrizer_cb,
     std::vector<FilterConjunctInfo*>* active_conjuncts) {
-  const ResolvedScan* input_scan = filter_scan->input_scan();
-  const ResolvedExpr* filter_expr = filter_scan->filter_expr();
-
+  ZETASQL_RET_CHECK(filter_expr != nullptr);
   std::vector<std::unique_ptr<FilterConjunctInfo>> conjunct_infos;
   ZETASQL_RETURN_IF_ERROR(AddFilterConjunctsTo(filter_expr, &conjunct_infos));
   // Push the new conjuncts onto 'active_conjuncts' in reverse order (because
@@ -2944,7 +2992,7 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeFilterScan(
 
   // Algebrize the input scan.
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
-                   AlgebrizeScan(input_scan, active_conjuncts));
+                   scan_algebrizer_cb(active_conjuncts));
   // Restore 'active_conjuncts'.
   for (const std::unique_ptr<FilterConjunctInfo>& info : conjunct_infos) {
     ZETASQL_RET_CHECK(info.get() == active_conjuncts->back());
@@ -2965,6 +3013,19 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeFilterScan(
   // Algebrize the filter.
   return ApplyAlgebrizedFilterConjuncts(std::move(input),
                                         std::move(algebrized_conjuncts));
+}
+
+absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeFilterScan(
+    const ResolvedFilterScan* filter_scan,
+    std::vector<FilterConjunctInfo*>* active_conjuncts) {
+  const ResolvedScan* input_scan = filter_scan->input_scan();
+  const ResolvedExpr* filter_expr = filter_scan->filter_expr();
+  auto scan_algebrizer_cb =
+      [this, input_scan](std::vector<FilterConjunctInfo*>* active_conjuncts) {
+        return AlgebrizeScan(input_scan, active_conjuncts);
+      };
+  return AlgebrizeFilterScanInternal(filter_expr, scan_algebrizer_cb,
+                                     active_conjuncts);
 }
 
 absl::StatusOr<std::unique_ptr<RelationalOp>>
@@ -3205,10 +3266,6 @@ absl::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
       anonymization_options.max_rows_contributed =
           option->value()->GetAs<ResolvedLiteral>()->value();
-      // TODO Remove unimplemented error when using
-      // MAX_ROWS_CONTRIBUTED
-      return zetasql_base::UnimplementedErrorBuilder()
-             << "Unimplemented anonymization option MAX_ROWS_CONTRIBUTED found";
     } else {
       return zetasql_base::InvalidArgumentErrorBuilder()
              << "Unknown or invalid anonymization option found: "
@@ -3290,8 +3347,6 @@ absl::StatusOr<AnonymizationOptions> GetDifferentialPrivacyOptions(
       ZETASQL_RET_CHECK(!anonymization_options.max_rows_contributed.has_value())
           << "Anonymization option MAX_ROWS_CONTRIBUTED can only be set once";
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
-      return zetasql_base::UnimplementedErrorBuilder()
-             << "Unimplemented anonymization option MAX_ROWS_CONTRIBUTED found";
     } else {
       return zetasql_base::InvalidArgumentErrorBuilder()
              << "Unknown or invalid differential privacy option found: "

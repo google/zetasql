@@ -169,7 +169,7 @@ SELECT bool_val, row_id,
                                  ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64, INT64>>[unknown order:
   {NULL, 1, NULL, NULL},
   {false, 9, NULL, 7},
   {false, 7, 9, 5},
@@ -193,7 +193,7 @@ SELECT bool_val, int64_val,
                                     RANGE BETWEEN CURRENT ROW AND 1 FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64, INT64>>[unknown order:
   {NULL, NULL, NULL, NULL},
   {false, 1, 2, 1},
   {false, 1, 2, 1},
@@ -218,7 +218,7 @@ SELECT row_id, bool_val, int32_val,
                                                  CURRENT ROW)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, bool_val BOOL, int32_val INT32, BOOL, INT32>>[
+ARRAY<STRUCT<row_id INT64, bool_val BOOL, int32_val INT32, BOOL, INT32>>[unknown order:
   {1, NULL, NULL, NULL, NULL},
   {2, true, NULL, true, NULL},
   {3, false, 6, false, NULL},
@@ -241,7 +241,7 @@ SELECT row_id, int32_val, int64_val,
        FIRST_VALUE(int64_val) OVER (ORDER BY row_id ROWS 3 PRECEDING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, int32_val INT32, int64_val INT64, UINT32, INT64>>[
+ARRAY<STRUCT<row_id INT64, int32_val INT32, int64_val INT64, UINT32, INT64>>[unknown order:
   {1, NULL, NULL, NULL, NULL},
   {2, NULL, NULL, NULL, NULL},
   {3, 6, 1, NULL, NULL},
@@ -263,7 +263,7 @@ SELECT row_id, int64_val,
                  ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, int64_val INT64, UINT64>>[
+ARRAY<STRUCT<row_id INT64, int64_val INT64, UINT64>>[unknown order:
   {1, NULL, NULL},
   {2, NULL, NULL},
   {3, 1, NULL},
@@ -286,7 +286,7 @@ SELECT row_id, cast(int64_val as float), cast(int32_val as double) + 1.5,
            OVER (ORDER BY row_id RANGE 1 PRECEDING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, FLOAT, DOUBLE, FLOAT, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, FLOAT, DOUBLE, FLOAT, DOUBLE>>[unknown order:
   {1, NULL, NULL, NULL, NULL},
   {2, NULL, NULL, NULL, NULL},
   {3, 1, 7.5, NULL, NULL},
@@ -308,7 +308,7 @@ SELECT row_id, str_val,
                                                2 FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, str_val STRING, STRING>>[
+ARRAY<STRUCT<row_id INT64, str_val STRING, STRING>>[unknown order:
   {1, NULL, NULL},
   {2, NULL, "A"},
   {3, "A", "A"},
@@ -329,7 +329,7 @@ SELECT row_id, date_val,
        FIRST_VALUE(date_val) OVER (ORDER BY row_id ROWS 1 PRECEDING)
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<row_id INT64, date_val DATE, DATE, DATE>>[
+ARRAY<STRUCT<row_id INT64, date_val DATE, DATE, DATE>>[unknown order:
   {1, NULL, NULL, NULL},
   {2, 2014-01-01, NULL, NULL},
   {3, 2014-01-01, NULL, 2014-01-01},
@@ -350,32 +350,32 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         TIMESTAMP
       >>
-[{1, NULL, NULL},
- {
-   2,
-   2014-01-01 00:00:01.011011+00,
-   NULL
- },
- {
-   3,
-   2014-01-01 00:00:01.011011+00,
-   NULL
- },
- {
-   4,
-   2014-01-01 00:00:01.011011+00,
-   NULL
- },
- {
-   5,
-   2013-01-01 00:00:01.011011+00,
-   2014-01-01 00:00:01.011011+00
- },
- {
-   6,
-   2015-01-01 00:00:01.011011+00,
-   2014-01-01 00:00:01.011011+00
- }]
+[unknown order:{1, NULL, NULL},
+               {
+                 2,
+                 2014-01-01 00:00:01.011011+00,
+                 NULL
+               },
+               {
+                 3,
+                 2014-01-01 00:00:01.011011+00,
+                 NULL
+               },
+               {
+                 4,
+                 2014-01-01 00:00:01.011011+00,
+                 NULL
+               },
+               {
+                 5,
+                 2013-01-01 00:00:01.011011+00,
+                 2014-01-01 00:00:01.011011+00
+               },
+               {
+                 6,
+                 2015-01-01 00:00:01.011011+00,
+                 2014-01-01 00:00:01.011011+00
+               }]
 ==
 
 [name=first_value_bytes]
@@ -384,7 +384,7 @@ SELECT row_id, bytes_val,
        FIRST_VALUE(bytes_val) OVER (ORDER BY row_id ROWS 3 PRECEDING)
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[
+ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[unknown order:
   {1, NULL, NULL},
   {2, b"1", NULL},
   {3, b"2", NULL},
@@ -405,7 +405,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         ENUM<zetasql_test__.TestEnum>
       >>
-[
+[unknown order:
   {1, NULL, NULL},
   {2, TESTENUM1, TESTENUM1},
   {3, TESTENUM1, TESTENUM1},
@@ -425,43 +425,43 @@ ARRAY<STRUCT<
         proto_val PROTO<zetasql_test__.KitchenSinkPB>,
         PROTO<zetasql_test__.KitchenSinkPB>
       >>
-[{1, NULL, NULL},
- {2,
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  },
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  }},
- {3,
-  {
-    int64_key_1: 5
-    int64_key_2: 6
-  },
-  {
-    int64_key_1: 5
-    int64_key_2: 6
-  }},
- {4,
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  },
-  {
-    int64_key_1: 6
-    int64_key_2: 6
-  }},
- {5,
-  {
-    int64_key_1: 5
-    int64_key_2: 7
-  },
-  {
-    int64_key_1: 5
-    int64_key_2: 7
-  }}]
+[unknown order:{1, NULL, NULL},
+               {2,
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                },
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                }},
+               {3,
+                {
+                  int64_key_1: 5
+                  int64_key_2: 6
+                },
+                {
+                  int64_key_1: 5
+                  int64_key_2: 6
+                }},
+               {4,
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                },
+                {
+                  int64_key_1: 6
+                  int64_key_2: 6
+                }},
+               {5,
+                {
+                  int64_key_1: 5
+                  int64_key_2: 7
+                },
+                {
+                  int64_key_1: 5
+                  int64_key_2: 7
+                }}]
 ==
 
 [name=first_value_struct]
@@ -477,7 +477,7 @@ ARRAY<STRUCT<
         struct_val STRUCT<a INT64, b INT64>,
         first_value_struct_val STRUCT<a INT64, b INT64>
       >>
-[
+[unknown order:
   {1, NULL, NULL},
   {2, {2, 4}, NULL},
   {3, {2, 4}, NULL},
@@ -498,7 +498,7 @@ FROM (
   WINDOW test_window AS (ORDER BY row_id)
 )
 --
-ARRAY<STRUCT<row_id INT64, a INT64, b INT64, a INT64, b INT64>>[
+ARRAY<STRUCT<row_id INT64, a INT64, b INT64, a INT64, b INT64>>[unknown order:
   {2, 2, 4, NULL, NULL},
   {4, 3, 4, 2, 4},
   {1, NULL, NULL, NULL, NULL},
@@ -518,28 +518,32 @@ FROM (SELECT 1 row_id, [1, 2, 3] array_val UNION ALL
       SELECT 6, [6, 5] UNION ALL
       SELECT 7, CAST(null as ARRAY<int64>))
 --
-ARRAY<STRUCT<row_id INT64, array_val ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<row_id INT64, array_val ARRAY<>, ARRAY<>>>[unknown order:
   {
     1,
-    ARRAY<INT64>[1, 2, 3],
-    ARRAY<INT64>[1, 2, 3]
+    ARRAY<INT64>[known order:1, 2, 3],
+    ARRAY<INT64>[known order:1, 2, 3]
   },
   {
     2,
-    ARRAY<INT64>[2, 3, 4],
-    ARRAY<INT64>[1, 2, 3]
+    ARRAY<INT64>[known order:2, 3, 4],
+    ARRAY<INT64>[known order:1, 2, 3]
   },
   {
     3,
-    ARRAY<INT64>[3, 4, 5],
-    ARRAY<INT64>[1, 2, 3]
+    ARRAY<INT64>[known order:3, 4, 5],
+    ARRAY<INT64>[known order:1, 2, 3]
   },
   {
     5,
     ARRAY<INT64>(NULL),
-    ARRAY<INT64>[3, 4, 5]
+    ARRAY<INT64>[known order:3, 4, 5]
   },
-  {6, ARRAY<INT64>[6, 5], ARRAY<INT64>(NULL)},
+  {
+    6,
+    ARRAY<INT64>[known order:6, 5],
+    ARRAY<INT64>(NULL)
+  },
   {7, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
 ]
 ==
@@ -558,7 +562,7 @@ SELECT bool_val, row_id,
                                            AND UNBOUNDED FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64, INT64, INT64, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64, INT64, INT64, INT64>>[unknown order:
   {NULL, 1, 1, 1, 1, 1},
   {false, 9, 9, 9, 9, 9},
   {false, 7, 9, 9, 9, 9},
@@ -588,7 +592,7 @@ SELECT bool_val, row_id,
 FROM TestTable
 WINDOW window1 AS (PARTITION BY bool_val ORDER BY row_id DESC);
 --
-ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64, INT64, INT64, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64, INT64, INT64, INT64>>[unknown order:
   {NULL, 1, 1, 1, 1, 1},
   {false, 9, 9, 9, 9, 9},
   {false, 7, 9, 9, 9, 9},
@@ -615,7 +619,7 @@ SELECT bool_val, row_id,
                                            AND 1 PRECEDING)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64, INT64>>[unknown order:
   {NULL, 1, NULL, NULL},
   {false, 9, NULL, NULL},
   {false, 7, 9, 9},
@@ -643,7 +647,7 @@ FROM (SELECT 1 row_id, CAST(NULL as NUMERIC) value UNION ALL
       SELECT 5, CAST(@max_val AS NUMERIC)          UNION ALL
       SELECT 6, CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, NUMERIC>>[unknown order:
   {1, NULL},
   {2, NULL},
   {3, 0},

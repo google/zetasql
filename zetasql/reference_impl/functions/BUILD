@@ -61,6 +61,7 @@ cc_library(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public/functions:json",
         "//zetasql/public/functions:json_format",
+        "//zetasql/public/functions:json_internal",
         "//zetasql/public/functions:to_json",
         "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
@@ -98,7 +99,12 @@ cc_library(
     srcs = ["range.cc"],
     hdrs = ["range.h"],
     deps = [
+        "//zetasql/base:source_location",
+        "//zetasql/base:status",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:range",
         "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/types:span",
     ],
 )

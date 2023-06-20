@@ -14,11 +14,10 @@
 // limitations under the License.
 //
 
-
 #ifndef ZETASQL_ANALYZER_REWRITERS_SQL_VIEW_INLINER_H_
 #define ZETASQL_ANALYZER_REWRITERS_SQL_VIEW_INLINER_H_
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/public/rewriter_interface.h"
 
 namespace zetasql {
 

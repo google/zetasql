@@ -115,7 +115,8 @@ Resolver::Resolver(Catalog* catalog, TypeFactory* type_factory,
       id_string_pool_(analyzer_options_.id_string_pool().get()) {
   function_resolver_ =
       std::make_unique<FunctionResolver>(catalog, type_factory, this);
-  InitializeAnnotationSpecs(analyzer_options_.get_annotation_specs());
+  annotation_propagator_ =
+      std::make_unique<AnnotationPropagator>(*analyzer_options, *type_factory);
   ZETASQL_DCHECK(analyzer_options_.AllArenasAreInitialized());
 }
 
@@ -147,6 +148,18 @@ void Resolver::Reset(absl::string_view sql) {
     owned_column_id_sequence_ = std::make_unique<zetasql_base::SequenceNumber>();
     next_column_id_sequence_ = owned_column_id_sequence_.get();
   }
+}
+
+ResolvedColumn Resolver::MakeGroupingOutputColumn(
+    const ExprResolutionInfo* expr_resolution_info, const IdString grouping_id,
+    AnnotatedType annotated_type) {
+  const uint64_t size =
+      expr_resolution_info->query_resolution_info->grouping_columns_list()
+          .size();
+  IdString alias = MakeIdString(absl::StrCat("$grouping_call", size + 1));
+  ResolvedColumn grouping_argument_column(AllocateColumnId(), grouping_id,
+                                          alias, annotated_type);
+  return grouping_argument_column;
 }
 
 int Resolver::AllocateColumnId() {
@@ -181,13 +194,6 @@ std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedLiteral(
                                                          set_has_explicit_type);
   MaybeRecordParseLocation(ast_location, resolved_literal.get());
   return resolved_literal;
-}
-
-std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedLiteral(
-    const ASTNode* ast_location, const Type* type, const Value& value,
-    bool has_explicit_type) const {
-  return MakeResolvedLiteral(ast_location, {type, /*annotation_map=*/nullptr},
-                             value, has_explicit_type);
 }
 
 std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedLiteral(
@@ -958,6 +964,21 @@ absl::Status Resolver::ResolveHintAndAppend(
   return absl::OkStatus();
 }
 
+// The input `table` must be a value table.
+static bool IsValueColumn(const Column& column, const Table& table) {
+  return table.GetColumn(0)->Name() == column.Name();
+}
+
+// Returns whether the given `column_name` is a non-pseudo field of the value
+// column of the given `table`. `table` must be a value table.
+static bool IsValueColumnField(const Table& table,
+                               const std::string& column_name) {
+  Type::HasFieldResult has_field_result =
+      table.GetColumn(0)->GetType()->HasField(column_name);
+  return has_field_result == Type::HAS_FIELD ||
+         has_field_result == Type::HAS_AMBIGUOUS_FIELD;
+}
+
 absl::Status Resolver::ResolveTableAndColumnInfoAndAppend(
     const ASTTableAndColumnInfo* table_and_column_info,
     std::vector<std::unique_ptr<const ResolvedTableAndColumnInfo>>*
@@ -965,13 +986,6 @@ absl::Status Resolver::ResolveTableAndColumnInfoAndAppend(
   const Table* table;
   ZETASQL_RETURN_IF_ERROR(FindTable(table_and_column_info->table_name(), &table));
   ZETASQL_RET_CHECK_NE(table, nullptr);
-  // TODO: to support a value table.
-  if (table->IsValueTable()) {
-    return MakeSqlErrorAt(table_and_column_info->table_name())
-           << "ANALYZE is not supported on a value table "
-           << table_and_column_info->table_name()->ToIdentifierPathString()
-           << " yet";
-  }
   for (int i = 0; i < resolved_table_and_column_info_list->size(); i++) {
     if (resolved_table_and_column_info_list->at(i)->table() == table) {
       return MakeSqlErrorAt(table_and_column_info->table_name())
@@ -990,16 +1004,29 @@ absl::Status Resolver::ResolveTableAndColumnInfoAndAppend(
   for (const ASTIdentifier* column_identifier :
        table_and_column_info->column_list()->identifiers()) {
     const IdString column_name = column_identifier->GetAsIdString();
-
     const Column* column = table->FindColumnByName(column_name.ToString());
+    if (table->IsValueTable() &&
+        (column == nullptr || IsValueColumn(*column, *table))) {
+      if (IsValueColumnField(*table, column_name.ToString())) {
+        // Give a more descriptive error message for the common mistake of
+        // listing fields of the value column.
+        return MakeSqlErrorAt(table_and_column_info)
+               << ToIdentifierLiteral(column_name)
+               << " is a field in the row type of value table "
+               << ToIdentifierLiteral(table->Name())
+               << ". ANALYZE statement only supports listing columns; "
+               << "expressions, including field accesses, are not supported in "
+               << "the ANALYZE statement";
+      } else {
+        return MakeSqlErrorAt(table_and_column_info)
+               << "Cannot find a column with name "
+               << ToIdentifierLiteral(column_name) << " in the value table "
+               << ToIdentifierLiteral(table->Name());
+      }
+    }
     if (column == nullptr) {
       return MakeSqlErrorAt(table_and_column_info)
              << "Column not found: " << column_name;
-    }
-    // TODO: Support pseudo column.
-    if (column->IsPseudoColumn()) {
-      return MakeSqlErrorAt(table_and_column_info)
-             << "Cannot ANALYZE pseudo-column " << column_name;
     }
     if (!column_names.insert(column_name.ToString()).second) {
       return MakeSqlErrorAt(column_identifier)
@@ -1045,8 +1072,19 @@ absl::Status Resolver::ResolveOptionsList(
   // sure none are accidentally in scope.
   ZETASQL_RET_CHECK_EQ(function_argument_info_, nullptr);
   if (options_list != nullptr) {
+    absl::flat_hash_set<std::string> specified_options;
     for (const ASTOptionsEntry* options_entry :
          options_list->options_entries()) {
+      const std::string option_name =
+          absl::AsciiStrToLower(options_entry->name()->GetAsString());
+      if (analyzer_options_.allowed_hints_and_options()
+              .disallow_duplicate_option_names &&
+          !zetasql_base::InsertIfNotPresent(&specified_options, option_name)) {
+        return MakeSqlErrorAt(options_entry->name())
+               << "Duplicate " << GetHintOrOptionName(HintOrOptionType::Option)
+               << " specified for '" << options_entry->name()->GetAsString()
+               << "'";
+      }
       ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
           options_entry->value(), /*ast_qualifier=*/nullptr,
           options_entry->name(), HintOrOptionType::Option,
@@ -1142,6 +1180,12 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
              << ", instead got: "
              << absl::StrJoin(specified_bounding_options.begin(),
                               specified_bounding_options.end(), ", ");
+    } else if (!language().LanguageFeatureEnabled(
+                   FEATURE_DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED) &&
+               zetasql_base::ContainsKey(specified_bounding_options,
+                                "max_rows_contributed")) {
+      return MakeSqlErrorAt(options_list)
+             << "max_rows_contributed is not supported";
     }
 
     // TODO Not all SQL engines have the language feature
@@ -1708,14 +1752,18 @@ absl::Status Resolver::MaybeResolveCollationForFunctionCallBase(
   if (function_call->signature().options().uses_operation_collation() ||
       is_aggregate_function_with_distinct ||
       is_analytic_function_with_distinct) {
+    // TODO: Refactor the CollationAnnotation class to avoid
+    // creating an instance of CollationAnnotation to invoke a static logic.
     ZETASQL_ASSIGN_OR_RETURN(
-        const AnnotationMap* annotation_map,
-        CollationAnnotation::GetCollationFromFunctionArguments(
+        std::unique_ptr<AnnotationMap> annotation_map,
+        CollationAnnotation().GetCollationFromFunctionArguments(
             error_location, *function_call, FunctionEnums::AFFECTS_OPERATION));
     if (annotation_map != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(const AnnotationMap* operation_collation,
+                       type_factory_->TakeOwnership(std::move(annotation_map)));
       ZETASQL_ASSIGN_OR_RETURN(
           ResolvedCollation resolved_collation,
-          ResolvedCollation::MakeResolvedCollation(*annotation_map));
+          ResolvedCollation::MakeResolvedCollation(*operation_collation));
       function_call->add_collation_list(std::move(resolved_collation));
     }
   }
@@ -1737,34 +1785,31 @@ absl::Status Resolver::MaybeResolveCollationForSubqueryExpr(
       subquery_scan->column_list(0).type_annotation_map();
   const AnnotationMap* in_expr_annotation_map =
       subquery_expr->in_expr()->type_annotation_map();
-  const AnnotationMap* result_annotation_map;
+  const Type* in_expr_type = subquery_expr->in_expr()->type();
+  absl::StatusOr<std::unique_ptr<AnnotationMap>> status_or_result_collation =
+      CollationAnnotation().GetCollationFromAnnotationMaps(
+          in_expr_type, {subquery_annotation_map, in_expr_annotation_map});
 
-  if (subquery_annotation_map == nullptr) {
-    result_annotation_map = in_expr_annotation_map;
-  } else if (in_expr_annotation_map == nullptr) {
-    result_annotation_map = subquery_annotation_map;
-  } else {
-    if (!subquery_annotation_map->HasEqualAnnotations(
-            *in_expr_annotation_map, CollationAnnotation::GetId())) {
-      // TODO: Add function to zetasql::Type class to output
-      // collation within type like ARRAY<STRING COLLATE 'und:ci'>.
-      ::zetasql_base::StatusBuilder error =
-          MakeSqlError() << absl::Substitute(
-              "Collation for IN operator is different on input expr ($0) and "
-              "subquery column ($1)",
-              in_expr_annotation_map->DebugString(CollationAnnotation::GetId()),
-              subquery_annotation_map->DebugString(
-                  CollationAnnotation::GetId()));
-      if (error_location != nullptr) {
-        error.Attach(GetErrorLocationPoint(error_location,
-                                           /*include_leftmost_child=*/true)
-                         .ToInternalErrorLocation());
-      }
-      return error;
+  if (!status_or_result_collation.ok()) {
+    absl::Status status = status_or_result_collation.status();
+    // TODO: Use a better mechanism to detect the collation
+    // mismatch error from the result of MergeAnnotations function.
+    if (status.code() == absl::StatusCode::kInternal) {
+      return status;
     }
-    result_annotation_map = in_expr_annotation_map;
+    return MakeSqlErrorAt(error_location) << absl::Substitute(
+               "$0. Collation for IN operator is different on input expr ($1) "
+               "and subquery column ($2)",
+               status.message(),
+               in_expr_annotation_map->DebugString(
+                   CollationAnnotation::GetId()),
+               subquery_annotation_map->DebugString(
+                   CollationAnnotation::GetId()));
   }
-
+  // The status is OK. Create Collation if the returned AnnotationMap is not
+  // nullptr.
+  std::unique_ptr<AnnotationMap> result_annotation_map =
+      std::move(status_or_result_collation.value());
   if (result_annotation_map != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(
         ResolvedCollation resolved_collation,
@@ -2067,26 +2112,6 @@ absl::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
          supertype->SupportsEquality(analyzer_options_.language());
 }
 
-void Resolver::InitializeAnnotationSpecs(
-    const std::vector<AnnotationSpec*>& annotation_specs) {
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_ANNOTATION_FRAMEWORK)) {
-    return;
-  }
-  if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
-    owned_annotation_specs_.push_back(std::make_unique<CollationAnnotation>());
-  }
-
-  // Copy ZetaSQL annotation specs to combined_annotation_specs_
-  for (const auto& annotation_spec : owned_annotation_specs_) {
-    annotation_specs_.push_back(annotation_spec.get());
-  }
-
-  // Copy Engine Specific annotation specs to combined_annotation_specs_
-  for (const auto& annotation_spec : annotation_specs) {
-    annotation_specs_.push_back(annotation_spec);
-  }
-}
-
 static absl::Status CheckAndPropagateAnnotationsImpl(
     const ResolvedNode* resolved_node,
     const std::vector<AnnotationSpec*>* annotation_specs,
@@ -2138,153 +2163,34 @@ static absl::Status CheckAndPropagateAnnotationsImpl(
   return absl::OkStatus();
 }
 
-absl::Status Resolver::CheckAndPropagateAnnotationsForRecursiveScan(
-    ResolvedRecursiveScan* recursive_scan, const ASTNode* error_node) {
-  if (!language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_COLLATION_IN_WITH_RECURSIVE)) {
-    // Disable collation propagation through ResolvedRecursiveScan.
-    for (const auto& item : {recursive_scan->non_recursive_term(),
-                             recursive_scan->recursive_term()}) {
-      // The recursive_term can be null since we try to propagate annotations
-      // earlier after non_recursive_term is resolved.
-      if (item == nullptr) {
-        continue;
-      }
-      for (const auto& output_column : item->output_column_list()) {
-        if (CollationAnnotation::ExistsIn(
-                output_column.type_annotation_map())) {
-          return MakeSqlErrorAt(error_node)
-                 << "Collation is not supported in recursive queries";
-        }
-      }
-    }
+absl::Status Resolver::ValidateUnnestSingleExpression(
+    const ASTUnnestExpression* unnest_expr,
+    absl::string_view expression_type) const {
+  ZETASQL_RET_CHECK(unnest_expr != nullptr);
+  ZETASQL_RET_CHECK(!unnest_expr->expressions().empty());
+  if (unnest_expr->expressions().size() > 1) {
+    return MakeSqlErrorAt(unnest_expr->expressions()[1])
+           << "UNNEST expression used with " << expression_type
+           << " does not allow multiple arguments";
   }
-  // Owns the pointers.
-  std::vector<std::unique_ptr<AnnotationMap>> annotation_maps;
-  std::vector<AnnotationMap*> annotation_map_ptrs;
-  for (const auto column : recursive_scan->column_list()) {
-    // Insert place holder for proto and extended type. We don't propagate
-    // annotations for them.
-    if (column.type()->IsProto() || column.type()->IsExtendedType()) {
-      annotation_maps.push_back(nullptr);
-      annotation_map_ptrs.push_back(nullptr);
-    } else {
-      annotation_maps.push_back(AnnotationMap::Create(column.type()));
-      annotation_map_ptrs.push_back(annotation_maps.back().get());
-    }
+  if (unnest_expr->array_zip_mode() != nullptr) {
+    return MakeSqlErrorAt(unnest_expr->array_zip_mode())
+           << "UNNEST expression used with " << expression_type
+           << " does not allow named arguments";
   }
-
-  // Check and propagate the annotations for recursive scan for every
-  // AnnotationSpec supported by the resolver.
-  for (auto& annotation_spec : annotation_specs_) {
-    absl::Status status = annotation_spec->CheckAndPropagateForRecursiveScan(
-        *recursive_scan, annotation_map_ptrs);
-    if (!status.ok() && error_node != nullptr) {
-      return MakeSqlErrorAt(error_node) << status.message();
-    }
+  const ASTExpressionWithOptAlias* expr = unnest_expr->expressions()[0];
+  if (expr->optional_alias() != nullptr) {
+    return MakeSqlErrorAt(expr->optional_alias())
+           << "UNNEST expression used with " << expression_type
+           << " does not allow argument aliases inside UNNEST";
   }
-
-  std::vector<ResolvedColumn> annotated_column_list;
-  annotated_column_list.reserve(recursive_scan->column_list_size());
-  for (int i = 0; i < recursive_scan->column_list_size(); i++) {
-    const ResolvedColumn& original_column = recursive_scan->column_list(i);
-    if (annotation_maps[i] == nullptr || annotation_maps[i]->Empty()) {
-      annotated_column_list.push_back(original_column);
-      continue;
-    }
-
-    ZETASQL_ASSIGN_OR_RETURN(
-        const AnnotationMap* column_annotation_map,
-        type_factory_->TakeOwnership(std::move(annotation_maps[i])));
-
-    annotated_column_list.push_back(ResolvedColumn(
-        original_column.column_id(), original_column.table_name_id(),
-        original_column.name_id(),
-        AnnotatedType(original_column.type(), column_annotation_map)));
-  }
-  recursive_scan->set_column_list(std::move(annotated_column_list));
   return absl::OkStatus();
 }
 
 absl::Status Resolver::CheckAndPropagateAnnotations(
     const ASTNode* error_node, ResolvedNode* resolved_node) {
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_ANNOTATION_FRAMEWORK)) {
-    return absl::OkStatus();
-  }
-  if (resolved_node->IsExpression()) {
-    auto* expr = resolved_node->GetAs<ResolvedExpr>();
-    // TODO: support annotation for Proto and ExtendedType.
-    if (expr->type()->IsProto() || expr->type()->IsExtendedType()) {
-      return absl::OkStatus();
-    }
-    std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(expr->type());
-    absl::Status status = CheckAndPropagateAnnotationsImpl(
-        resolved_node, &annotation_specs_, annotation_map.get());
-    if (!status.ok() && error_node != nullptr) {
-      return MakeSqlErrorAt(error_node) << status.message();
-    }
-    // It is possible that annotation_map is empty after all the propagation,
-    // set type_annotation_map to nullptr in this case.
-    if (annotation_map->Empty()) {
-      expr->set_type_annotation_map(nullptr);
-    } else {
-      ZETASQL_ASSIGN_OR_RETURN(const AnnotationMap* type_factory_owned_map,
-                       type_factory_->TakeOwnership(std::move(annotation_map)));
-      expr->set_type_annotation_map(type_factory_owned_map);
-    }
-  } else if (resolved_node->Is<ResolvedSetOperationScan>()) {
-    auto* set_operation_scan = resolved_node->GetAs<ResolvedSetOperationScan>();
-    // Owns the pointers.
-    std::vector<std::unique_ptr<AnnotationMap>> annotation_maps;
-    std::vector<AnnotationMap*> annotation_map_ptrs;
-    for (const auto column : set_operation_scan->column_list()) {
-      if (column.type()->IsProto() || column.type()->IsExtendedType()) {
-        annotation_maps.push_back(nullptr);
-        annotation_map_ptrs.push_back(nullptr);
-      } else {
-        annotation_maps.push_back(AnnotationMap::Create(column.type()));
-        annotation_map_ptrs.push_back(annotation_maps.back().get());
-      }
-    }
-
-    // Check and propagate the annotations for set operations for every
-    // AnnotationSpec supported by the resolver.
-    for (auto& annotation_spec : annotation_specs_) {
-      absl::Status status =
-          annotation_spec->CheckAndPropagateForSetOperationScan(
-              *set_operation_scan, annotation_map_ptrs);
-      if (!status.ok() && error_node != nullptr) {
-        return MakeSqlErrorAt(error_node) << status.message();
-      }
-    }
-
-    std::vector<ResolvedColumn> annotated_column_list;
-    annotated_column_list.reserve(set_operation_scan->column_list_size());
-    for (int i = 0; i < set_operation_scan->column_list_size(); i++) {
-      const ResolvedColumn& original_column =
-          set_operation_scan->column_list(i);
-      if (annotation_maps[i] == nullptr || annotation_maps[i]->Empty()) {
-        annotated_column_list.push_back(original_column);
-        continue;
-      }
-
-      ZETASQL_ASSIGN_OR_RETURN(
-          const AnnotationMap* column_annotation_map,
-          type_factory_->TakeOwnership(std::move(annotation_maps[i])));
-
-      annotated_column_list.push_back(ResolvedColumn(
-          original_column.column_id(), original_column.table_name_id(),
-          original_column.name_id(),
-          AnnotatedType(original_column.type(), column_annotation_map)));
-    }
-    set_operation_scan->set_column_list(std::move(annotated_column_list));
-  } else if (resolved_node->Is<ResolvedRecursiveScan>()) {
-    auto* recursive_scan = resolved_node->GetAs<ResolvedRecursiveScan>();
-    ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotationsForRecursiveScan(recursive_scan,
-                                                                 error_node));
-  }
-  return absl::OkStatus();
+  return annotation_propagator_->CheckAndPropagateAnnotations(error_node,
+                                                              resolved_node);
 }
 
 absl::Status Resolver::ThrowErrorIfExprHasCollation(

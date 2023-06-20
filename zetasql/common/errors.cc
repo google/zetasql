@@ -132,41 +132,4 @@ StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
   return warnings;
 }
 
-absl::Status ConvertInternalErrorLocationToExternal(absl::Status status,
-                                                    absl::string_view query) {
-  if (!internal::HasPayloadWithType<InternalErrorLocation>(status)) {
-    // Nothing to do.
-    return status;
-  }
-  const InternalErrorLocation internal_error_location =
-      internal::GetPayload<InternalErrorLocation>(status);
-
-  const ParseLocationPoint error_point =
-      ParseLocationPoint::FromInternalErrorLocation(internal_error_location);
-
-  ParseLocationTranslator location_translator(query);
-
-  std::pair<int, int> line_and_column;
-  ZETASQL_ASSIGN_OR_RETURN(
-      line_and_column,
-      location_translator.GetLineAndColumnAfterTabExpansion(error_point),
-      _ << "Location " << error_point.GetString() << " from status \""
-        << internal::StatusToString(status) << "\" not found in query:\n"
-        << query);
-  ErrorLocation error_location;
-  if (internal_error_location.has_filename()) {
-    error_location.set_filename(internal_error_location.filename());
-  }
-  error_location.set_line(line_and_column.first);
-  error_location.set_column(line_and_column.second);
-  // Copy ErrorSource information if present.
-  *error_location.mutable_error_source() =
-      internal_error_location.error_source();
-
-  absl::Status copy = status;
-  internal::ErasePayloadTyped<InternalErrorLocation>(&copy);
-  internal::AttachPayload(&copy, error_location);
-  return copy;
-}
-
 }  // namespace zetasql

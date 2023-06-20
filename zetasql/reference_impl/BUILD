@@ -326,6 +326,7 @@ cc_library(
         "//zetasql/public:simple_catalog",
         "//zetasql/public:type",
         "//zetasql/public:value",
+        "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:json",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/public/types",
@@ -338,6 +339,7 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:node_hash_map",
+        "@com_google_absl//absl/functional:bind_front",
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
@@ -409,16 +411,15 @@ cc_library(
         ":type_helpers",
         "//zetasql/analyzer:resolver",
         "//zetasql/base",
+        "//zetasql/base:check",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:evaluator_registration_utils",
-        "//zetasql/common:internal_analyzer_options",
         "//zetasql/common:status_payload_utils",
-        "//zetasql/common/testing:testing_proto_util",
         "//zetasql/compliance:test_database_catalog",
         "//zetasql/compliance:test_driver",
-        "//zetasql/compliance:test_util",
         "//zetasql/public:analyzer",
+        "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:language_options",
         "//zetasql/public:multi_catalog",
@@ -433,21 +434,19 @@ cc_library(
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
-        "//zetasql/resolved_ast:resolved_ast_builder",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "//zetasql/scripting:error_helpers",
         "//zetasql/scripting:script_executor",
         "//zetasql/scripting:type_aliases",
         "//zetasql/testing:test_value",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -470,6 +469,7 @@ zetasql_compliance_test(
     name = "reference_compliance_test",
     size = "large",
     args = [
+        "--zetasql_compliance_print_array_orderedness",
     ],
     known_error_files = [
         ":reference_impl_known_errors.textproto",
@@ -487,7 +487,10 @@ zetasql_compliance_test(
 zetasql_compliance_test(
     name = "reference_compliance_test_minimal_rewrites",
     size = "large",
-    args = ["--rewrites=minimal"],
+    args = [
+        "--rewrites=minimal",
+        "--zetasql_compliance_print_array_orderedness",
+    ],
     known_error_files = [
         ":reference_impl_known_errors.textproto",
         "//zetasql/compliance/known_errors:reference_impl_known_errors.textproto",
@@ -506,6 +509,7 @@ zetasql_compliance_test(
     size = "large",
     args = [
         "--rewrites=all",
+        "--zetasql_compliance_print_array_orderedness",
         # Four files contain tests that do not work pass all rewrites enabled.
         # Do not add to this list. Write compliance tests that work with all
         # rewriters enabled.
@@ -606,6 +610,7 @@ cc_test(
         "//zetasql/resolved_ast",
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",

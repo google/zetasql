@@ -456,7 +456,7 @@ SubqueryExpr
         | +-ArrayScan
         |   +-column_list=[$array.e#2]
         |   +-array_expr=
-        |   | +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA(INT64->INT64) transformation) -> ARRAY<INT64>)
+        |   | +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<INT64->INT64> transformation) -> ARRAY<INT64>)
         |   |   +-FunctionArgument
         |   |   | +-expr=
         |   |   |   +-ArgumentRef(type=ARRAY<INT64>, name="input_arr")
@@ -544,11 +544,11 @@ QueryStmt
     |                 |   |       |           |   |   +-WithExpr
     |                 |   |       |           |   |     +-type=INT64
     |                 |   |       |           |   |     +-assignment_list=
-    |                 |   |       |           |   |     | +-arg#6 := ColumnRef(type=INT64, column=$array.element#8)
+    |                 |   |       |           |   |     | +-arg#12 := ColumnRef(type=INT64, column=$array.element#8)
     |                 |   |       |           |   |     +-expr=
     |                 |   |       |           |   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-    |                 |   |       |           |   |         +-ColumnRef(type=INT64, column=$inlined_TimesTwo.arg#6)
-    |                 |   |       |           |   |         +-ColumnRef(type=INT64, column=$inlined_TimesTwo.arg#6)
+    |                 |   |       |           |   |         +-ColumnRef(type=INT64, column=$inlined_TimesTwo.arg#12)
+    |                 |   |       |           |   |         +-ColumnRef(type=INT64, column=$inlined_TimesTwo.arg#12)
     |                 |   |       |           |   +-input_scan=
     |                 |   |       |           |     +-ArrayScan
     |                 |   |       |           |       +-column_list=[$array.element#8, $array_offset.off#9]

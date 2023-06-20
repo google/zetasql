@@ -74,7 +74,7 @@ SELECT INTERVAL n YEAR, INTERVAL 10 * n + 5 DAY, INTERVAL 10001 * n SECOND
 FROM UNNEST([NULL, 0, 1, -2]) n
 ORDER BY n
 --
-ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL>>[
+ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL>>[known order:
   {NULL, NULL, NULL},
   {-2-0 0 0:0:0, 0-0 -15 0:0:0, 0-0 0 -5:33:22},
   {0-0 0 0:0:0, 0-0 5 0:0:0, 0-0 0 0:0:0},
@@ -440,14 +440,16 @@ ARRAY<STRUCT<INTERVAL>>[{0-0 1 0:0:0}]
 [name=array_agg]
 SELECT ARRAY_AGG(i) FROM UNNEST([interval 1 day, interval 1 day]) i
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INTERVAL>[0-0 1 0:0:0, 0-0 1 0:0:0]}]
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<INTERVAL>[unknown order:0-0 1 0:0:0, 0-0 1 0:0:0]}
+]
 ==
 [required_features=INTERVAL_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE]
 [name=array_agg_orderby]
 SELECT ARRAY_AGG(value ORDER BY value, id) FROM Intervals
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<INTERVAL>[
+  {ARRAY<INTERVAL>[known order:
      NULL,
      0-0 0 -4:5:6.789,
      0-0 0 -0:0:1,
@@ -510,7 +512,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT APPROX_TOP_SUM(value, EXTRACT(YEAR FROM value), 2) FROM Intervals
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRUCT<value INTERVAL, sum INT64>>[
+  {ARRAY<STRUCT<value INTERVAL, sum INT64>>[known order:
      {10000-0 0 0:0:0, 10000},
      {1-2 3 4:5:6.789, 1}
    ]}
@@ -520,7 +522,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 [name=orderby]
 SELECT id, value FROM Intervals ORDER BY value DESC, id ASC
 --
-ARRAY<STRUCT<id INT64, value INTERVAL>>[
+ARRAY<STRUCT<id INT64, value INTERVAL>>[known order:
   {8, 10000-0 0 0:0:0},
   {9, 1-2 3 4:5:6.789},
   {5, 0-1 0 0:0:0},
@@ -545,7 +547,7 @@ SELECT IF(value = interval 1 month, '1 month', cast(value as string)) value, cnt
 (SELECT value, COUNT(id) cnt FROM Intervals GROUP BY value)
 ORDER BY cnt DESC, value ASC
 --
-ARRAY<STRUCT<value STRING, cnt INT64>>[
+ARRAY<STRUCT<value STRING, cnt INT64>>[known order:
   {"1 month", 3},
   {NULL, 1},
   {
@@ -574,7 +576,7 @@ SELECT IF(value = interval 1 month, '1 month', cast(value as string)) value FROM
 (SELECT DISTINCT value FROM Intervals)
 ORDER BY value
 --
-ARRAY<STRUCT<value STRING>>[
+ARRAY<STRUCT<value STRING>>[known order:
   {NULL},
   {"0-0 0 -0:0:0.000001"},
   {"0-0 0 -0:0:1"},
@@ -597,7 +599,7 @@ INNER JOIN
 ON value = i
 ORDER BY id ASC
 --
-ARRAY<STRUCT<id INT64, value INTERVAL, i INTERVAL>>[
+ARRAY<STRUCT<id INT64, value INTERVAL, i INTERVAL>>[known order:
   {5, 0-1 0 0:0:0, 0-1 0 0:0:0},
   {6, 0-0 30 0:0:0, 0-1 0 0:0:0},
   {7, 0-0 0 720:0:0, 0-1 0 0:0:0},
@@ -610,7 +612,7 @@ SELECT id, value FROM Intervals
 WHERE value IN (SELECT i FROM UNNEST([interval -1 second, interval 31 day, interval 30 day]) i)
 ORDER BY id ASC
 --
-ARRAY<STRUCT<id INT64, value INTERVAL>>[
+ARRAY<STRUCT<id INT64, value INTERVAL>>[known order:
   {4, 0-0 0 -0:0:1},
   {5, 0-1 0 0:0:0},
   {6, 0-0 30 0:0:0},
@@ -626,7 +628,7 @@ SELECT
 FROM Intervals
 WHERE value < INTERVAL 1 year
 --
-ARRAY<STRUCT<INTERVAL>>[
+ARRAY<STRUCT<INTERVAL>>[unknown order:
   {0-0 0 -4:5:6.789},
   {0-0 0 -4:5:7.789},
   {0-0 0 -4:5:7.789001},
@@ -644,7 +646,7 @@ ARRAY<STRUCT<INTERVAL>>[
 [name=analytic_moving_avg_nanos]
 SELECT AVG(value) OVER(ORDER BY value, id ASC ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) FROM Intervals
 --
-ARRAY<STRUCT<INTERVAL>>[
+ARRAY<STRUCT<INTERVAL>>[unknown order:
   {NULL},
   {0-0 0 -4:5:6.789},
   {0-0 0 -2:2:33.894500},
@@ -666,7 +668,7 @@ ARRAY<STRUCT<INTERVAL>>[
 [name=analytic_moving_avg]
 SELECT AVG(value) OVER(ORDER BY value, id ASC ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) FROM Intervals
 --
-ARRAY<STRUCT<INTERVAL>>[
+ARRAY<STRUCT<INTERVAL>>[unknown order:
   {NULL},
   {0-0 0 -4:5:6.789},
   {0-0 0 -2:2:33.894500},
@@ -688,7 +690,7 @@ ARRAY<STRUCT<INTERVAL>>[
 SELECT MIN(value) OVER(w), MAX(value) OVER w FROM Intervals
 WINDOW w AS (ORDER BY value ASC, id ASC ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING)
 --
-ARRAY<STRUCT<INTERVAL, INTERVAL>>[
+ARRAY<STRUCT<INTERVAL, INTERVAL>>[unknown order:
   {0-0 0 -4:5:6.789, 0-0 0 -0:0:0.000001},
   {0-0 0 -4:5:6.789, 0-0 0 0:0:0},
   {0-0 0 -0:0:1, 0-0 0 0:0:0.000001},
@@ -711,7 +713,7 @@ SELECT value, COUNT(*) OVER(PARTITION BY value)
 FROM Intervals
 ORDER BY value ASC, id ASC
 --
-ARRAY<STRUCT<value INTERVAL, INT64>>[
+ARRAY<STRUCT<value INTERVAL, INT64>>[known order:
   {NULL, 1},
   {0-0 0 -4:5:6.789, 1},
   {0-0 0 -0:0:1, 1},
@@ -748,7 +750,7 @@ GROUP BY i1, i2;
 ARRAY<STRUCT<BOOL, BOOL, ARRAY<>>>[
   {true,
    true,
-   ARRAY<STRING>[
+   ARRAY<STRING>[unknown order:
      "0-0 29 24:0:0/0-0 31 -24:0:0",
      "0-0 28 48:0:0/0-0 32 -48:0:0"
    ]}
@@ -777,7 +779,7 @@ SELECT
 FROM t
 GROUP BY i1, x, i2;
 --
-ARRAY<STRUCT<BOOL, x INT64, BOOL, ARRAY<>>>[
+ARRAY<STRUCT<BOOL, x INT64, BOOL, ARRAY<>>>[unknown order:
   {
     true,
     2,
@@ -787,7 +789,7 @@ ARRAY<STRUCT<BOOL, x INT64, BOOL, ARRAY<>>>[
   {true,
    1,
    true,
-   ARRAY<STRING>[
+   ARRAY<STRING>[unknown order:
      "0-0 28 48:0:0/0-0 32 -48:0:0",
      "0-0 29 24:0:0/0-0 31 -24:0:0",
      "0-0 29 24:0:0/0-0 31 -24:0:0"
@@ -815,7 +817,7 @@ SELECT i, ARRAY_AGG(n), ARRAY_AGG(i)
 FROM t
 GROUP BY i;
 --
-ARRAY<STRUCT<i INTERVAL, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<i INTERVAL, ARRAY<>, ARRAY<>>>[unknown order:
   {
     0-0 0 -0:0:0.123456789,
     ARRAY<INT64>[3],
@@ -833,8 +835,8 @@ ARRAY<STRUCT<i INTERVAL, ARRAY<>, ARRAY<>>>[
   },
   {
     0-0 0 0:0:0,
-    ARRAY<INT64>[8, 6],
-    ARRAY<INTERVAL>[0-0 0 0:0:0, 0-0 0 0:0:0]
+    ARRAY<INT64>[unknown order:8, 6],
+    ARRAY<INTERVAL>[unknown order:0-0 0 0:0:0, 0-0 0 0:0:0]
   },
   {
     0-0 0 0:0:0.000000001,
@@ -852,8 +854,8 @@ ARRAY<STRUCT<i INTERVAL, ARRAY<>, ARRAY<>>>[
     ARRAY<INTERVAL>[0-0 0 0:0:0.123456789]
   },
   {0-0 1 0:0:0.000000001,
-   ARRAY<INT64>[9, 10],
-   ARRAY<INTERVAL>[
+   ARRAY<INT64>[unknown order:9, 10],
+   ARRAY<INTERVAL>[unknown order:
      0-0 1 0:0:0.000000001,
      0-0 0 24:0:0.000000001
    ]}
@@ -865,7 +867,7 @@ SELECT
   COUNT(DISTINCT value) OVER()
 FROM Intervals;
 --
-ARRAY<STRUCT<INT64>>[
+ARRAY<STRUCT<INT64>>[unknown order:
   {11},
   {11},
   {11},
@@ -887,14 +889,18 @@ ARRAY<STRUCT<INT64>>[
 SELECT SUM(DISTINCT value) OVER() FROM Intervals
 WHERE value >= INTERVAL 29 DAY AND value <= Interval 31 DAY
 --
-ARRAY<STRUCT<INTERVAL>>[{0-1 0 0:0:0}, {0-1 0 0:0:0}, {0-1 0 0:0:0}]
+ARRAY<STRUCT<INTERVAL>>[unknown order:
+  {0-1 0 0:0:0},
+  {0-1 0 0:0:0},
+  {0-1 0 0:0:0}
+]
 ==
 [required_features=INTERVAL_TYPE]
 [name=array_agg_distinct]
 SELECT JUSTIFY_INTERVAL(i) as justified_i FROM UNNEST(
   (SELECT ARRAY_AGG(DISTINCT value) AS a FROM Intervals)) AS i ORDER BY i;
 --
-ARRAY<STRUCT<justified_i INTERVAL>>[
+ARRAY<STRUCT<justified_i INTERVAL>>[known order:
   {NULL},
   {0-0 0 -4:5:6.789},
   {0-0 0 -0:0:1},
@@ -913,7 +919,7 @@ ARRAY<STRUCT<justified_i INTERVAL>>[
 [name=between]
 SELECT value, value BETWEEN INTERVAL 30 DAY AND INTERVAL 40 DAY FROM Intervals;
 --
-ARRAY<STRUCT<value INTERVAL, BOOL>>[
+ARRAY<STRUCT<value INTERVAL, BOOL>>[unknown order:
   {0-0 0 0:0:0, false},
   {0-0 0 -0:0:1, false},
   {0-0 30 0:0:0, true},

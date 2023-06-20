@@ -17,71 +17,71 @@
 #ifndef ZETASQL_PUBLIC_BUILTIN_FUNCTION_OPTIONS_H_
 #define ZETASQL_PUBLIC_BUILTIN_FUNCTION_OPTIONS_H_
 
-#include <stddef.h>
-
-#include <map>
-#include <string>
-
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/builtin_function.pb.h"
-#include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
-#include "zetasql/public/type.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
 
 namespace zetasql {
 
 struct FunctionSignatureIdHasher {
-  size_t operator()(FunctionSignatureId id) const {
-    return static_cast<size_t>(id);
-  }
+  size_t operator()(FunctionSignatureId id) const;
 };
 
-// Controls whether builtin FunctionSignatureIds and their matching
-// FunctionSignatures are included or excluded for an implementation.
+// Controls which builtin functions and function signatures are returned by
+// ZetaSQL's `GetZetaSqlFunctionsAndTypes` APIs.
 //
-// LanguageOptions are applied to determine set of candidate functions
+// `LanguageOptions` are applied to determine the set of candidate functions
 // before inclusion/exclusion lists are applied.
-struct ZetaSQLBuiltinFunctionOptions {
-  // Default constructor.  If LanguageOptions are not passed in, default
-  // to the maximum set of language features, along with the default
-  // ProductMode (PRODUCT_INTERNAL) and TimestampMode (TIMESTAMP_MODE_NEW).
-  ZetaSQLBuiltinFunctionOptions() {
-    language_options.EnableMaximumLanguageFeatures();
-  }
+struct BuiltinFunctionOptions {
+  // Construct a built-in function options object without specifying language
+  // options. This will use product mode `PRODUCT_INTERNAL` and will enable
+  // all language features that are `ideally_enabled` and not `in_development`.
+  // The set of `LanguageFeatures` used by this constructor will change over
+  // time. Prefer to always supply explicit `LanguageOptions`, especially when
+  // this will be used to set up a catalog for an analyzer call that uses
+  // explicit `LanguageOptions`.
+  ABSL_DEPRECATED("Use AllReleasedFunctions factory function.")
+  BuiltinFunctionOptions();
 
-  ZetaSQLBuiltinFunctionOptions(const LanguageOptions& options)  // NOLINT
-      : language_options(options) {}
+  // Construct a built-in function options object with the specified language
+  // `options`. Note: this constructor is implicit for backward compatibility
+  // reasons. Please consider the implicit form of the constructor deprecated
+  // and avoid using the implicit form.
+  BuiltinFunctionOptions(const LanguageOptions& options);  // NOLINT
 
-  explicit ZetaSQLBuiltinFunctionOptions(
-      const ZetaSQLBuiltinFunctionOptionsProto& proto)
-      : language_options(proto.language_options()) {
-    for (int i = 0; i < proto.include_function_ids_size(); ++i) {
-      include_function_ids.insert(proto.include_function_ids(i));
-    }
-    for (int i = 0; i < proto.exclude_function_ids_size(); ++i) {
-      exclude_function_ids.insert(proto.exclude_function_ids(i));
-    }
-    for (int i = 0; i < proto.enabled_rewrites_map_entry_size(); ++i) {
-      rewrite_enabled.insert({proto.enabled_rewrites_map_entry(i).key(),
-                              proto.enabled_rewrites_map_entry(i).value()});
-    }
-  }
+  // Construct a built-in function options from a serialized form in `proto`.
+  explicit BuiltinFunctionOptions(
+      const ZetaSQLBuiltinFunctionOptionsProto& proto);
 
-  // Specifies the set of language features that are enabled, which affects
-  // the functions that should be loaded.  Also specifies the ProductMode
-  // and TimestampMode.  This restriction is applied first, before the
-  // include/exclude lists below.  For example, if FEATURE_ANALYTIC_FUNCTIONS
-  // is not enabled, all analytic functions are skipped.
+  // Returns an instance of `BuiltinFunctionOptions` that will returned all
+  // released builtin ZetaSQL functions and types that are part of the
+  // `PRODUCT_INTERNAL` language dialect. This will not return 'in_development'
+  // or `PRODUCT_EXTERNAL`-only functions or types. For those cases, use the
+  // constructor that takes an explicit `LanguageOptions`.
+  //
+  // Prefer to always supply explicit `LanguageOptions` when returned functions
+  // or types will be used to set up a catalog for an analyzer call that uses
+  // explicit `LanguageOptions`. Returning all functions and types is a useful
+  // thing to do only in tools that need to be as generic as possible and aren't
+  // attached to any particular query execution engine.
+  static BuiltinFunctionOptions AllReleasedFunctions();
+
+  // Specifies the ProductMode and set of LanguageFeatures that affect which
+  // function signatures are loaded. Restrictions implied by `language_options`
+  // are applied first, before the include/exclude lists below. For example, if
+  // `FEATURE_ANALYTIC_FUNCTIONS` is not enabled, all analytic functions are
+  // skipped even if they are included in `include_function_ids`.
   LanguageOptions language_options;
 
-  // If not empty, and a FunctionSignatureId is not in the set, then
-  // the corresponding FunctionSignature is ignored.
+  // If not empty, and a `FunctionSignatureId` is not in the set, then
+  // the corresponding `FunctionSignature` is ignored.
   absl::flat_hash_set<FunctionSignatureId, FunctionSignatureIdHasher>
       include_function_ids;
 
-  // Ignore FunctionSignatures for FunctionSignatureIds in this set.
+  // Ignore `FunctionSignatures` for `FunctionSignatureIds` in this set.
   absl::flat_hash_set<FunctionSignatureId, FunctionSignatureIdHasher>
       exclude_function_ids;
 
@@ -91,6 +91,9 @@ struct ZetaSQLBuiltinFunctionOptions {
   // a default value is used.
   absl::flat_hash_map<FunctionSignatureId, bool> rewrite_enabled;
 };
+
+// Provides backward compatibility with a redundantly repetitive name.
+using ZetaSQLBuiltinFunctionOptions = BuiltinFunctionOptions;
 
 }  // namespace zetasql
 

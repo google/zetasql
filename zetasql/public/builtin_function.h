@@ -17,25 +17,73 @@
 #ifndef ZETASQL_PUBLIC_BUILTIN_FUNCTION_H_
 #define ZETASQL_PUBLIC_BUILTIN_FUNCTION_H_
 
-#include <stddef.h>
-
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
-#include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
-#include "absl/container/flat_hash_set.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 
 namespace zetasql {
 
+// Returns collections of Functions and named Types that are part of the
+// ZetaSQL core library. `Type*` that are returned in `types` or are used in
+// the FunctionSignatures are either statically allocated or allocated and owned
+// by `type_factory`.
+//
+// The primary intended use of this API is to get `FunctionSignature` and `Type`
+// objects to populate a `zetasql::Catalog` instance for Analysis. Other tools
+// and utilities can also use this to get the list of built-in Functions and
+// Types.
+//
+// `options` is used to control which function signatures and types are
+//    returned. See `BuiltinFunctionOptions` for details on how to configure
+//    this parameter.
+// `type_factory` is used to allocate types used in function signatures and
+//    returned in `types`. The lifetime of `type_factory` must exceed the
+//    lifetime of `functions` and `types`.
+// `functions` is used to return built-in function signatures. It must be empty.
+// `types` is used to return built-in named Types. It must be empty.
+absl::Status GetBuiltinFunctionsAndTypes(
+    const BuiltinFunctionOptions& options, TypeFactory& type_factory,
+    absl::flat_hash_map<std::string, std::unique_ptr<Function>>& functions,
+    absl::flat_hash_map<std::string, const Type*>& types);
+
+// Returns statically allocated collections of all released FunctionSignatures
+// and Types that are part of the ZetaSQL core library, using a reasonable
+// default `LanguageOptions`. This includes Functions and Types that are part of
+// fully-implemented features for ProductMode `PRODUCT_INTERNAL`. In-development
+// features are excluded.
+//
+// Returned `Function*` and `Type*` are statically allocated and have process
+// lifetime.
+//
+// This API is convenient for tools and utilities that want the full set of
+// possible builtin FunctionSignatures and want to reference a statically
+// allocated collection for efficiency. The likely calling pattern is:
+// ```
+//   auto [kAllBuiltinFunctions, kAllBuiltinTypes] =
+//        zetasql::GetAllBuiltinFunctionsAndTypesStatic();
+// ```
+//
+// Generally, this is not an appropriate API for populating a Catalog instance
+// for query analysis. For that, use `GetBuiltinFunctionsAndTypes` with an
+// `options` object initialized to complement the `AnalyzerOptions` used
+// for query analysis.
+std::pair<const absl::flat_hash_map<std::string, const Function*>&,
+          const absl::flat_hash_map<std::string, const Type*>&>
+GetBuiltinFunctionsAndTypesForDefaultOptions();
+
 const std::string FunctionSignatureIdToName(FunctionSignatureId id);
 
+// DEPRECATED: Use GetBuiltinFunctionsAndTypes
+//
 // Populates <functions> with a list of built-in ZetaSQL functions. New
 // Types are added to <type_factory> as needed to support those functions.
 // <type_factory> must outlive <functions>.
@@ -43,14 +91,13 @@ const std::string FunctionSignatureIdToName(FunctionSignatureId id);
 // explicitly included or excluded from the returned map.
 // A LanguageOptions or AnalyzerOptions object can be passed to <options>
 // using the implicit constructor.
-//
-// It's guaranteed that none of the built-in function names/aliases starts with
-// "[a-zA-Z]_", which is reserved for user-defined objects.
+ABSL_DEPRECATED("Inline me!")
 absl::Status GetZetaSQLFunctionsAndTypes(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     std::map<std::string, std::unique_ptr<Function>>* functions,
     absl::flat_hash_map<std::string, const Type*>* types);
 
+// DEPRECATED: Use GetBuiltinFunctionsAndTypes
 ABSL_DEPRECATED("Inline me!")
 void GetZetaSQLFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,

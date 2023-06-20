@@ -71,7 +71,7 @@ create private view MyView as select * from KeyValue
 ==
 
 # Query parameter in view body.
-create {{|materialized}} view v as select @x a;
+create {{|materialized|approx}} view v as select @x a;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -84,11 +84,17 @@ ALTERNATION GROUP: materialized
 ERROR: Query parameters cannot be used inside SQL view bodies [at 1:38]
 create materialized view v as select @x a;
                                      ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Query parameters cannot be used inside SQL view bodies [at 1:32]
+create approx view v as select @x a;
+                               ^
 ==
 
 # Same for positional parameters.
 [parameter_mode=positional]
-create {{|materialized}} view v as select ? a;
+create {{|materialized|approx}} view v as select ? a;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -101,10 +107,16 @@ ALTERNATION GROUP: materialized
 ERROR: Query parameters cannot be used inside SQL view bodies [at 1:38]
 create materialized view v as select ? a;
                                      ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Query parameters cannot be used inside SQL view bodies [at 1:32]
+create approx view v as select ? a;
+                               ^
 ==
 
 # Query parameter in options.
-create {{|temporary|materialized}} view X
+create {{|temporary|materialized|approx}} view X
 options(x=5, y='abc', z=@test_param_array, z=abc)
 as
 select key, key k1, key k2, key+1 k3 from keYvalue limit 5
@@ -217,9 +229,45 @@ CreateMaterializedViewStmt
   +-ColumnDefinition(name="k1", type=INT64, column=X.k1#5)
   +-ColumnDefinition(name="k2", type=INT64, column=X.k2#6)
   +-ColumnDefinition(name="k3", type=INT64, column=X.k3#7)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStmt
++-name_path=X
++-option_list=
+| +-x := Literal(type=INT64, value=5)
+| +-y := Literal(type=STRING, value="abc")
+| +-z := Parameter(type=ARRAY<INT32>, name="test_param_array")
+| +-z := Literal(type=STRING, value="abc")
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Key#1 AS k1 [INT64]
+| +-KeyValue.Key#1 AS k2 [INT64]
+| +-$view.k3#3 AS k3 [INT64]
++-query=
+| +-LimitOffsetScan
+|   +-column_list=[KeyValue.Key#1, KeyValue.Key#1, KeyValue.Key#1, $view.k3#3]
+|   +-input_scan=
+|   | +-ProjectScan
+|   |   +-column_list=[KeyValue.Key#1, KeyValue.Key#1, KeyValue.Key#1, $view.k3#3]
+|   |   +-expr_list=
+|   |   | +-k3#3 :=
+|   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|   |   |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+|   |   |     +-Literal(type=INT64, value=1)
+|   |   +-input_scan=
+|   |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+|   +-limit=
+|     +-Literal(type=INT64, value=5)
++-sql="select key, key k1, key k2, key+1 k3 from keYvalue limit 5"
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=X.key#4)
+  +-ColumnDefinition(name="k1", type=INT64, column=X.k1#5)
+  +-ColumnDefinition(name="k2", type=INT64, column=X.k2#6)
+  +-ColumnDefinition(name="k3", type=INT64, column=X.k3#7)
 ==
 
-create {{|materialized}} view Z
+create {{|materialized|approx}} view Z
 options ()
 as select 1 c;
 --
@@ -256,9 +304,26 @@ CreateMaterializedViewStmt
 +-sql="select 1 c"
 +-column_definition_list=
   +-ColumnDefinition(name="c", type=INT64, column=Z.c#2)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStmt
++-name_path=Z
++-output_column_list=
+| +-$view.c#1 AS c [INT64]
++-query=
+| +-ProjectScan
+|   +-column_list=[$view.c#1]
+|   +-expr_list=
+|   | +-c#1 := Literal(type=INT64, value=1)
+|   +-input_scan=
+|     +-SingleRowScan
++-sql="select 1 c"
++-column_definition_list=
+  +-ColumnDefinition(name="c", type=INT64, column=Z.c#2)
 ==
 
-create {{|materialized}} view Z
+create {{|materialized|approx}} view Z
 options (abc=def, xyz=@bad_param)
 as select 1 c;
 --
@@ -287,7 +352,7 @@ CreateViewStmt
 ==
 
 # Anonymous columns not allowed.
-create {{|materialized}} view tt
+create {{|materialized|approx}} view tt
 as select 1
 --
 ALTERNATION GROUP: <empty>
@@ -301,10 +366,16 @@ ALTERNATION GROUP: materialized
 ERROR: CREATE MATERIALIZED VIEW columns must be named, but column 1 has no name [at 2:4]
 as select 1
    ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: CREATE APPROX VIEW columns must be named, but column 1 has no name [at 2:4]
+as select 1
+   ^
 ==
 
 # Duplicate column names not allowed.
-create {{|materialized}} view tt
+create {{|materialized|approx}} view tt
 options (abc=def)
 as select 1 aaA, 2 Aaa
 --
@@ -319,11 +390,17 @@ ALTERNATION GROUP: materialized
 ERROR: CREATE MATERIALIZED VIEW has columns with duplicate name Aaa [at 3:4]
 as select 1 aaA, 2 Aaa
    ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: CREATE APPROX VIEW has columns with duplicate name Aaa [at 3:4]
+as select 1 aaA, 2 Aaa
+   ^
 ==
 
 # Create a value view with SELECT AS STRUCT.
 # Duplicate and anonymous fields are allowed inside the struct.
-create {{|materialized}} view tt
+create {{|materialized|approx}} view tt
 as select as struct 1 a, 2, 3 c, 4 c
 --
 ALTERNATION GROUP: <empty>
@@ -391,10 +468,43 @@ CreateMaterializedViewStmt
 +-is_value_table=TRUE
 +-column_definition_list=
   +-ColumnDefinition(name="$struct", type=STRUCT<a INT64, INT64, c INT64, c INT64>, column=tt.$struct#6)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStmt
++-name_path=tt
++-output_column_list=
+| +-$make_struct.$struct#5 AS `$struct` [STRUCT<a INT64, INT64, c INT64, c INT64>]
++-query=
+| +-ProjectScan
+|   +-column_list=[$make_struct.$struct#5]
+|   +-expr_list=
+|   | +-$struct#5 :=
+|   |   +-MakeStruct
+|   |     +-type=STRUCT<a INT64, INT64, c INT64, c INT64>
+|   |     +-field_list=
+|   |       +-ColumnRef(type=INT64, column=$view.a#1)
+|   |       +-ColumnRef(type=INT64, column=$view.$col2#2)
+|   |       +-ColumnRef(type=INT64, column=$view.c#3)
+|   |       +-ColumnRef(type=INT64, column=$view.c#4)
+|   +-input_scan=
+|     +-ProjectScan
+|       +-column_list=$view.[a#1, $col2#2, c#3, c#4]
+|       +-expr_list=
+|       | +-a#1 := Literal(type=INT64, value=1)
+|       | +-$col2#2 := Literal(type=INT64, value=2)
+|       | +-c#3 := Literal(type=INT64, value=3)
+|       | +-c#4 := Literal(type=INT64, value=4)
+|       +-input_scan=
+|         +-SingleRowScan
++-sql="select as struct 1 a, 2, 3 c, 4 c"
++-is_value_table=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="$struct", type=STRUCT<a INT64, INT64, c INT64, c INT64>, column=tt.$struct#6)
 ==
 
 # Create a value view with SELECT AS ProtoName.
-create {{|materialized}} view tt
+create {{|materialized|approx}} view tt
 as select as `zetasql_test__.TestExtraPB` 55 int32_val1
 --
 ALTERNATION GROUP: <empty>
@@ -450,9 +560,36 @@ CreateMaterializedViewStmt
 +-is_value_table=TRUE
 +-column_definition_list=
   +-ColumnDefinition(name="$proto", type=PROTO<zetasql_test__.TestExtraPB>, column=tt.$proto#3)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStmt
++-name_path=tt
++-output_column_list=
+| +-$make_proto.$proto#2 AS `$proto` [PROTO<zetasql_test__.TestExtraPB>]
++-query=
+| +-ProjectScan
+|   +-column_list=[$make_proto.$proto#2]
+|   +-expr_list=
+|   | +-$proto#2 :=
+|   |   +-MakeProto
+|   |     +-type=PROTO<zetasql_test__.TestExtraPB>
+|   |     +-field_list=
+|   |       +-int32_val1 := Literal(type=INT32, value=55)
+|   +-input_scan=
+|     +-ProjectScan
+|       +-column_list=[$view.int32_val1#1]
+|       +-expr_list=
+|       | +-int32_val1#1 := Literal(type=INT64, value=55)
+|       +-input_scan=
+|         +-SingleRowScan
++-sql="select as `zetasql_test__.TestExtraPB` 55 int32_val1"
++-is_value_table=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="$proto", type=PROTO<zetasql_test__.TestExtraPB>, column=tt.$proto#3)
 ==
 
-create or replace {{|materialized}} view x.y as (select 1 a)
+create or replace {{|materialized|approx}} view x.y as (select 1 a)
 --
 ALTERNATION GROUP: <empty>
 --
@@ -475,6 +612,24 @@ CreateViewStmt
 ALTERNATION GROUP: materialized
 --
 CreateMaterializedViewStmt
++-name_path=x.y
++-create_mode=CREATE_OR_REPLACE
++-output_column_list=
+| +-$view.a#1 AS a [INT64]
++-query=
+| +-ProjectScan
+|   +-column_list=[$view.a#1]
+|   +-expr_list=
+|   | +-a#1 := Literal(type=INT64, value=1)
+|   +-input_scan=
+|     +-SingleRowScan
++-sql="select 1 a"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=x.y.a#2)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStmt
 +-name_path=x.y
 +-create_mode=CREATE_OR_REPLACE
 +-output_column_list=
@@ -512,7 +667,7 @@ CreateViewStmt
   +-ColumnDefinition(name="a", type=INT64, column=x.y.a#2)
 ==
 
-create or replace {{|materialized}} view if not exists T as (select 1 a)
+create or replace {{|materialized|approx}} view if not exists T as (select 1 a)
 --
 ALTERNATION GROUP: <empty>
 --
@@ -524,6 +679,12 @@ ALTERNATION GROUP: materialized
 --
 ERROR: CREATE MATERIALIZED VIEW cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
 create or replace materialized view if not exists T as (select 1 a)
+^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: CREATE APPROX VIEW cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+create or replace approx view if not exists T as (select 1 a)
 ^
 ==
 
@@ -622,7 +783,7 @@ select * from xxx
 [parse_multiple]
 select 1;
 select 2;
-create {{|materialized}} view T as select 1 a
+create {{|materialized|approx}} view T as select 1 a
 --
 ALTERNATION GROUP: <empty>
 --
@@ -688,6 +849,45 @@ QueryStmt
       +-SingleRowScan
 --
 CreateMaterializedViewStmt
++-name_path=T
++-output_column_list=
+| +-$view.a#1 AS a [INT64]
++-query=
+| +-ProjectScan
+|   +-column_list=[$view.a#1]
+|   +-expr_list=
+|   | +-a#1 := Literal(type=INT64, value=1)
+|   +-input_scan=
+|     +-SingleRowScan
++-sql="select 1 a"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=T.a#2)
+--
+ALTERNATION GROUP: approx
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+--
+CreateApproxViewStmt
 +-name_path=T
 +-output_column_list=
 | +-$view.a#1 AS a [INT64]
@@ -851,13 +1051,19 @@ as select as table 1 a, 2, 3 c, 4 c
              ^
 ==
 
-create {{materialized|}} recursive view tt
+create {{materialized|approx|}} recursive view tt
 as select 1 a, 2 b
 --
 ALTERNATION GROUP: materialized
 --
 ERROR: Recursive views are not supported [at 1:1]
 create materialized recursive view tt
+^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Recursive views are not supported [at 1:1]
+create approx recursive view tt
 ^
 --
 ALTERNATION GROUP: <empty>
@@ -867,7 +1073,7 @@ create  recursive view tt
 ^
 ==
 
-create {{materialized|}} view tt(a, b)
+create {{materialized|approx|}} view tt(a, b)
 as select 1, 2
 --
 ALTERNATION GROUP: materialized
@@ -875,6 +1081,12 @@ ALTERNATION GROUP: materialized
 ERROR: CREATE MATERIALIZED VIEW with explicit column list is not supported [at 1:28]
 create materialized view tt(a, b)
                            ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: CREATE APPROX VIEW with explicit column list is not supported [at 1:22]
+create approx view tt(a, b)
+                     ^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -885,12 +1097,43 @@ create  view tt(a, b)
 
 # Create view with explicit column list with column options.
 [default language_features={{CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS|CREATE_VIEW_WITH_COLUMN_LIST}}]
-create {{materialized|}} view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
+create {{materialized|approx|}} view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
 as select 1, 2, 3
 --
 ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS,materialized
 --
 CreateMaterializedViewStmt
++-name_path=tt
++-output_column_list=
+| +-$view.$col1#1 AS c1 [INT64]
+| +-$view.$col2#2 AS c2 [INT64]
+| +-$view.$col3#3 AS c3 [INT64]
++-has_explicit_columns=TRUE
++-query=
+| +-ProjectScan
+|   +-column_list=$view.[$col1#1, $col2#2, $col3#3]
+|   +-expr_list=
+|   | +-$col1#1 := Literal(type=INT64, value=1)
+|   | +-$col2#2 := Literal(type=INT64, value=2)
+|   | +-$col3#3 := Literal(type=INT64, value=3)
+|   +-input_scan=
+|     +-SingleRowScan
++-sql="select 1, 2, 3"
++-column_definition_list=
+  +-ColumnDefinition
+  | +-name="c1"
+  | +-type=INT64
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-option_list=
+  | |     +-description := Literal(type=STRING, value="col1")
+  | +-column=tt.$col1#4
+  +-ColumnDefinition(name="c2", type=INT64, column=tt.$col2#5)
+  +-ColumnDefinition(name="c3", type=INT64, column=tt.$col3#6)
+--
+ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS,approx
+--
+CreateApproxViewStmt
 +-name_path=tt
 +-output_column_list=
 | +-$view.$col1#1 AS c1 [INT64]
@@ -956,6 +1199,12 @@ ERROR: CREATE MATERIALIZED VIEW with column options not supported [at 1:39]
 create materialized view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
                                       ^
 --
+ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,approx
+--
+ERROR: CREATE APPROX VIEW with column options not supported [at 1:33]
+create approx view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
+                                ^
+--
 ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,
 --
 ERROR: CREATE VIEW with column options not supported [at 1:27]
@@ -1013,13 +1262,34 @@ CreateViewStmt
 ==
 
 # Create view with column name list, view sql columns have no name.
-create {{materialized|}} view tt(a, `b`)
+create {{materialized|approx|}} view tt(a, `b`)
 as select 1, 2
 --
 ALTERNATION GROUP: materialized
 
 --
 CreateMaterializedViewStmt
++-name_path=tt
++-output_column_list=
+| +-$view.$col1#1 AS a [INT64]
+| +-$view.$col2#2 AS b [INT64]
++-has_explicit_columns=TRUE
++-query=
+| +-ProjectScan
+|   +-column_list=$view.[$col1#1, $col2#2]
+|   +-expr_list=
+|   | +-$col1#1 := Literal(type=INT64, value=1)
+|   | +-$col2#2 := Literal(type=INT64, value=2)
+|   +-input_scan=
+|     +-SingleRowScan
++-sql="select 1, 2"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=tt.$col1#3)
+  +-ColumnDefinition(name="b", type=INT64, column=tt.$col2#4)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStmt
 +-name_path=tt
 +-output_column_list=
 | +-$view.$col1#1 AS a [INT64]
@@ -1061,7 +1331,7 @@ CreateViewStmt
 ==
 
 # Create view with column name list size < view sql column count
-create {{materialized|}} view tt(a)
+create {{materialized|approx|}} view tt(a)
 as select 1, 2
 --
 ALTERNATION GROUP: materialized
@@ -1070,6 +1340,12 @@ ALTERNATION GROUP: materialized
 ERROR: The number of view column names (1) must be equal to the number of columns from the view query (2) [at 1:28]
 create materialized view tt(a)
                            ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: The number of view column names (1) must be equal to the number of columns from the view query (2) [at 1:22]
+create approx view tt(a)
+                     ^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1079,7 +1355,7 @@ create  view tt(a)
 ==
 
 # Create view with column name list size < view sql column count as expanded from select *
-create {{materialized|}} view tt(a)
+create {{materialized|approx|}} view tt(a)
 as select * from KeyValue
 --
 ALTERNATION GROUP: materialized
@@ -1089,6 +1365,12 @@ ERROR: The number of view column names (1) must be equal to the number of column
 create materialized view tt(a)
                            ^
 --
+ALTERNATION GROUP: approx
+--
+ERROR: The number of view column names (1) must be equal to the number of columns from the view query (2) [at 1:22]
+create approx view tt(a)
+                     ^
+--
 ALTERNATION GROUP: <empty>
 --
 ERROR: The number of view column names (1) must be equal to the number of columns from the view query (2) [at 1:16]
@@ -1097,7 +1379,7 @@ create  view tt(a)
 ==
 
 # Create view with column name list size < view sql column count
-create {{materialized|}} view tt(a, b)
+create {{materialized|approx|}} view tt(a, b)
 as select 1
 --
 ALTERNATION GROUP: materialized
@@ -1107,6 +1389,12 @@ ERROR: The number of view column names (2) must be equal to the number of column
 create materialized view tt(a, b)
                            ^
 --
+ALTERNATION GROUP: approx
+--
+ERROR: The number of view column names (2) must be equal to the number of columns from the view query (1) [at 1:22]
+create approx view tt(a, b)
+                     ^
+--
 ALTERNATION GROUP: <empty>
 --
 ERROR: The number of view column names (2) must be equal to the number of columns from the view query (1) [at 1:16]
@@ -1115,7 +1403,7 @@ create  view tt(a, b)
 ==
 
 # Create view with empty column name list
-create {{materialized|}} view tt()
+create {{materialized|approx|}} view tt()
 as select 1, 2
 --
 ALTERNATION GROUP: materialized
@@ -1123,6 +1411,12 @@ ALTERNATION GROUP: materialized
 ERROR: Syntax error: Unexpected ")" [at 1:29]
 create materialized view tt()
                             ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Syntax error: Unexpected ")" [at 1:23]
+create approx view tt()
+                      ^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1133,7 +1427,7 @@ create  view tt()
 
 
 # Create view with duplicate column names
-create {{materialized|}} view tt(a, a)
+create {{materialized|approx|}} view tt(a, a)
 as select 1, 2
 --
 ALTERNATION GROUP: materialized
@@ -1142,6 +1436,12 @@ ALTERNATION GROUP: materialized
 ERROR: CREATE MATERIALIZED VIEW has columns with duplicate name a [at 1:32]
 create materialized view tt(a, a)
                                ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: CREATE APPROX VIEW has columns with duplicate name a [at 1:26]
+create approx view tt(a, a)
+                         ^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1152,7 +1452,7 @@ create  view tt(a, a)
 ==
 
 # Create view with column names differing only in upper/lower case.
-create {{materialized|}} view tt(aB, Ab)
+create {{materialized|approx|}} view tt(aB, Ab)
 as select 1, 2
 --
 ALTERNATION GROUP: materialized
@@ -1160,6 +1460,12 @@ ALTERNATION GROUP: materialized
 ERROR: CREATE MATERIALIZED VIEW has columns with duplicate name Ab [at 1:33]
 create materialized view tt(aB, Ab)
                                 ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: CREATE APPROX VIEW has columns with duplicate name Ab [at 1:27]
+create approx view tt(aB, Ab)
+                          ^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1169,7 +1475,7 @@ create  view tt(aB, Ab)
 ==
 
 # Create view with internal column name
-create {{materialized|}} view tt(`$foo`, `$2`)
+create {{materialized|approx|}} view tt(`$foo`, `$2`)
 as select 1, 2
 --
 ALTERNATION GROUP: materialized
@@ -1178,6 +1484,12 @@ ALTERNATION GROUP: materialized
 ERROR: Illegal column name: $foo [at 1:29]
 create materialized view tt(`$foo`, `$2`)
                             ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Illegal column name: $foo [at 1:23]
+create approx view tt(`$foo`, `$2`)
+                      ^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1189,12 +1501,30 @@ create  view tt(`$foo`, `$2`)
 
 
 # Create view with column name list on top of select * view sql.
-create {{materialized|}} view tt(k, v)
+create {{materialized|approx|}} view tt(k, v)
 as select * from KeyValue
 --
 ALTERNATION GROUP: materialized
 --
 CreateMaterializedViewStmt
++-name_path=tt
++-output_column_list=
+| +-KeyValue.Key#1 AS k [INT64]
+| +-KeyValue.Value#2 AS v [STRING]
++-has_explicit_columns=TRUE
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select * from KeyValue"
++-column_definition_list=
+  +-ColumnDefinition(name="k", type=INT64, column=tt.Key#3)
+  +-ColumnDefinition(name="v", type=STRING, column=tt.Value#4)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStmt
 +-name_path=tt
 +-output_column_list=
 | +-KeyValue.Key#1 AS k [INT64]
@@ -1231,12 +1561,30 @@ CreateViewStmt
 ==
 
 # Create view with column names swapping the output column names from view sql.
-create {{materialized|}} view tt(key, value)
+create {{materialized|approx|}} view tt(key, value)
 as select key AS value, value AS key from KeyValue
 --
 ALTERNATION GROUP: materialized
 --
 CreateMaterializedViewStmt
++-name_path=tt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Value#2 AS value [STRING]
++-has_explicit_columns=TRUE
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select key AS value, value AS key from KeyValue"
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.value#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.key#4)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStmt
 +-name_path=tt
 +-output_column_list=
 | +-KeyValue.Key#1 AS key [INT64]
@@ -1273,12 +1621,30 @@ CreateViewStmt
 ==
 
 # Create view with duplicate view sql column names (renamed by the column name list).
-create {{materialized|}} view tt(key, value)
+create {{materialized|approx|}} view tt(key, value)
 as select key AS value, value from KeyValue
 --
 ALTERNATION GROUP: materialized
 --
 CreateMaterializedViewStmt
++-name_path=tt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Value#2 AS value [STRING]
++-has_explicit_columns=TRUE
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select key AS value, value from KeyValue"
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.value#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStmt
 +-name_path=tt
 +-output_column_list=
 | +-KeyValue.Key#1 AS key [INT64]
@@ -1310,4 +1676,126 @@ CreateViewStmt
 +-sql="select key AS value, value from KeyValue"
 +-column_definition_list=
   +-ColumnDefinition(name="key", type=INT64, column=tt.value#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)
+==
+
+[disallow_duplicate_options]
+create {{|temporary|materialized|approx}} view X
+options(x=5, y='abc', y=7) as select 1, 2, 3
+--
+ERROR: Duplicate option specified for 'y' [at 2:23]
+options(x=5, y='abc', y=7) as select 1, 2, 3
+                      ^
+==
+
+# Create view with sql security.
+create {{materialized|approx|}} view tt sql security {{invoker|definer}}
+as select key, value from KeyValue
+--
+ALTERNATION GROUP: materialized,invoker
+--
+CreateMaterializedViewStmt
++-name_path=tt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Value#2 AS value [STRING]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select key, value from KeyValue"
++-sql_security=SQL_SECURITY_INVOKER
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.key#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)
+--
+ALTERNATION GROUP: materialized,definer
+--
+CreateMaterializedViewStmt
++-name_path=tt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Value#2 AS value [STRING]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select key, value from KeyValue"
++-sql_security=SQL_SECURITY_DEFINER
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.key#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)
+--
+ALTERNATION GROUP: approx,invoker
+--
+CreateApproxViewStmt
++-name_path=tt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Value#2 AS value [STRING]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select key, value from KeyValue"
++-sql_security=SQL_SECURITY_INVOKER
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.key#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)
+--
+ALTERNATION GROUP: approx,definer
+--
+CreateApproxViewStmt
++-name_path=tt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Value#2 AS value [STRING]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select key, value from KeyValue"
++-sql_security=SQL_SECURITY_DEFINER
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.key#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)
+--
+ALTERNATION GROUP: invoker
+--
+CreateViewStmt
++-name_path=tt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Value#2 AS value [STRING]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select key, value from KeyValue"
++-sql_security=SQL_SECURITY_INVOKER
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.key#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)
+--
+ALTERNATION GROUP: definer
+--
+CreateViewStmt
++-name_path=tt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Value#2 AS value [STRING]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-sql="select key, value from KeyValue"
++-sql_security=SQL_SECURITY_DEFINER
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.key#3)
   +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)

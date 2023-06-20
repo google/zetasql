@@ -302,12 +302,20 @@ absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
       *default_value = Value::Json(JSONValue());
       break;
     }
-    case TYPE_INTERVAL:
+    case TYPE_INTERVAL: {
       *default_value = Value::Interval(IntervalValue());
       break;
-    default:
+    }
+    case TYPE_RANGE: {
+      const Type* range_element_type = type->AsRange()->element_type();
+      *default_value = Value::Null(
+          types::RangeTypeFromSimpleTypeKind(range_element_type->kind()));
+      break;
+    }
+    default: {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "No default value for " << field->DebugString();
+    }
   }
   return absl::OkStatus();
 }
@@ -833,6 +841,13 @@ static absl::StatusOr<Value> TranslateWireValue(
       ZETASQL_RET_CHECK_NE(value, nullptr);
 
       return Value::Proto(type->AsProto(), *value);
+    }
+    case TYPE_NUMERIC: {
+      const std::string* const value = std::get_if<std::string>(&wire_value);
+      ZETASQL_RET_CHECK_NE(value, nullptr);
+      ZETASQL_ASSIGN_OR_RETURN(NumericValue numeric_value,
+                       NumericValue::DeserializeFromProtoBytes(*value));
+      return Value::Numeric(numeric_value);
     }
     case TYPE_ARRAY:
     case TYPE_STRUCT:

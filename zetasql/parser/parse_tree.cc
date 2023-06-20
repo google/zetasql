@@ -164,8 +164,6 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CREATE_PRIVILEGE_RESTRICTION_STATEMENT] =
       "CreatePrivilegeRestrictionStatement";
   map[AST_CREATE_PROCEDURE_STATEMENT] = "CreateProcedureStatement";
-  map[AST_CREATE_REPLICA_MATERIALIZED_VIEW_STATEMENT] =
-      "CreateReplicaMaterializedViewStatement";
   map[AST_CREATE_ROW_ACCESS_POLICY_STATEMENT] =
       "CreateRowAccessPolicyStatement";
   map[AST_CREATE_SCHEMA_STATEMENT] = "CreateSchemaStatement";
@@ -173,6 +171,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CREATE_TABLE_FUNCTION_STATEMENT] = "CreateTableFunctionStatement";
   map[AST_CREATE_TABLE_STATEMENT] = "CreateTableStatement";
   map[AST_CREATE_VIEW_STATEMENT] = "CreateViewStatement";
+  map[AST_CUBE] = "Cube";
   map[AST_DATE_OR_TIME_LITERAL] = "DateOrTimeLiteral";
   map[AST_DEFAULT_LITERAL] = "DefaultLiteral";
   map[AST_DEFINE_MACRO_STATEMENT] = "DefineMacroStatement";
@@ -213,9 +212,11 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_EXECUTE_USING_CLAUSE] = "ExecuteUsingClause";
   map[AST_EXPLAIN_STATEMENT] = "ExplainStatement";
   map[AST_EXPORT_DATA_STATEMENT] = "ExportDataStatement";
+  map[AST_EXPORT_METADATA_STATEMENT] = "ExportMetadataStatement";
   map[AST_EXPORT_MODEL_STATEMENT] = "ExportModelStatement";
   map[AST_EXPRESSION_SUBQUERY] = "ExpressionSubquery";
   map[AST_EXPRESSION_WITH_ALIAS] = "ExpressionWithAlias";
+  map[AST_EXPRESSION_WITH_OPT_ALIAS] = "ExpressionWithOptAlias";
   map[AST_EXTRACT_EXPRESSION] = "ExtractExpression";
   map[AST_FAKE] = "Fake";  // For testing purposes only.
   map[AST_FILTER_FIELDS_ARG] = "FilterFieldsArg";
@@ -240,7 +241,10 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_GRANT_STATEMENT] = "GrantStatement";
   map[AST_GRANT_TO_CLAUSE] = "GrantToClause";
   map[AST_GROUPING_ITEM] = "GroupingItem";
+  map[AST_GROUPING_SET] = "GroupingSet";
+  map[AST_GROUPING_SET_LIST] = "GroupingSetList";
   map[AST_GROUP_BY] = "GroupBy";
+  map[AST_GROUP_BY_ALL] = "GroupByAll";
   map[AST_HAVING] = "Having";
   map[AST_HAVING_MODIFIER] = "HavingModifier";
   map[AST_HIDDEN_COLUMN_ATTRIBUTE] = "HiddenColumnAttribute";
@@ -328,8 +332,6 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_REPLACE_FIELDS_ARG] = "ReplaceFieldsArg";
   map[AST_REPLACE_FIELDS_EXPRESSION] = "ReplaceFieldsExpression";
   map[AST_REPLACE_TTL_ACTION] = "ReplaceTtlAction";
-  map[AST_REPLICA_MATERIALIZED_VIEW_DATA_SOURCE] =
-      "ReplicaMaterializedViewDataSource";
   map[AST_RESTRICT_TO_CLAUSE] = "RestrictToClause";
   map[AST_RETURNING_CLAUSE] = "ReturningClause";
   map[AST_RETURN_STATEMENT] = "ReturnStatement";
@@ -1092,6 +1094,11 @@ std::string ASTDropSnapshotTableStatement::SingleNodeDebugString() const {
   return absl::StrCat(node_name, "(is_if_exists)");
 }
 
+std::string ASTExportMetadataStatement::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(), " ",
+                      SchemaObjectKindToName(schema_object_kind()));
+}
+
 std::string ASTPathExpression::ToIdentifierPathString(
     size_t max_prefix_size) const {
   const int end = max_prefix_size == 0
@@ -1348,6 +1355,18 @@ static std::string SqlForSqlSecurity(
   }
 }
 
+static std::string SqlForExternalSecurity(
+    ASTCreateStatement::SqlSecurity external_security) {
+  switch (external_security) {
+    case ASTCreateStatement::SQL_SECURITY_INVOKER:
+      return "EXTERNAL SECURITY INVOKER";
+    case ASTCreateStatement::SQL_SECURITY_DEFINER:
+      return "EXTERNAL SECURITY DEFINER";
+    case ASTCreateStatement::SQL_SECURITY_UNSPECIFIED:
+      return "";
+  }
+}
+
 static std::string SqlForDeterminismLevel(
     ASTCreateFunctionStmtBase::DeterminismLevel level) {
   switch (level) {
@@ -1364,6 +1383,19 @@ static std::string SqlForDeterminismLevel(
     case ASTCreateFunctionStmtBase::DETERMINISM_UNSPECIFIED:
       return "";
   }
+}
+
+std::string ASTCreateProcedureStatement::SingleNodeDebugString() const {
+  std::string security_str =
+      external_security() != SQL_SECURITY_UNSPECIFIED
+          ? absl::StrCat("(", SqlForExternalSecurity(external_security()), ")")
+          : "";
+  return absl::StrCat(ASTCreateStatement::SingleNodeDebugString(),
+                      security_str);
+}
+
+std::string ASTCreateProcedureStatement::GetSqlForExternalSecurity() const {
+  return SqlForExternalSecurity(external_security());
 }
 
 std::string ASTCreateFunctionStatement::SingleNodeDebugString() const {

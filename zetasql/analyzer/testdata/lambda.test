@@ -1,3 +1,5 @@
+[default also_show_signature_mismatch_details]
+
 SELECT LENGTH([1,2], e->e>0);
 --
 ERROR: Lambda is not supported [at 1:22]
@@ -94,7 +96,17 @@ SELECT LENGTH([1,2], (e, e>0) -> e > 0) AS a_1;
 # NULL cannot be used for lambda
 SELECT fn_array_filter(ARRAY<INT64>[1, 2], NULL) AS a_1;
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, NULL. Supported signatures: FN_ARRAY_FILTER(ARRAY, LAMBDA(ANY->BOOL)); FN_ARRAY_FILTER(ARRAY, LAMBDA((ANY, INT64)->BOOL)) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, NULL. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
+SELECT fn_array_filter(ARRAY<INT64>[1, 2], NULL) AS a_1;
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+  Argument types: ARRAY<INT64>, NULL
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+    Argument 2: expected FUNCTION<T1->BOOL>, found NULL
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+    Argument 2: expected FUNCTION<(T1, INT64)->BOOL>, found NULL [at 1:8]
 SELECT fn_array_filter(ARRAY<INT64>[1, 2], NULL) AS a_1;
        ^
 ==
@@ -103,7 +115,17 @@ SELECT fn_array_filter(ARRAY<INT64>[1, 2], NULL) AS a_1;
 # TODO: Enhance the error msg with why each signature doesn't match.
 SELECT fn_array_filter(ARRAY<INT64>[1, 2], e->e+1) AS a_1;
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, LAMBDA(ANY->BOOL)); FN_ARRAY_FILTER(ARRAY, LAMBDA((ANY, INT64)->BOOL)) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
+SELECT fn_array_filter(ARRAY<INT64>[1, 2], e->e+1) AS a_1;
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+  Argument types: ARRAY<INT64>, LAMBDA
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+    Argument 2: failed to resolve lambda body, error: Lambda should return type BOOL, but returns INT64
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+    Argument 2: lambda requires 2 arguments but 1 is provided [at 1:8]
 SELECT fn_array_filter(ARRAY<INT64>[1, 2], e->e+1) AS a_1;
        ^
 ==
@@ -111,7 +133,17 @@ SELECT fn_array_filter(ARRAY<INT64>[1, 2], e->e+1) AS a_1;
 # No matching signature for transform.
 SELECT fn_array_filter(1, (e, i) -> e > i);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: INT64, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, LAMBDA(ANY->BOOL)); FN_ARRAY_FILTER(ARRAY, LAMBDA((ANY, INT64)->BOOL)) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: INT64, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
+SELECT fn_array_filter(1, (e, i) -> e > i);
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+  Argument types: INT64, LAMBDA
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+    Argument 1: expected array type but found INT64
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+    Argument 1: expected array type but found INT64 [at 1:8]
 SELECT fn_array_filter(1, (e, i) -> e > i);
        ^
 ==
@@ -134,7 +166,7 @@ QueryStmt
     +-column_list=[$query.a_1#2]
     +-expr_list=
     | +-a_1#2 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=NULL, has_explicit_type=TRUE)
@@ -161,7 +193,7 @@ QueryStmt
     +-column_list=[$query.a_1#2]
     +-expr_list=
     | +-a_1#2 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[], has_explicit_type=TRUE)
@@ -179,14 +211,34 @@ QueryStmt
 
 SELECT fn_array_filter(null, e -> e > 0) AS a_1;
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: NULL, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, LAMBDA(ANY->BOOL)); FN_ARRAY_FILTER(ARRAY, LAMBDA((ANY, INT64)->BOOL)) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: NULL, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
+SELECT fn_array_filter(null, e -> e > 0) AS a_1;
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+  Argument types: NULL, LAMBDA
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+    Argument 2: failed to infer type for 0-th argument (e) of lambda from other untyped arguments
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+    Argument 2: lambda requires 2 arguments but 1 is provided [at 1:8]
 SELECT fn_array_filter(null, e -> e > 0) AS a_1;
        ^
 ==
 
 SELECT fn_array_filter([], e -> e > 0) AS a_1;
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: [], LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, LAMBDA(ANY->BOOL)); FN_ARRAY_FILTER(ARRAY, LAMBDA((ANY, INT64)->BOOL)) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: [], LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
+SELECT fn_array_filter([], e -> e > 0) AS a_1;
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+  Argument types: [], LAMBDA
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+    Argument 2: failed to infer type for 0-th argument (e) of lambda from other untyped arguments
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+    Argument 2: lambda requires 2 arguments but 1 is provided [at 1:8]
 SELECT fn_array_filter([], e -> e > 0) AS a_1;
        ^
 ==
@@ -201,7 +253,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2])
@@ -225,7 +277,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2])
@@ -252,7 +304,7 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2])
@@ -282,7 +334,7 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -314,7 +366,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -324,7 +376,7 @@ QueryStmt
     |           +-argument_list=[$lambda_arg.e1#1]
     |           +-body=
     |             +-FunctionCall(ZetaSQL:array_is_distinct(ARRAY<INT64>) -> BOOL)
-    |               +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |               +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |                 +-FunctionArgument
     |                 | +-expr=
     |                 |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -356,7 +408,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -367,7 +419,7 @@ QueryStmt
     |           +-body=
     |             +-FunctionCall(ZetaSQL:$in_array(INT64, ARRAY<INT64>) -> BOOL)
     |               +-ColumnRef(type=INT64, column=$lambda_arg.e1#1)
-    |               +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |               +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |                 +-FunctionArgument
     |                 | +-expr=
     |                 |   +-Literal(type=ARRAY<INT64>, value=[2, 3, 4])
@@ -397,7 +449,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -407,7 +459,7 @@ QueryStmt
     |           +-argument_list=[$lambda_arg.e1#1]
     |           +-body=
     |             +-FunctionCall(ZetaSQL:array_is_distinct(ARRAY<INT64>) -> BOOL)
-    |               +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |               +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |                 +-FunctionArgument
     |                 | +-expr=
     |                 |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -437,7 +489,7 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -467,7 +519,7 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<INT64->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -497,7 +549,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, LAMBDA((INT64, INT64)->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_filter(ARRAY<INT64>, FUNCTION<(INT64, INT64)->BOOL>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2])
@@ -524,7 +576,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_array_transform(ARRAY<INT64>, LAMBDA(INT64->INT64)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_transform(ARRAY<INT64>, FUNCTION<INT64->INT64>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2])
@@ -543,7 +595,17 @@ QueryStmt
 # No matching signature for transform
 SELECT fn_array_transform(1, (e) -> e + 1 );
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_TRANSFORM for argument types: INT64, LAMBDA. Supported signatures: FN_ARRAY_TRANSFORM(ARRAY, LAMBDA(ANY->ANY)); FN_ARRAY_TRANSFORM(ARRAY, LAMBDA((ANY, INT64)->ANY)) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_TRANSFORM for argument types: INT64, LAMBDA. Supported signatures: FN_ARRAY_TRANSFORM(ARRAY, FUNCTION<ANY->ANY>); FN_ARRAY_TRANSFORM(ARRAY, FUNCTION<(ANY, INT64)->ANY>) [at 1:8]
+SELECT fn_array_transform(1, (e) -> e + 1 );
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_TRANSFORM
+  Argument types: INT64, LAMBDA
+  Signature: FN_ARRAY_TRANSFORM(ARRAY<T1>, FUNCTION<T1->T2>)
+    Argument 1: expected array type but found INT64
+  Signature: FN_ARRAY_TRANSFORM(ARRAY<T1>, FUNCTION<(T1, INT64)->T2>)
+    Argument 1: expected array type but found INT64 [at 1:8]
 SELECT fn_array_transform(1, (e) -> e + 1 );
        ^
 ==
@@ -559,7 +621,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(sample_functions:fn_array_transform(ARRAY<INT64>, LAMBDA((INT64, INT64)->INT64)) -> ARRAY<INT64>)
+    |   +-FunctionCall(sample_functions:fn_array_transform(ARRAY<INT64>, FUNCTION<(INT64, INT64)->INT64>) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2])
@@ -585,7 +647,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_fp_T_T_LAMBDA(INT64, INT64, LAMBDA(INT64->BOOL)) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_T_T_LAMBDA(INT64, INT64, FUNCTION<INT64->BOOL>) -> INT64)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=INT64, value=1)
@@ -617,7 +679,7 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(sample_functions:fn_fp_T_T_LAMBDA(DOUBLE, DOUBLE, LAMBDA(DOUBLE->BOOL)) -> DOUBLE)
+    |   +-FunctionCall(sample_functions:fn_fp_T_T_LAMBDA(DOUBLE, DOUBLE, FUNCTION<DOUBLE->BOOL>) -> DOUBLE)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Cast(INT64 -> DOUBLE)
@@ -647,6 +709,14 @@ SELECT fn_fp_ArrayT_T([1, 2], 1.0);
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_ARRAYT_T for argument types: ARRAY<INT64>, DOUBLE. Supported signature: FN_FP_ARRAYT_T(ARRAY, ANY) [at 1:8]
 SELECT fn_fp_ArrayT_T([1, 2], 1.0);
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_ARRAYT_T
+  Argument types: ARRAY<INT64>, DOUBLE
+  Signature: FN_FP_ARRAYT_T(ARRAY<T1>, T1)
+    Unable to coerce type ARRAY<INT64> to inferred array type ARRAY<DOUBLE> for argument <array<T1>> [at 1:8]
+SELECT fn_fp_ArrayT_T([1, 2], 1.0);
+       ^
 ==
 
 SELECT fn_fp_ArrayT_T_LAMBDA([1, 2], 1, e->e>0);
@@ -659,7 +729,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_fp_ArrayT_T_LAMBDA(ARRAY<INT64>, INT64, LAMBDA(INT64->BOOL)) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_ArrayT_T_LAMBDA(ARRAY<INT64>, INT64, FUNCTION<INT64->BOOL>) -> INT64)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2])
@@ -681,7 +751,15 @@ QueryStmt
 # See the comment of test of fn_fp_ArrayT_T.
 SELECT fn_fp_ArrayT_T_LAMBDA([1, 2], 1.0, e->e>0);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_ARRAYT_T_LAMBDA for argument types: ARRAY<INT64>, DOUBLE, LAMBDA. Supported signature: FN_FP_ARRAYT_T_LAMBDA(ARRAY, ANY, LAMBDA(ANY->BOOL)) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_ARRAYT_T_LAMBDA for argument types: ARRAY<INT64>, DOUBLE, LAMBDA. Supported signature: FN_FP_ARRAYT_T_LAMBDA(ARRAY, ANY, FUNCTION<ANY->BOOL>) [at 1:8]
+SELECT fn_fp_ArrayT_T_LAMBDA([1, 2], 1.0, e->e>0);
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_ARRAYT_T_LAMBDA
+  Argument types: ARRAY<INT64>, DOUBLE, LAMBDA
+  Signature: FN_FP_ARRAYT_T_LAMBDA(ARRAY<T1>, T1, FUNCTION<T1->BOOL>)
+    Unable to coerce type ARRAY<INT64> to inferred array type ARRAY<DOUBLE> for argument <array<T1>> [at 1:8]
 SELECT fn_fp_ArrayT_T_LAMBDA([1, 2], 1.0, e->e>0);
        ^
 ==
@@ -696,7 +774,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_fp_T_LAMBDA_RET_T(INT64, LAMBDA(INT64->INT64)) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_T_LAMBDA_RET_T(INT64, FUNCTION<INT64->INT64>) -> INT64)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=INT64, value=1)
@@ -714,7 +792,15 @@ QueryStmt
 
 SELECT fn_fp_T_LAMBDA_RET_T(1, e->"abc");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_T_LAMBDA_RET_T for argument types: INT64, LAMBDA. Supported signature: FN_FP_T_LAMBDA_RET_T(ANY, LAMBDA(ANY->ANY)) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_T_LAMBDA_RET_T for argument types: INT64, LAMBDA. Supported signature: FN_FP_T_LAMBDA_RET_T(ANY, FUNCTION<ANY->ANY>) [at 1:8]
+SELECT fn_fp_T_LAMBDA_RET_T(1, e->"abc");
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_T_LAMBDA_RET_T
+  Argument types: INT64, LAMBDA
+  Signature: FN_FP_T_LAMBDA_RET_T(T1, FUNCTION<T1->T1>)
+    Argument 2: failed to resolve lambda body, error: Lambda should return type INT64, but returns STRING [at 1:8]
 SELECT fn_fp_T_LAMBDA_RET_T(1, e->"abc");
        ^
 ==
@@ -730,7 +816,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(sample_functions:fn_fp_array_sort(ARRAY<INT64>, LAMBDA((INT64, INT64)->INT64)) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_array_sort(ARRAY<INT64>, FUNCTION<(INT64, INT64)->INT64>) -> INT64)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -757,7 +843,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(sample_functions:fn_fp_array_reduce(ARRAY<INT64>, INT64, LAMBDA((INT64, INT64)->INT64)) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_array_reduce(ARRAY<INT64>, INT64, FUNCTION<(INT64, INT64)->INT64>) -> INT64)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -786,7 +872,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_fp_named_then_lambda(STRING format_string, LAMBDA(INT64->INT64)) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_named_then_lambda(STRING format_string, FUNCTION<INT64->INT64>) -> INT64)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=STRING, value="123")
@@ -824,7 +910,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_fp_lambda_then_named(LAMBDA(INT64->INT64), STRING format_string) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_lambda_then_named(FUNCTION<INT64->INT64>, STRING format_string) -> INT64)
     |     +-FunctionArgument
     |     | +-inline_lambda=
     |     |   +-InlineLambda
@@ -848,7 +934,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_fp_lambda_then_named(LAMBDA(INT64->INT64), STRING format_string) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_lambda_then_named(FUNCTION<INT64->INT64>, STRING format_string) -> INT64)
     |     +-FunctionArgument
     |     | +-inline_lambda=
     |     |   +-InlineLambda
@@ -872,7 +958,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_fp_lambda_then_repeated(LAMBDA(INT64->INT64), repeated(3) INT64) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_lambda_then_repeated(FUNCTION<INT64->INT64>, repeated(3) INT64) -> INT64)
     |     +-FunctionArgument
     |     | +-inline_lambda=
     |     |   +-InlineLambda
@@ -903,7 +989,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(sample_functions:fn_fp_repeated_arg_then_lambda(repeated(3) INT64, LAMBDA(INT64->INT64)) -> INT64)
+    |   +-FunctionCall(sample_functions:fn_fp_repeated_arg_then_lambda(repeated(3) INT64, FUNCTION<INT64->INT64>) -> INT64)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=INT64, value=1)
@@ -925,7 +1011,15 @@ QueryStmt
 
 SELECT fn_fp_repeated_arg_then_lambda((e) -> e);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_REPEATED_ARG_THEN_LAMBDA for argument types: LAMBDA. Supported signature: FN_FP_REPEATED_ARG_THEN_LAMBDA([INT64, ...], LAMBDA(INT64->ANY)) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_REPEATED_ARG_THEN_LAMBDA for argument types: LAMBDA. Supported signature: FN_FP_REPEATED_ARG_THEN_LAMBDA([INT64, ...], FUNCTION<INT64->ANY>) [at 1:8]
+SELECT fn_fp_repeated_arg_then_lambda((e) -> e);
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_REPEATED_ARG_THEN_LAMBDA
+  Argument types: LAMBDA
+  Signature: FN_FP_REPEATED_ARG_THEN_LAMBDA([INT64, ...], FUNCTION<INT64->T1>)
+    Argument 1: expected INT64, found LAMBDA [at 1:8]
 SELECT fn_fp_repeated_arg_then_lambda((e) -> e);
        ^
 ==
@@ -940,7 +1034,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, FUNCTION<INT64->BOOL> condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -966,7 +1060,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA((INT64, INT64)->BOOL) condition) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, FUNCTION<(INT64, INT64)->BOOL> condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -994,7 +1088,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA(INT64->INT64) transformation) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<INT64->INT64> transformation) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1020,7 +1114,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA((INT64, INT64)->INT64) transformation) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<(INT64, INT64)->INT64> transformation) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1048,7 +1142,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA((INT64, INT64)->INT64) transformation) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<(INT64, INT64)->INT64> transformation) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1076,7 +1170,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA((INT64, INT64)->STRING) transformation) -> ARRAY<STRING>)
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<(INT64, INT64)->STRING> transformation) -> ARRAY<STRING>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1109,7 +1203,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA((INT64, INT64)->STRING) transformation) -> ARRAY<STRING>)
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<(INT64, INT64)->STRING> transformation) -> ARRAY<STRING>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1207,7 +1301,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA((INT64, INT64)->STRING) transformation) -> ARRAY<STRING>)
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<(INT64, INT64)->STRING> transformation) -> ARRAY<STRING>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1306,7 +1400,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA((INT64, INT64)->STRING) transformation) -> ARRAY<STRING>)
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<(INT64, INT64)->STRING> transformation) -> ARRAY<STRING>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1388,3 +1482,73 @@ QueryStmt
     |               +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
+==
+
+# No matching signature error for nested lambda usage.
+SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], (e1, e2, e3)->TRUE)) > 0);
+--
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
+SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], (e1, e2, e3)->TR...
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+  Argument types: ARRAY<INT64>, LAMBDA
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+    Argument 2: failed to resolve lambda body, error: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+      Argument types: ARRAY<INT64>, LAMBDA
+      Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+        Argument 2: lambda requires 1 arguments but 3 is provided
+      Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+        Argument 2: lambda requires 2 arguments but 3 is provided
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+    Argument 2: lambda requires 2 arguments but 1 is provided [at 1:8]
+SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], (e1, e2, e3)->TR...
+       ^
+==
+
+# No matching signature error, error in lambda body.
+SELECT fn_array_filter([1], e -> f);
+--
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
+SELECT fn_array_filter([1], e -> f);
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+  Argument types: ARRAY<INT64>, LAMBDA
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+    Argument 2: failed to resolve lambda body, error: Unrecognized name: f
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+    Argument 2: lambda requires 2 arguments but 1 is provided [at 1:8]
+SELECT fn_array_filter([1], e -> f);
+       ^
+==
+
+# No matching signature error for nested lambda with signature mismatch in body.
+SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], e->e > "")) > 0);
+--
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
+SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], e->e > "")) > 0);
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+  Argument types: ARRAY<INT64>, LAMBDA
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+    Argument 2: failed to resolve lambda body, error: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
+      Argument types: ARRAY<INT64>, LAMBDA
+      Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
+        Argument 2: failed to resolve lambda body, error: No matching signature for operator > for argument types: INT64, STRING
+          Signature: T1 > T1
+            Unable to find common supertype for templated argument <T1>
+          Signature: INT64 > UINT64
+            Argument 2: Unable to coerce type STRING to expected type UINT64
+          Signature: UINT64 > INT64
+            Argument 1: Unable to coerce type INT64 to expected type UINT64
+      Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+        Argument 2: lambda requires 2 arguments but 1 is provided
+  Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<(T1, INT64)->BOOL>)
+    Argument 2: lambda requires 2 arguments but 1 is provided [at 1:8]
+SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], e->e > "")) > 0);
+       ^

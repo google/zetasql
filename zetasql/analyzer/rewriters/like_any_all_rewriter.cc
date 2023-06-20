@@ -22,12 +22,12 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -104,7 +104,7 @@ class LikeAnyAllRewriteVisitor : public ResolvedASTDeepCopyVisitor {
                            Catalog* catalog, TypeFactory* type_factory)
       : analyzer_options_(analyzer_options),
         catalog_(catalog),
-        fn_builder_(*analyzer_options, *catalog),
+        fn_builder_(*analyzer_options, *catalog, *type_factory),
         type_factory_(type_factory) {}
 
  private:
@@ -164,19 +164,15 @@ absl::Status LikeAnyAllRewriteVisitor::RewriteLikeAnyAll(
 
   // Extract and process the list of pattern arguments and use a helper function
   // to create a $make_array function to pack the patterns together
-  std::vector<std::unique_ptr<ResolvedExpr>> pattern_elements_list;
+  std::vector<std::unique_ptr<const ResolvedExpr>> pattern_elements_list;
   for (int i = 1; i < node->argument_list_size(); ++i) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> rewritten_pattern_expr,
                      ProcessNode(node->argument_list(i)));
     pattern_elements_list.push_back(std::move(rewritten_pattern_expr));
   }
 
-  const ArrayType* pattern_array_type;
-  ZETASQL_RETURN_IF_ERROR(
-      type_factory_->MakeArrayType(input_type, &pattern_array_type));
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<const ResolvedExpr> patterns_array_expr,
-      fn_builder_.MakeArray(pattern_array_type, pattern_elements_list));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> patterns_array_expr,
+                   fn_builder_.MakeArray(input_type, pattern_elements_list));
 
   if (IsBuiltInFunctionIdEq(node, FN_STRING_LIKE_ANY) ||
       IsBuiltInFunctionIdEq(node, FN_BYTE_LIKE_ANY)) {
@@ -224,7 +220,6 @@ absl::Status LikeAnyAllRewriteVisitor::RewriteLikeAnyAllArrayWithAggregate(
   // Takes in the input expression, pattern array, and a template string that
   // differs between LIKE ANY and LIKE ALL expressions. AnalyzeSubstitute is
   // used with the function arguments to create the rewritten resolved AST.
-
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedExpr> result,
       AnalyzeSubstitute(*analyzer_options_, *catalog_, *type_factory_,

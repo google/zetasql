@@ -314,3 +314,25 @@ alter view KeyValue alter column key set options (description="new descriptio...
                     ^
 
 ==
+
+[disallow_duplicate_options]
+alter {{table|view|model}} KeyValue alter column key set options (description="new description", description="duplicate description");
+
+--
+ALTERNATION GROUP: table
+--
+ERROR: Duplicate option specified for 'description' [at 1:83]
+...key set options (description="new description", description="duplicate des...
+                                                   ^
+--
+ALTERNATION GROUP: view
+--
+ERROR: Duplicate option specified for 'description' [at 1:82]
+...key set options (description="new description", description="duplicate des...
+                                                   ^
+--
+ALTERNATION GROUP: model
+--
+ERROR: ALTER MODEL does not support ALTER COLUMN SET OPTIONS [at 1:22]
+alter model KeyValue alter column key set options (description="new descripti...
+                     ^

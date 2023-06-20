@@ -28,8 +28,10 @@
 #include "zetasql/public/type.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include <cstdint>
+#include "absl/container/btree_set.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -37,7 +39,7 @@ namespace zetasql {
 // Simplified version of SimpleColumn to allow empty column names.
 class ColumnAllowEmptyName : public Column {
  public:
-  ColumnAllowEmptyName(const std::string& table_name, const std::string& name,
+  ColumnAllowEmptyName(absl::string_view table_name, absl::string_view name,
                        const Type* type)
       : name_(name),
         full_name_(absl::StrCat(table_name, ".", name)),
@@ -62,12 +64,12 @@ class TableWithAnonymousAndDuplicatedColumnNames : public Table {
   // Make a table with columns with the given names and types.
   typedef std::pair<std::string, const Type*> NameAndType;
   TableWithAnonymousAndDuplicatedColumnNames(
-      const std::string& name, const std::vector<NameAndType>& columns)
+      absl::string_view name, const std::vector<NameAndType>& columns)
       : name_(name) {
-    std::set<std::string> column_names;
+    absl::btree_set<std::string> column_names;
     for (const NameAndType& name_and_type : columns) {
       const std::string& column_name = name_and_type.first;
-      if (!zetasql_base::ContainsKey(column_names, column_name)) {
+      if (!column_names.contains(column_name)) {
         zetasql_base::InsertOrDie(&column_names, column_name);
       } else {
         zetasql_base::InsertIfNotPresent(&duplicated_column_names_, column_name);

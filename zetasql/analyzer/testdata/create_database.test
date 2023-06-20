@@ -35,3 +35,10 @@ ERROR: No matching signature for operator + for argument types: INT64, STRING. S
 create database db options(db_option=1+'2');
                                      ^
 ==
+
+[disallow_duplicate_options]
+create database db options(option_1=1,option_1='2');
+--
+ERROR: Duplicate option specified for 'option_1' [at 1:39]
+create database db options(option_1=1,option_1='2');
+                                      ^

@@ -152,8 +152,6 @@ class Value {
   const std::string& bytes_value() const;   // REQUIRES: bytes type
   int32_t date_value() const;               // REQUIRES: date type
   int32_t enum_value() const;               // REQUIRES: enum type
-  ABSL_DEPRECATED("Unsafe with proto3. Use EnumName or EnumDisplayName")
-  const std::string& enum_name() const;               // REQUIRES: enum type
   absl::StatusOr<std::string_view> EnumName() const;  // REQUIRES: enum type
   // Returns the name like "TESTENUM1" or number as string, like "7" if the name
   // is not known.
@@ -817,11 +815,18 @@ class Value {
                                                   const StructType* struct_type,
                                                   std::vector<Value> values);
 
+  struct FormatInternalOptions {
+    int indent = 0;
+    bool force_type = false;
+    bool include_array_ordereness = false;
+
+    FormatInternalOptions IncreaseIndent();
+  };
   // Returns a pretty-printed (e.g. wrapped) string for the value
   // indented a number of spaces according to the 'indent' parameter.
   // 'force_type' causes the top-level value to print its type. By
   // default, only Array values print their types.
-  std::string FormatInternal(int indent, bool force_type) const;
+  std::string FormatInternal(FormatInternalOptions options) const;
 
   // Type cannot create a list of Values because it cannot depend on
   // "value" package. Thus for Array/Struct/Range types that need list of

@@ -34,6 +34,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/case.h"
+#include "absl/container/btree_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -91,7 +92,7 @@ class TableNameResolver {
   absl::Status FindTableNames(const ASTScript& script);
 
  private:
-  typedef std::set<std::string> AliasSet;  // Always lowercase.
+  typedef absl::btree_set<std::string> AliasSet;  // Always lowercase.
 
   absl::Status FindInStatement(const ASTStatement* statement);
 
@@ -105,6 +106,9 @@ class TableNameResolver {
 
   absl::Status FindInCreateMaterializedViewStatement(
       const ASTCreateMaterializedViewStatement* statement);
+
+  absl::Status FindInCreateApproxViewStatement(
+      const ASTCreateApproxViewStatement* statement);
 
   absl::Status FindInCreateTableFunctionStatement(
       const ASTCreateTableFunctionStatement* statement);
@@ -267,8 +271,9 @@ absl::Status TableNameResolver::FindInScriptNode(const ASTNode* node) {
       ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(child, /*visible_aliases=*/{}));
     } else if (child->IsSqlStatement()) {
       ZETASQL_RETURN_IF_ERROR(FindInStatement(child->GetAs<ASTStatement>()));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(FindInScriptNode(child));
     }
-    ZETASQL_RETURN_IF_ERROR(FindInScriptNode(child));
   }
   return absl::OkStatus();
 }
@@ -410,6 +415,13 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
             statement->GetAs<ASTCreateMaterializedViewStatement>());
       }
       break;
+    case AST_CREATE_APPROX_VIEW_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CREATE_APPROX_VIEW_STMT)) {
+        return FindInCreateApproxViewStatement(
+            statement->GetAs<ASTCreateApproxViewStatement>());
+      }
+      break;
 
     case AST_CREATE_EXTERNAL_TABLE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
@@ -497,6 +509,14 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
               RESOLVED_EXPORT_DATA_STMT)) {
         return FindInExportDataStatement(
             statement->GetAs<ASTExportDataStatement>());
+      }
+      break;
+
+    case AST_EXPORT_METADATA_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_EXPORT_METADATA_STMT)) {
+        // TODO: Extract table name from export metadata statement.
+        return absl::OkStatus();
       }
       break;
 
@@ -840,6 +860,16 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         return absl::OkStatus();
       }
       break;
+    case AST_ALTER_APPROX_VIEW_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_APPROX_VIEW_STMT)) {
+        // Note that for a ALTER APPROX VIEW statement, the table name is
+        // not inserted into table_names_. Engines that need to know about a
+        // table referenced by ALTER APPROX VIEW should handle that
+        // themselves.
+        return absl::OkStatus();
+      }
+      break;
     case AST_HINTED_STATEMENT:
       return FindInStatement(
           statement->GetAs<ASTHintedStatement>()->statement());
@@ -981,6 +1011,23 @@ absl::Status TableNameResolver::FindInCreateViewStatement(
 
 absl::Status TableNameResolver::FindInCreateMaterializedViewStatement(
     const ASTCreateMaterializedViewStatement* statement) {
+  if (statement->recursive()) {
+    recursive_view_name_ = statement->name()->ToIdentifierVector();
+  }
+  if (statement->query() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(FindInQuery(statement->query(), /*visible_aliases=*/{}));
+  }
+  if (statement->replica_source() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveTablePath(statement->replica_source()->ToIdentifierVector(),
+                         /*for_system_time=*/nullptr));
+  }
+  recursive_view_name_.clear();
+  return absl::OkStatus();
+}
+
+absl::Status TableNameResolver::FindInCreateApproxViewStatement(
+    const ASTCreateApproxViewStatement* statement) {
   if (statement->recursive()) {
     recursive_view_name_ = statement->name()->ToIdentifierVector();
   }
@@ -1354,7 +1401,7 @@ absl::Status TableNameResolver::FindInTVF(
                                         ->table_path()
                                         ->first_name()
                                         ->GetAsStringView());
-          if (!zetasql_base::ContainsKey(local_table_aliases_, lower_name)) {
+          if (!local_table_aliases_.contains(lower_name)) {
             zetasql_base::InsertIfNotPresent(
                 table_names_,
                 arg->table_clause()->table_path()->ToIdentifierVector());
@@ -1482,9 +1529,8 @@ absl::Status TableNameResolver::FindInTablePathExpression(
     const std::string first_identifier = absl::AsciiStrToLower(path[0]);
 
     if ((path != recursive_view_name_) &&
-        (path.size() == 1
-             ? (!zetasql_base::ContainsKey(local_table_aliases_, first_identifier))
-             : (!zetasql_base::ContainsKey(*visible_aliases, first_identifier)))) {
+        (path.size() == 1 ? (!local_table_aliases_.contains(first_identifier))
+                          : (!visible_aliases->contains(first_identifier)))) {
       ZETASQL_RETURN_IF_ERROR(ResolveTablePath(path, table_ref->for_system_time()));
     }
 

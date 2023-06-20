@@ -242,14 +242,14 @@ ARRAY<STRUCT<
 SELECT ARRAY_AGG(x ORDER BY x)
 FROM ((SELECT "abc" x) UNION ALL (SELECT "def") UNION ALL (SELECT "xyz"))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["abc", "def", "xyz"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"abc", "def", "xyz"]}]
 ==
 
 [name=aggregation_order_by_array_agg_desc]
 SELECT ARRAY_AGG(x ORDER BY x DESC)
 FROM ((SELECT "abc" x) UNION ALL (SELECT "def") UNION ALL (SELECT "xyz"))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["xyz", "def", "abc"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"xyz", "def", "abc"]}]
 ==
 
 [name=aggregation_order_by_string_agg]
@@ -279,26 +279,26 @@ SELECT int64_val,
 FROM TestTable
 GROUP BY int64_val
 --
-ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[
+ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[unknown order:
   {
     NULL,
-    ARRAY<BOOL>[NULL, true],
-    ARRAY<UINT64>[NULL, 2],
-    ARRAY<DOUBLE>[NULL, 2.5],
+    ARRAY<BOOL>[known order:NULL, true],
+    ARRAY<UINT64>[known order:NULL, 2],
+    ARRAY<DOUBLE>[known order:NULL, 2.5],
     "ghi"
   },
   {
     1,
-    ARRAY<BOOL>[NULL, false, true],
-    ARRAY<UINT64>[NULL, 5, 6],
-    ARRAY<DOUBLE>[-0.5, 1.5, 3.5],
+    ARRAY<BOOL>[known order:NULL, false, true],
+    ARRAY<UINT64>[known order:NULL, 5, 6],
+    ARRAY<DOUBLE>[known order:-0.5, 1.5, 3.5],
     "abc,def,zyx"
   },
   {
     2,
-    ARRAY<BOOL>[NULL, false, true],
-    ARRAY<UINT64>[2, 3, 3],
-    ARRAY<DOUBLE>[NULL, 1.5, 2],
+    ARRAY<BOOL>[known order:NULL, false, true],
+    ARRAY<UINT64>[unknown order:2, 3, 3],
+    ARRAY<DOUBLE>[known order:NULL, 1.5, 2],
     "abc,nvm,xyz"
   },
   {3, ARRAY<BOOL>[true], ARRAY<UINT64>[1], ARRAY<DOUBLE>[2.5], "goo"},
@@ -315,7 +315,7 @@ FROM (SELECT 1 AS int64_val, [0] AS array_val
       UNION ALL
       SELECT 2 AS int64_val, [1] AS array_val)
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2]}]
 ==
 
 [name=aggregation_order_by_array_desc]
@@ -325,7 +325,7 @@ FROM (SELECT 1 AS int64_val, [0] AS array_val
       UNION ALL
       SELECT 2 AS int64_val, [1] AS array_val)
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2, 1]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:2, 1]}]
 ==
 
 [name=aggregation_order_by_computed_order_by_exprs]
@@ -335,21 +335,21 @@ SELECT int64_val,
 FROM TestTable
 GROUP BY int64_val
 --
-ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>>>[unknown order:
   {
     NULL,
-    ARRAY<UINT64>[NULL, 2],
-    ARRAY<DOUBLE>[NULL, 2.5]
+    ARRAY<UINT64>[known order:NULL, 2],
+    ARRAY<DOUBLE>[known order:NULL, 2.5]
   },
   {
     1,
-    ARRAY<UINT64>[NULL, 5, 6],
-    ARRAY<DOUBLE>[3.5, 1.5, -0.5]
+    ARRAY<UINT64>[known order:NULL, 5, 6],
+    ARRAY<DOUBLE>[known order:3.5, 1.5, -0.5]
   },
   {
     2,
-    ARRAY<UINT64>[2, 3, 3],
-    ARRAY<DOUBLE>[NULL, 2, 1.5]
+    ARRAY<UINT64>[unknown order:2, 3, 3],
+    ARRAY<DOUBLE>[known order:NULL, 2, 1.5]
   },
   {3, ARRAY<UINT64>[1], ARRAY<DOUBLE>[2.5]},
   {4, ARRAY<UINT64>[2], ARRAY<DOUBLE>[-1.5]}
@@ -362,16 +362,19 @@ SELECT int64_val,
 FROM TestTable
 GROUP BY int64_val
 --
-ARRAY<STRUCT<int64_val INT64, ARRAY<>>>[
+ARRAY<STRUCT<int64_val INT64, ARRAY<>>>[unknown order:
   {
     NULL,
-    ARRAY<UINT64>[NULL, 2]
+    ARRAY<UINT64>[known order:NULL, 2]
   },
   {
     1,
-    ARRAY<UINT64>[NULL, 5, 6]
+    ARRAY<UINT64>[known order:NULL, 5, 6]
   },
-  {2, ARRAY<UINT64>[2, 3]},
+  {
+    2,
+    ARRAY<UINT64>[known order:2, 3]
+  },
   {3, ARRAY<UINT64>[1]},
   {4, ARRAY<UINT64>[2]}
 ]
@@ -382,7 +385,7 @@ ARRAY<STRUCT<int64_val INT64, ARRAY<>>>[
 SELECT ARRAY_CONCAT_AGG(x ORDER BY x)
 FROM ((SELECT [6, 1] x) UNION ALL (SELECT [2]) UNION ALL (SELECT [5, 4]))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2, 5, 4, 6, 1]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:2, 5, 4, 6, 1]}]
 ==
 
 [name=array_concat_agg_order_by_different_column]
@@ -390,7 +393,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY y)
 FROM ((SELECT [6, 1] x, 2 y) UNION ALL (SELECT [2], 7) UNION ALL
       (SELECT [5, 4], 5))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[6, 1, 5, 4, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:6, 1, 5, 4, 2]}]
 ==
 
 [name=array_concat_agg_order_by_different_column_asc]
@@ -398,7 +401,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY y ASC)
 FROM ((SELECT [6, 1] x, 2 y) UNION ALL (SELECT [2], 7) UNION ALL
       (SELECT [5, 4], 5))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[6, 1, 5, 4, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:6, 1, 5, 4, 2]}]
 ==
 
 [name=array_concat_agg_order_by_different_column_desc]
@@ -406,7 +409,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY y DESC)
 FROM ((SELECT [6, 1] x, 2 y) UNION ALL (SELECT [2], 7) UNION ALL
       (SELECT [5, 4], 5))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2, 5, 4, 6, 1]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:2, 5, 4, 6, 1]}]
 ==
 
 [name=array_concat_agg_order_by_computed_column]
@@ -414,7 +417,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY y+10)
 FROM ((SELECT [6, 1] x, 2 y) UNION ALL (SELECT [2], 7) UNION ALL
       (SELECT [5, 4], 5))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[6, 1, 5, 4, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:6, 1, 5, 4, 2]}]
 ==
 
 [name=array_concat_agg_with_group_by_order_by]
@@ -424,14 +427,14 @@ FROM (SELECT 1 as w, [1, NULL] as x, 2 as y UNION ALL SELECT 2, [NULL, 2], 3
       UNION ALL SELECT 2, [4], 4) foo
 GROUP BY w;
 --
-ARRAY<STRUCT<w INT64, ARRAY<>>>[
+ARRAY<STRUCT<w INT64, ARRAY<>>>[unknown order:
   {
     1,
-    ARRAY<INT64>[3, 1, NULL]
+    ARRAY<INT64>[unknown order:3, 1, NULL]
   },
   {
     2,
-    ARRAY<INT64>[NULL, 2, 4]
+    ARRAY<INT64>[unknown order:NULL, 2, 4]
   },
   {3, ARRAY<INT64>(NULL)}
 ]
@@ -449,11 +452,11 @@ FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2) AS a, "def" b) AS outer_table
 --
-ARRAY<STRUCT<b STRING, ARRAY<>>>[
+ARRAY<STRUCT<b STRING, ARRAY<>>>[unknown order:
   {"def", ARRAY<STRING>(NULL)},
   {
     "abc",
-    ARRAY<STRING>["abc", "abc", "abc"]
+    ARRAY<STRING>[unknown order:"abc", "abc", "abc"]
   }
 ]
 ==
@@ -470,11 +473,11 @@ FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2) AS a, "def" b) AS outer_table
 --
-ARRAY<STRUCT<b STRING, ARRAY<>>>[
+ARRAY<STRUCT<b STRING, ARRAY<>>>[unknown order:
   {"def", ARRAY<STRING>(NULL)},
   {
     "abc",
-    ARRAY<STRING>["7", "8", "9"]
+    ARRAY<STRING>[known order:"7", "8", "9"]
   }
 ]
 ==
@@ -491,12 +494,12 @@ SELECT int64_val,
 FROM TestTable
 GROUP BY int64_val
 --
-ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>>[
+ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>>[unknown order:
   {
     NULL,
     ARRAY<BOOL>(NULL),
-    ARRAY<UINT64>[NULL, 2],
-    ARRAY<DOUBLE>[NULL, 2.5],
+    ARRAY<UINT64>[known order:NULL, 2],
+    ARRAY<DOUBLE>[known order:NULL, 2.5],
     NULL,
     "ghi",
     "ghi"
@@ -504,8 +507,8 @@ ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>
   {
     1,
     ARRAY<BOOL>(NULL),
-    ARRAY<UINT64>[NULL, 5],
-    ARRAY<DOUBLE>[-0.5, 1.5, 3.5],
+    ARRAY<UINT64>[known order:NULL, 5],
+    ARRAY<DOUBLE>[known order:-0.5, 1.5, 3.5],
     NULL,
     "abc,def",
     "abc,def,zyx"
@@ -513,8 +516,8 @@ ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>
   {
     2,
     ARRAY<BOOL>(NULL),
-    ARRAY<UINT64>[2, 3],
-    ARRAY<DOUBLE>[NULL, 1.5, 2],
+    ARRAY<UINT64>[unknown order:2, 3],
+    ARRAY<DOUBLE>[known order:NULL, 1.5, 2],
     NULL,
     "abc,nvm",
     "abc,nvm,xyz"
@@ -549,12 +552,12 @@ SELECT int64_val,
 FROM TestTable
 GROUP BY int64_val
 --
-ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>>[
+ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>>[unknown order:
   {
     NULL,
     ARRAY<BOOL>[NULL],
-    ARRAY<UINT64>[NULL, 2],
-    ARRAY<DOUBLE>[NULL, 2.5],
+    ARRAY<UINT64>[known order:NULL, 2],
+    ARRAY<DOUBLE>[known order:NULL, 2.5],
     "ghi",
     "ghi",
     "ghi"
@@ -562,8 +565,8 @@ ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>
   {
     1,
     ARRAY<BOOL>[false],
-    ARRAY<UINT64>[5, 6, NULL],
-    ARRAY<DOUBLE>[3.5, 1.5],
+    ARRAY<UINT64>[known order:5, 6, NULL],
+    ARRAY<DOUBLE>[known order:3.5, 1.5],
     "def,abc,zyx",
     "abc",
     "zyx,def,abc"
@@ -571,8 +574,8 @@ ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>
   {
     2,
     ARRAY<BOOL>[true],
-    ARRAY<UINT64>[2, 3, 3],
-    ARRAY<DOUBLE>[1.5, 2],
+    ARRAY<UINT64>[known order:2, 3, 3],
+    ARRAY<DOUBLE>[known order:1.5, 2],
     "nvm,abc,xyz",
     "xyz",
     "xyz,abc,nvm"
@@ -625,21 +628,23 @@ ARRAY<STRUCT<ARRAY<>,
              STRING,
              STRING>>
 [{ARRAY<INT64>(NULL),
-  ARRAY<INT64>[NULL, NULL],
-  ARRAY<INT64>[NULL, NULL, 1, 1],
+  ARRAY<INT64>[unknown order:NULL, NULL],
+  ARRAY<INT64>[unknown order:NULL, NULL, 1, 1],
   ARRAY<STRING>(NULL),
   ARRAY<STRING>[NULL],
-  ARRAY<STRING>[NULL, "abc"],
-  ARRAY<STRING>[NULL,
-                "abc",
-                "abc",
-                "def",
-                "ghi",
-                "goo",
-                "ijk",
-                "nvm",
-                "xyz",
-                "zyx"],
+  ARRAY<STRING>[unknown order:NULL, "abc"],
+  ARRAY<STRING>[unknown order:
+    NULL,
+    "abc",
+    "abc",
+    "def",
+    "ghi",
+    "goo",
+    "ijk",
+    "nvm",
+    "xyz",
+    "zyx"
+  ],
   NULL,
   "abc",
   "abc,abc",
@@ -660,8 +665,8 @@ FROM TestTable
 ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>>[
   {
     ARRAY<INT64>(NULL),
-    ARRAY<INT64>[4, 3],
-    ARRAY<INT64>[4, 3, 2, 2],
+    ARRAY<INT64>[unknown order:4, 3],
+    ARRAY<INT64>[unknown order:4, 3, 2, 2],
     NULL,
     "zyx,xyz",
     "zyx,xyz,nvm,ijk,goo,ghi,def,abc,abc"
@@ -678,21 +683,21 @@ SELECT int64_val,
 FROM TestTable
 GROUP BY int64_val
 --
-ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>>>[unknown order:
   {
     NULL,
-    ARRAY<UINT64>[NULL, 2],
-    ARRAY<DOUBLE>[NULL, 2.5]
+    ARRAY<UINT64>[known order:NULL, 2],
+    ARRAY<DOUBLE>[known order:NULL, 2.5]
   },
   {
     1,
-    ARRAY<UINT64>[NULL, 5],
-    ARRAY<DOUBLE>[3.5, 1.5, -0.5]
+    ARRAY<UINT64>[known order:NULL, 5],
+    ARRAY<DOUBLE>[known order:3.5, 1.5, -0.5]
   },
   {
     2,
-    ARRAY<UINT64>[2, 3],
-    ARRAY<DOUBLE>[NULL, 2, 1.5]
+    ARRAY<UINT64>[unknown order:2, 3],
+    ARRAY<DOUBLE>[known order:NULL, 2, 1.5]
   },
   {3, ARRAY<UINT64>[1], ARRAY<DOUBLE>[2.5]},
   {4, ARRAY<UINT64>[2], ARRAY<DOUBLE>[-1.5]}
@@ -707,16 +712,19 @@ SELECT int64_val,
 FROM TestTable
 GROUP BY int64_val
 --
-ARRAY<STRUCT<int64_val INT64, ARRAY<>>>[
+ARRAY<STRUCT<int64_val INT64, ARRAY<>>>[unknown order:
   {
     NULL,
-    ARRAY<UINT64>[NULL, 2]
+    ARRAY<UINT64>[known order:NULL, 2]
   },
   {
     1,
-    ARRAY<UINT64>[NULL, 5]
+    ARRAY<UINT64>[known order:NULL, 5]
   },
-  {2, ARRAY<UINT64>[2, 3]},
+  {
+    2,
+    ARRAY<UINT64>[known order:2, 3]
+  },
   {3, ARRAY<UINT64>[1]},
   {4, ARRAY<UINT64>[2]}
 ]
@@ -729,8 +737,8 @@ FROM TestTable
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<INT64>[NULL, 1, 2, 3, 4],
-    ARRAY<INT64>[NULL, 1]
+    ARRAY<INT64>[known order:NULL, 1, 2, 3, 4],
+    ARRAY<INT64>[known order:NULL, 1]
   }
 ]
 ==
@@ -745,26 +753,26 @@ SELECT int64_val,
 FROM TestTable
 GROUP BY int64_val
 --
-ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[
+ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[unknown order:
   {
     NULL,
-    ARRAY<BOOL>[NULL, true],
-    ARRAY<UINT64>[NULL, 2],
-    ARRAY<DOUBLE>[NULL, 2.5],
+    ARRAY<BOOL>[known order:NULL, true],
+    ARRAY<UINT64>[known order:NULL, 2],
+    ARRAY<DOUBLE>[known order:NULL, 2.5],
     "ghi"
   },
   {
     1,
-    ARRAY<BOOL>[NULL, false],
-    ARRAY<UINT64>[NULL, 5],
-    ARRAY<DOUBLE>[-0.5, 1.5],
+    ARRAY<BOOL>[known order:NULL, false],
+    ARRAY<UINT64>[known order:NULL, 5],
+    ARRAY<DOUBLE>[known order:-0.5, 1.5],
     "abc,def"
   },
   {
     2,
-    ARRAY<BOOL>[NULL, false],
-    ARRAY<UINT64>[2, 3],
-    ARRAY<DOUBLE>[NULL, 1.5],
+    ARRAY<BOOL>[known order:NULL, false],
+    ARRAY<UINT64>[unknown order:2, 3],
+    ARRAY<DOUBLE>[known order:NULL, 1.5],
     "abc,nvm"
   },
   {3, ARRAY<BOOL>[true], ARRAY<UINT64>[1], ARRAY<DOUBLE>[2.5], "goo"},
@@ -816,36 +824,36 @@ ARRAY<STRUCT<key INT64,
              STRING,
              STRING,
              STRING>>
-[{
-   1,
-   ARRAY<INT64>(NULL),
-   ARRAY<INT64>(NULL),
-   ARRAY<INT64>[10, 10],
-   ARRAY<INT64>[10, 10],
-   ARRAY<INT64>[10, 10, 10, 10, 10],
-   ARRAY<INT64>[10, 10, 10, 10, 10],
-   NULL,
-   NULL,
-   "abc,abc",
-   "abc,abc",
-   "abc,abc,abc,abc,abc",
-   "abc,abc,abc,abc,abc"
- },
- {
-   2,
-   ARRAY<INT64>(NULL),
-   ARRAY<INT64>(NULL),
-   ARRAY<INT64>[10, 10],
-   ARRAY<INT64>[10, 10],
-   ARRAY<INT64>[10, 10, 10, 10, 10],
-   ARRAY<INT64>[10, 10, 10, 10, 10],
-   NULL,
-   NULL,
-   "abc,abc",
-   "abc,abc",
-   "abc,abc,abc,abc,abc",
-   "abc,abc,abc,abc,abc"
- }]
+[unknown order:{
+                 1,
+                 ARRAY<INT64>(NULL),
+                 ARRAY<INT64>(NULL),
+                 ARRAY<INT64>[unknown order:10, 10],
+                 ARRAY<INT64>[unknown order:10, 10],
+                 ARRAY<INT64>[unknown order:10, 10, 10, 10, 10],
+                 ARRAY<INT64>[unknown order:10, 10, 10, 10, 10],
+                 NULL,
+                 NULL,
+                 "abc,abc",
+                 "abc,abc",
+                 "abc,abc,abc,abc,abc",
+                 "abc,abc,abc,abc,abc"
+               },
+               {
+                 2,
+                 ARRAY<INT64>(NULL),
+                 ARRAY<INT64>(NULL),
+                 ARRAY<INT64>[unknown order:10, 10],
+                 ARRAY<INT64>[unknown order:10, 10],
+                 ARRAY<INT64>[unknown order:10, 10, 10, 10, 10],
+                 ARRAY<INT64>[unknown order:10, 10, 10, 10, 10],
+                 NULL,
+                 NULL,
+                 "abc,abc",
+                 "abc,abc",
+                 "abc,abc,abc,abc,abc",
+                 "abc,abc,abc,abc,abc"
+               }]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -862,12 +870,12 @@ SELECT key,
 FROM TestTableSameValues
 GROUP BY key
 --
-ARRAY<STRUCT<key INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>>[
+ARRAY<STRUCT<key INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>>[unknown order:
   {
     1,
     ARRAY<INT64>(NULL),
-    ARRAY<INT64>[10, 10],
-    ARRAY<INT64>[10, 10, 10, 10, 10],
+    ARRAY<INT64>[unknown order:10, 10],
+    ARRAY<INT64>[unknown order:10, 10, 10, 10, 10],
     NULL,
     "abc,abc",
     "abc,abc,abc,abc,abc"
@@ -875,8 +883,8 @@ ARRAY<STRUCT<key INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING, STRING, STRING>>[
   {
     2,
     ARRAY<INT64>(NULL),
-    ARRAY<INT64>[10, 10],
-    ARRAY<INT64>[10, 10, 10, 10, 10],
+    ARRAY<INT64>[unknown order:10, 10],
+    ARRAY<INT64>[unknown order:10, 10, 10, 10, 10],
     NULL,
     "abc,abc",
     "abc,abc,abc,abc,abc"
@@ -915,43 +923,49 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>,
              ARRAY<>>>
-[{ARRAY<UINT64>[NULL, 2, NULL, 5, 6, 2, 3, 3, 1, 2],
-  ARRAY<UINT64>[2, 1, 2, 3, 3, NULL, 5, 6, NULL, 2],
+[{ARRAY<UINT64>[unknown order:NULL, 2, NULL, 5, 6, 2, 3, 3, 1, 2],
+  ARRAY<UINT64>[unknown order:2, 1, 2, 3, 3, NULL, 5, 6, NULL, 2],
   ARRAY<UINT64>(NULL),
-  ARRAY<UINT64>[NULL, 2, NULL, 5, 6],
-  ARRAY<UINT64>[NULL, 2, NULL, 5, 6, 2, 3, 3, 1, 2],
-  ARRAY<STRING>[NULL,
-                "ghi",
-                "abc",
-                "def",
-                "zyx",
-                "abc",
-                "nvm",
-                "xyz",
-                "goo",
-                "ijk"],
-  ARRAY<STRING>["ijk",
-                "goo",
-                "abc",
-                "nvm",
-                "xyz",
-                "abc",
-                "def",
-                "zyx",
-                NULL,
-                "ghi"],
+  ARRAY<UINT64>[unknown order:NULL, 2, NULL, 5, 6],
+  ARRAY<UINT64>[unknown order:NULL, 2, NULL, 5, 6, 2, 3, 3, 1, 2],
+  ARRAY<STRING>[unknown order:
+    NULL,
+    "ghi",
+    "abc",
+    "def",
+    "zyx",
+    "abc",
+    "nvm",
+    "xyz",
+    "goo",
+    "ijk"
+  ],
+  ARRAY<STRING>[unknown order:
+    "ijk",
+    "goo",
+    "abc",
+    "nvm",
+    "xyz",
+    "abc",
+    "def",
+    "zyx",
+    NULL,
+    "ghi"
+  ],
   ARRAY<STRING>(NULL),
-  ARRAY<STRING>[NULL, "ghi", "abc", "def", "zyx"],
-  ARRAY<STRING>[NULL,
-                "ghi",
-                "abc",
-                "def",
-                "zyx",
-                "abc",
-                "nvm",
-                "xyz",
-                "goo",
-                "ijk"]}]
+  ARRAY<STRING>[unknown order:NULL, "ghi", "abc", "def", "zyx"],
+  ARRAY<STRING>[unknown order:
+    NULL,
+    "ghi",
+    "abc",
+    "def",
+    "zyx",
+    "abc",
+    "nvm",
+    "xyz",
+    "goo",
+    "ijk"
+  ]}]
 ==
 
 [required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
@@ -964,19 +978,19 @@ SELECT MOD(IFNULL(int64_val, 0), 2),
 FROM TestTable
 GROUP BY 1
 --
-ARRAY<STRUCT<INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[
+ARRAY<STRUCT<INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[unknown order:
   {
     0,
-    ARRAY<BOOL>[NULL, NULL, true, true, true, false],
-    ARRAY<INT64>[2, 2, 2, 4, NULL, NULL],
-    ARRAY<DOUBLE>[2.5, 2, 1.5, -1.5, NULL, NULL],
+    ARRAY<BOOL>[unknown order:NULL, NULL, true, true, true, false],
+    ARRAY<INT64>[unknown order:2, 2, 2, 4, NULL, NULL],
+    ARRAY<DOUBLE>[unknown order:2.5, 2, 1.5, -1.5, NULL, NULL],
     "abc,ghi,ijk,nvm,xyz"
   },
   {
     1,
-    ARRAY<BOOL>[NULL, true, true, false],
-    ARRAY<INT64>[1, 1, 1, 3],
-    ARRAY<DOUBLE>[3.5, 2.5, 1.5, -0.5],
+    ARRAY<BOOL>[unknown order:NULL, true, true, false],
+    ARRAY<INT64>[unknown order:1, 1, 1, 3],
+    ARRAY<DOUBLE>[known order:3.5, 2.5, 1.5, -0.5],
     "abc,def,goo,zyx"
   }
 ]
@@ -1012,7 +1026,7 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>,
              STRING>>
-[{ARRAY<NUMERIC>[
+[{ARRAY<NUMERIC>[known order:
     NULL,
     -99999999999999999999999999999.999999999,
     -0.000000001,
@@ -1024,33 +1038,35 @@ ARRAY<STRUCT<ARRAY<>,
     100,
     99999999999999999999999999999.999999999
   ],
-  ARRAY<INT64>[4,
-               5,
-               6,
-               22,
-               23,
-               24,
-               NULL,
-               16,
-               17,
-               18,
-               1,
-               2,
-               3,
-               25,
-               26,
-               27,
-               7,
-               8,
-               9,
-               10,
-               11,
-               12,
-               28,
-               29,
-               30],
+  ARRAY<INT64>[unknown order:
+    4,
+    5,
+    6,
+    22,
+    23,
+    24,
+    NULL,
+    16,
+    17,
+    18,
+    1,
+    2,
+    3,
+    25,
+    26,
+    27,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    28,
+    29,
+    30
+  ],
   "def,foo,jkl,abc,bar,ghi,abc,baz,jkl",
-  ARRAY<NUMERIC>[
+  ARRAY<NUMERIC>[known order:
     99999999999999999999999999999.999999999,
     100,
     10,
@@ -1062,41 +1078,43 @@ ARRAY<STRUCT<ARRAY<>,
     -99999999999999999999999999999.999999999,
     NULL
   ],
-  ARRAY<INT64>[28,
-               29,
-               30,
-               10,
-               11,
-               12,
-               7,
-               8,
-               9,
-               25,
-               26,
-               27,
-               1,
-               2,
-               3,
-               16,
-               17,
-               18,
-               NULL,
-               22,
-               23,
-               24,
-               4,
-               5,
-               6],
+  ARRAY<INT64>[unknown order:
+    28,
+    29,
+    30,
+    10,
+    11,
+    12,
+    7,
+    8,
+    9,
+    25,
+    26,
+    27,
+    1,
+    2,
+    3,
+    16,
+    17,
+    18,
+    NULL,
+    22,
+    23,
+    24,
+    4,
+    5,
+    6
+  ],
   "jkl,baz,abc,ghi,bar,abc,jkl,foo,def",
   ARRAY<NUMERIC>(NULL),
   ARRAY<INT64>(NULL),
   NULL,
-  ARRAY<NUMERIC>[
+  ARRAY<NUMERIC>[known order:
     NULL,
     -99999999999999999999999999999.999999999,
     -0.000000001
   ],
-  ARRAY<INT64>[4, 5, 6, 22, 23, 24, NULL],
+  ARRAY<INT64>[unknown order:4, 5, 6, 22, 23, 24, NULL],
   "def,foo,jkl"}]
 
 NOTE: Reference implementation reports non-determinism.
@@ -1132,7 +1150,7 @@ ARRAY<STRUCT<ARRAY<>,
              STRING>>
 [
   {
-    ARRAY<BIGNUMERIC>[
+    ARRAY<BIGNUMERIC>[known order:
       NULL,
       -578960446186580977117854925043439539266.34992332820282019728792003956564819968,
       -0.00000000000000000000000000000000000001,
@@ -1144,33 +1162,35 @@ ARRAY<STRUCT<ARRAY<>,
       100,
       578960446186580977117854925043439539266.34992332820282019728792003956564819967
     ],
-    ARRAY<INT64>[4,
-                 5,
-                 6,
-                 22,
-                 23,
-                 24,
-                 NULL,
-                 16,
-                 17,
-                 18,
-                 1,
-                 2,
-                 3,
-                 25,
-                 26,
-                 27,
-                 7,
-                 8,
-                 9,
-                 10,
-                 11,
-                 12,
-                 28,
-                 29,
-                 30],
+    ARRAY<INT64>[unknown order:
+      4,
+      5,
+      6,
+      22,
+      23,
+      24,
+      NULL,
+      16,
+      17,
+      18,
+      1,
+      2,
+      3,
+      25,
+      26,
+      27,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      28,
+      29,
+      30
+    ],
     "def,foo,jkl,abc,bar,ghi,abc,baz,jkl",
-    ARRAY<BIGNUMERIC>[
+    ARRAY<BIGNUMERIC>[known order:
       578960446186580977117854925043439539266.34992332820282019728792003956564819967,
       100,
       10,
@@ -1182,41 +1202,43 @@ ARRAY<STRUCT<ARRAY<>,
       -578960446186580977117854925043439539266.34992332820282019728792003956564819968,
       NULL
     ],
-    ARRAY<INT64>[28,
-                 29,
-                 30,
-                 10,
-                 11,
-                 12,
-                 7,
-                 8,
-                 9,
-                 25,
-                 26,
-                 27,
-                 1,
-                 2,
-                 3,
-                 16,
-                 17,
-                 18,
-                 NULL,
-                 22,
-                 23,
-                 24,
-                 4,
-                 5,
-                 6],
+    ARRAY<INT64>[unknown order:
+      28,
+      29,
+      30,
+      10,
+      11,
+      12,
+      7,
+      8,
+      9,
+      25,
+      26,
+      27,
+      1,
+      2,
+      3,
+      16,
+      17,
+      18,
+      NULL,
+      22,
+      23,
+      24,
+      4,
+      5,
+      6
+    ],
     "jkl,baz,abc,ghi,bar,abc,jkl,foo,def",
     ARRAY<BIGNUMERIC>(NULL),
     ARRAY<INT64>(NULL),
     NULL,
-    ARRAY<BIGNUMERIC>[
+    ARRAY<BIGNUMERIC>[known order:
       NULL,
       -578960446186580977117854925043439539266.34992332820282019728792003956564819968,
       -0.00000000000000000000000000000000000001
     ],
-    ARRAY<INT64>[4, 5, 6, 22, 23, 24, NULL],
+    ARRAY<INT64>[unknown order:4, 5, 6, 22, 23, 24, NULL],
     "def,foo,jkl"
   }
 ]

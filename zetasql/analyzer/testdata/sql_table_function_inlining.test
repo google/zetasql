@@ -2447,7 +2447,7 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
-        +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+        +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
         +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
         +-argument_list=
         | +-FunctionArgument
@@ -2482,10 +2482,10 @@ QueryStmt
         |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args"
         |   +-with_subquery=
         |     +-ProjectScan
-        |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#5, b#6]
+        |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#5, y#6]
         |       +-expr_list=
-        |       | +-a#5 := Literal(type=INT64, value=5)
-        |       | +-b#6 := Literal(type=STRING, value="six")
+        |       | +-x#5 := Literal(type=INT64, value=5)
+        |       | +-y#6 := Literal(type=STRING, value="six")
         |       +-input_scan=
         |         +-SingleRowScan
         +-query=
@@ -2505,9 +2505,9 @@ QueryStmt
                     |   +-subquery_type=SCALAR
                     |   +-subquery=
                     |     +-ProjectScan
-                    |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.a#7]
+                    |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.x#7]
                     |       +-input_scan=
-                    |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#7, b#8], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+                    |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#7, y#8], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
                     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
                       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#4)
                       +-SubqueryExpr
@@ -2515,9 +2515,9 @@ QueryStmt
                         +-subquery_type=SCALAR
                         +-subquery=
                           +-ProjectScan
-                            +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.b#10]
+                            +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.y#10]
                             +-input_scan=
-                              +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#9, b#10], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+                              +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#9, y#10], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
 --
 ALTERNATION GROUP: (SELECT 1 AS a, "two" AS b)
 --
@@ -2531,7 +2531,7 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
-        +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+        +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
         +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
         +-argument_list=
         | +-FunctionArgument
@@ -2578,10 +2578,10 @@ QueryStmt
         |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args"
         |   +-with_subquery=
         |     +-ProjectScan
-        |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#5, b#6]
+        |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#5, y#6]
         |       +-expr_list=
-        |       | +-a#5 := Literal(type=INT64, value=5)
-        |       | +-b#6 := Literal(type=STRING, value="six")
+        |       | +-x#5 := Literal(type=INT64, value=5)
+        |       | +-y#6 := Literal(type=STRING, value="six")
         |       +-input_scan=
         |         +-SingleRowScan
         +-query=
@@ -2601,9 +2601,9 @@ QueryStmt
                     |   +-subquery_type=SCALAR
                     |   +-subquery=
                     |     +-ProjectScan
-                    |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.a#7]
+                    |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.x#7]
                     |       +-input_scan=
-                    |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#7, b#8], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+                    |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#7, y#8], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
                     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
                       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#4)
                       +-SubqueryExpr
@@ -2611,9 +2611,9 @@ QueryStmt
                         +-subquery_type=SCALAR
                         +-subquery=
                           +-ProjectScan
-                            +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.b#10]
+                            +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.y#10]
                             +-input_scan=
-                              +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#9, b#10], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+                              +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#9, y#10], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
 ==
 
 # Skip unparser because of b/224585752
@@ -2658,7 +2658,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -2721,10 +2721,10 @@ QueryStmt
     |                 |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args"
     |                 |   +-with_subquery=
     |                 |     +-ProjectScan
-    |                 |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#11, b#12]
+    |                 |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#11, y#12]
     |                 |       +-expr_list=
-    |                 |       | +-a#11 := Literal(type=INT64, value=1)
-    |                 |       | +-b#12 := Literal(type=STRING, value="two")
+    |                 |       | +-x#11 := Literal(type=INT64, value=1)
+    |                 |       | +-y#12 := Literal(type=STRING, value="two")
     |                 |       +-input_scan=
     |                 |         +-SingleRowScan
     |                 +-query=
@@ -2744,9 +2744,9 @@ QueryStmt
     |                             |   +-subquery_type=SCALAR
     |                             |   +-subquery=
     |                             |     +-ProjectScan
-    |                             |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.a#13]
+    |                             |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.x#13]
     |                             |       +-input_scan=
-    |                             |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#13, b#14], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+    |                             |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#13, y#14], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
     |                             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
     |                               +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
     |                               +-SubqueryExpr
@@ -2754,9 +2754,9 @@ QueryStmt
     |                                 +-subquery_type=SCALAR
     |                                 +-subquery=
     |                                   +-ProjectScan
-    |                                     +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.b#16]
+    |                                     +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.y#16]
     |                                     +-input_scan=
-    |                                       +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#15, b#16], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+    |                                       +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#15, y#16], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
     +-input_scan=
       +-WithScan
         +-column_list=arg0.[a#17, b#18]
@@ -2803,7 +2803,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -2831,7 +2831,7 @@ QueryStmt
         +-alias="t"
 
 
-Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('b') references column 'b'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('y') references column 'b'.
 --
 ALTERNATION GROUP: 1,(SELECT 1 AS a, "two" AS b),"two"
 --
@@ -2862,7 +2862,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -2937,10 +2937,10 @@ QueryStmt
     |                 |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args"
     |                 |   +-with_subquery=
     |                 |     +-ProjectScan
-    |                 |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#11, b#12]
+    |                 |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#11, y#12]
     |                 |       +-expr_list=
-    |                 |       | +-a#11 := Literal(type=INT64, value=1)
-    |                 |       | +-b#12 := Literal(type=STRING, value="two")
+    |                 |       | +-x#11 := Literal(type=INT64, value=1)
+    |                 |       | +-y#12 := Literal(type=STRING, value="two")
     |                 |       +-input_scan=
     |                 |         +-SingleRowScan
     |                 +-query=
@@ -2960,9 +2960,9 @@ QueryStmt
     |                             |   +-subquery_type=SCALAR
     |                             |   +-subquery=
     |                             |     +-ProjectScan
-    |                             |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.a#13]
+    |                             |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.x#13]
     |                             |       +-input_scan=
-    |                             |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#13, b#14], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+    |                             |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#13, y#14], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
     |                             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
     |                               +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
     |                               +-SubqueryExpr
@@ -2970,9 +2970,9 @@ QueryStmt
     |                                 +-subquery_type=SCALAR
     |                                 +-subquery=
     |                                   +-ProjectScan
-    |                                     +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.b#16]
+    |                                     +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.y#16]
     |                                     +-input_scan=
-    |                                       +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#15, b#16], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+    |                                       +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[x#15, y#16], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
     +-input_scan=
       +-WithScan
         +-column_list=arg0.[a#17, b#18]
@@ -3019,7 +3019,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -3053,7 +3053,7 @@ QueryStmt
         +-alias="t"
 
 
-Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('b') references column 'b'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('y') references column 'b'.
 --
 ALTERNATION GROUP: 1,(SELECT t.a, "two" AS b),"two"
 --
@@ -3087,7 +3087,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -3156,7 +3156,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -3224,7 +3224,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -3252,7 +3252,7 @@ QueryStmt
         +-alias="t"
 
 
-Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
 ALTERNATION GROUP: t.a,TABLE abTable,t.b
 --
@@ -3287,7 +3287,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -3315,7 +3315,7 @@ QueryStmt
         +-alias="t"
 
 
-Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
 ALTERNATION GROUP: t.a,(SELECT 1 AS a, "two" AS b),"two"
 --
@@ -3349,7 +3349,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -3383,7 +3383,7 @@ QueryStmt
         +-alias="t"
 
 
-Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
 ALTERNATION GROUP: t.a,(SELECT 1 AS a, "two" AS b),t.b
 --
@@ -3418,7 +3418,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -3452,7 +3452,7 @@ QueryStmt
         +-alias="t"
 
 
-Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
 ALTERNATION GROUP: t.a,(SELECT t.a, "two" AS b),"two"
 --
@@ -3486,7 +3486,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -3520,7 +3520,7 @@ QueryStmt
         +-alias="t"
 
 
-Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
 ALTERNATION GROUP: t.a,(SELECT t.a, "two" AS b),t.b
 --
@@ -3555,7 +3555,7 @@ QueryStmt
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
-    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>)
     |                 +-signature=(INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
     |                 +-argument_list=
     |                 | +-FunctionArgument
@@ -3589,7 +3589,7 @@ QueryStmt
         +-alias="t"
 
 
-Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 ==
 
 # The correlated column reference is inside a subquery within the argument

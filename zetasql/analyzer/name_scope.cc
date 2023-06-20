@@ -112,7 +112,7 @@ void ValidFieldInfoMap::Clear() {
   column_to_valid_name_paths_map_.clear();
 }
 
-std::string ValidFieldInfoMap::DebugString(const std::string& indent) const {
+std::string ValidFieldInfoMap::DebugString(absl::string_view indent) const {
   std::string debug_string;
   for (const auto& entry : column_to_valid_name_paths_map_) {
     absl::StrAppend(&debug_string, indent, entry.first.DebugString(), ":",
@@ -123,11 +123,11 @@ std::string ValidFieldInfoMap::DebugString(const std::string& indent) const {
 
 std::string NamedColumn::DebugString(const absl::string_view prefix) const {
   return absl::StrCat(
-      prefix, "Column: ", ToIdentifierLiteral(name),
-      (is_explicit ? " explicit" : " implicit"),
-      (is_value_table_column
+      prefix, "Column: ", ToIdentifierLiteral(name_),
+      (is_explicit_ ? " explicit" : " implicit"),
+      (is_value_table_column_
            ? absl::StrCat(" value_table",
-                          ExclusionsDebugString(excluded_field_names))
+                          ExclusionsDebugString(excluded_field_names_))
            : ""));
 }
 
@@ -537,11 +537,11 @@ absl::Status NameScope::LookupNamePath(
 absl::Status NameScope::CreateGetFieldTargetFromInvalidValueTableColumn(
     const ValueTableColumn& value_table_column, IdString field_name,
     NameTarget* field_target) {
-  ZETASQL_RET_CHECK(!value_table_column.is_valid_to_access)
+  ZETASQL_RET_CHECK(!value_table_column.is_valid_to_access())
       << value_table_column.DebugString();
   field_target->SetAccessError(NameTarget::FIELD_OF);
   for (const ValidNamePath& valid_name_path :
-           value_table_column.valid_name_path_list) {
+       value_table_column.valid_name_path_list()) {
     if (valid_name_path.name_path().empty()) {
       continue;
     }
@@ -581,13 +581,14 @@ Type::HasFieldResult NameScope::LookupFieldTargetLocalOnly(
   Type::HasFieldResult result = Type::HAS_NO_FIELD;
   for (const ValueTableColumn& value_table_column : value_table_columns()) {
     int field_id = -1;
-    if (zetasql_base::ContainsKey(value_table_column.excluded_field_names, name)) {
+    if (zetasql_base::ContainsKey(value_table_column.excluded_field_names(), name)) {
       // If this name is excluded from lookups for this value table then ignore
       // it.
       continue;
     }
     Type::HasFieldResult has_field =
-        value_table_column.column.type()->HasField(name.ToString(), &field_id);
+        value_table_column.column().type()->HasField(name.ToString(),
+                                                     &field_id);
     switch (has_field) {
       case Type::HAS_NO_FIELD:
         break;
@@ -595,10 +596,10 @@ Type::HasFieldResult NameScope::LookupFieldTargetLocalOnly(
       case Type::HAS_PSEUDO_FIELD:
         result = has_field;
         ++found_count;
-        if (value_table_column.is_valid_to_access) {
+        if (value_table_column.is_valid_to_access()) {
           // Accessing the value table range variable is valid, so
           // accessing its fields is valid.
-          *field_target = NameTarget(value_table_column.column, field_id);
+          *field_target = NameTarget(value_table_column.column(), field_id);
         } else {
           // Accessing the value table range variable directly is not valid,
           // but accessing some of its fields might be as indicated
@@ -660,14 +661,14 @@ bool NameScope::HasLocalRangeVariables() const {
 
 std::string NameScope::ValueTableColumn::DebugString() const {
   std::string out;
-  absl::StrAppend(&out, "value_table_column: ", column.DebugString(),
-                  ExclusionsDebugString(excluded_field_names),
-                  (is_valid_to_access ? "" : " ACCESS_INVALID"), " ",
-                  ValidNamePathListDebugString(valid_name_path_list));
+  absl::StrAppend(&out, "value_table_column: ", column_.DebugString(),
+                  ExclusionsDebugString(excluded_field_names_),
+                  (is_valid_to_access_ ? "" : " ACCESS_INVALID"), " ",
+                  ValidNamePathListDebugString(valid_name_path_list_));
   return out;
 }
 
-std::string NameScope::DebugString(const std::string& indent) const {
+std::string NameScope::DebugString(absl::string_view indent) const {
   std::string out;
   for (const auto& name : names()) {
     if (!out.empty()) out += "\n";
@@ -697,13 +698,13 @@ void NameScope::InsertNameTargetsIfNotPresent(
 
 void NameScope::ExcludeNameFromValueTableIfPresent(
     IdString name, ValueTableColumn* value_table_column) {
-  if (zetasql_base::ContainsKey(value_table_column->excluded_field_names, name)) {
+  if (zetasql_base::ContainsKey(value_table_column->excluded_field_names(), name)) {
     // This name is already excluded from lookups for this value table.
     return;
   }
   int field_id = -1;
-  switch (value_table_column->column.type()->HasField(name.ToString(),
-                                                      &field_id)) {
+  switch (value_table_column->column().type()->HasField(name.ToString(),
+                                                        &field_id)) {
     case Type::HAS_NO_FIELD:
       // The field does not exist, so we do not need to exclude it.
       break;
@@ -711,7 +712,7 @@ void NameScope::ExcludeNameFromValueTableIfPresent(
     case Type::HAS_PSEUDO_FIELD:
     case Type::HAS_AMBIGUOUS_FIELD:
       // The value table column has a field with this name so exclude it.
-      value_table_column->excluded_field_names.insert(name);
+      value_table_column->excluded_field_names().insert(name);
       break;
   }
 }
@@ -834,7 +835,7 @@ void NameScope::CreateNewValueTableColumnsGivenValidNamePaths(
   // table columns based on the 'valid_field_info_map_in'.
   for (const ValueTableColumn& value_table_column : value_table_columns()) {
     const ResolvedColumn& original_value_table_column =
-        value_table_column.column;
+        value_table_column.column();
 
     ResolvedColumn new_range_variable_column;
     ValidNamePathList new_name_path_list;
@@ -846,19 +847,16 @@ void NameScope::CreateNewValueTableColumnsGivenValidNamePaths(
       // resolves to an updated version of that column.  All
       // fields are therefore accessible from this range variable
       // and we do not need to populate the 'valid_field_info_map'.
-      new_value_table_column =
-          ValueTableColumn(new_range_variable_column,
-                           value_table_column.excluded_field_names,
-                           true /* is_valid_to_access */,
-                           {} /* valid_field_info_map */);
+      new_value_table_column = ValueTableColumn(
+          new_range_variable_column, value_table_column.excluded_field_names(),
+          true /* is_valid_to_access */, {} /* valid_field_info_map */);
     } else {
       // The value table column name is not valid to access directly,
       // but its fields might be.
       new_value_table_column =
           ValueTableColumn(original_value_table_column,
-                           value_table_column.excluded_field_names,
-                           false /* is_valid_to_access */,
-                           new_name_path_list);
+                           value_table_column.excluded_field_names(),
+                           false /* is_valid_to_access */, new_name_path_list);
     }
 
     // Add this value table column to the value table column list.  We
@@ -877,7 +875,7 @@ absl::Status NameScope::CreateNewRangeVariableTargetGivenValidNamePaths(
   if (original_name_target.scan_columns()->is_value_table()) {
     ValidNamePathList new_name_path_list;
     const ResolvedColumn range_variable_column =
-        original_name_target.scan_columns()->column(0).column;
+        original_name_target.scan_columns()->column(0).column();
     // Check to see if any of the valid_field_info_map_in columns
     // derive from this value table range variable.  If so add
     // it to the valid access list.
@@ -909,13 +907,13 @@ absl::Status NameScope::CreateNewRangeVariableTargetGivenValidNamePaths(
              original_name_target.scan_columns()->columns()) {
       const ValidNamePathList* named_column_name_path_list;
       if (valid_field_info_map_in.LookupNamePathList(
-              named_column.column, &named_column_name_path_list)) {
+              named_column.column(), &named_column_name_path_list)) {
         // There are field paths accessible from this column, so
         // remember them.
         for (const ValidNamePath& valid_name_path :
                *named_column_name_path_list) {
           std::vector<IdString> names;
-          names.push_back(named_column.name);
+          names.push_back(named_column.name());
           names.insert(names.end(),
                        valid_name_path.name_path().begin(),
                        valid_name_path.name_path().end());
@@ -1361,32 +1359,33 @@ absl::Status NameList::MergeFromExceptColumns(
   // maps directly below.
   for (const NamedColumn& named_column : other.columns()) {
     if (excluded_field_names == nullptr ||
-        !zetasql_base::ContainsKey(*excluded_field_names, named_column.name)) {
+        !zetasql_base::ContainsKey(*excluded_field_names, named_column.name())) {
       // For value table columns, we add new excluded_field_names so fields
       // with those names won't show up in SELECT *.
-      if (named_column.is_value_table_column) {
+      if (named_column.is_value_table_column()) {
         // Compute the union of the existing excluded_field_names and the
         // newly added excluded_field_names.
         IdStringSetCase new_excluded_field_names;
         if (excluded_field_names != nullptr) {
           InsertFrom(*excluded_field_names, &new_excluded_field_names);
         }
-        InsertFrom(named_column.excluded_field_names,
+        InsertFrom(named_column.excluded_field_names(),
                    &new_excluded_field_names);
 
         // A NameList has NamedColumns, and NamedColumns don't have any
         // way to express paths that are accessible off of them.  So we
         // leave 'valid_field_info_map' empty here.
         name_scope_.mutable_value_table_columns()->push_back(
-            {named_column.column, new_excluded_field_names,
+            {named_column.column(),
+             new_excluded_field_names,
              true /* is_valid_to_access */,
              {} /* valid_field_info_map */});
 
         // Copy the column, but update excluded_field_names with the
         // new list.
-        columns_.emplace_back(
-            named_column.name, named_column.column, named_column.is_explicit,
-            new_excluded_field_names);
+        columns_.emplace_back(named_column.name(), named_column.column(),
+                              named_column.is_explicit(),
+                              new_excluded_field_names);
       } else {
         columns_.push_back(named_column);
       }
@@ -1452,13 +1451,13 @@ absl::StatusOr<std::shared_ptr<NameList>> NameList::CloneWithNewColumns(
   // Make a new ResolvedColumn for each column from the current list.
   ResolvedColumnList column_list;
   for (const NamedColumn& column : columns()) {
-    const ResolvedColumn resolved_col = clone_column(column.column);
+    const ResolvedColumn resolved_col = clone_column(column.column());
     column_list.emplace_back(resolved_col);
-    if (column.is_value_table_column) {
+    if (column.is_value_table_column()) {
       return MakeSqlErrorAt(ast_location) << value_table_error;
     } else {
-      ZETASQL_RETURN_IF_ERROR(cloned_name_list->AddColumn(column.name, resolved_col,
-                                                  column.is_explicit));
+      ZETASQL_RETURN_IF_ERROR(cloned_name_list->AddColumn(column.name(), resolved_col,
+                                                  column.is_explicit()));
     }
   }
 
@@ -1479,7 +1478,7 @@ std::vector<ResolvedColumn> NameList::GetResolvedColumns() const {
   std::vector<ResolvedColumn> ret;
   ret.reserve(columns_.size());
   for (const NamedColumn& named_column : columns_) {
-    ret.push_back(named_column.column);
+    ret.push_back(named_column.column());
   }
   return ret;
 }
@@ -1488,7 +1487,7 @@ std::vector<IdString> NameList::GetColumnNames() const {
   std::vector<IdString> ret;
   ret.reserve(columns_.size());
   for (const NamedColumn& named_column : columns_) {
-    ret.push_back(named_column.name);
+    ret.push_back(named_column.name());
   }
   return ret;
 }
@@ -1506,18 +1505,19 @@ Type::HasFieldResult NameList::SelectStarHasColumn(IdString name) const {
   for (const NamedColumn& column : columns_) {
     // Value table columns *with fields* will be expanded to the list of
     // fields rather than the column itself in SELECT *.
-    if (!column.is_value_table_column ||
-        !column.column.type()->HasAnyFields()) {
-      if (IdStringCaseEqual(column.name, name)) {
+    if (!column.is_value_table_column() ||
+        !column.column().type()->HasAnyFields()) {
+      if (IdStringCaseEqual(column.name(), name)) {
         ++fields_found;
       }
     } else {
-      if (zetasql_base::ContainsKey(column.excluded_field_names, name)) {
+      if (zetasql_base::ContainsKey(column.excluded_field_names(), name)) {
         continue;
       }
-      switch (column.column.type()->HasField(name.ToString(),
-                                             /*field_id=*/nullptr,
-                                             /*include_pseudo_fields=*/false)) {
+      switch (
+          column.column().type()->HasField(name.ToString(),
+                                           /*field_id=*/nullptr,
+                                           /*include_pseudo_fields=*/false)) {
         case Type::HAS_NO_FIELD:
           break;
         case Type::HAS_FIELD:

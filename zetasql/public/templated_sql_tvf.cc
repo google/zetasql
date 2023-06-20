@@ -166,7 +166,8 @@ absl::Status TemplatedSQLTVF::Resolve(
   ZETASQL_RETURN_IF_ERROR(ForwardNestedResolutionAnalysisError(
       ParseNextStatement(&this_parse_resume_location, parser_options,
                          &parser_output, &at_end_of_input),
-      analyzer_options->error_message_mode()));
+      analyzer_options->error_message_mode(),
+      analyzer_options->attach_error_location_payload()));
   if (parser_output->statement()->node_kind() != AST_QUERY_STATEMENT) {
     // TODO: Attach proper error locations to the returned Status.
     return MakeTVFQueryAnalysisError("SQL body is not a query");
@@ -194,7 +195,8 @@ absl::Status TemplatedSQLTVF::Resolve(
           static_cast<const ASTQueryStatement*>(parser_output->statement()),
           specified_output_schema, allow_query_parameters_, &function_arguments,
           &function_table_arguments, &resolved_sql_body, &tvf_body_name_list),
-      analyzer_options->error_message_mode()));
+      analyzer_options->error_message_mode(),
+      analyzer_options->attach_error_location_payload()));
   // TODO: Attach proper error locations to the returned Status.
   ZETASQL_RET_CHECK_EQ(RESOLVED_QUERY_STMT, resolved_sql_body->node_kind());
 
@@ -206,7 +208,7 @@ absl::Status TemplatedSQLTVF::Resolve(
     // TODO: Attach proper error locations to the returned Status.
     ZETASQL_RET_CHECK_EQ(1, tvf_body_name_list->num_columns());
     return_tvf_relation = TVFRelation::ValueTable(
-        tvf_body_name_list->column(0).column.annotated_type());
+        tvf_body_name_list->column(0).column().annotated_type());
   } else {
     std::vector<TVFRelation::Column> output_schema_columns;
     output_schema_columns.reserve(tvf_body_name_list->num_columns());
@@ -217,15 +219,15 @@ absl::Status TemplatedSQLTVF::Resolve(
       // reference them. This behavior matches that of non-templated TVF calls.
       // TODO: Ideally make this work for a backquoted explicit column
       // that happens to return true for IsInternalAlias (e.g. `$col`).
-      if (IsInternalAlias(tvf_body_name_list_column.name)) {
+      if (IsInternalAlias(tvf_body_name_list_column.name())) {
         // TODO: Attach proper error locations to the returned Status.
         return MakeTVFQueryAnalysisError(
             "Function body is missing one or more explicit output column "
             "names");
       }
       output_schema_columns.emplace_back(
-          tvf_body_name_list_column.name.ToString(),
-          tvf_body_name_list_column.column.annotated_type());
+          tvf_body_name_list_column.name().ToString(),
+          tvf_body_name_list_column.column().annotated_type());
     }
     return_tvf_relation = TVFRelation(output_schema_columns);
   }
@@ -263,7 +265,8 @@ absl::Status TemplatedSQLTVF::CheckIsValid() const {
 }
 
 absl::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
-    const absl::Status& status, ErrorMessageMode mode) const {
+    const absl::Status& status, ErrorMessageMode mode,
+    bool keep_error_location_payload) const {
   absl::Status new_status;
   if (status.ok()) {
     return absl::OkStatus();
@@ -287,9 +290,9 @@ absl::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
   }
   // Update the <new_status> based on <mode>.
   return MaybeUpdateErrorFromPayload(
-      mode, parse_resume_location_.input(),
-      ConvertInternalErrorLocationToExternal(
-          new_status, parse_resume_location_.input()));
+      mode, keep_error_location_payload, parse_resume_location_.input(),
+      ConvertInternalErrorLocationToExternal(new_status,
+                                             parse_resume_location_.input()));
 }
 
 absl::Status TemplatedSQLTVF::MakeTVFQueryAnalysisError(

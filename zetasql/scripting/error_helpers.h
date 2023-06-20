@@ -66,16 +66,16 @@ absl::StatusOr<ErrorLocation> ConvertLocalErrorToScriptError(
 
 // Creates a handleable script error tied to the location of <node>.
 inline zetasql_base::StatusBuilder MakeScriptExceptionAt(const ASTNode* node) {
-  return MakeSqlErrorAt(node).Attach(ScriptException());
+  return MakeSqlErrorAt(node).AttachPayload(ScriptException());
 }
 
 // Creates a handleable script error not tied to any particular location.
 inline zetasql_base::StatusBuilder MakeScriptException() {
-  return MakeEvalError().Attach(ScriptException());
+  return MakeEvalError().AttachPayload(ScriptException());
 }
 
 inline zetasql_base::StatusBuilder MakeScriptException(const ScriptException& ex) {
-  return MakeEvalError().Attach(ex);
+  return MakeEvalError().AttachPayload(ex);
 }
 
 // Returns an error status representing an assignment to a read-only system

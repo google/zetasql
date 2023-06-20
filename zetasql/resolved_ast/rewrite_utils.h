@@ -22,11 +22,18 @@
 #include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
+#include "zetasql/analyzer/annotation_propagator.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -81,13 +88,13 @@ class ColumnFactory {
   int max_column_id() const { return max_col_id_; }
 
   // Creates a new column, incrementing the counter for next use.
-  ResolvedColumn MakeCol(const std::string& table_name,
-                         const std::string& col_name, const Type* type);
+  ResolvedColumn MakeCol(absl::string_view table_name,
+                         absl::string_view col_name, const Type* type);
 
   // Creates a new column with an AnnotatedType, incrementing the counter for
   // next use.
-  ResolvedColumn MakeCol(const std::string& table_name,
-                         const std::string& col_name, AnnotatedType type);
+  ResolvedColumn MakeCol(absl::string_view table_name,
+                         absl::string_view col_name, AnnotatedType type);
 
  private:
   int max_col_id_;
@@ -213,10 +220,18 @@ absl::Status CheckCatalogSupportsSafeMode(
 
 // Contains helper functions that reduce boilerplate in rewriting rules logic
 // related to constructing new ResolvedFunctionCall instances.
+// TODO: Move FunctionCallBuilder class from rewriter utils
+// to a separate utility. FunctionCallBuilder is fairly generic to be used at
+// other places - especially in unit tests to create resolved function nodes.
 class FunctionCallBuilder {
  public:
-  FunctionCallBuilder(const AnalyzerOptions& analyzer_options, Catalog& catalog)
-      : analyzer_options_(analyzer_options), catalog_(catalog) {}
+  FunctionCallBuilder(const AnalyzerOptions& analyzer_options, Catalog& catalog,
+                      TypeFactory& type_factory)
+      : analyzer_options_(analyzer_options),
+        catalog_(catalog),
+        type_factory_(type_factory),
+        annotation_propagator_(
+            AnnotationPropagator(analyzer_options, type_factory)) {}
 
   // Helper to check that engines support the required IFERROR and NULLIFERROR
   // functions that are used to implement SAFE mode in rewriters. If the
@@ -262,13 +277,13 @@ class FunctionCallBuilder {
   // Constructs a ResolvedFunctionCall for the $make_array function to create an
   // array for a list of elements
   //
-  // Requires: Each element in elements must have the same type as array_type
+  // Requires: Each element in elements must have the same type as element_type
   //
   // The signature for the built-in function "$make_array" must be available in
   // <catalog> or an error status is returned
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> MakeArray(
-      const ArrayType* array_type,
-      std::vector<std::unique_ptr<ResolvedExpr>>& elements);
+      const Type* element_type,
+      std::vector<std::unique_ptr<const ResolvedExpr>>& elements);
 
   // Constructs a ResolvedFunctionCall for <input> LIKE <pattern>
   //
@@ -348,6 +363,11 @@ class FunctionCallBuilder {
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
 
  private:
+  static AnnotationPropagator BuildAnnotationPropagator(
+      const AnalyzerOptions& analyzer_options, TypeFactory& type_factory) {
+    return AnnotationPropagator(analyzer_options, type_factory);
+  }
+
   // Construct a ResolvedFunctionCall for
   //  expressions[0] OP expressions[1] OP ... OP expressions[N-1]
   // where N is the number of expressions.
@@ -368,6 +388,9 @@ class FunctionCallBuilder {
 
   const AnalyzerOptions& analyzer_options_;
   Catalog& catalog_;
+
+  TypeFactory& type_factory_;
+  AnnotationPropagator annotation_propagator_;
 };
 
 // Contains helper functions for building components of the ResolvedAST when
@@ -376,10 +399,11 @@ class FunctionCallBuilder {
 class LikeAnyAllSubqueryScanBuilder {
  public:
   LikeAnyAllSubqueryScanBuilder(const AnalyzerOptions* analyzer_options,
-                                Catalog* catalog, ColumnFactory* column_factory)
+                                Catalog* catalog, ColumnFactory* column_factory,
+                                TypeFactory* type_factory)
       : analyzer_options_(analyzer_options),
         catalog_(catalog),
-        fn_builder_(*analyzer_options, *catalog),
+        fn_builder_(*analyzer_options, *catalog, *type_factory),
         column_factory_(column_factory) {}
 
   // Builds the AggregateScan of the ResolvedAST for a
@@ -425,6 +449,15 @@ bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* function_call,
 // location.
 zetasql_base::StatusBuilder MakeUnimplementedErrorAtNode(const ResolvedNode* node);
 
+// Returns a set of correlated referenced columns associated with `node`.
+// This is used since we don't want to rewrite
+// correlated columns that could be accessed outside of the node to rewrite.
+//
+// Note that `node` itself might contain inner subquery and correlated
+// references for that inner subquery: those columns should NOT be added into
+// `column_set` because they're internal columns to `node`.
+absl::StatusOr<absl::flat_hash_set<ResolvedColumn>> GetCorrelatedColumnSet(
+    const ResolvedNode& node);
 }  // namespace zetasql
 
 #endif  // ZETASQL_RESOLVED_AST_REWRITE_UTILS_H_

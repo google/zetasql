@@ -72,6 +72,13 @@ class EnumType : public Type {
 
   const google::protobuf::EnumDescriptor* enum_descriptor() const;
 
+  // Returns true if the enum is like an open proto3 enum that accepts values
+  // without names.
+  ABSL_MUST_USE_RESULT bool EnumAllowsUnnamedValues() const {
+    return enum_descriptor()->file()->syntax() !=
+         google::protobuf::FileDescriptor::SYNTAX_PROTO2;
+  }
+
   // Helper function to determine equality or equivalence for enum types.
   static bool EqualsImpl(const EnumType* type1, const EnumType* type2,
                          bool equivalent);

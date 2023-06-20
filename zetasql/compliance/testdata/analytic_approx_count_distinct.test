@@ -12,4 +12,11 @@
 SELECT APPROX_COUNT_DISTINCT(x) OVER () as approx_distinct
 FROM UNNEST([0, 1, 1, 2, 3, 5]) as x
 --
-ARRAY<STRUCT<approx_distinct INT64>>[{5}, {5}, {5}, {5}, {5}, {5}]
+ARRAY<STRUCT<approx_distinct INT64>>[unknown order:
+  {5},
+  {5},
+  {5},
+  {5},
+  {5},
+  {5}
+]

@@ -62,6 +62,12 @@ message ConnectionRefProto {
   optional string full_name = 3;
 }
 
+// Reference to a sequence.
+message SequenceRefProto {
+  optional string name = 1;
+  optional string full_name = 2;
+}
+
 // Reference to a named constant.
 message ConstantRefProto {
   // Full name of the function, e.g., catalog1.catalog2.Constant.

@@ -1,0 +1,553 @@
+[prepare_database]
+CREATE TABLE KeyValue AS (
+  SELECT 1 AS Key, 'Value1' AS Value UNION ALL
+  SELECT 2 AS Key, 'Value2' AS Value UNION ALL
+  SELECT 3 AS Key, NULL AS Value
+);
+--
+ARRAY<STRUCT<Key INT64, Value STRING>>[
+  {1, "Value1"},
+  {2, "Value2"},
+  {3, NULL}
+]
+==
+
+[prepare_database]
+CREATE TABLE KeyValueBytes AS (
+  SELECT 1 AS Key, b'Value1' AS Value UNION ALL
+  SELECT 2 AS Key, b'Value2' AS Value UNION ALL
+  SELECT 3 AS Key, NULL AS Value
+);
+--
+ARRAY<STRUCT<Key INT64, Value BYTES>>[
+  {1, b"Value1"},
+  {2, b"Value2"},
+  {3, NULL}
+]
+==
+
+[prepare_database]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+CREATE TABLE StringTable(
+  primary_Key INT64,
+  col_ci STRING COLLATE 'und:ci',
+  col_binary STRING COLLATE 'binary',
+  col_no_collation STRING) AS
+SELECT 1 primary_Key, "" col_ci, "a" col_binary, "c" UNION ALL
+SELECT 2, "hello", "a", "c" UNION ALL
+SELECT 3, "Case sensitive", "a", "c" UNION ALL
+SELECT 4, "@", "A", "C" UNION ALL
+SELECT 5, "\u205Fabc", "A", "C"  UNION ALL
+SELECT 6, "B", "A", "C" UNION ALL
+SELECT 7, NULL, "A", "C" UNION ALL
+SELECT 8, "aa", "A", "C" UNION ALL
+SELECT 9, "@", "B", "D" UNION ALL
+SELECT 10, "", "B", "D" UNION ALL
+SELECT 11, "a", "B", "D" UNION ALL
+SELECT 12, "case sensitive", "a", "c" UNION ALL
+SELECT 13, NULL, "B", "D" UNION ALL
+SELECT 14, "Hello", "a", "c" UNION ALL
+SELECT 15, "\u0413", "B", "D" UNION ALL
+SELECT 16, "hel\u06DDlo", "a", "c" UNION ALL
+SELECT 17, "h\u070Fello", "a", "c"
+--
+ARRAY<STRUCT<
+        primary_Key INT64,
+        col_ci STRING,
+        col_binary STRING,
+        col_no_collation STRING
+      >>
+[
+  {1, "", "a", "c"},
+  {2, "hello", "a", "c"},
+  {3, "Case sensitive", "a", "c"},
+  {4, "@", "A", "C"},
+  {5, " abc", "A", "C"},
+  {6, "B", "A", "C"},
+  {7, NULL, "A", "C"},
+  {8, "aa", "A", "C"},
+  {9, "@", "B", "D"},
+  {10, "", "B", "D"},
+  {11, "a", "B", "D"},
+  {12, "case sensitive", "a", "c"},
+  {13, NULL, "B", "D"},
+  {14, "Hello", "a", "c"},
+  {15, "Г", "B", "D"},
+  {16, "hel۝lo", "a", "c"},
+  {17, "h܏ello", "a", "c"}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_string_nulls]
+SELECT
+  Value,
+  -- Constant patterns
+  Value LIKE SOME (NULL),
+  Value LIKE SOME (NULL, NULL),
+  Value LIKE SOME (NULL, 'a', 'b', 'c', 'Value1', 'd', NULL),
+  Value LIKE SOME (NULL, 'a', 'b', 'c'),
+  Value LIKE SOME ('a', 'b', 'c', NULL),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL, NULL},
+  {"Value1", NULL, NULL, true, NULL, NULL},
+  {"Value2", NULL, NULL, NULL, NULL, NULL}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_string_simple]
+SELECT
+  Value,
+  -- Constant patterns
+  Value LIKE SOME ('a', 'b', 'c'),
+  Value LIKE SOME ('a', 'b', 'c', 'Value1'),
+  Value LIKE SOME ('a', 'b', 'c', 'Value1', 'd'),
+  Value LIKE SOME ('Value1', 'a', 'Value1'),
+  Value LIKE SOME ('Value%', 'a%', 'Valu%1'),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL, NULL},
+  {"Value1", false, true, true, true, true},
+  {"Value2", false, false, false, false, true}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_string_nonconstant_patterns]
+SELECT
+  Value,
+  Value LIKE SOME (Value, Value),
+  Value LIKE SOME (CONCAT(Value, '%'), CONCAT(Value, '%%')),
+  Value LIKE SOME (CONCAT(Value, '%'), CONCAT(Value, '')),
+  Value LIKE SOME (CONCAT(Value, '_%'), CONCAT(Value, '__%')),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL},
+  {"Value1", true, true, true, false},
+  {"Value2", true, true, true, false}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_string_invalid]
+SELECT
+  Value,
+  Value LIKE SOME ('\\'),
+FROM KeyValue ORDER BY Value;
+--
+ERROR: generic::out_of_range: LIKE pattern ends with a backslash
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_bytes_nulls]
+SELECT
+  Value,
+  -- Constant patterns
+  Value LIKE SOME (NULL),
+  Value LIKE SOME (NULL, NULL),
+  Value LIKE SOME (NULL, b'a', b'b', b'c', b'Value1', b'd', NULL),
+  Value LIKE SOME (NULL, b'a', b'b', b'c'),
+  Value LIKE SOME (b'a', b'b', b'c', NULL),
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL, NULL},
+  {b"Value1", NULL, NULL, true, NULL, NULL},
+  {b"Value2", NULL, NULL, NULL, NULL, NULL}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_bytes_simple]
+SELECT
+  Value,
+  -- Constant patterns
+  Value LIKE SOME (b'a', b'b', b'c'),
+  Value LIKE SOME (b'a', b'b', b'c', b'Value1'),
+  Value LIKE SOME (b'a', b'b', b'c', b'Value1', b'd'),
+  Value LIKE SOME (b'Value1', b'a', b'Value1'),
+  Value LIKE SOME (b'Value%', b'a%', b'Valu%1'),
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL, NULL},
+  {b"Value1", false, true, true, true, true},
+  {b"Value2", false, false, false, false, true}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_bytes_nonconstant_patterns]
+SELECT
+  Value,
+  Value LIKE SOME (Value, Value),
+  Value LIKE SOME (CONCAT(Value, b'%'), CONCAT(Value, b'%%')),
+  Value LIKE SOME (CONCAT(Value, b'%'), CONCAT(Value, b'')),
+  Value LIKE SOME (CONCAT(Value, b'_%'), CONCAT(Value, b'__%')),
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL},
+  {b"Value1", true, true, true, false},
+  {b"Value2", true, true, true, false}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_bytes_invalid]
+SELECT
+  Value,
+  Value LIKE SOME (b'\\'),
+FROM KeyValueBytes ORDER BY Value;
+--
+ERROR: generic::out_of_range: LIKE pattern ends with a backslash
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_string_array_nulls]
+SELECT
+  Value,
+  -- Constant patterns
+  Value LIKE SOME UNNEST(CAST(NULL AS ARRAY<STRING>)),
+  Value LIKE SOME UNNEST(ARRAY<STRING>[NULL]),
+  Value LIKE SOME UNNEST(ARRAY<STRING>[NULL, NULL]),
+  Value LIKE SOME UNNEST([NULL, 'a', 'b', 'c', 'Value1', 'd', NULL]),
+  Value LIKE SOME UNNEST([NULL, 'a', 'b', 'c']),
+  Value LIKE SOME UNNEST(['a', 'b', 'c', NULL]),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, false, NULL, NULL, NULL, NULL, NULL},
+  {"Value1", false, NULL, NULL, true, NULL, NULL},
+  {"Value2", false, NULL, NULL, NULL, NULL, NULL}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_string_array_simple]
+SELECT
+  Value,
+  -- Constant patterns
+  Value LIKE SOME UNNEST([]),
+  Value LIKE SOME UNNEST(['a', 'b', 'c']),
+  Value LIKE SOME UNNEST(['a', 'b', 'c', 'Value1']),
+  Value LIKE SOME UNNEST(['a', 'b', 'c', 'Value1', 'd']),
+  Value LIKE SOME UNNEST(['Value1', 'a', 'Value1']),
+  Value LIKE SOME UNNEST(['Value%', 'a%', 'Valu%1']),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, false, NULL, NULL, NULL, NULL, NULL},
+  {"Value1", false, false, true, true, true, true},
+  {"Value2", false, false, false, false, false, true}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_string_array_nonconstant_patterns]
+SELECT
+  Value,
+  Value LIKE SOME UNNEST([Value, Value]),
+  Value LIKE SOME UNNEST([CONCAT(Value, '%'), CONCAT(Value, '%%')]),
+  Value LIKE SOME UNNEST([CONCAT(Value, '%'), CONCAT(Value, '')]),
+  Value LIKE SOME UNNEST([CONCAT(Value, '_%'), CONCAT(Value, '__%')]),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL},
+  {"Value1", true, true, true, false},
+  {"Value2", true, true, true, false}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_string_array_invalid]
+SELECT
+  Value,
+  Value LIKE SOME UNNEST(['\\']),
+FROM KeyValue ORDER BY Value;
+--
+ERROR: generic::out_of_range: LIKE pattern ends with a backslash
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_bytes_array_nulls]
+SELECT
+  Value,
+  -- Constant patterns
+  Value LIKE SOME UNNEST(CAST(NULL AS ARRAY<BYTES>)),
+  Value LIKE SOME UNNEST(ARRAY<BYTES>[NULL]),
+  Value LIKE SOME UNNEST(ARRAY<BYTES>[NULL, NULL]),
+  Value LIKE SOME UNNEST([NULL, b'a', b'b', b'c', b'Value1', b'd', NULL]),
+  Value LIKE SOME UNNEST([NULL, b'a', b'b', b'c']),
+  Value LIKE SOME UNNEST([b'a', b'b', b'c', NULL]),
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, false, NULL, NULL, NULL, NULL, NULL},
+  {b"Value1", false, NULL, NULL, true, NULL, NULL},
+  {b"Value2", false, NULL, NULL, NULL, NULL, NULL}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_bytes_array_simple]
+SELECT
+  Value,
+  -- Constant patterns
+  Value LIKE SOME UNNEST([]),
+  Value LIKE SOME UNNEST([b'a', b'b', b'c']),
+  Value LIKE SOME UNNEST([b'a', b'b', b'c', b'Value1']),
+  Value LIKE SOME UNNEST([b'a', b'b', b'c', b'Value1', b'd']),
+  Value LIKE SOME UNNEST([b'Value1', b'a', b'Value1']),
+  Value LIKE SOME UNNEST([b'Value%', b'a%', b'Valu%1']),
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, false, NULL, NULL, NULL, NULL, NULL},
+  {b"Value1", false, false, true, true, true, true},
+  {b"Value2", false, false, false, false, false, true}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_bytes_array_nonconstant_patterns]
+SELECT
+  Value,
+  Value LIKE SOME UNNEST([Value, Value]),
+  Value LIKE SOME UNNEST([CONCAT(Value, b'%'), CONCAT(Value, b'%%')]),
+  Value LIKE SOME UNNEST([CONCAT(Value, b'%'), CONCAT(Value, b'')]),
+  Value LIKE SOME UNNEST([CONCAT(Value, b'_%'), CONCAT(Value, b'__%')]),
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL},
+  {b"Value1", true, true, true, false},
+  {b"Value2", true, true, true, false}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_bytes_array_invalid]
+SELECT
+  Value,
+  Value LIKE SOME UNNEST([b'\\']),
+FROM KeyValueBytes ORDER BY Value;
+--
+ERROR: generic::out_of_range: LIKE pattern ends with a backslash
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_string_array_function]
+SELECT
+  Value,
+  Value LIKE SOME UNNEST(SPLIT('Value1', 'b')),
+  Value LIKE SOME UNNEST(REGEXP_EXTRACT_ALL('Value1', 'l')),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", true, false},
+  {"Value2", false, false}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_with_collation_ci_test_with_null_elements]
+# Test "LIKE SOME" with collation for NULL elements on either LHS or RHS list.
+SELECT
+  collate(NULL, 'und:ci') LIKE SOME (NULL, NULL),
+  collate(NULL, 'und:ci') LIKE SOME (NULL, 'abc'),
+  collate(NULL, 'und:ci') LIKE SOME ('abc', 'abc'),
+  collate('abc', 'und:ci') LIKE SOME (NULL, NULL),
+  collate('abc', 'und:ci') LIKE SOME (NULL, 'ABC'),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, NULL, NULL, true}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=not_like_some_with_collation_ci_test_with_null_elements]
+# Test "NOT LIKE SOME" with collation for NULL elements on either LHS or RHS list.
+SELECT
+  collate(NULL, 'und:ci') NOT LIKE SOME (NULL, NULL),
+  collate(NULL, 'und:ci') NOT LIKE SOME (NULL, 'abc'),
+  collate(NULL, 'und:ci') NOT LIKE SOME ('abc', 'abc'),
+  collate('abc', 'und:ci') NOT LIKE SOME (NULL, NULL),
+  collate('abc', 'und:ci') NOT LIKE SOME (NULL, 'ABC'),
+--
+# Note: Collation will be applied to LHS and all elements in RHS.
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, NULL, NULL, false}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_with_collation_ci_on_lhs_element]
+# Test "LIKE SOME" with LHS wrapped in collation.
+SELECT
+  collate('GooGle', 'und:ci') LIKE SOME ('goo%', 'xxx'),
+  collate('GooGle', 'und:ci') LIKE SOME ('%yyy%', 'GOOGLE'),
+  collate('GooGle', 'und:ci') LIKE SOME ('%goO%', collate('XXX', 'und:ci')),
+  collate('GooGle', 'und:ci') LIKE SOME ('%xxx%', collate('GOOGLE', 'und:ci')),
+  collate('GooGle', 'und:ci') LIKE SOME ('%ppp%', collate('x%abc%x', 'und:ci')),
+--
+# Note: Collation will be applied to LHS and all elements in RHS.
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, true, false}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=not_like_some_with_collation_ci_on_lhs_element]
+# Test "NOT LIKE SOME" with LHS wrapped in collation.
+SELECT
+  collate('GooGle', 'und:ci') NOT LIKE SOME ('goo%', 'xxx'),
+  collate('GooGle', 'und:ci') NOT LIKE SOME ('%yyy%', 'GOOGLE'),
+  collate('GooGle', 'und:ci') NOT LIKE SOME ('%goO%', collate('XXX', 'und:ci')),
+  collate('GooGle', 'und:ci') NOT LIKE SOME ('%xxx%', collate('%OO%', 'und:ci')),
+  collate('GooGle', 'und:ci') NOT LIKE SOME ('%ppp%', collate('%aa%', 'und:ci')),
+--
+# Note: Collation will be applied to LHS and all elements in RHS.
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, false, false, false, true}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_with_collation_ci_on_one_of_the_rhs_element]
+# Test "LIKE SOME" with one of the elements in RHS wrapped in collation.
+SELECT
+  'GooGle' LIKE SOME ('goo%', collate('google', 'und:ci')),
+  'GooGle' LIKE SOME (collate('%yyy%', 'und:ci'), 'GOOGLE'),
+  'GooGle' LIKE SOME (collate('%ooG%', 'und:ci'), collate('GOOGLE', 'und:ci')),
+  'GooGle' LIKE SOME ('%xxx%', collate('GOOGOLE', 'und:ci')),
+  collate('GooGle', '') LIKE SOME ('%ooG%', collate('x%go%x', 'und:ci')),
+--
+# Note: Collation will be applied to LHS and all elements in RHS.
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, false, true}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=not_like_some_with_collation_ci_on_one_of_the_rhs_element]
+# Test "NOT LIKE SOME" with one of the elements in RHS wrapped in collation.
+SELECT
+  'GooGle' NOT LIKE SOME ('xxx%', collate('google', 'und:ci')),
+  'GooGle' NOT LIKE SOME (collate('%ooG%', 'und:ci'), 'GOOOOGLE'),
+  'GooGle' NOT LIKE SOME (collate('%G%', 'und:ci'), collate('GOOGLE', 'und:ci')),
+  'GooGle' NOT LIKE SOME ('%xxx%', collate('ZZZ', 'und:ci')),
+  collate('GooGle', '') NOT LIKE SOME ('%ooGs%', collate('x%go%x', 'und:ci')),
+--
+# Note: Collation will be applied to LHS and all elements in RHS.
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{false, false, false, true, true}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_with_collation_ci_with_ignorable_character]
+# Test "LIKE SOME" with an ignorable character in the pattern.
+# \u070F is an ignorable character
+SELECT
+  collate('defA\u070FbCdef', 'und:ci') LIKE SOME ('%abc%', '%xyz%'),
+  'defA\u070FbCdef' LIKE SOME (collate('%ABC%', 'und:ci'), '%xyz%'),
+  'defA\u070FbCdef' LIKE SOME (collate('x%ABC%x', 'und:ci'), '%xyz%'),
+--
+# Note: Collation will be applied to LHS and all elements in RHS.
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, false}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=not_like_some_with_collation_ci_with_ignorable_character]
+# Test "NOT LIKE SOME" with an ignorable character in the pattern.
+# \u070F is an ignorable character
+SELECT
+  collate('defA\u070FbCdef', 'und:ci') NOT LIKE SOME ('%abc%', '%xyz%'),
+  'defA\u070FbCdef' NOT LIKE SOME (collate('%ABC%', 'und:ci'), '%xyz%'),
+  'defA\u070FbCdef' NOT LIKE SOME (collate('x%ABC%x', 'und:ci'), '%xyz%'),
+--
+# Note: Collation will be applied to LHS and all elements in RHS.
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{false, false, true}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_with_column_collation_binary]
+# Test "LIKE SOME" with table column having binary collation.
+select primary_key, col_binary from StringTable WHERE col_binary LIKE SOME ('a')
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
+  {2, "a"},
+  {12, "a"},
+  {14, "a"},
+  {16, "a"},
+  {1, "a"},
+  {3, "a"},
+  {17, "a"}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[name=not_like_some_with_column_collation_binary]
+# Test "NOT LIKE SOME" with table column having binary collation.
+select primary_key, col_binary from StringTable WHERE col_binary NOT LIKE SOME ('a')
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
+  {4, "A"},
+  {6, "A"},
+  {8, "A"},
+  {10, "B"},
+  {5, "A"},
+  {7, "A"},
+  {9, "B"},
+  {11, "B"},
+  {13, "B"},
+  {15, "B"}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[name=like_some_string_constant_patterns_in_scalar_subquery]
+SELECT
+  Value,
+  Value LIKE SOME ((SELECT 'Value1')),
+  Value LIKE SOME ((SELECT 'Value1'), 'Value2'),
+  Value LIKE SOME ((SELECT 'Value1'), NULL),
+  Value LIKE SOME ((SELECT 'Value1'), (SELECT 'Value2')),
+  Value LIKE SOME ((SELECT 'Valu%1'), (SELECT 'V%lue1')),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL, NULL},
+  {"Value1", true, true, true, true, true},
+  {"Value2", false, true, NULL, true, false}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=like_some_string_constant_patterns_in_non_paranthesized_scalar_subquery]
+SELECT
+  Value,
+  Value LIKE SOME (SELECT 'Value1'),
+  Value LIKE SOME (SELECT Value FROM KeyValue WHERE Value in ('Value1')),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", true, true},
+  {"Value2", false, false}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_some_string_constant_patterns_in_subquery_as_array_element]
+SELECT
+  Value,
+  Value LIKE SOME UNNEST([(SELECT 'Value1'), 'Value2']),
+  Value LIKE SOME UNNEST([(SELECT 'Value1'), (SELECT 'Value2')]),
+  Value LIKE SOME UNNEST([(SELECT 'Value1'), NULL]),
+  Value LIKE SOME UNNEST([(SELECT 'Valu%1'), (SELECT 'V%lue1')]),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL},
+  {"Value1", true, true, true, true},
+  {"Value2", true, true, NULL, false}
+]

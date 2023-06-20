@@ -16,7 +16,6 @@
 
 #include "zetasql/compliance/test_database_catalog.h"
 
-#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -26,8 +25,18 @@
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/compliance/test_util.h"
+#include "zetasql/public/builtin_function.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/types/type_deserializer.h"
+#include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -45,8 +54,8 @@ absl::Status TestDatabaseCatalog::BuiltinFunctionCache::SetLanguageOptions(
     CacheEntry entry;
     // We have to call type_factory() while not holding mutex_.
     TypeFactory* type_factory = catalog->type_factory();
-    ZETASQL_RETURN_IF_ERROR(GetZetaSQLFunctionsAndTypes(
-        type_factory, options, &entry.functions, &entry.types));
+    ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionsAndTypes(options, *type_factory,
+                                                entry.functions, entry.types));
     cache_entry =
         &(builtins_cache_.emplace(options, std::move(entry)).first->second);
   }

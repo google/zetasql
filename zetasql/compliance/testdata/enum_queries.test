@@ -36,7 +36,7 @@ ARRAY<STRUCT<enum_value ENUM<zetasql_test__.TestEnum>>>[{NULL}]
 SELECT [CAST(1 AS `zetasql_test__.TestEnum`), NULL] enum_value
 --
 ARRAY<STRUCT<enum_value ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM1, NULL]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:TESTENUM1, NULL]}
 ]
 ==
 [name=enum_6]
@@ -112,7 +112,7 @@ SELECT enum_value FROM (
   SELECT CAST(0 AS `zetasql_test__.TestEnum`))
   ORDER BY enum_value
 --
-ARRAY<STRUCT<enum_value ENUM<zetasql_test__.TestEnum>>>[
+ARRAY<STRUCT<enum_value ENUM<zetasql_test__.TestEnum>>>[known order:
   {TESTENUMNEGATIVE},
   {TESTENUM0},
   {TESTENUM1},

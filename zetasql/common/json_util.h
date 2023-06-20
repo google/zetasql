@@ -23,9 +23,15 @@
 
 namespace zetasql {
 
-// Escape the contents of `raw` in JSON style, and return the result in
+// Escapes the contents of `raw` in JSON style, and appends the result to the
+// `output` string.  This also adds double quotes to the beginning and end of
+// the string. We can't use CEscape because it isn't entirely JSON compatible.
+void JsonEscapeAndAppendString(absl::string_view raw, std::string* output);
+
+// Escapes the contents of `raw` in JSON style, and returns the result in
 // `value_string`.  This also adds double quotes to the beginning and end of
 // the string. We can't use CEscape because it isn't entirely JSON compatible.
+// Overwrites the contents of the `value_string`.
 void JsonEscapeString(absl::string_view raw, std::string* value_string);
 
 // Returns true iff JsonEscapeString(...) would have found any characters that

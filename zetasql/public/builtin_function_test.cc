@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "zetasql/base/enum_utils.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/language_options.h"
@@ -34,13 +33,18 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
+using testing::Eq;
+using testing::Gt;
+using testing::IsEmpty;
 using testing::IsNull;
+using testing::IsSupersetOf;
+using testing::Not;
 using testing::NotNull;
 
 using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
@@ -935,6 +939,75 @@ TEST(SimpleFunctionTests, TestRewriteEnabled) {
   for (const FunctionSignature& signature : (*function)->signatures()) {
     EXPECT_FALSE(signature.options().rewrite_options()->enabled());
   }
+}
+
+TEST(SimpleFunctionTests, TestAllReleasedFunctions) {
+  auto options_all = BuiltinFunctionOptions::AllReleasedFunctions();
+  TypeFactory type_factory;
+  absl::flat_hash_map<std::string, const Type*> all_types;
+  absl::flat_hash_map<std::string, std::unique_ptr<Function>> all_functions;
+  ZETASQL_ASSERT_OK(GetBuiltinFunctionsAndTypes(options_all, type_factory,
+                                        all_functions, all_types));
+
+  absl::flat_hash_map<std::string, const Type*> min_types;
+  absl::flat_hash_map<std::string, std::unique_ptr<Function>> min_functions;
+  ZETASQL_ASSERT_OK(
+      GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(LanguageOptions()),
+                                  type_factory, min_functions, min_types));
+
+  EXPECT_THAT(all_functions.size(), Gt(min_functions.size()));
+  absl::flat_hash_set<absl::string_view> all_function_names;
+  for (const auto& [name, function] : all_functions) {
+    all_function_names.insert(name);
+  }
+  absl::flat_hash_set<absl::string_view> min_function_names;
+  for (const auto& [name, function] : min_functions) {
+    min_function_names.insert(name);
+  }
+  EXPECT_THAT(all_function_names, IsSupersetOf(min_function_names));
+  EXPECT_THAT(min_function_names, Not(IsSupersetOf(all_function_names)));
+}
+
+TEST(SimpleFunctionTests, TestReturningAPI) {
+  auto options = BuiltinFunctionOptions::AllReleasedFunctions();
+  TypeFactory type_factory;
+  absl::flat_hash_map<std::string, const Type*> types;
+  absl::flat_hash_map<std::string, std::unique_ptr<Function>> functions;
+  ZETASQL_ASSERT_OK(
+      GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
+  EXPECT_THAT(functions, Not(IsEmpty()));
+
+  types.clear();
+  functions.clear();
+  options.language_options.EnableLanguageFeature(
+      FEATURE_ROUND_WITH_ROUNDING_MODE);
+  ZETASQL_ASSERT_OK(
+      GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
+  EXPECT_THAT(types, Not(IsEmpty()));
+  EXPECT_THAT(functions, Not(IsEmpty()));
+}
+
+TEST(SimpleFunctionTests, TestGetAllAPI) {
+  auto [functions1, types1] = GetBuiltinFunctionsAndTypesForDefaultOptions();
+  EXPECT_THAT(functions1.size(), Gt(0));
+  // This will need changed when one of the language features that controls a
+  // built-in enum is moved out of 'in_development'.
+  EXPECT_THAT(types1.size(), Gt(0));
+  for (const auto& [name, function] : functions1) {
+    EXPECT_NE(function, nullptr);
+    // Call any API to let sanitizers detect an improperly initialized object.
+    EXPECT_FALSE(function->Name().empty());
+  }
+  for (const auto& [name, type] : types1) {
+    EXPECT_NE(type, nullptr);
+    // Call any API to let sanitizers detect an improperly initialized object.
+    EXPECT_FALSE(type->TypeName(PRODUCT_INTERNAL).empty());
+  }
+
+  auto [functions2, types2] = GetBuiltinFunctionsAndTypesForDefaultOptions();
+  // Multiple calls should return the same pointers.
+  EXPECT_THAT(functions1, Eq(functions2));
+  EXPECT_THAT(types1, Eq(types2));
 }
 
 }  // namespace zetasql

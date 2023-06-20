@@ -205,12 +205,34 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
     return ConsumeTopOfStack<ResolvedNodeType>();
   }
 
+  // Creates a deep copy of `node`.
+  //
+  // This differs from ProcessNode in that it does _not_ perform
+  // any calls to VisitX function.
   template <typename ResolvedNodeType>
   static absl::StatusOr<std::unique_ptr<ResolvedNodeType>> Copy(
       const ResolvedNodeType* node) {
     ResolvedASTDeepCopyVisitor visitor;
     ZETASQL_RETURN_IF_ERROR(node->Accept(&visitor));
     return visitor.ConsumeRootNode<ResolvedNodeType>();
+  }
+
+  // Creates a deep copy of a vector of nodes.
+  //
+  // This differs from ProcessNodeList in that it does _not_ perform
+  // any calls to VisitX function.
+  template <class ResolvedNodeType>
+  static absl::StatusOr<std::vector<std::unique_ptr<ResolvedNodeType>>>
+  CopyNodeList(
+      const std::vector<std::unique_ptr<const ResolvedNodeType>>& nodes) {
+    std::vector<std::unique_ptr<ResolvedNodeType>> copies;
+    copies.reserve(nodes.size());
+    for (const auto& node : nodes) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedNodeType> copy,
+                       ResolvedASTDeepCopyVisitor::Copy(node.get()));
+      copies.emplace_back(std::move(copy));
+    }
+    return copies;
   }
 
  protected:
@@ -272,6 +294,9 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   }
 
   // Calls Visit on the node, pops the result off of the stack, and returns it.
+  //
+  // Note: If a simple deep copy is desired, use
+  // ResolvedASTDeepCopyVisitor::Copy.
   template <typename ResolvedNodeType>
   absl::StatusOr<std::unique_ptr<ResolvedNodeType>> ProcessNode(
       const ResolvedNodeType* node) {
@@ -285,6 +310,9 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
 
   // Calls ProcessNode for all nodes of a vector, and returns a new vector of the
   // processed nodes.
+  //
+  // Note: If a simple deep copy is desired, use
+  // ResolvedASTDeepCopyVisitor::CopyNodeList.
   template <typename ResolvedNodeType>
   absl::StatusOr<std::vector<std::unique_ptr<ResolvedNodeType>>>
   ProcessNodeList(

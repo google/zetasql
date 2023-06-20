@@ -905,8 +905,10 @@ class DMLValueExprEvalTest : public EvalTest {
  public:
   DMLValueExprEvalTest() {
     ZETASQL_CHECK_OK(table_.SetPrimaryKey({0}));
-    GetZetaSQLFunctions(type_factory(), ZetaSQLBuiltinFunctionOptions{},
-                          &functions_);
+    absl::flat_hash_map<std::string, const Type*> types_ignored;
+    ZETASQL_CHECK_OK(GetBuiltinFunctionsAndTypes(
+        BuiltinFunctionOptions::AllReleasedFunctions(), *type_factory(),
+        functions_, types_ignored));
   }
 
   const Table* table() { return &table_; }
@@ -918,7 +920,7 @@ class DMLValueExprEvalTest : public EvalTest {
  private:
   SimpleTable table_{"test_table",
                      {{"int_val", Int64Type()}, {"str_val", StringType()}}};
-  std::map<std::string, std::unique_ptr<Function>> functions_;
+  absl::flat_hash_map<std::string, std::unique_ptr<Function>> functions_;
 };
 
 TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {

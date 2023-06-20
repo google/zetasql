@@ -34,7 +34,7 @@ FROM (SELECT ARRAY<INT64>[1, NULL, 2] arr UNION ALL
       SELECT ARRAY<INT64>[] UNION ALL
       SELECT NULL)
 --
-ARRAY<STRUCT<INT64>>[{2}, {1}, {NULL}, {3}, {1}, {0}]
+ARRAY<STRUCT<INT64>>[unknown order:{2}, {1}, {NULL}, {3}, {1}, {0}]
 ==
 [name=array_length_many_2]
 SELECT ARRAY_LENGTH(ARRAY(SELECT 1
@@ -107,7 +107,7 @@ SELECT arr[OFFSET(pos)]
 FROM (SELECT ARRAY(SELECT "foo" UNION ALL SELECT "bar") arr),
      (SELECT 0 pos UNION ALL SELECT 1)
 --
-ARRAY<STRUCT<STRING>>[{"foo"}, {"bar"}]
+ARRAY<STRUCT<STRING>>[unknown order:{"foo"}, {"bar"}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -122,7 +122,7 @@ ERROR: generic::out_of_range: Array index 2 is out of bounds
 SELECT arr[OFFSET(pos)]
 FROM (SELECT [1,2,3] arr UNION ALL SELECT NULL), (SELECT NULL pos)
 --
-ARRAY<STRUCT<INT64>>[{NULL}, {NULL}]
+ARRAY<STRUCT<INT64>>[unknown order:{NULL}, {NULL}]
 ==
 [name=at_offset_negative_offset_null_array_fails]
 SELECT arr[OFFSET(pos)]
@@ -136,13 +136,13 @@ SELECT arr[OFFSET(pos)]
 FROM (SELECT [1,2,3] arr UNION ALL SELECT NULL),
      (SELECT 0 pos UNION ALL SELECT 1 UNION ALL SELECT 2)
 --
-ARRAY<STRUCT<INT64>>[{NULL}, {2}, {3}, {NULL}, {NULL}, {1}]
+ARRAY<STRUCT<INT64>>[unknown order:{NULL}, {2}, {3}, {NULL}, {NULL}, {1}]
 ==
 [name=array_at_offset_null_position_and_array_return_null]
 SELECT arr[OFFSET(pos)]
 FROM (SELECT [1,2,3] arr UNION ALL SELECT NULL), (SELECT NULL pos)
 --
-ARRAY<STRUCT<INT64>>[{NULL}, {NULL}]
+ARRAY<STRUCT<INT64>>[unknown order:{NULL}, {NULL}]
 ==
 [name=array_at_offset_negative_offset_null_array_fails]
 SELECT arr[offset(pos)]
@@ -156,7 +156,7 @@ SELECT arr[offset(pos)]
 FROM (SELECT [1,2,3] arr UNION ALL SELECT NULL),
      (SELECT 0 pos UNION ALL SELECT 1 UNION ALL SELECT 2)
 --
-ARRAY<STRUCT<INT64>>[{NULL}, {2}, {3}, {NULL}, {NULL}, {1}]
+ARRAY<STRUCT<INT64>>[unknown order:{NULL}, {2}, {3}, {NULL}, {NULL}, {1}]
 ==
 [name=array_param_offset_from_param]
 [parameters=[10, 11, 12] as arr, 0 as off]
@@ -309,109 +309,109 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 [name=array_concat_int32]
 SELECT ARRAY_CONCAT(ARRAY<INT32>[1], ARRAY<INT32>[2])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT32>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT32>[known order:1, 2]}]
 ==
 [name=array_concat_operator_int32]
 SELECT ARRAY<INT32>[1] || ARRAY<INT32>[2]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT32>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT32>[known order:1, 2]}]
 ==
 [name=array_concat_uint32]
 SELECT ARRAY_CONCAT(ARRAY<UINT32>[1], ARRAY<UINT32>[2])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT32>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT32>[known order:1, 2]}]
 ==
 [name=array_concat_operator_uint32]
 SELECT ARRAY<UINT32>[1] || ARRAY<UINT32>[2]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT32>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT32>[known order:1, 2]}]
 ==
 [name=array_concat_int64]
 SELECT ARRAY_CONCAT(ARRAY<INT64>[1], ARRAY<INT64>[2])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2]}]
 ==
 [name=array_concat_operator_int64]
 SELECT ARRAY<INT64>[1] || ARRAY<INT64>[2]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2]}]
 ==
 [name=array_concat_uint64]
 SELECT ARRAY_CONCAT(ARRAY<UINT64>[1], ARRAY<UINT64>[2])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT64>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT64>[known order:1, 2]}]
 ==
 [name=array_concat_operator_uint64]
 SELECT ARRAY<UINT64>[1] || ARRAY<UINT64>[2]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT64>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT64>[known order:1, 2]}]
 ==
 [name=array_concat_float]
 SELECT ARRAY_CONCAT(ARRAY<FLOAT>[1.1], ARRAY<FLOAT>[2.2])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<FLOAT>[1.1, 2.2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<FLOAT>[known order:1.1, 2.2]}]
 ==
 [name=array_concat_operator_float]
 SELECT ARRAY<FLOAT>[1.1] || ARRAY<FLOAT>[2.2]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<FLOAT>[1.1, 2.2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<FLOAT>[known order:1.1, 2.2]}]
 ==
 [name=array_concat_double]
 SELECT ARRAY_CONCAT(ARRAY<DOUBLE>[1.1], ARRAY<DOUBLE>[2.2])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DOUBLE>[1.1, 2.2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DOUBLE>[known order:1.1, 2.2]}]
 ==
 [name=array_concat_operator_double]
 SELECT ARRAY<DOUBLE>[1.1] || ARRAY<DOUBLE>[2.2]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DOUBLE>[1.1, 2.2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DOUBLE>[known order:1.1, 2.2]}]
 ==
 [name=array_concat_bool]
 SELECT ARRAY_CONCAT(ARRAY<BOOL>[true], ARRAY<BOOL>[false])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[true, false]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[known order:true, false]}]
 ==
 [name=array_concat_operator_bool]
 SELECT ARRAY<BOOL>[true] || ARRAY<BOOL>[false]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[true, false]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[known order:true, false]}]
 ==
 [name=array_concat_string]
 SELECT ARRAY_CONCAT(ARRAY<STRING>["a"], ARRAY<STRING>["b"])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["a", "b"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"a", "b"]}]
 ==
 [name=array_concat_operator_string]
 SELECT ARRAY<STRING>["a"] || ARRAY<STRING>["b"]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["a", "b"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"a", "b"]}]
 ==
 [name=array_concat_bytes]
 SELECT ARRAY_CONCAT(ARRAY<BYTES>[b"f1"], ARRAY<BYTES>[b"f2"])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BYTES>[b"f1", b"f2"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BYTES>[known order:b"f1", b"f2"]}]
 ==
 [name=array_concat_operator_bytes]
 SELECT ARRAY<BYTES>[b"f1"] || ARRAY<BYTES>[b"f2"]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BYTES>[b"f1", b"f2"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BYTES>[known order:b"f1", b"f2"]}]
 ==
 [name=array_concat_date]
 SELECT ARRAY_CONCAT(ARRAY<DATE>["2000-01-01"], ARRAY<DATE>["2015-12-30"])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DATE>[2000-01-01, 2015-12-30]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DATE>[known order:2000-01-01, 2015-12-30]}]
 ==
 [name=array_concat_operator_date]
 SELECT ARRAY<DATE>["2000-01-01"] || ARRAY<DATE>["2015-12-30"]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DATE>[2000-01-01, 2015-12-30]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DATE>[known order:2000-01-01, 2015-12-30]}]
 ==
 [name=array_concat_timestamp]
 SELECT ARRAY_CONCAT(ARRAY<TIMESTAMP>["2013-02-01 12:34:56.789012"],
                     ARRAY<TIMESTAMP>["2014-09-11 01:01:01.001001 UTC"])
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<TIMESTAMP>[
+  {ARRAY<TIMESTAMP>[known order:
      2013-02-01 20:34:56.789012+00,
      2014-09-11 01:01:01.001001+00
    ]}
@@ -422,7 +422,7 @@ SELECT ARRAY<TIMESTAMP>["2013-02-01 12:34:56.789012"] ||
        ARRAY<TIMESTAMP>["2014-09-11 01:01:01.001001 UTC"]
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<TIMESTAMP>[
+  {ARRAY<TIMESTAMP>[known order:
      2013-02-01 20:34:56.789012+00,
      2014-09-11 01:01:01.001001+00
    ]}
@@ -433,7 +433,7 @@ SELECT ARRAY_CONCAT(ARRAY<zetasql_test__.TestEnum>["TESTENUM0"],
        ARRAY<zetasql_test__.TestEnum>["TESTENUM1"]);
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:TESTENUM0, TESTENUM1]}
 ]
 ==
 [name=array_concat_operator_enum]
@@ -441,18 +441,18 @@ SELECT ARRAY<zetasql_test__.TestEnum>["TESTENUM0"] ||
        ARRAY<zetasql_test__.TestEnum>["TESTENUM1"];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:TESTENUM0, TESTENUM1]}
 ]
 ==
 [name=array_concat_struct]
 SELECT ARRAY_CONCAT(ARRAY[STRUCT(1 as i)], ARRAY[STRUCT(2 as i)])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<i INT64>>[{1}, {2}]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<i INT64>>[known order:{1}, {2}]}]
 ==
 [name=array_concat_operator_struct]
 SELECT ARRAY[STRUCT(1 as i)] || ARRAY[STRUCT(2 as i)]
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<i INT64>>[{1}, {2}]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<i INT64>>[known order:{1}, {2}]}]
 ==
 [name=array_concat_proto]
 SELECT ARRAY_CONCAT(ARRAY<`zetasql_test__.KitchenSinkPB`>[
@@ -466,7 +466,7 @@ SELECT ARRAY_CONCAT(ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''])
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -492,7 +492,7 @@ SELECT ARRAY<`zetasql_test__.KitchenSinkPB`>[
   ''']
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -512,9 +512,9 @@ SELECT
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<INT64>[1, 2, 3, 4, 5],
-    ARRAY<UINT64>[6, 7, 8, 9, 10],
-    ARRAY<DOUBLE>[1.59, 2.59]
+    ARRAY<INT64>[known order:1, 2, 3, 4, 5],
+    ARRAY<UINT64>[known order:6, 7, 8, 9, 10],
+    ARRAY<DOUBLE>[known order:1.59, 2.59]
   }
 ]
 
@@ -539,15 +539,17 @@ ERROR: generic::out_of_range: Sequence step cannot be 0.
 SELECT GENERATE_DATE_ARRAY('2016-09-28', '2016-10-06')
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<DATE>[2016-09-28,
-               2016-09-29,
-               2016-09-30,
-               2016-10-01,
-               2016-10-02,
-               2016-10-03,
-               2016-10-04,
-               2016-10-05,
-               2016-10-06]}
+  {ARRAY<DATE>[known order:
+     2016-09-28,
+     2016-09-29,
+     2016-09-30,
+     2016-10-01,
+     2016-10-02,
+     2016-10-03,
+     2016-10-04,
+     2016-10-05,
+     2016-10-06
+   ]}
 ]
 
 ==
@@ -574,10 +576,16 @@ FROM UNNEST(ARRAY<STRUCT<start_day DATE, end_day DATE, days_step INT64>>
              ('2020-03-31', '2020-03-31', 1)]) as elem WITH OFFSET
 ORDER BY offset
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<DATE>[2020-03-01, 2020-03-05, 2020-03-09]},
-  {ARRAY<DATE>[2020-03-11, 2020-03-14, 2020-03-17, 2020-03-20]},
-  {ARRAY<DATE>[2020-03-21, 2020-03-23, 2020-03-25, 2020-03-27, 2020-03-29]},
+ARRAY<STRUCT<ARRAY<>>>[known order:
+  {ARRAY<DATE>[known order:2020-03-01, 2020-03-05, 2020-03-09]},
+  {ARRAY<DATE>[known order:2020-03-11, 2020-03-14, 2020-03-17, 2020-03-20]},
+  {ARRAY<DATE>[known order:
+     2020-03-21,
+     2020-03-23,
+     2020-03-25,
+     2020-03-27,
+     2020-03-29
+   ]},
   {ARRAY<DATE>[2020-03-31]}
 ]
 ==
@@ -656,7 +664,7 @@ ARRAY<STRUCT<BOOL>>[{false}]
 SELECT ARRAY_CONCAT([BIGNUMERIC '1', BIGNUMERIC '1e38'], [BIGNUMERIC '-0.00001'])
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<BIGNUMERIC>[
+  {ARRAY<BIGNUMERIC>[known order:
      1,
      100000000000000000000000000000000000000,
      -0.00001
@@ -740,8 +748,14 @@ FROM (
 ) interval_arrays
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<INTERVAL>[
+  {ARRAY<INTERVAL>[unknown order:
      675-8 -224302 -58850294:15:14.439522,
      8630-9 3512412 62113018:54:19.721996
    ]}
 ]
+==
+
+[name=regression_repro_b287339825]
+SELECT ARRAY_SLICE([1, 2], -8869911617074265235, -4)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[]}]

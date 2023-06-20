@@ -39,7 +39,18 @@ ARRAY<STRUCT<row_id INT64,
 SELECT ROW_NUMBER() OVER ()
 FROM TestTable
 --
-ARRAY<STRUCT<INT64>>[{1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}]
+ARRAY<STRUCT<INT64>>[unknown order:
+  {1},
+  {2},
+  {3},
+  {4},
+  {5},
+  {6},
+  {7},
+  {8},
+  {9},
+  {10}
+]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -49,7 +60,7 @@ SELECT bool_val, row_id, ROW_NUMBER() OVER (PARTITION BY bool_val
                                             ORDER BY row_id, int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64>>[unknown order:
   {NULL, 1, 1},
   {false, 3, 1},
   {false, 5, 2},
@@ -78,7 +89,7 @@ SELECT row_id, ROW_NUMBER() OVER (ROWS 2 PRECEDING) FROM TestTable
 SELECT int64_val, ROW_NUMBER() OVER (ORDER BY int64_val DESC NULLS LAST)
 FROM TestTable t
 --
-ARRAY<STRUCT<int64_val INT64, INT64>>[
+ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
   {2, 1},
   {2, 2},
   {2, 3},
@@ -99,7 +110,7 @@ NOTE: Reference implementation reports non-determinism.
 SELECT int64_val, ROW_NUMBER() OVER (ORDER BY int64_val DESC NULLS FIRST)
 FROM TestTable t
 --
-ARRAY<STRUCT<int64_val INT64, INT64>>[
+ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
   {NULL, 1},
   {NULL, 2},
   {2, 3},

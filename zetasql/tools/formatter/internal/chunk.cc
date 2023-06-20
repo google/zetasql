@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <map>
 #include <memory>
 #include <ostream>
 #include <queue>
@@ -56,6 +55,7 @@
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql::formatter::internal {
+namespace {
 
 // Limits the size of the lhs operand that can be followed with the operator on
 // the same line even if the line gets too big. The number is arbitrary and can
@@ -244,17 +244,19 @@ bool IsArgumentNameInlineComment(const Token& comment) {
   return comment_string.size() > 3 && comment_string.back() == '=';
 }
 
-// Helper function that returns position of the matching closing parenthesis for
-// an opening parenthesis at `index`. Returns tokens.size() if no matching
-// parentheses found.
-int FindMatchingClosingParenthesis(const std::vector<Token*>& tokens,
-                                   int index) {
-  int parens_count = 1;
+// Helper function that returns position of the matching closing bracket for
+// the opening bracket at `index`. Returns tokens.size() if no matching
+// parentheses found. Works for (), [] and {}.
+int FindMatchingClosingBracket(const std::vector<Token*>& tokens, int index) {
+  const absl::string_view open_bracket = tokens[index]->GetKeyword();
+  const absl::string_view close_bracket =
+      CorrespondingCloseBracket(open_bracket);
+  int bracket_count = 1;
   for (int t = index + 1; t < tokens.size(); ++t) {
-    if (IsOpenParenOrBracket(tokens[t]->GetKeyword())) {
-      ++parens_count;
-    } else if (IsCloseParenOrBracket(tokens[t]->GetKeyword())) {
-      if (--parens_count == 0) {
+    if (tokens[t]->GetKeyword() == open_bracket) {
+      ++bracket_count;
+    } else if (tokens[t]->GetKeyword() == close_bracket) {
+      if (--bracket_count == 0) {
         return t;
       }
     }
@@ -270,6 +272,18 @@ absl::StatusOr<std::pair<int, int>> TranslateLocation(
   return location_translator.GetLineAndColumnAfterTabExpansion(
       token.GetLocationRange().start());
 }
+
+// Returns true if the token `t` starts a braced map constructor.
+bool MaybeAnOpenBraceForMapConstructor(const std::vector<Token*>& tokens,
+                                       int t) {
+  return tokens[t]->GetKeyword() == "{" &&
+         // Skip various templates like ${param} or %{template}.
+         (t == 0 || (tokens[t - 1]->GetImage() != "$" &&
+                     tokens[t - 1]->GetKeyword() != "%" &&
+                     tokens[t - 1]->GetKeyword() != "@"));
+}
+
+}  // namespace
 
 absl::StatusOr<Chunk> Chunk::CreateEmptyChunk(
     const bool starts_with_space, const int position_in_query,
@@ -319,17 +333,30 @@ bool Chunk::SpaceBetweenTokens(const Token& token_before,
       token_after.Is(Token::Type::TABLE_NAME_IN_DEFINE_STMT)) {
     return false;
   }
-  if (token_before.Is(Token::Type::BRACED_CONSTR_COLON)) {
+  // Map constructor:
+  // Always have space after ':' and before and after '{'
+  // e.g.: "field1: { a: 1 }"
+  if (token_before.Is(Token::Type::BRACED_CONSTR_COLON) ||
+      (token_before.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+       token_before.GetKeyword() == "{") ||
+      (token_after.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+       token_after.GetKeyword() == "{")) {
     return true;
-  }
-  if (token_after.Is(Token::Type::STARTS_BRACED_CONSTR)) {
-    return false;
+    // Always have space before '}'. After '}' leave space only when next token
+    // is also a bracket.
+    // e.g.: "repeated: [ { a: 1 }, { a: 2 } ]"
+  } else if (token_after.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+             token_after.GetKeyword() == "}") {
+    return true;
+  } else if (token_before.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+             token_before.GetKeyword() == "}") {
+    return IsCloseParenOrBracket(token_after.GetKeyword());
   }
 
   static const auto* kRequireSpaceBeforeParenthesis =
       new zetasql_base::flat_set<absl::string_view>({"AS", "ASSERT", "DISTINCT",
                                             "INTERVAL", "NOT", "OPTIONS", "ON",
-                                            "OVER", "USING", ",", "=>"});
+                                            "OVER", "USING", ",", "=>", "->"});
   if (token_after.GetKeyword() == "(") {
     if (token_before.GetKeyword() == "UNNEST" ||
         token_before.GetKeyword() == "WITH") {
@@ -658,7 +685,7 @@ bool Chunk::IsTypeDeclarationEnd() const {
 
 bool Chunk::CanBePartOfExpression() const {
   return !Empty() && LastKeyword() != "," &&
-         !LastToken().Is(Token::Type::BRACED_CONSTR_COLON) &&
+         !FirstToken().Is(Token::Type::BRACED_CONSTR_FIELD) &&
          zetasql::formatter::internal::CanBePartOfExpression(FirstToken());
 }
 
@@ -904,22 +931,7 @@ bool TokenIsOperatorThatCanBeFusedWithLeftOperand(
     return false;
   }
 
-  const absl::string_view open_bracket = tokens[next_index]->GetKeyword();
-  const absl::string_view close_bracket =
-      CorrespondingCloseBracket(open_bracket);
-
-  // Search for the token right after the parentheses and make sure it is not
-  // expression continuation.
-  int paren_count = 1;
-  while (FindNextNonCommentToken(tokens, &next_index)) {
-    if (tokens[next_index]->GetKeyword() == open_bracket) {
-      ++paren_count;
-    } else if (tokens[next_index]->GetKeyword() == close_bracket) {
-      if (--paren_count == 0) {
-        break;
-      }
-    }
-  }
+  next_index = FindMatchingClosingBracket(tokens, next_index);
 
   if (!FindNextNonCommentToken(tokens, &next_index)) {
     return true;
@@ -1020,11 +1032,12 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
   // In proto constructors colon acts similar to the assignment operator:
   // field_name: value
   if (previous_token->Is(Token::Type::BRACED_CONSTR_COLON)) {
-    return false;
+    return current_token->Is(Token::Type::BRACED_CONSTR_BRACKET);
   } else if (current_token->Is(Token::Type::BRACED_CONSTR_COLON)) {
     return true;
   }
-  // Otherwise, colons normally appear inside identifiers.
+  // Otherwise, colons may be inside identifiers (not part of ZetaSQL
+  // standard).
   if (previous_token->GetKeyword() == ":") {
     return true;
   }
@@ -1122,11 +1135,8 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
   if (current == "}") {
     return false;
   }
-  if (current == "{" && current_token->Is(Token::Type::UNKNOWN) &&
-      chunk.FirstKeyword() == "NEW") {
-    // Fuse { with previous token if it is a braced proto constructor.
-    current_token->SetType(Token::Type::STARTS_BRACED_CONSTR);
-    return true;
+  if (current == "{") {
+    return CanBeFusedWithOpenParenOrBracket(chunk);
   }
 
   // * is tricky. It's the multiplication operator, but it can also be part of
@@ -1158,7 +1168,7 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
       // like "STRUCT<ARRAY<INT64>>".
       return current == ">";
     }
-    // Arythmetic expression like "> 1".
+    // Arithmetic expression like "> 1".
     return true;
   }
   if (previous == "<") {
@@ -1284,8 +1294,7 @@ void MarkAllTopLevelWithKeywords(const TokensView& tokens_view) {
       } else if (tokens[t]->IsMacroCall() && t + 1 < tokens.size()) {
         // Allow a query to start with a macro call.
         if (IsOpenParenOrBracket(tokens[t + 1]->GetKeyword())) {
-          const int after_macro =
-              FindMatchingClosingParenthesis(tokens, t + 1) + 1;
+          const int after_macro = FindMatchingClosingBracket(tokens, t + 1) + 1;
           if (after_macro < tokens.size() &&
               tokens[after_macro]->GetKeyword() == "WITH") {
             tokens[after_macro]->SetType(Token::Type::TOP_LEVEL_KEYWORD);
@@ -1382,7 +1391,7 @@ void MarkAllSelectStarModifiers(const TokensView& tokens_view) {
 
       // Jump to the corresponding close parenthesis and see if we have another
       // {"<EXCEPT or REPLACE>", "("} (there can be at most two).
-      t = 1 + FindMatchingClosingParenthesis(tokens, t + 1);
+      t = 1 + FindMatchingClosingBracket(tokens, t + 1);
       if (t + 1 < tokens.size() &&
           (tokens[t]->GetKeyword() == "EXCEPT" ||
            tokens[t]->GetKeyword() == "REPLACE") &&
@@ -1735,7 +1744,7 @@ bool MacroCallMayBeATopLevelClause(
   // Find the end of macro arguments.
   if (macro_call + 1 < tokens.size() &&
       tokens[macro_call + 1]->GetKeyword() == "(") {
-    macro_end = FindMatchingClosingParenthesis(tokens, macro_call + 1);
+    macro_end = FindMatchingClosingBracket(tokens, macro_call + 1);
   }
 
   if (macro_end < tokens.size() &&
@@ -1815,7 +1824,7 @@ void MarkAllStatementStarts(
   for (++t; t < tokens.size(); ++t) {
     // Skip expressions in parentheses.
     if (IsOpenParenOrBracket(tokens[t]->GetKeyword())) {
-      t = FindMatchingClosingParenthesis(tokens, t);
+      t = FindMatchingClosingBracket(tokens, t);
       continue;
     }
     // Check only tokens that start a new line.
@@ -1843,7 +1852,7 @@ void MarkAllMacroCallsThatShouldBeFused(const TokensView& tokens_view) {
     if (tokens[t]->IsMacroCall() && tokens[t + 1]->GetKeyword() == "(" &&
         tokens[t + 2]->GetKeyword() != ")") {
       const int first_param = t + 2;
-      const int call_end = FindMatchingClosingParenthesis(tokens, t + 1);
+      const int call_end = FindMatchingClosingBracket(tokens, t + 1);
       // Check if the macro call contains spaces between arguments.
       bool space_found = false;
       for (int i = first_param + 1; i < call_end; ++i) {
@@ -1887,7 +1896,7 @@ void MarkAllMacroBodiesThatShouldBeFused(const TokensView& tokens_view) {
   int macro_body_start = 3;
   int macro_body_end = static_cast<int>(tokens.size());
   if (IsOpenParenOrBracket(tokens[macro_body_start]->GetKeyword())) {
-    macro_body_end = FindMatchingClosingParenthesis(tokens, macro_body_start);
+    macro_body_end = FindMatchingClosingBracket(tokens, macro_body_start);
     ++macro_body_start;
   }
 
@@ -1936,7 +1945,7 @@ void MarkNonSqlTokensThatArePartOfComplexToken(const TokensView& tokens_view) {
         tokens[next_token]->SetType(Token::Type::COMPLEX_TOKEN_CONTINUATION);
         size_t end_of_param =
             std::min(static_cast<int>(tokens.size()) - 1,
-                     FindMatchingClosingParenthesis(tokens, next_token));
+                     FindMatchingClosingBracket(tokens, next_token));
         // Check if there are any spaces between curly braces {}. If no - fuse
         // all tokens inside.
         bool no_spaces = true;
@@ -1955,7 +1964,7 @@ void MarkNonSqlTokensThatArePartOfComplexToken(const TokensView& tokens_view) {
       } else if (tokens[t]->IsMacroCall() &&
                  tokens[next_token]->GetKeyword() == "(") {
         // "$FOO(args)" - find the token after ')'.
-        next_token = FindMatchingClosingParenthesis(tokens, next_token) + 1;
+        next_token = FindMatchingClosingBracket(tokens, next_token) + 1;
       }
       if (next_token >= tokens.size()) {
         continue;
@@ -2198,22 +2207,84 @@ void MarkAllSlashedIdentifiers(const TokensView& tokens_view) {
   }
 }
 
-// Marks all colons inside braced constructors - these act similar to assignment
-// operators.
-void MarkAllColonsInBracedConstructors(const TokensView& tokens_view) {
+// Marks all colons and field names inside braced constructors.
+void MarkTokensInBracedConstructors(const TokensView& tokens_view) {
   const std::vector<Token*>& tokens = tokens_view.WithoutComments();
-
   for (int t = 0; t < tokens.size(); ++t) {
-    if (tokens[t]->GetKeyword() == "{" &&
-        // Skip various templates like ${param} or %{template}.
-        (t == 0 || (tokens[t - 1]->GetKeyword() != "$" &&
-                    tokens[t - 1]->GetKeyword() != "%)"))) {
-      int end = FindMatchingClosingParenthesis(tokens, t);
-      while (++t < end) {
-        if (tokens[t]->GetKeyword() == ":" &&
-            tokens[t]->Is(Token::Type::UNKNOWN)) {
-          tokens[t]->SetType(Token::Type::BRACED_CONSTR_COLON);
+    if (!MaybeAnOpenBraceForMapConstructor(tokens, t)) {
+      continue;
+    }
+    // Found braced constructor start.
+    tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+    const int end = FindMatchingClosingBracket(tokens, t);
+    if (end < tokens.size()) {
+      tokens[end]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+    }
+    while (++t < end) {
+      bool found_field_name = false;
+      if (tokens[t]->GetKeyword() == "{") {
+        if (MaybeAnOpenBraceForMapConstructor(tokens, t)) {
+          tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+          if (tokens[t - 1]->GetKeyword() != ":" &&
+              !IsOpenParenOrBracket(tokens[t - 1]->GetKeyword())) {
+            found_field_name = true;
+          }
+        } else {
+          // { starts some template rather than braced constructor. Skip it.
+          t = FindMatchingClosingBracket(tokens, t);
+          continue;
         }
+      } else if (tokens[t]->GetKeyword() == ":") {
+        tokens[t]->SetType(Token::Type::BRACED_CONSTR_COLON);
+        found_field_name = true;
+      } else if (tokens[t]->GetKeyword() == "}" &&
+                 tokens[t]->Is(Token::Type::UNKNOWN)) {
+        tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+        // [] and () in map constructors behave similarly to {} if they
+        // surround the entire value and are not part of bigger expression.
+      } else if ((tokens[t]->GetKeyword() == "[" ||
+                  tokens[t]->GetKeyword() == "(") &&
+                 tokens[t - 1]->GetKeyword() == ":") {
+        // Check if the brackets are not followed by another SQL expression,
+        // e.g.: "foo: (1 + 2) * 3". In this case, brackets are formatted
+        // according to SQL rules.
+        const int closing_bracket = FindMatchingClosingBracket(tokens, t);
+        if (closing_bracket < tokens.size()) {
+          const int next_token = closing_bracket + 1;
+          if (next_token < tokens.size() &&
+              (tokens[next_token]->GetKeyword() == "(" ||
+               tokens[next_token]->GetKeyword() == "," ||
+               tokens[next_token]->GetKeyword() == "}" ||
+               tokens[next_token]->MayBeStartOfIdentifier())) {
+            tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+            tokens[closing_bracket]->SetType(
+                Token::Type::BRACED_CONSTR_BRACKET);
+          }
+        }
+      }
+      if (found_field_name) {
+        int name_start = t - 1;
+        // The field name might be a proto extension in parentheses,
+        // mark it as a single identifier to avoid splitting it.
+        if (tokens[name_start]->GetKeyword() == ")" && name_start > 1) {
+          while (name_start > 0 && tokens[name_start]->GetKeyword() != "(" &&
+                 tokens[name_start]->GetKeyword() != "," &&
+                 tokens[name_start]->GetKeyword() != "{") {
+            --name_start;
+          }
+          if (tokens[name_start]->GetKeyword() == "(") {
+            for (int i = name_start + 1; i < t - 1; ++i) {
+              tokens[i]->SetType(Token::Type::COMPLEX_TOKEN_CONTINUATION);
+            }
+          }
+        } else {
+          while (
+              name_start > 0 &&
+              tokens[name_start]->Is(Token::Type::COMPLEX_TOKEN_CONTINUATION)) {
+            --name_start;
+          }
+        }
+        tokens[name_start]->SetType(Token::Type::BRACED_CONSTR_FIELD);
       }
     }
   }
@@ -2223,11 +2294,14 @@ void MarkAllColonsInBracedConstructors(const TokensView& tokens_view) {
 absl::flat_hash_set<std::string>* GetBuiltinFunctions() {
   static absl::flat_hash_set<std::string>* function_names = []() {
     TypeFactory type_factory;
-    LanguageOptions options;
-    options.EnableMaximumLanguageFeaturesForDevelopment();
-    options.set_product_mode(PRODUCT_INTERNAL);
-    std::map<std::string, std::unique_ptr<Function>> functions;
-    GetZetaSQLFunctions(&type_factory, options, &functions);
+    LanguageOptions language_options;
+    language_options.EnableMaximumLanguageFeaturesForDevelopment();
+    language_options.set_product_mode(PRODUCT_INTERNAL);
+    absl::flat_hash_map<std::string, std::unique_ptr<Function>> functions;
+    absl::flat_hash_map<std::string, const Type*> types_ignored;
+    ZETASQL_CHECK_OK(
+        GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(language_options),
+                                    type_factory, functions, types_ignored));
     absl::flat_hash_set<std::string>* function_names =
         new absl::flat_hash_set<std::string>();
     function_names->reserve(functions.size());
@@ -2289,7 +2363,7 @@ void AnnotateTokens(const TokensView& tokens,
   MarkAllKeywordsUsedAsParams(tokens);
   MarkAllProtoBrackets(tokens);
   MarkAllSlashedIdentifiers(tokens);
-  MarkAllColonsInBracedConstructors(tokens);
+  MarkTokensInBracedConstructors(tokens);
   if (formatter_options.IsCapitalizeFunctions()) {
     MarkAllBuiltinFunctions(tokens);
   }

@@ -89,12 +89,27 @@ public class SimpleCatalogTest {
     arguments.add(typeInt64);
     FunctionSignature signature = new FunctionSignature(typeInt64, arguments, /* contextId= */ -1);
     Procedure procedure = new Procedure("test_procedure_name", signature);
+    SimpleConnection connection = new SimpleConnection("test_connection_name");
+    ImmutableList<SimpleModel.NameAndType> modelInputs =
+        ImmutableList.of(
+            new SimpleModel.NameAndType(
+                "input1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)),
+            new SimpleModel.NameAndType(
+                "input2", TypeFactory.createSimpleType(TypeKind.TYPE_STRING)));
+    ImmutableList<SimpleModel.NameAndType> modelOutputs =
+        ImmutableList.of(
+            new SimpleModel.NameAndType(
+                "output", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)));
+    SimpleModel model = new SimpleModel("test_model_name", modelInputs, modelOutputs);
+
     catalog1.addSimpleTable(table);
     catalog1.addType("type", type);
     catalog1.addSimpleCatalog(catalog2);
     catalog1.addFunction(function);
     catalog1.addTableValuedFunction(tvf);
     catalog1.addProcedure(procedure);
+    catalog1.addConnection(connection);
+    catalog1.addModel(model);
 
     assertThat(catalog1.getFullName()).isEqualTo("catalog1");
     assertThat(catalog2.getFullName()).isEqualTo("catalog2");
@@ -110,6 +125,8 @@ public class SimpleCatalogTest {
     assertThat(catalog1.getTVFList().get(0)).isEqualTo(tvf);
     assertThat(catalog1.getProcedureList().get(0)).isEqualTo(procedure);
     assertThat(catalog1.getFunctionNameList().get(0)).isEqualTo("zetasql:test_function_name");
+    assertThat(catalog1.getConnectionList().get(0)).isEqualTo(connection);
+    assertThat(catalog1.getModelList().get(0)).isEqualTo(model);
 
     assertThat(catalog1.getTable("t1")).isEqualTo(table);
     assertThat(catalog1.getTable("T1")).isEqualTo(table);
@@ -123,6 +140,10 @@ public class SimpleCatalogTest {
     } catch (NotFoundException e) {
       fail();
     }
+    assertThat(catalog1.getConnection("test_connection_name")).isEqualTo(connection);
+    assertThat(catalog1.getConnectionByFullName("test_connection_name")).isEqualTo(connection);
+    assertThat(catalog1.getModel("test_model_name")).isEqualTo(model);
+    assertThat(catalog1.getModelById(model.getId())).isEqualTo(model);
 
     assertThat(catalog1.getTable("noTable")).isNull();
     assertThat(catalog1.getType("noType")).isNull();
@@ -130,10 +151,12 @@ public class SimpleCatalogTest {
     assertThat(catalog1.getFunctionByFullName("nofunction")).isNull();
     assertThat(catalog1.getTVFByName("notvf")).isNull();
     assertThat(catalog1.getProcedure("noprocedure")).isNull();
+    assertThat(catalog1.getConnection("noconnection")).isNull();
+    assertThat(catalog1.getModel("nomodel")).isNull();
   }
 
   @Test
-  public void testAdds() {
+  public void testAdds() throws NotFoundException {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
     SimpleColumn column = new SimpleColumn("t1", "c1", type);
@@ -162,6 +185,19 @@ public class SimpleCatalogTest {
     arguments.add(typeInt64);
     FunctionSignature signature = new FunctionSignature(typeInt64, arguments, /* contextId= */ -1);
     Procedure procedure = new Procedure("test_procedure_name", signature);
+    SimpleConnection connection = new SimpleConnection("test_connection_name");
+    ImmutableList<SimpleModel.NameAndType> modelInputs =
+        ImmutableList.of(
+            new SimpleModel.NameAndType(
+                "input1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)),
+            new SimpleModel.NameAndType(
+                "input2", TypeFactory.createSimpleType(TypeKind.TYPE_STRING)));
+    ImmutableList<SimpleModel.NameAndType> modelOutputs =
+        ImmutableList.of(
+            new SimpleModel.NameAndType(
+                "output", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)));
+    SimpleModel model = new SimpleModel("test_model_name", modelInputs, modelOutputs);
+
     // Tests for adding tables
     catalog.addSimpleTable(table);
     assertThat(catalog.getTableList().contains(table)).isTrue();
@@ -268,14 +304,28 @@ public class SimpleCatalogTest {
 
     // Tests for adding procedure
     catalog.addProcedure(procedure);
-    try {
-      assertThat(catalog.findProcedure(ImmutableList.of("test_procedure_name")))
-          .isEqualTo(procedure);
-    } catch (NotFoundException e) {
-      fail();
-    }
+    assertThat(catalog.findProcedure(ImmutableList.of("test_procedure_name"))).isEqualTo(procedure);
     try {
       catalog.addProcedure(new Procedure("Test_Procedure_Name", signature));
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+
+    // Tests for adding connections
+    catalog.addConnection(connection);
+    assertThat(catalog.findConnection(ImmutableList.of("test_connection_name")))
+        .isEqualTo(connection);
+    try {
+      catalog.addConnection(new SimpleConnection("Test_Connection_Name"));
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+
+    // Tests for adding models
+    catalog.addModel(model);
+    assertThat(catalog.findModel(ImmutableList.of("test_model_name"))).isEqualTo(model);
+    try {
+      catalog.addModel(new SimpleModel("Test_Model_Name"));
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -310,6 +360,18 @@ public class SimpleCatalogTest {
     arguments.add(typeInt64);
     FunctionSignature signature = new FunctionSignature(typeInt64, arguments, /* contextId= */ -1);
     Procedure procedure = new Procedure("test_procedure_name", signature);
+    SimpleConnection connection = new SimpleConnection("test_connection_name");
+    ImmutableList<SimpleModel.NameAndType> modelInputs =
+        ImmutableList.of(
+            new SimpleModel.NameAndType(
+                "input1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)),
+            new SimpleModel.NameAndType(
+                "input2", TypeFactory.createSimpleType(TypeKind.TYPE_STRING)));
+    ImmutableList<SimpleModel.NameAndType> modelOutputs =
+        ImmutableList.of(
+            new SimpleModel.NameAndType(
+                "output", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)));
+    SimpleModel model = new SimpleModel("test_model_name", modelInputs, modelOutputs);
 
     // Tests for removing tables
     try {
@@ -390,6 +452,38 @@ public class SimpleCatalogTest {
     assertThat(catalog.getProcedureList().contains(procedure)).isFalse();
     catalog.addProcedure(procedure);
     assertThat(catalog.getProcedureList().contains(procedure)).isTrue();
+
+    // Tests for removing connections
+    try {
+      catalog.removeConnection(connection);
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+
+    catalog.addConnection(connection);
+    assertThat(catalog.getConnectionList()).contains(connection);
+    catalog.removeConnection("Test_Connection_Name");
+    assertThat(catalog.getConnectionList()).doesNotContain(connection);
+    catalog.addConnection(connection);
+    assertThat(catalog.getConnectionList()).contains(connection);
+    catalog.removeConnection(connection);
+    assertThat(catalog.getConnectionList()).doesNotContain(connection);
+
+    // Tests for removing models
+    try {
+      catalog.removeModel(model);
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+
+    catalog.addModel(model);
+    assertThat(catalog.getModelList()).contains(model);
+    catalog.removeModel("Test_Model_Name");
+    assertThat(catalog.getModelList()).doesNotContain(model);
+    catalog.addModel(model);
+    assertThat(catalog.getModelList()).contains(model);
+    catalog.removeModel(model);
+    assertThat(catalog.getModelList()).doesNotContain(model);
   }
 
   @Test
@@ -518,6 +612,17 @@ public class SimpleCatalogTest {
     arguments.add(typeInt64);
     FunctionSignature signature = new FunctionSignature(typeInt64, arguments, /* contextId= */ -1);
     Procedure procedure = new Procedure("test_procedure_name", signature);
+    SimpleConnection connection = new SimpleConnection("test_connection_name");
+    ImmutableList<SimpleModel.NameAndType> modelInputs =
+        ImmutableList.of(
+            new SimpleModel.NameAndType(
+                "input", TypeFactory.createSimpleType(TypeKind.TYPE_STRING)));
+    ImmutableList<SimpleModel.NameAndType> modelOutputs =
+        ImmutableList.of(
+            new SimpleModel.NameAndType(
+                "output", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)));
+    SimpleModel model = new SimpleModel("test_model_name", modelInputs, modelOutputs);
+
     ZetaSQLBuiltinFunctionOptionsProto builtinFunctionOptionsproto =
         ZetaSQLBuiltinFunctionOptionsProto.newBuilder()
             .setLanguageOptions(new LanguageOptions().serialize())
@@ -526,6 +631,7 @@ public class SimpleCatalogTest {
             .addExcludeFunctionIds(FunctionSignatureId.FN_ABS_DOUBLE)
             .addExcludeFunctionIds(FunctionSignatureId.FN_ANY_VALUE)
             .build();
+
     catalog.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions(builtinFunctionOptionsproto));
     catalog.addSimpleTable(table);
     catalog.addType(type.typeName(), type);
@@ -533,6 +639,9 @@ public class SimpleCatalogTest {
     catalog.addFunction(function);
     catalog.addTableValuedFunction(tvf);
     catalog.addProcedure(procedure);
+    catalog.addConnection(connection);
+    catalog.addModel(model);
+
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
     SimpleCatalogProto catalogProto = catalog.serialize(fileDescriptorSetsBuilder);
     SimpleCatalogProto.Builder expected = SimpleCatalogProto.newBuilder();
@@ -641,9 +750,28 @@ public class SimpleCatalogTest {
             + "  options {"
             + "    uses_upper_case_sql_name: false"
             + "  }"
-            + "}",
+            + "}\n"
+            + "connection {\n"
+            + "  name: \"test_connection_name\"\n"
+            + "}\n"
+            + "model {\n"
+            + "  name: \"test_model_name\"\n"
+            + "  input {\n"
+            + "    name: \"input\"\n"
+            + "    type: {\n"
+            + "      type_kind: TYPE_STRING\n"
+            + "    }\n"
+            + "  }\n"
+            + "  output {\n"
+            + "    name: \"output\"\n"
+            + "    type: {\n"
+            + "      type_kind: TYPE_INT64\n"
+            + "    }\n"
+            + "  }\n"
+            + "}\n",
         expected);
     expected.getTableBuilder(0).setSerializationId(table.getId());
+    expected.getModelBuilder(0).setId(model.getId());
     assertThat(catalogProto).isEqualTo(expected.build());
   }
 
@@ -798,12 +926,12 @@ public class SimpleCatalogTest {
             "The number of fields of SimpleCatalogProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(SimpleCatalogProto.getDescriptor().getFields())
-        .hasSize(10);
+        .hasSize(12);
     assertWithMessage(
             "The number of fields in SimpleCatalog class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(SimpleCatalog.class))
-        .isEqualTo(18);
+        .isEqualTo(21);
   }
 
   @Test

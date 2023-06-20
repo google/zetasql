@@ -38,14 +38,13 @@ absl::Status ParseTestFileParameters(absl::string_view param_string,
 
   const std::string sql = absl::StrCat("SELECT ", param_string);
 
-  bool is_deterministic_output;
-  bool uses_unsupported_type = false;  // unused
+  ReferenceDriver::ExecuteStatementAuxOutput aux_output;
   ZETASQL_ASSIGN_OR_RETURN(
       Value value,
       reference_driver->ExecuteStatementForReferenceDriver(
           sql, /*parameters=*/{}, ReferenceDriver::ExecuteStatementOptions(),
-          type_factory, &is_deterministic_output, &uses_unsupported_type));
-  ZETASQL_RET_CHECK(is_deterministic_output);
+          type_factory, aux_output));
+  ZETASQL_RET_CHECK(aux_output.is_deterministic_output.value_or(false));
 
   // Expect the result is in Array[Struct{...}].
   ZETASQL_RET_CHECK(value.is_valid() && !value.is_null() && value.type()->IsArray() &&

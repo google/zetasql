@@ -418,6 +418,8 @@ class Catalog {
       const absl::Span<const std::string>& mistyped_path);
   virtual std::string SuggestEnumValue(const EnumType* type,
                                        absl::string_view mistyped_value);
+  virtual std::string SuggestSequence(
+      const absl::Span<const std::string>& mistyped_path);
 
   // Returns whether or not this Catalog is a specific catalog interface or
   // implementation.

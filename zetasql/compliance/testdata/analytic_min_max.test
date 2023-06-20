@@ -116,7 +116,7 @@ SELECT row_id, int64_val, uint64_val,
        MIN(int64_val) OVER (ORDER BY row_id)
 From TestTable
 --
-ARRAY<STRUCT<row_id INT64, int64_val INT64, uint64_val UINT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, int64_val INT64, uint64_val UINT64, INT64>>[unknown order:
   {1, NULL, NULL, NULL},
   {2, 2, 3, 2},
   {3, 1, 6, 1},
@@ -137,7 +137,7 @@ SELECT row_id, int64_val,
        MIN(CAST(int64_val as uint32)) OVER (ORDER BY row_id RANGE 2 PRECEDING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, int64_val INT64, INT32, UINT32>>[
+ARRAY<STRUCT<row_id INT64, int64_val INT64, INT32, UINT32>>[unknown order:
   {1, NULL, NULL, NULL},
   {2, 2, 2, 2},
   {3, 1, 1, 1},
@@ -160,7 +160,7 @@ SELECT row_id, double_val,
                                                           UNBOUNDED FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, double_val DOUBLE, DOUBLE, FLOAT>>[
+ARRAY<STRUCT<row_id INT64, double_val DOUBLE, DOUBLE, FLOAT>>[unknown order:
   {10, 2.5, -3, -1.5},
   {9, 1.5, -3, -1.5},
   {8, -1.5, -3, -1.5},
@@ -187,7 +187,7 @@ FROM (SELECT 1 row_id, CAST(null as double) double_val UNION ALL
       SELECT 6, CAST("NaN" as double) UNION ALL
       SELECT 7, CAST("-INF" as double))
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE>>[unknown order:
   {7, nan, -inf},
   {6, nan, nan},
   {5, nan, nan},
@@ -203,7 +203,7 @@ ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE>>[
 SELECT row_id, str_val, MIN(str_val) OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, str_val STRING, STRING>>[
+ARRAY<STRUCT<row_id INT64, str_val STRING, STRING>>[unknown order:
   {1, NULL, NULL},
   {2, "A", "A"},
   {3, "A", "A"},
@@ -231,42 +231,42 @@ ARRAY<STRUCT<
         DATE,
         TIMESTAMP
       >>
-[{1, NULL, NULL, 2014-01-01, NULL},
- {
-   2,
-   2014-01-01,
-   2014-01-01 08:00:01.011011+00,
-   2014-01-01,
-   2014-01-01 08:00:01.011011+00
- },
- {
-   3,
-   2014-01-01,
-   2014-01-01 08:00:01.011011+00,
-   2014-01-01,
-   2014-01-01 08:00:01.011011+00
- },
- {
-   4,
-   2015-01-01,
-   2014-01-01 08:00:01.011011+00,
-   2014-01-01,
-   2014-01-01 08:00:01.011011+00
- },
- {
-   5,
-   2015-01-01,
-   2013-01-01 08:00:01.011011+00,
-   2014-01-01,
-   2013-01-01 08:00:01.011011+00
- },
- {
-   6,
-   2014-01-01,
-   2015-01-01 08:00:01.011011+00,
-   2014-01-01,
-   2013-01-01 08:00:01.011011+00
- }]
+[unknown order:{1, NULL, NULL, 2014-01-01, NULL},
+               {
+                 2,
+                 2014-01-01,
+                 2014-01-01 08:00:01.011011+00,
+                 2014-01-01,
+                 2014-01-01 08:00:01.011011+00
+               },
+               {
+                 3,
+                 2014-01-01,
+                 2014-01-01 08:00:01.011011+00,
+                 2014-01-01,
+                 2014-01-01 08:00:01.011011+00
+               },
+               {
+                 4,
+                 2015-01-01,
+                 2014-01-01 08:00:01.011011+00,
+                 2014-01-01,
+                 2014-01-01 08:00:01.011011+00
+               },
+               {
+                 5,
+                 2015-01-01,
+                 2013-01-01 08:00:01.011011+00,
+                 2014-01-01,
+                 2013-01-01 08:00:01.011011+00
+               },
+               {
+                 6,
+                 2014-01-01,
+                 2015-01-01 08:00:01.011011+00,
+                 2014-01-01,
+                 2013-01-01 08:00:01.011011+00
+               }]
 ==
 
 [name=analytic_min_bytes]
@@ -275,7 +275,7 @@ SELECT row_id, bytes_val,
        MIN(bytes_val) OVER (ORDER BY row_id)
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[
+ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[unknown order:
   {1, NULL, NULL},
   {2, b"1", b"1"},
   {3, b"2", b"1"},
@@ -304,7 +304,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         ENUM<zetasql_test__.TestEnum>
       >>
-[
+[unknown order:
   {7, TESTENUM0, TESTENUM0},
   {6, TESTENUM2, TESTENUM0},
   {5, NULL, TESTENUM0},
@@ -329,7 +329,7 @@ FROM (SELECT 1 row_id, CAST(NULL as NUMERIC) value UNION ALL
       SELECT 5, CAST(@max_val AS NUMERIC)          UNION ALL
       SELECT 6, CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, NUMERIC>>[unknown order:
   {1, NULL},
   {2, 0},
   {3, 0},
@@ -357,7 +357,7 @@ FROM (SELECT 1 row_id, CAST(NULL as NUMERIC) value UNION ALL
       SELECT 5, CAST(@max_val AS NUMERIC)          UNION ALL
       SELECT 6, CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, NUMERIC>>[unknown order:
   {1, 0},
   {2, 0},
   {3, -1.230000001},
@@ -388,7 +388,7 @@ FROM (SELECT 1 row_id, CAST(NULL as NUMERIC) value, false is_even UNION ALL
       SELECT 5, CAST(@max_val AS NUMERIC), false                  UNION ALL
       SELECT 6, CAST(@min_val AS NUMERIC), true)
 --
-ARRAY<STRUCT<row_id INT64, NUMERIC, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, NUMERIC, NUMERIC>>[unknown order:
   {
     1,
     -99999999999999999999999999999.999999999,
@@ -436,7 +436,7 @@ FROM (SELECT 1 row_id, CAST(NULL as BIGNUMERIC) value     UNION ALL
       SELECT 5, CAST(@max_val AS BIGNUMERIC)              UNION ALL
       SELECT 6, CAST(@min_val AS BIGNUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, BIGNUMERIC>>[
+ARRAY<STRUCT<row_id INT64, BIGNUMERIC>>[unknown order:
   {1, NULL},
   {2, 0},
   {3, 0},
@@ -470,7 +470,7 @@ FROM (SELECT 1 row_id, CAST(NULL as BIGNUMERIC) value     UNION ALL
       SELECT 5, CAST(@max_val AS BIGNUMERIC)              UNION ALL
       SELECT 6, CAST(@min_val AS BIGNUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, BIGNUMERIC>>[
+ARRAY<STRUCT<row_id INT64, BIGNUMERIC>>[unknown order:
   {1, 0},
   {2, 0},
   {
@@ -507,7 +507,7 @@ FROM (SELECT 1 row_id, CAST(NULL as BIGNUMERIC) value, false is_even     UNION A
       SELECT 5, CAST(@max_val AS BIGNUMERIC), false                      UNION ALL
       SELECT 6, CAST(@min_val AS BIGNUMERIC), true)
 --
-ARRAY<STRUCT<row_id INT64, BIGNUMERIC, BIGNUMERIC>>[
+ARRAY<STRUCT<row_id INT64, BIGNUMERIC, BIGNUMERIC>>[unknown order:
   {
     1,
     -578960446186580977117854925043439539266.34992332820282019728792003956564819968,
@@ -547,7 +547,7 @@ SELECT row_id, int64_val,
        MIN(DISTINCT int64_val) OVER ()
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, int64_val INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, int64_val INT64, INT64>>[unknown order:
   {2, 2, 1},
   {4, NULL, 1},
   {6, 2, 1},
@@ -576,7 +576,7 @@ FROM (SELECT 1 row_id, 1.0 double_val UNION ALL
       SELECT 9, CAST("-INF" as double) UNION ALL
       SELECT 10, CAST("-INF" as double))
 --
-ARRAY<STRUCT<row_id INT64, double_val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, double_val DOUBLE, DOUBLE>>[unknown order:
   {2, 2, nan},
   {4, 2, nan},
   {6, nan, nan},
@@ -602,7 +602,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW test_window AS (PARTITION BY bool_val)
 --
-ARRAY<STRUCT<row_id INT64, BOOL, INT32, INT64, UINT32, UINT64, STRING>>[
+ARRAY<STRUCT<row_id INT64, BOOL, INT32, INT64, UINT32, UINT64, STRING>>[unknown order:
   {1, NULL, NULL, NULL, NULL, NULL, NULL},
   {5, false, 1, 1, 3, 3, "A"},
   {9, false, 1, 1, 3, 3, "A"},
@@ -624,7 +624,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW test_window AS (PARTITION BY bool_val)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, FLOAT>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, FLOAT>>[unknown order:
   {1, NULL, NULL},
   {5, -0.5, -0.5},
   {9, -0.5, -0.5},
@@ -646,7 +646,7 @@ SELECT row_id,
        MIN(DISTINCT timestamp_val) OVER ()
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<row_id INT64, BYTES, DATE, TIMESTAMP>>[
+ARRAY<STRUCT<row_id INT64, BYTES, DATE, TIMESTAMP>>[unknown order:
   {
     2,
     b"1",
@@ -699,7 +699,7 @@ SELECT row_id, int64_val, uint64_val,
        MAX(int64_val) OVER (ORDER BY row_id)
 From TestTable
 --
-ARRAY<STRUCT<row_id INT64, int64_val INT64, uint64_val UINT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, int64_val INT64, uint64_val UINT64, INT64>>[unknown order:
   {1, NULL, NULL, NULL},
   {2, 2, 3, 2},
   {3, 1, 6, 2},
@@ -720,7 +720,7 @@ SELECT row_id, int64_val,
        MAX(CAST(int64_val as uint32)) OVER (ORDER BY row_id RANGE 2 PRECEDING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, int64_val INT64, INT32, UINT32>>[
+ARRAY<STRUCT<row_id INT64, int64_val INT64, INT32, UINT32>>[unknown order:
   {1, NULL, NULL, NULL},
   {2, 2, 2, 2},
   {3, 1, 2, 2},
@@ -743,7 +743,7 @@ SELECT row_id, double_val,
                                                           UNBOUNDED FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, double_val DOUBLE, DOUBLE, FLOAT>>[
+ARRAY<STRUCT<row_id INT64, double_val DOUBLE, DOUBLE, FLOAT>>[unknown order:
   {10, 2.5, 5, 3.5},
   {9, 1.5, 3, 3.5},
   {8, -1.5, -1, 3.5},
@@ -770,7 +770,7 @@ FROM (SELECT 1 row_id, CAST(null as double) double_val UNION ALL
       SELECT 6, CAST("NaN" as double) UNION ALL
       SELECT 7, CAST("-INF" as double))
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE>>[unknown order:
   {7, nan, -inf},
   {6, nan, nan},
   {5, nan, nan},
@@ -786,7 +786,7 @@ ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE>>[
 SELECT row_id, str_val, MAX(str_val) OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, str_val STRING, STRING>>[
+ARRAY<STRUCT<row_id INT64, str_val STRING, STRING>>[unknown order:
   {1, NULL, NULL},
   {2, "A", "A"},
   {3, "A", "A"},
@@ -814,42 +814,42 @@ ARRAY<STRUCT<
         DATE,
         TIMESTAMP
       >>
-[{1, NULL, NULL, 2015-01-01, NULL},
- {
-   2,
-   2014-01-01,
-   2014-01-01 08:00:01.011011+00,
-   2015-01-01,
-   2014-01-01 08:00:01.011011+00
- },
- {
-   3,
-   2014-01-01,
-   2014-01-01 08:00:01.011011+00,
-   2015-01-01,
-   2014-01-01 08:00:01.011011+00
- },
- {
-   4,
-   2015-01-01,
-   2014-01-01 08:00:01.011011+00,
-   2015-01-01,
-   2014-01-01 08:00:01.011011+00
- },
- {
-   5,
-   2015-01-01,
-   2013-01-01 08:00:01.011011+00,
-   2015-01-01,
-   2014-01-01 08:00:01.011011+00
- },
- {
-   6,
-   2014-01-01,
-   2015-01-01 08:00:01.011011+00,
-   2014-01-01,
-   2015-01-01 08:00:01.011011+00
- }]
+[unknown order:{1, NULL, NULL, 2015-01-01, NULL},
+               {
+                 2,
+                 2014-01-01,
+                 2014-01-01 08:00:01.011011+00,
+                 2015-01-01,
+                 2014-01-01 08:00:01.011011+00
+               },
+               {
+                 3,
+                 2014-01-01,
+                 2014-01-01 08:00:01.011011+00,
+                 2015-01-01,
+                 2014-01-01 08:00:01.011011+00
+               },
+               {
+                 4,
+                 2015-01-01,
+                 2014-01-01 08:00:01.011011+00,
+                 2015-01-01,
+                 2014-01-01 08:00:01.011011+00
+               },
+               {
+                 5,
+                 2015-01-01,
+                 2013-01-01 08:00:01.011011+00,
+                 2015-01-01,
+                 2014-01-01 08:00:01.011011+00
+               },
+               {
+                 6,
+                 2014-01-01,
+                 2015-01-01 08:00:01.011011+00,
+                 2014-01-01,
+                 2015-01-01 08:00:01.011011+00
+               }]
 ==
 
 [name=analytic_max_bytes]
@@ -858,7 +858,7 @@ SELECT row_id, bytes_val,
        MAX(bytes_val) OVER (ORDER BY row_id)
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[
+ARRAY<STRUCT<row_id INT64, bytes_val BYTES, BYTES>>[unknown order:
   {1, NULL, NULL},
   {2, b"1", b"1"},
   {3, b"2", b"2"},
@@ -887,7 +887,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         ENUM<zetasql_test__.TestEnum>
       >>
-[
+[unknown order:
   {7, TESTENUM0, TESTENUM2},
   {6, TESTENUM2, TESTENUM2},
   {5, NULL, TESTENUM2},
@@ -912,7 +912,7 @@ FROM (SELECT 1 row_id, CAST(NULL as NUMERIC) value UNION ALL
       SELECT 5, CAST(@max_val AS NUMERIC)          UNION ALL
       SELECT 6, CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, NUMERIC>>[unknown order:
   {1, NULL},
   {2, 0},
   {3, 3.5},
@@ -943,7 +943,7 @@ FROM (SELECT 1 row_id, CAST(NULL as NUMERIC) value UNION ALL
       SELECT 5, CAST(@max_val AS NUMERIC)          UNION ALL
       SELECT 6, CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, NUMERIC>>[unknown order:
   {1, 0},
   {2, 3.5},
   {3, 3.5},
@@ -977,7 +977,7 @@ FROM (SELECT 1 row_id, CAST(NULL as NUMERIC) value, false is_even UNION ALL
       SELECT 5, CAST(@max_val AS NUMERIC), false                  UNION ALL
       SELECT 6, CAST(@min_val AS NUMERIC), true)
 --
-ARRAY<STRUCT<row_id INT64, NUMERIC, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, NUMERIC, NUMERIC>>[unknown order:
   {
     1,
     99999999999999999999999999999.999999999,
@@ -1025,7 +1025,7 @@ FROM (SELECT 1 row_id, CAST(NULL as BIGNUMERIC) value     UNION ALL
       SELECT 5, CAST(@max_val AS BIGNUMERIC)              UNION ALL
       SELECT 6, CAST(@min_val AS BIGNUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, BIGNUMERIC>>[
+ARRAY<STRUCT<row_id INT64, BIGNUMERIC>>[unknown order:
   {1, NULL},
   {2, 0},
   {3, 3.5},
@@ -1056,7 +1056,7 @@ FROM (SELECT 1 row_id, CAST(NULL as BIGNUMERIC) value     UNION ALL
       SELECT 5, CAST(@max_val AS BIGNUMERIC)              UNION ALL
       SELECT 6, CAST(@min_val AS BIGNUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, BIGNUMERIC>>[
+ARRAY<STRUCT<row_id INT64, BIGNUMERIC>>[unknown order:
   {1, 0},
   {2, 3.5},
   {3, 3.5},
@@ -1090,7 +1090,7 @@ FROM (SELECT 1 row_id, CAST(NULL as BIGNUMERIC) value, false is_even     UNION A
       SELECT 5, CAST(@max_val AS BIGNUMERIC), false                      UNION ALL
       SELECT 6, CAST(@min_val AS BIGNUMERIC), true)
 --
-ARRAY<STRUCT<row_id INT64, BIGNUMERIC, BIGNUMERIC>>[
+ARRAY<STRUCT<row_id INT64, BIGNUMERIC, BIGNUMERIC>>[unknown order:
   {
     1,
     578960446186580977117854925043439539266.34992332820282019728792003956564819967,
@@ -1130,7 +1130,7 @@ SELECT row_id, int64_val,
        MAX(DISTINCT int64_val) OVER ()
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, int64_val INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, int64_val INT64, INT64>>[unknown order:
   {2, 2, 4},
   {4, NULL, 4},
   {6, 2, 4},
@@ -1159,7 +1159,7 @@ FROM (SELECT 1 row_id, 1.0 double_val UNION ALL
       SELECT 9, CAST("-INF" as double) UNION ALL
       SELECT 10, CAST("-INF" as double))
 --
-ARRAY<STRUCT<row_id INT64, double_val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, double_val DOUBLE, DOUBLE>>[unknown order:
   {2, 2, nan},
   {4, 2, nan},
   {6, nan, nan},
@@ -1185,7 +1185,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW test_window AS (PARTITION BY bool_val)
 --
-ARRAY<STRUCT<row_id INT64, BOOL, INT32, INT64, UINT32, UINT64, STRING>>[
+ARRAY<STRUCT<row_id INT64, BOOL, INT32, INT64, UINT32, UINT64, STRING>>[unknown order:
   {1, NULL, NULL, NULL, NULL, NULL, NULL},
   {5, false, 2, 2, 6, 6, "B"},
   {9, false, 2, 2, 6, 6, "B"},
@@ -1207,7 +1207,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW test_window AS (PARTITION BY bool_val)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, FLOAT>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, FLOAT>>[unknown order:
   {1, NULL, NULL},
   {5, 3.5, 3.5},
   {9, 3.5, 3.5},
@@ -1229,7 +1229,7 @@ SELECT row_id,
        MAX(DISTINCT timestamp_val) OVER ()
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<row_id INT64, BYTES, DATE, TIMESTAMP>>[
+ARRAY<STRUCT<row_id INT64, BYTES, DATE, TIMESTAMP>>[unknown order:
   {
     2,
     b"5",
@@ -1290,7 +1290,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, nan},
   {2, nan, 4},
   {3, 3, nan},
@@ -1329,7 +1329,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, nan},
   {2, nan, nan},
   {3, 3, nan},
@@ -1368,7 +1368,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, nan, NULL},
   {3, 3, nan},
@@ -1407,7 +1407,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, nan},
   {2, nan, nan},
   {3, 3, 4},
@@ -1441,7 +1441,7 @@ FROM (
 )
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<row_id INT64, val ARRAY<>, ARRAY<>, ARRAY<>>>[known order:
   {1, ARRAY<DOUBLE>[], ARRAY<DOUBLE>[], ARRAY<DOUBLE>[-inf]},
   {2, ARRAY<DOUBLE>[NULL], ARRAY<DOUBLE>[NULL], ARRAY<DOUBLE>[inf]},
   {3, ARRAY<DOUBLE>[nan], ARRAY<DOUBLE>[], ARRAY<DOUBLE>[inf]},

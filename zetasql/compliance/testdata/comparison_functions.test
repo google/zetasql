@@ -385,43 +385,92 @@ ARRAY<STRUCT<BOOL>>[{true}]
 SELECT x BETWEEN -5 AND 1
 FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x WITH OFFSET ORDER BY OFFSET;
 --
-ARRAY<STRUCT<BOOL>>[{false}, {true}, {false}, {false}, {false}, {false}]
+ARRAY<STRUCT<BOOL>>[known order:
+  {false},
+  {true},
+  {false},
+  {false},
+  {false},
+  {false}
+]
 ==
 [name=between_min_and_nan]
 SELECT x BETWEEN 0 AND CAST("nan" AS DOUBLE)
 FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x;
 --
-ARRAY<STRUCT<BOOL>>[{false}, {false}, {false}, {false}, {false}, {false}]
+ARRAY<STRUCT<BOOL>>[unknown order:
+  {false},
+  {false},
+  {false},
+  {false},
+  {false},
+  {false}
+]
 ==
 [name=between_min_and_inf]
 SELECT x BETWEEN 0 AND CAST("inf" AS DOUBLE)
 FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x WITH OFFSET ORDER BY OFFSET;
 --
-ARRAY<STRUCT<BOOL>>[{false}, {true}, {true}, {false}, {true}, {false}]
+ARRAY<STRUCT<BOOL>>[known order:
+  {false},
+  {true},
+  {true},
+  {false},
+  {true},
+  {false}
+]
 ==
 [name=between_nan_and_max]
 SELECT x BETWEEN CAST("nan" AS DOUBLE) AND 0
 FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x;
 --
-ARRAY<STRUCT<BOOL>>[{false}, {false}, {false}, {false}, {false}, {false}]
+ARRAY<STRUCT<BOOL>>[unknown order:
+  {false},
+  {false},
+  {false},
+  {false},
+  {false},
+  {false}
+]
 ==
 [name=between_neginf_and_max]
 SELECT x BETWEEN CAST("-inf" AS DOUBLE) AND 0
 FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x WITH OFFSET ORDER BY OFFSET;
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {false}, {false}, {false}, {true}]
+ARRAY<STRUCT<BOOL>>[known order:
+  {true},
+  {true},
+  {false},
+  {false},
+  {false},
+  {true}
+]
 ==
 [name=between_nan_and_nan]
 SELECT x BETWEEN CAST("nan" AS DOUBLE) AND CAST("nan" AS DOUBLE)
 FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x;
 --
-ARRAY<STRUCT<BOOL>>[{false}, {false}, {false}, {false}, {false}, {false}]
+ARRAY<STRUCT<BOOL>>[unknown order:
+  {false},
+  {false},
+  {false},
+  {false},
+  {false},
+  {false}
+]
 ==
 [name=between_neginf_and_inf]
 SELECT x BETWEEN CAST("-inf" AS DOUBLE) AND CAST("inf" AS DOUBLE)
 FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x WITH OFFSET ORDER BY OFFSET;
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}, {false}, {true}, {true}]
+ARRAY<STRUCT<BOOL>>[known order:
+  {true},
+  {true},
+  {true},
+  {false},
+  {true},
+  {true}
+]
 ==
 [name=between_null_and_number_possible]
 SELECT 1 BETWEEN NULL AND 5
@@ -969,7 +1018,7 @@ SELECT
 FROM FloatComparisons
 ORDER BY testcase;
 --
-ARRAY<STRUCT<testcase STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<testcase STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
   {
     "equal non-null/non-nan values",
     false,
@@ -1003,7 +1052,7 @@ SELECT
 FROM StructComparisons
 ORDER BY rowid;
 --
-ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
   {1, false, true, false, true, true, false, true, false},
   {2, false, true, false, true, true, false, true, false},
   {3, false, true, false, false, true, false, true, true}
@@ -1021,7 +1070,7 @@ SELECT
 FROM Int64Uint64Comparisons
 ORDER BY rowid;
 --
-ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL>>[known order:
   {0, false, false, true, true},
   {1, true, true, false, false},
   {2, true, true, false, false},
@@ -1040,7 +1089,7 @@ SELECT
 FROM StringComparisons
 ORDER BY rowid;
 --
-ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL>>[known order:
   {0, false, false, true, true},
   {1, true, true, false, false},
   {2, true, true, false, false},
@@ -1069,7 +1118,7 @@ SELECT
   i2 IS NOT DISTINCT FROM i1
 FROM IntervalTable
 --
-ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[unknown order:
   {1-0 0 0:0:0, 1-0 0 0:0:0, false, false, true, true},
   {0-0 0 0:0:0, 0-0 0 0:0:0, false, false, true, true},
   {1-0 0 0:0:0, 1-0 0 0:0:0.000001, true, true, false, false},
@@ -1095,7 +1144,7 @@ SELECT
   i2 IS NOT DISTINCT FROM i1
 FROM IntervalTable
 --
-ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[
+ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[unknown order:
   {
     0-0 0 0:0:0.123456789,
     0-0 0 0:0:0.123456788,

@@ -997,7 +997,7 @@ SELECT str_val, bytes_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY str_val, bytes_val
 ORDER BY str_val ASC, bytes_val ASC
 --
-ARRAY<STRUCT<str_val STRING, bytes_val BYTES, cnt INT64>>[
+ARRAY<STRUCT<str_val STRING, bytes_val BYTES, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, b"1", 2},
   {"1", NULL, 2},
@@ -1018,7 +1018,7 @@ SELECT bytes_val, date_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY bytes_val, date_val
 ORDER BY bytes_val ASC, date_val ASC
 --
-ARRAY<STRUCT<bytes_val BYTES, date_val DATE, cnt INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, date_val DATE, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, 2014-02-04, 2},
   {b"1", NULL, 2},
@@ -1044,63 +1044,63 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         cnt INT64
       >>
-[{NULL, NULL, 4},
- {
-   NULL,
-   2014-02-04 00:00:04.044044+00,
-   2
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   6
- },
- {
-   2014-01-02,
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   2014-01-03,
-   2014-01-03 00:00:03.033033+00,
-   2
- },
- {
-   2014-01-04,
-   2014-01-04 00:00:04.044044+00,
-   2
- },
- {
-   2014-01-06,
-   2014-01-04 00:00:03.033033+00,
-   2
- },
- {
-   2014-01-08,
-   2014-01-02 00:00:01.011011+00,
-   2
- },
- {
-   2014-02-01,
-   2014-04-01 00:00:01.011011+00,
-   2
- },
- {
-   2014-02-02,
-   2014-01-05 00:00:02.022022+00,
-   2
- },
- {2014-02-04, NULL, 2},
- {
-   2014-02-04,
-   2014-02-04 00:00:04.044044+00,
-   2
- },
- {
-   2014-05-02,
-   2014-05-02 00:00:02.022022+00,
-   2
- }]
+[known order:{NULL, NULL, 4},
+             {
+               NULL,
+               2014-02-04 00:00:04.044044+00,
+               2
+             },
+             {
+               2014-01-01,
+               2014-01-01 00:00:01.011011+00,
+               6
+             },
+             {
+               2014-01-02,
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               2014-01-03,
+               2014-01-03 00:00:03.033033+00,
+               2
+             },
+             {
+               2014-01-04,
+               2014-01-04 00:00:04.044044+00,
+               2
+             },
+             {
+               2014-01-06,
+               2014-01-04 00:00:03.033033+00,
+               2
+             },
+             {
+               2014-01-08,
+               2014-01-02 00:00:01.011011+00,
+               2
+             },
+             {
+               2014-02-01,
+               2014-04-01 00:00:01.011011+00,
+               2
+             },
+             {
+               2014-02-02,
+               2014-01-05 00:00:02.022022+00,
+               2
+             },
+             {2014-02-04, NULL, 2},
+             {
+               2014-02-04,
+               2014-02-04 00:00:04.044044+00,
+               2
+             },
+             {
+               2014-05-02,
+               2014-05-02 00:00:02.022022+00,
+               2
+             }]
 ==
 #
 # Multiple columns, with first as computed column
@@ -1110,7 +1110,7 @@ SELECT (NOT bool_val) as c1, int32_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1, int32_val
 ORDER BY c1 ASC, int32_val DESC
 --
-ARRAY<STRUCT<c1 BOOL, int32_val INT32, cnt INT64>>[
+ARRAY<STRUCT<c1 BOOL, int32_val INT32, cnt INT64>>[known order:
   {NULL, -1, 2},
   {NULL, NULL, 4},
   {false, 13, 2},
@@ -1132,7 +1132,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1 ASC, c2 ASC
 --
-ARRAY<STRUCT<c1 INT64, c2 INT64, cnt INT64>>[
+ARRAY<STRUCT<c1 INT64, c2 INT64, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, 1, 2},
   {-48, 14, 2},
@@ -1154,7 +1154,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-ARRAY<STRUCT<c1 INT64, c2 UINT64, cnt INT64>>[
+ARRAY<STRUCT<c1 INT64, c2 UINT64, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, 3, 2},
   {-12, 43, 2},
@@ -1176,7 +1176,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-ARRAY<STRUCT<c1 UINT64, c2 UINT64, cnt INT64>>[
+ARRAY<STRUCT<c1 UINT64, c2 UINT64, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, 2, 2},
   {8, NULL, 2},
@@ -1198,7 +1198,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-ARRAY<STRUCT<c1 UINT64, c2 INT32, cnt INT64>>[
+ARRAY<STRUCT<c1 UINT64, c2 INT32, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, -1, 2},
   {4, NULL, 2},
@@ -1221,7 +1221,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE, cnt INT64>>[
+ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE, cnt INT64>>[known order:
   {NULL, NULL, 2},
   {NULL, -0, 2},
   {nan, inf, 2},
@@ -1250,7 +1250,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 STRING, cnt INT64>>[
+ARRAY<STRUCT<c1 DOUBLE, c2 STRING, cnt INT64>>[known order:
   {NULL, NULL, 2},
   {NULL, "1", 2},
   {nan, NULL, 2},
@@ -1278,7 +1278,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-ARRAY<STRUCT<c1 STRING, c2 BYTES, cnt INT64>>[
+ARRAY<STRUCT<c1 STRING, c2 BYTES, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, b"1", 2},
   {"1", NULL, 2},
@@ -1300,7 +1300,7 @@ FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-ARRAY<STRUCT<c1 BYTES, c2 DATE, cnt INT64>>[
+ARRAY<STRUCT<c1 BYTES, c2 DATE, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, 2014-02-04, 2},
   {b"1", NULL, 2},
@@ -1354,7 +1354,7 @@ SELECT enum_val FROM (
 GROUP BY enum_val
 ORDER BY enum_val ASC
 --
-ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[
+ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[known order:
   {NULL},
   {TESTENUM0},
   {TESTENUM1},
@@ -1401,7 +1401,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         row_id INT64
       >>
-[
+[known order:
   {NULL, 9},
   {NULL, 10},
   {TESTENUM0, 1},
@@ -1422,13 +1422,13 @@ ARRAY<STRUCT<
 SELECT s.c1 FROM (SELECT DISTINCT bool_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 BOOL>>[{NULL}, {false}, {true}]
+ARRAY<STRUCT<c1 BOOL>>[known order:{NULL}, {false}, {true}]
 ==
 [name=distinct_single_base_column_int32]
 SELECT s.c1 FROM (SELECT DISTINCT int32_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 INT32>>[
+ARRAY<STRUCT<c1 INT32>>[known order:
   {NULL},
   {-24},
   {-4},
@@ -1446,7 +1446,7 @@ ARRAY<STRUCT<c1 INT32>>[
 SELECT s.c1 FROM (SELECT DISTINCT int64_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 INT64>>[
+ARRAY<STRUCT<c1 INT64>>[known order:
   {NULL},
   {-14},
   {-4},
@@ -1464,13 +1464,23 @@ ARRAY<STRUCT<c1 INT64>>[
 SELECT s.c1 FROM (SELECT DISTINCT uint32_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 UINT32>>[{NULL}, {1}, {2}, {3}, {4}, {5}, {11}, {31}, {41}]
+ARRAY<STRUCT<c1 UINT32>>[known order:
+  {NULL},
+  {1},
+  {2},
+  {3},
+  {4},
+  {5},
+  {11},
+  {31},
+  {41}
+]
 ==
 [name=distinct_single_base_column_uint64]
 SELECT s.c1 FROM (SELECT DISTINCT uint64_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 UINT64>>[
+ARRAY<STRUCT<c1 UINT64>>[known order:
   {NULL},
   {1},
   {2},
@@ -1488,7 +1498,7 @@ ARRAY<STRUCT<c1 UINT64>>[
 SELECT s.c1 FROM (SELECT DISTINCT float_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 FLOAT>>[
+ARRAY<STRUCT<c1 FLOAT>>[known order:
   {NULL},
   {nan},
   {-inf},
@@ -1513,7 +1523,7 @@ NOTE: Reference implementation reports non-determinism.
 SELECT s.c1 FROM (SELECT DISTINCT double_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE>>[
+ARRAY<STRUCT<c1 DOUBLE>>[known order:
   {NULL},
   {nan},
   {-inf},
@@ -1537,7 +1547,7 @@ NOTE: Reference implementation reports non-determinism.
 SELECT s.c1 FROM (SELECT DISTINCT str_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 STRING>>[
+ARRAY<STRUCT<c1 STRING>>[known order:
   {NULL},
   {"1"},
   {"123"},
@@ -1555,7 +1565,7 @@ ARRAY<STRUCT<c1 STRING>>[
 SELECT s.c1 FROM (SELECT DISTINCT bytes_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 BYTES>>[
+ARRAY<STRUCT<c1 BYTES>>[known order:
   {NULL},
   {b"1"},
   {b"123"},
@@ -1573,7 +1583,7 @@ ARRAY<STRUCT<c1 BYTES>>[
 SELECT s.c1 FROM (SELECT DISTINCT date_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 DATE>>[
+ARRAY<STRUCT<c1 DATE>>[known order:
   {NULL},
   {2014-01-01},
   {2014-01-02},
@@ -1592,7 +1602,7 @@ SELECT s.c1 FROM (
   SELECT DISTINCT timestamp_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 TIMESTAMP>>[
+ARRAY<STRUCT<c1 TIMESTAMP>>[known order:
   {NULL},
   {2014-01-01 00:00:01.011011+00},
   {2014-01-02 00:00:01.011011+00},
@@ -1613,13 +1623,13 @@ ARRAY<STRUCT<c1 TIMESTAMP>>[
 SELECT s.c1 FROM (SELECT DISTINCT (NOT bool_val) as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 BOOL>>[{NULL}, {false}, {true}]
+ARRAY<STRUCT<c1 BOOL>>[known order:{NULL}, {false}, {true}]
 ==
 [name=distinct_single_computed_column_int32]
 SELECT s.c1 FROM (SELECT DISTINCT int32_val + 1 as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 INT64>>[
+ARRAY<STRUCT<c1 INT64>>[known order:
   {NULL},
   {-23},
   {-3},
@@ -1637,7 +1647,7 @@ ARRAY<STRUCT<c1 INT64>>[
 SELECT s.c1 FROM (SELECT DISTINCT int64_val * 2 as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 INT64>>[
+ARRAY<STRUCT<c1 INT64>>[known order:
   {NULL},
   {-28},
   {-8},
@@ -1655,13 +1665,23 @@ ARRAY<STRUCT<c1 INT64>>[
 SELECT s.c1 FROM (SELECT DISTINCT uint32_val + 7 as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 UINT64>>[{NULL}, {8}, {9}, {10}, {11}, {12}, {18}, {38}, {48}]
+ARRAY<STRUCT<c1 UINT64>>[known order:
+  {NULL},
+  {8},
+  {9},
+  {10},
+  {11},
+  {12},
+  {18},
+  {38},
+  {48}
+]
 ==
 [name=distinct_single_computed_column_uint64]
 SELECT s.c1 FROM (SELECT DISTINCT uint64_val * 3 as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 UINT64>>[
+ARRAY<STRUCT<c1 UINT64>>[known order:
   {NULL},
   {3},
   {6},
@@ -1680,7 +1700,7 @@ SELECT s.c1 FROM (
   SELECT DISTINCT float_val + 0.125 as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE>>[
+ARRAY<STRUCT<c1 DOUBLE>>[known order:
   {NULL},
   {nan},
   {-inf},
@@ -1705,7 +1725,7 @@ NOTE: Reference implementation reports non-determinism.
 SELECT s.c1 FROM (SELECT DISTINCT double_val * 2 as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE>>[
+ARRAY<STRUCT<c1 DOUBLE>>[known order:
   {NULL},
   {nan},
   {-inf},
@@ -1729,7 +1749,7 @@ NOTE: Reference implementation reports non-determinism.
 SELECT s.c1 FROM (SELECT DISTINCT LTRIM(str_val) as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 STRING>>[
+ARRAY<STRUCT<c1 STRING>>[known order:
   {NULL},
   {"1"},
   {"123"},
@@ -1747,7 +1767,7 @@ ARRAY<STRUCT<c1 STRING>>[
 SELECT s.c1 FROM (SELECT DISTINCT UPPER(bytes_val) as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 BYTES>>[
+ARRAY<STRUCT<c1 BYTES>>[known order:
   {NULL},
   {b"1"},
   {b"123"},
@@ -1769,7 +1789,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT bool_val as c1, int32_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 BOOL, c2 INT32>>[
+ARRAY<STRUCT<c1 BOOL, c2 INT32>>[known order:
   {NULL, NULL},
   {NULL, -1},
   {false, NULL},
@@ -1790,7 +1810,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT int32_val as c1, -int64_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 INT32, c2 INT64>>[
+ARRAY<STRUCT<c1 INT32, c2 INT64>>[known order:
   {NULL, NULL},
   {NULL, 1},
   {-24, 14},
@@ -1811,7 +1831,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT int64_val as c1, uint32_val + 2 as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 INT64, c2 UINT64>>[
+ARRAY<STRUCT<c1 INT64, c2 UINT64>>[known order:
   {NULL, NULL},
   {NULL, 3},
   {-14, 43},
@@ -1832,7 +1852,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT uint32_val as c1, uint64_val * 2 as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 UINT32, c2 UINT64>>[
+ARRAY<STRUCT<c1 UINT32, c2 UINT64>>[known order:
   {NULL, NULL},
   {NULL, 2},
   {1, NULL},
@@ -1853,7 +1873,7 @@ SELECT s.c1, s.c2 FROM (
 SELECT DISTINCT uint64_val as c1, int32_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 UINT64, c2 INT32>>[
+ARRAY<STRUCT<c1 UINT64, c2 INT32>>[known order:
   {NULL, NULL},
   {NULL, -1},
   {1, NULL},
@@ -1875,7 +1895,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT float_val as c1, double_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 FLOAT, c2 DOUBLE>>[
+ARRAY<STRUCT<c1 FLOAT, c2 DOUBLE>>[known order:
   {NULL, NULL},
   {NULL, -0},
   {nan, inf},
@@ -1903,7 +1923,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT double_val as c1, str_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[
+ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[known order:
   {NULL, NULL},
   {NULL, "1"},
   {nan, NULL},
@@ -1930,7 +1950,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT str_val as c1, bytes_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 STRING, c2 BYTES>>[
+ARRAY<STRUCT<c1 STRING, c2 BYTES>>[known order:
   {NULL, NULL},
   {NULL, b"1"},
   {"1", NULL},
@@ -1951,7 +1971,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT bytes_val as c1, date_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 BYTES, c2 DATE>>[
+ARRAY<STRUCT<c1 BYTES, c2 DATE>>[known order:
   {NULL, NULL},
   {NULL, 2014-02-04},
   {b"1", NULL},
@@ -1973,7 +1993,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 DATE, c2 TIMESTAMP>>[
+ARRAY<STRUCT<c1 DATE, c2 TIMESTAMP>>[known order:
   {NULL, NULL},
   {
     NULL,
@@ -2028,7 +2048,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 TIMESTAMP, c2 DATE>>[
+ARRAY<STRUCT<c1 TIMESTAMP, c2 DATE>>[known order:
   {NULL, NULL},
   {NULL, 2014-02-04},
   {
@@ -2085,7 +2105,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT (NOT bool_val) as c1, int32_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 BOOL, c2 INT32>>[
+ARRAY<STRUCT<c1 BOOL, c2 INT32>>[known order:
   {NULL, NULL},
   {NULL, -1},
   {false, -3},
@@ -2106,7 +2126,7 @@ SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT int32_val * 2 as c1, -int64_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 INT64, c2 INT64>>[
+ARRAY<STRUCT<c1 INT64, c2 INT64>>[known order:
   {NULL, NULL},
   {NULL, 1},
   {-48, 14},
@@ -2128,7 +2148,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 INT64, c2 UINT64>>[
+ARRAY<STRUCT<c1 INT64, c2 UINT64>>[known order:
   {NULL, NULL},
   {NULL, 3},
   {-12, 43},
@@ -2150,7 +2170,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 UINT64, c2 UINT64>>[
+ARRAY<STRUCT<c1 UINT64, c2 UINT64>>[known order:
   {NULL, NULL},
   {NULL, 2},
   {8, NULL},
@@ -2172,7 +2192,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 UINT64, c2 INT32>>[
+ARRAY<STRUCT<c1 UINT64, c2 INT32>>[known order:
   {NULL, NULL},
   {NULL, -1},
   {4, NULL},
@@ -2195,7 +2215,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE>>[
+ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE>>[known order:
   {NULL, NULL},
   {NULL, -0},
   {nan, inf},
@@ -2224,7 +2244,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[
+ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[known order:
   {NULL, NULL},
   {NULL, "1"},
   {nan, NULL},
@@ -2252,7 +2272,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 STRING, c2 BYTES>>[
+ARRAY<STRUCT<c1 STRING, c2 BYTES>>[known order:
   {NULL, NULL},
   {NULL, b"1"},
   {"1", NULL},
@@ -2274,7 +2294,7 @@ SELECT s.c1, s.c2 FROM (
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-ARRAY<STRUCT<c1 BYTES, c2 DATE>>[
+ARRAY<STRUCT<c1 BYTES, c2 DATE>>[known order:
   {NULL, NULL},
   {NULL, 2014-02-04},
   {b"1", NULL},
@@ -2327,7 +2347,7 @@ SELECT s.c1 FROM (SELECT DISTINCT enum_val as c1 FROM (
 ) t ) s
 ORDER BY s.c1 ASC
 --
-ARRAY<STRUCT<c1 ENUM<zetasql_test__.TestEnum>>>[
+ARRAY<STRUCT<c1 ENUM<zetasql_test__.TestEnum>>>[known order:
   {NULL},
   {TESTENUM0},
   {TESTENUM1},
@@ -2373,7 +2393,7 @@ ARRAY<STRUCT<
         c1 ENUM<zetasql_test__.TestEnum>,
         c2 INT64
       >>
-[
+[known order:
   {NULL, 9},
   {NULL, 10},
   {TESTENUM0, 1},
@@ -2398,7 +2418,7 @@ ARRAY<STRUCT<INT64>>[{136}]
 select sum(primary_key) from TableDistincts
 group by (select primary_key)
 --
-ARRAY<STRUCT<INT64>>[
+ARRAY<STRUCT<INT64>>[unknown order:
   {1},
   {2},
   {3},
@@ -2437,7 +2457,7 @@ SELECT bool_val, count(*) as c, count(bool_val) as cb,
 FROM AllTypesTable
 GROUP BY bool_val
 --
-ARRAY<STRUCT<bool_val BOOL, c INT64, cb INT64, cntif INT64>>[
+ARRAY<STRUCT<bool_val BOOL, c INT64, cb INT64, cntif INT64>>[unknown order:
   {NULL, 6, 0, 0},
   {false, 16, 16, 0},
   {true, 12, 12, 12}

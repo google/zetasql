@@ -45,6 +45,10 @@ import javax.annotation.Nullable;
  * <p>Hint, option and qualifier names are all case insensitive. The resolved AST will contain the
  * original case as written by the user.
  *
+ * <p>The {@code disallow_duplicate_option_names} field will disallow duplicate option names for
+ * non-anonymization and non-aggregation_threshold options. anonymization and aggregation_threshold
+ * options already disallow duplicate option names by default.
+ *
  * <p>The {@code disallow_unknown_options} and {@code disallow_unknown_hints_with_qualifiers} fields
  * can be set to indicate that errors should be given on unknown options or hints (with specific
  * qualifiers). Unknown hints with other qualifiers do not cause errors.
@@ -80,6 +84,9 @@ public class AllowedHintsAndOptions implements Serializable {
 
   // If true, give an error for an unknown option.
   boolean disallowUnknownOptions = false;
+  // If true, give an error if an option name appears more than once in a single  options list.
+  // Does not apply to anonymization and aggregate_threshold options.
+  boolean disallowDuplicateOptionNames = false;
   // Keys are lower-case qualifiers, values are the original qualifiers.
   private final Map<String, String> disallowUnknownHintsWithQualifiers = new HashMap<>();
   // Table containing declared hints. Table keys are in lower-case. The key is
@@ -102,6 +109,8 @@ public class AllowedHintsAndOptions implements Serializable {
    *
    * <p>All supported hints and options should be added with the Add methods. <br>
    * Unknown options will be errors. <br>
+   * Duplicate option names will be permitted (for non-anonymization and non-aggregation_threshold
+   * options). <br>
    * Unknown hints without qualifiers, or with {@code qualifier}, will be errors. <br>
    * Unkonwn hints with other qualifiers will be allowed (because these are typically interpreted as
    * hints intended for other engines).
@@ -110,6 +119,7 @@ public class AllowedHintsAndOptions implements Serializable {
     addDefaultAnonymizationOptions();
     addDefaultDifferentialPrivacyOptions();
     disallowUnknownOptions = true;
+    disallowDuplicateOptionNames = false;
     disallowUnknownHintsWithQualifier(qualifier);
     disallowUnknownHintsWithQualifier("");
   }
@@ -121,6 +131,7 @@ public class AllowedHintsAndOptions implements Serializable {
   AllowedHintsAndOptionsProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     AllowedHintsAndOptionsProto.Builder builder = AllowedHintsAndOptionsProto.newBuilder();
     builder.setDisallowUnknownOptions(disallowUnknownOptions);
+    builder.setDisallowDuplicateOptionNames(disallowDuplicateOptionNames);
     builder.addAllDisallowUnknownHintsWithQualifier(disallowUnknownHintsWithQualifiers.values());
     for (Hint hint : hints.values()) {
       if (hint.getQualifier().isEmpty() && !hint.getAllowUnqualified()) {
@@ -216,6 +227,7 @@ public class AllowedHintsAndOptions implements Serializable {
       allowed.disallowUnknownHintsWithQualifier(qualifier);
     }
     allowed.setDisallowUnknownOptions(proto.getDisallowUnknownOptions());
+    allowed.setDisallowDuplicateOptionNames(proto.getDisallowDuplicateOptionNames());
     for (HintProto hint : proto.getHintList()) {
       if (hint.hasType()) {
         allowed.addHint(
@@ -403,6 +415,14 @@ public class AllowedHintsAndOptions implements Serializable {
 
   public boolean getDisallowUnknownOptions() {
     return disallowUnknownOptions;
+  }
+
+  public void setDisallowDuplicateOptionNames(boolean disallowDuplicateOptionNames) {
+    this.disallowDuplicateOptionNames = disallowDuplicateOptionNames;
+  }
+
+  public boolean getDisallowDuplicateOptionNames() {
+    return disallowDuplicateOptionNames;
   }
 
   public Hint getHint(String qualifier, String name) {

@@ -196,3 +196,62 @@ CreateMaterializedViewStmt
 | +-ColumnRef(type=TIMESTAMP, column=mv.c1#19)
 +-cluster_by_list=
   +-ColumnRef(type=STRING, column=mv.c2#20)
+==
+
+[disallow_duplicate_options]
+create materialized view mv
+options (abc=def,abc=2)
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+ERROR: Duplicate option specified for 'abc' [at 2:18]
+options (abc=def,abc=2)
+                 ^
+==
+
+# AS REPLICA OF NOT Supported
+create materialized view mv as replica of TestTable
+--
+ERROR: CREATE MATERIALIZED VIEW AS REPLICA OF is not supported [at 1:1]
+create materialized view mv as replica of TestTable
+^
+==
+
+# AS REPLICA OF
+[default language_features=CREATE_MATERIALIZED_VIEW_AS_REPLICA_OF]
+CREATE MATERIALIZED VIEW mv AS REPLICA OF TestTable
+--
+CreateMaterializedViewStmt
++-name_path=mv
++-replica_source=
+  +-TableScan(table=TestTable)
+==
+
+# AS REPLICA OF WITH OPTIONS
+[default language_features=CREATE_MATERIALIZED_VIEW_AS_REPLICA_OF]
+CREATE MATERIALIZED VIEW mv OPTIONS (replica_interval_minutes = 300) AS REPLICA OF TestTable
+--
+CreateMaterializedViewStmt
++-name_path=mv
++-option_list=
+| +-replica_interval_minutes := Literal(type=INT64, value=300)
++-replica_source=
+  +-TableScan(table=TestTable)
+==
+
+# Error - additional WHERE clause
+CREATE MATERIALIZED VIEW mv AS REPLICA OF TestTable WHERE id = 'foo'
+--
+ERROR: Syntax error: Expected end of input but got keyword WHERE [at 1:53]
+CREATE MATERIALIZED VIEW mv AS REPLICA OF TestTable WHERE id = 'foo'
+                                                    ^
+==
+
+# Error - additional CLUSTER BY clause
+[default language_features=CREATE_MATERIALIZED_VIEW_AS_REPLICA_OF,CREATE_MATERIALIZED_VIEW_CLUSTER_BY]
+CREATE MATERIALIZED VIEW mv
+CLUSTER BY c1
+AS REPLICA OF TestTable
+--
+ERROR: Unrecognized name: c1 [at 2:12]
+CLUSTER BY c1
+           ^

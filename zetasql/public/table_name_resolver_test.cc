@@ -29,6 +29,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/container/btree_set.h"
 
 namespace zetasql {
 
@@ -195,8 +196,8 @@ TEST(TableNameResolver, ExtractTableNamesFromStatementMultiple) {
 }
 
 TEST(TableNameResolver, ExtractTableNamesFromNextStatement) {
-  std::set<std::vector<std::string>> table_names;
-  std::set<std::vector<std::string>> tvf_names;
+  absl::btree_set<std::vector<std::string>> table_names;
+  absl::btree_set<std::vector<std::string>> tvf_names;
   std::string sql =
       R"(SELECT * FROM foo(bar);
       SELECT * FROM f(x), g(x); SELECT * FROM a(1), b(2), c(3))";
@@ -225,7 +226,7 @@ TEST(TableNameResolver, ExtractTableNamesFromNextStatement) {
 
 TEST(TableNameResolver, ExtractTableNamesFromASTStatement) {
   std::set<std::vector<std::string>> table_names;
-  std::set<std::vector<std::string>> tvf_names;
+  absl::btree_set<std::vector<std::string>> tvf_names;
   std::string sql =
       R"(SELECT * FROM foo(bar);
       SELECT * FROM f(x), g(x); SELECT * FROM a(1), b(2), c(3))";
@@ -270,6 +271,26 @@ TEST(TableNameResolver, ExtractTableNamesFromScript) {
   EXPECT_THAT(tvf_names,
               UnorderedElementsAre(ElementsAre("foo"), ElementsAre("f"),
                                    ElementsAre("g"), ElementsAre("T1", "T2")));
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromScriptWithSubquery) {
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  std::string sql = R"r(
+    WITH
+      my_cte AS (
+        SELECT x
+        FROM table_name
+      )
+    SELECT x
+    FROM my_cte
+    WHERE (SELECT 1 FROM my_cte)
+  )r";
+
+  ZETASQL_ASSERT_OK(ExtractTableNamesFromScript(sql, AnalyzerOptions(), &table_names,
+                                        &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("table_name")));
+  ASSERT_THAT(tvf_names, IsEmpty());
 }
 
 TEST(TableNameResolver, ExtractTableNamesFromASTScript) {

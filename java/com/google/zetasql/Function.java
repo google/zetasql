@@ -266,7 +266,23 @@ public class Function implements Serializable {
         FunctionSignature signature,
         ImmutableList<String> argumentNames,
         ParseResumeLocation parseResumeLocation) {
-      super(namePath, TEMPLATED_SQL_FUNCTION_GROUP, Mode.SCALAR, ImmutableList.of(signature));
+      this(
+          namePath,
+          signature,
+          argumentNames,
+          parseResumeLocation,
+          Mode.SCALAR,
+          FunctionOptionsProto.getDefaultInstance());
+    }
+
+    public TemplatedSQLFunction(
+        ImmutableList<String> namePath,
+        FunctionSignature signature,
+        ImmutableList<String> argumentNames,
+        ParseResumeLocation parseResumeLocation,
+        Mode mode,
+        FunctionOptionsProto options) {
+      super(namePath, TEMPLATED_SQL_FUNCTION_GROUP, mode, ImmutableList.of(signature), options);
       this.argumentNames = argumentNames;
       this.parseResumeLocation = parseResumeLocation;
     }
@@ -288,8 +304,12 @@ public class Function implements Serializable {
       ImmutableList.Builder<String> builder = new ImmutableList.Builder<String>();
       builder.addAll(proto.getTemplatedSqlFunctionArgumentNameList());
       return new TemplatedSQLFunction(
-          namePath, signature, builder.build(),
-          new ParseResumeLocation(proto.getParseResumeLocation()));
+          namePath,
+          signature,
+          builder.build(),
+          new ParseResumeLocation(proto.getParseResumeLocation()),
+          proto.getMode(),
+          proto.getOptions());
     }
   }
 }

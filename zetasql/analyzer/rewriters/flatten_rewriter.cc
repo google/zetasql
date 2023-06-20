@@ -19,12 +19,12 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -49,8 +49,10 @@ class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   explicit FlattenRewriterVisitor(const AnalyzerOptions* options,
                                   Catalog* catalog,
-                                  ColumnFactory* column_factory)
-      : fn_builder_(*options, *catalog), column_factory_(column_factory) {}
+                                  ColumnFactory* column_factory,
+                                  TypeFactory& type_factory)
+      : fn_builder_(*options, *catalog, type_factory),
+        column_factory_(column_factory) {}
 
  private:
   absl::Status VisitResolvedArrayScan(const ResolvedArrayScan* node) override;
@@ -344,7 +346,8 @@ class FlattenRewriter : public Rewriter {
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
     ColumnFactory column_factory(0, options.id_string_pool().get(),
                                  options.column_id_sequence_number());
-    FlattenRewriterVisitor rewriter(&options, &catalog, &column_factory);
+    FlattenRewriterVisitor rewriter(&options, &catalog, &column_factory,
+                                    type_factory);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
                      rewriter.ConsumeRootNode<ResolvedNode>());

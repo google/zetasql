@@ -401,7 +401,6 @@ and {
   }
   return BisonParserImpl::token::KW_AND;
 }
-anonymization { return BisonParserImpl::token::KW_ANONYMIZATION; }
 approx { return BisonParserImpl::token::KW_APPROX; }
 any { return BisonParserImpl::token::KW_ANY; }
 are { return BisonParserImpl::token::KW_ARE; }
@@ -505,7 +504,6 @@ fetch { return BisonParserImpl::token::KW_FETCH; }
 files { return BisonParserImpl::token::KW_FILES; }
 fill { return BisonParserImpl::token::KW_FILL; }
 filter { return BisonParserImpl::token::KW_FILTER; }
-filter_fields { return BisonParserImpl::token::KW_FILTER_FIELDS; }
 first { return BisonParserImpl::token::KW_FIRST; }
 following { return BisonParserImpl::token::KW_FOLLOWING; }
 for { return BisonParserImpl::token::KW_FOR; }
@@ -575,6 +573,7 @@ materialized  { return BisonParserImpl::token::KW_MATERIALIZED; }
 max { return BisonParserImpl::token::KW_MAX; }
 merge { return BisonParserImpl::token::KW_MERGE; }
 message { return BisonParserImpl::token::KW_MESSAGE; }
+metadata { return BisonParserImpl::token::KW_METADATA; }
 min { return BisonParserImpl::token::KW_MIN; }
 model { return BisonParserImpl::token::KW_MODEL; }
 module { return BisonParserImpl::token::KW_MODULE; }
@@ -673,6 +672,7 @@ sequence/{whitespace}clamped{not_generalized_identifier} {
 }
 sequence { return BisonParserImpl::token::KW_SEQUENCE; }
 set { return BisonParserImpl::token::KW_SET; }
+sets { return BisonParserImpl::token::KW_SETS; }
 show { return BisonParserImpl::token::KW_SHOW; }
 simple { return BisonParserImpl::token::KW_SIMPLE; }
 some { return BisonParserImpl::token::KW_SOME; }

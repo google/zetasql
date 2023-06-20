@@ -19,6 +19,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -38,6 +39,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -142,6 +144,20 @@ class ReferenceDriver : public TestDriver {
            << "ReferenceDriver::ExecuteScriptForReferenceDriver() instead";
   }
 
+  struct ExecuteStatementAuxOutput {
+    // If this has a value, it indicates whether the reference evaluation
+    // engine detected non-determinism.
+    std::optional<bool> is_deterministic_output;
+    // If this has a value, it indicates the statement included unsupported
+    // types.  This will generally cause a failure of the query.
+    std::optional<bool> uses_unsupported_type;
+    // If a new table is created via a DDL statement (see restrictions above)
+    // this will contain the name of the created table.
+    std::optional<std::string> created_table_name;
+    // If set, will contain the runtime_info extracted from AnalyzerOutput.
+    std::optional<AnalyzerRuntimeInfo> analyzer_runtime_info;
+  };
+
   // The same as TestDriver::ExecuteStatement(), but with more arguments. Uses
   // INVALID_ARGUMENT errors to represent parser/analyzer errors and
   // OUT_OF_RANGE to represent runtime errors.
@@ -149,28 +165,19 @@ class ReferenceDriver : public TestDriver {
   // DDL is supported only if 'database' is not null, and only for a limited
   // set of statement types (currently CREATE TABLE AS (...)). Executing a
   // DDL statement modifies 'database' to reflect the change and returns a
-  // value representing the contents of the new table. If 'created_table_name'
-  // is not nullptr, it is set to the name of the created table.
+  // value representing the contents of the new table.
   //
-  // 'is_deterministic_output' must not be null. When reference evaluation
-  //     succeeds, this will be set to 'false' if the reference evluation engine
-  //     detected non-determinism in the query result and true otherwise.
-  // 'uses_unsupported_type' must not be null. When the reference driver fails
-  //     the test because it detects use of types not supported by the current
-  //     language options, this is set to true. Otherwise it is set to false.
-  //     Currently only the output type of the query is checked for unsupported
-  //     types.
+  // 'aux_output' contains additional information. These values may provided
+  // even in the cause of failures in some cases.
   absl::StatusOr<Value> ExecuteStatementForReferenceDriver(
-      const std::string& sql, const std::map<std::string, Value>& parameters,
+      absl::string_view sql, const std::map<std::string, Value>& parameters,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
-      bool* is_deterministic_output, bool* uses_unsupported_type,
-      TestDatabase* database = nullptr,
-      std::string* created_table_name = nullptr);
+      ExecuteStatementAuxOutput& aux_output, TestDatabase* database = nullptr);
 
   // The same as ExecuteStatementForReferenceDriver(), except executes a script
   // instead of a statement.
   absl::StatusOr<ScriptResult> ExecuteScriptForReferenceDriver(
-      const std::string& sql, const std::map<std::string, Value>& parameters,
+      absl::string_view sql, const std::map<std::string, Value>& parameters,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
       bool* uses_unsupported_type);
 
@@ -195,9 +202,9 @@ class ReferenceDriver : public TestDriver {
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory, uint64_t times) override;
 
-  absl::StatusOr<AnalyzerOptions> GetAnalyzerOptions(
+  virtual absl::StatusOr<AnalyzerOptions> GetAnalyzerOptions(
       const std::map<std::string, Value>& parameters,
-      bool* uses_unsupported_type) const;
+      std::optional<bool>& uses_unsupported_type) const;
 
  private:
   struct TableInfo {
@@ -209,22 +216,23 @@ class ReferenceDriver : public TestDriver {
   };
 
   absl::Status ExecuteScriptForReferenceDriverInternal(
-      const std::string& sql, const std::map<std::string, Value>& parameters,
+      absl::string_view sql, const std::map<std::string, Value>& parameters,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
       bool* uses_unsupported_type, ScriptResult* result);
 
   absl::StatusOr<Value> ExecuteStatementForReferenceDriverInternal(
-      const std::string& sql, const AnalyzerOptions& analyzer_options,
+      absl::string_view sql, const AnalyzerOptions& analyzer_options,
       const std::map<std::string, Value>& parameters,
       const VariableMap& script_variables,
       const SystemVariableValuesMap& system_variables,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
-      bool* is_deterministic_output, bool* uses_unsupported_type,
-      TestDatabase* database, std::string* created_table_name,
-      const AnalyzerOutput* analyzer_out);
+      TestDatabase* database,
+      // If provide, uses this instead of calling analyzer.
+      const AnalyzerOutput* analyzed_input,
+      ExecuteStatementAuxOutput& aux_output);
 
   virtual absl::StatusOr<std::unique_ptr<const AnalyzerOutput>>
-  AnalyzeStatement(const std::string& sql, TypeFactory* type_factory,
+  AnalyzeStatement(absl::string_view sql, TypeFactory* type_factory,
                    const std::map<std::string, Value>& parameters,
                    Catalog* catalog, const AnalyzerOptions& analyzer_options);
 

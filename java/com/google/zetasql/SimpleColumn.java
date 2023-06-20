@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import com.google.zetasql.SimpleTableProtos.SimpleColumnProto;
 import java.io.Serializable;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** SimpleColumn is a concrete implementation of the Column interface. */
@@ -139,5 +140,26 @@ public final class SimpleColumn implements Column, Serializable {
   @Override
   public boolean canUpdateToDefault() {
     return canUpdateToDefault;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (!(other instanceof SimpleColumn)) {
+      return false;
+    }
+
+    SimpleColumn otherAsColumn = (SimpleColumn) other;
+
+    return Objects.equals(this.name, otherAsColumn.name)
+        && Objects.equals(this.fullName, otherAsColumn.fullName)
+        && Objects.equals(this.type, otherAsColumn.type)
+        && this.isPseudoColumn == otherAsColumn.isPseudoColumn
+        && this.isWritableColumn == otherAsColumn.isWritableColumn
+        && this.canUpdateToDefault == otherAsColumn.canUpdateToDefault;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(name, fullName, type, isPseudoColumn, isWritableColumn, canUpdateToDefault);
   }
 }

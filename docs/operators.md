@@ -756,10 +756,21 @@ Input values:
   `my_array` array expression:
 
   ```sql
-  WITH T AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
+  WITH MyTable AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
   SELECT FLATTEN(my_array.items)
-  FROM T
+  FROM MyTable
   ```
+
+  These data types have fields:
+
+  
+  
+
+  + `STRUCT`
+  + `PROTO`
+  + `JSON`
+
+  
 + `array_element`: If the field to access is an array field (`array_field`),
   you can additionally access a specific position in the field
   with the [array subscript operator][array-subscript-operator]
@@ -770,9 +781,9 @@ Input values:
   array field:
 
   ```sql
-  WITH T AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
+  WITH MyTable AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
   SELECT FLATTEN(my_array.items[OFFSET(0)])
-  FROM T
+  FROM MyTable
   ```
 
 Details:
@@ -784,7 +795,7 @@ and can only be interpreted by the following operations:
 +  [`FLATTEN` operation][flatten-operation]: Returns an array. For example:
 
    ```sql
-   FLATTEN(x.y.z)
+   FLATTEN(my_array.sales.prices)
    ```
 +  [`UNNEST` operation][operators-link-to-unnest]: Returns a table.
    `array_expression` must be a path expression.
@@ -792,27 +803,28 @@ and can only be interpreted by the following operations:
    For example, these do the same thing:
 
    ```sql
-   UNNEST(x.y.z)
+   UNNEST(my_array.sales.prices)
    ```
 
    ```sql
-   UNNEST(FLATTEN(x.y.z))
+   UNNEST(FLATTEN(my_array.sales.prices))
    ```
-+  [`FROM` operation][operators-link-to-from-clause]: Returns a table.
++  [`FROM` clause][operators-link-to-from-clause]: Returns a table.
    `array_expression` must be a path expression.
    Implicitly implements the `UNNEST` operator and the `FLATTEN` operator.
-   For example, these do the same thing:
+   For example, these unnesting operations produce the same values for
+   `results`:
 
    ```sql
-   SELECT * FROM T, T.x.y.z;
+   SELECT results FROM SalesTable, SalesTable.my_array.sales.prices AS results;
    ```
 
    ```sql
-   SELECT * FROM T, UNNEST(x.y.z);
+   SELECT results FROM SalesTable, UNNEST(my_array.sales.prices) AS results;
    ```
 
    ```sql
-   SELECT * FROM T, UNNEST(FLATTEN(x.y.z));
+   SELECT results FROM SalesTable, UNNEST(FLATTEN(my_array.sales.prices)) AS results;
    ```
 
 If `NULL` array elements are encountered, they are added to the resulting array.
@@ -855,12 +867,12 @@ to the resulting array.
 
 **Examples**
 
-The next examples in this section reference a table called `T`, that contains
-a nested struct in an array called `my_array`:
+The next examples in this section reference a table called `SalesTable`, that
+contains a nested struct in an array called `my_array`:
 
 ```sql
 WITH
-  T AS (
+  SalesTable AS (
     SELECT
       [
         STRUCT(
@@ -871,7 +883,7 @@ WITH
         )
       ] AS my_array
   )
-SELECT * FROM T;
+SELECT * FROM SalesTable;
 
 /*----------------------------------------------*
  | my_array                                     |
@@ -884,7 +896,7 @@ This is what the array elements field access operator looks like in the
 `FLATTEN` operator:
 
 ```sql
-SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM SalesTable;
 
 /*--------------*
  | all_prices   |
@@ -897,7 +909,7 @@ This is how you use the array subscript operator to only return values at a
 specific index in the `prices` array:
 
 ```sql
-SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM SalesTable;
 
 /*--------------*
  | first_prices |
@@ -910,7 +922,7 @@ This is an example of an explicit `UNNEST` operation that includes the
 array elements field access operator:
 
 ```sql
-SELECT all_prices FROM T, UNNEST(my_array.sales.prices) AS all_prices
+SELECT all_prices FROM SalesTable, UNNEST(my_array.sales.prices) AS all_prices
 
 /*------------*
  | all_prices |
@@ -925,7 +937,7 @@ This is an example of an implicit `UNNEST` operation that includes the
 array elements field access operator:
 
 ```sql
-SELECT all_prices FROM T, T.my_array.sales.prices AS all_prices
+SELECT all_prices FROM SalesTable, SalesTable.my_array.sales.prices AS all_prices
 
 /*------------*
  | all_prices |
@@ -940,7 +952,7 @@ This query produces an error because one of the `prices` arrays does not have
 an element at index `1` and `OFFSET` is used:
 
 ```sql
-SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM SalesTable;
 
 -- Error
 ```
@@ -949,7 +961,7 @@ This query is like the previous query, but `SAFE_OFFSET` is used. This
 produces a `NULL` value instead of an error.
 
 ```sql
-SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM SalesTable;
 
 /*---------------*
  | second_prices |
@@ -963,7 +975,7 @@ the query. These contribute no elements to the result.
 
 ```sql
 WITH
-  T AS (
+  SalesTable AS (
     SELECT
       [
         STRUCT(
@@ -976,7 +988,7 @@ WITH
         )
       ] AS my_array
   )
-SELECT FLATTEN(my_array.sales.prices) AS first_prices FROM T;
+SELECT FLATTEN(my_array.sales.prices) AS first_prices FROM SalesTable;
 
 /*--------------*
  | first_prices |
@@ -2572,6 +2584,8 @@ FROM UNNEST([
 [semantic-rules-in]: #semantic_rules_in
 
 [array-subscript-operator]: #array_subscript_operator
+
+[field-access-operator]: #field_access_operator
 
 [struct-subscript-operator]: #struct_subscript_operator
 

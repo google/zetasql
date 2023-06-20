@@ -69,10 +69,9 @@ void ResolvedNode::SetParseLocationRange(
 
 void ResolvedNode::ClearParseLocationRange() { parse_location_range_.reset(); }
 
-std::string ResolvedNode::DebugString(
-    absl::Span<const NodeAnnotation> annotations) const {
+std::string ResolvedNode::DebugString(const DebugStringConfig& config) const {
   std::string output;
-  DebugStringImpl(this, annotations, /*prefix=1*/ "", /*prefix2=*/"", &output);
+  DebugStringImpl(this, config, /*prefix=1*/ "", /*prefix2=*/"", &output);
   return output;
 }
 
@@ -91,7 +90,7 @@ void ResolvedNode::AppendAnnotations(
 }
 
 void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
-                                   absl::Span<const NodeAnnotation> annotations,
+                                   const DebugStringConfig& config,
                                    absl::string_view prefix1,
                                    absl::string_view prefix2,
                                    std::string* output) {
@@ -120,23 +119,27 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
   }
 
   if (fields.empty()) {
-    AppendAnnotations(node, annotations, output);
+    AppendAnnotations(node, config.annotations, output);
     *output += "\n";
   } else if (multiline) {
-    AppendAnnotations(node, annotations, output);
+    AppendAnnotations(node, config.annotations, output);
     *output += "\n";
     for (const DebugStringField& field : fields) {
       const bool print_field_name = !field.name.empty();
       const bool print_one_line = field.nodes.empty();
+      absl::string_view accessed_string =
+          config.print_accessed ? field.accessed ? "{*}" : "{ }" : "";
 
       if (print_field_name) {
-        absl::StrAppend(output, prefix1, "+-", field.name, "=");
+        absl::StrAppend(output, prefix1, "+-", field.name, accessed_string,
+                        "=");
         if (print_one_line) {
           absl::StrAppend(output, field.value);
         }
         absl::StrAppend(output, "\n");
       } else if (print_one_line) {
-        absl::StrAppend(output, prefix1, "+-", field.value, "\n");
+        absl::StrAppend(output, prefix1, "+-", field.value, accessed_string,
+                        "\n");
       }
 
       if (!print_one_line) {
@@ -147,7 +150,7 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
               (node != field.nodes.back() ? "| " : "  ");
 
           DebugStringImpl(
-              node, annotations,
+              node, config,
               absl::StrCat(prefix1, field_name_indent, field_value_indent),
               absl::StrCat(prefix1, field_name_indent, "+-"), output);
         }
@@ -156,15 +159,18 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
   } else {
     *output += "(";
     for (const DebugStringField& field : fields) {
+      absl::string_view accessed_string =
+          config.print_accessed ? field.accessed ? "{*}" : "{ }" : "";
+
       if (&field != &fields[0]) *output += ", ";
       if (field.name.empty()) {
-        absl::StrAppend(output, field.value);
+        absl::StrAppend(output, field.value, accessed_string);
       } else {
-        absl::StrAppend(output, field.name, "=", field.value);
+        absl::StrAppend(output, field.name, accessed_string, "=", field.value);
       }
     }
     *output += ")";
-    AppendAnnotations(node, annotations, output);
+    AppendAnnotations(node, config.annotations, output);
     *output += "\n";
   }
 }
@@ -174,8 +180,7 @@ void ResolvedNode::CollectDebugStringFields(
   // Print parse_location if available.
   const auto location = GetParseLocationRangeOrNULL();
   if (location != nullptr) {
-    fields->push_back(
-        DebugStringField("parse_location", location->GetString()));
+    fields->emplace_back("parse_location", location->GetString(), false);
   }
 }
 
@@ -276,7 +281,7 @@ void ResolvedNode::CollectDebugStringFieldsWithNameFormat(
     return;
   }
   if (node->HasDebugStringFieldsWithNodes()) {
-    fields->emplace_back(DebugStringField("" /* name */, node));
+    fields->emplace_back("" /* name */, node, false);
   } else {
     node->CollectDebugStringFields(fields);
   }
@@ -355,8 +360,9 @@ void ResolvedConstant::CollectDebugStringFields(
   SUPER::CollectDebugStringFields(fields);
   ZETASQL_DCHECK_LE(fields->size(), 2);  // type and parse location
 
-  fields->emplace(fields->begin(), "", constant_->FullName());
-  fields->emplace_back("value", constant_->ConstantValueDebugString());
+  fields->emplace(fields->begin(), "", constant_->FullName(), false);
+  fields->emplace_back("value", constant_->ConstantValueDebugString(),
+                       constant_accessed());
 }
 
 std::string ResolvedConstant::GetNameForDebugString() const {
@@ -367,10 +373,11 @@ void ResolvedSystemVariable::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
   fields->emplace(fields->begin(), "",
-                  absl::StrJoin(name_path(), ".",
+                  absl::StrJoin(name_path_, ".",
                                 [](std::string* out, absl::string_view in) {
                                   absl::StrAppend(out, ToIdentifierLiteral(in));
-                                }));
+                                }),
+                  name_path_accessed());
 }
 
 std::string ResolvedSystemVariable::GetNameForDebugString() const {
@@ -394,16 +401,18 @@ void ResolvedFunctionCallBase::CollectDebugStringFields(
 
   if (!argument_list_.empty()) {
     // Use empty name to avoid printing "arguments=" with extra indentation.
-    fields->emplace_back("", argument_list_);
+    fields->emplace_back("", argument_list_, argument_list_accessed());
   } else if (!generic_argument_list_.empty()) {
-    fields->emplace_back("", generic_argument_list_);
+    fields->emplace_back("", generic_argument_list_,
+                         generic_argument_list_accessed());
   }
   if (!hint_list_.empty()) {
-    fields->emplace_back("hint_list", hint_list_);
+    fields->emplace_back("hint_list", hint_list_, hint_list_accessed());
   }
   if (!collation_list_.empty()) {
     fields->emplace_back("collation_list",
-                         ResolvedCollation::ToString(collation_list_));
+                         ResolvedCollation::ToString(collation_list_),
+                         collation_list_accessed());
   }
 }
 
@@ -432,22 +441,25 @@ void ResolvedCast::CollectDebugStringFields(
 
   if (expr_ != nullptr) {
     // Use empty name to avoid printing "arguments=" with extra indentation.
-    fields->emplace_back("", expr_.get());
+    fields->emplace_back("", expr_.get(), expr_accessed());
   }
   if (return_null_on_error_) {
-    fields->emplace_back("return_null_on_error", "TRUE");
+    fields->emplace_back("return_null_on_error", "TRUE",
+                         return_null_on_error_accessed());
   }
   if (extended_cast_ != nullptr) {
-    fields->emplace_back("extended_cast", extended_cast_.get());
+    fields->emplace_back("extended_cast", extended_cast_.get(),
+                         extended_cast_accessed());
   }
   if (format_ != nullptr) {
-    fields->emplace_back("format", format_.get());
+    fields->emplace_back("format", format_.get(), format_accessed());
   }
   if (time_zone_ != nullptr) {
-    fields->emplace_back("time_zone", time_zone_.get());
+    fields->emplace_back("time_zone", time_zone_.get(), time_zone_accessed());
   }
   if (!type_modifiers_.IsEmpty()) {
-    fields->emplace_back("type_modifiers", type_modifiers_.DebugString());
+    fields->emplace_back("type_modifiers", type_modifiers_.DebugString(),
+                         type_modifiers_accessed());
   }
 }
 
@@ -521,7 +533,7 @@ void ResolvedOption::CollectDebugStringFields(
   if (fields->empty()) {
     CollectDebugStringFieldsWithNameFormat(value_.get(), fields);
   } else {
-    fields->emplace_back("", value_.get());
+    fields->emplace_back("", value_.get(), value_accessed());
   }
 }
 
@@ -570,8 +582,8 @@ std::string ResolvedWindowFrameExpr::BoundaryTypeToString(
 void ResolvedWindowFrame::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
-  fields->emplace_back("start_expr", start_expr_.get());
-  fields->emplace_back("end_expr", end_expr_.get());
+  fields->emplace_back("start_expr", start_expr_.get(), start_expr_accessed());
+  fields->emplace_back("end_expr", end_expr_.get(), end_expr_accessed());
 }
 
 std::string ResolvedWindowFrame::GetFrameUnitString() const {
@@ -588,7 +600,7 @@ void ResolvedWindowFrameExpr::CollectDebugStringFields(
   SUPER::CollectDebugStringFields(fields);
   if (expression_ != nullptr) {
     // Use empty name to avoid printing "expression=" with extra indentation.
-    fields->emplace_back("", expression_.get());
+    fields->emplace_back("", expression_.get(), expression_accessed());
   }
 }
 

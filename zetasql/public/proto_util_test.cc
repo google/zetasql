@@ -55,6 +55,7 @@ using ::testing::HasSubstr;
 using zetasql_test__::KitchenSinkPB;
 using zetasql_test__::Proto3KitchenSink;
 using zetasql_test__::ProtoWithIntervalField;
+using zetasql_test__::ProtoWithRangeFields;
 
 using zetasql::testing::EqualsProto;
 
@@ -805,6 +806,16 @@ TEST_P(ReadProtoFieldsTest, LargeUint64Datetime) {
                          "field format DATETIME_MICROS: 1152921504606846976")));
 }
 
+TEST_P(ReadProtoFieldsTest, NUMERIC) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue numeric_val,
+                       NumericValue::FromString("12.345"));
+  kitchen_sink_.set_bytes_val(numeric_val.SerializeAsProtoBytes());
+
+  EXPECT_THAT(ReadField("bytes_val", FieldFormat::NUMERIC, types::NumericType(),
+                        values::NullNumeric()),
+              IsOkAndHolds(values::Numeric(numeric_val)));
+}
+
 TEST_P(ReadProtoFieldsTest, GetHasBitForPresentOptionalField) {
   kitchen_sink_.set_int32_val(10);
 
@@ -1064,6 +1075,35 @@ TEST(GetProtoFieldDefault, Interval) {
 
 INSTANTIATE_TEST_SUITE_P(ReadProtoFieldsTestInstantiation, ReadProtoFieldsTest,
                          ::testing::Values(false, true));
+
+struct RangeTestCase {
+  std::string field_name;
+  const RangeType* range_type;
+};
+
+using RangeTest = ::testing::TestWithParam<RangeTestCase>;
+
+TEST_P(RangeTest, GetProtoFieldDefaultRange) {
+  const RangeTestCase& test_case = GetParam();
+
+  ProtoWithRangeFields proto;
+  ProtoFieldDefaultOptions options;
+  const google::protobuf::FieldDescriptor* range_field =
+      proto.GetDescriptor()->FindFieldByName(test_case.field_name);
+
+  Value range_default_value;
+  ZETASQL_ASSERT_OK(GetProtoFieldDefault(options, range_field, test_case.range_type,
+                                 &range_default_value));
+  EXPECT_TRUE(range_default_value.is_null());
+  EXPECT_EQ(range_default_value.type(), test_case.range_type);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    RangeTestInstantiation, RangeTest,
+    ::testing::Values(
+        RangeTestCase{"range_date_val", types::DateRangeType()},
+        RangeTestCase{"range_datetime_val", types::DatetimeRangeType()},
+        RangeTestCase{"range_timestamp_val", types::TimestampRangeType()}));
 
 }  // namespace
 }  // namespace zetasql

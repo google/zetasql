@@ -9,8 +9,161 @@ ZetaSQL supports differentially private aggregate functions.
 For an explanation of how aggregate functions work, see
 [Aggregate function calls][agg-function-calls].
 
-Differentially private aggregate functions can only be
-used with [differentially private queries][dp-syntax].
+You can only use differentially private aggregate functions with
+[differentially private queries][dp-guide] in a
+[differential privacy clause][dp-syntax].
+
+Note: In this topic, the privacy parameters in the examples are not
+recommendations. You should work with your privacy or security officer to
+determine the optimal privacy parameters for your dataset and organization.
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#anon_avg"><code>ANON_AVG</code></a>
+
+</td>
+  <td>
+    Gets the differentially-private average of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with an
+    <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_count"><code>ANON_COUNT</code></a>
+
+</td>
+  <td>
+    Signature 1: Gets the differentially-private count of rows in a query
+    with an <code>ANONYMIZATION</code> clause.
+    <br/>
+    <br/>
+    Signature 2: Gets the differentially-private count of rows with a
+    non-<code>NULL</code> expression in a query with an
+    <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_percentile_cont"><code>ANON_PERCENTILE_CONT</code></a>
+
+</td>
+  <td>
+    Computes a differentially-private percentile across privacy unit columns
+    in a query with an <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_quantiles"><code>ANON_QUANTILES</code></a>
+
+</td>
+  <td>
+    Produces an array of differentially-private quantile boundaries
+    in a query with an <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_stddev_pop"><code>ANON_STDDEV_POP</code></a>
+
+</td>
+  <td>
+    Computes a differentially-private population (biased) standard deviation of
+    values in a query with an <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_sum"><code>ANON_SUM</code></a>
+
+</td>
+  <td>
+    Gets the differentially-private sum of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with an
+    <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#anon_var_pop"><code>ANON_VAR_POP</code></a>
+
+</td>
+  <td>
+    Computes a differentially-private population (biased) variance of values
+    in a query with an <code>ANONYMIZATION</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_avg"><code>AVG</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Gets the differentially-private average of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_count"><code>COUNT</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Signature 1: Gets the differentially-private count of rows in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+    <br/>
+    <br/>
+    Signature 2: Gets the differentially-private count of rows with a
+    non-<code>NULL</code> expression in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_percentile_cont"><code>PERCENTILE_CONT</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Computes a differentially-private percentile across privacy unit columns
+    in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_sum"><code>SUM</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Gets the differentially-private sum of non-<code>NULL</code>,
+    non-<code>NaN</code> values in a query with a
+    <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dp_var_pop"><code>VAR_POP</code> (differential privacy)</a>
+
+</td>
+  <td>
+    Computes the differentially-private population (biased) variance of values
+    in a query with a <code>DIFFERENTIAL_PRIVACY</code> clause.
+  </td>
+</tr>
+
+  </tbody>
+</table>
 
 ### `ANON_AVG` 
 <a id="anon_avg"></a>
@@ -41,11 +194,11 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the average number of each item
-requested per professor. Smaller aggregations may not be included. This query
+requested per professor. Smaller aggregations might not be included. This query
 references a view called [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -55,7 +208,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+------------------*
  | item     | average_quantity |
  +----------+------------------+
@@ -65,7 +218,8 @@ GROUP BY item;
 ```
 
 ```sql
--- Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
@@ -128,7 +282,7 @@ each item. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -138,7 +292,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | times_requested |
  +----------+-----------------+
@@ -148,7 +302,8 @@ GROUP BY item;
 ```
 
 ```sql
---Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
@@ -212,7 +367,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | times_requested |
  +----------+-----------------+
@@ -278,8 +433,8 @@ can support these arguments:
   Perform [clamping][dp-clamp-between] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -288,11 +443,11 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the percentile of items
-requested. Smaller aggregations may not be included. This query references a
+requested. Smaller aggregations might not be included. This query references a
 view called [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -302,7 +457,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+----------------------*
  | item     | percentile_requested |
  +----------+----------------------+
@@ -341,8 +496,8 @@ can support these arguments:
   Perform [clamping][dp-clamp-between] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -352,11 +507,11 @@ can support these arguments:
 
 The following differentially private query gets the five quantile boundaries of
 the four quartiles of the number of items requested. Smaller aggregations
-may not be included. This query references a view called
+might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -366,7 +521,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+----------------------------------------------------------------------*
  | item     | quantiles_requested                                                  |
  +----------+----------------------------------------------------------------------+
@@ -402,8 +557,8 @@ can support these arguments:
   Perform [clamping][dp-clamp-between] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -413,11 +568,11 @@ can support these arguments:
 
 The following differentially private query gets the
 population (biased) standard deviation of items requested. Smaller aggregations
-may not be included. This query references a view called
+might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -427,7 +582,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+------------------------*
  | item     | pop_standard_deviation |
  +----------+------------------------+
@@ -473,11 +628,11 @@ One of the following [supertypes][dp-supertype]:
 **Examples**
 
 The following differentially private query gets the sum of items requested.
-Smaller aggregations may not be included. This query references a view called
+Smaller aggregations might not be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -487,7 +642,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------*
  | item     | quantity  |
  +----------+-----------+
@@ -497,7 +652,8 @@ GROUP BY item;
 ```
 
 ```sql
--- Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
@@ -552,8 +708,8 @@ can support these arguments:
   Perform [clamping][dp-clamp-between] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -562,12 +718,12 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the
-population (biased) variance of items requested. Smaller aggregations may not
+population (biased) variance of items requested. Smaller aggregations might not
 be included. This query references a view called
 [`view_on_professors`][dp-example-views].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH ANONYMIZATION
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
@@ -577,7 +733,7 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | pop_variance    |
  +----------+-----------------+
@@ -607,8 +763,8 @@ Returns the average of non-`NULL`, non-`NaN` values in the expression.
 This function first computes the average per privacy unit column, and then
 computes the final result by averaging these averages.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support these arguments:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support the following arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
@@ -624,11 +780,11 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the average number of each item
-requested per professor. Smaller aggregations may not be included. This query
+requested per professor. Smaller aggregations might not be included. This query
 references a table called [`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -638,7 +794,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+------------------*
  | item     | average_quantity |
  +----------+------------------+
@@ -648,7 +804,8 @@ GROUP BY item;
 ```
 
 ```sql
--- Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -667,8 +824,8 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-Note: You can learn more about when and when not to use
-noise [here][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
@@ -676,11 +833,15 @@ noise [here][dp-noise].
 
 [dp-clamped-named]: #dp_clamped_named
 
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
+
 ### `COUNT` (differential privacy) 
 <a id="dp_count"></a>
 
-+ [Signature 1](#dp_count_signature1)
-+ [Signature 2](#dp_count_signature2)
++ [Signature 1](#dp_count_signature1): Returns the number of rows in a
+  differentially private `FROM` clause.
++ [Signature 2](#dp_count_signature2): Returns the number of non-`NULL`
+  values in an expression.
 
 #### Signature 1 
 <a id="dp_count_signature1"></a>
@@ -694,10 +855,10 @@ WITH DIFFERENTIAL_PRIVACY ...
 
 Returns the number of rows in the
 [differentially private][dp-from-clause] `FROM` clause. The final result
-is an aggregation across privacy unit columns.
+is an aggregation across a privacy unit column.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support the following argument:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support the following argument:
 
 + `contribution_bounds_per_group`: The
   [contribution bounds named argument][dp-clamped-named].
@@ -715,7 +876,7 @@ each item. This query references a table called
 [`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -725,7 +886,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | times_requested |
  +----------+-----------------+
@@ -735,7 +896,8 @@ GROUP BY item;
 ```
 
 ```sql
---Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -754,8 +916,8 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-Note: You can learn more about when and when not to use
-noise [here][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
 #### Signature 2 
 <a id="dp_count_signature2"></a>
@@ -768,13 +930,13 @@ WITH DIFFERENTIAL_PRIVACY ...
 **Description**
 
 Returns the number of non-`NULL` expression values. The final result is an
-aggregation across privacy unit columns.
+aggregation across a privacy unit column.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support these arguments:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support these arguments:
 
-+ `expression`: The input expression. This can be any numeric input type,
-  such as `INT64`.
++ `expression`: The input expression. This expression can be any
+  numeric input type, such as `INT64`.
 + `contribution_bounds_per_group`: The
   [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
@@ -791,7 +953,7 @@ for each type of item. This query references a table called
 [`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -801,7 +963,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------------*
  | item     | times_requested |
  +----------+-----------------+
@@ -811,7 +973,8 @@ GROUP BY item;
 ```
 
 ```sql
---Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -830,8 +993,8 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-Note: You can learn more about when and when not to use
-noise [here][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
 [dp-clamp-implicit]: #dp_implicit_clamping
 
@@ -840,6 +1003,8 @@ noise [here][dp-noise].
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
+
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 [dp-clamped-named]: #dp_clamped_named
 
@@ -856,21 +1021,21 @@ WITH DIFFERENTIAL_PRIVACY ...
 Takes an expression and computes a percentile for it. The final result is an
 aggregation across privacy unit columns.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support these arguments:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support these arguments:
 
 + `expression`: The input expression. This can be most numeric input types,
-  such as `INT64`. `NULL`s are always ignored.
+  such as `INT64`. `NULL` values are always ignored.
 + `percentile`: The percentile to compute. The percentile must be a literal in
-  the range [0, 1]
+  the range `[0, 1]`.
 + `contribution_bounds_per_row`: The
   [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each row separately before performing intermediate
   grouping on the privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -879,11 +1044,11 @@ can support these arguments:
 **Examples**
 
 The following differentially private query gets the percentile of items
-requested. Smaller aggregations may not be included. This query references a
+requested. Smaller aggregations might not be included. This query references a
 view called [`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -893,7 +1058,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
  /*----------+----------------------*
   | item     | percentile_requested |
   +----------+----------------------+
@@ -906,6 +1071,8 @@ GROUP BY item;
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-clamped-named]: #dp_clamped_named
+
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 ### `SUM` (differential privacy) 
 <a id="dp_sum"></a>
@@ -920,19 +1087,19 @@ WITH DIFFERENTIAL_PRIVACY ...
 Returns the sum of non-`NULL`, non-`NaN` values in the expression. The final
 result is an aggregation across privacy unit columns.
 
-This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
-can support these arguments:
+This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
+and can support these arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
-  such as `INT64`. `NULL`s are always ignored.
+  such as `INT64`. `NULL` values are always ignored.
 + `contribution_bounds_per_group`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
 **Return type**
 
-One of the following [supertypes][anon-supertype]:
+One of the following [supertypes][dp-supertype]:
 
 + `INT64`
 + `UINT64`
@@ -941,11 +1108,11 @@ One of the following [supertypes][anon-supertype]:
 **Examples**
 
 The following differentially private query gets the sum of items requested.
-Smaller aggregations may not be included. This query references a view called
-[`professors`][anon-example-tables].
+Smaller aggregations might not be included. This query references a view called
+[`professors`][dp-example-tables].
 
 ```sql
--- With noise
+-- With noise, using the epsilon parameter.
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -955,7 +1122,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- Smaller aggregations may be removed.
+-- Smaller aggregations might be removed.
 /*----------+-----------*
  | item     | quantity  |
  +----------+-----------+
@@ -965,7 +1132,8 @@ GROUP BY item;
 ```
 
 ```sql
--- Without noise (this un-noised version is for demonstration only)
+-- Without noise, using the epsilon parameter.
+-- (this un-noised version is for demonstration only)
 SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
@@ -984,16 +1152,18 @@ GROUP BY item;
  *----------+----------*/
 ```
 
-Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+Note: For more information about when and when not to use
+noise, see [Use differential privacy][dp-noise].
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
-[anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+[dp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
-[anon-clamped-named]: #dp_clamped_named
+[dp-clamped-named]: #dp_clamped_named
+
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 ### `VAR_POP` (differential privacy) 
 <a id="dp_var_pop"></a>
@@ -1022,8 +1192,8 @@ can support these arguments:
   grouping on individual user values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
- If you need them, cast them to
-`DOUBLE` first.
+ If you need them, cast them as the
+`DOUBLE` data type first.
 
 **Return type**
 
@@ -1068,13 +1238,59 @@ GROUP BY item;
 
 In [differentially private queries][dp-syntax],
 aggregation clamping is used to limit the contribution of outliers. You can
-clamp [implicitly][dp-imp-clamp] or [explicitly][dp-exp-clamp].
+clamp explicitly or implicitly as follows:
 
-If you clamp explicitly, you can clamp values with the
-[contribution bounds named argument][dp-clamped-named] (recommended) or
-the [`CLAMPED BETWEEN`][dp-clamp-between] clause.
++ [Clamp explicitly in the `DIFFERENTIAL_PRIVACY` clause][dp-clamped-named].
++ [Clamp implicitly in the `DIFFERENTIAL_PRIVACY` clause][dp-clamped-named-imp].
++ [Clamp explicitly in the `ANONYMIZATION` clause][dp-clamp-between].
++ [Clamp implicitly in the `ANONYMIZATION` clause][dp-clamp-between-imp].
 
-#### Clamp with the contribution bounds named argument 
+To learn more about explicit and implicit clamping, see the following:
+
++ [About implicit clamping][dp-imp-clamp].
++ [About explicit clamping][dp-exp-clamp].
+
+#### Implicitly clamp values in the `DIFFERENTIAL_PRIVACY` clause 
+<a id="dp_clamped_named_implicit"></a>
+
+If you don't include the contribution bounds named argument with the
+`DIFFERENTIAL_PRIVACY` clause, clamping is [implicit][dp-imp-clamp], which
+means bounds are derived from the data itself in a differentially private way.
+
+Implicit bounding works best when computed using large datasets. For more
+information, see [Implicit bounding limitations for small datasets][implicit-limits].
+
+**Example**
+
+The following anonymized query clamps each aggregate contribution for each
+differential privacy ID and within a derived range from the data itself.
+As long as all or most values fall within this range, your results
+will be accurate. This query references a view called
+[`view_on_professors`][dp-example-views].
+
+```sql
+--Without noise (this un-noised version is for demonstration only)
+SELECT WITH DIFFERENTIAL_PRIVACY
+  OPTIONS (
+    epsilon = 1e20,
+    delta = .01,
+    privacy_unit_column=id
+  )
+  item,
+  AVG(quantity) average_quantity
+FROM view_on_professors
+GROUP BY item;
+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 72               |
+ | pen      | 18.5             |
+ *----------+------------------*/
+```
+
+#### Explicitly clamp values in the `DIFFERENTIAL_PRIVACY` clause 
 <a id="dp_clamped_named"></a>
 
 ```sql
@@ -1085,11 +1301,14 @@ contribution_bounds_per_group => (lower_bound,upper_bound)
 contribution_bounds_per_row => (lower_bound,upper_bound)
 ```
 
-Use this named argument to clamp values per group or
-per row between a lower and upper bound.
+Use the contribution bounds named argument to [explicitly clamp][dp-exp-clamp]
+values per group or per row between a lower and upper bound in a
+`DIFFERENTIAL_PRIVACY` clause.
+
+Input values:
 
 + `contribution_bounds_per_row`: Contributions per privacy unit are clamped
-  on a per-row (per-record) basis. This means that:
+  on a per-row (per-record) basis. This means the following:
   +  Upper and lower bounds are applied to column values in individual
     rows produced by the input subquery independently.
   +  The maximum possible contribution per privacy unit (and per grouping set)
@@ -1123,7 +1342,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY
     privacy_unit_column=id
   )
   item,
-  AVG(quantity, contribution_bounds_per_group=>(0,100)) average_quantity
+  AVG(quantity, contribution_bounds_per_group=>(0,100)) AS average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -1150,7 +1369,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY
     privacy_unit_column=id
   )
   item,
-  AVG(quantity, contribution_bounds_per_group=>(50,100)) average_quantity
+  AVG(quantity, contribution_bounds_per_group=>(50,100)) AS average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -1163,17 +1382,60 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-To learn more about when and when not to use noise in
-differentially private queries, see [Differentially privacy][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
-#### Clamp with the `CLAMPED BETWEEN` clause 
+#### Implicitly clamp values in the `ANONYMIZATION` clause 
+<a id="dp_clamp_between_implicit"></a>
+
+If you don't include the `CLAMPED BETWEEN` clause with the
+`ANONYMIZATION` clause, clamping is [implicit][dp-imp-clamp], which means bounds
+are derived from the data itself in a differentially private way.
+
+Implicit bounding works best when computed using large datasets. For more
+information, see [Implicit bounding limitations for small datasets][implicit-limits].
+
+**Example**
+
+The following anonymized query clamps each aggregate contribution for each
+differential privacy ID and within a derived range from the data itself.
+As long as all or most values fall within this range, your results
+will be accurate. This query references a view called
+[`view_on_professors`][dp-example-views].
+
+```sql
+--Without noise (this un-noised version is for demonstration only)
+SELECT WITH ANONYMIZATION
+  OPTIONS (
+    epsilon = 1e20,
+    delta = .01,
+    max_groups_contributed = 1
+  )
+  item,
+  AVG(quantity) AS average_quantity
+FROM view_on_professors
+GROUP BY item;
+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 72               |
+ | pen      | 18.5             |
+ *----------+------------------*/
+```
+
+#### Explicitly clamp values in the `ANONYMIZATION` clause 
 <a id="dp_clamp_between"></a>
 
 ```sql
 CLAMPED BETWEEN lower_bound AND upper_bound
 ```
 
-Use this clause to clamp values between a lower and an upper bound.
+Use the `CLAMPED BETWEEN` clause to [explicitly clamp][dp-exp-clamp] values
+between a lower and an upper bound in an `ANONYMIZATION` clause.
+
+Input values:
 
 + `lower_bound`: Numeric literal that represents the smallest value to
   include in an aggregation.
@@ -1202,7 +1464,7 @@ SELECT WITH ANONYMIZATION
     max_groups_contributed = 1
   )
   item,
-  AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+  ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) AS average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -1229,7 +1491,7 @@ SELECT WITH ANONYMIZATION
     max_groups_contributed = 1
   )
   item,
-  AVG(quantity CLAMPED BETWEEN 50 AND 100) average_quantity
+  ANON_AVG(quantity CLAMPED BETWEEN 50 AND 100) AS average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -1242,10 +1504,10 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-To learn more about when and when not to use noise in
-differentially private queries, see [Differentially privacy][dp-noise].
+Note: For more information about when and when not to use
+noise, see [Remove noise][dp-noise].
 
-#### Explicit clamping 
+#### About explicit clamping 
 <a id="dp_explicit_clamping"></a>
 
 In differentially private aggregate functions, clamping explicitly clamps the
@@ -1266,7 +1528,7 @@ Important: The results of the query reveal the explicit bounds. Do not use
 explicit bounds based on the entity data; explicit bounds should be based on
 public information.
 
-#### Implicit clamping 
+#### About implicit clamping 
 <a id="dp_implicit_clamping"></a>
 
 In differentially private aggregate functions, explicit clamping is optional.
@@ -1289,6 +1551,8 @@ information.
 When clamping is implicit, part of the total epsilon is spent picking bounds.
 This leaves less epsilon for aggregations, so these aggregations are noisier.
 
+[dp-guide]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+
 [dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
@@ -1301,7 +1565,13 @@ This leaves less epsilon for aggregations, so these aggregations are noisier.
 
 [dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
+[implicit-limits]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#implicit_limits
+
 [dp-clamp-between]: #dp_clamp_between
 
+[dp-clamp-between-imp]: #dp_clamp_between_implicit
+
 [dp-clamped-named]: #dp_clamped_named
+
+[dp-clamped-named-imp]: #dp_clamped_named_implicit
 

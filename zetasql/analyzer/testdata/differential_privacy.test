@@ -2153,7 +2153,7 @@ QueryStmt
 select with differential_privacy count(string, contribution_bounds_per_group => (0,100), @test_param_double)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator COUNT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRING, STRUCT<INT64, INT64>, DOUBLE. Supported signatures: COUNT(ANY, [contribution_bounds_per_group => STRUCT<INT64, INT64>]); COUNT(ANY, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*required_value="JSON"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]); COUNT(ANY, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*required_value="PROTO"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) [at 1:34]
+ERROR: No matching signature for aggregate operator COUNT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRING, STRUCT<INT64, INT64>, DOUBLE. Supported signatures: COUNT(T2, [contribution_bounds_per_group => STRUCT<INT64, INT64>]); COUNT(T2, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*required_value="JSON"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]); COUNT(T2, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*required_value="PROTO"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) [at 1:34]
 select with differential_privacy count(string, contribution_bounds_per_group ...
                                  ^
 ==
@@ -7424,6 +7424,71 @@ QueryStmt
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_enable_literal_replacement]
+select with differential_privacy avg(int64, report_format => "PROTO")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_avg(DOUBLE, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<DOUBLE, DOUBLE> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+              +-Cast(INT64 -> DOUBLE)
+              | +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+              +-Literal(type=STRUCT<DOUBLE, DOUBLE>, value=NULL)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
+        |         +-Cast(INT64 -> DOUBLE)
+        |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_avg(DOUBLE, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<DOUBLE, DOUBLE> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+        | |   +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+        | |   +-Literal(type=STRUCT<DOUBLE, DOUBLE>, value=NULL)
+        | +-$group_selection_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+}
+==
+
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[no_enable_literal_replacement]
 select with differential_privacy avg(int64, report_format => "JSON")
 from SimpleTypesWithAnonymizationUid;
 --
@@ -7536,6 +7601,69 @@ QueryStmt
         | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_avg(DOUBLE, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<DOUBLE, DOUBLE> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
         | |   +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1_partial#16)
         | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+        | |   +-Literal(type=STRUCT<DOUBLE, DOUBLE>, value={0, 10})
+        | +-$group_selection_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
+}
+==
+
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[no_enable_literal_replacement]
+select with differential_privacy avg(double, contribution_bounds_per_group => (0,10), report_format => "JSON")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.double#9], table=SimpleTypesWithAnonymizationUid, column_index_list=[8])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_avg(DOUBLE, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<DOUBLE, DOUBLE> contribution_bounds_per_group) -> JSON)
+              +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
+              +-Literal(type=STRUCT<DOUBLE, DOUBLE>, value={0, 10})
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
+        |         +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_avg(DOUBLE, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<DOUBLE, DOUBLE> contribution_bounds_per_group) -> JSON)
+        | |   +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
         | |   +-Literal(type=STRUCT<DOUBLE, DOUBLE>, value={0, 10})
         | +-$group_selection_threshold_col#20 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -8615,3 +8743,4 @@ select with differential_privacy
 ERROR: The CLAMPED BETWEEN clause is not allowed in the function call arguments for function COUNT [at 2:3]
   COUNT(* CLAMPED BETWEEN 0 AND 10) from SimpleTypesWithAnonymizationUid
   ^
+==

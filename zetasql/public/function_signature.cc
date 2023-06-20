@@ -39,6 +39,7 @@
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "zetasql/base/case.h"
+#include "absl/container/btree_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -83,6 +84,7 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_TYPE_MODEL:
     case ARG_TYPE_CONNECTION:
     case ARG_TYPE_DESCRIPTOR:
+    case ARG_TYPE_SEQUENCE:
       return false;
     default:
       ZETASQL_DCHECK(false) << "Invalid signature argument kind: " << kind;
@@ -553,9 +555,11 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
     case ARG_TYPE_VOID:
       return "<void>";
     case ARG_TYPE_LAMBDA:
-      return "ANY LAMBDA";
+      return "<function<T->T>>";
     case ARG_RANGE_TYPE_ANY:
       return "<range<T>>";
+    case ARG_TYPE_SEQUENCE:
+      return "ANY SEQUENCE";
     case __SignatureArgumentKind__switch_must_have_a_default__:
       break;  // Handling this case is only allowed internally.
   }
@@ -634,7 +638,7 @@ FunctionArgumentType::FunctionArgumentType(const Type* type,
 bool FunctionArgumentType::IsConcrete() const {
   if (kind_ != ARG_TYPE_FIXED && kind_ != ARG_TYPE_RELATION &&
       kind_ != ARG_TYPE_MODEL && kind_ != ARG_TYPE_CONNECTION &&
-      kind_ != ARG_TYPE_LAMBDA) {
+      kind_ != ARG_TYPE_LAMBDA && kind_ != ARG_TYPE_SEQUENCE) {
     return false;
   }
   if (num_occurrences_ < 0) {
@@ -690,7 +694,7 @@ absl::Status FunctionArgumentType::CheckLambdaArgType(
     const FunctionArgumentType& arg_type) {
   if (!IsLambdaAllowedArgKind(arg_type.kind())) {
     return ::zetasql_base::UnimplementedErrorBuilder()
-           << "Argument kind not supported by lambda: "
+           << "Argument kind not supported by function-type argument: "
            << SignatureArgumentKindToString(arg_type.kind());
   }
 
@@ -709,7 +713,8 @@ absl::Status FunctionArgumentType::CheckLambdaArgType(
 
   ZETASQL_RET_CHECK(google::protobuf::util::MessageDifferencer::Equals(arg_options_proto,
                                                      simple_options_proto))
-      << "Only REQUIRED simple options are supported by lambda";
+      << "Only REQUIRED simple options are supported by function-type "
+         "arguments";
   return absl::OkStatus();
 }
 
@@ -791,28 +796,31 @@ absl::Status FunctionArgumentType::IsValid(ProductMode product_mode) const {
 }
 
 std::string FunctionArgumentType::UserFacingName(
-    ProductMode product_mode) const {
+    ProductMode product_mode, bool print_template_details) const {
   if (IsLambda()) {
-    // If we only return "LAMBDA", for signature not found error, the user would
-    // get a list of two identical signature strings.
+    // If we only return "FUNCTION", for signature not found error, the user
+    // would get a list of two identical signature strings.
     std::string args = absl::StrJoin(
         lambda().argument_types(), ", ",
-        [product_mode](std::string* out, const FunctionArgumentType& arg) {
-          out->append(arg.UserFacingName(product_mode));
+        [product_mode, print_template_details](
+            std::string* out, const FunctionArgumentType& arg) {
+          out->append(arg.UserFacingName(product_mode, print_template_details));
         });
     if (lambda().argument_types().size() == 1) {
-      return absl::Substitute(
-          "LAMBDA($0->$1)", args,
-          lambda().body_type().UserFacingName(product_mode));
+      return absl::Substitute("FUNCTION<$0->$1>", args,
+                              lambda().body_type().UserFacingName(
+                                  product_mode, print_template_details));
     }
-    return absl::Substitute("LAMBDA(($0)->$1)", args,
-                            lambda().body_type().UserFacingName(product_mode));
+    return absl::Substitute("FUNCTION<($0)->$1>", args,
+                            lambda().body_type().UserFacingName(
+                                product_mode, print_template_details));
   }
   if (type() == nullptr) {
     switch (kind()) {
       case ARG_ARRAY_TYPE_ANY_1:
+        return print_template_details ? "ARRAY<T1>" : "ARRAY";
       case ARG_ARRAY_TYPE_ANY_2:
-        return "ARRAY";
+        return print_template_details ? "ARRAY<T2>" : "ARRAY";
       case ARG_PROTO_ANY:
         return "PROTO";
       case ARG_STRUCT_ANY:
@@ -826,7 +834,9 @@ std::string FunctionArgumentType::UserFacingName(
       case ARG_PROTO_MAP_VALUE_ANY:
         return "PROTO_MAP_VALUE";
       case ARG_TYPE_ANY_1:
+        return print_template_details ? "T1" : "ANY";
       case ARG_TYPE_ANY_2:
+        return print_template_details ? "T2" : "ANY";
       case ARG_TYPE_ARBITRARY:
         return "ANY";
       case ARG_TYPE_RELATION:
@@ -840,9 +850,11 @@ std::string FunctionArgumentType::UserFacingName(
       case ARG_TYPE_VOID:
         return "VOID";
       case ARG_TYPE_LAMBDA:
-        return "LAMBDA";
+        return "FUNCTION";
       case ARG_RANGE_TYPE_ANY:
         return "RANGE";
+      case ARG_TYPE_SEQUENCE:
+        return "SEQUENCE";
       case ARG_TYPE_FIXED:
       default:
         // We really should have had type() != nullptr in this case.
@@ -855,8 +867,10 @@ std::string FunctionArgumentType::UserFacingName(
 }
 
 std::string FunctionArgumentType::UserFacingNameWithCardinality(
-    ProductMode product_mode, NamePrintingStyle print_style) const {
-  std::string arg_type_string = UserFacingName(product_mode);
+    ProductMode product_mode, NamePrintingStyle print_style,
+    bool print_template_details) const {
+  std::string arg_type_string =
+      UserFacingName(product_mode, print_template_details);
   if (options().has_argument_name() &&
       ((options().named_argument_kind() == kNamedOnly &&
         print_style == NamePrintingStyle::kIfNamedOnly) ||
@@ -890,10 +904,10 @@ std::string FunctionArgumentType::DebugString(bool verbose) const {
           out->append(arg.DebugString(verbose));
         });
     if (lambda().argument_types().size() == 1) {
-      absl::SubstituteAndAppend(&result, "LAMBDA($0->$1)", args,
+      absl::SubstituteAndAppend(&result, "FUNCTION<$0->$1>", args,
                                 lambda().body_type().DebugString());
     } else {
-      absl::SubstituteAndAppend(&result, "LAMBDA(($0)->$1)", args,
+      absl::SubstituteAndAppend(&result, "FUNCTION<($0)->$1>", args,
                                 lambda().body_type().DebugString());
     }
   } else if (type_ != nullptr) {
@@ -928,11 +942,11 @@ std::string FunctionArgumentType::GetSQLDeclaration(
         });
     if (lambda().argument_types().size() == 1) {
       return absl::Substitute(
-          "LAMBDA($0->$1)", args,
+          "FUNCTION<$0->$1>", args,
           lambda().body_type().GetSQLDeclaration(product_mode));
     }
     return absl::Substitute(
-        "LAMBDA(($0)->$1)", args,
+        "FUNCTION<($0)->$1>", args,
         lambda().body_type().GetSQLDeclaration(product_mode));
   }
   // TODO: Consider using UserFacingName() here.
@@ -1347,9 +1361,10 @@ absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
     }
 
     if (arg.IsLambda()) {
-      // We require an argument of lambda type is related to a previous
-      // argument. For example, the following function signature is not allowed:
-      //   Func(LAMBDA(T1->BOOL), ARRAY(T1))
+      // We require each argument of function-type argument is related to a
+      // previous argument. For example, the following function signature is
+      // not allowed:
+      //   Func(FUNCTION<T1->BOOL>, ARRAY(T1))
       // The concern is the above function requires two pass for readers and the
       // resolver of a function call to understand the call. All of the known
       // functions meets this requirement. Could be relaxed if the need arises.
@@ -1368,8 +1383,9 @@ absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
         }
         if (has_tempalted_args && !is_related_to_previous_function_arg) {
           return MakeSqlError()
-                 << "Templated argument of lambda argument type must match an "
-                    "argument type before the lambda argument. Function "
+                 << "Templated argument of function-type argument type must "
+                    "match an "
+                    "argument type before the function-type argument. Function "
                     "signature: "
                  << DebugString();
         }
@@ -1377,8 +1393,10 @@ absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
     } else {
       if (templated_kind_used_by_lambda.contains(arg.kind())) {
         return MakeSqlError()
-               << "Templated argument kind used by lambda argument cannot be "
-                  "used by arguments to the right of the lambda using it. "
+               << "Templated argument kind used by function-type argument "
+                  "cannot be "
+                  "used by arguments to the right of the function-type using "
+                  "it. "
                   "Kind: "
                << FunctionArgumentType::SignatureArgumentKindToString(
                       arg.kind())
@@ -1467,7 +1485,8 @@ absl::Status FunctionSignature::IsValidForTableValuedFunction() const {
       // If the relation argument has a required schema, make sure that the
       // column names are unique.
       if (argument.options().has_relation_input_schema()) {
-        std::set<std::string, zetasql_base::CaseLess> column_names;
+        absl::btree_set<std::string, zetasql_base::CaseLess>
+            column_names;
         for (const TVFRelation::Column& column :
              argument.options().relation_input_schema().columns()) {
           ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&column_names, column.name))
@@ -1564,11 +1583,12 @@ bool FunctionSignature::HideInSupportedSignatureList(
 std::vector<std::string>
 FunctionSignature::GetArgumentsUserFacingTextWithCardinality(
     const LanguageOptions& language_options,
-    FunctionArgumentType::NamePrintingStyle print_style) const {
+    FunctionArgumentType::NamePrintingStyle print_style,
+    bool print_template_details) const {
   std::vector<std::string> argument_texts;
   for (const FunctionArgumentType& argument : arguments()) {
     argument_texts.push_back(argument.UserFacingNameWithCardinality(
-        language_options.product_mode(), print_style));
+        language_options.product_mode(), print_style, print_template_details));
   }
   return argument_texts;
 }

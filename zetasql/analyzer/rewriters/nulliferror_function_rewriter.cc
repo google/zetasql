@@ -21,7 +21,6 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -30,6 +29,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
@@ -50,8 +50,8 @@ namespace {
 class NullIfErrorFunctionRewriteVisitor : public ResolvedASTRewriteVisitor {
  public:
   NullIfErrorFunctionRewriteVisitor(const AnalyzerOptions& analyzer_options,
-                                    Catalog& catalog)
-      : fn_builder_(analyzer_options, catalog) {}
+                                    Catalog& catalog, TypeFactory& type_factory)
+      : fn_builder_(analyzer_options, catalog, type_factory) {}
 
  private:
   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
@@ -108,7 +108,7 @@ class NullIfErrorFunctionRewriter : public Rewriter {
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.id_string_pool() != nullptr);
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
-    NullIfErrorFunctionRewriteVisitor rewriter(options, catalog);
+    NullIfErrorFunctionRewriteVisitor rewriter(options, catalog, type_factory);
     return rewriter.VisitAll(std::move(input));
   };
 };

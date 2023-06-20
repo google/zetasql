@@ -66,14 +66,14 @@ ARRAY<STRUCT<STRUCT<STRUCT<INT64, INT64>>>>[{{{11, 12}}}]
 [name=struct_containing_array]
 SELECT STRUCT(ARRAY<INT64>[21, 22])
 --
-ARRAY<STRUCT<STRUCT<ARRAY<>>>>[{{ARRAY<INT64>[21, 22]}}]
+ARRAY<STRUCT<STRUCT<ARRAY<>>>>[{{ARRAY<INT64>[known order:21, 22]}}]
 ==
 # Create struct containing array of struct.
 [name=struct_containing_array_of_struct]
 SELECT STRUCT(ARRAY<STRUCT<INT64, INT64>>[(11, 12), (21, 22)])
 --
 ARRAY<STRUCT<STRUCT<ARRAY<>>>>[
-  {{ARRAY<STRUCT<INT64, INT64>>[{11, 12}, {21, 22}]}}
+  {{ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, {21, 22}]}}
 ]
 ==
 
@@ -112,7 +112,7 @@ SELECT STRUCT("def" AS a, 5 AS b)
 UNION ALL
 SELECT STRUCT("def" AS a, 5 AS b)
 --
-ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[
+ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[unknown order:
   {{"abc", 3}},
   {{"def", 5}},
   {{"def", 5}}
@@ -128,7 +128,10 @@ SELECT STRUCT("def" AS a, 5 AS b)
 UNION DISTINCT
 SELECT STRUCT("def" AS a, 5 AS b)
 --
-ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[{{"abc", 3}}, {{"def", 5}}]
+ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[unknown order:
+  {{"abc", 3}},
+  {{"def", 5}}
+]
 ==
 
 # Union distinct structs with null
@@ -140,7 +143,10 @@ SELECT STRUCT(NULL AS a, 5 AS b)
 UNION DISTINCT
 SELECT STRUCT(NULL AS a, 5 AS b)
 --
-ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[{{NULL, 5}}, {{"abc", NULL}}]
+ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[unknown order:
+  {{NULL, 5}},
+  {{"abc", NULL}}
+]
 ==
 
 # The following functions are currently not working in the analyzer.
@@ -152,7 +158,10 @@ SELECT STRUCT("abc" AS a, 3 AS b)
 UNION ALL
 SELECT STRUCT("def" AS c, 5 AS d)
 --
-ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[{{"abc", 3}}, {{"def", 5}}]
+ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[unknown order:
+  {{"abc", 3}},
+  {{"def", 5}}
+]
 ==
 # Union structs requiring coercion.
 [name=struct_union_requiring_coercion]
@@ -160,7 +169,7 @@ SELECT STRUCT<INT64, DOUBLE>(3, 5.5)
 UNION ALL
 SELECT STRUCT<DOUBLE, INT32>(1.4, 2)
 --
-ARRAY<STRUCT<STRUCT<DOUBLE, DOUBLE>>>[{{3, 5.5}}, {{1.4, 2}}]
+ARRAY<STRUCT<STRUCT<DOUBLE, DOUBLE>>>[unknown order:{{3, 5.5}}, {{1.4, 2}}]
 ==
 [name=struct_union_distinct_requiring_coercion]
 [required_features=V_1_2_GROUP_BY_STRUCT]
@@ -168,7 +177,7 @@ SELECT STRUCT<INT64, DOUBLE>(3, 5.5)
 UNION DISTINCT
 SELECT STRUCT<DOUBLE, INT32>(1.4, 2)
 --
-ARRAY<STRUCT<STRUCT<DOUBLE, DOUBLE>>>[{{1.4, 2}}, {{3, 5.5}}]
+ARRAY<STRUCT<STRUCT<DOUBLE, DOUBLE>>>[unknown order:{{1.4, 2}}, {{3, 5.5}}]
 ==
 # Case with structs values requiring coercion.
 [name=struct_case_requiring_coercion]
@@ -239,7 +248,7 @@ ARRAY<STRUCT<
         value1 INT64,
         value2 STRUCT<x INT64, y INT64>
       >>
-[{3, {NULL, 2}}, {1, {1, 2}}, {3, {3, 2}}]
+[unknown order:{3, {NULL, 2}}, {1, {1, 2}}, {3, {3, 2}}]
 ==
 
 # b/28942765

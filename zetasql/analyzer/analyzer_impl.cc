@@ -99,7 +99,8 @@ absl::Status InternalAnalyzeExpression(
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<AnalyzerOutput>* output) {
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), sql,
+      options.error_message_mode(), options.attach_error_location_payload(),
+      sql,
       AnalyzeExpressionImpl(sql, options, catalog, type_factory, target_type,
                             output));
 }
@@ -178,7 +179,9 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
         options.id_string_pool(), options.arena(), std::move(resolved_expr),
         resolver.analyzer_output_properties(), std::move(parser_output),
         ConvertInternalErrorLocationsAndAdjustErrorStrings(
-            options.error_message_mode(), sql, resolver.deprecation_warnings()),
+            options.error_message_mode(),
+            options.attach_error_location_payload(), sql,
+            resolver.deprecation_warnings()),
         type_assignments, resolver.undeclared_positional_parameters(),
         resolver.max_column_id());
     ZETASQL_RETURN_IF_ERROR(InternalRewriteResolvedAst(options, sql, catalog,

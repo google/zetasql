@@ -93,7 +93,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 4, 8, 2, 2.8284271247461903},
   {2, 2.6666666666666665, 4, 1.6329931618554521, 2},
   {3, 1, 2, 1, 1.4142135623730951},
@@ -127,7 +127,7 @@ SELECT row_id,
 FROM TestTable2
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 0.04, 0.08, 0.2, 0.282842712474619},
   {2, 0.026666666666666668, 0.04, 0.16329931618554522, 0.2},
   {3, 0.01, 0.02, 0.1, 0.1414213562373095},
@@ -166,7 +166,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 2, 4, 1},
   {2, 1.3333333333333333, 2, 0.6546536707079772},
   {3, -0.5, -1, -1},
@@ -199,7 +199,7 @@ SELECT row_id,
 FROM TestTable2
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 0.02, 0.04, 1},
   {2, 0.013333333333333334, 0.02, 0.6546536707079772},
   {3, -0.005, -0.01, -1},
@@ -226,7 +226,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW w AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 0, NULL, 0, NULL},
   {2, 4, 8, 2, 2.8284271247461903},
   {3, 2.6666666666666665, 4, 1.6329931618554521, 2},
@@ -264,7 +264,7 @@ SELECT row_id,
 FROM TestTable2
 WINDOW w AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 0, NULL, 0, NULL},
   {2, 0.04, 0.08, 0.2, 0.282842712474619},
   {3, 0.026666666666666668, 0.04, 0.16329931618554522, 0.2},
@@ -318,7 +318,7 @@ SELECT row_id,
 FROM TestTable
 WINDOW w AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 0, NULL, NULL},
   {2, 2, 4, 1},
   {3, 1.3333333333333333, 2, 0.6546536707079772},
@@ -351,7 +351,7 @@ SELECT row_id,
 FROM TestTable2
 WINDOW w AS (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 0, NULL, NULL},
   {2, 0.02, 0.04, 1},
   {3, 0.013333333333333334, 0.02, 0.6546536707079772},
@@ -379,7 +379,7 @@ FROM TestTable
 WINDOW w AS (ORDER BY row_id DESC RANGE BETWEEN 1 PRECEDING AND
                                                 UNBOUNDED FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {20, nan, nan, nan, nan},
   {19, nan, nan, nan, nan},
   {18, nan, nan, nan, nan},
@@ -418,7 +418,7 @@ FROM TestTable2
 WINDOW w AS (ORDER BY row_id DESC RANGE BETWEEN 1 PRECEDING AND
                                                 UNBOUNDED FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {20,
    0.064097222222222222,
    0.06992424242424243,
@@ -481,7 +481,7 @@ FROM TestTable
 WINDOW w AS (ORDER BY row_id DESC RANGE BETWEEN 1 PRECEDING AND
                                                 UNBOUNDED FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {20, nan, nan, nan},
   {19, nan, nan, nan},
   {18, nan, nan, nan},
@@ -515,7 +515,7 @@ FROM TestTable2
 WINDOW w AS (ORDER BY row_id DESC RANGE BETWEEN 1 PRECEDING AND
                                                 UNBOUNDED FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {20, 0.014545454545454545, 0.016, 0.69156407480812454},
   {19, 0.014545454545454545, 0.016, 0.69156407480812454},
   {18, 0.014545454545454545, 0.016, 0.69156407480812454},
@@ -543,7 +543,7 @@ FROM TestTable
 WINDOW w AS (ORDER BY row_id RANGE BETWEEN UNBOUNDED PRECEDING AND
                                            1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 4, 8, 2, 2.8284271247461903},
   {2, 2.6666666666666665, 4, 1.6329931618554521, 2},
   {3, 2.6666666666666665, 4, 1.6329931618554521, 2},
@@ -582,7 +582,7 @@ FROM TestTable2
 WINDOW w AS (ORDER BY row_id RANGE BETWEEN UNBOUNDED PRECEDING AND
                                            1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 0.04, 0.08, 0.2, 0.282842712474619},
   {2, 0.026666666666666668, 0.04, 0.16329931618554522, 0.2},
   {3, 0.026666666666666668, 0.04, 0.16329931618554522, 0.2},
@@ -645,7 +645,7 @@ FROM TestTable
 WINDOW w AS (ORDER BY row_id RANGE BETWEEN UNBOUNDED PRECEDING AND
                                            1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 2, 4, 1},
   {2, 1.3333333333333333, 2, 0.6546536707079772},
   {3, 1.3333333333333333, 2, 0.6546536707079772},
@@ -679,7 +679,7 @@ FROM TestTable2
 WINDOW w AS (ORDER BY row_id RANGE BETWEEN UNBOUNDED PRECEDING AND
                                            1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 0.02, 0.04, 1},
   {2, 0.013333333333333334, 0.02, 0.6546536707079772},
   {3, 0.013333333333333334, 0.02, 0.6546536707079772},
@@ -724,7 +724,7 @@ WINDOW w AS (order by row_id
              RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id DOUBLE, val DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[known order:
   {1, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
   {1, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
   {2, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
@@ -772,7 +772,7 @@ WINDOW w AS (order by row_id
              RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id DOUBLE, val NUMERIC, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val NUMERIC, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[known order:
   {1, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
   {1, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
   {2, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
@@ -819,7 +819,7 @@ WINDOW w AS (order by row_id
                    RANGE BETWEEN 10 PRECEDING AND 10 FOLLOWING)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id DOUBLE, val DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[known order:
   {1, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
   {1, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
   {2, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
@@ -867,7 +867,7 @@ WINDOW w AS (order by row_id
                    RANGE BETWEEN 10 PRECEDING AND 10 FOLLOWING)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id DOUBLE, val NUMERIC, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val NUMERIC, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[known order:
   {1, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
   {1, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
   {2, NULL, 132851.25, 159421.5, 364.48765411190544, 399.27622017846244},
@@ -911,7 +911,7 @@ WINDOW w AS (order by row_id
                    RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id DOUBLE, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, 168383.5},
   {1, NULL, 168383.5},
   {2, NULL, 168383.5},
@@ -955,7 +955,7 @@ WINDOW w AS (order by row_id
                    RANGE BETWEEN 10 PRECEDING AND 10 FOLLOWING)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id DOUBLE, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, 168383.5},
   {1, NULL, 168383.5},
   {2, NULL, 168383.5},
@@ -993,7 +993,7 @@ FROM (
   select 1 union all
   select 0)
 --
-ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {2,
    1.7142857142857142,
    2,
@@ -1065,7 +1065,7 @@ FROM (
   select 1 union all
   select 0)
 --
-ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {2,
    1.7142857142857142,
    2,
@@ -1140,7 +1140,7 @@ FROM (
   select 1 union all
   select 0)
 --
-ARRAY<STRUCT<a INT64, var DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<a INT64, var DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {4,
    1.7142857142857144,
    1.7142857142857142,
@@ -1234,48 +1234,50 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[{1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- {2, NULL, 0, 0, NULL, NULL, 0, NULL, NULL},
- {2, 20, 0, 0, NULL, NULL, 0, NULL, NULL},
- {3,
-  30,
-  5,
-  5,
-  6.666666666666667,
-  6.666666666666667,
-  2.23606797749979,
-  2.5819888974716112,
-  2.5819888974716112},
- {3,
-  32,
-  5,
-  5,
-  6.666666666666667,
-  6.666666666666667,
-  2.23606797749979,
-  2.5819888974716112,
-  2.5819888974716112},
- {3,
-  34,
-  5,
-  5,
-  6.666666666666667,
-  6.666666666666667,
-  2.23606797749979,
-  2.5819888974716112,
-  2.5819888974716112},
- {3,
-  36,
-  5,
-  5,
-  6.666666666666667,
-  6.666666666666667,
-  2.23606797749979,
-  2.5819888974716112,
-  2.5819888974716112},
- {4, -40, 1600, 1600, 3200, 3200, 40, 56.568542494923804, 56.568542494923804},
- {4, 40, 1600, 1600, 3200, 3200, 40, 56.568542494923804, 56.568542494923804}]
+[known order:
+  {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {2, NULL, 0, 0, NULL, NULL, 0, NULL, NULL},
+  {2, 20, 0, 0, NULL, NULL, 0, NULL, NULL},
+  {3,
+   30,
+   5,
+   5,
+   6.666666666666667,
+   6.666666666666667,
+   2.23606797749979,
+   2.5819888974716112,
+   2.5819888974716112},
+  {3,
+   32,
+   5,
+   5,
+   6.666666666666667,
+   6.666666666666667,
+   2.23606797749979,
+   2.5819888974716112,
+   2.5819888974716112},
+  {3,
+   34,
+   5,
+   5,
+   6.666666666666667,
+   6.666666666666667,
+   2.23606797749979,
+   2.5819888974716112,
+   2.5819888974716112},
+  {3,
+   36,
+   5,
+   5,
+   6.666666666666667,
+   6.666666666666667,
+   2.23606797749979,
+   2.5819888974716112,
+   2.5819888974716112},
+  {4, -40, 1600, 1600, 3200, 3200, 40, 56.568542494923804, 56.568542494923804},
+  {4, 40, 1600, 1600, 3200, 3200, 40, 56.568542494923804, 56.568542494923804}
+]
 ==
 
 # stat functions over INT64 values.
@@ -1309,7 +1311,7 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[known order:
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, NULL, 0, 0, NULL, NULL, 0, NULL, NULL},
@@ -1351,7 +1353,7 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, NULL, 0, 0, NULL, NULL, 0, NULL, NULL},
@@ -1393,7 +1395,7 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, NULL, 0, 0, NULL, NULL, 0, NULL, NULL},
@@ -1435,7 +1437,7 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, NULL, 0, 0, NULL, NULL, 0, NULL, NULL},
@@ -1477,7 +1479,7 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, NULL, 0, 0, NULL, NULL, 0, NULL, NULL},
@@ -1520,7 +1522,7 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {2, NULL, 0, 0, NULL, NULL, 0, NULL, NULL},
@@ -1548,7 +1550,7 @@ WINDOW order_window AS (ORDER BY a ASC
                                  AND CURRENT ROW)
 ORDER BY a, var_pop_a
 --
-ARRAY<STRUCT<a INT64, var_pop_a DOUBLE>>[
+ARRAY<STRUCT<a INT64, var_pop_a DOUBLE>>[known order:
   {1, 0},
   {1, 0},
   {2, 0.22222222222222221},
@@ -1571,7 +1573,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 0.5},
@@ -1596,7 +1598,7 @@ FROM (SELECT 1 part_id, 3 row_id, 3 val UNION ALL
       SELECT 1, 4, 4)
 order by part_id, row_id
 --
-ARRAY<STRUCT<part_id INT64, row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<part_id INT64, row_id INT64, val INT64, DOUBLE>>[known order:
   {1, 1, NULL, NULL},
   {1, 2, 2, 0},
   {1, 3, 3, 0.5},
@@ -1638,18 +1640,18 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[{1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- {2, 2, 0, 0, 0, 0, 0, 0, 0},
- {3, 3, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25},
- {4,
-  4,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663}]
+[known order:{1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+             {2, 2, 0, 0, 0, 0, 0, 0, 0},
+             {3, 3, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25},
+             {4,
+              4,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663}]
 ==
 
 # Grand total stddev_samp.
@@ -1663,7 +1665,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 1},
@@ -1682,7 +1684,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, NULL},
@@ -1703,7 +1705,7 @@ FROM (SELECT 3 row_id, @double_max val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 8.98845e+307, 0},
   {3, 1.79769e+308, 4.494225e+307},
@@ -1728,7 +1730,7 @@ FROM (SELECT 3 row_id, @double_min val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, 8.98845e+307},
   {2, -8.98845e+307, 8.98845e+307},
   {3, -1.79769e+308, 8.98845e+307},
@@ -1747,7 +1749,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0.25},
@@ -1766,7 +1768,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, NULL},
@@ -1785,7 +1787,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0},
   {2, 2, 0.5},
   {3, 3, 0.816496580927726},
@@ -1804,7 +1806,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, NULL},
@@ -1823,7 +1825,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0},
   {2, 2, 0.25},
   {3, 3, 0.66666666666666663},
@@ -1842,7 +1844,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 1},
@@ -1861,7 +1863,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0},
@@ -1880,7 +1882,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0.70710678118654757},
   {3, 3, 0.70710678118654757},
@@ -1899,7 +1901,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.66666666666666663},
   {2, 2, 0.66666666666666663},
   {3, 3, 0.25},
@@ -1918,7 +1920,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.5},
   {2, 2, 0.5},
   {3, 3, NULL},
@@ -1937,7 +1939,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.816496580927726},
   {2, 2, 0.5},
   {3, 3, 0},
@@ -1957,7 +1959,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0.25},
@@ -1980,7 +1982,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 1, 5)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 2.5},
   {1, 1, 2.5},
   {1, 2, 2.5},
@@ -2013,7 +2015,7 @@ FROM (SELECT 4 row_id, 10 val UNION ALL
       SELECT 5, NULL)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {1, NULL, NULL},
   {2, NULL, NULL},
@@ -2048,7 +2050,7 @@ FROM (SELECT 1 row_id, 3 value UNION ALL
       SELECT 5, 5)
 order by row_id, value
 --
-ARRAY<STRUCT<row_id INT64, value INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, value INT64, DOUBLE>>[known order:
   {1, 3, NULL},
   {2, 3, NULL},
   {3, 4, NULL},
@@ -2070,7 +2072,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, 0},
@@ -2090,7 +2092,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0.5},
   {3, 3, 1},
@@ -2110,7 +2112,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.816496580927726},
   {2, 2, 0.816496580927726},
   {3, 3, 0.816496580927726},
@@ -2131,7 +2133,7 @@ FROM (SELECT 3 row_id, @double_max val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 8.98845e+307, NULL},
   {
@@ -2156,7 +2158,7 @@ FROM (SELECT 3 row_id, @double_min val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, inf},
   {2, -8.98845e+307, inf},
   {3, -1.79769e+308, inf},
@@ -2176,7 +2178,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, NULL},
@@ -2196,7 +2198,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0.5},
@@ -2216,7 +2218,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 1},
@@ -2235,7 +2237,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0},
@@ -2255,7 +2257,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 0.5},
@@ -2275,7 +2277,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.5},
   {2, 2, 0.5},
   {3, 3, 0},
@@ -2295,7 +2297,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 0.70710678118654757},
   {3, 3, NULL},
@@ -2336,7 +2338,7 @@ FROM (SELECT 1 row_id, @pos_inf val UNION ALL
       SELECT 13, @nan)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, inf, nan},
   {2, inf, nan},
   {2, inf, nan},
@@ -2379,7 +2381,7 @@ FROM (
   select 1 union all
   select 0)
 --
-ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE>>[unknown order:
   {2, 1.7142857142857142, 2},
   {4, 1.7142857142857142, 2},
   {1, 1.7142857142857142, 2},
@@ -2405,7 +2407,7 @@ FROM (
   select 1 union all
   select 0)
 --
-ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE>>[unknown order:
   {2, 1.7142857142857142, 2},
   {4, 1.7142857142857142, 2},
   {1, 1.7142857142857142, 2},
@@ -2434,7 +2436,7 @@ FROM (
   select 1 union all
   select 0)
 --
-ARRAY<STRUCT<a INT64, var DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<a INT64, var DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {4, 1.7142857142857144, 1.7142857142857142, 2},
   {1, 1.7142857142857144, 1.7142857142857142, 2},
   {3, 1.7142857142857144, 1.7142857142857142, 2},
@@ -2474,7 +2476,7 @@ ARRAY<STRUCT<part_id INT64,
              covar_pop DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[known order:
   {1, 2, NULL, 10, NULL, NULL, NULL},
   {1, 5, NULL, 32, NULL, NULL, NULL},
   {2, 3, 20, 21, 0, 0, NULL},
@@ -2517,7 +2519,7 @@ ARRAY<STRUCT<part_id INT64,
              covar_pop DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[known order:
   {1, 2, NULL, 10, NULL, NULL, NULL},
   {1, 5, NULL, 32, NULL, NULL, NULL},
   {2, 3, 20, 21, 0, 0, NULL},
@@ -2560,7 +2562,7 @@ ARRAY<STRUCT<part_id INT64,
              covar_pop DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[known order:
   {1, 2, NULL, 10, NULL, NULL, NULL},
   {1, 5, NULL, 32, NULL, NULL, NULL},
   {2, 3, 20, 21, 0, 0, NULL},
@@ -2603,7 +2605,7 @@ ARRAY<STRUCT<part_id INT64,
              covar_pop DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[known order:
   {1, 2, NULL, 10, NULL, NULL, NULL},
   {1, 5, NULL, 32, NULL, NULL, NULL},
   {2, 3, 20, 21, 0, 0, NULL},
@@ -2646,7 +2648,7 @@ ARRAY<STRUCT<part_id INT64,
              covar_pop DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[known order:
   {1, 2, NULL, 10, NULL, NULL, NULL},
   {1, 5, NULL, 32, NULL, NULL, NULL},
   {2, 3, 20, 21, 0, 0, NULL},
@@ -2689,7 +2691,7 @@ ARRAY<STRUCT<part_id INT64,
              covar_pop DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[known order:
   {1, 2, NULL, 10, NULL, NULL, NULL},
   {1, 5, NULL, 32, NULL, NULL, NULL},
   {2, 3, 20, 21, 0, 0, NULL},
@@ -2733,7 +2735,7 @@ ARRAY<STRUCT<part_id INT64,
              covar_pop NUMERIC,
              DOUBLE,
              DOUBLE>>
-[
+[known order:
   {1, 2, NULL, 10, NULL, NULL, NULL},
   {1, 5, NULL, 32, NULL, NULL, NULL},
   {2, 3, 20, 21, 0, 0, NULL},
@@ -2763,7 +2765,7 @@ WINDOW order_window AS (ORDER BY a ASC
                                  AND CURRENT ROW)
 ORDER BY a, var_pop_a
 --
-ARRAY<STRUCT<a INT64, var_pop_a DOUBLE>>[
+ARRAY<STRUCT<a INT64, var_pop_a DOUBLE>>[known order:
   {1, 0},
   {1, 0},
   {2, 0.22222222222222221},
@@ -2786,7 +2788,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 0.5},
@@ -2811,7 +2813,7 @@ FROM (SELECT 1 part_id, 3 row_id, 3 val UNION ALL
       SELECT 1, 4, 4)
 order by part_id, row_id
 --
-ARRAY<STRUCT<part_id INT64, row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<part_id INT64, row_id INT64, val INT64, DOUBLE>>[known order:
   {1, 1, NULL, NULL},
   {1, 2, 2, 0},
   {1, 3, 3, 0.25},
@@ -2853,18 +2855,18 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[{1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- {2, 2, 0, 0, 0, 0, 0, 0, 0},
- {3, 3, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25},
- {4,
-  4,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663,
-  0.66666666666666663}]
+[known order:{1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+             {2, 2, 0, 0, 0, 0, 0, 0, 0},
+             {3, 3, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25},
+             {4,
+              4,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663,
+              0.66666666666666663}]
 ==
 
 # Grand total covariance.
@@ -2878,7 +2880,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 1},
@@ -2897,7 +2899,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, NULL},
@@ -2918,7 +2920,7 @@ FROM (SELECT 3 row_id, @double_max val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 8.98845e+307, 0},
   {3, 1.79769e+308, inf},
@@ -2939,7 +2941,7 @@ FROM (SELECT 3 row_id, @double_min val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, inf},
   {2, -8.98845e+307, inf},
   {3, -1.79769e+308, inf},
@@ -2958,7 +2960,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0.25},
@@ -2977,7 +2979,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, NULL},
@@ -2996,7 +2998,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0},
   {2, 2, 0.25},
   {3, 3, 0.66666666666666663},
@@ -3015,7 +3017,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, NULL},
@@ -3034,7 +3036,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0},
   {2, 2, 0.25},
   {3, 3, 0.66666666666666663},
@@ -3053,7 +3055,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 1},
@@ -3072,7 +3074,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0},
@@ -3091,7 +3093,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0.5},
   {3, 3, 0.5},
@@ -3110,7 +3112,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.66666666666666663},
   {2, 2, 0.66666666666666663},
   {3, 3, 0.25},
@@ -3129,7 +3131,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.5},
   {2, 2, 0.5},
   {3, 3, NULL},
@@ -3148,7 +3150,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.66666666666666663},
   {2, 2, 0.25},
   {3, 3, 0},
@@ -3168,7 +3170,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0.25},
@@ -3191,7 +3193,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 1, 5)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 2.5},
   {1, 1, 2.5},
   {1, 2, 2.5},
@@ -3224,7 +3226,7 @@ FROM (SELECT 4 row_id, 10 val UNION ALL
       SELECT 5, NULL)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {1, NULL, NULL},
   {2, NULL, NULL},
@@ -3259,7 +3261,7 @@ FROM (SELECT 1 row_id, 3 value UNION ALL
       SELECT 5, 5)
 order by row_id, value
 --
-ARRAY<STRUCT<row_id INT64, value INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, value INT64, DOUBLE>>[known order:
   {1, 3, NULL},
   {2, 3, NULL},
   {3, 4, NULL},
@@ -3281,7 +3283,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, 0},
@@ -3301,7 +3303,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0.5},
   {3, 3, 1},
@@ -3321,7 +3323,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.66666666666666663},
   {2, 2, 0.66666666666666663},
   {3, 3, 0.66666666666666663},
@@ -3342,7 +3344,7 @@ FROM (SELECT 3 row_id, @double_max val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 8.98845e+307, NULL},
   {3, 1.79769e+308, inf},
@@ -3363,7 +3365,7 @@ FROM (SELECT 3 row_id, @double_min val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, inf},
   {2, -8.98845e+307, inf},
   {3, -1.79769e+308, inf},
@@ -3383,7 +3385,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, NULL},
   {3, 3, NULL},
@@ -3403,7 +3405,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0.25},
@@ -3423,7 +3425,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 1},
@@ -3442,7 +3444,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 0},
   {3, 3, 0},
@@ -3462,7 +3464,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 1},
   {3, 3, 0.5},
@@ -3482,7 +3484,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 0.25},
   {2, 2, 0.25},
   {3, 3, 0},
@@ -3502,7 +3504,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 1},
   {2, 2, 0.5},
   {3, 3, NULL},
@@ -3543,7 +3545,7 @@ FROM (SELECT 1 row_id, @pos_inf val UNION ALL
       SELECT 13, @nan)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, inf, nan},
   {2, inf, nan},
   {2, inf, nan},
@@ -3586,7 +3588,7 @@ FROM (
   select 8)
 order by a
 --
-ARRAY<STRUCT<a INT64, DOUBLE>>[
+ARRAY<STRUCT<a INT64, DOUBLE>>[known order:
   {1, nan},
   {2, nan},
   {3, nan},
@@ -3613,7 +3615,7 @@ FROM (
   select 8)
 order by a
 --
-ARRAY<STRUCT<a INT64, DOUBLE>>[
+ARRAY<STRUCT<a INT64, DOUBLE>>[known order:
   {1, nan},
   {2, nan},
   {3, nan},
@@ -3640,7 +3642,7 @@ FROM (
   select 8)
 order by a
 --
-ARRAY<STRUCT<a INT64, DOUBLE>>[
+ARRAY<STRUCT<a INT64, DOUBLE>>[known order:
   {1, nan},
   {2, nan},
   {3, nan},
@@ -3668,7 +3670,7 @@ FROM (
   select NUMERIC '8')
 order by a
 --
-ARRAY<STRUCT<a NUMERIC, DOUBLE>>[
+ARRAY<STRUCT<a NUMERIC, DOUBLE>>[known order:
   {1, nan},
   {2, nan},
   {3, nan},

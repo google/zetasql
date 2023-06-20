@@ -1226,6 +1226,233 @@ QueryStmt
           +-SingleRowScan
 ==
 
+# Array references in correlated subquery should be able to work with any JOIN
+# type: either LEFT or RIGHT or FULL JOIN.
+SELECT (
+    SELECT AS STRUCT *
+    FROM UNNEST(sub.ca.a) AS elem_a WITH OFFSET off1
+    {{LEFT|RIGHT|FULL}} JOIN UNNEST(sub.cb.b) AS elem_b WITH OFFSET off2
+    ON elem_a = elem_b
+)
+FROM (
+    SELECT STRUCT([1] AS a) AS ca,
+           STRUCT([2, 3] AS b) AS cb) AS sub
+--
+
+ALTERNATION GROUP: LEFT
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#8 AS `$col1` [STRUCT<elem_a INT64, off1 INT64, elem_b INT64, off2 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#8]
+    +-expr_list=
+    | +-$col1#8 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<elem_a INT64, off1 INT64, elem_b INT64, off2 INT64>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<a ARRAY<INT64>>, column=sub.ca#1)
+    |     | +-ColumnRef(type=STRUCT<b ARRAY<INT64>>, column=sub.cb#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#7]
+    |         +-expr_list=
+    |         | +-$struct#7 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<elem_a INT64, off1 INT64, elem_b INT64, off2 INT64>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=$array.elem_a#3)
+    |         |       +-ColumnRef(type=INT64, column=$array_offset.off1#4)
+    |         |       +-ColumnRef(type=INT64, column=$array.elem_b#5)
+    |         |       +-ColumnRef(type=INT64, column=$array_offset.off2#6)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$array.elem_a#3, $array_offset.off1#4, $array.elem_b#5, $array_offset.off2#6]
+    |             +-input_scan=
+    |               +-ArrayScan
+    |                 +-column_list=[$array.elem_a#3, $array_offset.off1#4, $array.elem_b#5, $array_offset.off2#6]
+    |                 +-input_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.elem_a#3, $array_offset.off1#4]
+    |                 |   +-array_expr=
+    |                 |   | +-GetStructField
+    |                 |   |   +-type=ARRAY<INT64>
+    |                 |   |   +-expr=
+    |                 |   |   | +-ColumnRef(type=STRUCT<a ARRAY<INT64>>, column=sub.ca#1, is_correlated=TRUE)
+    |                 |   |   +-field_idx=0
+    |                 |   +-element_column=$array.elem_a#3
+    |                 |   +-array_offset_column=
+    |                 |     +-ColumnHolder(column=$array_offset.off1#4)
+    |                 +-array_expr=
+    |                 | +-GetStructField
+    |                 |   +-type=ARRAY<INT64>
+    |                 |   +-expr=
+    |                 |   | +-ColumnRef(type=STRUCT<b ARRAY<INT64>>, column=sub.cb#2, is_correlated=TRUE)
+    |                 |   +-field_idx=0
+    |                 +-element_column=$array.elem_b#5
+    |                 +-array_offset_column=
+    |                 | +-ColumnHolder(column=$array_offset.off2#6)
+    |                 +-join_expr=
+    |                 | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |                 |   +-ColumnRef(type=INT64, column=$array.elem_a#3)
+    |                 |   +-ColumnRef(type=INT64, column=$array.elem_b#5)
+    |                 +-is_outer=TRUE
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=sub.[ca#1, cb#2]
+        +-expr_list=
+        | +-ca#1 := Literal(type=STRUCT<a ARRAY<INT64>>, value={a:[1]})
+        | +-cb#2 := Literal(type=STRUCT<b ARRAY<INT64>>, value={b:[2, 3]})
+        +-input_scan=
+          +-SingleRowScan
+--
+ALTERNATION GROUP: RIGHT
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#8 AS `$col1` [STRUCT<elem_a INT64, off1 INT64, elem_b INT64, off2 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#8]
+    +-expr_list=
+    | +-$col1#8 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<elem_a INT64, off1 INT64, elem_b INT64, off2 INT64>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<a ARRAY<INT64>>, column=sub.ca#1)
+    |     | +-ColumnRef(type=STRUCT<b ARRAY<INT64>>, column=sub.cb#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#7]
+    |         +-expr_list=
+    |         | +-$struct#7 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<elem_a INT64, off1 INT64, elem_b INT64, off2 INT64>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=$array.elem_a#3)
+    |         |       +-ColumnRef(type=INT64, column=$array_offset.off1#4)
+    |         |       +-ColumnRef(type=INT64, column=$array.elem_b#5)
+    |         |       +-ColumnRef(type=INT64, column=$array_offset.off2#6)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$array.elem_a#3, $array_offset.off1#4, $array.elem_b#5, $array_offset.off2#6]
+    |             +-input_scan=
+    |               +-JoinScan
+    |                 +-column_list=[$array.elem_a#3, $array_offset.off1#4, $array.elem_b#5, $array_offset.off2#6]
+    |                 +-join_type=RIGHT
+    |                 +-left_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.elem_a#3, $array_offset.off1#4]
+    |                 |   +-array_expr=
+    |                 |   | +-GetStructField
+    |                 |   |   +-type=ARRAY<INT64>
+    |                 |   |   +-expr=
+    |                 |   |   | +-ColumnRef(type=STRUCT<a ARRAY<INT64>>, column=sub.ca#1, is_correlated=TRUE)
+    |                 |   |   +-field_idx=0
+    |                 |   +-element_column=$array.elem_a#3
+    |                 |   +-array_offset_column=
+    |                 |     +-ColumnHolder(column=$array_offset.off1#4)
+    |                 +-right_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.elem_b#5, $array_offset.off2#6]
+    |                 |   +-array_expr=
+    |                 |   | +-GetStructField
+    |                 |   |   +-type=ARRAY<INT64>
+    |                 |   |   +-expr=
+    |                 |   |   | +-ColumnRef(type=STRUCT<b ARRAY<INT64>>, column=sub.cb#2, is_correlated=TRUE)
+    |                 |   |   +-field_idx=0
+    |                 |   +-element_column=$array.elem_b#5
+    |                 |   +-array_offset_column=
+    |                 |     +-ColumnHolder(column=$array_offset.off2#6)
+    |                 +-join_expr=
+    |                   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |                     +-ColumnRef(type=INT64, column=$array.elem_a#3)
+    |                     +-ColumnRef(type=INT64, column=$array.elem_b#5)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=sub.[ca#1, cb#2]
+        +-expr_list=
+        | +-ca#1 := Literal(type=STRUCT<a ARRAY<INT64>>, value={a:[1]})
+        | +-cb#2 := Literal(type=STRUCT<b ARRAY<INT64>>, value={b:[2, 3]})
+        +-input_scan=
+          +-SingleRowScan
+--
+ALTERNATION GROUP: FULL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#8 AS `$col1` [STRUCT<elem_a INT64, off1 INT64, elem_b INT64, off2 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#8]
+    +-expr_list=
+    | +-$col1#8 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<elem_a INT64, off1 INT64, elem_b INT64, off2 INT64>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<a ARRAY<INT64>>, column=sub.ca#1)
+    |     | +-ColumnRef(type=STRUCT<b ARRAY<INT64>>, column=sub.cb#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#7]
+    |         +-expr_list=
+    |         | +-$struct#7 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<elem_a INT64, off1 INT64, elem_b INT64, off2 INT64>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=$array.elem_a#3)
+    |         |       +-ColumnRef(type=INT64, column=$array_offset.off1#4)
+    |         |       +-ColumnRef(type=INT64, column=$array.elem_b#5)
+    |         |       +-ColumnRef(type=INT64, column=$array_offset.off2#6)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$array.elem_a#3, $array_offset.off1#4, $array.elem_b#5, $array_offset.off2#6]
+    |             +-input_scan=
+    |               +-JoinScan
+    |                 +-column_list=[$array.elem_a#3, $array_offset.off1#4, $array.elem_b#5, $array_offset.off2#6]
+    |                 +-join_type=FULL
+    |                 +-left_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.elem_a#3, $array_offset.off1#4]
+    |                 |   +-array_expr=
+    |                 |   | +-GetStructField
+    |                 |   |   +-type=ARRAY<INT64>
+    |                 |   |   +-expr=
+    |                 |   |   | +-ColumnRef(type=STRUCT<a ARRAY<INT64>>, column=sub.ca#1, is_correlated=TRUE)
+    |                 |   |   +-field_idx=0
+    |                 |   +-element_column=$array.elem_a#3
+    |                 |   +-array_offset_column=
+    |                 |     +-ColumnHolder(column=$array_offset.off1#4)
+    |                 +-right_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.elem_b#5, $array_offset.off2#6]
+    |                 |   +-array_expr=
+    |                 |   | +-GetStructField
+    |                 |   |   +-type=ARRAY<INT64>
+    |                 |   |   +-expr=
+    |                 |   |   | +-ColumnRef(type=STRUCT<b ARRAY<INT64>>, column=sub.cb#2, is_correlated=TRUE)
+    |                 |   |   +-field_idx=0
+    |                 |   +-element_column=$array.elem_b#5
+    |                 |   +-array_offset_column=
+    |                 |     +-ColumnHolder(column=$array_offset.off2#6)
+    |                 +-join_expr=
+    |                   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |                     +-ColumnRef(type=INT64, column=$array.elem_a#3)
+    |                     +-ColumnRef(type=INT64, column=$array.elem_b#5)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=sub.[ca#1, cb#2]
+        +-expr_list=
+        | +-ca#1 := Literal(type=STRUCT<a ARRAY<INT64>>, value={a:[1]})
+        | +-cb#2 := Literal(type=STRUCT<b ARRAY<INT64>>, value={b:[2, 3]})
+        +-input_scan=
+          +-SingleRowScan
+==
+
 # Bad correlated array reference inside a join.
 select (select count(*)
         from t.bad_name d1 cross join UNNEST([1]))
@@ -1565,3 +1792,41 @@ ALTERNATION GROUP: <empty>
 ERROR: struct_field ambiguously references multiple columns in previous FROM clause tables [at 4:6]
      struct_field.arraycol
      ^
+==
+
+# Repro for b/285400406. Right hand side of RIGHT JOIN or FULL JOIN should not
+# have correlation to the left hand side of the JOIN.
+WITH
+  tmp_table AS (
+    SELECT * FROM UNNEST(
+      ARRAY<
+        STRUCT<
+          arr1 ARRAY<STRUCT<a INT64, b INT64>>,
+          arr2 ARRAY<STRUCT<a INT64, b INT64>>>>[
+        (
+          [(1, 1), (2, 2)],
+          [(3, 3), (4, 4)]
+        )
+      ]
+    )
+  )
+SELECT *
+FROM
+  tmp_table
+  LEFT JOIN UNNEST(arr1) AS l
+  {{RIGHT|FULL}} OUTER JOIN UNNEST(arr2) AS r
+ON l = r
+WHERE l IS NULL OR r IS NULL OR l.type_val != r.type_val
+--
+ALTERNATION GROUP: RIGHT
+--
+ERROR: Unrecognized name: arr2 [at 19:27]
+  RIGHT OUTER JOIN UNNEST(arr2) AS r
+                          ^
+--
+ALTERNATION GROUP: FULL
+--
+ERROR: Unrecognized name: arr2 [at 19:26]
+  FULL OUTER JOIN UNNEST(arr2) AS r
+                         ^
+==

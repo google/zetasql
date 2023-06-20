@@ -374,7 +374,7 @@ FROM TestTableWithUid
 GROUP BY x
 ORDER BY x ASC;
 --
-ARRAY<STRUCT<x INT64, INT64>>[{1, 10}, {2, 10}, {3, 10}]
+ARRAY<STRUCT<x INT64, INT64>>[known order:{1, 10}, {2, 10}, {3, 10}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -401,7 +401,7 @@ ARRAY<STRUCT<INT64>>[{20}]
 NOTE: Reference implementation reports non-determinism.
 ==
 
-# Same to the previous query, but with max_groups_contributed = 1 so the expected result is 10.
+# Same as the previous query, but with max_groups_contributed = 1 so the expected result is 10.
 [name=differential_privacy_max_groups_contributed_group_by_1]
 [labels=differential_privacy]
 SELECT SUM(count_star)
@@ -417,6 +417,31 @@ ARRAY<STRUCT<INT64>>[{10}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
+
+# Sum aggregation with max_rows_contributed.
+[name=differential_privacy_max_rows_contributed_sum]
+[labels=differential_privacy]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
+
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
+  SUM(double_val, contribution_bounds_per_group => (0, 10))
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[{13}]
+==
+
+# Count aggregation with max_rows_contributed.
+[name=differential_privacy_max_rows_contributed_count]
+[labels=differential_privacy]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
+
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
+  COUNT(*)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<INT64>>[{10}]
+==
+
 # The number of rows per user is less than 5 in TestTableWithUid2, so the result
 # won't be random.
 [name=differential_privacy_basic_var_pop_implicit_bounds]
@@ -427,7 +452,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
 SELECT VAR_POP(double_val), VAR_POP(int64_val)
   FROM TestTableWithUid2;
 --
-ARRAY<STRUCT<DOUBLE, DOUBLE>>[{2.359375, 1}, {2.359375, 1}]
+ARRAY<STRUCT<DOUBLE, DOUBLE>>[unknown order:{2.359375, 1}, {2.359375, 1}]
 ==
 
 # Same as the previous query.
@@ -456,7 +481,7 @@ SELECT VAR_POP(ClampedValue) FROM (SELECT
     AS ClampedValue
   FROM TestTableWithUid2)
 --
-ARRAY<STRUCT<DOUBLE>>[{0.125}, {0.1875}, {0.125}, {0.1875}]
+ARRAY<STRUCT<DOUBLE>>[unknown order:{0.125}, {0.1875}, {0.125}, {0.1875}]
 ==
 
 # For All-NULLs value, when bounds are explicitly set, the VAR_POP returns
@@ -470,7 +495,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
     VAR_POP(int64_val, contribution_bounds_per_row => (10.0, 100.0)),
   FROM TestTableWithUid4
 --
-ARRAY<STRUCT<DOUBLE>>[{2025}, {2025}]
+ARRAY<STRUCT<DOUBLE>>[unknown order:{2025}, {2025}]
 ==
 
 # With less than 5 rows and verify that the anonymized variance is equal to the
@@ -507,7 +532,7 @@ FROM TestTableWithUid2 UNION ALL
 SELECT STDDEV_POP(double_val), STDDEV_POP(int64_val)
   FROM TestTableWithUid2;
 --
-ARRAY<STRUCT<DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<DOUBLE, DOUBLE>>[unknown order:
   {1.5360257159305635, 1},
   {1.5360257159305635, 1}
 ]
@@ -540,7 +565,7 @@ SELECT STDDEV_POP(ClampedValue) FROM (SELECT
     AS ClampedValue
   FROM TestTableWithUid2)
 --
-ARRAY<STRUCT<DOUBLE>>[
+ARRAY<STRUCT<DOUBLE>>[unknown order:
   {0.35355339059327379},
   {0.4330127018922193},
   {0.35355339059327379},
@@ -560,7 +585,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
   STDDEV_POP(int64_val, contribution_bounds_per_row => (2, 3)),
 FROM TestTableWithUid4
 --
-ARRAY<STRUCT<DOUBLE>>[{0.5}, {0.5}]
+ARRAY<STRUCT<DOUBLE>>[unknown order:{0.5}, {0.5}]
 ==
 
 # PERCENTILE_CONT with implicit bounds. The number of rows per user is less
@@ -630,7 +655,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
 (SELECT ABS(PERCENTILE_DISC(double_val, 0.1) OVER() + 1.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {true}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -655,7 +680,7 @@ NOTE: Reference implementation reports non-determinism.
 (SELECT ABS(PERCENTILE_DISC(double_val, 0.7) OVER() - 2.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {true}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -709,7 +734,7 @@ ARRAY<STRUCT<INT64, INT64>>[{6, 6}]
 (SELECT ABS(APPROX_QUANTILES(double_val, 10)[OFFSET(1)] + 1.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}]
 ==
 
 # Another case with a different quantile (0.1) with less than 5 rows per user
@@ -728,7 +753,7 @@ ARRAY<STRUCT<BOOL>>[{true}, {true}]
 (SELECT ABS(APPROX_QUANTILES(double_val, 10)[OFFSET(7)] - 2.5) < 0.01
  FROM TestTableWithUid2 LIMIT 1);
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}]
 ==
 
 [name=differential_privacy_sum_double_explicit_bounds_multi_user_with_report_proto]
@@ -783,7 +808,7 @@ ARRAY<STRUCT<PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>>>[
 ]
 ==
 
-# Test 0 rows as inputs by a filter "WHERE id > 1000" without a CLAMPED clause.
+# Test 0 rows as inputs by a filter "WHERE id > 1000" without setting up contribution_bounds_per_group.
 [name=differential_privacy_basic_sum_int64_implicit_bounds_multi_user_with_report_proto_zero_rows]
 [required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
 [labels=differential_privacy]
@@ -794,7 +819,7 @@ FROM TestTableWithUid2 WHERE id > 1000;
 ERROR: generic::failed_precondition: Bin count threshold was too large to find approximate bounds. Either run over a larger dataset or decrease success_probability and try again.
 ==
 
-# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a contribution_bounds_per_group argument.
 # Because the `float_value` is indeterministic, we only output `noise_confidence_interval`
 [name=differential_privacy_sum_double_explicit_bounds_multi_user_with_report_proto_zero_rows]
 [required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
@@ -807,6 +832,87 @@ ARRAY<STRUCT<noise_confidence_interval PROTO<zetasql.NoiseConfidenceInterval>>>[
   {{
      lower_bound: -5.9914645471079794e-19
      upper_bound: 5.9914645471079794e-19
+     confidence_level: 0.95
+   }}
+]
+==
+
+[name=differential_privacy_avg_double_explicit_bounds_multi_user_with_report_proto]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
+  AVG(double_val, contribution_bounds_per_group => (0, 10), report_format => "PROTO")
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>>>[
+  {{
+     value {
+       float_value: 1.3333333333333335
+       noise_confidence_interval {
+         lower_bound: 1.3333333333333335
+         upper_bound: 1.3333333333333335
+         confidence_level: 0.95
+       }
+     }
+   }}
+]
+==
+
+[name=differential_privacy_avg_int64_implicit_bounds_multi_user_with_report_proto]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
+  AVG(int64_val, report_format => "PROTO")
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>>>[
+  {{
+     value {
+       float_value: 1.6333333333333333
+       noise_confidence_interval {
+         lower_bound: 1.6333333333333333
+         upper_bound: 1.6333333333333333
+         confidence_level: 0.95
+       }
+     }
+     bounding_report {
+       lower_bound {
+         float_value: 0.5
+       }
+       upper_bound {
+         float_value: 4
+       }
+       num_inputs: 3
+       num_outside: 0
+     }
+   }}
+]
+==
+
+# Test 0 rows as inputs by a filter "WHERE id > 1000" without setting up contribution_bounds_per_group.
+[name=differential_privacy_avg_int64_implicit_bounds_multi_user_with_report_proto_zero_rows]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
+  AVG(int64_val, report_format => "PROTO")
+FROM TestTableWithUid2 WHERE id > 1000;
+--
+ERROR: generic::failed_precondition: Bin count threshold was too large to find approximate bounds. Either run over a larger dataset or decrease success_probability and try again.
+==
+
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a contribution_bounds_per_group argument.
+# Because the `float_value` is indeterministic, we only output `noise_confidence_interval`
+[name=differential_privacy_avg_double_explicit_bounds_multi_user_with_report_proto_zero_rows]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
+  AVG(double_val, contribution_bounds_per_group => (0, 10), report_format => "PROTO").value.noise_confidence_interval
+FROM TestTableWithUid2 WHERE id > 1000;
+--
+ARRAY<STRUCT<noise_confidence_interval PROTO<zetasql.NoiseConfidenceInterval>>>[
+  {{
+     lower_bound: 5
+     upper_bound: 5
      confidence_level: 0.95
    }}
 ]
@@ -875,7 +981,7 @@ FROM TestTableWithUid2 WHERE id > 1000;
 ERROR: generic::failed_precondition: Bin count threshold was too large to find approximate bounds. Either run over a larger dataset or decrease success_probability and try again.
 ==
 
-# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a contribution_bounds_per_group argument.
 # Because the `float_value` is indeterministic, we only output `noise_confidence_interval`
 [name=differential_privacy_count_double_explicit_bounds_multi_user_with_report_proto_zero_rows]
 [required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
@@ -942,18 +1048,18 @@ ARRAY<STRUCT<JSON>>[
 ]
 ==
 
-# Test 0 rows as inputs by a filter "WHERE id > 1000" without a CLAMPED clause.
+# Test 0 rows as inputs by a filter "WHERE id > 1000" without setting up contribution_bounds_per_group.
 [name=differential_privacy_basic_sum_int64_implicit_bounds_multi_user_with_report_json_zero_rows]
-[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[required_features=JSON_TYPE,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
 [labels=differential_privacy]
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
-  SUM(int64_val, report_format => "PROTO")
+  SUM(int64_val, report_format => "JSON")
 FROM TestTableWithUid2 WHERE id > 1000;
 --
 ERROR: generic::failed_precondition: Bin count threshold was too large to find approximate bounds. Either run over a larger dataset or decrease success_probability and try again.
 ==
 
-# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a contribution_bounds_per_group argument.
 # Because the `float_value` is indeterministic, we only output `noise_confidence_interval`
 [required_features=JSON_TYPE,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
 [name=differential_privacy_sum_double_explicit_bounds_multi_user_with_report_json_zero_rows]
@@ -966,6 +1072,59 @@ ARRAY<STRUCT<noise_confidence_interval JSON>>[
   {
     {"confidence_level":0.95,"lower_bound":-5.991464547107979e-19,"upper_bound":5.991464547107979e-19}
   }
+]
+==
+
+[required_features=JSON_TYPE,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[name=differential_privacy_avg_double_explicit_bounds_multi_user_with_report_json]
+[labels=differential_privacy_unit_column]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
+  AVG(double_val, contribution_bounds_per_group => (0, 10), report_format => "JSON")
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<JSON>>[
+  {
+    {"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":1.3333333333333335,"upper_bound":1.3333333333333335},"value":1.3333333333333335}}
+  }
+]
+==
+
+[required_features=JSON_TYPE,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[name=differential_privacy_avg_int64_implicit_bounds_multi_user_with_report_json]
+[labels=differential_privacy_unit_column]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
+  AVG(int64_val, report_format => "JSON")
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<JSON>>[
+  {
+    {"bounding_report":{"lower_bound":0.5,"num_inputs":3.0,"num_outside":0.0,"upper_bound":4.0},"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":1.6333333333333333,"upper_bound":1.6333333333333333},"value":1.6333333333333333}}
+  }
+]
+==
+
+# Test 0 rows as inputs by a filter "WHERE id > 1000" without setting up contribution_bounds_per_group.
+[name=differential_privacy_avg_int64_implicit_bounds_multi_user_with_report_json_zero_rows]
+[required_features=JSON_TYPE,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[labels=differential_privacy_unit_column]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
+  AVG(int64_val, report_format => "JSON")
+FROM TestTableWithUid2 WHERE id > 1000;
+--
+ERROR: generic::failed_precondition: Bin count threshold was too large to find approximate bounds. Either run over a larger dataset or decrease success_probability and try again.
+==
+
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a contribution_bounds_per_group argument.
+# Because the `float_value` is indeterministic, we only output `noise_confidence_interval`
+[required_features=JSON_TYPE,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[name=differential_privacy_avg_double_explicit_bounds_multi_user_with_report_json_zero_rows]
+[labels=differential_privacy_unit_column]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)
+  AVG(double_val, contribution_bounds_per_group => (0, 10), report_format => "JSON").result.noise_confidence_interval
+FROM TestTableWithUid2 WHERE id > 1000;
+--
+ARRAY<STRUCT<noise_confidence_interval JSON>>[
+  {{"confidence_level":0.95,"lower_bound":5.0,"upper_bound":5.0}}
 ]
 ==
 
@@ -997,7 +1156,7 @@ ARRAY<STRUCT<JSON>>[
 ]
 ==
 
-# Test 0 rows as inputs by a filter "WHERE id > 1000" without a CLAMPED clause.
+# Test 0 rows as inputs by a filter "WHERE id > 1000" without seting up contribution_bounds_per_group .
 [required_features=JSON_TYPE,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
 [name=differential_privacy_basic_count_int64_implicit_bounds_multi_user_with_report_json_zero_rows]
 [labels=differential_privacy]
@@ -1008,7 +1167,7 @@ FROM TestTableWithUid2 WHERE id > 1000;
 ERROR: generic::failed_precondition: Bin count threshold was too large to find approximate bounds. Either run over a larger dataset or decrease success_probability and try again.
 ==
 
-# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a contribution_bounds_per_group argument.
 # Because the `float_value` is indeterministic, we only output `noise_confidence_interval`
 [required_features=JSON_TYPE,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
 [name=differential_privacy_count_double_explicit_bounds_multi_user_with_report_json_zero_rows]

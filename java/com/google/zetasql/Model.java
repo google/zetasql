@@ -18,6 +18,7 @@
 package com.google.zetasql;
 
 import java.io.Serializable;
+import java.util.List;
 
 /** An ML Model in a ZetaSQL query. */
 public interface Model extends Serializable {
@@ -31,5 +32,15 @@ public interface Model extends Serializable {
    */
   public String getFullName();
 
+  /**
+   * Get this Model's serialization id, which is used when referencing models in serialized resolved
+   * ASTs.
+   */
   public long getId();
+
+  /** Returns this Model's inputs, represented as Columns */
+  public List<Column> getInputs();
+
+  /** Returns this Model's outputs, represented as Columns */
+  public List<Column> getOutputs();
 }

@@ -32,6 +32,7 @@
 #include "zetasql/public/simple_table.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/base/case.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -148,10 +149,10 @@ std::string TableValuedFunction::GetTVFSignatureErrorMessage(
     const std::vector<InputArgumentType>& input_arg_types, int signature_idx,
     const SignatureMatchResult& signature_match_result,
     const LanguageOptions& language_options) const {
-  if (!signature_match_result.mismatch_message().empty()) {
+  if (!signature_match_result.tvf_mismatch_message().empty()) {
     // TODO: Update this error message when we support more than one
     // TVF signature.
-    return absl::StrCat(signature_match_result.mismatch_message(), " of ",
+    return absl::StrCat(signature_match_result.tvf_mismatch_message(), " of ",
                         GetSupportedSignaturesUserFacingText(language_options));
   } else {
     return absl::StrCat(
@@ -556,7 +557,7 @@ absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Resolve(
   std::vector<TVFSchemaColumn> output_schema(
       actual_arguments[0].relation().columns());
   output_schema.reserve(output_schema.size() + extra_columns_.size());
-  std::unordered_set<std::string> input_column_names;
+  absl::flat_hash_set<std::string> input_column_names;
   input_column_names.reserve(output_schema.size());
   for (const TVFSchemaColumn& input_column : output_schema) {
     input_column_names.insert(input_column.name);
@@ -623,7 +624,7 @@ absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::
         const std::vector<TVFSchemaColumn>& extra_columns) const {
   ZETASQL_RET_CHECK(isTemplated) << "Does not support non-templated argument type";
 
-  std::unordered_set<std::string> name_set;
+  absl::flat_hash_set<std::string> name_set;
   for (const TVFSchemaColumn& column : extra_columns) {
     ZETASQL_RET_CHECK(!column.name.empty())
         << "invalid empty column name in extra columns";

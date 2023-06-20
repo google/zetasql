@@ -988,7 +988,19 @@ void StmtLayout::PruneLineBreaks() {
     //    ...             ...
     //  )               ) AS smth;
     //    AS smth;
-    if (prev_line->LengthInChunks() == 1) {
+    // The rule doesn't apply for map constructors: removing line break after {
+    // keeps the indent for the next line, but that would also require removing
+    // the line break before closing bracket, which increases the line length.
+    // Example:
+    // before:  {         # Removing line break here wouldn't change the
+    //            a: 1    # indent for "a: 1".
+    //          }
+    // after:   { a: 1 }  # But it increases line length because of "}".
+    //
+    if (prev_line->LengthInChunks() == 1 &&
+        !ChunkAt(prev_line->start)
+             .LastToken()
+             .Is(Token::Type::BRACED_CONSTR_BRACKET)) {
       const Chunk& prev_chunk = ChunkAt(prev_line->start);
       const int curr_line_level = first_chunk.ChunkBlock()->Level();
       const int prev_line_level = prev_chunk.ChunkBlock()->Level();
@@ -1538,9 +1550,10 @@ absl::btree_set<int> StmtLayout::FindSiblingBreakpoints(const Line& line,
           // There is a single line comment at the end of the previous line -
           // we cannot put a closing bracket there.
           ChunkAt(closing_bracket - 1).EndsWithSingleLineComment() ||
-          // Curly braced constructor "NEW Type{ foo: 1 }".
-          first_in_parentheses->LastToken().Is(
-              Token::Type::BRACED_CONSTR_COLON)) {
+          // Curly braced constructor `NEW Type { foo: 1 }`.
+          ChunkAt(closing_bracket)
+              .FirstToken()
+              .Is(Token::Type::BRACED_CONSTR_BRACKET)) {
         // Add a line break before closing parenthesis.
         result.insert(closing_bracket);
       } else {

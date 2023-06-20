@@ -1820,8 +1820,8 @@ SAFE_ADD(X, Y)
 
 **Description**
 
-Equivalent to the addition operator (<code>+</code>), but returns
-<code>NULL</code> if overflow occurs.
+Equivalent to the addition operator (`+`), but returns
+`NULL` if overflow occurs.
 
 <table>
   <thead>
@@ -1870,8 +1870,8 @@ SAFE_DIVIDE(X, Y)
 
 **Description**
 
-Equivalent to the division operator (<code>X / Y</code>), but returns
-<code>NULL</code> if an error occurs, such as a division by zero error.
+Equivalent to the division operator (`X / Y`), but returns
+`NULL` if an error occurs, such as a division by zero error.
 
 <table>
   <thead>
@@ -1930,8 +1930,8 @@ SAFE_MULTIPLY(X, Y)
 
 **Description**
 
-Equivalent to the multiplication operator (<code>*</code>), but returns
-<code>NULL</code> if overflow occurs.
+Equivalent to the multiplication operator (`*`), but returns
+`NULL` if overflow occurs.
 
 <table>
   <thead>
@@ -1980,8 +1980,8 @@ SAFE_NEGATE(X)
 
 **Description**
 
-Equivalent to the unary minus operator (<code>-</code>), but returns
-<code>NULL</code> if overflow occurs.
+Equivalent to the unary minus operator (`-`), but returns
+`NULL` if overflow occurs.
 
 <table>
   <thead>
@@ -2030,8 +2030,8 @@ SAFE_SUBTRACT(X, Y)
 **Description**
 
 Returns the result of Y subtracted from X.
-Equivalent to the subtraction operator (<code>-</code>), but returns
-<code>NULL</code> if overflow occurs.
+Equivalent to the subtraction operator (`-`), but returns
+`NULL` if overflow occurs.
 
 <table>
   <thead>

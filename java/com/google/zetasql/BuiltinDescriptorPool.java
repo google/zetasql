@@ -33,6 +33,7 @@ import com.google.zetasql.functions.ZetaSQLArrayZipMode.ArrayZipEnums.ArrayZipMo
 import com.google.zetasql.functions.ZetaSQLDateTime.DateTimestampPart;
 import com.google.zetasql.functions.ZetaSQLDifferentialPrivacy;
 import com.google.zetasql.functions.ZetaSQLNormalizeMode.NormalizeMode;
+import com.google.zetasql.functions.ZetaSQLRangeSessionizeMode.RangeSessionizeEnums.RangeSessionizeMode;
 import com.google.zetasql.functions.ZetaSQLRoundingMode.RoundingMode;
 import com.google.type.Date;
 import com.google.type.LatLng;
@@ -67,6 +68,7 @@ final class BuiltinDescriptorPool {
           .importFileDescriptor(ZetaSQLDifferentialPrivacy.getDescriptor().getFile())
           .importFileDescriptor(EnumValueDescriptorProto.getDescriptor().getFile())
           .importFileDescriptor(ArrayZipMode.getDescriptor().getFile())
+          .importFileDescriptor(RangeSessionizeMode.getDescriptor().getFile())
           .build();
 
   public static DescriptorPool getInstance() {

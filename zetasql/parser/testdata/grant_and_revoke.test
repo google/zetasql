@@ -35,6 +35,38 @@ GrantStatement [0-83] [grant all...mdbuser/bar2']
 GRANT ALL PRIVILEGES ON view foo TO @user1, @@user2, 'mdbuser/bar1', 'mdbuser/bar2'
 ==
 
+grant select on materialized view foo to 'user@google.com'
+--
+GrantStatement [0-58] [grant select...google.com']
+  Privileges [6-12] [select]
+    Privilege [6-12] [select]
+      Identifier(`select`) [6-12] [select]
+  Identifier(materialized) [16-28] [materialized]
+  Identifier(view) [29-33] [view]
+  PathExpression [34-37] [foo]
+    Identifier(foo) [34-37] [foo]
+  GranteeList [41-58] ['user@google.com']
+    StringLiteral('user@google.com') [41-58] ['user@google.com']
+--
+GRANT `select` ON materialized view foo TO 'user@google.com'
+==
+
+revoke select on materialized view foo from 'user@google.com'
+--
+RevokeStatement [0-61] [revoke select...google.com']
+  Privileges [7-13] [select]
+    Privilege [7-13] [select]
+      Identifier(`select`) [7-13] [select]
+  Identifier(materialized) [17-29] [materialized]
+  Identifier(view) [30-34] [view]
+  PathExpression [35-38] [foo]
+    Identifier(foo) [35-38] [foo]
+  GranteeList [44-61] ['user@google.com']
+    StringLiteral('user@google.com') [44-61] ['user@google.com']
+--
+REVOKE `select` ON materialized view foo FROM 'user@google.com'
+==
+
 grant all on datascape.foo to 'bar'
 --
 GrantStatement [0-35] [grant all...foo to 'bar']

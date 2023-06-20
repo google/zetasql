@@ -28,7 +28,7 @@ ARRAY<STRUCT<input_string STRING,
              BYTES,
              BYTES,
              BYTES>>
-[
+[known order:
   {
     "",
     b"\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\x09\x98\xec\xf8B~",
@@ -99,7 +99,7 @@ FROM UNNEST([b'', b'a b c d', b'', b'a b c d', b'\x00\x01\x02\x03\x04\x05',
              b'\xAF\xBF\xCF\xDF\xEF\xFF']) AS input_bytes WITH OFFSET off
 ORDER BY off
 --
-ARRAY<STRUCT<input_bytes BYTES, BYTES, BYTES, BYTES, BYTES>>[
+ARRAY<STRUCT<input_bytes BYTES, BYTES, BYTES, BYTES, BYTES>>[known order:
   {
     b"",
     b"\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\x09\x98\xec\xf8B~",
@@ -183,7 +183,7 @@ ARRAY<STRUCT<input_string STRING,
              STRING,
              STRING,
              STRING>>
-[
+[known order:
   {
     "",
     "d41d8cd98f00b204e9800998ecf8427e",

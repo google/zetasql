@@ -94,7 +94,7 @@ class FunctionResolver {
   absl::Status ResolveGeneralFunctionCall(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
-      const std::string& function_name, bool is_analytic,
+      absl::string_view function_name, bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
       std::vector<NamedArgumentInfo> named_arguments,
       const Type* expected_result_type,
@@ -137,7 +137,7 @@ class FunctionResolver {
   // nested parsing or analysis.
   static absl::Status ForwardNestedResolutionAnalysisError(
       const TemplatedSQLFunction& function, const absl::Status& status,
-      ErrorMessageMode mode);
+      ErrorMessageMode mode, bool attach_error_location_payload);
 
   // Returns a new error message reporting a failure parsing or analyzing the
   // SQL body. If 'message' is not empty, appends it to the end of the error
@@ -284,7 +284,7 @@ class FunctionResolver {
   // Otherwise, their corresponding entries are included in <index_mapping>
   // with <call_arg_index> as -1.
   absl::Status GetFunctionArgumentIndexMappingPerSignature(
-      const std::string& function_name, const FunctionSignature& signature,
+      absl::string_view function_name, const FunctionSignature& signature,
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
       const std::vector<NamedArgumentInfo>& named_arguments,
@@ -377,6 +377,8 @@ class FunctionResolver {
   // GetFunctionArgumentIndexMappingPerSignature against the matching signature,
   // so that the caller can reorder the input argument list representations
   // accordingly.
+  // If <mismatch_errors> is non-null, it triggers generating detailed signature
+  // mismatch message.
   absl::StatusOr<const FunctionSignature*> FindMatchingSignature(
       const Function* function, const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
@@ -384,16 +386,32 @@ class FunctionResolver {
       const NameScope* name_scope,
       std::vector<InputArgumentType>* input_arguments,
       std::vector<FunctionArgumentOverride>* arg_overrides,
-      std::vector<ArgIndexPair>* arg_index_mapping) const;
+      std::vector<ArgIndexPair>* arg_index_mapping,
+      std::vector<std::string>* mismatch_errors) const;
+
+  // Returns user-facing text with a list of signatures along with the reason
+  // why they didn't match the call (from `mismatch_error`), in the following
+  // format:
+  // Signature: <signature_1>
+  //   <single_line_reason>.
+  // Signature: <signature_2>
+  //   <indented_line_1_of_multiple_line_reason>
+  //   <indented_line_2_of_multiple_line_reason>.
+  absl::StatusOr<std::string> GetSupportedSignaturesWithMessage(
+      const Function* function, const std::vector<std::string>& mismatch_errors,
+      FunctionArgumentType::NamePrintingStyle print_style,
+      int* num_signatures) const;
 
   // Generates an error message for function call mismatching with the existing
   // signatures, with <prefix_message> followed by a list of supported
   // signatures of <function>.
   // If <function> has no valid signatures, the returned message would be like
   // "Function not found: <function name>".
-  std::string GenerateErrorMessageWithSupportedSignatures(
-      const Function* function, const std::string& prefix_message,
-      FunctionArgumentType::NamePrintingStyle argument_print_style) const;
+  // Returns error status if an internal error happens.
+  absl::StatusOr<std::string> GenerateErrorMessageWithSupportedSignatures(
+      const Function* function, absl::string_view prefix_message,
+      FunctionArgumentType::NamePrintingStyle argument_print_style,
+      const std::vector<std::string>* mismatch_errors = nullptr) const;
 
   // Check a literal argument value against value constraints for a given
   // argument, and return an error if any are violated.

@@ -1365,9 +1365,10 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
           .With([path_node](zetasql_base::StatusBuilder builder) {
             // Attach location to error thrown by native procedure.
             if (!builder.ok()) {
-              builder.Attach(GetErrorLocationPoint(
-                                 path_node, /*include_leftmost_child*/ true)
-                                 .ToInternalErrorLocation());
+              builder.AttachPayload(
+                  GetErrorLocationPoint(path_node,
+                                        /*include_leftmost_child*/ true)
+                      .ToInternalErrorLocation());
             }
             return builder;
           });

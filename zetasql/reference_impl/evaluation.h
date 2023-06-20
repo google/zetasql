@@ -432,6 +432,10 @@ class EvaluationContext {
 bool ShouldSuppressError(const absl::Status& error,
                          ResolvedFunctionCallBase::ErrorMode error_mode);
 
+// Returns ResourceExhausted error when the statement should be aborted.
+absl::Status PeriodicallyVerifyNotAborted(EvaluationContext* context,
+                                          uint64_t num_steps);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_REFERENCE_IMPL_EVALUATION_H_

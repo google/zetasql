@@ -66,7 +66,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -93,7 +93,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -121,7 +121,7 @@ FROM (
   SELECT 3, cast(NULL as BYTES))
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -149,7 +149,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {1, NULL},
   {
     2,
@@ -173,7 +173,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -201,7 +201,7 @@ FROM (
   SELECT 3, cast(NULL as BYTES))
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -230,7 +230,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -259,7 +259,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {1, NULL},
   {
     2,
@@ -285,7 +285,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -314,7 +314,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -343,7 +343,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -372,7 +372,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -401,7 +401,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -430,7 +430,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x1e\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -459,7 +459,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
@@ -485,7 +485,7 @@ FROM (
      b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
 ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BYTES>>[
+ARRAY<STRUCT<row_id INT64, BYTES>>[known order:
   {
     1,
     b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"

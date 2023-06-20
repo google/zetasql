@@ -19,21 +19,19 @@
 #include <stddef.h>
 
 #include <memory>
-#include <string>
 #include <tuple>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_helper.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/status_macros.h"
@@ -230,6 +228,19 @@ size_t FieldPathHash(const ResolvedExpr* expr) {
     default:
       return absl::Hash<int>()(expr->node_kind());
   }
+}
+
+absl::StatusOr<bool> ExprReferencesNonCorrelatedColumn(
+    const ResolvedExpr& expr) {
+  ZETASQL_ASSIGN_OR_RETURN(absl::flat_hash_set<const ResolvedColumnRef*> column_refs,
+                   CollectFreeColumnRefs(expr));
+
+  for (const ResolvedColumnRef* column_ref : column_refs) {
+    if (!column_ref->is_correlated()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool IsSameFieldPath(const ResolvedExpr* field_path1,

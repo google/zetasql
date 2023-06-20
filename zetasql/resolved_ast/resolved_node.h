@@ -33,6 +33,7 @@
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -165,13 +166,30 @@ class ResolvedNode {
     absl::string_view annotation;
   };
 
+  struct DebugStringConfig {
+    absl::Span<const NodeAnnotation> annotations = {};
+    // If set to true, the 'accessed' bit will be printed:
+    //   {*} - the field has been accessed
+    //   { } - the field has not been accessed
+    bool print_accessed = false;
+  };
+
   // Returns a string representation of this tree and all descendants, for
   // testing and debugging purposes. Each entry in <annotations> will cause the
   // subtree <annotation.node> to be annotated with the string
   // <annotation.annotation>. This can be used to explain the context of
   // certain individual nodes in the tree.
-  std::string DebugString(
-      absl::Span<const NodeAnnotation> annotations = {}) const;
+
+  std::string DebugString(const DebugStringConfig& config) const;
+  std::string DebugString() const {
+    return DebugString(
+        DebugStringConfig{.annotations = {}, .print_accessed = false});
+  }
+
+  ABSL_DEPRECATED("Inline me!")
+  std::string DebugString(absl::Span<const NodeAnnotation> annotations) const {
+    return DebugString(DebugStringConfig{annotations, false});
+  }
 
   // Check if any semantically meaningful fields have not been accessed in
   // this node or its children. If so, return a descriptive error indicating
@@ -191,6 +209,10 @@ class ResolvedNode {
   // ZetaSQL query safely and not missing anything. We assume that if an
   // engine reads a field and sees a value it does not understand, the engine
   // itself will generate an unimplemented error.
+  //
+  // If an error is returned, it will include a DebugString printout with
+  // accessed fields will be marked with '{*}', and unaccessed fields will be
+  // marked with '{ }'.
   absl::Status CheckFieldsAccessed() const {
     return CheckFieldsAccessedImpl(this);
   }
@@ -282,14 +304,17 @@ class ResolvedNode {
  protected:
   // Struct used to collect all fields that should be printed in DebugString.
   struct DebugStringField {
-    DebugStringField(absl::string_view name_in, absl::string_view value_in)
-        : name(name_in), value(value_in) {}
-    DebugStringField(absl::string_view name_in, const ResolvedNode* node_in)
-        : name(name_in), nodes({node_in}) {}
+    DebugStringField(absl::string_view name_in, absl::string_view value_in,
+                     bool accessed)
+        : name(name_in), value(value_in), accessed(accessed) {}
+    DebugStringField(absl::string_view name_in, const ResolvedNode* node_in,
+                     bool accessed)
+        : name(name_in), nodes({node_in}), accessed(accessed) {}
 
     template <typename T>
-    DebugStringField(absl::string_view name_in, const std::vector<T>& nodes_in)
-        : name(name_in) {
+    DebugStringField(absl::string_view name_in, const std::vector<T>& nodes_in,
+                     bool accessed)
+        : name(name_in), accessed(accessed) {
       for (const auto& node : nodes_in) nodes.push_back(node.get());
     }
 
@@ -301,6 +326,8 @@ class ResolvedNode {
     std::string value;  // Print this value directly.
     std::vector<const ResolvedNode*>
         nodes;  // Print DebugString for these nodes.
+
+    bool accessed;
   };
 
   // Add all fields that should be printed in DebugString to <fields>.
@@ -372,7 +399,7 @@ class ResolvedNode {
   // prefix1 is the indentation to attach to child nodes.
   // prefix2 is the indentation to attach to the root of this tree.
   static void DebugStringImpl(const ResolvedNode* node,
-                              absl::Span<const NodeAnnotation> annotations,
+                              const DebugStringConfig& config,
                               absl::string_view prefix1,
                               absl::string_view prefix2, std::string* output);
 

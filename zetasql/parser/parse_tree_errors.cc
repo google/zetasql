@@ -81,7 +81,7 @@ absl::Status MakeStatusWithErrorLocation(absl::StatusCode code,
                                          const ASTNode* ast_node,
                                          bool include_leftmost_child) {
   const absl::Status status =
-      zetasql_base::StatusBuilder(code).Attach(
+      zetasql_base::StatusBuilder(code).AttachPayload(
           MakeInternalErrorLocation(ast_node, filename, include_leftmost_child))
       << message;
   return ConvertInternalErrorLocationToExternal(status, query);
@@ -106,7 +106,7 @@ absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
   zetasql_base::StatusBuilder error_status_builder =
       absl::IsInternal(input_status) ? zetasql_base::StatusBuilder(input_status)
                                      : MakeSqlError();
-  return error_status_builder.Attach(
+  return error_status_builder.AttachPayload(
              SetErrorSourcesFromStatus(MakeInternalErrorLocation(ast_location),
                                        input_status, error_source_mode))
          << error_message;

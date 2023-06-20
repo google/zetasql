@@ -757,3 +757,137 @@ WITH CONNECTION
 ERROR: Syntax error: Unexpected end of statement [at 5:16]
 WITH CONNECTION
                ^
+==
+
+# Valid Python procedure with the external security clause
+CREATE PROCEDURE procedure_name()
+EXTERNAL SECURITY {{INVOKER|DEFINER|TURNIP|}}
+OPTIONS(a = b)
+LANGUAGE PYTHON
+--
+ALTERNATION GROUP: INVOKER
+--
+CreateProcedureStatement(EXTERNAL SECURITY INVOKER) [0-90] [CREATE PROCEDURE...UAGE PYTHON]
+  PathExpression [17-31] [procedure_name]
+    Identifier(procedure_name) [17-31] [procedure_name]
+  FunctionParameters [31-33] [()]
+  OptionsList [67-74] [(a = b)]
+    OptionsEntry [68-73] [a = b]
+      Identifier(a) [68-69] [a]
+      PathExpression [72-73] [b]
+        Identifier(b) [72-73] [b]
+  Identifier(PYTHON) [84-90] [PYTHON]
+--
+CREATE PROCEDURE procedure_name()
+EXTERNAL SECURITY INVOKER OPTIONS
+  (a = b)
+LANGUAGE PYTHON
+--
+ALTERNATION GROUP: DEFINER
+--
+CreateProcedureStatement(EXTERNAL SECURITY DEFINER) [0-90] [CREATE PROCEDURE...UAGE PYTHON]
+  PathExpression [17-31] [procedure_name]
+    Identifier(procedure_name) [17-31] [procedure_name]
+  FunctionParameters [31-33] [()]
+  OptionsList [67-74] [(a = b)]
+    OptionsEntry [68-73] [a = b]
+      Identifier(a) [68-69] [a]
+      PathExpression [72-73] [b]
+        Identifier(b) [72-73] [b]
+  Identifier(PYTHON) [84-90] [PYTHON]
+--
+CREATE PROCEDURE procedure_name()
+EXTERNAL SECURITY DEFINER OPTIONS
+  (a = b)
+LANGUAGE PYTHON
+--
+ALTERNATION GROUP: TURNIP
+--
+ERROR: Syntax error: Expected keyword DEFINER or keyword INVOKER but got identifier "TURNIP" [at 2:19]
+EXTERNAL SECURITY TURNIP
+                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected keyword DEFINER or keyword INVOKER but got keyword OPTIONS [at 3:1]
+OPTIONS(a = b)
+^
+==
+
+# Valid Python procedure with the external security clause and connection clause
+CREATE PROCEDURE procedure_name()
+EXTERNAL SECURITY {{INVOKER|DEFINER|TURNIP|}}
+WITH CONNECTION connection_id
+OPTIONS(a = b)
+LANGUAGE PYTHON
+--
+ALTERNATION GROUP: INVOKER
+--
+CreateProcedureStatement(EXTERNAL SECURITY INVOKER) [0-120] [CREATE PROCEDURE...UAGE PYTHON]
+  PathExpression [17-31] [procedure_name]
+    Identifier(procedure_name) [17-31] [procedure_name]
+  FunctionParameters [31-33] [()]
+  OptionsList [97-104] [(a = b)]
+    OptionsEntry [98-103] [a = b]
+      Identifier(a) [98-99] [a]
+      PathExpression [102-103] [b]
+        Identifier(b) [102-103] [b]
+  WithConnectionClause [60-89] [WITH CONNECTION connection_id]
+    ConnectionClause [65-89] [CONNECTION connection_id]
+      PathExpression [76-89] [connection_id]
+        Identifier(connection_id) [76-89] [connection_id]
+  Identifier(PYTHON) [114-120] [PYTHON]
+--
+CREATE PROCEDURE procedure_name()
+EXTERNAL SECURITY INVOKER WITH CONNECTION connection_id OPTIONS
+  (a = b)
+LANGUAGE PYTHON
+--
+ALTERNATION GROUP: DEFINER
+--
+CreateProcedureStatement(EXTERNAL SECURITY DEFINER) [0-120] [CREATE PROCEDURE...UAGE PYTHON]
+  PathExpression [17-31] [procedure_name]
+    Identifier(procedure_name) [17-31] [procedure_name]
+  FunctionParameters [31-33] [()]
+  OptionsList [97-104] [(a = b)]
+    OptionsEntry [98-103] [a = b]
+      Identifier(a) [98-99] [a]
+      PathExpression [102-103] [b]
+        Identifier(b) [102-103] [b]
+  WithConnectionClause [60-89] [WITH CONNECTION connection_id]
+    ConnectionClause [65-89] [CONNECTION connection_id]
+      PathExpression [76-89] [connection_id]
+        Identifier(connection_id) [76-89] [connection_id]
+  Identifier(PYTHON) [114-120] [PYTHON]
+--
+CREATE PROCEDURE procedure_name()
+EXTERNAL SECURITY DEFINER WITH CONNECTION connection_id OPTIONS
+  (a = b)
+LANGUAGE PYTHON
+--
+ALTERNATION GROUP: TURNIP
+--
+ERROR: Syntax error: Expected keyword DEFINER or keyword INVOKER but got identifier "TURNIP" [at 2:19]
+EXTERNAL SECURITY TURNIP
+                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected keyword DEFINER or keyword INVOKER but got keyword WITH [at 3:1]
+WITH CONNECTION connection_id
+^
+==
+
+# Valid Python procedure with the external security clause and the language
+CREATE PROCEDURE procedure_name()
+EXTERNAL SECURITY INVOKER
+LANGUAGE PYTHON
+--
+CreateProcedureStatement(EXTERNAL SECURITY INVOKER) [0-75] [CREATE PROCEDURE...UAGE PYTHON]
+  PathExpression [17-31] [procedure_name]
+    Identifier(procedure_name) [17-31] [procedure_name]
+  FunctionParameters [31-33] [()]
+  Identifier(PYTHON) [69-75] [PYTHON]
+--
+CREATE PROCEDURE procedure_name()
+EXTERNAL SECURITY INVOKER LANGUAGE PYTHON

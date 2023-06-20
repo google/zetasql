@@ -98,7 +98,7 @@ SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2
 UNION ALL
 SELECT AS `zetasql_test__.KitchenSinkPB` 7 int64_key_1, 8 int64_key_2
 --
-ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
   {
     int64_key_1: 5
     int64_key_2: 6
@@ -114,7 +114,7 @@ SELECT AS `zetasql_test__.KitchenSinkPB`
   foo int64_key_1, foo int64_key_2
 FROM TestTable
 --
-ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
   {
     int64_key_1: 2
     int64_key_2: 2
@@ -141,7 +141,11 @@ SELECT AS STRUCT 2 foo, "there" bar UNION ALL
 SELECT AS STRUCT 2 foo, "there" bar
 
 --
-ARRAY<STRUCT<foo INT64, bar STRING>>[{1, "hey"}, {2, "there"}, {2, "there"}]
+ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
+  {1, "hey"},
+  {2, "there"},
+  {2, "there"}
+]
 ==
 [name=value_table_struct_union]
 [required_features=V_1_2_GROUP_BY_STRUCT]
@@ -149,20 +153,20 @@ SELECT AS STRUCT 1 foo, "hey" bar UNION DISTINCT
 SELECT AS STRUCT 2 foo, "there" bar UNION DISTINCT
 SELECT AS STRUCT 1 foo, "hey" bar
 --
-ARRAY<STRUCT<foo INT64, bar STRING>>[{1, "hey"}, {2, "there"}]
+ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:{1, "hey"}, {2, "there"}]
 ==
 [name=value_table_struct_from]
 SELECT AS STRUCT foo, bar
 FROM TestTable
 --
-ARRAY<STRUCT<foo INT64, bar STRING>>[{2, "def"}, {1, "abc"}]
+ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:{2, "def"}, {1, "abc"}]
 ==
 [name=value_table_distinct_proto_from]
 SELECT DISTINCT AS `zetasql_test__.KitchenSinkPB`
   foo int64_key_1, foo int64_key_2
 FROM TestTable
 --
-ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
   {
     int64_key_1: 2
     int64_key_2: 2
@@ -177,14 +181,14 @@ ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
 SELECT DISTINCT AS STRUCT foo, bar
 FROM TestTable
 --
-ARRAY<STRUCT<foo INT64, bar STRING>>[{2, "def"}, {1, "abc"}]
+ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:{2, "def"}, {1, "abc"}]
 ==
 [name=value_table_proto_union_all_table]
 SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2
 UNION ALL
 SELECT pb FROM TestTable
 --
-ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
   {
     int64_key_1: 5
     int64_key_2: 6
@@ -205,11 +209,11 @@ ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
 [name=value_table_source_proto_star]
 SELECT * FROM TestExtraPBValueTable
 --
-ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<>>>[
+ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<>>>[unknown order:
   {
     77,
     0,
-    ARRAY<STRING>["77one", "77two"]
+    ARRAY<STRING>[known order:"77one", "77two"]
   },
   {55, 0, ARRAY<STRING>[]}
 ]
@@ -217,7 +221,7 @@ ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<>>>[
 [name=value_table_source_proto_self]
 SELECT p FROM TestExtraPBValueTable p
 --
-ARRAY<STRUCT<p PROTO<zetasql_test__.TestExtraPB>>>[
+ARRAY<STRUCT<p PROTO<zetasql_test__.TestExtraPB>>>[unknown order:
   {{int32_val1: 55}},
   {{
      int32_val1: 77
@@ -269,7 +273,7 @@ ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
 [name=value_table_source_struct_star]
 SELECT * FROM StructValueTable
 --
-ARRAY<STRUCT<foo INT64, bar STRING>>[
+ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
   {77, "seventy seven"},
   {55, "fifty five"}
 ]
@@ -277,7 +281,7 @@ ARRAY<STRUCT<foo INT64, bar STRING>>[
 [name=value_table_source_struct_self]
 SELECT s FROM StructValueTable s
 --
-ARRAY<STRUCT<s STRUCT<foo INT64, bar STRING>>>[
+ARRAY<STRUCT<s STRUCT<foo INT64, bar STRING>>>[unknown order:
   {{55, "fifty five"}},
   {{77, "seventy seven"}}
 ]
@@ -298,7 +302,7 @@ WITH
      SELECT AS `zetasql_test__.TestExtraPB` 77 int32_val1)
 SELECT * FROM WithProtoValueTable
 --
-ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<>>>[
+ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<>>>[unknown order:
   {77, 0, ARRAY<STRING>[]},
   {55, 0, ARRAY<STRING>[]}
 ]
@@ -311,7 +315,7 @@ WITH
      SELECT AS `zetasql_test__.TestExtraPB` 77 int32_val1)
 SELECT AS zetasql_test__.TestExtraPB p.* FROM WithProtoValueTable p
 --
-ARRAY<PROTO<zetasql_test__.TestExtraPB>>[
+ARRAY<PROTO<zetasql_test__.TestExtraPB>>[unknown order:
   {
     int32_val1: 55
     int32_val2: 0
@@ -330,7 +334,7 @@ WITH
      SELECT AS STRUCT 77 foo, "seventy seven" bar)
 SELECT * FROM WithStructValueTable
 --
-ARRAY<STRUCT<foo INT64, bar STRING>>[
+ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
   {77, "seventy seven"},
   {55, "fifty five"}
 ]
@@ -359,7 +363,7 @@ from (
   select 'def' str
 ) t
 --
-ARRAY<STRING>["abc", "def"]
+ARRAY<STRING>[unknown order:"abc", "def"]
 ==
 [name=value_table_scalar_distinct]
 select distinct as value x
@@ -369,7 +373,7 @@ from (select as value 1
       union all
       select as value 1) x
 --
-ARRAY<INT64>[1, 2]
+ARRAY<INT64>[unknown order:1, 2]
 ==
 # This is allowed in zetasql but the compliance framework cannot express it
 # because it wants to represent tables with arrays.

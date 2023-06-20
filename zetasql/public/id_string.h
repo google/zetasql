@@ -33,10 +33,15 @@
 #include <vector>
 
 #include "zetasql/base/arena.h"
+#include "zetasql/common/unicode_utils.h"
+#include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
 #include <cstdint>
 #include "absl/base/thread_annotations.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_set.h"
+#include "absl/flags/flag.h"
 #include "absl/hash/hash.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
@@ -86,6 +91,10 @@ class IdString {
   size_t size() const {
     CheckAlive();
     return value_->str.size();
+  }
+  size_t size_lower() const {
+    CheckAlive();
+    return value_->str_casefolded.size();
   }
   size_t length() const {
     CheckAlive();
@@ -151,12 +160,13 @@ class IdString {
     CheckAlive();
     other.CheckAlive();
     if (value_ == other.value_) return true;
-    if (size() != other.size()) return false;
+    if (size_lower() != other.size_lower()) return false;
     const int64_t* str_words =
-        reinterpret_cast<const int64_t*>(value_->str_lower.data());
+        reinterpret_cast<const int64_t*>(value_->str_casefolded.data());
     const int64_t* other_str_words =
-        reinterpret_cast<const int64_t*>(other.value_->str_lower.data());
-    return WordsEqual(str_words, other_str_words, value_->size_words);
+        reinterpret_cast<const int64_t*>(other.value_->str_casefolded.data());
+    return WordsEqual(str_words, other_str_words,
+                      value_->size_words_casefolded);
     return true;
   }
 
@@ -166,11 +176,11 @@ class IdString {
     other.CheckAlive();
     if (value_ == other.value_) return false;
     const int64_t* str_words =
-        reinterpret_cast<const int64_t*>(value_->str_lower.data());
+        reinterpret_cast<const int64_t*>(value_->str_casefolded.data());
     const int64_t* other_str_words =
-        reinterpret_cast<const int64_t*>(other.value_->str_lower.data());
-    int64_t min_size_words =
-        std::min(value_->size_words, other.value_->size_words);
+        reinterpret_cast<const int64_t*>(other.value_->str_casefolded.data());
+    int64_t min_size_words = std::min(value_->size_words_casefolded,
+                                      other.value_->size_words_casefolded);
     for (int i = 0; i < min_size_words; ++i) {
       if (str_words[i] != other_str_words[i]) {
         // Compare partial word using big-endian integer comparison. This is
@@ -178,7 +188,7 @@ class IdString {
         return zetasql_base::ghtonll(str_words[i]) < zetasql_base::ghtonll(other_str_words[i]);
       }
     }
-    return value_->str_lower.size() < other.value_->str_lower.size();
+    return value_->str_casefolded.size() < other.value_->str_casefolded.size();
   }
 
   // Make a new IdString with the lower-cased value of this.
@@ -204,8 +214,11 @@ class IdString {
     // <sp_lower> must be the lowercased version of <sp>. <size_words> must be
     // the size of 'sp' and 'sp_lower', rounded up to a multiple of 8 bytes.
     Shared(const absl::string_view sp, const absl::string_view sp_lower,
-           int64_t size_words)
-        : str(sp), str_lower(sp_lower), size_words(size_words) {}
+           int64_t size_words, int64_t size_words_lower)
+        : str(sp),
+          str_casefolded(sp_lower),
+          size_words(size_words),
+          size_words_casefolded(size_words_lower) {}
     Shared(const Shared&) = delete;
     Shared& operator=(const Shared&) = delete;
 
@@ -227,7 +240,7 @@ class IdString {
       // atomic value that can only be overwritten by an identical value.
       size_t h = hash_case_;
       if (h == 0) {
-        h = absl::Hash<absl::string_view>()(str_lower);
+        h = absl::Hash<absl::string_view>()(str_casefolded);
         hash_case_ = h;
       }
       return h;
@@ -238,19 +251,22 @@ class IdString {
     // string_view).
     const absl::string_view str;
 
-    // Lowercase version of <str>. Guaranteed to be 8-byte aligned.
-    // The last 8-byte word is padded with zeros (not included in the
+    // Normalized and case folded version of <str>. Guaranteed to be 8-byte
+    // aligned. The last 8-byte word is padded with zeros (not included in the
     // string_view).
-    const absl::string_view str_lower;
+    const absl::string_view str_casefolded;
 
-    // Size of 'str' and 'str_lower' in 64-bit words, rounded up.
+    // Size of 'str' in 64-bit words, rounded up.
     const int64_t size_words;
+
+    // Size of 'str_casefolded' in 64-bit words, rounded up.
+    const int64_t size_words_casefolded;
 
    private:
     // Hash of <str>.
     mutable size_t hash_ = 0;
 
-    // Hash of <str_lower>.
+    // Hash of <str_casefolded>.
     mutable size_t hash_case_ = 0;
   };
 
@@ -378,7 +394,7 @@ using IdStringSetCase = std::set<IdString, IdStringCaseLess>;
 
 // Typedef for IdStringHashSetCase, a case insensitive hash set of IdString.
 using IdStringHashSetCase =
-    std::unordered_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>;
+    absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>;
 
 // Typedef for IdStringHashMapCase<VALUE>, a case insensitive hash map of
 // IdString -> VALUE.
@@ -429,10 +445,17 @@ class IdStringPool {
 
  private:
   // Make an IdString::Shared for <str>, allocated in the arena.
-  const IdString::Shared* MakeShared(absl::string_view str) {
+  const IdString::Shared* MakeShared(absl::string_view str) const {
     static_assert(sizeof(IdString::Shared) % sizeof(int64_t) == 0,
                   "sizeof(IdString::Shared) must be a multiple of 8 bytes");
+    if (!absl::GetFlag(FLAGS_zetasql_idstring_allow_unicode_characters) ||
+        absl::c_all_of(str, absl::ascii_isascii)) {
+      return MakeSharedASCII(str);
+    }
+    return MakeSharedUnicode(str);
+  }
 
+  const IdString::Shared* MakeSharedASCII(absl::string_view str) const {
     // The stored strings are padded to a multiple of 8 bytes so that we can
     // use word-based algorithms on them.
     const int64_t padded_size = (str.size() + 7) & ~7;
@@ -465,8 +488,55 @@ class IdStringPool {
 
     absl::string_view copied_lower_str(string_buf, str.size());
     absl::string_view copied_str(string_buf + padded_size, str.size());
+    const IdString::Shared* shared = new (shared_buf) IdString::Shared(
+        copied_str, copied_lower_str, padded_size_words, padded_size_words);
+    return shared;
+  }
+
+  // TODO Add compliance tests once all code is made case
+  // insensitive for unicode characters.
+  const IdString::Shared* MakeSharedUnicode(absl::string_view str) const {
+    // The stored strings are padded to a multiple of 8 bytes so that we can
+    // use word-based algorithms on them.
+    const int64_t padded_size = (str.size() + 7) & ~7;
+    const int64_t padded_size_words = padded_size / sizeof(int64_t);
+
+    const std::string casefolded_str =
+        zetasql::GetNormalizedAndCasefoldedString(str);
+    const int64_t casefolded_padded_size = (casefolded_str.size() + 7) & ~7;
+    const int64_t casefolded_padded_size_words =
+        casefolded_padded_size / sizeof(int64_t);
+
+    // Allocate everything in one arena allocation, because arena allocations
+    // are still not cheap.
+    char* shared_buf = static_cast<char*>(arena_->AllocAligned(
+        sizeof(IdString::Shared) + padded_size + casefolded_padded_size,
+        sizeof(int64_t)));
+    char* string_buf = shared_buf + sizeof(IdString::Shared);
+    uint64_t* string_buf_words = reinterpret_cast<uint64_t*>(string_buf);
+
+    // Copy <str> twice, once in lowercase and once in original case. The
+    // lowercase version comes first, because it is used most frequently.
+    if (padded_size_words > 0) {
+      // For performance, set the entire last word to 0 before the memcpy
+      // instead of zeroing out the trailing bytes individually afterwards.
+      // Do this for both copies of the string.
+      string_buf_words[casefolded_padded_size_words - 1] = 0;
+      string_buf_words[casefolded_padded_size_words + padded_size_words - 1] =
+          0;
+    }
+    // Copy the casefold into the first part of the buffer and copy the
+    // original into the second part of the buffer.
+    memcpy(string_buf_words, casefolded_str.data(), casefolded_str.size());
+    memcpy(string_buf_words + casefolded_padded_size_words, str.data(),
+           str.size());
+
+    absl::string_view copied_lower_str(string_buf, casefolded_str.size());
+    absl::string_view copied_str(string_buf + casefolded_padded_size,
+                                 str.size());
     const IdString::Shared* shared = new (shared_buf)
-        IdString::Shared(copied_str, copied_lower_str, padded_size_words);
+        IdString::Shared(copied_str, copied_lower_str, padded_size_words,
+                         casefolded_padded_size_words);
     return shared;
   }
 

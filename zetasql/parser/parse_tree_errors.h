@@ -81,7 +81,7 @@ ParseLocationPoint GetErrorLocationPoint(const ASTNode* ast_node,
 // See GetErrorLocationPoint() for the meaning of <include_leftmost_child>.
 inline ::zetasql_base::StatusBuilder MakeSqlErrorAtNode(const ASTNode* ast_node,
                                                 bool include_leftmost_child) {
-  return MakeSqlError().Attach(
+  return MakeSqlError().AttachPayload(
       GetErrorLocationPoint(ast_node, include_leftmost_child)
           .ToInternalErrorLocation());
 }
@@ -127,7 +127,7 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtLocalNode(const ASTNode* ast_
 //
 inline auto LocationOverride(const ASTNode* node) {
   return [node](zetasql_base::StatusBuilder error) -> zetasql_base::StatusBuilder {
-    return error.Attach(
+    return error.AttachPayload(
         GetErrorLocationPoint(node, /*include_leftmost_child=*/true)
             .ToInternalErrorLocation());
   };

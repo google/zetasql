@@ -179,12 +179,12 @@ ARRAY<STRUCT<
 [name=in_clause_simple]
 SELECT y FROM Test WHERE x IN(1, 2) ORDER BY y;
 --
-ARRAY<STRUCT<y STRING>>[{NULL}, {"a"}]
+ARRAY<STRUCT<y STRING>>[known order:{NULL}, {"a"}]
 ==
 [name=in_clause_unnest]
 SELECT y FROM Test WHERE x IN UNNEST(ARRAY<INT64>[1,2]) ORDER BY y;
 --
-ARRAY<STRUCT<y STRING>>[{NULL}, {"a"}]
+ARRAY<STRUCT<y STRING>>[known order:{NULL}, {"a"}]
 ==
 [name=in_clause_null_selector]
 SELECT x FROM Test WHERE NULL IN (1, 2);
@@ -194,7 +194,7 @@ ARRAY<STRUCT<x INT64>>[]
 [name=in_clause_field_with_null_value]
 SELECT x FROM Test WHERE y IN ('a', 'b') ORDER BY x;
 --
-ARRAY<STRUCT<x INT64>>[{1}, {3}]
+ARRAY<STRUCT<x INT64>>[known order:{1}, {3}]
 ==
 [name=in_clause_unnest_null_array]
 SELECT y FROM Test WHERE x IN UNNEST(CAST(NULL AS ARRAY<INT64>));
@@ -204,7 +204,7 @@ ARRAY<STRUCT<y STRING>>[]
 [name=in_clause_nulls_in_list]
 SELECT y FROM Test WHERE x IN (1, 2, NULL) ORDER BY y;
 --
-ARRAY<STRUCT<y STRING>>[{NULL}, {"a"}]
+ARRAY<STRUCT<y STRING>>[known order:{NULL}, {"a"}]
 ==
 [name=in_clause_simple_not_in]
 SELECT y FROM Test WHERE x NOT IN(1, 2);
@@ -223,7 +223,7 @@ ARRAY<STRUCT<y STRING>>[{"c"}]
 SELECT y FROM TestNumeric
 WHERE numeric_col IN(CAST(1.23 AS NUMERIC), CAST(-3.14 AS NUMERIC));
 --
-ARRAY<STRUCT<y STRING>>[{"b"}, {"a"}]
+ARRAY<STRUCT<y STRING>>[unknown order:{"b"}, {"a"}]
 ==
 [required_features=BIGNUMERIC_TYPE]
 [name=in_clause_simple_not_in_bignumeric]
@@ -237,7 +237,7 @@ ARRAY<STRUCT<y STRING>>[{"c"}]
 SELECT y FROM TestBigNumeric
 WHERE bignumeric_col IN(CAST(1.234567890123456789 AS BIGNUMERIC), CAST(-3.141592653589793238 AS BIGNUMERIC));
 --
-ARRAY<STRUCT<y STRING>>[{"b"}, {"a"}]
+ARRAY<STRUCT<y STRING>>[unknown order:{"b"}, {"a"}]
 ==
 [name=in_clause_unnest_not_in]
 SELECT y FROM Test WHERE x NOT IN UNNEST(ARRAY<INT64>[1,2]) ORDER BY y;
@@ -257,7 +257,7 @@ ARRAY<STRUCT<y STRING>>[]
 [name=in_clause_function_selector]
 SELECT y FROM Test WHERE x + 1 IN (2, 3) ORDER BY y;
 --
-ARRAY<STRUCT<y STRING>>[{NULL}, {"a"}]
+ARRAY<STRUCT<y STRING>>[known order:{NULL}, {"a"}]
 ==
 [name=in_clause_function_selector2]
 SELECT y FROM Test WHERE x + 1 IN (4, NULL);
@@ -273,7 +273,7 @@ ARRAY<STRUCT<y STRING>>[{"b"}]
 SELECT y FROM Test WHERE x IN (
   SELECT CAST(1 AS INT64) t1 UNION ALL SELECT 2) ORDER BY y;
 --
-ARRAY<STRUCT<y STRING>>[{NULL}, {"a"}]
+ARRAY<STRUCT<y STRING>>[known order:{NULL}, {"a"}]
 ==
 [name=in_clause_not_in_subquery]
 SELECT y FROM Test WHERE x NOT IN (
@@ -291,7 +291,7 @@ ARRAY<STRUCT<y STRING>>[]
 SELECT y FROM Test WHERE x NOT IN (
   SELECT x FROM Test WHERE 1=0) ORDER BY y;
 --
-ARRAY<STRUCT<y STRING>>[{NULL}, {"a"}, {"b"}]
+ARRAY<STRUCT<y STRING>>[known order:{NULL}, {"a"}, {"b"}]
 ==
 [name=in_clause_simple_in_select]
 SELECT 1 IN (1, 2);
@@ -362,7 +362,7 @@ ARRAY<STRUCT<INT64>>[]
 [name=in_clause_not_in_null_selector_empty_unnest]
 SELECT 1 FROM Test WHERE NULL NOT IN UNNEST(ARRAY<INT64>[]);
 --
-ARRAY<STRUCT<INT64>>[{1}, {1}, {1}]
+ARRAY<STRUCT<INT64>>[unknown order:{1}, {1}, {1}]
 ==
 [name=in_clause_null_selector_empty_unnest_is_null]
 SELECT 1 FROM Test WHERE (NULL IN UNNEST(ARRAY<INT64>[])) IS NULL;
@@ -444,14 +444,14 @@ SELECT x FROM Test t WHERE x IN (
     SELECT t2.id FROM Test2 t2 WHERE (t.int32_col / 100) = t2.id)
 ORDER BY x;
 --
-ARRAY<STRUCT<x INT64>>[{1}, {2}]
+ARRAY<STRUCT<x INT64>>[known order:{1}, {2}]
 ==
 [name=in_clause_correlated_subquery2]
 SELECT x, x IN (
     SELECT t2.id FROM Test2 t2 WHERE (t.int32_col / 100) = t2.id)
 FROM Test t ORDER BY x;
 --
-ARRAY<STRUCT<x INT64, BOOL>>[{1, true}, {2, true}, {3, false}]
+ARRAY<STRUCT<x INT64, BOOL>>[known order:{1, true}, {2, true}, {3, false}]
 ==
 [name=in_clause_array_scan_not_in]
 SELECT id FROM Test2 t WHERE 'b' NOT IN UNNEST(t.Info.str_value);
@@ -461,27 +461,27 @@ ARRAY<STRUCT<id INT64>>[{2}]
 [name=in_clause_int32_type]
 SELECT x FROM Test WHERE int32_col IN (100, 200) ORDER BY x;
 --
-ARRAY<STRUCT<x INT64>>[{1}, {2}]
+ARRAY<STRUCT<x INT64>>[known order:{1}, {2}]
 ==
 [name=in_clause_uint32_type]
 SELECT x FROM Test WHERE uint32_col IN (101, 201) ORDER BY x;
 --
-ARRAY<STRUCT<x INT64>>[{1}, {2}]
+ARRAY<STRUCT<x INT64>>[known order:{1}, {2}]
 ==
 [name=in_clause_uint64_type]
 SELECT x FROM Test WHERE uint64_col IN (102, 202) ORDER BY x;
 --
-ARRAY<STRUCT<x INT64>>[{1}, {2}]
+ARRAY<STRUCT<x INT64>>[known order:{1}, {2}]
 ==
 [name=in_clause_bool_type]
 SELECT x FROM Test WHERE bool_col IN (True) ORDER BY x;
 --
-ARRAY<STRUCT<x INT64>>[{1}, {3}]
+ARRAY<STRUCT<x INT64>>[known order:{1}, {3}]
 ==
 [name=in_clause_bytes_type]
 SELECT x FROM Test WHERE bytes_col IN (b"bytes", b"bytes2") ORDER BY x;
 --
-ARRAY<STRUCT<x INT64>>[{1}, {2}]
+ARRAY<STRUCT<x INT64>>[known order:{1}, {2}]
 ==
 [name=in_clause_date_type]
 SELECT x FROM Test WHERE date_col IN ('2015-01-30');
@@ -498,7 +498,7 @@ SELECT x FROM TestEnum WHERE enum_col IN (
   CAST("TESTENUM0" AS `zetasql_test__.TestEnum`),
   CAST("TESTENUM2" AS `zetasql_test__.TestEnum`)) ORDER BY x;
 --
-ARRAY<STRUCT<x INT64>>[{1}, {3}]
+ARRAY<STRUCT<x INT64>>[known order:{1}, {3}]
 ==
 [required_features=V_1_1_ARRAY_EQUALITY]
 [name=in_clause_array_type]
@@ -519,14 +519,14 @@ ARRAY<STRUCT<id INT64>>[{1}]
 SELECT id, CASE WHEN Info.str_value IN (['d']) THEN "yes" END
 FROM Test2;
 --
-ARRAY<STRUCT<id INT64, STRING>>[{2, "yes"}, {1, NULL}]
+ARRAY<STRUCT<id INT64, STRING>>[unknown order:{2, "yes"}, {1, NULL}]
 ==
 
 [required_features=V_1_1_ARRAY_EQUALITY]
 [name=in_clause_array_type_join]
 SELECT a.id FROM Test2 a JOIN Test2 b ON a.Info.str_value IN (['d']);
 --
-ARRAY<STRUCT<id INT64>>[{2}, {2}]
+ARRAY<STRUCT<id INT64>>[unknown order:{2}, {2}]
 ==
 
 [required_features=V_1_1_ARRAY_EQUALITY]
@@ -538,15 +538,16 @@ ARRAY<STRUCT<
         x STRUCT<STRING, ARRAY<>>,
         BOOL
       >>
-[{{
-    "test",
-    ARRAY<INT64>[1, 2, 3]
-  },
-  false},
- {
-   {"test", ARRAY<INT64>[1, 2]},
-   true
- }]
+[unknown order:{{
+                  "test",
+                  ARRAY<INT64>[known order:1, 2, 3]
+                },
+                false},
+               {{
+                  "test",
+                  ARRAY<INT64>[known order:1, 2]
+                },
+                true}]
 ==
 
 [required_features=V_1_1_ARRAY_EQUALITY]
@@ -569,7 +570,7 @@ ARRAY<STRUCT<s INT64>>[{4}]
 [name=in_clause_if_statement]
 SELECT x, IF(x IN (1, 2), 'included', 'excluded') FROM Test ORDER BY x;
 --
-ARRAY<STRUCT<x INT64, STRING>>[
+ARRAY<STRUCT<x INT64, STRING>>[known order:
   {1, "included"},
   {2, "included"},
   {3, "excluded"}
@@ -580,7 +581,7 @@ SELECT x, CASE WHEN x IN (1, 2) THEN "value1or2"
                WHEN x IN (3) THEN "value3"
           END FROM Test ORDER BY x;
 --
-ARRAY<STRUCT<x INT64, STRING>>[
+ARRAY<STRUCT<x INT64, STRING>>[known order:
   {1, "value1or2"},
   {2, "value1or2"},
   {3, "value3"}
@@ -589,7 +590,7 @@ ARRAY<STRUCT<x INT64, STRING>>[
 [name=in_clause_join]
 SELECT x, id FROM Test JOIN Test2 ON x IN (1, 2) ORDER BY x, id;
 --
-ARRAY<STRUCT<x INT64, id INT64>>[{1, 1}, {1, 2}, {2, 1}, {2, 2}]
+ARRAY<STRUCT<x INT64, id INT64>>[known order:{1, 1}, {1, 2}, {2, 1}, {2, 2}]
 ==
 [name=in_struct]
 SELECT x, x IN ((1,1), (1,2))
@@ -599,7 +600,7 @@ ARRAY<STRUCT<
         x STRUCT<INT64, INT64>,
         BOOL
       >>
-[{{2, 2}, false}, {{1, 1}, true}]
+[unknown order:{{2, 2}, false}, {{1, 1}, true}]
 ==
 [name=in_struct_unnest]
 SELECT x, x IN UNNEST([(1,1), (1,2)])
@@ -609,7 +610,7 @@ ARRAY<STRUCT<
         x STRUCT<INT64, INT64>,
         BOOL
       >>
-[{{2, 2}, false}, {{1, 1}, true}]
+[unknown order:{{2, 2}, false}, {{1, 1}, true}]
 ==
 [name=in_struct_subquery]
 SELECT x, x IN (SELECT u FROM UNNEST([(1,1),(1, 2)]) u)
@@ -619,7 +620,7 @@ ARRAY<STRUCT<
         x STRUCT<INT64, INT64>,
         BOOL
       >>
-[{{2, 2}, false}, {{1, 1}, true}]
+[unknown order:{{2, 2}, false}, {{1, 1}, true}]
 ==
 [name=in_unnest_struct_match]
 SELECT (1,("this",3)) IN UNNEST([(1,("that",3)), (1,("this",3))])
@@ -683,7 +684,7 @@ SELECT x, y FROM Test
 WHERE struct<a int64, b int64>(x, x)
       IN (SELECT struct<c int64, d int64>(id, id) FROM Test2)
 --
-ARRAY<STRUCT<x INT64, y STRING>>[{2, NULL}, {1, "a"}]
+ARRAY<STRUCT<x INT64, y STRING>>[unknown order:{2, NULL}, {1, "a"}]
 ==
 
 [name=not_in_structs_with_different_field_names]
@@ -699,14 +700,14 @@ SELECT x, y FROM Test
 WHERE struct<a int64, b string>(x, y)
       IN UNNEST ((SELECT ARRAY_AGG(struct<c int64, d string>(x, y)) FROM Test))
 --
-ARRAY<STRUCT<x INT64, y STRING>>[{1, "a"}, {3, "b"}]
+ARRAY<STRUCT<x INT64, y STRING>>[unknown order:{1, "a"}, {3, "b"}]
 ==
 [name=in_unnest_all_array_of_only_null_elements]
 SELECT 1 IN UNNEST([NULL]) x
 UNION ALL
 SELECT 1 NOT IN UNNEST([NULL, NULL]) x;
 --
-ARRAY<STRUCT<x BOOL>>[{NULL}, {NULL}]
+ARRAY<STRUCT<x BOOL>>[unknown order:{NULL}, {NULL}]
 ==
 [name=in_unnest_all_array_of_only_null_elements_numeric]
 [required_features=NUMERIC_TYPE]
@@ -714,14 +715,14 @@ SELECT CAST(1.1 AS NUMERIC) IN UNNEST([CAST(NULL AS NUMERIC)]) x
 UNION ALL
 SELECT CAST(1.1 AS NUMERIC) NOT IN UNNEST([CAST(NULL AS NUMERIC)]) x;
 --
-ARRAY<STRUCT<x BOOL>>[{NULL}, {NULL}]
+ARRAY<STRUCT<x BOOL>>[unknown order:{NULL}, {NULL}]
 ==
 [name=in_unnest_all_array_of_null_and_non_null_elements]
 SELECT 1 IN UNNEST([NULL, 2]) x
 UNION ALL
 SELECT 1 NOT IN UNNEST([NULL, 1]) x;
 --
-ARRAY<STRUCT<x BOOL>>[{NULL}, {false}]
+ARRAY<STRUCT<x BOOL>>[unknown order:{NULL}, {false}]
 ==
 [name=filter_by_in_unnest_all_array_of_only_null_elements]
 SELECT e

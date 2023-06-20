@@ -21,6 +21,7 @@
 
 #include "zetasql/base/case.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status_macros.h"
 
@@ -29,7 +30,7 @@ namespace zetasql {
 TestCatalog::~TestCatalog() {
 }
 
-absl::Status TestCatalog::GetErrorForName(const std::string& name) const {
+absl::Status TestCatalog::GetErrorForName(absl::string_view name) const {
   const absl::Status* error =
       zetasql_base::FindOrNull(errors_, absl::AsciiStrToLower(name));
   if (error != nullptr) {
@@ -64,12 +65,12 @@ absl::Status TestCatalog::GetCatalog(const std::string& name, Catalog** catalog,
   return SimpleCatalog::GetCatalog(name, catalog, options);
 }
 
-void TestCatalog::AddError(const std::string& name, const absl::Status& error) {
+void TestCatalog::AddError(absl::string_view name, const absl::Status& error) {
   zetasql_base::InsertOrDie(&errors_, absl::AsciiStrToLower(name), error);
 }
 
 TestFunction::TestFunction(
-    const std::string& function_name, Function::Mode mode,
+    absl::string_view function_name, Function::Mode mode,
     const std::vector<FunctionSignature>& function_signatures)
     : Function(function_name, "TestFunction", mode, function_signatures) {}
 

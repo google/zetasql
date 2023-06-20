@@ -202,7 +202,7 @@ public final class FunctionArgumentType implements Serializable {
       builder.append("ANY TYPE");
     } else if (kind == SignatureArgumentKind.ARG_TYPE_LAMBDA) {
       Preconditions.checkNotNull(lambda);
-      builder.append("LAMBDA(");
+      builder.append("FUNCTION<");
       List<String> args = new ArrayList<>();
       for (FunctionArgumentType argType : lambda.argumentTypes) {
         args.add(argType.debugString(verbose));
@@ -213,7 +213,7 @@ public final class FunctionArgumentType implements Serializable {
       } else {
         builder.append("(").append(argStr).append(")");
       }
-      builder.append("->").append(lambda.bodyType.debugString(verbose)).append(")");
+      builder.append("->").append(lambda.bodyType.debugString(verbose)).append(">");
     } else {
       builder.append(signatureArgumentKindToString(kind));
     }
@@ -284,7 +284,7 @@ public final class FunctionArgumentType implements Serializable {
       case ARG_TYPE_VOID:
         return "<void>";
       case ARG_TYPE_LAMBDA:
-        return "LAMBDA";
+        return "<function<T->T>>";
       case __SignatureArgumentKind__switch_must_have_a_default__:
       default:
         return "UNKNOWN_ARG_KIND";

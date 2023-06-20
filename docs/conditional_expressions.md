@@ -150,9 +150,9 @@ COALESCE(expr[, ...])
 
 **Description**
 
-Returns the value of the first non-`NULL` expression. The remaining
-expressions aren't evaluated. An input expression can be any type.
-There may be multiple input expression types.
+Returns the value of the first non-`NULL` expression, if any, otherwise
+`NULL`. The remaining expressions aren't evaluated. An input expression can be
+any type. There may be multiple input expression types.
 All input expressions must be implicitly coercible to a common
 [supertype][cond-exp-supertype].
 

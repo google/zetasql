@@ -194,7 +194,7 @@ ARRAY<STRUCT<
         BYTES,
         BYTES
       >>
-[
+[known order:
   {1, 1, "plaintext", b"plaintext", "plaintext", b"plaintext", b"plaintext"},
   {
     1,
@@ -303,7 +303,7 @@ FROM KeysetTable
 GROUP BY 1, 2
 ORDER BY 1, 2
 --
-ARRAY<STRUCT<BOOL, BOOL>>[{NULL, NULL}, {false, false}]
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{NULL, NULL}, {false, false}]
 ==
 
 [required_features=ENCRYPTION]
@@ -423,7 +423,7 @@ ARRAY<STRUCT<
         BYTES,
         BYTES
       >>
-[
+[known order:
   {1, 1, "plaintext", b"plaintext", "plaintext", b"plaintext", b"plaintext"},
   {
     1,

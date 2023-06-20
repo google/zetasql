@@ -798,7 +798,7 @@ ARRAY<STRUCT<STRING>>[{"ab"}]
 [name=strings_function_regexp_extract_all]
 SELECT REGEXP_EXTRACT_ALL("abc dbc ac", "[a|d]b?")
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["ab", "db", "a"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"ab", "db", "a"]}]
 ==
 
 [name=strings_function_regex_replace]
@@ -870,7 +870,7 @@ from (
   select '%*d', 4, null union all
   select null, 4, 12)
 --
-ARRAY<STRUCT<x STRING, y INT64, z INT64, STRING>>[
+ARRAY<STRUCT<x STRING, y INT64, z INT64, STRING>>[unknown order:
   {"%*i", 6, 13, "    13"},
   {"%*d", NULL, 12, NULL},
   {NULL, 4, 12, NULL},
@@ -885,7 +885,7 @@ select x, format(x, cast(150 as uint64))
 from unnest(['%d', '%4d', '%04d', '%#x', '%T', '%4.2t']) x with offset
 order by offset
 --
-ARRAY<STRUCT<x STRING, STRING>>[
+ARRAY<STRUCT<x STRING, STRING>>[known order:
   {"%d", "150"},
   {"%4d", " 150"},
   {"%04d", "0150"},
@@ -964,10 +964,10 @@ select split("foo, bar, ,,"), split(""), split(" no commas "), split(",")
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<STRING>["foo", " bar", " ", "", ""],
+    ARRAY<STRING>[known order:"foo", " bar", " ", "", ""],
     ARRAY<STRING>[""],
     ARRAY<STRING>[" no commas "],
-    ARRAY<STRING>["", ""]
+    ARRAY<STRING>[known order:"", ""]
   }
 ]
 ==
@@ -977,8 +977,8 @@ select split("192.0.0.1", "."), split(" hello, world! ", " ")
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<STRING>["192", "0", "0", "1"],
-    ARRAY<STRING>["", "hello,", "world!", ""]
+    ARRAY<STRING>[known order:"192", "0", "0", "1"],
+    ARRAY<STRING>[known order:"", "hello,", "world!", ""]
   }
 ]
 ==
@@ -989,7 +989,7 @@ select split("", ""), split("abcd", "")
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
     ARRAY<STRING>[""],
-    ARRAY<STRING>["a", "b", "c", "d"]
+    ARRAY<STRING>[known order:"a", "b", "c", "d"]
   }
 ]
 ==
@@ -1008,10 +1008,10 @@ select split("beyoncé", "") as en_us,
 --
 ARRAY<STRUCT<en_us ARRAY<>, hi_in ARRAY<>, th_th ARRAY<>, ko_kr ARRAY<>>>[
   {
-    ARRAY<STRING>["b", "e", "y", "o", "n", "c", "é"],
-    ARRAY<STRING>["व", "ि", "भ", "ि", "न"],
-    ARRAY<STRING>["ส", "ม", "ถ", "ะ"],
-    ARRAY<STRING>["안", "녕", "하", "세", "요"]
+    ARRAY<STRING>[known order:"b", "e", "y", "o", "n", "c", "é"],
+    ARRAY<STRING>[known order:"व", "ि", "भ", "ि", "न"],
+    ARRAY<STRING>[known order:"ส", "ม", "ถ", "ะ"],
+    ARRAY<STRING>[known order:"안", "녕", "하", "세", "요"]
   }
 ]
 ==
@@ -1029,10 +1029,10 @@ select split("विभिन", "व"),
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<STRING>["", "िभिन"],
-    ARRAY<STRING>["व", "भ", "न"],
-    ARRAY<STRING>["", "भिन"],
-    ARRAY<STRING>["वि", "न"]
+    ARRAY<STRING>[known order:"", "िभिन"],
+    ARRAY<STRING>[known order:"व", "भ", "न"],
+    ARRAY<STRING>[known order:"", "भिन"],
+    ARRAY<STRING>[known order:"वि", "न"]
   }
 ]
 ==
@@ -1041,9 +1041,9 @@ select split("aaaaa", "aa"), split("ab", "abc"), split("a123bb123ccc123dddd", "1
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<STRING>["", "", "a"],
+    ARRAY<STRING>[known order:"", "", "a"],
     ARRAY<STRING>["ab"],
-    ARRAY<STRING>["a", "bb", "ccc", "dddd"]
+    ARRAY<STRING>[known order:"a", "bb", "ccc", "dddd"]
   }
 ]
 ==
@@ -1074,7 +1074,7 @@ select
   json_extract_scalar(s, '$.a.b')
 from unnest(['{"a" : { "b" : 4 } }', '{"a" : 3}', '{"a" : { "b" : "bar" } }']) s
 --
-ARRAY<STRUCT<STRING, STRING>>[
+ARRAY<STRUCT<STRING, STRING>>[unknown order:
   {"3", NULL},
   {'{"b":4}', "4"},
   {'{"b":"bar"}', "bar"}
@@ -1141,8 +1141,8 @@ select
   json_extract_array(s, '$.a')
 from unnest(['{"a" : ["foo"]}', '{"a" : ["bar", "baz"]}', '{"a" : { "b" : "bar" } }']) as s
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>['"bar"', '"baz"']},
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<STRING>[known order:'"bar"', '"baz"']},
   {ARRAY<STRING>['"foo"']},
   {ARRAY<STRING>(NULL)}
 ]
@@ -1189,7 +1189,7 @@ ERROR: generic::invalid_argument: Number of arguments does not match for functio
 select
   json_extract_array('["foo","bar","baz"]')
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['"foo"', '"bar"', '"baz"']}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:'"foo"', '"bar"', '"baz"']}]
 ==
 [name=json_extract_array_one_argument_invalid]
 select
@@ -1214,8 +1214,8 @@ from unnest([
   '{"a" : { "b" : "bar" }}'
 ]) as s
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>["bar", "baz"]},
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<STRING>[known order:"bar", "baz"]},
   {ARRAY<STRING>["foo"]},
   {ARRAY<STRING>(NULL)}
 ]
@@ -1268,7 +1268,7 @@ ERROR: generic::invalid_argument: Number of arguments does not match for functio
 select
   json_extract_string_array('["foo","bar","baz"]')
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo", "bar", "baz"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"foo", "bar", "baz"]}]
 ==
 [required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_one_argument_invalid]
@@ -1281,13 +1281,15 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 [name=json_query_array]
 select json_query_array('{"a.b": [1, "foo", null, {"c": 2}]}', '$."a.b"')
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", '"foo"', "null", '{"c":2}']}]
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>[known order:"1", '"foo"', "null", '{"c":2}']}
+]
 ==
 [required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_value_array]
 select json_value_array('{"a.b": [1, "foo", null]}', '$."a.b"')
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", "foo", NULL]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"1", "foo", NULL]}]
 ==
 [name=code_points_to_string_bytes_null_element]
 select
@@ -1328,7 +1330,7 @@ FROM (
   SELECT STRUCT(STRUCT(ARRAY<INT64>[] AS c, true AS d) AS b) AS a, 3 AS x
 ) AS t
 --
-ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING>>[
+ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING>>[unknown order:
   {
     '{"a":{"b":{"c":[],"d":true}},"x":3}',
     '{\n  "a": {\n    "b": {\n      "c": [],\n      "d": true\n    }\n  },\n  "x": 3\n}',

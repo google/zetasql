@@ -17,8 +17,10 @@
 #include "zetasql/analyzer/rewriters/rewriter_relevance_checker.h"
 
 #include <optional>
+#include <vector>
 
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/sql_tvf.h"
@@ -27,7 +29,13 @@
 #include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/container/btree_set.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -68,6 +76,15 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
   absl::Status VisitResolvedDifferentialPrivacyAggregateScan(
       const ResolvedDifferentialPrivacyAggregateScan* node) override {
     applicable_rewrites_->insert(REWRITE_ANONYMIZATION);
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedAggregateFunctionCall(
+      const ResolvedAggregateFunctionCall* node) override {
+    if (node->function()->Is<SQLFunctionInterface>() ||
+        node->function()->Is<TemplatedSQLFunction>()) {
+      applicable_rewrites_->insert(REWRITE_INLINE_SQL_UDAS);
+    }
     return DefaultVisit(node);
   }
 
@@ -144,6 +161,15 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     if (node->tvf()->Is<SQLTableValuedFunction>() ||
         node->tvf()->Is<TemplatedSQLTVF>()) {
       applicable_rewrites_->insert(ResolvedASTRewrite::REWRITE_INLINE_SQL_TVFS);
+    }
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedSetOperationScan(
+      const ResolvedSetOperationScan* node) override {
+    if (node->column_match_mode() != ResolvedSetOperationScan::BY_POSITION) {
+      applicable_rewrites_->insert(
+          ResolvedASTRewrite::REWRITE_SET_OPERATION_CORRESPONDING);
     }
     return DefaultVisit(node);
   }

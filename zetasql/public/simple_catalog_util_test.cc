@@ -17,10 +17,14 @@
 #include "zetasql/public/simple_catalog_util.h"
 
 #include <memory>
+#include <optional>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -35,42 +39,48 @@ TEST(SimpleCatalogUtilTest, AddFunctionFromCreateFunctionTest) {
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
 
   // Invalid analyzer options
-  EXPECT_THAT(
-      AddFunctionFromCreateFunction("CREATE TEMP FUNCTION Basic() AS (1)",
-                                    analyzer_options, analyzer_output, simple),
-      Not(IsOk()));
+  EXPECT_THAT(AddFunctionFromCreateFunction(
+                  "CREATE TEMP FUNCTION Basic() AS (1)", analyzer_options,
+                  /*allow_persistent_function=*/false,
+                  /*function_options=*/std::nullopt, analyzer_output, simple),
+              Not(IsOk()));
 
   analyzer_options.mutable_language()->AddSupportedStatementKind(
       RESOLVED_CREATE_FUNCTION_STMT);
-  ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction("CREATE TEMP FUNCTION Basic() AS (1)",
-                                          analyzer_options, analyzer_output,
-                                          simple));
+  ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction(
+      "CREATE TEMP FUNCTION Basic() AS (1)", analyzer_options,
+      /*allow_persistent_function=*/false, /*function_options=*/std::nullopt,
+      analyzer_output, simple));
 
   // Duplicate
-  EXPECT_THAT(
-      AddFunctionFromCreateFunction("CREATE TEMP FUNCTION Basic() AS (1)",
-                                    analyzer_options, analyzer_output, simple),
-      Not(IsOk()));
+  EXPECT_THAT(AddFunctionFromCreateFunction(
+                  "CREATE TEMP FUNCTION Basic() AS (1)", analyzer_options,
+                  /*allow_persistent_function=*/false,
+                  /*function_options=*/std::nullopt, analyzer_output, simple),
+              Not(IsOk()));
 
   // Invalid persistent function.
-  EXPECT_THAT(
-      AddFunctionFromCreateFunction("CREATE FUNCTION Persistent() AS (1)",
-                                    analyzer_options, analyzer_output, simple),
-      Not(IsOk()));
-  ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction("CREATE FUNCTION Persistent() AS (1)",
-                                          analyzer_options, analyzer_output,
-                                          simple,
-                                          /*allow_persistent_function=*/true));
+  EXPECT_THAT(AddFunctionFromCreateFunction(
+                  "CREATE FUNCTION Persistent() AS (1)", analyzer_options,
+                  /*allow_persistent_function=*/false,
+                  /*function_options=*/std::nullopt, analyzer_output, simple),
+              Not(IsOk()));
+  ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction(
+      "CREATE FUNCTION Persistent() AS (1)", analyzer_options,
+      /*allow_persistent_function=*/true, /*function_options=*/std::nullopt,
+      analyzer_output, simple));
 
   // Analysis failure
   EXPECT_THAT(AddFunctionFromCreateFunction(
                   "CREATE TEMP FUNCTION Template(arg ANY TYPE) AS (arg)",
-                  analyzer_options, analyzer_output, simple),
+                  analyzer_options, /*allow_persistent_function=*/false,
+                  /*function_options=*/std::nullopt, analyzer_output, simple),
               Not(IsOk()));
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_TEMPLATE_FUNCTIONS);
   ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction(
       "CREATE TEMP FUNCTION Template(arg ANY TYPE) AS (arg)", analyzer_options,
+      /*allow_persistent_function=*/false, /*function_options=*/std::nullopt,
       analyzer_output, simple));
 }
 

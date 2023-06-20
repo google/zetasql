@@ -26,6 +26,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/base/macros.h"
+#include "absl/container/btree_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_join.h"
@@ -44,6 +45,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
     case VERSION_1_4:
       // Add new features here that are "ideally_enabled" and not
       // "in_development". Add features here when removing "in_development".
+      features.insert(FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS);
       features.insert(FEATURE_V_1_4_BARE_ARRAY_ACCESS);
       features.insert(FEATURE_V_1_4_WITH_EXPRESSION);
       features.insert(FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS);
@@ -51,6 +53,9 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_LOAD_DATA_PARTITIONS);
       features.insert(FEATURE_V_1_4_LOAD_DATA_TEMP_TABLE);
       features.insert(FEATURE_V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH);
+      features.insert(FEATURE_V_1_4_CORRESPONDING);
+      features.insert(FEATURE_V_1_4_FIRST_AND_LAST_N);
+      features.insert(FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
@@ -97,6 +102,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_3_SCRIPT_LABEL);
       features.insert(FEATURE_V_1_3_REMOTE_FUNCTION);
       features.insert(FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS);
+      features.insert(FEATURE_V_1_3_LIKE_ANY_SOME_ALL);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_2:
       features.insert(FEATURE_V_1_2_ARRAY_ELEMENTS_WITH_SET);
@@ -148,7 +154,7 @@ std::string LanguageOptions::GetEnabledLanguageFeaturesAsString() const {
 }
 
 std::string LanguageOptions::ToString(const LanguageFeatureSet& features) {
-  std::set<std::string> strings;
+  absl::btree_set<std::string> strings;
   for (LanguageFeature feature : features) {
     strings.insert(LanguageFeature_Name(feature));
   }

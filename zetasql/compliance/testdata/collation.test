@@ -81,7 +81,7 @@ ARRAY<STRUCT<
 [name=orderby_with_column_collation_ci]
 select primary_key, col_ci from StringTable ORDER BY col_ci
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {7, NULL},
   {13, NULL},
   {10, ""},
@@ -105,7 +105,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [name=orderby_with_column_collation_cs]
 select primary_key, col_binary from StringTable ORDER BY col_binary
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {4, "A"},
   {6, "A"},
   {8, "A"},
@@ -129,7 +129,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
 [name=orderby_with_column_collation_binary_ci]
 select primary_key, col_binary, col_ci from StringTable ORDER BY col_binary, col_ci
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING, col_ci STRING>>[unknown order:
   {7, "A", NULL},
   {5, "A", " abc"},
   {4, "A", "@"},
@@ -158,7 +158,7 @@ ARRAY<STRUCT<
         col_ci STRING,
         col_no_collation STRING
       >>
-[
+[unknown order:
   {7, NULL, "C"},
   {13, NULL, "D"},
   {10, "", "D"},
@@ -182,7 +182,7 @@ ARRAY<STRUCT<
 [name=comparison_with_column_collation_ci_eq]
 select primary_key, col_ci from StringTable WHERE col_ci = 'hello'
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {2, "hello"},
   {14, "Hello"},
   {16, "hel۝lo"},
@@ -193,7 +193,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [name=comparison_with_column_collation_binary_eq]
 select primary_key, col_binary from StringTable WHERE col_binary = 'a'
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {2, "a"},
   {12, "a"},
   {14, "a"},
@@ -207,7 +207,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
 [name=comparison_with_column_collation_ci_not_eq]
 select primary_key, col_ci from StringTable WHERE col_ci != 'hello'
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {4, "@"},
   {6, "B"},
   {8, "aa"},
@@ -225,7 +225,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [name=comparison_with_column_collation_binary_not_eq]
 select primary_key, col_binary from StringTable WHERE col_binary != 'a'
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {4, "A"},
   {6, "A"},
   {8, "A"},
@@ -248,7 +248,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[{15, "Г"}]
 [name=comparison_with_column_collation_binary_greater]
 select primary_key, col_binary from StringTable WHERE col_binary > 'B'
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {2, "a"},
   {12, "a"},
   {14, "a"},
@@ -262,7 +262,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
 [name=comparison_with_column_collation_ci_greater_or_eq]
 select primary_key, col_ci from StringTable WHERE col_ci >= 'hello'
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {2, "hello"},
   {14, "Hello"},
   {16, "hel۝lo"},
@@ -274,7 +274,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [name=comparison_with_column_collation_binary_greater_or_eq]
 select primary_key, col_binary from StringTable WHERE col_binary >= 'B'
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {2, "a"},
   {10, "B"},
   {12, "a"},
@@ -293,7 +293,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
 [name=comparison_with_column_collation_ci_less]
 select primary_key, col_ci from StringTable WHERE col_ci < 'hello'
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {4, "@"},
   {6, "B"},
   {8, "aa"},
@@ -310,7 +310,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [name=comparison_with_column_collation_binary_less]
 select primary_key, col_binary from StringTable WHERE col_binary < 'B'
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {4, "A"},
   {6, "A"},
   {8, "A"},
@@ -322,7 +322,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
 [name=comparison_with_column_collation_ci_less_or_eq]
 select primary_key, col_ci from StringTable WHERE col_ci <= 'hello'
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {2, "hello"},
   {4, "@"},
   {6, "B"},
@@ -343,7 +343,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [name=comparison_with_column_collation_binary_less_or_eq]
 select primary_key, col_binary from StringTable WHERE col_binary <= 'B'
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {4, "A"},
   {6, "A"},
   {8, "A"},
@@ -360,7 +360,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
 [name=comparison_with_column_collation_ci_between]
 select primary_key, col_ci from StringTable WHERE col_ci between 'a' and 'zzzzz'
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {2, "hello"},
   {6, "B"},
   {8, "aa"},
@@ -376,7 +376,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [name=comparison_with_column_collation_binary_between]
 select primary_key, col_binary from StringTable WHERE col_binary between 'a' and 'zzzzz'
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {2, "a"},
   {12, "a"},
   {14, "a"},
@@ -390,7 +390,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
 [name=comparison_with_column_collation_ci_in]
 select primary_key, col_ci from StringTable WHERE col_ci in ('case sensitive', 'hello', 'b', 'c')
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {2, "hello"},
   {6, "B"},
   {12, "case sensitive"},
@@ -404,7 +404,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [name=comparison_with_column_collation_binary_in]
 select primary_key, col_binary from StringTable WHERE col_binary in ('a', 'B')
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {2, "a"},
   {10, "B"},
   {12, "a"},
@@ -424,7 +424,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
 select primary_key, col_ci from StringTable WHERE col_ci is distinct from 'hello'
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {4, "@"},
   {6, "B"},
   {8, "aa"},
@@ -445,7 +445,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
 select primary_key, col_binary from StringTable WHERE col_binary is distinct from 'a'
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {4, "A"},
   {6, "A"},
   {8, "A"},
@@ -463,7 +463,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
 select primary_key, col_ci from StringTable WHERE col_ci is not distinct from 'hello'
 --
-ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
   {2, "hello"},
   {14, "Hello"},
   {16, "hel۝lo"},
@@ -475,7 +475,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
 select primary_key, col_binary from StringTable WHERE col_binary is not distinct from 'a'
 --
-ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
   {2, "a"},
   {12, "a"},
   {14, "a"},
@@ -509,7 +509,10 @@ select CAST(col_ci AS BYTES) IN (b"hello", b"Hello", b"hel۝lo", b"h܏ello"), co
 where primary_Key IN (2, 4, 14, 16, 17)
 group by col_ci, col_binary
 --
-ARRAY<STRUCT<BOOL, col_binary STRING, INT64>>[{true, "a", 4}, {false, "A", 1}]
+ARRAY<STRUCT<BOOL, col_binary STRING, INT64>>[unknown order:
+  {true, "a", 4},
+  {false, "A", 1}
+]
 ==
 
 [name=groupby_with_column_collation_ci_no_collation]
@@ -523,7 +526,7 @@ ARRAY<STRUCT<
         col_no_collation STRING,
         INT64
       >>
-[{true, "c", 4}, {false, "C", 1}]
+[unknown order:{true, "c", 4}, {false, "C", 1}]
 ==
 
 [name=replace_with_collation_ci]
@@ -557,9 +560,9 @@ select
 ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
   {
     ARRAY<STRING>(NULL),
-    ARRAY<STRING>["def", "def"],
-    ARRAY<STRING>["def", "def"],
-    ARRAY<STRING>["def", "def"]
+    ARRAY<STRING>[known order:"def", "def"],
+    ARRAY<STRING>[known order:"def", "def"],
+    ARRAY<STRING>[known order:"def", "def"]
   }
 ]
 ==
@@ -573,7 +576,7 @@ select
 ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
   {
     ARRAY<STRING>(NULL),
-    ARRAY<STRING>["def", "def"],
+    ARRAY<STRING>[known order:"def", "def"],
     ARRAY<STRING>["defAbCdef"]
   }
 ]
@@ -830,7 +833,7 @@ select '\u06DD', 'group4'
 select string_group, min(collate(col_ci,'und:ci')), max(collate(col_ci,'und:ci')) from TestTable
 group by string_group
 --
-ARRAY<STRUCT<string_group STRING, STRING, STRING>>[
+ARRAY<STRUCT<string_group STRING, STRING, STRING>>[unknown order:
   {"group1", "a", "Hello"},
   {"group2", "efg", "efg"},
   {"group3", "\x00", "\x00"},
@@ -852,7 +855,7 @@ select '\u06DD', 'group4'
 select string_group, min(collate(col_ci,'binary')), max(collate(col_ci,'binary')) from TestTable
 group by string_group
 --
-ARRAY<STRUCT<string_group STRING, STRING, STRING>>[
+ARRAY<STRUCT<string_group STRING, STRING, STRING>>[unknown order:
   {"group1", "B", "aBc"},
   {"group2", "efg", "efg"},
   {"group3", "\x00", "\x00"},
@@ -915,7 +918,7 @@ ARRAY<STRUCT<
         primary_Key INT64,
         col_no_collation STRING
       >>
-[
+[known order:
   {2, "hello", 1, "HELLO"},
   {3, "Case sensitive", 5, "Case Sensitive"},
   {6, "B", 2, "b"},
@@ -942,22 +945,22 @@ ARRAY<STRUCT<
         group_case_sensitive BOOL,
         primary_Key INT64
       >>
-[{2, true, false, 1},
- {2, true, false, 4},
- {2, true, false, 5},
- {3, false, true, 2},
- {3, false, true, 3},
- {12, false, true, 2},
- {12, false, true, 3},
- {14, true, false, 1},
- {14, true, false, 4},
- {14, true, false, 5},
- {16, true, false, 1},
- {16, true, false, 4},
- {16, true, false, 5},
- {17, true, false, 1},
- {17, true, false, 4},
- {17, true, false, 5}]
+[known order:{2, true, false, 1},
+             {2, true, false, 4},
+             {2, true, false, 5},
+             {3, false, true, 2},
+             {3, false, true, 3},
+             {12, false, true, 2},
+             {12, false, true, 3},
+             {14, true, false, 1},
+             {14, true, false, 4},
+             {14, true, false, 5},
+             {16, true, false, 1},
+             {16, true, false, 4},
+             {16, true, false, 5},
+             {17, true, false, 1},
+             {17, true, false, 4},
+             {17, true, false, 5}]
 ==
 
 [name=cross_join_with_column_collation]
@@ -972,11 +975,11 @@ ARRAY<STRUCT<
         primary_Key INT64,
         col_no_collation STRING
       >>
-[{10, "B", 4, "B"},
- {9, "B", 4, "B"},
- {13, "B", 4, "B"},
- {11, "B", 4, "B"},
- {15, "B", 4, "B"}]
+[unknown order:{10, "B", 4, "B"},
+               {9, "B", 4, "B"},
+               {13, "B", 4, "B"},
+               {11, "B", 4, "B"},
+               {15, "B", 4, "B"}]
 ==
 
 [name=full_join_with_column_collation]
@@ -992,7 +995,7 @@ ARRAY<STRUCT<
         primary_Key INT64,
         col_no_collation STRING
       >>
-[
+[known order:
   {NULL, NULL, 3, "c"},
   {1, "", NULL, NULL},
   {2, "hello", 1, "HELLO"},
@@ -1028,7 +1031,7 @@ ARRAY<STRUCT<
         primary_Key INT64,
         col_no_collation STRING
       >>
-[
+[unknown order:
   {1, "", NULL, NULL},
   {2, "hello", 1, "HELLO"},
   {3, "Case sensitive", 5, "Case Sensitive"},
@@ -1063,7 +1066,7 @@ ARRAY<STRUCT<
         primary_Key INT64,
         col_ci STRING
       >>
-[
+[unknown order:
   {1, "HELLO", 16, "hel۝lo"},
   {1, "HELLO", 17, "h܏ello"},
   {1, "HELLO", 2, "hello"},
@@ -1120,7 +1123,7 @@ select 'hel\u06DDlo'
 select
   collate('a', 'binary') in (select collate(col, 'und:ci') from TestTable)
 --
-ERROR: generic::invalid_argument: Collation for IN operator is different on input expr ("binary") and subquery column ("und:ci") [at 6:30]
+ERROR: generic::invalid_argument: Collation conflict: "binary" vs. "und:ci". Collation for IN operator is different on input expr ("binary") and subquery column ("und:ci") [at 6:30]
   collate('a', 'binary') in (select collate(col, 'und:ci') from TestTable)
                              ^
 ==
@@ -1149,7 +1152,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, false, true}]
 select
   collate('a', 'und:ci') in unnest([collate('A', 'binary'), collate('b', 'binary')])
 --
-ERROR: generic::invalid_argument: Collation for IN UNNEST is different on argument 1 ("und:ci") and argument 2 ("binary") [at 2:26]
+ERROR: generic::invalid_argument: Collation conflict: "binary" vs. "und:ci". Collation on argument 2 ("binary") in function IN UNNEST is not compatible with other arguments [at 2:26]
   collate('a', 'und:ci') in unnest([collate('A', 'binary'), collate('b', 'bin...
                          ^
 ==
@@ -1178,7 +1181,7 @@ select lower(col_ci), col_binary from (
    select collate('Ab', 'und:ci'), collate('DEf', 'binary'))
 )
 --
-ARRAY<STRUCT<STRING, col_binary STRING>>[
+ARRAY<STRUCT<STRING, col_binary STRING>>[unknown order:
   {"ab", "DEf"},
   {"abc", "def"},
   {"ab", "DEF"},
@@ -1215,7 +1218,7 @@ select lower(col_ci), col_binary from (
    select collate('Ab', 'und:ci'), collate('DEf', 'binary'))
 )
 --
-ARRAY<STRUCT<STRING, col_binary STRING>>[
+ARRAY<STRUCT<STRING, col_binary STRING>>[unknown order:
   {"abc", "def"},
   {"ab", "DEf"},
   {"abcd", "xyz"}
@@ -1344,28 +1347,42 @@ ARRAY<STRUCT<STRING>>[{"C"}]
 [name=array_offsets_collation_ci_string_1]
 SELECT ARRAY_OFFSETS([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2]}]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
 [name=array_offsets_collation_ci_string_2]
 SELECT ARRAY_OFFSETS(["c", "a", "C"], collate("C", "und:ci"))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[0, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:0, 2]}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_offsets_collation_ci_string_null_1]
+SELECT ARRAY_OFFSETS(["c", NULL, "C"], collate("C", "und:ci"))
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:0, 2]}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_offsets_collation_ci_string_null_2]
+SELECT ARRAY_OFFSETS([collate("a", "und:ci"), NULL, collate("C", "und:ci")], "C")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2]}]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
 [name=array_find_all_collation_ci_string_1]
 SELECT ARRAY_FIND_ALL([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["c", "C"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"c", "C"]}]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
 [name=array_find_all_collation_ci_string_2]
 SELECT ARRAY_FIND_ALL(["c", "a", "C"], collate("C", "und:ci"))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["c", "C"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"c", "C"]}]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
@@ -1379,7 +1396,7 @@ select count(distinct collate(col, 'und:ci')) over ()
 from TestTable
 order by col
 --
-ARRAY<STRUCT<INT64>>[{2}, {2}, {2}]
+ARRAY<STRUCT<INT64>>[known order:{2}, {2}, {2}]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
@@ -1391,7 +1408,7 @@ select 'b'
 )
 select count(distinct collate(col, 'binary')) over () from TestTable
 --
-ARRAY<STRUCT<INT64>>[{3}, {3}, {3}]
+ARRAY<STRUCT<INT64>>[unknown order:{3}, {3}, {3}]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
@@ -1406,7 +1423,11 @@ select
   max(collate(col, 'und:ci')) over ()
 from TestTable
 --
-ARRAY<STRUCT<STRING, STRING>>[{"A", "C"}, {"A", "C"}, {"A", "C"}]
+ARRAY<STRUCT<STRING, STRING>>[unknown order:
+  {"A", "C"},
+  {"A", "C"},
+  {"A", "C"}
+]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
@@ -1421,7 +1442,11 @@ select
   max(collate(col, 'binary')) over ()
 from TestTable
 --
-ARRAY<STRUCT<STRING, STRING>>[{"A", "b"}, {"A", "b"}, {"A", "b"}]
+ARRAY<STRUCT<STRING, STRING>>[unknown order:
+  {"A", "b"},
+  {"A", "b"},
+  {"A", "b"}
+]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
@@ -1436,7 +1461,11 @@ select
   max(collate(col, '')) over ()
 from TestTable
 --
-ARRAY<STRUCT<STRING, STRING>>[{"A", "b"}, {"A", "b"}, {"A", "b"}]
+ARRAY<STRUCT<STRING, STRING>>[unknown order:
+  {"A", "b"},
+  {"A", "b"},
+  {"A", "b"}
+]
 ==
 
 [name=like_with_collation_ci]
@@ -1478,7 +1507,7 @@ SELECT
   PERCENTILE_DISC(collate(col, 'und:ci'), 0.5) OVER ()
 FROM TestTable
 --
-ARRAY<STRUCT<STRING>>[
+ARRAY<STRUCT<STRING>>[unknown order:
   {"Abc"},
   {"Abc"},
   {"Abc"},
@@ -1506,7 +1535,16 @@ SELECT
   PERCENTILE_DISC(collate(col, 'binary'), 0.5) OVER ()
 FROM TestTable
 --
-ARRAY<STRUCT<STRING>>[{"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}]
+ARRAY<STRUCT<STRING>>[unknown order:
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"}
+]
 ==
 
 [required_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
@@ -1552,4 +1590,13 @@ SELECT
   PERCENTILE_DISC(collate(col, ''), 0.5) OVER ()
 FROM TestTable
 --
-ARRAY<STRUCT<STRING>>[{"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}]
+ARRAY<STRUCT<STRING>>[unknown order:
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"},
+  {"B"}
+]

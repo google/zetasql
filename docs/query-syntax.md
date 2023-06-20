@@ -8,157 +8,66 @@ Query statements scan one or more tables or expressions and return the computed
 result rows. This topic describes the syntax for SQL queries in
 ZetaSQL.
 
+## SQL syntax notation rules
+
+The ZetaSQL documentation commonly uses the following
+syntax notation rules:
+
++ Red square brackets
+  <code><b><span style="color:Tomato;">[ ]</span></b></code>: Required and
+  part of the syntax.
++ Square brackets `[ ]`: Optional clause.
++ Curly braces with vertical bars `{ a | b | c }`: Logical `OR`. Select one
+  option.
++ Ellipsis `...`: Preceding item can repeat.
+
 ## SQL syntax
 
-<pre class="lang-sql prettyprint">
+<pre>
 <span class="var">query_statement</span>:
     <span class="var">query_expr</span>
 
 <span class="var">query_expr</span>:
-    [ <a href="#with_clause">WITH</a> [ <a href="#recursive_keyword">RECURSIVE</a> ] { <a href="#simple_cte"><span class="var">non_recursive_cte</span></a> | <a href="#recursive_cte"><span class="var">recursive_cte</span></a> }[, ...] ]
-    { <span class="var">select</span> | ( <span class="var">query_expr</span> ) | <a href="#set_clause"><span class="var">set_operation</span></a> }
-    [ <a href="#order_by_clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
-    [ <a href="#limit_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
+  [ <a href="#with_clause">WITH</a> [ <a href="#recursive_keyword">RECURSIVE</a> ] { <a href="#simple_cte"><span class="var">non_recursive_cte</span></a> | <a href="#recursive_cte"><span class="var">recursive_cte</span></a> }[, ...] ]
+  { <span class="var">select</span> | ( <span class="var">query_expr</span> ) | <a href="#set_clause"><span class="var">set_operation</span></a> }
+  [ <a href="#order_by_clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
+  [ <a href="#limit_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
 
 <span class="var">select</span>:
-    <a href="#select_list">SELECT</a>
-        [ <a href="#dp_clause">WITH</a> <a href="#dp_clause"><span class="var">differential_privacy_clause</span></a> ]
-        [ { ALL | DISTINCT } ]
-        [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
-        <a href="#select_list"><span class="var">select_list</span></a>
-    [ <a href="#from_clause">FROM</a> <a href="#from_clause"><span class="var">from_clause</span></a>[, ...] ]
-    [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
-    [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
-    [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
-    [ <a href="#qualify_clause">QUALIFY</a> <span class="var">bool_expression</span> ]
-    [ <a href="#window_clause">WINDOW</a> <a href="#window_clause"><span class="var">window_clause</span></a> ]
+  <a href="#select_list">SELECT</a>
+    [ <a href="#dp_clause">WITH</a> <a href="#dp_clause"><span class="var">differential_privacy_clause</span></a> ]
+    [ { ALL | DISTINCT } ]
+    [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
+    <a href="#select_list"><span class="var">select_list</span></a>
+  [ <a href="#from_clause">FROM</a> <a href="#from_clause"><span class="var">from_clause</span></a>[, ...] ]
+  [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
+  [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
+  [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
+  [ <a href="#qualify_clause">QUALIFY</a> <span class="var">bool_expression</span> ]
+  [ <a href="#window_clause">WINDOW</a> <a href="#window_clause"><span class="var">window_clause</span></a> ]
 
 </pre>
-
-**Notation rules**
-
-+ Square brackets `[ ]` indicate optional clauses.
-+ Parentheses `( )` indicate literal parentheses.
-+ The vertical bar `|` indicates a logical `OR`.
-+ Curly braces `{ }` enclose a set of options.
-+ A comma followed by an ellipsis within square brackets `[, ... ]` indicates that
-  the preceding item can repeat in a comma-separated list.
-
-### Sample tables 
-<a id="sample_tables"></a>
-
-The following tables are used to illustrate the behavior of different
-query clauses in this reference.
-
-#### Roster table
-
-The `Roster` table includes a list of player names (`LastName`) and the
-unique ID assigned to their school (`SchoolID`). It looks like this:
-
-```sql
-/*-----------------------*
- | LastName   | SchoolID |
- +-----------------------+
- | Adams      | 50       |
- | Buchanan   | 52       |
- | Coolidge   | 52       |
- | Davis      | 51       |
- | Eisenhower | 77       |
- *-----------------------*/
-```
-
-You can use this `WITH` clause to emulate a temporary table name for the
-examples in this reference:
-
-```sql
-WITH Roster AS
- (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
-  SELECT 'Buchanan', 52 UNION ALL
-  SELECT 'Coolidge', 52 UNION ALL
-  SELECT 'Davis', 51 UNION ALL
-  SELECT 'Eisenhower', 77)
-SELECT * FROM Roster
-```
-
-#### PlayerStats table
-
-The `PlayerStats` table includes a list of player names (`LastName`) and the
-unique ID assigned to the opponent they played in a given game (`OpponentID`)
-and the number of points scored by the athlete in that game (`PointsScored`).
-
-```sql
-/*----------------------------------------*
- | LastName   | OpponentID | PointsScored |
- +----------------------------------------+
- | Adams      | 51         | 3            |
- | Buchanan   | 77         | 0            |
- | Coolidge   | 77         | 1            |
- | Adams      | 52         | 4            |
- | Buchanan   | 50         | 13           |
- *----------------------------------------*/
-```
-
-You can use this `WITH` clause to emulate a temporary table name for the
-examples in this reference:
-
-```sql
-WITH PlayerStats AS
- (SELECT 'Adams' as LastName, 51 as OpponentID, 3 as PointsScored UNION ALL
-  SELECT 'Buchanan', 77, 0 UNION ALL
-  SELECT 'Coolidge', 77, 1 UNION ALL
-  SELECT 'Adams', 52, 4 UNION ALL
-  SELECT 'Buchanan', 50, 13)
-SELECT * FROM PlayerStats
-```
-
-#### TeamMascot table
-
-The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
-mascot for that school (`Mascot`).
-
-```sql
-/*---------------------*
- | SchoolID | Mascot   |
- +---------------------+
- | 50       | Jaguars  |
- | 51       | Knights  |
- | 52       | Lakers   |
- | 53       | Mustangs |
- *---------------------*/
-```
-
-You can use this `WITH` clause to emulate a temporary table name for the
-examples in this reference:
-
-```sql
-WITH TeamMascot AS
- (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
-  SELECT 51, 'Knights' UNION ALL
-  SELECT 52, 'Lakers' UNION ALL
-  SELECT 53, 'Mustangs')
-SELECT * FROM TeamMascot
-```
 
 ## `SELECT` statement 
 <a id="select_list"></a>
 
 <pre>
 SELECT
-    [ <a href="#dp_clause">WITH</a> <a href="#dp_clause"><span class="var">differential_privacy_clause</span></a> ]
-    [ { ALL | DISTINCT } ]
-    [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
-   <span class="var">select_list</span>
+  [ <a href="#dp_clause">WITH</a> <a href="#dp_clause"><span class="var">differential_privacy_clause</span></a> ]
+  [ { ALL | DISTINCT } ]
+  [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
+  <span class="var">select_list</span>
 
 <span class="var">select_list</span>:
-    { <span class="var">select_all</span> | <span class="var">select_expression</span> } [, ...]
+  { <span class="var">select_all</span> | <span class="var">select_expression</span> } [, ...]
 
 <span class="var">select_all</span>:
-    [ <span class="var">expression</span>. ]*
-    [ EXCEPT ( <span class="var">column_name</span> [, ...] ) ]
-    [ REPLACE ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]
+  [ <span class="var">expression</span>. ]*
+  [ EXCEPT ( <span class="var">column_name</span> [, ...] ) ]
+  [ REPLACE ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]
 
 <span class="var">select_expression</span>:
-    <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ]
+  <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ]
 </pre>
 
 The `SELECT` list defines the columns that the query will return. Expressions in
@@ -475,22 +384,22 @@ input value.
 FROM <span class="var">from_clause</span>[, ...]
 
 <span class="var">from_clause</span>:
-    <span class="var">from_item</span>
-    [ <span class="var">unpivot_operator</span> ]
-    [ <a href="#tablesample_operator"><span class="var">tablesample_operator</span></a> ]
+  <span class="var">from_item</span>
+  [ <span class="var">unpivot_operator</span> ]
+  [ <a href="#tablesample_operator"><span class="var">tablesample_operator</span></a> ]
 
 <span class="var">from_item</span>:
-    {
-      <span class="var">table_name</span> [ <span class="var">as_alias</span> ]
-      | { <a href="#join_types"><span class="var">join_operation</span></a> | ( <a href="#join_types"><span class="var">join_operation</span></a> ) }
-      | ( <span class="var">query_expr</span> ) [ <span class="var">as_alias</span> ]
-      | <span class="var">field_path</span>
-      | <a href="#unnest_operator"><span class="var">unnest_operator</span></a>
-      | <span class="var"><a href="#cte_name">cte_name</a></span> [ <span class="var">as_alias</span> ]
-    }
+  {
+    <span class="var">table_name</span> [ <span class="var">as_alias</span> ]
+    | { <a href="#join_types"><span class="var">join_operation</span></a> | ( <a href="#join_types"><span class="var">join_operation</span></a> ) }
+    | ( <span class="var">query_expr</span> ) [ <span class="var">as_alias</span> ]
+    | <span class="var">field_path</span>
+    | <a href="#unnest_operator"><span class="var">unnest_operator</span></a>
+    | <span class="var"><a href="#cte_name">cte_name</a></span> [ <span class="var">as_alias</span> ]
+  }
 
 <span class="var">as_alias</span>:
-    [ AS ] <span class="var">alias</span>
+  [ AS ] <span class="var">alias</span>
 </pre>
 
 The `FROM` clause indicates the table or tables from which to retrieve rows,
@@ -589,39 +498,78 @@ for the duration of the query, unless you qualify the table name, for example:
 
 <pre>
 <span class="var">unnest_operator</span>:
-    {
-      <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> )
-      | UNNEST( <span class="var">array_path</span> )
-      | <span class="var">array_path</span>
-    }
-    [ <span class="var">as_alias</span> ]
-    [ WITH OFFSET [ <span class="var">as_alias</span> ] ]
+  {
+    <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> )
+    | UNNEST( <span class="var">array_path</span> )
+    | <span class="var">array_path</span>
+  }
+  [ <span class="var">as_alias</span> ]
+  [ WITH OFFSET [ <span class="var">as_alias</span> ] ]
 
 <span class="var">as_alias</span>:
-    [AS] <span class="var">alias</span>
+  [AS] <span class="var">alias</span>
 </pre>
 
-The `UNNEST` operator takes an array and returns a
-table, with one row for each element in the array.
+The `UNNEST` operator takes an array and returns a table, with one row for each
+element in the array. For input arrays of most element types, the output of
+`UNNEST` generally has one column. `ARRAYS` with these element types return
+multiple columns:
+
++ `STRUCT`
++ `PROTO`
++ `JSON`
+
+Input values:
+
++ `array_expression`: An expression that produces an array.
++ `table_name`: The name of a table.
++ `array_path`: The path to an `ARRAY` or
+  non-`ARRAY` type, using the
+  [array elements field access operation][array-el-field-operator].`array_path`
+  must be prepended with a table in an implicit `UNNEST` operation,
+  but otherwise is optional.
+
+  The `UNNEST` operation with a [correlated][correlated-join] `array_path` must
+  be on the right side of a `CROSS JOIN`, `LEFT JOIN`, or
+  `INNER JOIN` operation.
++ `WITH OFFSET`: `UNNEST` destroys the order of elements in the input
+  array. Use this optional clause to return an additional column with
+  the array element indexes, or _offsets_. Offset counting starts at zero for
+  each row produced by the `UNNEST` operation. This column has an
+  optional alias; If the optional alias is not used, the default column name is
+  `offset`.
+
+  Example:
+
+  ```sql
+  SELECT * FROM UNNEST ([10,20,30]) as numbers WITH OFFSET;
+
+  /*---------+--------*
+   | numbers | offset |
+   +---------+--------+
+   | 10      | 0      |
+   | 20      | 1      |
+   | 30      | 2      |
+   *---------+--------*/
+  ```
+
+  
++ `alias`: An alias for a value table. An input array that produces a
+  single column can have an optional alias, which you can use to refer to the
+  column elsewhere in the query. You can also use an additional alias with the
+  `WITH OFFSET` clause to rename the `offset` column.
+
 You can also use `UNNEST` outside of the `FROM` clause with the
 [`IN` operator][in-operator].
-
-For input arrays of most element types, the output of `UNNEST` generally has
-one column. This single column has an optional `alias`, which you can use to
-refer to the column elsewhere in the query. `ARRAYS` with these element types
-return multiple columns:
-
-+ STRUCT
-+ PROTO
-
-`UNNEST` destroys the order of elements in the input
-array. Use the optional `WITH OFFSET` clause to
-return a second column with the array element indexes.
 
 For several ways to use `UNNEST`, including construction, flattening, and
 filtering, see [Work with arrays][working-with-arrays].
 
+To learn more about the ways you can use `UNNEST` explicitly and implicitly,
+see [Explicit and implicit `UNNEST`][explicit-implicit-unnest].
+
 ### `UNNEST` and structs
+
 For an input array of structs, `UNNEST`
 returns a row for each struct, with a separate column for each field in the
 struct. The alias for each column is the name of the corresponding struct
@@ -676,6 +624,7 @@ FROM UNNEST(
 ```
 
 ### `UNNEST` and protocol buffers
+
 For an input array of protocol buffers, `UNNEST` returns a row for each
 protocol buffer, with a separate column for each field in the
 protocol buffer. The alias for each column is the name of the corresponding
@@ -723,102 +672,103 @@ FROM UNNEST(
  *---------------------------------------------------------------------*/
 ```
 
-### Explicit and implicit `UNNEST`
+### Explicit and implicit `UNNEST` 
+<a id="explicit_implicit_unnest"></a>
 
-Array unnesting can be either explicit or implicit.
+Array unnesting can be either explicit or implicit. To learn more, see the
+following sections.
+
+#### Explicit unnesting
+
+The `UNNEST` keyword is required in explicit unnesting. For example:
+
+```sql
+WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
+SELECT results FROM Coordinates, UNNEST(Coordinates.position.y) AS results;
+```
+
 In explicit unnesting, `array_expression` must return an
-array value but does not need to resolve to an array, and the `UNNEST`
-keyword is required.
+array value but does not need to resolve to an array.
 
-Example:
+##### Tables and explicit unnesting
 
-```sql
-SELECT * FROM UNNEST ([1, 2, 3]);
-```
+When you use `array_path` with explicit `UNNEST`,
+you can optionally prepend `array_path` with a table.
 
-In implicit unnesting, `array_path` must resolve to an array and the
-`UNNEST` keyword is optional.
-
-Example:
+The following queries produce the same results:
 
 ```sql
-SELECT x
-FROM mytable AS t,
-  t.struct_typed_column.array_typed_field1 AS x;
+WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
+SELECT results FROM Coordinates, UNNEST(position.y) AS results;
 ```
-
-In this scenario, `array_path` can go arbitrarily deep into a data
-structure, but the last field must be array-typed. No previous field in the
-expression can be array-typed because it is not possible to extract a named
-field from an array.
-
-### `UNNEST` and `FLATTEN`
-
-The `UNNEST` operator can accept an array with nested data and flatten a
-specific part of the data into a table with one row for each element. To do
-this, use the [array elements field access operator][array-el-field-operator]
-as the argument for `array_path` in the `UNNEST` operation.
-
-When you use the array elements field access operator with `UNNEST`, the
-[`FLATTEN` operator][flatten-operator] is used implicitly.
-
-These are equivalent:
 
 ```sql
--- In UNNEST (FLATTEN used explicitly):
-SELECT * FROM T, UNNEST(FLATTEN(T.x.y.z));
-
--- In UNNEST (FLATTEN used implicitly):
-SELECT * FROM T, UNNEST(T.x.y.z);
-
--- In the FROM clause (UNNEST used implicitly):
-SELECT * FROM T, T.x.y.z;
+WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
+SELECT results FROM Coordinates, UNNEST(Coordinates.position.y) AS results;
 ```
 
-You can use `UNNEST` with the array elements field access operator implicitly
+#### Implicit unnesting
+
+The `UNNEST` keyword is not used in implicit unnesting.
+
+For example:
+
+```sql
+WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
+SELECT results FROM Coordinates, Coordinates.position.y AS results;
+```
+
+When you use `array_path` with `UNNEST`, the
+[`FLATTEN` operator][flatten-operator] is used implicitly. These are equivalent:
+
+```sql
+-- In UNNEST, FLATTEN used explicitly:
+WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
+SELECT results FROM Coordinates, UNNEST(FLATTEN(Coordinates.position.y)) AS results;
+```
+
+```sql
+-- In UNNEST, FLATTEN used implicitly:
+WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
+SELECT results FROM Coordinates, UNNEST(Coordinates.position.y) AS results;
+```
+
+```sql
+-- In the FROM clause, UNNEST used implicitly:
+WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
+SELECT results FROM Coordinates, Coordinates.position.y AS results;
+```
+
+##### Tables and implicit unnesting
+
+When you use `array_path` with implicit `UNNEST`, `array_path` must be prepended
+with the table. For example:
+
+```sql
+WITH Coordinates AS (SELECT [1,2] AS position)
+SELECT results FROM Coordinates, Coordinates.position AS results;
+```
+
+##### Array subscript operator limitations in implicit unnesting
+
+You can use `UNNEST` with `array_path` implicitly
 in the `FROM` clause, but only if the
 [array subscript operator][array-subscript-operator] is not included.
 
-This works:
+The following query is valid:
 
 ```sql
-SELECT * FROM T, UNNEST(T.x.y.z[SAFE_OFFSET(1)]);
+WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
+SELECT results FROM Coordinates, UNNEST(Coordinates.position.y[SAFE_OFFSET(1)]) AS results;
 ```
 
-This produces an error:
+The following query is invalid:
 
-```sql
-SELECT * FROM T, T.x.y.z[SAFE_OFFSET(1)];
+```sql {.bad}
+-- Invalid
+WITH Coordinates AS (SELECT ARRAY<STRUCT<x INT64, y ARRAY<INT64>>>[(1, [2,3]), (4, [5,6])] AS position)
+SELECT results FROM Coordinates, Coordinates.position.y[SAFE_OFFSET(1)] AS results;
 ```
-
-When you use the array elements field access operator with explicit `UNNEST`,
-you can optionally prepend it with a table name.
-
-These work:
-
-```sql
-SELECT * FROM T, UNNEST(x.y.z);
-```
-
-```sql
-SELECT * FROM T, UNNEST(T.x.y.z);
-```
-
-With implicit `UNNEST`, the table name is also optional.
-
-These work:
-
-```sql
-SELECT * FROM T, T.x.y.z;
-```
-
-```sql
-SELECT * FROM T, x.y.z;
-```
-
-To learn more about the ways you can use `UNNEST` explicitly and implicitly
-to flatten nested data into a table, see
-[Flattening nested data into a table][flattening-trees-into-table].
 
 ### `UNNEST` and `NULL` values 
 <a id="unnest_and_nulls"></a>
@@ -828,59 +778,38 @@ to flatten nested data into a table, see
 +  `NULL` and empty arrays produce zero rows.
 +  An array containing `NULL` values produces rows containing `NULL` values.
 
-### `UNNEST` and `WITH OFFSET`
-
-The optional `WITH OFFSET` clause returns a separate column containing the
-_offset_ value, in which counting starts at zero for each row produced by the
-`UNNEST` operation. This column has an optional alias; If the optional alias
-is not used, the default column name is `offset`.
-
-Example:
-
-```sql
-SELECT * FROM UNNEST ([10,20,30]) as numbers WITH OFFSET;
-
-/*---------+--------*
- | numbers | offset |
- +---------+--------+
- | 10      | 0      |
- | 20      | 1      |
- | 30      | 2      |
- *---------+--------*/
-```
-
 ## `UNPIVOT` operator 
 <a id="unpivot_operator"></a>
 
-<pre class="lang-sql prettyprint">
+<pre>
 FROM <span class="var">from_item</span>[, ...] <span class="var">unpivot_operator</span>
 
 <span class="var">unpivot_operator</span>:
-    UNPIVOT [ { INCLUDE NULLS | EXCLUDE NULLS } ] (
-        { <span class="var">single_column_unpivot</span> | <span class="var">multi_column_unpivot</span> }
-    ) [<span class="var">unpivot_alias</span>]
+  UNPIVOT [ { INCLUDE NULLS | EXCLUDE NULLS } ] (
+    { <span class="var">single_column_unpivot</span> | <span class="var">multi_column_unpivot</span> }
+  ) [<span class="var">unpivot_alias</span>]
 
 <span class="var">single_column_unpivot</span>:
-    <span class="var">values_column</span>
-    FOR <span class="var">name_column</span>
-    IN (<span class="var">columns_to_unpivot</span>)
+  <span class="var">values_column</span>
+  FOR <span class="var">name_column</span>
+  IN (<span class="var">columns_to_unpivot</span>)
 
 <span class="var">multi_column_unpivot</span>:
-    <span class="var">values_column_set</span>
-    FOR <span class="var">name_column</span>
-    IN (<span class="var">column_sets_to_unpivot</span>)
+  <span class="var">values_column_set</span>
+  FOR <span class="var">name_column</span>
+  IN (<span class="var">column_sets_to_unpivot</span>)
 
 <span class="var">values_column_set</span>:
-    (<span class="var">values_column</span>[, ...])
+  (<span class="var">values_column</span>[, ...])
 
 <span class="var">columns_to_unpivot</span>:
-    <span class="var">unpivot_column</span> [<span class="var">row_value_alias</span>][, ...]
+  <span class="var">unpivot_column</span> [<span class="var">row_value_alias</span>][, ...]
 
 <span class="var">column_sets_to_unpivot</span>:
-    (<span class="var">unpivot_column</span> [<span class="var">row_value_alias</span>][, ...])
+  (<span class="var">unpivot_column</span> [<span class="var">row_value_alias</span>][, ...])
 
 <span class="var">unpivot_alias</span> and <span class="var">row_value_alias</span>:
-    [AS] <span class="var">alias</span>
+  [AS] <span class="var">alias</span>
 </pre>
 
 The `UNPIVOT` operator rotates columns into rows. `UNPIVOT` is part of the
@@ -1093,24 +1022,24 @@ UNPIVOT(
 
 ## `TABLESAMPLE` operator
 
-```sql
+<pre>
 tablesample_clause:
-    TABLESAMPLE sample_method (sample_size percent_or_rows [ partition_by ])
-    [ REPEATABLE(repeat_argument) ]
-    [ WITH WEIGHT [AS alias] ]
+  TABLESAMPLE sample_method (sample_size percent_or_rows [ partition_by ])
+  [ REPEATABLE(repeat_argument) ]
+  [ WITH WEIGHT [AS alias] ]
 
 sample_method:
-    { BERNOULLI | SYSTEM | RESERVOIR }
+  { BERNOULLI | SYSTEM | RESERVOIR }
 
 sample_size:
-    numeric_value_expression
+  numeric_value_expression
 
 percent_or_rows:
-    { PERCENT | ROWS }
+  { PERCENT | ROWS }
 
 partition_by:
-    PARTITION BY partition_expression [, ...]
-```
+  PARTITION BY partition_expression [, ...]
+</pre>
 
 **Description**
 
@@ -1331,35 +1260,35 @@ can be solved with [stratified sampling][stratified-sampling].
 ## Join operation 
 <a id="join_types"></a>
 
-<pre class="lang-sql prettyprint">
+<pre>
 <span class="var">join_operation</span>:
-    { <span class="var">cross_join_operation</span> | <span class="var">condition_join_operation</span> }
+  { <span class="var">cross_join_operation</span> | <span class="var">condition_join_operation</span> }
 
 <span class="var">cross_join_operation</span>:
-    <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">cross_join_operator</span> <span class="var"><a href="#from_clause">from_item</a></span>
+  <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">cross_join_operator</span> <span class="var"><a href="#from_clause">from_item</a></span>
 
 <span class="var">condition_join_operation</span>:
-    <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">condition_join_operator</span> <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">join_condition</span>
+  <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">condition_join_operator</span> <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">join_condition</span>
 
 <span class="var">cross_join_operator</span>:
-    { <a href="#cross_join">CROSS JOIN</a> | <a href="#comma_cross_join">,</a> }
+  { <a href="#cross_join">CROSS JOIN</a> | <a href="#comma_cross_join">,</a> }
 
 <span class="var">condition_join_operator</span>:
-    {
-      <a href="#inner_join">[INNER] JOIN</a>
-      | <a href="#full_outer_join">FULL [OUTER] JOIN</a>
-      | <a href="#left_outer_join">LEFT [OUTER] JOIN</a>
-      | <a href="#right_outer_join">RIGHT [OUTER] JOIN</a>
-    }
+  {
+    <a href="#inner_join">[INNER] JOIN</a>
+    | <a href="#full_outer_join">FULL [OUTER] JOIN</a>
+    | <a href="#left_outer_join">LEFT [OUTER] JOIN</a>
+    | <a href="#right_outer_join">RIGHT [OUTER] JOIN</a>
+  }
 
 <a href="#join_conditions"><span class="var">join_condition</span></a>:
-    { <a href="#on_clause"><span class="var">on_clause</span></a> | <a href="#using_clause"><span class="var">using_clause</span></a> }
+  { <a href="#on_clause"><span class="var">on_clause</span></a> | <a href="#using_clause"><span class="var">using_clause</span></a> }
 
 <a href="#on_clause"><span class="var">on_clause</span></a>:
-    ON <span class="var">bool_expression</span>
+  ON <span class="var">bool_expression</span>
 
 <a href="#using_clause"><span class="var">using_clause</span></a>:
-    USING ( <span class="var">column_list</span> )
+  USING ( <span class="var">column_list</span> )
 </pre>
 
 The `JOIN` operation merges two `from_item`s so that the `SELECT` clause can
@@ -2133,9 +2062,9 @@ CROSS JOIN
 ## `WHERE` clause 
 <a id="where_clause"></a>
 
-```sql
+<pre>
 WHERE bool_expression
-```
+</pre>
 
 The `WHERE` clause filters the results of the `FROM` clause.
 
@@ -2364,9 +2293,9 @@ grand total:
 ## `HAVING` clause 
 <a id="having_clause"></a>
 
-```sql
+<pre>
 HAVING bool_expression
-```
+</pre>
 
 The `HAVING` clause filters the results produced by `GROUP BY` or
 aggregation. `GROUP BY` or aggregation must be present in the query. If
@@ -2681,9 +2610,9 @@ ORDER BY Place COLLATE "und:ci"
 
 ## `QUALIFY` clause
 
-```sql
+<pre>
 QUALIFY bool_expression
-```
+</pre>
 
 The `QUALIFY` clause filters the results of window functions.
 A window function is required to be present in the `QUALIFY` clause or the
@@ -2811,16 +2740,23 @@ WINDOW
 
 <pre>
 <span class="var">set_operation</span>:
-  <a href="#sql_syntax">query_expr</a> set_operator <a href="#sql_syntax">query_expr</a>
+  <a href="#sql_syntax"><span class="var">query_expr</span></a> <span class="var">set_operator</span> [ <a href="#corresponding"><span class="var">corresponding_specification</span></a> ] <a href="#sql_syntax"><span class="var">query_expr</span></a>
 
 <span class="var">set_operator</span>:
-  UNION { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
+  {
+    <a href="#union">UNION</a> { ALL | DISTINCT } |
+    <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } |
+    <a href="#except">EXCEPT</a> { ALL | DISTINCT }
+  }
+
+<a href="#corresponding"><span class="var">corresponding_specification</span></a>:
+  CORRESPONDING
 </pre>
 
 Set operators combine results from two or
-more input queries into a single result set. You
-must specify `ALL` or `DISTINCT`; if you specify `ALL`, then all rows are
-retained.  If `DISTINCT` is specified, duplicate rows are discarded.
+more input queries into a single result set. If you specify `ALL`, then all rows are
+retained. If `DISTINCT` is specified, duplicate rows are
+discarded.
 
 If a given row R appears exactly m times in the first input query and n times
 in the second input query (m >= 0, n >= 0):
@@ -2839,54 +2775,80 @@ in the second input query (m >= 0, n >= 0):
 +  For `EXCEPT DISTINCT`, row R appears once in the output if
    m > 0 and n = 0.
 +  If there are more than two input queries, the above operations generalize
-   and the output is the same as if the inputs were combined incrementally from
-   left to right.
+   and the output is the same as if the input queries were combined
+   incrementally from left to right.
 
 The following rules apply:
 
 +  For set operations other than `UNION
    ALL`, all column types must support
    equality comparison.
-+  The input queries on each side of the operator must return the same
-   number of columns.
-+  The operators pair the columns returned by each input query according to
-   the columns' positions in their respective `SELECT` lists. That is, the first
-   column in the first input query is paired with the first column in the second
-   input query.
-+  The result set always uses the column names from the first input query.
-+  The result set always uses the supertypes of input types in corresponding
-   columns, so paired columns must also have either the same data type or a
-   common supertype.
-+  You must use parentheses to separate different set
-   operations; for this purpose, set operations such as `UNION ALL` and
-   `UNION DISTINCT` are different. If the statement only repeats
-   the same set operation, parentheses are not necessary.
++  (If `CORRESPONDING` is not
+   used) The input queries on each side of the operator must return
+   the same number of columns.
++  (If `CORRESPONDING` is not
+   used) The operators pair the columns returned by each input query
+   according to the columns' positions in their respective `SELECT` lists. That
+   is, the first column in the first input query is paired with the first column
+   in the second input query.
++  The results of the set operation always uses the column names from the
+   first input query.
++  The results of the set operation always uses the supertypes of input types
+   in corresponding columns, so paired columns must also have either the same
+   data type or a common supertype.
++  You must use parentheses to separate different set operations.
+   
+   + Set operations such as `UNION ALL` and `UNION DISTINCT` are different.
+   
+   
+   + Set operations such as `UNION ALL` and `UNION ALL CORRESPONDING` are different.
+   
++  If the statement only repeats the same set operation, parentheses are not
+   necessary.
 
 Examples:
 
 ```sql
-query1 UNION ALL (query2 UNION DISTINCT query3)
+-- This works
 query1 UNION ALL query2 UNION ALL query3
 ```
 
-Invalid:
+```sql
+-- This works
+query1 UNION ALL (query2 UNION DISTINCT query3)
+```
+
+```sql
+-- This works
+query1 UNION ALL CORRESPONDING query2 UNION ALL CORRESPONDING query3
+```
 
 ```sql {.bad}
+-- This is invalid
 query1 UNION ALL query2 UNION DISTINCT query3
-query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
+```
+
+```sql {.bad}
+-- This is invalid
+query1 UNION ALL CORRESPONDING query2 UNION ALL query3
+```
+
+```sql {.bad}
+-- This is invalid
+query1 UNION ALL query2 INTERSECT ALL query3;
 ```
 
 ### `UNION` 
 <a id="union"></a>
 
-The `UNION` operator combines the result sets of two or more input queries by
-pairing columns from the result set of each query and vertically concatenating
+The `UNION` operator combines the results of two or more input queries by
+pairing columns from the results of each query and vertically concatenating
 them.
 
 ### `INTERSECT` 
 <a id="intersect"></a>
 
-The `INTERSECT` operator returns rows that are found in the result sets of both
+The `INTERSECT` operator returns rows that are found in the results of both
 the left and right input queries. Unlike `EXCEPT`, the positioning of the input
 queries (to the left versus right of the `INTERSECT` operator) does not matter.
 
@@ -2910,12 +2872,118 @@ EXCEPT DISTINCT SELECT 1;
  *--------*/
 ```
 
+### `CORRESPONDING` 
+<a id="corresponding"></a>
+
+Add the `CORRESPONDING` specification to match columns by name instead of
+position in a set operation.
+
+General usage notes for the `CORRESPONDING` specification:
+
++ In the set operation, only columns appearing in both input queries are
+  preserved and all other columns are dropped.
++ Both input queries in the set operation must produce at least
+  one column with the same name.
++ Columns in the set operation results appear in the order in which they occur
+  in the first input query.
++ Neither input query in the set operation can produce a value table.
++ Neither input query in the set operation can produce anonymous columns or
+  duplicate column names.
++ Pseudocolumns are ignored in the set operation.
+
+#### Set operation results when matching by column position
+
+ZetaSQL supports set operations, and by default, all of
+these set operations match columns by position. More specifically:
+
++ When rows of the second input query contribute to the set operation,
+  the column values are kept in the same position.
++ When comparing rows for distinctness, the columns at the same position in the
+  right and left input query are compared.
+
+By default, the output column names are determined by the first input query in
+the set operation. Conceptually, this behavior gives an appearance that the
+columns of the second input query are renamed to match the first input query,
+before the set operation is computed.
+
+Examine the results of the following query:
+
+```sql
+WITH
+  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable),
+  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit)
+SELECT * FROM Produce1 UNION ALL SELECT * FROM Produce2;
+
+/*--------+-----------*
+ | fruit  | vegetable |
+ +--------+-----------+
+ | apple  | leek      |
+ | kale   | orange    |
+ +--------+-----------*/
+```
+
+In the proceeding example, an attempt was made to list of fruits in one column
+and vegetables in another, however the results do not reflect this.
+To get the intended results, use the `CORRESPONDING` specification.
+
+#### Set operation results when matching by column name
+
+To produce the intended results, match columns by name, using the
+`CORRESPONDING` specification. In particular, this means:
+
++ When rows of the second input query contribute to the set operation,
+  the columns are reordered so that the column names are in the same positions
+  for both input queries.
++ When comparing rows for distinctness, the columns with the same name on the
+  right and left side are compared.
+
+In the following example, the intended results are produced:
+
+```sql
+WITH
+  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable),
+  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit)
+SELECT * FROM Produce1 UNION ALL CORRESPONDING SELECT * FROM Produce2;
+
+/*--------+-----------*
+ | fruit  | vegetable |
+ +--------+-----------+
+ | apple  | leek      |
+ | orange | kale      |
+ +--------+-----------*/
+```
+
+Notice that the order of the columns is determined by the first input query in
+this example.
+
+#### Columns that do not appear in both result sets are dropped
+
+With the `CORRESPONDING` specification, only columns appearing in both
+input queries are preserved and all other columns are dropped.
+
+In the following example, The columns `extra_col1` and `extra_col2` are dropped
+as they only occur in one input query.
+
+```sql
+WITH
+  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable, 1 AS extra_col1),
+  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit, 2 AS extra_col2)
+SELECT * FROM Produce1 UNION ALL CORRESPONDING SELECT * FROM Produce2;
+
+/*--------+-----------*
+ | fruit  | vegetable |
+ +--------+-----------+
+ | apple  | leek      |
+ | orange | kale      |
+ +--------+-----------*/
+```
+
 ## `LIMIT` and `OFFSET` clauses 
 <a id="limit_and_offset_clause"></a>
 
-```sql
+<pre>
 LIMIT count [ OFFSET skip_rows ]
-```
+</pre>
 
 `LIMIT` specifies a non-negative `count` of type INT64,
 and no more than `count` rows will be returned. `LIMIT` `0` returns 0 rows.
@@ -2962,7 +3030,7 @@ ORDER BY letter ASC LIMIT 3 OFFSET 1
 ## `WITH` clause 
 <a id="with_clause"></a>
 
-<pre class="lang-sql prettyprint">
+<pre>
 WITH [ <a href="#recursive_keyword">RECURSIVE</a> ] { <a href="#simple_cte"><span class="var">non_recursive_cte</span></a> | <a href="#recursive_cte"><span class="var">recursive_cte</span></a> }[, ...]
 </pre>
 
@@ -3000,9 +3068,9 @@ two things:
 ### Non-recursive CTEs 
 <a id="simple_cte"></a>
 
-<pre class="lang-sql prettyprint">
+<pre>
 non_recursive_cte:
-    <a href="#cte_name">cte_name</a> AS ( <a href="#sql_syntax">query_expr</a> )
+  <a href="#cte_name">cte_name</a> AS ( <a href="#sql_syntax">query_expr</a> )
 </pre>
 
 A non-recursive common table expression (CTE) contains
@@ -3052,21 +3120,21 @@ FROM
 ### Recursive CTEs 
 <a id="recursive_cte"></a>
 
-<pre class="lang-sql prettyprint">
+<pre>
 recursive_cte:
-    <a href="#cte_name">cte_name</a> AS ( recursive_union_operation )
+  <a href="#cte_name">cte_name</a> AS ( recursive_union_operation )
 
 recursive_union_operation:
-    base_term union_operator recursive_term
+  base_term union_operator recursive_term
 
 base_term:
-    <a href="#sql_syntax">query_expr</a>
+  <a href="#sql_syntax">query_expr</a>
 
 recursive_term:
-    <a href="#sql_syntax">query_expr</a>
+  <a href="#sql_syntax">query_expr</a>
 
 union_operator:
-    { UNION ALL | UNION DISTINCT }
+  { UNION ALL | UNION DISTINCT }
 </pre>
 
 A recursive common table expression (CTE) contains a
@@ -3130,6 +3198,9 @@ A recursive CTE can include nested `WITH` clauses, however, you can't reference
 clause can't be recursive unless it includes its own `RECURSIVE` keyword.
 The `RECURSIVE` keyword affects only the particular `WITH` clause to which it
 belongs.
+
+To learn more about recursive CTEs and troubleshooting iteration limit errors,
+see [Work with recursive CTEs][work-with-recursive-ctes].
 
 ##### Examples of allowed recursive CTEs
 
@@ -3584,19 +3655,12 @@ SELECT * FROM B
 ## Differential privacy clause 
 <a id="dp_clause"></a>
 
-This clause lets you transform the results of a query with
-[differentially private aggregations][dp-functions]. To learn more about
-differential privacy, see [Differential privacy][dp-concepts].
-
-### Differential privacy syntax 
-<a id="dp_query_syntax"></a>
-
 **Anonymization clause**
 
-<pre class="lang-sql notranslate prettyprint">
-WITH ANONYMIZATION OPTIONS( privacy_parameters )
+<pre>
+WITH ANONYMIZATION OPTIONS( <a href="#dp_privacy_parameters">privacy_parameters</a> )
 
-privacy_parameters:
+<a href="#dp_privacy_parameters">privacy_parameters</a>:
   epsilon = expression,
   { delta = expression | k_threshold = expression },
   [ { kappa = expression | max_groups_contributed = expression } ]
@@ -3604,39 +3668,27 @@ privacy_parameters:
 
 **Differential privacy clause**
 
-<pre class="lang-sql notranslate prettyprint">
-WITH DIFFERENTIAL_PRIVACY OPTIONS( privacy_parameters )
+<pre>
+WITH DIFFERENTIAL_PRIVACY OPTIONS( <a href="#dp_privacy_parameters">privacy_parameters</a> )
 
-privacy_parameters:
+<a href="#dp_privacy_parameters">privacy_parameters</a>:
   epsilon = expression,
   delta = expression,
   [ max_groups_contributed = expression ],
   [ privacy_unit_column = column_name ]
 </pre>
 
-**Notation rules**
-
-+ Square brackets `[ ]` indicate optional clauses.
-+ Curly braces `{ }` with vertical bars `|` represent logical `OR` options.
-
 **Description**
 
-If you want to use this syntax, add it after the `SELECT` keyword with one or
-more [differentially private aggregate functions][dp-functions] in
-the `SELECT` list.
+This clause lets you transform the results of a query with
+[differentially private aggregations][dp-functions]. To learn more about
+differential privacy, see [Differential privacy][dp-concepts].
 
-Both the anonymization and differential privacy clause indicate that you are
-adding differential privacy to your query. If possible, use
-the differential privacy clause as the anonymization clause contains
-legacy syntax.
-
-You can use the following privacy parameters to control how the results are
-transformed:
+You can use the following syntax to build a differential privacy clause:
 
 +  [`epsilon`][dp-epsilon]: Controls the amount of noise added to the results.
-   A higher epsilon means less noise. `1e20` is large enough to add no
-   noise. `expression` must be a literal and return a
-   `DOUBLE`.
+   A higher epsilon means less noise. `expression` must be a literal and
+   return a `DOUBLE`.
 +  [`delta`][dp-delta]: The probability that any row in the result fails to
    be epsilon-differentially private. `expression` must be a literal and return
    a `DOUBLE`.
@@ -3658,19 +3710,33 @@ Important: Avoid using `kappa` as it is soon to be depreciated. Instead, use
 Note: `delta` and `k_threshold` are mutually exclusive; `delta` is preferred
 over `k_threshold`.
 
-### Privacy parameters
+If you want to use this syntax, add it after the `SELECT` keyword with one or
+more differentially private aggregate functions in the `SELECT` list.
+To learn more about the privacy parameters in this syntax,
+see [Privacy parameters][dp-privacy-parameters].
+
+Both the anonymization and differential privacy clause indicate that you are
+adding differential privacy to your query. If possible, use
+the differential privacy clause as the anonymization clause contains
+legacy syntax.
+
+### Privacy parameters 
+<a id="dp_privacy_parameters"></a>
 
 Privacy parameters control how the results of a query are transformed.
 Appropriate values for these settings can depend on many things such
 as the characteristics of your data, the exposure level, and the
 privacy level.
 
+In this section, you can learn more about how you can use
+privacy parameters to control how the results are transformed.
+
 #### `epsilon` 
 <a id="dp_epsilon"></a>
 
-Noise is added primarily based on the specified `epsilon`.
-The higher the epsilon the less noise is added. More noise corresponding to
-smaller epsilons equals more privacy protection.
+Noise is added primarily based on the specified `epsilon`
+differential privacy parameter. The higher the epsilon the less noise is added.
+More noise corresponding to smaller epsilons equals more privacy protection.
 
 Noise can be eliminated by setting `epsilon` to `1e20`, which can be
 useful during initial data exploration and experimentation with
@@ -3693,8 +3759,8 @@ is applied towards the differentially private aggregation itself.
 #### `delta` 
 <a id="dp_delta"></a>
 
-`delta` represents the probability that any row fails to be
-`epsilon`-differentially private in the result of a
+The `delta` differential privacy parameter represents the probability that any
+row fails to be `epsilon`-differentially private in the result of a
 differentially private query.
 
 If you have to choose between `delta` and `k_threshold`, use `delta`.
@@ -3720,10 +3786,10 @@ Important: `k_threshold` is discouraged. If possible, use `delta` instead.
 Tip: We recommend that engines implementing this specification don't allow
 entities to specify `k_threshold`.
 
-`k_threshold` computes a noisy entity count for each group and eliminates groups
-with few entities from the output. Use this parameter to define how many unique
-entities must be included in the group for the value to be included in the
-output.
+The `k_threshold` differential privacy parameter computes a noisy entity count
+for each group and eliminates groups with few entities from the output. Use
+this parameter to define how many unique entities must be included in the group
+for the value to be included in the output.
 
 #### `kappa` or `max_groups_contributed` 
 <a id="dp_kappa"></a>
@@ -3731,8 +3797,9 @@ output.
 Important: Avoid using `kappa` as it is soon to be depreciated. Instead, use
 `max_groups_contributed`.
 
-`kappa` or `max_groups_contributed` is a positive integer that, if specified, scales the noise and
-limits the number of groups that each entity can contribute to.
+The `kappa` or `max_groups_contributed` differential privacy parameter is a positive integer that,
+if specified, scales the noise and limits the number of groups that each entity
+can contribute to.
 
 The default values for `kappa` and `max_groups_contributed` are determined by the
 query engine.
@@ -3741,10 +3808,10 @@ If `kappa` or `max_groups_contributed` is unspecified, then there is no limit to
 groups that each entity can contribute to.
 
 If `kappa` or `max_groups_contributed` is unspecified, the language can't guarantee that the
-results will be differentially private. We recommend `kappa` or `max_groups_contributed` to be
-specified. Without `kappa` or `max_groups_contributed` specified, the results may still be
-differentially private if certain preconditions are met. For example, if you
-know that the privacy unit column in a table or view is unique in the
+results will be differentially private. We recommend that you specify
+`kappa` or `max_groups_contributed`. If you don't specify `kappa` or `max_groups_contributed`, the results might
+still be differentially private if certain preconditions are met. For example,
+if you know that the privacy unit column in a table or view is unique in the
 `FROM` clause, the entity can't contribute to more than one group and therefore
 the results will be the same regardless of whether `kappa` or `max_groups_contributed` is set.
 
@@ -3758,13 +3825,13 @@ To learn about the privacy unit and how to define a privacy unit column, see
 
 ### Differential privacy examples
 
-This section contains examples which illustrate how to work with
+This section contains examples that illustrate how to work with
 differential privacy in ZetaSQL.
 
 #### Tables for examples 
 <a id="dp_example_tables"></a>
 
-The examples in this section reference these tables:
+The examples in this section reference the following tables:
 
 ```sql
 CREATE OR REPLACE TABLE professors AS (
@@ -3805,6 +3872,35 @@ AS (SELECT * FROM students);
 
 These views reference the [professors][dp-example-tables] and
 [students][dp-example-tables] example tables.
+
+#### Add noise 
+<a id="add_noise"></a>
+
+You can add noise to a differentially private query. Smaller groups might not be
+included. Smaller epsilons and more noise will provide greater
+privacy protection.
+
+```sql
+-- This gets the average number of items requested per professor and adds
+-- noise to the results
+SELECT
+  WITH ANONYMIZATION
+    OPTIONS(epsilon=10, delta=.01, max_groups_contributed=2)
+    item,
+    ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- The scissors group was removed this time, but might not be
+-- removed the next time.
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 38.5038356810269 |
+ | pen      | 13.4725028762032 |
+ *----------+------------------*/
+```
 
 #### Remove noise 
 <a id="eliminate_noise"></a>
@@ -3853,35 +3949,6 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-#### Add noise 
-<a id="add_noise"></a>
-
-You can add noise to a differentially private query. Smaller groups may not be
-included. Smaller epsilons and more noise will provide greater
-privacy protection.
-
-```sql
--- This gets the average number of items requested per professor and adds
--- noise to the results
-SELECT
-  WITH ANONYMIZATION
-    OPTIONS(epsilon=10, delta=.01, max_groups_contributed=2)
-    item,
-    ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
-FROM {{USERNAME}}.view_on_professors
-GROUP BY item;
-
--- These results will change each time you run the query.
--- The scissors group was removed this time, but may not be
--- removed the next time.
-/*----------+------------------*
- | item     | average_quantity |
- +----------+------------------+
- | pencil   | 38.5038356810269 |
- | pen      | 13.4725028762032 |
- *----------+------------------*/
-```
-
 ```sql
 -- This gets the average number of items requested per professor and adds
 -- noise to the results
@@ -3894,7 +3961,7 @@ FROM professors
 GROUP BY item;
 
 -- These results will change each time you run the query.
--- The scissors group was removed this time, but may not be
+-- The scissors group was removed this time, but might not be
 -- removed the next time.
 /*----------+------------------*
  | item     | average_quantity |
@@ -3941,7 +4008,7 @@ SELECT
 FROM professors
 GROUP BY item;
 
--- privacy unit column 123 was only included in the pen group in this example.
+-- Privacy unit column 123 was only included in the pen group in this example.
 -- Noise was removed from this query for demonstration purposes only.
 /*----------+------------------*
  | item     | average_quantity |
@@ -4185,18 +4252,16 @@ ZetaSQL provides an error if accessing a name is ambiguous, meaning
 it can resolve to more than one unique object in the query or in a table schema,
 including the schema of a destination table.
 
-Examples:
-
-This query contains column names that conflict between tables, since both
-`Singers` and `Songs` have a column named `SingerID`:
+The following query contains column names that conflict between tables, since
+both `Singers` and `Songs` have a column named `SingerID`:
 
 ```sql
 SELECT SingerID
 FROM Singers, Songs;
 ```
 
-This query contains aliases that are ambiguous in the `GROUP BY` clause because
-they are duplicated in the `SELECT` list:
+The following query contains aliases that are ambiguous in the `GROUP BY` clause
+because they are duplicated in the `SELECT` list:
 
 ```sql {.bad}
 SELECT FirstName AS name, LastName AS name,
@@ -4204,36 +4269,35 @@ FROM Singers
 GROUP BY name;
 ```
 
-This query contains aliases that are ambiguous in the `SELECT` list and `FROM`
-clause because they share the same name. Assume `table` has columns `x`, `y`,
-and `z`. `z` is of type STRUCT and has fields
-`v`, `w`, and `x`.
+The following query contains aliases that are ambiguous in the `SELECT` list and
+`FROM` clause because they share a column and field with same name.
 
-Example:
++ Assume the `Person` table has three columns: `FirstName`,
+  `LastName`, and `PrimaryContact`.
++ Assume the `PrimaryContact` column represents a struct with these fields:
+  `FirstName` and `LastName`.
+
+The alias `P` is ambiguous and will produce an error because `P.FirstName` in
+the `GROUP BY` clause could refer to either `Person.FirstName` or
+`Person.PrimaryContact.FirstName`.
 
 ```sql {.bad}
-SELECT x, z AS T
-FROM table AS T
-GROUP BY T.x;
+SELECT FirstName, LastName, PrimaryContact AS P
+FROM Person AS P
+GROUP BY P.FirstName;
 ```
 
-The alias `T` is ambiguous and will produce an error because `T.x` in the `GROUP
-BY` clause could refer to either `table.x` or `table.z.x`.
-
-A name is **not** ambiguous in `GROUP BY`, `ORDER BY` or `HAVING` if it is both
+A name is _not_ ambiguous in `GROUP BY`, `ORDER BY` or `HAVING` if it is both
 a column name and a `SELECT` list alias, as long as the name resolves to the
-same underlying object.
-
-Example:
+same underlying object. In the following example, The alias `BirthYear` is not
+ambiguous because it resolves to the same underlying column,
+`Singers.BirthYear`.
 
 ```sql
 SELECT LastName, BirthYear AS BirthYear
 FROM Singers
 GROUP BY BirthYear;
 ```
-
-The alias `BirthYear` is not ambiguous because it resolves to the same
-underlying column, `Singers.BirthYear`.
 
 ### Range variables 
 <a id="range_variables"></a>
@@ -4367,6 +4431,101 @@ Note: For definitions for `CustomerRangeWithCustomerType` and
 These examples include statements which perform queries on the
 [`Roster`][roster-table] and [`TeamMascot`][teammascot-table],
 and [`PlayerStats`][playerstats-table] tables.
+
+### Sample tables 
+<a id="sample_tables"></a>
+
+The following tables are used to illustrate the behavior of different
+query clauses in this reference.
+
+#### Roster table
+
+The `Roster` table includes a list of player names (`LastName`) and the
+unique ID assigned to their school (`SchoolID`). It looks like this:
+
+```sql
+/*-----------------------*
+ | LastName   | SchoolID |
+ +-----------------------+
+ | Adams      | 50       |
+ | Buchanan   | 52       |
+ | Coolidge   | 52       |
+ | Davis      | 51       |
+ | Eisenhower | 77       |
+ *-----------------------*/
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH Roster AS
+ (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
+  SELECT 'Buchanan', 52 UNION ALL
+  SELECT 'Coolidge', 52 UNION ALL
+  SELECT 'Davis', 51 UNION ALL
+  SELECT 'Eisenhower', 77)
+SELECT * FROM Roster
+```
+
+#### PlayerStats table
+
+The `PlayerStats` table includes a list of player names (`LastName`) and the
+unique ID assigned to the opponent they played in a given game (`OpponentID`)
+and the number of points scored by the athlete in that game (`PointsScored`).
+
+```sql
+/*----------------------------------------*
+ | LastName   | OpponentID | PointsScored |
+ +----------------------------------------+
+ | Adams      | 51         | 3            |
+ | Buchanan   | 77         | 0            |
+ | Coolidge   | 77         | 1            |
+ | Adams      | 52         | 4            |
+ | Buchanan   | 50         | 13           |
+ *----------------------------------------*/
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH PlayerStats AS
+ (SELECT 'Adams' as LastName, 51 as OpponentID, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 77, 0 UNION ALL
+  SELECT 'Coolidge', 77, 1 UNION ALL
+  SELECT 'Adams', 52, 4 UNION ALL
+  SELECT 'Buchanan', 50, 13)
+SELECT * FROM PlayerStats
+```
+
+#### TeamMascot table
+
+The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
+mascot for that school (`Mascot`).
+
+```sql
+/*---------------------*
+ | SchoolID | Mascot   |
+ +---------------------+
+ | 50       | Jaguars  |
+ | 51       | Knights  |
+ | 52       | Lakers   |
+ | 53       | Mustangs |
+ *---------------------*/
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH TeamMascot AS
+ (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
+  SELECT 51, 'Knights' UNION ALL
+  SELECT 52, 'Lakers' UNION ALL
+  SELECT 53, 'Mustangs')
+SELECT * FROM TeamMascot
+```
 
 ### `GROUP BY` clause 
 <a id="group_by_clause_example"></a>
@@ -4608,9 +4767,13 @@ Results:
 
 [using-clause]: #using_clause
 
+[explicit-implicit-unnest]: #explicit_implicit_unnest
+
 [unpivot-operator]: #unpivot_operator
 
 [tablesample-operator]: #tablesample_operator
+
+[work-with-recursive-ctes]: https://github.com/google/zetasql/blob/master/docs/recursive-ctes.md
 
 [recursive-keyword]: #recursive_keyword
 
@@ -4671,6 +4834,8 @@ Results:
 [dp-example-tables]: #dp_example_tables
 
 [dp-k-threshold]: #dp_k_threshold
+
+[dp-privacy-parameters]: #dp_privacy_parameters
 
 [dp-epsilon]: #dp_epsilon
 

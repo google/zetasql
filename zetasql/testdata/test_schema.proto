@@ -399,6 +399,16 @@ message ProtoWithIntervalField {
   optional bytes interval_value = 1 [(zetasql.format) = INTERVAL];
 }
 
+message ProtoWithRangeFields {
+  // TODO: (b/218738712): This field cannot currently go in KitchenSinkPB
+  // because RANGE is not yet supported for RQG (e.g. value_generator.cc:388)
+  optional bytes range_date_val = 1 [(zetasql.format) = RANGE_DATES_ENCODED];
+  optional bytes range_datetime_val = 2
+      [(zetasql.format) = RANGE_DATETIMES_ENCODED];
+  optional bytes range_timestamp_val = 3
+      [(zetasql.format) = RANGE_TIMESTAMPS_ENCODED];
+}
+
 message MessageWithMapField {
   map<string, int32> string_int32_map = 1;
   map<int32, int32> int32_int32_map = 2;

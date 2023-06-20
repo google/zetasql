@@ -57,7 +57,7 @@ ARRAY<STRUCT<bool_val BOOL,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {NULL, 1, NULL, NULL, NULL, NULL, 3, NULL},
   {false, 3, 1, 1.25, NULL, 1, 3.6666666666666665, 2.5},
   {false, 5, 1, 1.25, 1.5, 1, 3.3333333333333335, 1.5},
@@ -100,7 +100,7 @@ ARRAY<STRUCT<bool_val BOOL,
              NUMERIC,
              NUMERIC,
              NUMERIC>>
-[
+[unknown order:
   {NULL, 1, NULL, NULL, NULL, NULL, 3, NULL},
   {false, 3, 1, 1.25, NULL, 1, 3.666666667, 2.5},
   {false, 5, 1, 1.25, 1.5, 1, 3.333333333, 1.5},
@@ -136,7 +136,7 @@ FROM (SELECT row_id, val,
             SELECT 5, @pos_inf UNION ALL
             SELECT 6, @pos_inf))
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, BOOL>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, BOOL>>[unknown order:
   {2, inf, true},
   {4, -inf, true},
   {6, inf, true},
@@ -166,7 +166,7 @@ FROM (SELECT 1 row_id, cast(1 as int64) val UNION ALL
       SELECT 10, @nan UNION ALL
       SELECT 11, 1)
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 1, nan, 1},
   {2, nan, nan, nan},
   {3, 2, nan, nan},
@@ -196,7 +196,7 @@ SELECT row_id, val, IS_INF(avg_val) OR IS_NAN(avg_val) FROM
          SELECT 2, 2 UNION ALL
          SELECT 3, 3))
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, BOOL>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, BOOL>>[unknown order:
   {2, 2, true},
   {1, inf, true},
   {3, 3, false}
@@ -216,7 +216,7 @@ SELECT row_id, val, IS_INF(avg_val) OR IS_NAN(avg_val) FROM
          SELECT 2, 2 UNION ALL
          SELECT 3, 3))
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, BOOL>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, BOOL>>[unknown order:
   {2, 2, true},
   {1, -inf, true},
   {3, 3, false}
@@ -235,7 +235,7 @@ FROM (SELECT 1 row_id, @nan val UNION ALL
       SELECT 2, 2 UNION ALL
       SELECT 3, 3)
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[unknown order:
   {1, nan, nan},
   {2, 2, nan},
   {3, 3, 2.5}
@@ -252,7 +252,7 @@ FROM (SELECT 1 row_id, @max_val val UNION ALL
       SELECT 2, 2 UNION ALL
       SELECT 3, 3)
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[unknown order:
   {1, 1.79769e+308, 1.79769e+308},
   {2, 2, 8.98845e+307},
   {3, 3, 2.5}
@@ -269,7 +269,7 @@ FROM (SELECT 1 row_id, @min_val val UNION ALL
       SELECT 2, 2 UNION ALL
       SELECT 3, 3)
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[unknown order:
   {1, -1.79769e+308, -1.79769e+308},
   {2, 2, -8.98845e+307},
   {3, 3, 2.5}
@@ -287,7 +287,7 @@ FROM (SELECT 1 row_id, CAST(@max_val AS NUMERIC) val UNION ALL
       SELECT 3, CAST(@max_val AS NUMERIC) UNION ALL
       SELECT 4, CAST(@max_val AS NUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, val NUMERIC, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, val NUMERIC, NUMERIC>>[unknown order:
   {
     1,
     99999999999999999999999999999.999999999,
@@ -322,7 +322,7 @@ FROM (SELECT 1 row_id, CAST(@min_val AS NUMERIC) val UNION ALL
       SELECT 3, CAST(@min_val AS NUMERIC) UNION ALL
       SELECT 4, CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, val NUMERIC, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, val NUMERIC, NUMERIC>>[unknown order:
   {
     1,
     -99999999999999999999999999999.999999999,
@@ -362,7 +362,7 @@ FROM (SELECT 1 row_id, CAST(@max_val AS NUMERIC) val UNION ALL
       SELECT 7, CAST(@max_val AS NUMERIC) UNION ALL
       SELECT 8, CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<row_id INT64, val NUMERIC, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, val NUMERIC, NUMERIC>>[unknown order:
   {
     1,
     99999999999999999999999999999.999999999,
@@ -424,7 +424,7 @@ ARRAY<STRUCT<bool_val BOOL,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {NULL, 1, NULL, NULL, NULL, NULL, NULL, 3, 1.375},
   {false, 5, 1, NULL, 3.5, 1.25, 4.666666666666667, 3, 1.375},
   {false, 3, 1, 6, 1.5, 1.25, 4.666666666666667, 3, 1.375},
@@ -463,7 +463,7 @@ ARRAY<STRUCT<bool_val BOOL,
              NUMERIC,
              NUMERIC,
              NUMERIC>>
-[
+[unknown order:
   {NULL, 1, NULL, NULL, NULL, NULL, NULL, 3, 1.375},
   {false, 9, 2, 3, 1.5, 1.25, 4.666666667, 3, 1.375},
   {false, 5, 1, NULL, 3.5, 1.25, 4.666666667, 3, 1.375},
@@ -497,7 +497,7 @@ ARRAY<STRUCT<bool_val BOOL,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {true, 4, NULL, 2, 2.5, NULL, 2, 2.5},
   {NULL, 1, NULL, NULL, NULL, NULL, 2, 2.5},
   {false, 3, 1, 6, 1.5, 1, 5.5, 1.5},
@@ -540,34 +540,36 @@ ARRAY<STRUCT<bool_val BOOL,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[{NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- {true, 2, 2, 3, 1.5, 2, 2, 3, 1.5, 1.5},
- {false, 3, 1, 6, 1.5, 1, 1, 6, 1.5, 1.5},
- {true, 4, NULL, 2, 2.5, 2, 2, 2.5, 1.8333333333333333, 1.8333333333333333},
- {false, 5, 1, NULL, 3.5, 1, 1, 6, 2.25, 2.25},
- {true, 6, 2, 2, NULL, 2, 2, 2.3333333333333335, 2.25, 2.25},
- {false, 7, 1, 5, -0.5, 1, 1, 5.5, 1.7, 1.7},
- {true,
-  8,
-  4,
-  2,
-  -1.5,
-  2.6666666666666665,
-  2.6666666666666665,
-  2.25,
-  1.1666666666666667,
-  1.1666666666666667},
- {false,
-  9,
-  2,
-  3,
-  1.5,
-  1.25,
-  1.25,
-  4.666666666666667,
-  1.2142857142857142,
-  1.2142857142857142},
- {true, 10, 3, 1, 2.5, 2.75, 2.75, 2, 1.375, 1.375}]
+[unknown order:
+  {NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {true, 2, 2, 3, 1.5, 2, 2, 3, 1.5, 1.5},
+  {false, 3, 1, 6, 1.5, 1, 1, 6, 1.5, 1.5},
+  {true, 4, NULL, 2, 2.5, 2, 2, 2.5, 1.8333333333333333, 1.8333333333333333},
+  {false, 5, 1, NULL, 3.5, 1, 1, 6, 2.25, 2.25},
+  {true, 6, 2, 2, NULL, 2, 2, 2.3333333333333335, 2.25, 2.25},
+  {false, 7, 1, 5, -0.5, 1, 1, 5.5, 1.7, 1.7},
+  {true,
+   8,
+   4,
+   2,
+   -1.5,
+   2.6666666666666665,
+   2.6666666666666665,
+   2.25,
+   1.1666666666666667,
+   1.1666666666666667},
+  {false,
+   9,
+   2,
+   3,
+   1.5,
+   1.25,
+   1.25,
+   4.666666666666667,
+   1.2142857142857142,
+   1.2142857142857142},
+  {true, 10, 3, 1, 2.5, 2.75, 2.75, 2, 1.375, 1.375}
+]
 ==
 
 # This test does ORDER BY with 'row_id / 2', so the ORDER BY values are no
@@ -594,7 +596,7 @@ ARRAY<STRUCT<bool_val BOOL,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL},
   {true, 2, 2, 3, 1.5, 2, 3, 1.5},
   {false, 3, 1, 6, 1.5, 1, 6, 1.5},
@@ -631,7 +633,7 @@ ARRAY<STRUCT<bool_val BOOL,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL},
   {true, 2, 2, 3, 1.5, 2, 3, 1.5},
   {false, 3, 1, 6, 1.5, 1, 6, 1.5},
@@ -661,7 +663,7 @@ ARRAY<STRUCT<bool_val BOOL,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {NULL, 1, NULL, NULL, NULL, NULL, NULL, 1.1},
   {false, 5, 1, NULL, 3.5, 1.5, 4.666666666666667, 1.1},
   {false, 3, 1, 6, 1.5, 1.5, 4.666666666666667, 1.1},
@@ -688,7 +690,7 @@ FROM (SELECT 1 row_id, CAST(NULL as NUMERIC) val UNION ALL
       SELECT 7, CAST(@min_val AS NUMERIC) UNION ALL
       SELECT 8, 2)
 --
-ARRAY<STRUCT<row_id INT64, val NUMERIC, NUMERIC>>[
+ARRAY<STRUCT<row_id INT64, val NUMERIC, NUMERIC>>[unknown order:
   {
     2,
     0,
@@ -748,7 +750,7 @@ SELECT int64_val,
                             ROWS BETWEEN @int64_max PRECEDING AND CURRENT ROW)
 FROM TestTable
 --
-ARRAY<STRUCT<int64_val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {NULL, NULL, NULL, NULL, NULL, NULL},
   {2, 2, 2, 2, 2, 2},
   {1, 1, 1.5, 1.5, 1.5, 1.5},
@@ -798,7 +800,7 @@ FROM (SELECT 3 row_id, 3 val UNION ALL
       SELECT 4, 4)
 order by row_id
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, NULL},
   {2, 2, 2},
   {3, 3, 2.5},
@@ -819,7 +821,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 1, 5)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 3},
   {1, 1, 3},
   {1, 2, 3},
@@ -846,7 +848,7 @@ FROM (SELECT 1 row_id, NULL val UNION ALL
       SELECT 6, 100)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {1, NULL, 15},
   {1, NULL, 15},
   {1, NULL, 15},
@@ -879,7 +881,7 @@ FROM (SELECT 1 row_id, NULL val UNION ALL
       SELECT 6, cast(100 as INT32))
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val INT32, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT32, DOUBLE>>[known order:
   {1, NULL, 15},
   {1, NULL, 15},
   {1, NULL, 15},
@@ -913,7 +915,7 @@ FROM (SELECT 1 row_id, NULL val UNION ALL
       SELECT 6, cast(100 as UINT64))
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val UINT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val UINT64, DOUBLE>>[known order:
   {1, NULL, 15},
   {1, NULL, 15},
   {1, NULL, 15},
@@ -947,7 +949,7 @@ FROM (SELECT 1 row_id, NULL val UNION ALL
       SELECT 6, cast(100 as UINT32))
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val UINT32, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val UINT32, DOUBLE>>[known order:
   {1, NULL, 15},
   {1, NULL, 15},
   {1, NULL, 15},
@@ -980,7 +982,7 @@ FROM (SELECT 1 row_id, NULL val UNION ALL
       SELECT 6, cast(100.0 as FLOAT))
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val FLOAT, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val FLOAT, DOUBLE>>[known order:
   {1, NULL, 15},
   {1, NULL, 15},
   {1, NULL, 15},
@@ -1013,7 +1015,7 @@ FROM (SELECT 1 row_id, NULL val UNION ALL
       SELECT 6, 100.0)
 order by row_id, val
 --
-ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
   {1, NULL, 15},
   {1, NULL, 15},
   {1, NULL, 15},
@@ -1045,7 +1047,7 @@ FROM (SELECT NULL row_id, 10 val UNION ALL
       SELECT 6, 100)
 ORDER BY row_id DESC, val DESC
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE>>[known order:
   {6, 100, 100},
   {5, -40, 30},
   {4, 40, 30},
@@ -1088,7 +1090,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 1, 5)
 WINDOW order_by as (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 4, 3, 3, NULL},
   {1, 1, 3, 3, NULL},
   {1, 2, 3, 3, NULL},
@@ -1122,7 +1124,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 18, 14)
 WINDOW order_by as (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 1, NULL, NULL, NULL},
   {1, 2, NULL, NULL, NULL},
   {1, 3, NULL, NULL, NULL},
@@ -1180,7 +1182,7 @@ ARRAY<STRUCT<row_id INT64,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {18, 14, 14, 14, NULL, NULL, NULL, NULL},
   {11, 13, 13, 13, NULL, NULL, NULL, NULL},
   {8, 12, 12, 12, NULL, NULL, 13, NULL},
@@ -1222,7 +1224,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 11, 13          UNION ALL
       SELECT 18, 14)
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE>>[unknown order:
   {1, 2, 2, NULL},
   {1, 1, 2, NULL},
   {1, 3, 2, NULL},
@@ -1257,7 +1259,7 @@ FROM (SELECT @int64_min row_id, -1 val UNION ALL
       SELECT -1, -9                    UNION ALL
       SELECT 0, -11)
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE>>[unknown order:
   {-9223372036854775808, -1, -1, NULL},
   {-9223372036854775807, -3, -2, NULL},
   {-100, -5, -3, NULL},
@@ -1294,7 +1296,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 1, 5)
 WINDOW order_by as (ORDER BY row_id)
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 4, 3, 3, 3, 3},
   {1, 1, 3, 3, 3, 3},
   {1, 2, 3, 3, 3, 3},
@@ -1319,7 +1321,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 1, 5)
 WINDOW order_by as (ORDER BY row_id DESC)
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 4, 3, 3, 3, 3},
   {1, 1, 3, 3, 3, 3},
   {1, 2, 3, 3, 3, 3},
@@ -1338,7 +1340,7 @@ SELECT bool_val, int64_val, double_val,
                              RANGE BETWEEN 2 PRECEDING AND 1 FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, int64_val INT64, double_val DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64, double_val DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {NULL, NULL, NULL, NULL, NULL},
   {false, 1, 3.5, 1.5, 1.5},
   {false, 1, -0.5, 1.5, 1.5},
@@ -1361,7 +1363,7 @@ SELECT bool_val, int64_val, double_val,
                              RANGE BETWEEN 2 PRECEDING AND 1 FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, int64_val INT64, double_val DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64, double_val DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {NULL, NULL, NULL, NULL, NULL},
   {false, 2, 1.5, 1.5, 1.5},
   {false, 1, 1.5, 1.5, 1.5},
@@ -1392,7 +1394,7 @@ ARRAY<STRUCT<bool_val BOOL,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {NULL, NULL, NULL, NULL, NULL, NULL},
   {false, 1, 3.5, 1.5, 1.5, 1.5},
   {false, 1, -0.5, 1.5, 1.5, 1.5},
@@ -1423,7 +1425,7 @@ ARRAY<STRUCT<bool_val BOOL,
              DOUBLE,
              DOUBLE,
              DOUBLE>>
-[
+[unknown order:
   {NULL, NULL, NULL, NULL, NULL, NULL},
   {false, 2, 1.5, 1.5, 1.5, 1.5},
   {false, 1, 1.5, 1.5, 1.5, 1.5},
@@ -1460,7 +1462,7 @@ FROM (SELECT null row_id, 1 val UNION ALL
       SELECT 3, 13 UNION ALL
       SELECT @neg_inf, 14)
 --
-ARRAY<STRUCT<row_id DOUBLE, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val INT64, DOUBLE>>[unknown order:
   {NULL, 1, 5.5},
   {NULL, 10, 5.5},
   {nan, 6, 7.333333333333333},
@@ -1501,7 +1503,7 @@ FROM (SELECT null row_id, 1 val UNION ALL
       SELECT 3, 13 UNION ALL
       SELECT @neg_inf, 14)
 --
-ARRAY<STRUCT<row_id DOUBLE, val INT64, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val INT64, DOUBLE>>[unknown order:
   {inf, 7, 6},
   {inf, 5, 6},
   {3, 13, 7.4},
@@ -1532,7 +1534,7 @@ FROM (SELECT CAST(0 AS uint32) uint32_val, NULL double_val UNION ALL
       SELECT CAST(3 AS uint32),            3.0 UNION ALL
       SELECT NULL,                         4.0)
 --
-ARRAY<STRUCT<uint32_val UINT32, double_val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<uint32_val UINT32, double_val DOUBLE, DOUBLE>>[unknown order:
   {NULL, 4, 4},
   {0, NULL, 1.5},
   {1, 1, 2},
@@ -1554,7 +1556,7 @@ FROM (SELECT CAST(0 AS uint32) uint32_val, NULL double_val UNION ALL
       SELECT CAST(3 AS uint32),            3.0 UNION ALL
       SELECT NULL,                         4.0)
 --
-ARRAY<STRUCT<uint32_val UINT32, double_val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<uint32_val UINT32, double_val DOUBLE, DOUBLE>>[unknown order:
   {3, 3, 2},
   {2, 2, 2},
   {1, 1, 1.5},
@@ -1582,7 +1584,7 @@ FROM (SELECT @min_double_val double_val, NULL int64_val UNION ALL
       SELECT 3,                          3 UNION ALL
       SELECT @nan,                       4)
 --
-ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[unknown order:
   {nan, 4, 4, 4},
   {-1.79769e+308, NULL, NULL, NULL},
   {1, 1, 2, 1.5},
@@ -1610,7 +1612,7 @@ FROM (SELECT @min_double_val double_val, NULL int64_val UNION ALL
       SELECT 3,                          3 UNION ALL
       SELECT @nan,                       4)
 --
-ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[unknown order:
   {3, 3, 2, 2.5},
   {2, 2, 2, 2},
   {1, 1, 1.5, 2},
@@ -1638,7 +1640,7 @@ FROM (SELECT @min_double_val double_val, NULL int64_val UNION ALL
       SELECT 3,                          3 UNION ALL
       SELECT @neg_inf,                       4)
 --
-ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[unknown order:
   {-inf, 4, 4, 4},
   {-1.79769e+308, NULL, NULL, NULL},
   {1, 1, 2, 1.5},
@@ -1666,7 +1668,7 @@ FROM (SELECT @min_double_val double_val, NULL int64_val UNION ALL
       SELECT 3,                          3 UNION ALL
       SELECT @neg_inf,                       4)
 --
-ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[unknown order:
   {3, 3, 2, 2.5},
   {2, 2, 2, 2},
   {1, 1, 1.5, 2},
@@ -1698,7 +1700,7 @@ FROM (SELECT @min_double_val double_val, NULL int64_val UNION ALL
       SELECT @neg_inf,                   6 UNION ALL
       SELECT NULL,                       8)
 --
-ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[unknown order:
   {NULL, 8, 8, 8},
   {nan, 4, 4, 4},
   {-inf, 5, 5.5, 5.5},
@@ -1729,7 +1731,7 @@ FROM (SELECT @max_double_val double_val, NULL int64_val UNION ALL
       SELECT 3,                          3 UNION ALL
       SELECT @pos_inf,                   4)
 --
-ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[unknown order:
   {inf, 4, 4, 4},
   {1.79769e+308, NULL, NULL, NULL},
   {3, 3, 2, 2.5},
@@ -1757,7 +1759,7 @@ FROM (SELECT @max_double_val double_val, NULL int64_val UNION ALL
       SELECT 3,                          3 UNION ALL
       SELECT @pos_inf,                   4)
 --
-ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[unknown order:
   {1, 1, 2, 1.5},
   {2, 2, 2, 2},
   {3, 3, 2.5, 2},
@@ -1785,7 +1787,7 @@ FROM (SELECT @max_double_val double_val, NULL int64_val UNION ALL
       SELECT 3,                          3 UNION ALL
       SELECT @pos_inf,                   4)
 --
-ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, DOUBLE, DOUBLE>>[unknown order:
   {inf, 4, 4, 4},
   {1.79769e+308, NULL, NULL, NULL},
   {3, 3, 2, 2.5},
@@ -1829,7 +1831,7 @@ FROM (SELECT null row_id, 1 val UNION ALL
       SELECT @max_double_val, 17 UNION ALL
       SELECT @min_double_val, 18)
 --
-ARRAY<STRUCT<row_id DOUBLE, val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {NULL, 10, 5.5, 5.5, 5.5, 5.5},
   {NULL, 1, 5.5, 5.5, 5.5, 5.5},
   {nan, 3, 7, 7, 7, 7},
@@ -1886,7 +1888,7 @@ FROM (SELECT null row_id, 1 val UNION ALL
       SELECT @max_double_val, 17 UNION ALL
       SELECT @min_double_val, 18)
 --
-ARRAY<STRUCT<row_id DOUBLE, val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id DOUBLE, val INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {inf, 5, 6, 6, 6, 6},
   {inf, 7, 6, 6, 6, 6},
   {1.79769e+308, 17, 17, 17, 17, 10.625},
@@ -1932,7 +1934,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 11, 13          UNION ALL
       SELECT 18, 14)
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {1, 2, 2, 3.5, 6},
   {1, 1, 2, 3.5, 6},
   {1, 3, 2, 3.5, 6},
@@ -1974,7 +1976,7 @@ FROM (SELECT 1 row_id, 1 val UNION ALL
       SELECT 11, 13          UNION ALL
       SELECT 18, 14)
 --
-ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<row_id INT64, val INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {18, 14, 14, 14, 14},
   {11, 13, 13, 13, 12},
   {8, 12, 12, 12, 9.5},

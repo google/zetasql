@@ -125,6 +125,8 @@ class ReproCommand {
   const int64_t kDefaultTimeout = 300;  // Default to a 300 second timeout.
 };
 
+std::string ShellEscape(absl::string_view src);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMPLIANCE_TEST_UTIL_H_

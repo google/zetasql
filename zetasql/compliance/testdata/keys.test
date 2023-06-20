@@ -314,7 +314,7 @@ SELECT
   ) != b''
 FROM RawKeyTable
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {NULL}]
 ==
 
 [required_features=ENCRYPTION]
@@ -325,7 +325,7 @@ SELECT
   ) != b''
 FROM RawKeyTable
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {NULL}]
 ==
 
 # The order in which the keys are added determines their order in the keyset.
@@ -344,7 +344,7 @@ SELECT
 FROM RawKeyTable
 ORDER BY id
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+ARRAY<STRUCT<BOOL>>[known order:{true}, {true}, {NULL}]
 ==
 
 [required_features=ENCRYPTION]
@@ -356,7 +356,7 @@ SELECT
   ) != b''
 FROM RawKeyTable
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {NULL}]
 ==
 
 [required_features=ENCRYPTION]
@@ -376,7 +376,7 @@ ERROR: generic::out_of_range: Invalid key type provided to KEYS.ADD_KEY_FROM_RAW
 SELECT KEYS.ADD_KEY_FROM_RAW_BYTES(NULL, 'AES_GCM', raw_key_bytes)
 FROM RawKeyTable
 --
-ARRAY<STRUCT<BYTES>>[{NULL}, {NULL}, {NULL}]
+ARRAY<STRUCT<BYTES>>[unknown order:{NULL}, {NULL}, {NULL}]
 ==
 
 [required_features=ENCRYPTION]
@@ -388,7 +388,7 @@ SELECT
   )
 FROM RawKeyTable
 --
-ARRAY<STRUCT<BYTES>>[{NULL}, {NULL}, {NULL}]
+ARRAY<STRUCT<BYTES>>[unknown order:{NULL}, {NULL}, {NULL}]
 ==
 
 # Even with an explicit raw key, we expect the output of
@@ -422,7 +422,7 @@ WITH T AS (
 SELECT keyset = keyset
 FROM T
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}, {NULL}]
 ==
 
 # Similarly, referencing the WITH clause multiple times as part of a join should
@@ -439,7 +439,7 @@ WITH T AS (
 SELECT T1.keyset = T2.keyset
 FROM T T1 JOIN T T2 USING (keyset)
 --
-ARRAY<STRUCT<BOOL>>[{true}, {true}]
+ARRAY<STRUCT<BOOL>>[unknown order:{true}, {true}]
 ==
 
 # The key length must be either 16 or 32 bytes.
@@ -487,7 +487,7 @@ SELECT kt_id, KEYS.KEYSET_TO_JSON(keyset)
 FROM KeysetTable
 ORDER BY kt_id
 --
-ARRAY<STRUCT<kt_id INT64, STRING>>[
+ARRAY<STRUCT<kt_id INT64, STRING>>[known order:
   {
     1,
     '{"key":[{"keyData":{"keyMaterialType":"SYMMETRIC","typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiD+14991SaF7pPSjEcF7I5Lg5qOT+NFlEmlbSQM8r3vNA=="},"keyId":2427045401,"outputPrefixType":"TINK","status":"ENABLED"}],"primaryKeyId":2427045401}'
@@ -521,7 +521,7 @@ SELECT kt_id, KEYS.KEYSET_FROM_JSON(KEYS.KEYSET_TO_JSON(keyset)) = keyset
 FROM KeysetTable
 ORDER BY kt_id
 --
-ARRAY<STRUCT<kt_id INT64, BOOL>>[
+ARRAY<STRUCT<kt_id INT64, BOOL>>[known order:
   {1, true},
   {2, true},
   {3, true},
@@ -628,3 +628,18 @@ SELECT
   SAFE.KEYS.KEYSET_FROM_JSON('{"key":123}')
 --
 ARRAY<STRUCT<STRING, BYTES>>[{NULL, NULL}]
+==
+
+[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[name=new_keyset_safe]
+SELECT SAFE.KEYS.NEW_KEYSET('AEAD_AES_GCM_256') != b'' as result
+--
+
+ARRAY<STRUCT<result BOOL>>[{true}]
+==
+
+[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[name=rotate_keyset_safe]
+SELECT SAFE.KEYS.ROTATE_KEYSET(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AEAD_AES_GCM_256') != b'' as result
+--
+ARRAY<STRUCT<result BOOL>>[{true}]

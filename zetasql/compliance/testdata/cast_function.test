@@ -703,7 +703,7 @@ FROM (
 ORDER BY format_string, input
 --
 
-ARRAY<STRUCT<STRING, format_string STRING>>[
+ARRAY<STRUCT<STRING, format_string STRING>>[known order:
   {
     "011000010110001001100011",
     "base2"
@@ -832,7 +832,7 @@ FROM (
 )
 ORDER BY format_string, input
 --
-ARRAY<STRUCT<BYTES, format_string STRING>>[
+ARRAY<STRUCT<BYTES, format_string STRING>>[known order:
   {b"abc", "base2"},
   {b"xyz", "base64"},
   {b"abc", "base8"},
@@ -1095,7 +1095,7 @@ select cast(([(BIGNUMERIC '0.12345', 'hey', null), (0.9876, 'hi', NUMERIC '0.55'
 as STRUCT<ARRAY<STRUCT<BIGNUMERIC(2, 2), STRING(4), NUMERIC(2, 1)>>, BYTES(5)>);
 --
 ARRAY<STRUCT<STRUCT<ARRAY<>, BYTES>>>[
-  {{ARRAY<STRUCT<BIGNUMERIC, STRING, NUMERIC>>[
+  {{ARRAY<STRUCT<BIGNUMERIC, STRING, NUMERIC>>[known order:
       {0.12, "hey", NULL},
       {0.99, "hi", 0.6}
     ],
@@ -1237,7 +1237,7 @@ SELECT CAST(
 AS zetasql_test__.KitchenSinkPB).nested_value.nested_repeated_int64;
 --
 ARRAY<STRUCT<nested_repeated_int64 ARRAY<>>>[
-  {ARRAY<INT64>[100, 200, 300, 400]}
+  {ARRAY<INT64>[known order:100, 200, 300, 400]}
 ]
 ==
 
@@ -1266,7 +1266,7 @@ AS zetasql_test__.KitchenSinkPB).OptionalGroup.OptionalGroupNested;
 --
 ARRAY<STRUCT<OptionalGroupNested ARRAY<>>>[
   {
-    ARRAY<PROTO<zetasql_test__.KitchenSinkPB.OptionalGroup.OptionalGroupNested>>[
+    ARRAY<PROTO<zetasql_test__.KitchenSinkPB.OptionalGroup.OptionalGroupNested>>[known order:
       {int64_val: 12},
       {int64_val: 1212}
     ]
@@ -1754,3 +1754,13 @@ select cast('[2022/01/01 12:00:00-08, 2023-01-01 12:00:00-08)' as RANGE<TIMESTAM
 ERROR: generic::out_of_range: Invalid timestamp: '2022/01/01 12:00:00-08'
 
 ==
+[name=cast_date_to_timestamp]
+SELECT CAST(x.date AS TIMESTAMP) as result FROM (SELECT DATE '2023-05-23' AS date) as x;
+--
+ARRAY<STRUCT<result TIMESTAMP>>[{2023-05-23 07:00:00+00}]
+==
+[name=cast_struct_to_struct]
+SELECT my_struct.a as result FROM
+(SELECT CAST(x AS STRUCT<a INT64>) as my_struct FROM (SELECT STRUCT(1 as b) AS x))
+--
+ARRAY<STRUCT<result INT64>>[{1}]

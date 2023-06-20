@@ -73,15 +73,17 @@ SELECT [ TYPEOF(NULL),
          TYPEOF(TIMESTAMP '2020-02-02') ];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>["INT64",
-                 "INT64",
-                 "UINT64",
-                 "BOOL",
-                 "DOUBLE",
-                 "STRING",
-                 "BYTES",
-                 "DATE",
-                 "TIMESTAMP"]}
+  {ARRAY<STRING>[known order:
+     "INT64",
+     "INT64",
+     "UINT64",
+     "BOOL",
+     "DOUBLE",
+     "STRING",
+     "BYTES",
+     "DATE",
+     "TIMESTAMP"
+   ]}
 ]
 ==
 [name=typeof_operators]

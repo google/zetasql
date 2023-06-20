@@ -215,28 +215,28 @@ INSERT [[OR] IGNORE | REPLACE | UPDATE] [INTO] target_name
  (column[, ...])
  input [ASSERT_ROWS_MODIFIED m] [ then_return_clause ]
 
-input ::=
-   {
-        VALUES (column_values) [, ...]
-        | SELECT_QUERY
-   }
+input:
+  {
+    VALUES (column_values) [, ...]
+    | SELECT_QUERY
+  }
 
-column_values ::=
-    { value_expression | DEFAULT } [, ...]
+column_values:
+  { value_expression | DEFAULT } [, ...]
 
-then_return_clause ::=
-    THEN RETURN
-    [ WITH ACTION [ AS alias ]  ]
-    { value_expression | expression [  [ AS ] alias ] } [, ...]
+then_return_clause:
+  THEN RETURN
+  [ WITH ACTION [ AS alias ]  ]
+  { value_expression | expression [  [ AS ] alias ] } [, ...]
 
-value_expression ::=
-    [expression.]* [ except_clause ] [ replace_clause ]
+value_expression:
+  [expression.]* [ except_clause ] [ replace_clause ]
 
-except_clause ::=
-    EXCEPT ( column_name [, ...] )
+except_clause:
+  EXCEPT ( column_name [, ...] )
 
-replace_clause ::=
-    REPLACE ( expression [ AS ] column_name [, ...] )
+replace_clause:
+  REPLACE ( expression [ AS ] column_name [, ...] )
 
 </pre>
 
@@ -672,19 +672,19 @@ Use the `DELETE` statement when you want to delete rows from a table.
 DELETE [FROM] target_name
 WHERE condition [ASSERT_ROWS_MODIFIED n] [ then_return_clause ]
 
-then_return_clause ::=
-    THEN RETURN
-    [ WITH ACTION [ AS alias ]  ]
-    { value_expression | expression [  [ AS ] alias ] } [, ...]
+then_return_clause:
+  THEN RETURN
+  [ WITH ACTION [ AS alias ]  ]
+  { value_expression | expression [  [ AS ] alias ] } [, ...]
 
-value_expression ::=
-    [expression.]* [ except_clause ] [ replace_clause ]
+value_expression:
+  [expression.]* [ except_clause ] [ replace_clause ]
 
-except_clause ::=
-    EXCEPT ( column_name [, ...] )
+except_clause:
+  EXCEPT ( column_name [, ...] )
 
-replace_clause ::=
-    REPLACE ( expression [ AS ] column_name [, ...] )
+replace_clause:
+  REPLACE ( expression [ AS ] column_name [, ...] )
 
 </pre>
 
@@ -775,30 +775,32 @@ SET set_clause
 [FROM from_clause]
 WHERE condition [ASSERT_ROWS_MODIFIED n] [ then_return_clause ]
 
-set_clause ::= update_item[, ...]
+set_clause:
+  update_item[, ...]
 
-update_item ::=
-    {
-        path_expression = expression
-        | path_expression = DEFAULT
-        | (dml_stmt)
-    }
+update_item:
+  {
+    path_expression = expression
+    | path_expression = DEFAULT
+    | (dml_stmt)
+  }
 
-then_return_clause ::=
-    THEN RETURN
-    [ WITH ACTION [ AS alias ]  ]
-    { value_expression | expression [  [ AS ] alias ] } [, ...]
+then_return_clause:
+  THEN RETURN
+  [ WITH ACTION [ AS alias ]  ]
+  { value_expression | expression [  [ AS ] alias ] } [, ...]
 
-value_expression ::=
-    [expression.]* [ except_clause ] [ replace_clause ]
+value_expression:
+  [expression.]* [ except_clause ] [ replace_clause ]
 
-except_clause ::=
-    EXCEPT ( column_name [, ...] )
+except_clause:
+  EXCEPT ( column_name [, ...] )
 
-replace_clause ::=
-    REPLACE ( expression [ AS ] column_name [, ...] )
+replace_clause:
+  REPLACE ( expression [ AS ] column_name [, ...] )
 
-dml_stmt ::= { insert_statement | update_statement | delete_statement }
+dml_stmt:
+  { insert_statement | update_statement | delete_statement }
 </pre>
 
 **Note**: `UPDATE` statements must comply with all
@@ -1323,50 +1325,50 @@ USING source_name
 ON merge_condition
 when_clause [...]
 
-when_clause ::=
+when_clause:
   {
     matched_clause
     | not_matched_by_target_clause
     | not_matched_by_source_clause
   }
 
-matched_clause ::=
+matched_clause:
   WHEN MATCHED [ AND search_condition ]
   THEN { merge_update_clause | merge_delete_clause }
 
-not_matched_by_target_clause ::=
+not_matched_by_target_clause:
   WHEN NOT MATCHED [BY TARGET] [ AND search_condition ]
   THEN merge_insert_clause
 
-not_matched_by_source_clause ::=
+not_matched_by_source_clause:
   WHEN NOT MATCHED BY SOURCE [ AND search_condition ]
   THEN { merge_update_clause | merge_delete_clause }
 
-merge_condition ::=
+merge_condition:
   bool_expression
 
-search_condition ::=
+search_condition:
   bool_expression
 
-merge_update_clause ::=
+merge_update_clause:
   UPDATE SET update_item [, ...]
 
-update_item ::=
+update_item:
   path_expression = expression
 
-merge_delete_clause ::=
+merge_delete_clause:
   DELETE
 
-merge_insert_clause ::=
+merge_insert_clause:
   INSERT [(column [, ... ])] input
 
-input ::=
+input:
   {
     VALUES (expr [, ... ])
     | ROW
   }
 
-expr ::=
+expr:
   { expression | DEFAULT }
 </pre>
 

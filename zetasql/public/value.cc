@@ -181,9 +181,7 @@ Value::Value(const EnumType* enum_type, int64_t value,
   const int32_t int32_value = static_cast<int32_t>(value);
 
   if (static_cast<int64_t>(int32_value) == value &&
-      ((allow_unknown_enum_values &&
-        enum_type->enum_descriptor()->file()->syntax() !=
-            google::protobuf::FileDescriptor::SYNTAX_PROTO2) ||
+      ((allow_unknown_enum_values && enum_type->EnumAllowsUnnamedValues()) ||
        enum_type->FindName(int32_value, &unused))) {
     SetMetadataForNonSimpleType(enum_type);
     enum_value_ = int32_value;
@@ -325,16 +323,6 @@ Value Value::DatetimeFromPacked64Micros(int64_t v) {
       << "int64 " << v
       << " decodes to an invalid datetime value: " << datetime.DebugString();
   return Value(datetime);
-}
-
-const std::string& Value::enum_name() const {
-  ZETASQL_CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
-  ZETASQL_CHECK(!is_null()) << "Null value";
-  const std::string* enum_name = nullptr;
-  ZETASQL_CHECK(type()->AsEnum()->FindName(enum_value(), &enum_name))
-      << "Value " << enum_value() << " not in "
-      << type()->AsEnum()->enum_descriptor()->DebugString();
-  return *enum_name;
 }
 
 absl::StatusOr<std::string_view> Value::EnumName() const {
@@ -921,7 +909,7 @@ std::string Value::DebugString(bool verbose) const {
 
 // Format will wrap arrays and structs.
 std::string Value::Format(bool print_top_level_type) const {
-  return FormatInternal(0, print_top_level_type);
+  return FormatInternal({.indent = 0, .force_type = print_top_level_type});
 }
 
 // NOTE: There is a similar method in ../resolved_ast/sql_builder.cc.
@@ -1162,7 +1150,15 @@ std::string FormatType(const Type* type, ArrayElemFormat elem_format,
   }
 }
 
-std::string Value::FormatInternal(int indent, bool force_type) const {
+Value::FormatInternalOptions Value::FormatInternalOptions::IncreaseIndent() {
+  FormatInternalOptions ret = *this;
+  ret.indent += kIndentStep;
+  // `force_type` only applies at the topmost level
+  ret.force_type = false;
+  return ret;
+}
+
+std::string Value::FormatInternal(FormatInternalOptions options) const {
   if (type()->IsArray()) {
     // If the array is null or empty, print the whole type because there
     // are no printed elements that provide type information of nested arrays.
@@ -1171,51 +1167,66 @@ std::string Value::FormatInternal(int indent, bool force_type) const {
     ArrayElemFormat elem_style = (is_null() || elements().empty())
                                      ? ArrayElemFormat::ALL
                                      : ArrayElemFormat::FIRST_LEVEL_ONLY;
-    std::string type_string = FormatType(type(), elem_style, indent);
+    std::string type_string = FormatType(type(), elem_style, options.indent);
     if (is_null()) {
       return absl::StrCat(type_string, "(NULL)");
     }
     std::vector<std::string> element_strings(elements().size());
     for (int i = 0; i < elements().size(); ++i) {
-      element_strings[i] = elements()[i].FormatInternal(indent + kIndentStep,
-                                                        false /* force_type */);
+      element_strings[i] =
+          elements()[i].FormatInternal(options.IncreaseIndent());
     }
     // Sanitize any '$' characters before creating substitution template. "$$"
     // is replaced by "$" in the output from absl::Substitute.
     std::string sanitized_type_string =
         absl::StrReplaceAll(type_string, {{"$", "$$"}});
-    std::string templ = absl::StrCat(sanitized_type_string, "[$0]");
+    std::string array_orderedness = "";
+    if (options.include_array_ordereness && elements().size() > 1) {
+      if (order_kind() == kPreservesOrder) {
+        array_orderedness = "known order:";
+      } else {
+        array_orderedness = "unknown order:";
+      }
+    }
+    std::string templ =
+        absl::StrCat(sanitized_type_string, "[", array_orderedness, "$0]");
     // Force a wrap after the type if the type consumes multiple lines and
     // there is more than one element (or one element over multiple lines).
     if (absl::StrContains(type_string, '\n') &&
         (elements().size() > 1 ||
          (!elements().empty() &&
           absl::StrContains(element_strings[0], '\n')))) {
-      templ = absl::StrCat(sanitized_type_string, "\n", Indent(indent), "[$0]");
+      templ = absl::StrCat(sanitized_type_string, "\n", Indent(options.indent),
+                           "[", array_orderedness, "$0]");
     }
-    return FormatBlock(templ, element_strings, ",", indent, WrapStyle::AUTO);
+    return FormatBlock(templ, element_strings, ",", options.indent,
+                       WrapStyle::AUTO);
   } else if (type()->IsStruct()) {
     std::string type_string =
-        force_type ? FormatType(type(), ArrayElemFormat::NONE, indent) : "";
+        options.force_type
+            ? FormatType(type(), ArrayElemFormat::NONE, options.indent)
+            : "";
     if (is_null()) {
-      return force_type ? Substitute("$0(NULL)", type_string) : "NULL";
+      return options.force_type ? Substitute("$0(NULL)", type_string) : "NULL";
     }
     const StructType* struct_type = type()->AsStruct();
     std::vector<std::string> field_strings(struct_type->num_fields());
     for (int i = 0; i < struct_type->num_fields(); i++) {
-      field_strings[i] = fields()[i].FormatInternal(indent + kIndentStep,
-                                                    false /* force_type */);
+      field_strings[i] = fields()[i].FormatInternal(options.IncreaseIndent());
     }
     // Sanitize any '$' characters before creating substitution template. "$$"
     // is replaced by "$" in the output from absl::Substitute.
     std::string templ =
         absl::StrCat(absl::StrReplaceAll(type_string, {{"$", "$$"}}), "{$0}");
-    return FormatBlock(templ, field_strings, ",", indent, WrapStyle::AUTO);
+    return FormatBlock(templ, field_strings, ",", options.indent,
+                       WrapStyle::AUTO);
   } else if (type()->IsProto()) {
     std::string type_string =
-        force_type ? FormatType(type(), ArrayElemFormat::NONE, indent) : "";
+        options.force_type
+            ? FormatType(type(), ArrayElemFormat::NONE, options.indent)
+            : "";
     if (is_null()) {
-      return force_type ? Substitute("$0(NULL)", type_string) : "NULL";
+      return options.force_type ? Substitute("$0(NULL)", type_string) : "NULL";
     }
     google::protobuf::DynamicMessageFactory message_factory;
     std::unique_ptr<google::protobuf::Message> m(this->ToMessage(&message_factory));
@@ -1227,25 +1238,29 @@ std::string Value::FormatInternal(int indent, bool force_type) const {
     // We don't need to sanitize the type string here since proto field names
     // cannot contain '$' characters.
     return FormatBlock(absl::StrCat(type_string, "{$0}"), field_strings, "",
-                       indent, wraps ? WrapStyle::INDENT : WrapStyle::NONE);
+                       options.indent,
+                       wraps ? WrapStyle::INDENT : WrapStyle::NONE);
   } else if (type()->IsRangeType()) {
     std::string type_string =
-        force_type ? FormatType(type(), ArrayElemFormat::NONE, indent) : "";
+        options.force_type
+            ? FormatType(type(), ArrayElemFormat::NONE, options.indent)
+            : "";
     if (is_null()) {
-      return force_type ? Substitute("$0(NULL)", type_string) : "NULL";
+      return options.force_type ? Substitute("$0(NULL)", type_string) : "NULL";
     }
     std::vector<std::string> boundaries_strings;
     boundaries_strings.push_back(
-        start().FormatInternal(indent + kIndentStep, false /* force_type */));
+        start().FormatInternal(options.IncreaseIndent()));
     boundaries_strings.push_back(
-        end().FormatInternal(indent + kIndentStep, false /* force_type */));
+        end().FormatInternal(options.IncreaseIndent()));
     // Sanitize any '$' characters before creating substitution template. "$$"
     // is replaced by "$" in the output from absl::Substitute.
     std::string templ =
         absl::StrCat(absl::StrReplaceAll(type_string, {{"$", "$$"}}), "[$0)");
-    return FormatBlock(templ, boundaries_strings, ",", indent, WrapStyle::AUTO);
+    return FormatBlock(templ, boundaries_strings, ",", options.indent,
+                       WrapStyle::AUTO);
   } else {
-    return DebugString(force_type);
+    return DebugString(options.force_type);
   }
 }
 

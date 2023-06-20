@@ -24,6 +24,57 @@ sketches. If you would like to specify precision with sketches, see:
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
 +  [KLL functions][kll-functions] to estimate quantile values.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#approx_count_distinct"><code>APPROX_COUNT_DISTINCT</code></a>
+
+</td>
+  <td>
+    Returns the approximate result for <code>COUNT(DISTINCT expression)</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#approx_quantiles"><code>APPROX_QUANTILES</code></a>
+
+</td>
+  <td>
+    Returns the approximate quantile boundaries.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#approx_top_count"><code>APPROX_TOP_COUNT</code></a>
+
+</td>
+  <td>
+    Returns the approximate top elements and their approximate count.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#approx_top_sum"><code>APPROX_TOP_SUM</code></a>
+
+</td>
+  <td>
+    Returns the approximate top elements and sum, based on the approximate sum
+    of an assigned weight.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `APPROX_COUNT_DISTINCT`
 
 ```sql

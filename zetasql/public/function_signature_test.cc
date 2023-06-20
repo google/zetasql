@@ -62,10 +62,10 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   ASSERT_EQ(ARG_TYPE_FIXED, fixed_type_int32.kind());
   ASSERT_FALSE(fixed_type_int32.repeated());
   ASSERT_FALSE(fixed_type_int32.optional());
-  EXPECT_EQ("INT32",
-            fixed_type_int32.UserFacingNameWithCardinality(
-                PRODUCT_INTERNAL,
-                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
+  EXPECT_EQ("INT32", fixed_type_int32.UserFacingNameWithCardinality(
+                         PRODUCT_INTERNAL,
+                         FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+                         /*print_template_details=*/true));
 
   FunctionArgumentType repeating_fixed_type_int32(
       factory.get_int32(), FunctionArgumentType::REPEATED);
@@ -85,7 +85,8 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   EXPECT_EQ("[INT32, ...]",
             repeating_fixed_type_int32.UserFacingNameWithCardinality(
                 PRODUCT_INTERNAL,
-                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
+                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+                /*print_template_details=*/true));
 
   FunctionArgumentType optional_fixed_type_int32(
       factory.get_int32(), FunctionArgumentType::OPTIONAL);
@@ -110,7 +111,8 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   EXPECT_EQ("[INT32]",
             optional_fixed_type_int32.UserFacingNameWithCardinality(
                 PRODUCT_INTERNAL,
-                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
+                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+                /*print_template_details=*/true));
 
   FunctionArgumentType any_type(ARG_TYPE_ANY_1);
   ASSERT_FALSE(any_type.IsConcrete());
@@ -296,7 +298,7 @@ TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeAttributesTests) {
   ASSERT_THAT(lambda_zero_args.type(), IsNull());
   ASSERT_TRUE(lambda_zero_args.lambda().argument_types().empty());
 
-  // Single lambda argument argument types
+  // Single function-type argument argument types
   FunctionArgumentType lambda_any_type =
       FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2);
   ASSERT_TRUE(lambda_any_type.IsLambda());
@@ -342,7 +344,7 @@ TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeAttributesTests) {
   ASSERT_FALSE(lambda_non_templated_arg_body_type.repeated());
   ASSERT_THAT(lambda_non_templated_arg_body_type.type(), IsNull());
 
-  // Multiple lambda argument argument types
+  // Multiple function-type argument argument types
   FunctionArgumentType lambda_any_type_multi_args =
       FunctionArgumentType::Lambda(
           {
@@ -416,7 +418,7 @@ TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeAttributesTests) {
 }
 
 TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeConcreteArgsTests) {
-  // After resolving, lambda arguments are concrete.
+  // After resolving, function-type arguments are concrete.
   FunctionArgumentType lambda_concrete_arg_body_type_multi_args =
       FunctionArgumentType::Lambda(
           {
@@ -473,7 +475,7 @@ void TestLambdaSerialization(const FunctionArgumentType lambda_type,
     ZETASQL_ASSERT_OK(
         TestFunctionArgumentTypeEq(original_lambda.argument_types()[i],
                                    deserialized_lambda.argument_types()[i]))
-        << "Lambda argument type index " << i
+        << "Function-type argument type index " << i
         << " not the same after deserialization. Original function argument "
            "type: "
         << lambda_type.DebugString(/*verbose=*/true)
@@ -482,8 +484,8 @@ void TestLambdaSerialization(const FunctionArgumentType lambda_type,
   }
   ZETASQL_ASSERT_OK(TestFunctionArgumentTypeEq(original_lambda.body_type(),
                                        deserialized_lambda.body_type()))
-      << "Lambda body type not the same after deserialization. Original "
-         "function argument type: "
+      << "Function-type argument return type not the same after "
+         "deserialization. Original function-type argument type: "
       << lambda_type.DebugString(/*verbose=*/true)
       << " deserialized function argument type: "
       << deserialized_type->DebugString(/*verbose=*/true);
@@ -551,7 +553,7 @@ static FunctionSignature GetAddFunction(TypeFactory* factory) {
   return add_function;
 }
 
-// Model functions with lambda arguments like ARRAY_FILTER.
+// Model functions with function-type arguments like ARRAY_FILTER.
 static FunctionSignature GetArrayFilterFunction(TypeFactory* factory) {
   FunctionArgumentTypeList arguments;
   arguments.push_back(FunctionArgumentType(ARG_ARRAY_TYPE_ANY_1));
@@ -722,15 +724,15 @@ TEST(FunctionSignatureTests, FunctionSignatureTestsInternalProductMode) {
   // Model array function like ARRAY_FILTER
   FunctionSignature array_filter_function = GetArrayFilterFunction(&factory);
   ASSERT_FALSE(array_filter_function.IsConcrete());
-  EXPECT_EQ("ARRAY_FILTER(<array<T1>>, LAMBDA(<T1>->BOOL)) -> <array<T1>>",
+  EXPECT_EQ("ARRAY_FILTER(<array<T1>>, FUNCTION<<T1>->BOOL>) -> <array<T1>>",
             array_filter_function.DebugString("ARRAY_FILTER"));
-  EXPECT_EQ("(<array<T1>>, LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(<array<T1>>, FUNCTION<<T1>->BOOL>) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{}, ProductMode::PRODUCT_INTERNAL));
-  EXPECT_EQ("(x <array<T1>>, LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(x <array<T1>>, FUNCTION<<T1>->BOOL>) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{"x"}, ProductMode::PRODUCT_INTERNAL));
-  EXPECT_EQ("(x <array<T1>>, y LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(x <array<T1>>, y FUNCTION<<T1>->BOOL>) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{"x", "y"}, ProductMode::PRODUCT_INTERNAL));
 }
@@ -782,15 +784,15 @@ TEST(FunctionSignatureTests, FunctionSignatureTestsExternalProductMode) {
   // Model array function like ARRAY_FILTER
   FunctionSignature array_filter_function = GetArrayFilterFunction(&factory);
   ASSERT_FALSE(array_filter_function.IsConcrete());
-  EXPECT_EQ("ARRAY_FILTER(<array<T1>>, LAMBDA(<T1>->BOOL)) -> <array<T1>>",
+  EXPECT_EQ("ARRAY_FILTER(<array<T1>>, FUNCTION<<T1>->BOOL>) -> <array<T1>>",
             array_filter_function.DebugString("ARRAY_FILTER"));
-  EXPECT_EQ("(<array<T1>>, LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(<array<T1>>, FUNCTION<<T1>->BOOL>) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{}, ProductMode::PRODUCT_EXTERNAL));
-  EXPECT_EQ("(x <array<T1>>, LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(x <array<T1>>, FUNCTION<<T1>->BOOL>) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{"x"}, ProductMode::PRODUCT_EXTERNAL));
-  EXPECT_EQ("(x <array<T1>>, y LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(x <array<T1>>, y FUNCTION<<T1>->BOOL>) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{"x", "y"}, ProductMode::PRODUCT_EXTERNAL));
 }
@@ -1008,9 +1010,9 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_STRUCT_ANY, OPTIONAL));
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_ARBITRARY,
-      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()
+                              .set_argument_name("foobar", kPositionalOrNamed)
+                              .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
@@ -1021,9 +1023,9 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.push_back(FunctionArgumentType(ARG_STRUCT_ANY, REPEATED));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY, REPEATED));
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_ARBITRARY,
-      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()
+                              .set_argument_name("foobar", kPositionalOrNamed)
+                              .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
@@ -1033,9 +1035,9 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_ARBITRARY,
-      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()
+                              .set_argument_name("foobar", kPositionalOrNamed)
+                              .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
@@ -1045,9 +1047,9 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY, OPTIONAL));
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_RELATION,
-      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_RELATION, FunctionArgumentTypeOptions()
+                             .set_argument_name("foobar", kPositionalOrNamed)
+                             .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
@@ -1058,9 +1060,9 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION));
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_RELATION,
-      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_RELATION, FunctionArgumentTypeOptions()
+                             .set_argument_name("foobar", kPositionalOrNamed)
+                             .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
@@ -1070,9 +1072,9 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_RELATION,
-      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_RELATION, FunctionArgumentTypeOptions()
+                             .set_argument_name("foobar", kPositionalOrNamed)
+                             .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
@@ -1081,13 +1083,13 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   // Two named optional RELATIONS are allowed.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_RELATION,
-      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_RELATION, FunctionArgumentTypeOptions()
+                             .set_argument_name("foobar", kPositionalOrNamed)
+                             .set_cardinality(OPTIONAL)));
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_RELATION,
-      FunctionArgumentTypeOptions().set_argument_name("barfoo").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_RELATION, FunctionArgumentTypeOptions()
+                             .set_argument_name("barfoo", kPositionalOrNamed)
+                             .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
@@ -1116,9 +1118,9 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_MODEL));
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_RELATION,
-      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_RELATION, FunctionArgumentTypeOptions()
+                             .set_argument_name("foobar", kPositionalOrNamed)
+                             .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
@@ -1128,9 +1130,9 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_MODEL, OPTIONAL));
   arguments.push_back(FunctionArgumentType(
-      ARG_TYPE_RELATION,
-      FunctionArgumentTypeOptions().set_argument_name("barfoo").set_cardinality(
-          OPTIONAL)));
+      ARG_TYPE_RELATION, FunctionArgumentTypeOptions()
+                             .set_argument_name("barfoo", kPositionalOrNamed)
+                             .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
@@ -1152,11 +1154,11 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.push_back(FunctionArgumentType(ARG_ARRAY_TYPE_ANY_1));
   arguments.push_back(
       FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, factory.get_bool()));
-  // Templated lambda related to arguments.
+  // Templated function-type related to arguments.
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(ARG_TYPE_ANY_1), arguments, /*context_id=*/-1);
 
-  // Templated lambda not related.
+  // Templated function-type not related.
   EXPECT_DEBUG_DEATH(
       signature.reset(new FunctionSignature(
           FunctionArgumentType(ARG_TYPE_ANY_2), arguments, /*context_id=*/-1)),
@@ -1165,16 +1167,17 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
-  // Templated argument of lambda not related to previous arguments.
+  // Templated argument of function-type not related to previous arguments.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_ARRAY_TYPE_ANY_1));
   arguments.push_back(
       FunctionArgumentType::Lambda({ARG_TYPE_ANY_2}, factory.get_bool()));
-  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
-                         FunctionArgumentType(ARG_ARRAY_TYPE_ANY_1), arguments,
-                         /*context_id=*/-1)),
-                     "Templated argument of lambda argument type must match an "
-                     "argument type before the lambda argument.");
+  EXPECT_DEBUG_DEATH(
+      signature.reset(new FunctionSignature(
+          FunctionArgumentType(ARG_ARRAY_TYPE_ANY_1), arguments,
+          /*context_id=*/-1)),
+      "Templated argument of function-type argument type must match an "
+      "argument type before the function-type argument");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
@@ -1184,12 +1187,12 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.emplace_back(factory.get_int32(),
                          FunctionArgumentTypeOptions(FunctionEnums::OPTIONAL)
-                             .set_argument_name("a")
+                             .set_argument_name("a", kPositionalOrNamed)
                              .set_default(values::Int32(1)),
                          /*num_occurrences=*/1);
   arguments.emplace_back(factory.get_string(),
                          FunctionArgumentTypeOptions(FunctionEnums::OPTIONAL)
-                             .set_argument_name("b"),
+                             .set_argument_name("b", kPositionalOrNamed),
                          /*num_occurrences=*/1);
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
@@ -1208,7 +1211,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
   std::unique_ptr<FunctionSignature> signature;
 
   arguments.emplace_back(ARG_ARRAY_TYPE_ANY_1);
-  // Not supported arg type for lambda arguments.
+  // Not supported arg type for function-type arguments.
   arguments.emplace_back(
       FunctionArgumentType::Lambda({ARG_TYPE_ARBITRARY}, factory.get_bool()));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
@@ -1221,7 +1224,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
 
   arguments.clear();
   arguments.emplace_back(ARG_ARRAY_TYPE_ANY_1);
-  // Not supported arg type for lambda body.
+  // Not supported arg type for function-type body.
   arguments.emplace_back(
       FunctionArgumentType::Lambda({factory.get_bool()}, ARG_TYPE_ARBITRARY));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
@@ -1232,30 +1235,30 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
-  // ARG_ARRAY_TYPE_ANY_1 not supported as lambda argument.
+  // ARG_ARRAY_TYPE_ANY_1 not supported as function-type argument.
   arguments.clear();
   arguments.emplace_back(ARG_ARRAY_TYPE_ANY_1);
-  // Not supported REPEATED options for lambda body.
+  // Not supported REPEATED options for function-type argument return type.
   arguments.emplace_back(
       FunctionArgumentType::Lambda({ARG_ARRAY_TYPE_ANY_1}, ARG_TYPE_ANY_1));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
                          /*context_id=*/-1)),
-                     "Argument kind not supported by lambda");
+                     "Argument kind not supported by function-type argument");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
-  // ARG_ARRAY_TYPE_ANY_2 not supported as lambda argument.
+  // ARG_ARRAY_TYPE_ANY_2 not supported as function-type argument.
   arguments.clear();
   arguments.emplace_back(ARG_ARRAY_TYPE_ANY_1);
-  // Not supported REPEATED options for lambda body.
+  // Not supported REPEATED options for function-type body.
   arguments.emplace_back(
       FunctionArgumentType::Lambda({ARG_ARRAY_TYPE_ANY_2}, ARG_TYPE_ANY_1));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
                          /*context_id=*/-1)),
-                     "Argument kind not supported by lambda");
+                     "Argument kind not supported by function-type argument");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
@@ -1267,40 +1270,43 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
 
   arguments.clear();
   arguments.emplace_back(ARG_ARRAY_TYPE_ANY_1);
-  // Not supported REPEATED options for lambda arguments.
+  // Not supported REPEATED options for function-type arguments.
   arguments.emplace_back(FunctionArgumentType::Lambda(
       {FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED)}, factory.get_bool()));
-  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
-                         FunctionArgumentType(factory.get_int64()), arguments,
-                         /*context_id=*/-1)),
-                     "Only REQUIRED simple options are supported by lambda");
+  EXPECT_DEBUG_DEATH(
+      signature.reset(new FunctionSignature(
+          FunctionArgumentType(factory.get_int64()), arguments,
+          /*context_id=*/-1)),
+      "Only REQUIRED simple options are supported by function-type argument");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   arguments.clear();
   arguments.emplace_back(ARG_ARRAY_TYPE_ANY_1);
-  // Not supported OPTIONAL options for lambda arguments.
+  // Not supported OPTIONAL options for function-type arguments.
   arguments.emplace_back(FunctionArgumentType::Lambda(
       {FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL)}, factory.get_bool()));
-  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
-                         FunctionArgumentType(factory.get_int64()), arguments,
-                         /*context_id=*/-1)),
-                     "Only REQUIRED simple options are supported by lambda");
+  EXPECT_DEBUG_DEATH(
+      signature.reset(new FunctionSignature(
+          FunctionArgumentType(factory.get_int64()), arguments,
+          /*context_id=*/-1)),
+      "Only REQUIRED simple options are supported by function-type arguments");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   arguments.clear();
   arguments.emplace_back(ARG_ARRAY_TYPE_ANY_1);
-  // Not supported REPEATED options for lambda body.
+  // Not supported REPEATED options for function-type body.
   arguments.emplace_back(FunctionArgumentType::Lambda(
       {FunctionArgumentType(factory.get_bool())},
       FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED)));
-  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
-                         FunctionArgumentType(factory.get_int64()), arguments,
-                         /*context_id=*/-1)),
-                     "Only REQUIRED simple options are supported by lambda");
+  EXPECT_DEBUG_DEATH(
+      signature.reset(new FunctionSignature(
+          FunctionArgumentType(factory.get_int64()), arguments,
+          /*context_id=*/-1)),
+      "Only REQUIRED simple options are supported by function-type arguments");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
@@ -1312,8 +1318,9 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
            FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, factory.get_bool()),
            ARG_TYPE_ANY_1},
           /*context_id=*/-1)),
-      "Templated argument kind used by lambda argument cannot be used by "
-      "arguments to the right of the lambda using it");
+      "Templated argument kind used by function-type argument cannot be used "
+      "by "
+      "arguments to the right of the function-type using it");
 }
 
 TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
@@ -1603,7 +1610,7 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
                                                   /*context_id=*/-1);
   EXPECT_EQ(2, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::Int64ArrayType(), signature, 0);
-  // The value type of lambda is the type of the body.
+  // The value type of function-type is the type of the body.
   CheckConcreteArgumentType(types::Int64Type(), signature, 1);
 }
 
@@ -1652,7 +1659,13 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
 
   // If a new enum value is added to SignatureArgumentKind then it *must*
   // be added to <templated_kinds> or <non_templated_kinds> as appropriate.
-  ASSERT_EQ(19, SignatureArgumentKind_ARRAYSIZE);
+  int enum_size = 0;
+  for (int i = 0; i < SignatureArgumentKind_ARRAYSIZE; ++i) {
+    // SignatureArgumentKind_ARRAYSIZE doesn't account for skipped proto field
+    // values.
+    enum_size += SignatureArgumentKind_IsValid(i);
+  }
+  ASSERT_EQ(20, enum_size);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
@@ -1672,6 +1685,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
   templated_kinds.insert(ARG_TYPE_DESCRIPTOR);
   templated_kinds.insert(ARG_TYPE_LAMBDA);
   templated_kinds.insert(ARG_RANGE_TYPE_ANY);
+  templated_kinds.insert(ARG_TYPE_SEQUENCE);
 
   std::set<SignatureArgumentKind> non_templated_kinds;
   non_templated_kinds.insert(ARG_TYPE_FIXED);
@@ -1734,7 +1748,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedSignature) {
                            {type},
                            /*context_ptr=*/nullptr),
          /*expected_is_templated=*/true});
-    // A signature with templated lambda requires corresponding templated
+    // A signature with templated function-type requires corresponding templated
     // argument, which negates this test.
     if (type.IsLambda()) {
       continue;

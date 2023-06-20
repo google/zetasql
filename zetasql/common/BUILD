@@ -237,6 +237,21 @@ cc_library(
 )
 
 cc_library(
+    name = "thread_stack_test_utils",
+    testonly = True,
+    srcs = ["thread_stack_test_utils.cc"],
+    hdrs = ["thread_stack_test_utils.h"],
+    deps = [
+        ":thread_stack",
+        "//util/tuple/components:dump_vars",
+        "//zetasql/base:ret_check",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "proto_helper",
     srcs = ["proto_helper.cc"],
     hdrs = ["proto_helper.h"],
@@ -480,6 +495,31 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "unicode_utils",
+    srcs = ["unicode_utils.cc"],
+    hdrs = ["unicode_utils.h"],
+    deps = [
+        "//zetasql/base",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/strings",
+        "@icu//:common",
+    ],
+)
+
+cc_test(
+    name = "unicode_utils_test",
+    size = "small",
+    srcs = ["unicode_utils_test.cc"],
+    deps = [
+        ":unicode_utils",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/flags:flag",
     ],
 )
 

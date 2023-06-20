@@ -1,7 +1,7 @@
 # NOTE: CREATE VIEW syntax and tests are identical to those for
 # CREATE TABLE AS SELECT tests, except for the keyword.
 
-create {{|materialized}} view t1 as select * from t2;
+create {{|materialized|approx}} view t1 as select * from t2;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -40,6 +40,27 @@ CreateMaterializedViewStatement [0-47] [create materializ...* from t2]
             Identifier(t2) [45-47] [t2]
 --
 CREATE MATERIALIZED VIEW t1 AS
+SELECT
+  *
+FROM
+  t2
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStatement [0-41] [create approx...* from t2]
+  PathExpression [19-21] [t1]
+    Identifier(t1) [19-21] [t1]
+  Query [25-41] [select * from t2]
+    Select [25-41] [select * from t2]
+      SelectList [32-33] [*]
+        SelectColumn [32-33] [*]
+          Star(*) [32-33] [*]
+      FromClause [34-41] [from t2]
+        TablePathExpression [39-41] [t2]
+          PathExpression [39-41] [t2]
+            Identifier(t2) [39-41] [t2]
+--
+CREATE APPROX VIEW t1 AS
 SELECT
   *
 FROM
@@ -296,7 +317,7 @@ SELECT
   1
 ==
 
-create temporary {{|materialized}} view tt
+create temporary {{|materialized|approx}} view tt
 options (x = 5, y = 'abc', z = @param, zz = ident, zzz = @@sysvar)
 as select 2;
 --
@@ -339,6 +360,12 @@ ALTERNATION GROUP: materialized
 --
 ERROR: Syntax error: Expected keyword FUNCTION but got keyword MATERIALIZED [at 1:18]
 create temporary materialized view tt
+                 ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword APPROX [at 1:18]
+create temporary approx view tt
                  ^
 ==
 
@@ -526,7 +553,7 @@ create view options(x=y) as select 1 x;
                      ^
 ==
 
-create or replace {{|materialized}} view xyz as (select 1)
+create or replace {{|materialized|approx}} view xyz as (select 1)
 --
 ALTERNATION GROUP: <empty>
 --
@@ -557,6 +584,23 @@ CreateMaterializedViewStatement(is_or_replace) [0-53] [create or...(select 1)]
           IntLiteral(1) [51-52] [1]
 --
 CREATE OR REPLACE MATERIALIZED VIEW xyz AS
+(
+SELECT
+  1
+)
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStatement(is_or_replace) [0-47] [create or...(select 1)]
+  PathExpression [30-33] [xyz]
+    Identifier(xyz) [30-33] [xyz]
+  Query [38-46] [select 1]
+    Select [38-46] [select 1]
+      SelectList [45-46] [1]
+        SelectColumn [45-46] [1]
+          IntLiteral(1) [45-46] [1]
+--
+CREATE OR REPLACE APPROX VIEW xyz AS
 (
 SELECT
   1
@@ -736,7 +780,7 @@ create view vw sql security  options ( a=b ) as (SELECT 1 AS a) ;
 ==
 
 # Create view with explicit column list with types fails
-create {{|materialized}} view v (a int64, b int64) as select 1 a, 2 b;
+create {{|materialized|approx}} view v (a int64, b int64) as select 1 a, 2 b;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -749,10 +793,16 @@ ALTERNATION GROUP: materialized
 ERROR: Syntax error: Expected ")" or "," but got identifier "int64" [at 1:31]
 create materialized view v (a int64, b int64) as select 1 a, 2 b;
                               ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Syntax error: Expected ")" or "," but got identifier "int64" [at 1:25]
+create approx view v (a int64, b int64) as select 1 a, 2 b;
+                        ^
 ==
 
 # Create view with explicit column name list
-create {{|materialized}} view v (a1, b2) as select 1 a, 2 b;
+create {{|materialized|approx}} view v (a1, b2) as select 1 a, 2 b;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -807,10 +857,37 @@ CREATE MATERIALIZED VIEW v(a1, b2) AS
 SELECT
   1 AS a,
   2 AS b
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStatement [0-48] [create approx...elect 1 a, 2 b]
+  PathExpression [19-20] [v]
+    Identifier(v) [19-20] [v]
+  ColumnWithOptionsList [21-29] [(a1, b2)]
+    ColumnWithOptions [22-24] [a1]
+      Identifier(a1) [22-24] [a1]
+    ColumnWithOptions [26-28] [b2]
+      Identifier(b2) [26-28] [b2]
+  Query [33-48] [select 1 a, 2 b]
+    Select [33-48] [select 1 a, 2 b]
+      SelectList [40-48] [1 a, 2 b]
+        SelectColumn [40-43] [1 a]
+          IntLiteral(1) [40-41] [1]
+          Alias [42-43] [a]
+            Identifier(a) [42-43] [a]
+        SelectColumn [45-48] [2 b]
+          IntLiteral(2) [45-46] [2]
+          Alias [47-48] [b]
+            Identifier(b) [47-48] [b]
+--
+CREATE APPROX VIEW v(a1, b2) AS
+SELECT
+  1 AS a,
+  2 AS b
 ==
 
 # Create view with explicit column name list with column options
-create {{|materialized}} view v (a1 OPTIONS(description="test view"), b2) as select 1 a, 2 b;
+create {{|materialized|approx}} view v (a1 OPTIONS(description="test view"), b2) as select 1 a, 2 b;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -873,11 +950,42 @@ CREATE MATERIALIZED VIEW v(a1 OPTIONS(description = "test view"), b2) AS
 SELECT
   1 AS a,
   2 AS b
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStatement [0-81] [create approx...elect 1 a, 2 b]
+  PathExpression [19-20] [v]
+    Identifier(v) [19-20] [v]
+  ColumnWithOptionsList [21-62] [(a1 OPTIONS...view"), b2)]
+    ColumnWithOptions [22-57] [a1 OPTIONS...test view")]
+      Identifier(a1) [22-24] [a1]
+      OptionsList [32-57] [(description="test view")]
+        OptionsEntry [33-56] [description="test view"]
+          Identifier(description) [33-44] [description]
+          StringLiteral("test view") [45-56] ["test view"]
+    ColumnWithOptions [59-61] [b2]
+      Identifier(b2) [59-61] [b2]
+  Query [66-81] [select 1 a, 2 b]
+    Select [66-81] [select 1 a, 2 b]
+      SelectList [73-81] [1 a, 2 b]
+        SelectColumn [73-76] [1 a]
+          IntLiteral(1) [73-74] [1]
+          Alias [75-76] [a]
+            Identifier(a) [75-76] [a]
+        SelectColumn [78-81] [2 b]
+          IntLiteral(2) [78-79] [2]
+          Alias [80-81] [b]
+            Identifier(b) [80-81] [b]
+--
+CREATE APPROX VIEW v(a1 OPTIONS(description = "test view"), b2) AS
+SELECT
+  1 AS a,
+  2 AS b
 ==
 
 # Create view with explicit column name list with all columns having column
 # options
-create {{|materialized}} view v (a1 OPTIONS(description="test view"), b2 OPTIONS()) as select 1 a, 2 b;
+create {{|materialized|approx}} view v (a1 OPTIONS(description="test view"), b2 OPTIONS()) as select 1 a, 2 b;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -942,9 +1050,41 @@ CREATE MATERIALIZED VIEW v(a1 OPTIONS(description = "test view"), b2 OPTIONS()) 
 SELECT
   1 AS a,
   2 AS b
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStatement [0-91] [create approx...elect 1 a, 2 b]
+  PathExpression [19-20] [v]
+    Identifier(v) [19-20] [v]
+  ColumnWithOptionsList [21-72] [(a1 OPTIONS...OPTIONS())]
+    ColumnWithOptions [22-57] [a1 OPTIONS...test view")]
+      Identifier(a1) [22-24] [a1]
+      OptionsList [32-57] [(description="test view")]
+        OptionsEntry [33-56] [description="test view"]
+          Identifier(description) [33-44] [description]
+          StringLiteral("test view") [45-56] ["test view"]
+    ColumnWithOptions [59-71] [b2 OPTIONS()]
+      Identifier(b2) [59-61] [b2]
+      OptionsList [69-71] [()]
+  Query [76-91] [select 1 a, 2 b]
+    Select [76-91] [select 1 a, 2 b]
+      SelectList [83-91] [1 a, 2 b]
+        SelectColumn [83-86] [1 a]
+          IntLiteral(1) [83-84] [1]
+          Alias [85-86] [a]
+            Identifier(a) [85-86] [a]
+        SelectColumn [88-91] [2 b]
+          IntLiteral(2) [88-89] [2]
+          Alias [90-91] [b]
+            Identifier(b) [90-91] [b]
+--
+CREATE APPROX VIEW v(a1 OPTIONS(description = "test view"), b2 OPTIONS()) AS
+SELECT
+  1 AS a,
+  2 AS b
 ==
 
-create {{|materialized}} RECURSIVE view t1 as select * from t1;
+create {{|materialized|approx}} RECURSIVE view t1 as select * from t1;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -987,9 +1127,30 @@ SELECT
   *
 FROM
   t1
+--
+ALTERNATION GROUP: approx
+--
+CreateApproxViewStatement(recursive) [0-51] [create approx...* from t1]
+  PathExpression [29-31] [t1]
+    Identifier(t1) [29-31] [t1]
+  Query [35-51] [select * from t1]
+    Select [35-51] [select * from t1]
+      SelectList [42-43] [*]
+        SelectColumn [42-43] [*]
+          Star(*) [42-43] [*]
+      FromClause [44-51] [from t1]
+        TablePathExpression [49-51] [t1]
+          PathExpression [49-51] [t1]
+            Identifier(t1) [49-51] [t1]
+--
+CREATE APPROX RECURSIVE VIEW t1 AS
+SELECT
+  *
+FROM
+  t1
 ==
 
-create TEMP {{|materialized}} RECURSIVE view t1 as select * from t1;
+create TEMP {{|materialized|approx}} RECURSIVE view t1 as select * from t1;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1016,6 +1177,12 @@ ALTERNATION GROUP: materialized
 --
 ERROR: Syntax error: Expected keyword FUNCTION but got keyword MATERIALIZED [at 1:13]
 create TEMP materialized RECURSIVE view t1 as select * from t1;
+            ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword APPROX [at 1:13]
+create TEMP approx RECURSIVE view t1 as select * from t1;
             ^
 ==
 
@@ -1139,7 +1306,7 @@ FROM
 GROUP BY d1, d2
 ==
 
-create {{|materialized}} view t1 with connection `myproject.us-west-2.myconnection` as select * from t2;
+create {{|materialized|approx}} view t1 with connection `myproject.us-west-2.myconnection` as select * from t2;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1152,4 +1319,10 @@ ALTERNATION GROUP: materialized
 ERROR: Syntax error: Expected keyword AS but got keyword WITH [at 1:29]
 create materialized view t1 with connection `myproject.us-west-2.myconnection...
                             ^
+--
+ALTERNATION GROUP: approx
+--
+ERROR: Syntax error: Expected keyword AS but got keyword WITH [at 1:23]
+create approx view t1 with connection `myproject.us-west-2.myconnection` as s...
+                      ^
 ==

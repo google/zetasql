@@ -607,6 +607,15 @@ QueryStmt
           +-$agg1#3 :=
             +-AggregateFunctionCall(Templated_SQL_Function:uda_valid_templated_return_sum_int64_arg(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_valid_templated_return_sum_int64_arg(INT64) -> INT64
+containing resolved templated expression:
+ColumnRef(type=INT64, column=$aggregate.$agg1#1)
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+      +-ArgumentRef(parse_location=4-5, type=INT64, name="x", argument_kind=AGGREGATE)
 ==
 
 # Call a SQL UDA with a valid templated SQL body that refers to a NOT
@@ -628,6 +637,11 @@ QueryStmt
           +-$agg1#3 :=
             +-AggregateFunctionCall(Templated_SQL_Function:uda_valid_templated_return_int64_not_aggregate_arg(INT64) -> INT64)
               +-Literal(type=INT64, value=42)
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_valid_templated_return_int64_not_aggregate_arg(INT64 {is_not_aggregate: true}) -> INT64
+containing resolved templated expression:
+ArgumentRef(type=INT64, name="y", argument_kind=NOT_AGGREGATE)
 ==
 
 # Call a SQL UDA with a valid templated SQL body that refers to an AGGREGATE
@@ -651,6 +665,17 @@ QueryStmt
             +-AggregateFunctionCall(Templated_SQL_Function:uda_valid_templated_return_int64_aggregate_and_not_aggregate_arg(INT64, INT64) -> INT64)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
               +-Literal(type=INT64, value=42)
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_valid_templated_return_int64_aggregate_and_not_aggregate_arg(INT64, INT64 {is_not_aggregate: true}) -> INT64
+containing resolved templated expression:
+FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-ColumnRef(type=INT64, column=$aggregate.$agg1#1)
++-ArgumentRef(type=INT64, name="y", argument_kind=NOT_AGGREGATE)
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+      +-ArgumentRef(parse_location=4-5, type=INT64, name="x", argument_kind=AGGREGATE)
 ==
 
 ################################################################################
@@ -1085,3 +1110,18 @@ sum(x order by x)
 ORDER BY in aggregate function is not supported [at 1:7]
 sum(x order by x)
       ^
+==
+
+[language_features=TEMPLATE_FUNCTIONS,V_1_3_WITH_GROUP_ROWS]
+SELECT WrappedGroupRows(e) FROM UNNEST([1, 2, 3]) AS e
+
+--
+ERROR: Invalid function WrappedGroupRows [at 1:8]
+SELECT WrappedGroupRows(e) FROM UNNEST([1, 2, 3]) AS e
+       ^
+Analysis of function Templated_SQL_Function:WrappedGroupRows failed [at 2:13]
+            SUM(e) WITH GROUP_ROWS(SELECT e
+            ^
+WITH GROUP_ROWS is not supported in templated SQL aggregate function call [at 2:13]
+            SUM(e) WITH GROUP_ROWS(SELECT e
+            ^

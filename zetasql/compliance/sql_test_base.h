@@ -139,9 +139,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Returns a debug string.
   static std::string ToString(
       const absl::StatusOr<ComplianceTestCaseResult>& status);
-  static std::string ToString(
-      const absl::StatusOr<ComplianceTestCaseResult>& status,
-      bool is_deterministic_result);
   static std::string ToString(const std::map<std::string, Value>& parameters);
 
   // Returns the error matcher to match legal runtime errors.
@@ -288,29 +285,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Get the current product mode of the test driver.
   ProductMode product_mode() const;
-
-  // Add labels for the remainder of the current scope.
-  class ScopedLabel {
-   public:
-    ScopedLabel(SQLTestBase* sql_test_base, const std::string& label,
-                bool condition = true)
-        : ScopedLabel(sql_test_base, std::vector<std::string>{label}) {}
-
-    ScopedLabel(SQLTestBase* sql_test_base,
-                const std::vector<std::string>& labels, bool condition = true)
-        : sql_test_base_(sql_test_base), labels_(labels) {
-      sql_test_base_->AddCodeBasedLabels(labels_);
-    }
-
-    ScopedLabel(const ScopedLabel&) = delete;
-    ScopedLabel& operator=(const ScopedLabel&) = delete;
-
-    ~ScopedLabel() { sql_test_base_->RemoveCodeBasedLabels(labels_); }
-
-   private:
-    SQLTestBase* sql_test_base_;
-    const std::vector<std::string> labels_;
-  };
 
   //
   // MakeScopedLabel()
@@ -521,19 +495,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Does not return NULL.
   TestDriver* driver() const { return test_driver_; }
 
-  // Returns NULL if we are testing the reference implementation.
   ReferenceDriver* reference_driver() const { return reference_driver_; }
-
-  // Returns the reference driver. When not testing the reference impl this
-  // is the same as reference_driver().  When testing the reference impl this
-  // is driver().
-  ReferenceDriver* GetReferenceDriver() const {
-    if (IsTestingReferenceImpl()) {
-      return static_cast<ReferenceDriver*>(driver());
-    } else {
-      return reference_driver();
-    }
-  }
 
   // Generates failure report. A subclass can override to add more information.
   virtual std::string GenerateFailureReport(const std::string& expected,
@@ -544,8 +506,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   SQLTestBase();
 
   // Does not take ownership of the pointers. 'reference_driver' must be NULL if
-  // and only if either 'test_driver' is NULL or
-  // 'test_driver->IsReferenceImplementation()' is true.
+  // and only if 'test_driver' is NULL.
   //
   // If 'test_driver' is NULL, the destructor is the only method that can be
   // called on the resulting object. This is a hack to facilitate creating the
@@ -602,12 +563,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   bool IsTestingReferenceImpl() const;
 
   virtual absl::Status CreateDatabase(const TestDatabase& test_db);
-
-  // Parse a comma-separated list of LanguageFeatures.
-  // The strings should be LanguageFeature enum names without the FEATURE_
-  // prefix.
-  static absl::Status ParseFeatures(const std::string& features_str,
-                                    std::set<LanguageFeature>* features);
 
   // Accessor for the type factory used for populating test tables.
   TypeFactory* table_type_factory();
@@ -732,8 +687,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   std::unique_ptr<ReferenceDriver> reference_driver_owner_;
 
   // ReferenceDriver for comparison against 'test_driver_', set in the
-  // constructor. NULL if we are testing the reference implementation, in which
-  // cast 'test_driver_' is a ReferenceDriver.
+  // constructor.
   ReferenceDriver* reference_driver_;
 
   // TypeFactory that is used to execute statements.
@@ -850,11 +804,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
     RecordKnownErrorStatement(known_error_mode_);
   }
 
-  // Validate a statement result to make sure the status is OK, the value is not
-  // null, and is valid.
-  absl::Status ValidateStatementResult(const absl::StatusOr<Value>& result,
-                                       const std::string& statement) const;
-
   // Prepares protos and enums in the test drivers.
   absl::Status LoadProtosAndEnums();
 
@@ -866,9 +815,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Create the prepared database. This includes the protos and enums, as well
   // as all the tables.
   virtual absl::Status CreateDatabase();
-
-  // Log a map of <param_name>:<typed_value> as a single line.
-  void LogParameters(const std::map<std::string, Value>& parameters) const;
 
   // Add and remove labels to the code-based label set. Duplicated labels are
   // allowed. Labels will be added in the specified order, and be removed in

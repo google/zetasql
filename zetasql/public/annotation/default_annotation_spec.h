@@ -81,6 +81,7 @@ class DefaultAnnotationSpec : public AnnotationSpec {
       const ResolvedRecursiveScan& recursive_scan,
       const std::vector<AnnotationMap*>& result_annotation_maps) override;
 
+ protected:
   // Merges two scalar annotations, placing the result in 'out'.
   // This function should not call AsStructMap or AsArrayMap on either 'in' or
   // 'out'. The work of traversing struct map or array map structures is
@@ -94,7 +95,6 @@ class DefaultAnnotationSpec : public AnnotationSpec {
   virtual absl::Status ScalarMergeIfCompatible(const AnnotationMap* in,
                                                AnnotationMap& out) const;
 
- protected:
   // Recursively calls ScalarMergeIfCompatible on the <left> and <right>.
   absl::Status MergeAnnotations(const AnnotationMap* left,
                                 AnnotationMap& right) const;

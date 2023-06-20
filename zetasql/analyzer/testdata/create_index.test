@@ -1237,3 +1237,46 @@ create search index i1 on ComplexTypes (`ALL COLUMNS`);
 ERROR: Unrecognized name: `ALL COLUMNS` [at 1:41]
 create search index i1 on ComplexTypes (`ALL COLUMNS`);
                                         ^
+==
+
+[disallow_duplicate_options]
+create index i1 on KeyValue(Value) options (x=1, x=2);
+--
+ERROR: Duplicate option specified for 'x' [at 1:50]
+create index i1 on KeyValue(Value) options (x=1, x=2);
+                                                 ^
+
+==
+
+# Multiple columns in UNNEST are not allowed.
+CREATE index i1 on TestTable UNNEST(KitchenSink.repeated_int32_val,
+  KitchenSink.repeated_int64_val) (repeated_int32_val)
+--
+ERROR: UNNEST expression used with CREATE INDEX does not allow multiple arguments [at 2:3]
+  KitchenSink.repeated_int64_val) (repeated_int32_val)
+  ^
+==
+
+# Column with alias in UNNEST is not allowed.
+CREATE index i1 on TestTable UNNEST(KitchenSink.repeated_int32_val AS array_alias) (repeated_int32_val)
+--
+ERROR: UNNEST expression used with CREATE INDEX does not allow argument aliases inside UNNEST [at 1:68]
+...on TestTable UNNEST(KitchenSink.repeated_int32_val AS array_alias) (repeat...
+                                                      ^
+==
+
+# Multiple columns in UNNEST with and without alias.
+CREATE index i1 on TestTable UNNEST(KitchenSink.repeated_int32_val AS array_alias,
+  KitchenSink.repeated_int64_val) (repeated_int32_val)
+--
+ERROR: UNNEST expression used with CREATE INDEX does not allow multiple arguments [at 2:3]
+  KitchenSink.repeated_int64_val) (repeated_int32_val)
+  ^
+==
+
+# Array zip mode not allowed.
+CREATE index i1 on TestTable UNNEST(KitchenSink.repeated_int32_val, mode => "PAD") (repeated_int32_val)
+--
+ERROR: UNNEST expression used with CREATE INDEX does not allow named arguments [at 1:69]
+...on TestTable UNNEST(KitchenSink.repeated_int32_val, mode => "PAD") (repeat...
+                                                       ^

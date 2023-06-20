@@ -1920,3 +1920,35 @@ QueryStmt
                 |     +-ColumnRef(type=INT64, column=KeyValue.Key#20)
                 +-input_scan=
                   +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0])
+==
+
+# Multiple columns in UNNEST is not allowed.
+SELECT 1 IN UNNEST([1], [2])
+--
+ERROR: UNNEST expression used with IN operator does not allow multiple arguments [at 1:25]
+SELECT 1 IN UNNEST([1], [2])
+                        ^
+==
+
+# Column with alias in UNNEST is not allowed.
+SELECT 1 IN UNNEST([1] AS array_alias)
+--
+ERROR: UNNEST expression used with IN operator does not allow argument aliases inside UNNEST [at 1:24]
+SELECT 1 IN UNNEST([1] AS array_alias)
+                       ^
+==
+
+# Multiple columns with and without aliases are not allowed.
+SELECT 1 IN UNNEST([1] AS array_alias, [2])
+--
+ERROR: UNNEST expression used with IN operator does not allow multiple arguments [at 1:40]
+SELECT 1 IN UNNEST([1] AS array_alias, [2])
+                                       ^
+==
+
+# Array zip mode is not allowed.
+SELECT 1 IN UNNEST([1], mode => "STRICT")
+--
+ERROR: UNNEST expression used with IN operator does not allow named arguments [at 1:25]
+SELECT 1 IN UNNEST([1], mode => "STRICT")
+                        ^

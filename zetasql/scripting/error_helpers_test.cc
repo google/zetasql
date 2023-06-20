@@ -88,7 +88,7 @@ void TestConvertErrorWithSource(
       static_cast<int>(error_stmt_text.find("outer_error_location")));
 
   absl::Status outer_status = ConvertInternalErrorLocationToExternal(
-      MakeSqlError().Attach(
+      MakeSqlError().AttachPayload(
           SetErrorSourcesFromStatus(outer_location, inner_status,
                                     inner_error_message_mode, error_stmt_text))
           << "outer error",
@@ -147,8 +147,8 @@ TEST(ConvertLocalErrorToScriptError, InvalidErrorLocation) {
   error_location.set_line(2);
   error_location.set_column(1);
 
-  absl::Status invalid_status = MakeSqlError().Attach(error_location)
-      << "Test error message";
+  absl::Status invalid_status = MakeSqlError().AttachPayload(error_location)
+                                << "Test error message";
 
   EXPECT_THAT(
       ConvertStatus(invalid_status, error_stmt_segment),

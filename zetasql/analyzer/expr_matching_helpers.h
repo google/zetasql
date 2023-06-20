@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 
+#include "zetasql/analyzer/name_scope.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
 
@@ -33,6 +34,11 @@ namespace zetasql {
 // not explicitly checked by it - expressions are considered not the same.
 absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
                                                 const ResolvedExpr* expr2);
+
+// Checks whether the expression references any non-local and non-correlated
+// column.
+absl::StatusOr<bool> ExprReferencesNonCorrelatedColumn(
+    const ResolvedExpr& expr);
 
 // Hashing function for field paths, which enables faster set lookups and
 // insertions.

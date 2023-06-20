@@ -443,7 +443,7 @@ see [Bytes literals][bytes-literals].
 </tbody>
 </table>
 
-The date type represents a logical calendar date, independent of time zone. A
+The date type represents a Gregorian calendar date, independent of time zone. A
 date value does not represent a specific 24-hour time period. Rather, a given
 date value represents a different 24-hour period when interpreted in different
 time zones, and may represent a shorter or longer day during Daylight Savings
@@ -451,15 +451,16 @@ Time transitions.
 To represent an absolute point in time,
 use a [timestamp][timestamp-type].
 
-##### Canonical format
+##### Canonical format 
+<a id="canonical_format_for_date_literals"></a>
 
 ```
-'YYYY-[M]M-[D]D'
+YYYY-[M]M-[D]D
 ```
 
-+ `YYYY`: Four-digit year
-+ `[M]M`: One or two digit month
-+ `[D]D`: One or two digit day
++ `YYYY`: Four-digit year.
++ `[M]M`: One or two digit month.
++ `[D]D`: One or two digit day.
 
 To learn more about the literal representation of a date type,
 see [Date literals][date-literals].
@@ -487,29 +488,37 @@ see [Date literals][date-literals].
 </tbody>
 </table>
 
-A datetime value represents a date and time, as they might be displayed
-on a watch, independent of time zone.
+A datetime value represents a Gregorian date and a time,
+as they might be displayed on a watch, independent of time zone.
 It includes the year, month, day, hour, minute, second,
 and subsecond.
 The range of subsecond precision is determined by the SQL engine.
 To represent an absolute point in time,
 use a [timestamp][timestamp-type].
 
-##### Canonical format
+##### Canonical format 
+<a id="canonical_format_for_datetime_literals"></a>
 
 ```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]]
+civil_date_part[time_part]
+
+civil_date_part:
+    YYYY-[M]M-[D]D
+
+time_part:
+    { |T|t}[H]H:[M]M:[S]S[.F]
 ```
 
-+ <code>YYYY</code>: Four-digit year
-+ <code>[M]M</code>: One or two digit month
-+ <code>[D]D</code>: One or two digit day
-+ <code>( |T)</code>: A space or a `T` separator
-+ <code>[H]H</code>: One or two digit hour (valid values from 00 to 23)
-+ <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)
-+ <code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)
++ <code>YYYY</code>: Four-digit year.
++ <code>[M]M</code>: One or two digit month.
++ <code>[D]D</code>: One or two digit day.
++ <code>{ |T|t}</code>: A space or a `T` or `t` separator. The `T` and `t`
+  separators are flags for time.
++ <code>[H]H</code>: One or two digit hour (valid values from 00 to 23).
++ <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59).
++ <code>[S]S</code>: One or two digit seconds (valid values from 00 to 60).
 + <code>[.F]</code>: Up to nine fractional
-  digits (nanosecond precision)
+  digits (nanosecond precision).
 
 To learn more about the literal representation of a datetime type,
 see [Datetime literals][datetime-literals].
@@ -1121,7 +1130,7 @@ calculations.
   <td style="vertical-align:middle">
     Precision: 38<br>
     Scale: 9<br>
-    Minimum value greater than 0 that can be handled: 1e9<br>
+    Minimum value greater than 0 that can be handled: 1e-9<br>
     Min: -9.9999999999999999999999999999999999999E+28<br>
     Max: 9.9999999999999999999999999999999999999E+28<br>
   </td>
@@ -1133,7 +1142,7 @@ calculations.
   <td style="vertical-align:middle">
     Precision: 76.76 (the 77th digit is partial)<br>
     Scale: 38<br>
-    Minimum value greater than 0 that can be handled: 1e38<br>
+    Minimum value greater than 0 that can be handled: 1e-38<br>
     Min: <small>-5.7896044618658097711785492504343953926634992332820282019728792003956564819968E+38</small><br>
     Max: <small>5.7896044618658097711785492504343953926634992332820282019728792003956564819967E+38</small><br>
   </td>
@@ -1365,8 +1374,8 @@ presence of optional fields.
 Protocol buffer enum types are also available and can be referenced using the
 fully-qualified enum type name.
 
-To learn more about using protocol buffers in ZetaSQL, see [Work with
-protocol buffers][protocol-buffers].
+To learn more about using protocol buffers in ZetaSQL, see
+[Work with protocol buffers][protocol-buffers].
 
 ### Constructing a protocol buffer 
 <a id="constructing_a_proto"></a>
@@ -1984,17 +1993,18 @@ subsecond precision is determined by the
 SQL engine. To represent
 an absolute point in time, use a [timestamp][timestamp-type].
 
-##### Canonical format
+##### Canonical format 
+<a id="canonical_format_for_time_literals"></a>
 
 ```
 [H]H:[M]M:[S]S[.DDDDDD|.F]
 ```
 
-+ <code>[H]H</code>: One or two digit hour (valid values from 00 to 23)
-+ <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)
-+ <code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)
++ <code>[H]H</code>: One or two digit hour (valid values from 00 to 23).
++ <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59).
++ <code>[S]S</code>: One or two digit seconds (valid values from 00 to 60).
 + <code>[.F]</code>: Up to nine fractional
-  digits (nanosecond precision)
+  digits (nanosecond precision).
 
 To learn more about the literal representation of a time type,
 see [Time literals][time-literals].
@@ -2036,43 +2046,48 @@ since a fixed initial point in time.
 
 Note that a timestamp itself does not have a time zone; it represents the same
 instant in time globally. However, the _display_ of a timestamp for human
-readability usually includes a date, a time, and a time zone, in an
+readability usually includes a Gregorian date, a time, and a time zone, in an
 implementation-dependent format. For example, the displayed values "2020-01-01
 00:00:00 UTC", "2019-12-31 19:00:00 America/New_York", and "2020-01-01 05:30:00
 Asia/Kolkata" all represent the same instant in time and therefore represent the
 same timestamp value.
 
-+  To represent a date as it might appear on a calendar (a civil date),
-   use a [date][date-type] value.
++  To represent a Gregorian date as it might appear on a calendar
+   (a civil date), use a [date][date-type] value.
 +  To represent a time as it might appear on a clock (a civil time),
    use a [time][time-type] value.
-+  To represent a date and time as they might appear on a watch,
++  To represent a Gregorian date and time as they might appear on a watch,
    use a [datetime][datetime-type] value.
 
-##### Canonical format for timestamp literals
+##### Canonical format 
+<a id="canonical_format_for_timestamp_literals"></a>
 
 The canonical format for a timestamp literal has the following parts:
 
 ```
 {
-  civil_date_time [time_zone] |
-  civil_date_time[time_zone_offset] |
-  civil_date_time[utc_time_zone]
+  civil_date_part[time_part [time_zone]] |
+  civil_date_part[time_part[time_zone_offset]] |
+  civil_date_part[time_part[utc_time_zone]]
 }
 
-civil_date_time:
-    YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]]
+civil_date_part:
+    YYYY-[M]M-[D]D
+
+time_part:
+    { |T|t}[H]H:[M]M:[S]S[.F]
 ```
 
-+   <code>YYYY</code>: Four-digit year
-+   <code>[M]M</code>: One or two digit month
-+   <code>[D]D</code>: One or two digit day
-+   <code>( |T)</code>: A space or a `T` separator
-+   <code>[H]H</code>: One or two digit hour (valid values from 00 to 23)
-+   <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)
-+   <code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)
++   <code>YYYY</code>: Four-digit year.
++   <code>[M]M</code>: One or two digit month.
++   <code>[D]D</code>: One or two digit day.
++   <code>{ |T|t}</code>: A space or a `T` or `t` separator. The `T` and `t`
+    separators are flags for time.
++   <code>[H]H</code>: One or two digit hour (valid values from 00 to 23).
++   <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59).
++   <code>[S]S</code>: One or two digit seconds (valid values from 00 to 60).
 +   <code>[.F]</code>: Up to nine fractional
-    digits (nanosecond precision)
+    digits (nanosecond precision).
 +   <code>[time_zone]</code>: String representing the time zone. When a time
     zone is not explicitly specified, the default time zone,
     which is implementation defined, is used. For details, see <a href="#time_zones">time
@@ -2081,7 +2096,7 @@ civil_date_time:
     Coordinated Universal Time (UTC) time zone. For details, see
     <a href="#time_zones">time zones</a>.
 +   <code>[utc_time_zone]</code>: String representing the Coordinated Universal
-    Time (UTC), usually the letter `Z`. For details, see
+    Time (UTC), usually the letter `Z` or `z`. For details, see
     <a href="#time_zones">time zones</a>.
 
 To learn more about the literal representation of a timestamp type,
@@ -2099,8 +2114,10 @@ instant in time globally.
 
 Time zones are represented by strings in one of these canonical formats:
 
-+ Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
-+ Time zone name from the [tz database][tz-database]{: class=external target=_blank }
++ Offset from Coordinated Universal Time (UTC), or the letter `Z` or `z` for
+  UTC.
++ Time zone name from the
+  [tz database][tz-database]{: class=external target=_blank }.
 
 The following timestamps are identical because the time zone offset
 for `America/Los_Angeles` is `-08` for the specified date and time.
@@ -2113,14 +2130,20 @@ SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00 America/Los_Angeles') AS milli
 SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00-08:00') AS millis;
 ```
 
-#### Offset from Coordinated Universal Time (UTC)
+#### Offset from Coordinated Universal Time (UTC) 
+<a id="utc_offset"></a>
+
+Format:
 
 ```
-(+|-)H[H][:M[M]]
-Z
+{+|-}H[H][:M[M]]
 ```
 
-**Examples**
+```
+{Z|z}
+```
+
+Examples:
 
 ```
 -08:00
@@ -2141,20 +2164,25 @@ of the timestamp.
 
 #### Time zone name
 
+Format:
+
 ```
-continent/[region/]city
+tz_identifier
 ```
 
-Time zone names are from the [tz database][tz-database]{: class=external target=_blank }.
+A time zone name is a tz identifier from the
+[tz database][tz-database]{: class=external target=_blank }.
 For a less comprehensive but simpler reference, see the
 [List of tz database time zones][tz-database-list]{: class=external target=_blank }
 on Wikipedia.
 
-**Examples**
+Examples:
 
 ```
 America/Los_Angeles
 America/Argentina/Buenos_Aires
+Etc/UTC
+Pacific/Auckland
 ```
 
 When using a time zone name, a space is required between the name and the rest

@@ -25,6 +25,7 @@
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/bison_parser.bison.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace parser {
@@ -156,16 +157,15 @@ static std::stack<ASTNode*> FlattenJoinExpression(ASTNode* node) {
 ASTNode* MakeInternalError(
     ErrorInfo* error_info,
     const zetasql_bison_parser::location& error_location,
-    const std::string& error_message) {
+    absl::string_view error_message) {
   error_info->location = error_location;
   error_info->message = absl::StrCat("Internal error: ", error_message);
   return nullptr;
 }
 
-ASTNode* MakeSyntaxError(
-    ErrorInfo* error_info,
-    const zetasql_bison_parser::location& error_location,
-    const std::string& error_message) {
+ASTNode* MakeSyntaxError(ErrorInfo* error_info,
+                         const zetasql_bison_parser::location& error_location,
+                         absl::string_view error_message) {
   error_info->location = error_location;
   error_info->message = absl::StrCat("Syntax error: ", error_message);
   return nullptr;

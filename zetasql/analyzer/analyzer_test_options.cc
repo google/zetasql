@@ -47,6 +47,7 @@ const char* const kShowTableResolutionTime = "show_table_resolution_time";
 const char* const kShowResolvedAST = "show_resolved_ast";
 const char* const kShowStrictMode = "show_strict_mode";
 const char* const kParseLocationRecordType = "parse_location_record_type";
+const char* const kDoNotShowReplacedLiterals = "do_not_show_replaced_literals";
 const char* const kCreateNewColumnForEachProjectedOutput =
     "create_new_column_for_each_projected_output";
 const char* const kParseMultiple = "parse_multiple";
@@ -94,6 +95,9 @@ const char* const kScrubLimitOffsetInLiteralReplacement =
 const char* const kSetFlag = "set_flag";
 const char* const kAlsoShowSignatureMismatchDetails =
     "also_show_signature_mismatch_details";
+const char* const kIdStringAllowUnicodeCharacters =
+    "zetasql_idstring_allow_unicode_characters";
+const char* const kDisallowDuplicateOptions = "disallow_duplicate_options";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -110,6 +114,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kShowResolvedAST, true);
   test_case_options->RegisterBool(kShowStrictMode, false);
   test_case_options->RegisterString(kParseLocationRecordType, "");
+  test_case_options->RegisterBool(kDoNotShowReplacedLiterals, false);
   test_case_options->RegisterBool(kCreateNewColumnForEachProjectedOutput,
                                   false);
   test_case_options->RegisterBool(kEnableSampleAnnotation, false);
@@ -150,6 +155,8 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kScrubLimitOffsetInLiteralReplacement, true);
   test_case_options->RegisterString(kSetFlag, "");
   test_case_options->RegisterBool(kAlsoShowSignatureMismatchDetails, false);
+  test_case_options->RegisterBool(kIdStringAllowUnicodeCharacters, false);
+  test_case_options->RegisterBool(kDisallowDuplicateOptions, false);
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(

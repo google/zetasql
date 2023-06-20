@@ -2,7 +2,7 @@
 # Which replaces group_selection_threshold_expr with the user defined function
 # counting unique user counts.
 # More details are in (broken link).
-[default language_features=DIFFERENTIAL_PRIVACY,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,DIFFERENTIAL_PRIVACY_THRESHOLDING,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,NAMED_ARGUMENTS,JSON_TYPE]
+[default language_features=DIFFERENTIAL_PRIVACY,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,DIFFERENTIAL_PRIVACY_THRESHOLDING,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,NAMED_ARGUMENTS,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 
 #########################################
@@ -10,7 +10,7 @@
 #########################################
 
 # Count star counting unique users.
-# We should use this count for group_selection_threshold.
+# We should use this count for group_selection_threshold_expr.
 select with differential_privacy count(*, contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
 --
@@ -64,7 +64,8 @@ QueryStmt
 ==
 
 # Count star counting unique users with PROTO result.
-# TODO use this count (extracted from the result PROTO) for group_selection_threshold.
+# We should use this count (extracted from the result PROTO) for
+# group_selection_threshold.
 [no_enable_literal_replacement]
 select with differential_privacy count(*, contribution_bounds_per_group => (0, 1),  report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
@@ -107,16 +108,22 @@ QueryStmt
         |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-aggregate_list=
         | +-$agg1#13 :=
-        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
-        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
-        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
-        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
-        | +-$group_selection_threshold_col#20 :=
-        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |     +-Literal(type=INT64, value=1)
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        |     +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
-          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
+          +-GetProtoField
+            +-type=INT64
+            +-expr=
+            | +-GetProtoField
+            |   +-type=PROTO<zetasql.functions.DifferentialPrivacyOutputValue>
+            |   +-expr=
+            |   | +-ColumnRef(type=PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>, column=$aggregate.$agg1#13)
+            |   +-field_descriptor=value
+            |   +-default_value=NULL
+            +-field_descriptor=int_value
+            +-default_value=NULL
 
 [TableScan Groups]
 {
@@ -125,7 +132,8 @@ QueryStmt
 ==
 
 # Count star counting unique users with JSON result.
-# TODO use this count (extracted from the result JSON) for group_selection_threshold.
+# We should use this count (extracted from the result JSON) for
+# group_selection_threshold.
 [no_enable_literal_replacement]
 select with differential_privacy count(*, contribution_bounds_per_group => (0, 1),  report_format => "JSON")
 from SimpleTypesWithAnonymizationUid;
@@ -168,10 +176,133 @@ QueryStmt
         |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-aggregate_list=
         | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        |     +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-FunctionCall(ZetaSQL:int64(JSON) -> INT64)
+            +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
+              +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
+              +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[no_enable_literal_replacement]
+# Incorrect bounds for count star function. It doesn't correspond to
+# unique users count, therefore we shouldn't replace group_selection_threshold
+# with this count.
+select with differential_privacy count(*, contribution_bounds_per_group => (0, 2), report_format => "PROTO")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+              +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+        | +-$group_selection_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[no_enable_literal_replacement]
+# Incorrect bounds for count star function. It doesn't correspond to
+# unique users count, therefore we shouldn't replace group_selection_threshold
+# with this count.
+select with differential_privacy count(*, contribution_bounds_per_group => (0, 2), report_format => "JSON")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
+              +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#13 :=
         | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
         | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
         | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
-        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
         | +-$group_selection_threshold_col#20 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
         |     +-Literal(type=INT64, value=1)
@@ -186,7 +317,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for count star function. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy count(*, contribution_bounds_per_group => (-1, 1))
 from SimpleTypesWithAnonymizationUid;
@@ -245,7 +376,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for count star function. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy count(*, contribution_bounds_per_group => (0, 2))
 from SimpleTypesWithAnonymizationUid;
@@ -304,7 +435,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for count star function. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy count(*, contribution_bounds_per_group => (-2, -1))
 from SimpleTypesWithAnonymizationUid;
@@ -415,6 +546,124 @@ QueryStmt
 
 ==
 
+[language_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,DIFFERENTIAL_PRIVACY_THRESHOLDING,NAMED_ARGUMENTS,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+# Count star with max_groups_contributed or max_rows_contributed
+# We should use this count for group_selection_threshold_expr.
+select with differential_privacy options ({{max_groups_contributed|max_rows_contributed}}=5)
+count(*, contribution_bounds_per_group => (0, 1))
+from SimpleTypesWithAnonymizationUid;
+--
+ALTERNATION GROUP: max_groups_contributed
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=5)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-SampleScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-AggregateScan
+        |   |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   |   +-input_scan=
+        |   |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   |   +-group_by_list=
+        |   |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   |   +-aggregate_list=
+        |   |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=5)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=$group_by.$uid#17)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+        | +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
+        +-option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=5)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+--
+ALTERNATION GROUP: max_rows_contributed
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-option_list=
+          +-max_rows_contributed := Literal(type=INT64, value=5)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+        | +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
+        +-option_list=
+          +-max_rows_contributed := Literal(type=INT64, value=5)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
 #########################################
 ########## COUNT($X) ###############
 #########################################
@@ -422,7 +671,7 @@ QueryStmt
 [language_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_THRESHOLDING,NAMED_ARGUMENTS,NUMERIC_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 # Count(non-NULL literal) counting unique users.
-# We should use this count for group_selection_threshold.
+# We should use this count for group_selection_threshold_expr.
 select with differential_privacy count({{1|123.456e-67|"1"|true|DATE '2022-11-17'|NUMERIC '0'|[1, 2, 3]}}, contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
 --
@@ -799,7 +1048,8 @@ QueryStmt
 ==
 
 # Count(1) counting unique users with PROTO result.
-# TODO use this count (extracted from the result PROTO) for group_selection_threshold.
+# We should use this count (extracted from the result PROTO) for
+# group_selection_threshold.
 [no_enable_literal_replacement]
 select with differential_privacy count(1, contribution_bounds_per_group => (0, 1),  report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
@@ -845,16 +1095,22 @@ QueryStmt
         |         +-Literal(type=INT64, value=1)
         +-aggregate_list=
         | +-$agg1#13 :=
-        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
-        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
-        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
-        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
-        | +-$group_selection_threshold_col#20 :=
-        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |     +-Literal(type=INT64, value=1)
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        |     +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
-          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
+          +-GetProtoField
+            +-type=INT64
+            +-expr=
+            | +-GetProtoField
+            |   +-type=PROTO<zetasql.functions.DifferentialPrivacyOutputValue>
+            |   +-expr=
+            |   | +-ColumnRef(type=PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>, column=$aggregate.$agg1#13)
+            |   +-field_descriptor=value
+            |   +-default_value=NULL
+            +-field_descriptor=int_value
+            +-default_value=NULL
 
 [TableScan Groups]
 {
@@ -864,7 +1120,8 @@ QueryStmt
 
 [no_enable_literal_replacement]
 # Count(1) counting unique users with JSON result.
-# TODO use this count (extracted from the result JSON) for group_selection_threshold.
+# We should use this count (extracted from the result JSON) for
+# group_selection_threshold.
 select with differential_privacy count(1, contribution_bounds_per_group => (0, 1),  report_format => "JSON")
 from SimpleTypesWithAnonymizationUid;
 --
@@ -909,10 +1166,139 @@ QueryStmt
         |         +-Literal(type=INT64, value=1)
         +-aggregate_list=
         | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        |     +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-FunctionCall(ZetaSQL:int64(JSON) -> INT64)
+            +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
+              +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
+              +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[no_enable_literal_replacement]
+# Incorrect bounds for count function. It doesn't correspond to
+# unique users count, therefore we shouldn't replace group_selection_threshold
+# with this count.
+select with differential_privacy count(1, contribution_bounds_per_group => (0, 2), report_format => "PROTO")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+              +-Literal(type=INT64, value=1)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+              +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+        |         +-Literal(type=INT64, value=1)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+        | +-$group_selection_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[no_enable_literal_replacement]
+# Incorrect bounds for count function. It doesn't correspond to
+# unique users count, therefore we shouldn't replace group_selection_threshold
+# with this count.
+select with differential_privacy count(1, contribution_bounds_per_group => (0, 2), report_format => "JSON")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
+              +-Literal(type=INT64, value=1)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
+              +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+        |         +-Literal(type=INT64, value=1)
+        +-aggregate_list=
+        | +-$agg1#13 :=
         | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
         | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
         | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
-        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
         | +-$group_selection_threshold_col#20 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
         |     +-Literal(type=INT64, value=1)
@@ -927,7 +1313,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for count function. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy count(1, contribution_bounds_per_group => (-1, 1))
 from SimpleTypesWithAnonymizationUid;
@@ -989,7 +1375,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for count function. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy count(1, contribution_bounds_per_group => (0, 2))
 from SimpleTypesWithAnonymizationUid;
@@ -1051,7 +1437,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for count function. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy count(1, contribution_bounds_per_group => (-2, -1))
 from SimpleTypesWithAnonymizationUid;
@@ -1179,7 +1565,7 @@ QueryStmt
 ==
 
 # Count of NULL always equals to 0. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy count(NULL, contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
@@ -1245,7 +1631,7 @@ QueryStmt
 #########################################
 
 # Count(uid) counting unique users.
-# We should use this count for group_selection_threshold.
+# We should use this count for group_selection_threshold_expr.
 select with differential_privacy count(uid, contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
 --
@@ -1302,7 +1688,7 @@ QueryStmt
 ==
 
 # Count(alias for uid) counting unique users.
-# We should use this count for group_selection_threshold.
+# We should use this count for group_selection_threshold_expr.
 select with differential_privacy count(b, contribution_bounds_per_group => (0, 1))
   from (
     select a as b
@@ -1441,7 +1827,8 @@ QueryStmt
 ==
 
 # Count(uid) counting unique users with PROTO result.
-# TODO use this count (extracted from the result PROTO) for group_selection_threshold.
+# We should use this count (extracted from the result PROTO) for
+# group_selection_threshold.
 [no_enable_literal_replacement]
 select with differential_privacy count(uid, contribution_bounds_per_group => (0, 1),  report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
@@ -1487,16 +1874,22 @@ QueryStmt
         |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         +-aggregate_list=
         | +-$agg1#13 :=
-        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
-        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#15)
-        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
-        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
-        | +-$group_selection_threshold_col#19 :=
-        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |     +-Literal(type=INT64, value=1)
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#15)
+        |     +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
-          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#19)
+          +-GetProtoField
+            +-type=INT64
+            +-expr=
+            | +-GetProtoField
+            |   +-type=PROTO<zetasql.functions.DifferentialPrivacyOutputValue>
+            |   +-expr=
+            |   | +-ColumnRef(type=PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>, column=$aggregate.$agg1#13)
+            |   +-field_descriptor=value
+            |   +-default_value=NULL
+            +-field_descriptor=int_value
+            +-default_value=NULL
 
 [TableScan Groups]
 {
@@ -1506,7 +1899,8 @@ QueryStmt
 
 [no_enable_literal_replacement]
 # Count(uid) counting unique users with JSON result.
-# TODO use this count (extracted from the result JSON) for group_selection_threshold.
+# We should use this count (extracted from the result JSON) for
+# group_selection_threshold.
 select with differential_privacy count(uid, contribution_bounds_per_group => (0, 1),  report_format => "JSON")
 from SimpleTypesWithAnonymizationUid;
 --
@@ -1551,10 +1945,139 @@ QueryStmt
         |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         +-aggregate_list=
         | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#15)
+        |     +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-FunctionCall(ZetaSQL:int64(JSON) -> INT64)
+            +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
+              +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
+              +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[no_enable_literal_replacement]
+# Incorrect bounds for count(uid) function. It doesn't correspond to
+# unique users count, therefore we shouldn't replace group_selection_threshold
+# with this count.
+select with differential_privacy count(uid, contribution_bounds_per_group => (0, 2), report_format => "PROTO")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+              +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#15, $group_by.$uid#16]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#16 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#15 :=
+        |       +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#15)
+        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+        | +-$group_selection_threshold_col#19 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#19)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[no_enable_literal_replacement]
+# Incorrect bounds for count(uid) function. It doesn't correspond to
+# unique users count, therefore we shouldn't replace group_selection_threshold
+# with this count.
+select with differential_privacy count(uid, contribution_bounds_per_group => (0, 2), report_format => "JSON")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
+              +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#15, $group_by.$uid#16]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#16 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#15 :=
+        |       +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        +-aggregate_list=
+        | +-$agg1#13 :=
         | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
         | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#15)
         | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
-        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
         | +-$group_selection_threshold_col#19 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
         |     +-Literal(type=INT64, value=1)
@@ -1569,7 +2092,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for count(uid) function (doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count).
 select with differential_privacy count(uid, contribution_bounds_per_group => (-1, 1))
 from SimpleTypesWithAnonymizationUid;
@@ -1631,7 +2154,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for count(uid) function (doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count).
 select with differential_privacy count(uid, contribution_bounds_per_group => (0, 2))
 from SimpleTypesWithAnonymizationUid;
@@ -1693,7 +2216,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for count(uid) function (doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count).
 select with differential_privacy count(uid, contribution_bounds_per_group => (-2, -1))
 from SimpleTypesWithAnonymizationUid;
@@ -1759,7 +2282,7 @@ QueryStmt
 #########################################
 
 # sum(1) calculating unique users.
-# We should use this sum for group_selection_threshold.
+# We should use this sum for group_selection_threshold_expr.
 select with differential_privacy sum(1, contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
 --
@@ -1816,7 +2339,8 @@ QueryStmt
 ==
 
 # Sum(1) counting unique users with PROTO result.
-# TODO use this count (extracted from the result PROTO) for group_selection_threshold.
+# We should use this count (extracted from the result PROTO) for
+# group_selection_threshold.
 [no_enable_literal_replacement]
 select with differential_privacy sum(1, contribution_bounds_per_group => (0, 1),  report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
@@ -1862,16 +2386,22 @@ QueryStmt
         |         +-Literal(type=INT64, value=1)
         +-aggregate_list=
         | +-$agg1#13 :=
-        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
-        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
-        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
-        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
-        | +-$group_selection_threshold_col#20 :=
-        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |     +-Literal(type=INT64, value=1)
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        |     +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
-          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
+          +-GetProtoField
+            +-type=INT64
+            +-expr=
+            | +-GetProtoField
+            |   +-type=PROTO<zetasql.functions.DifferentialPrivacyOutputValue>
+            |   +-expr=
+            |   | +-ColumnRef(type=PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>, column=$aggregate.$agg1#13)
+            |   +-field_descriptor=value
+            |   +-default_value=NULL
+            +-field_descriptor=int_value
+            +-default_value=NULL
 
 [TableScan Groups]
 {
@@ -1881,7 +2411,8 @@ QueryStmt
 
 [no_enable_literal_replacement]
 # Sum(1) counting unique users with JSON result.
-# TODO use this count (extracted from the result JSON) for group_selection_threshold.
+# We should use this count (extracted from the result JSON) for
+# group_selection_threshold.
 select with differential_privacy sum(1, contribution_bounds_per_group => (0, 1),  report_format => "JSON")
 from SimpleTypesWithAnonymizationUid;
 --
@@ -1926,10 +2457,139 @@ QueryStmt
         |         +-Literal(type=INT64, value=1)
         +-aggregate_list=
         | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        |     +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-FunctionCall(ZetaSQL:int64(JSON) -> INT64)
+            +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
+              +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
+              +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[no_enable_literal_replacement]
+# Incorrect bounds for sum(1) function. It doesn't correspond to
+# unique users count, therefore we shouldn't replace group_selection_threshold
+# with this count.
+select with differential_privacy sum(1, contribution_bounds_per_group => (0, 2), report_format => "PROTO")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+              +-Literal(type=INT64, value=1)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+              +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-Literal(type=INT64, value=1)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=PROTO)
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+        | +-$group_selection_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[no_enable_literal_replacement]
+# Incorrect bounds for sum(1) function. It doesn't correspond to
+# unique users count, therefore we shouldn't replace group_selection_threshold
+# with this count.
+select with differential_privacy sum(1, contribution_bounds_per_group => (0, 2), report_format => "JSON")
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
+              +-Literal(type=INT64, value=1)
+              +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
+              +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-Literal(type=INT64, value=1)
+        +-aggregate_list=
+        | +-$agg1#13 :=
         | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
         | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
         | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
-        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 2})
         | +-$group_selection_threshold_col#20 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
         |     +-Literal(type=INT64, value=1)
@@ -1944,7 +2604,8 @@ QueryStmt
 ==
 
 # sum(1) with uint64 type calculating unique users.
-# TODO use this sum for group_selection_threshold.
+# We should not use this count for group_selection_threshold because for the
+# new syntax group_selection_threshold is expected to be int64.
 select with differential_privacy SUM(cast(1 as uint64), contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
 --
@@ -2005,7 +2666,8 @@ QueryStmt
 ==
 
 # Sum(1) with uint64 type counting unique users with PROTO result.
-# TODO use this sum (extracted from the result PROTO) for group_selection_threshold.
+# We should not use this count for group_selection_threshold because for the
+# new syntax group_selection_threshold is expected to be int64.
 [no_enable_literal_replacement]
 select with differential_privacy sum(cast(1 as uint64), contribution_bounds_per_group => (0, 1),  report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
@@ -2070,7 +2732,8 @@ QueryStmt
 
 [no_enable_literal_replacement]
 # Sum(1) with uint64 type counting unique users with JSON result.
-# TODO use this sum (extracted from the result JSON) for group_selection_threshold.
+# We should not use this count for group_selection_threshold because for the
+# new syntax group_selection_threshold is expected to be int64.
 select with differential_privacy sum(cast(1 as uint64), contribution_bounds_per_group => (0, 1),  report_format => "JSON")
 from SimpleTypesWithAnonymizationUid;
 --
@@ -2133,7 +2796,8 @@ QueryStmt
 ==
 
 # sum(1) with NUMERIC type calculating unique users.
-# TODO use this sum for group_selection_threshold.
+# We should not use this count for group_selection_threshold because for the
+# new syntax group_selection_threshold is expected to be int64.
 [language_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_THRESHOLDING,NAMED_ARGUMENTS,NUMERIC_TYPE]
 select with differential_privacy SUM(cast(1 as NUMERIC), contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
@@ -2195,7 +2859,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for sum(1) function. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy sum(1, contribution_bounds_per_group => (-1, 1))
 from SimpleTypesWithAnonymizationUid;
@@ -2257,7 +2921,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for sum(1) function. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy sum(1, contribution_bounds_per_group => (0, 2))
 from SimpleTypesWithAnonymizationUid;
@@ -2319,7 +2983,7 @@ QueryStmt
 ==
 
 # Incorrect bounds for sum(1) function. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy sum(1, contribution_bounds_per_group => (-2, -1))
 from SimpleTypesWithAnonymizationUid;
@@ -2381,7 +3045,7 @@ QueryStmt
 ==
 
 # Sum always equals to 0. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy sum(0, contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
@@ -2443,7 +3107,7 @@ QueryStmt
 ==
 
 # Sum always equals to 0 after clamping. It doesn't correspond to
-# unique users count, therefore we shouldn't replace group_selection_threshold
+# unique users count, therefore we shouldn't replace group_selection_threshold_expr
 # with this count.
 select with differential_privacy sum(-1, contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
@@ -2505,7 +3169,7 @@ QueryStmt
 ==
 
 # Sum of NULL don't make sense for counting unique users,
-# therefore we shouldn't replace group_selection_threshold with this count.
+# therefore we shouldn't replace group_selection_threshold_expr with this count.
 select with differential_privacy sum(NULL, contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
 --
@@ -2565,7 +3229,7 @@ QueryStmt
 }
 ==
 
-# Sum of doubles. We are not supporting these functions for group_selection_threshold
+# Sum of doubles. We are not supporting these functions for group_selection_threshold_expr
 # replacement due to possible accumulation of floating point errors.
 select with differential_privacy SUM(1.0, contribution_bounds_per_group => (0.0, 1.0))
 from SimpleTypesWithAnonymizationUid;
@@ -2627,7 +3291,7 @@ QueryStmt
 ==
 
 # Sum of doubles with PROTO result. We are not supporting these functions for
-# group_selection_threshold replacement due to possible accumulation of floating point errors.
+# group_selection_threshold_expr replacement due to possible accumulation of floating point errors.
 [no_enable_literal_replacement]
 select with differential_privacy sum(1.0, contribution_bounds_per_group => (0.0, 1.0),  report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
@@ -2692,7 +3356,7 @@ QueryStmt
 
 [no_enable_literal_replacement]
 # Sum of doubles with JSON result. We are not supporting these functions for
-# group_selection_threshold replacement due to possible accumulation of floating point errors.
+# group_selection_threshold_expr replacement due to possible accumulation of floating point errors.
 select with differential_privacy sum(1.0, contribution_bounds_per_group => (0.0, 1.0),  report_format => "JSON")
 from SimpleTypesWithAnonymizationUid;
 --
@@ -2803,16 +3467,15 @@ QueryStmt
         |         +-Literal(type=INT64, value=1)
         +-aggregate_list=
         | +-$agg1#13 :=
-        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
-        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
-        | |   +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
-        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
-        | +-$group_selection_threshold_col#20 :=
-        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |     +-Literal(type=INT64, value=1)
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT> report_format, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> JSON)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        |     +-Literal(type=ENUM<DIFFERENTIAL_PRIVACY_REPORT_FORMAT>, value=JSON)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
-          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
+          +-FunctionCall(ZetaSQL:int64(JSON) -> INT64)
+            +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
+              +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
+              +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
 
 [TableScan Groups]
 {
@@ -2891,7 +3554,7 @@ QueryStmt
 #########################################
 
 # Two counters counting unique users.
-# We should use the first such counter for group_selection_threshold.
+# We should use the first such counter for group_selection_threshold_expr.
 select with differential_privacy count(*, contribution_bounds_per_group => (0, 1)) as count1,
 count(1, contribution_bounds_per_group => (0, 1)) as count2
 from SimpleTypesWithAnonymizationUid;
@@ -2956,3 +3619,4 @@ QueryStmt
 {
   TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
 }
+==

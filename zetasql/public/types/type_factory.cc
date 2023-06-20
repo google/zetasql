@@ -38,6 +38,7 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
+#include "zetasql/public/functions/range_sessionize_mode.pb.h"
 #include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
@@ -782,11 +783,13 @@ absl::Status TypeFactory::GetProtoFieldType(
 }
 
 absl::StatusOr<const AnnotationMap*> TypeFactory::TakeOwnership(
-    std::unique_ptr<AnnotationMap> annotation_map) {
+    std::unique_ptr<AnnotationMap> annotation_map, bool normalize) {
   // TODO: look up in cache and return deduped AnnotationMap
   // pointer.
   ZETASQL_RET_CHECK(annotation_map != nullptr);
-  annotation_map->Normalize();
+  if (normalize) {
+    annotation_map->Normalize();
+  }
   return TakeOwnershipInternal(annotation_map.release());
 }
 
@@ -1018,6 +1021,18 @@ static const EnumType* GetDifferentialPrivacyReportFormatEnumType() {
   return s_differential_privacy_report_format_enum_type;
 }
 
+static const EnumType* GetRangeSessionizeModeEnumType() {
+  static const EnumType* s_range_sessionize_option_enum_type = [] {
+    const EnumType* enum_type;
+    ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
+        s_type_factory(),
+        functions::RangeSessionizeEnums::RangeSessionizeMode_descriptor(),
+        &enum_type, {}));
+    return enum_type;
+  }();
+  return s_range_sessionize_option_enum_type;
+}
+
 static const StructType* s_empty_struct_type() {
   static const StructType* s_empty_struct_type = [] {
     const StructType* type;
@@ -1181,6 +1196,9 @@ const EnumType* RoundingModeEnumType() { return s_rounding_mode_enum_type(); }
 const EnumType* ArrayFindModeEnumType() { return GetArrayFindModeEnumType(); }
 const EnumType* DifferentialPrivacyReportFormatEnumType() {
   return GetDifferentialPrivacyReportFormatEnumType();
+}
+const EnumType* RangeSessionizeModeEnumType() {
+  return GetRangeSessionizeModeEnumType();
 }
 
 const ArrayType* Int32ArrayType() { return s_int32_array_type(); }

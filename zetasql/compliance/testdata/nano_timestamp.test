@@ -25,7 +25,7 @@ select [cast(timestamp "2015-01-28" as string),
         cast(timestamp "2015-01-28 00:00:00.000000000" as string)]
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>[
+  {ARRAY<STRING>[known order:
      "2015-01-28 00:00:00-08",
      "2015-01-28 00:00:00-08",
      "2015-01-28 00:00:00-08",
@@ -57,7 +57,7 @@ select [cast(timestamp "2015-01-28 00:00:00" as string),
         cast(timestamp "2015-01-28 00:00:00.000000001" as string)]
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>[
+  {ARRAY<STRING>[known order:
      "2015-01-28 00:00:00-08",
      "2015-01-28 00:00:00.100-08",
      "2015-01-28 00:00:00.010-08",

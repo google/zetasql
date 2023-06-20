@@ -285,8 +285,9 @@ std::string ParsedFile::DebugString() const {
                       [this](std::string* out, const absl::Status& status) {
                         absl::StrAppend(
                             out, MaybeUpdateErrorFromPayload(
-                                     ERROR_MESSAGE_MULTI_LINE_WITH_CARET, sql_,
-                                     status)
+                                     ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+                                     /*keep_error_location_payload=*/false,
+                                     sql_, status)
                                      .message());
                       }));
   }

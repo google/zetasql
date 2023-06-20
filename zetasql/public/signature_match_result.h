@@ -22,6 +22,7 @@
 #include <tuple>
 #include <utility>
 
+#include "zetasql/base/logging.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -65,10 +66,32 @@ class SignatureMatchResult {
     literals_distance_ += distance;
   }
 
+  // Returns if the signature matcher is allowed to set mismatch message.
+  // This is for sanity check that we only generate and set mismatch message
+  // when detailed mismatch error message is enabled.
+  bool allow_mismatch_message() const { return allow_mismatch_message_; }
+  void set_allow_mismatch_message(bool allow) {
+    allow_mismatch_message_ = allow;
+  }
+
   // The message about why the siganture doesn't match the function call.
   std::string mismatch_message() const { return mismatch_message_; }
   void set_mismatch_message(absl::string_view message) {
+    ZETASQL_DCHECK(allow_mismatch_message_) << message;
+    ZETASQL_DCHECK(mismatch_message_.empty()) << mismatch_message_;
     mismatch_message_ = message;
+  }
+
+  // Error message for why TVF siganture doesn't match the function call.
+  // If we use mismatch_message_ for tvf, the existing tvf error message will be
+  // changed to include detail about all mismatch cases even if we don't enable
+  // the detailed mismatch error behavior.
+  // TODO: merge the tvf code path with the general detailed
+  // mismatch path.
+  std::string tvf_mismatch_message() const { return tvf_mismatch_message_; }
+  void set_tvf_mismatch_message(absl::string_view message) {
+    ZETASQL_DCHECK(tvf_mismatch_message_.empty()) << tvf_mismatch_message_;
+    tvf_mismatch_message_ = message;
   }
 
   int tvf_bad_argument_index() const { return tvf_bad_argument_index_; }
@@ -119,11 +142,14 @@ class SignatureMatchResult {
   int literals_coerced_;       // Number of literal coercions.
   int literals_distance_;      // How far non-literals were coerced.
 
-  std::string mismatch_message_;
-
   // If the TVF call was invalid because of a particular argument, this
   // zero-based index is updated to indicate which argument was invalid.
   int tvf_bad_argument_index_ = -1;
+
+  bool allow_mismatch_message_ = false;
+
+  std::string mismatch_message_;
+  std::string tvf_mismatch_message_;
 
   // If the TVF call was valid, this stores type coercions necessary for
   // relation arguments. The key is (argument index, column index) where the

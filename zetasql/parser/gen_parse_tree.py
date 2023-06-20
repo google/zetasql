@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 398
+NEXT_NODE_TAG_ID = 404
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -1325,7 +1325,7 @@ def main(argv):
       parent='ASTNode',
       comment="""
       Represents a grouping item, which is either an expression (a regular
-      group by key) or a rollup list.
+      group by key), or a rollup list, or a cube list, or a grouping set list.
       """,
       fields=[
           Field(
@@ -1335,12 +1335,30 @@ def main(argv):
               field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
               comment="""
               Exactly one of expression() and rollup() will be non-NULL.
-              """),
+              """,
+          ),
           Field(
               'rollup',
               'ASTRollup',
-              tag_id=3),
-      ])
+              tag_id=3,
+              comment="""A rollup() containing multiple expressions.""",
+          ),
+          Field(
+              'cube',
+              'ASTCube',
+              tag_id=4,
+              comment="""A cube() containing multiple expressions.""",
+          ),
+          Field(
+              'grouping_set_list',
+              'ASTGroupingSetList',
+              tag_id=5,
+              comment="""A list of grouping set and each of them is an
+              ASTGroupingSet.
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTGroupBy',
@@ -1352,11 +1370,31 @@ def main(argv):
               'ASTHint',
               tag_id=2),
           Field(
+              'all',
+              'ASTGroupByAll',
+              tag_id=3,
+              comment="""
+              When `all` is set, it represents syntax: GROUP BY ALL. The syntax
+              is mutually exclusive with syntax GROUP BY `grouping items`, in
+              which case `all` is nullptr and `grouping_items` is non-empty.
+              """,
+          ),
+          Field(
               'grouping_items',
               'ASTGroupingItem',
-              tag_id=3,
+              tag_id=4,
               field_loader=FieldLoaderMethod.REST_AS_REPEATED),
       ])
+
+  gen.AddNode(
+      name='ASTGroupByAll',
+      tag_id=403,
+      parent='ASTNode',
+      comment="""
+      Wrapper node for the keyword ALL in syntax GROUP BY ALL to provide parse
+      location range.
+      """,
+  )
 
   gen.AddNode(
       name='ASTOrderingExpression',
@@ -1798,6 +1836,64 @@ def main(argv):
               tag_id=2,
               field_loader=FieldLoaderMethod.REST_AS_REPEATED),
       ])
+
+  gen.AddNode(
+      name='ASTCube',
+      tag_id=399,
+      parent='ASTNode',
+      comment="""
+      Represents a cube list which contains a list of expressions.
+      """,
+      fields=[
+          Field(
+              'expressions',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGroupingSet',
+      tag_id=400,
+      parent='ASTNode',
+      comment="""
+      Represents a grouping set, which is either an empty grouping set "()",
+      or a rollup, or a cube, or an expression.
+
+      The expression can be single-level nested to represent a column list,
+      e.g. (x, y), it will be represented as an ASTStructConstructorWithParens
+      in this case.
+      """,
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+          ),
+          Field('rollup', 'ASTRollup', tag_id=3),
+          Field('cube', 'ASTCube', tag_id=4),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGroupingSetList',
+      tag_id=401,
+      parent='ASTNode',
+      comment="""
+      Represents a list of grouping set, each grouping set is an ASTGroupingSet.
+      """,
+      fields=[
+          Field(
+              'grouping_sets',
+              'ASTGroupingSet',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTExpressionWithAlias',
@@ -2920,16 +3016,47 @@ def main(argv):
       """)
 
   gen.AddNode(
-      name='ASTUnnestExpression',
-      tag_id=84,
+      name='ASTExpressionWithOptAlias',
+      tag_id=402,
       parent='ASTNode',
       fields=[
           Field(
               'expression',
               'ASTExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
-      ])
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('optional_alias', 'ASTAlias', tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTUnnestExpression',
+      tag_id=84,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'expressions',
+              'ASTExpressionWithOptAlias',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_NODE_KIND,
+              comment="""
+              Grammar guarantees `expressions_` is not empty.
+              """,
+          ),
+          Field(
+              'array_zip_mode',
+              'ASTNamedArgument',
+              tag_id=3,
+          ),
+      ],
+      extra_public_defs="""
+      ABSL_DEPRECATED("Use `expressions()` instead")
+      inline const ASTExpression* expression() const {
+          return expressions()[0]->expression();
+      }
+         """,
+  )
 
   gen.AddNode(
       name='ASTWindowClause',
@@ -4707,21 +4834,21 @@ def main(argv):
       name='ASTCreateProcedureStatement',
       tag_id=167,
       parent='ASTCreateStatement',
+      use_custom_debug_string=True,
       fields=[
           Field(
               'name',
               'ASTPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'parameters',
               'ASTFunctionParameters',
               tag_id=3,
-              field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'options_list',
-              'ASTOptionsList',
-              tag_id=4),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('options_list', 'ASTOptionsList', tag_id=4),
           Field(
               'body',
               'ASTScript',
@@ -4729,23 +4856,18 @@ def main(argv):
               comment="""
               The body of a procedure. Always consists of a single BeginEndBlock
               including the BEGIN/END keywords and text in between.
-              """),
-          Field(
-              'with_connection_clause',
-              'ASTWithConnectionClause',
-              tag_id=6),
-          Field(
-              'language',
-              'ASTIdentifier',
-              tag_id=7),
-          Field(
-              'code',
-              'ASTStringLiteral',
-              tag_id=8),
+              """,
+          ),
+          Field('with_connection_clause', 'ASTWithConnectionClause', tag_id=6),
+          Field('language', 'ASTIdentifier', tag_id=7),
+          Field('code', 'ASTStringLiteral', tag_id=8),
+          Field('external_security', SCALAR_SQL_SECURITY, tag_id=9),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
-      """)
+  std::string GetSqlForExternalSecurity() const;
+      """,
+  )
 
   gen.AddNode(
       name='ASTCreateSchemaStatement',
@@ -4986,6 +5108,34 @@ def main(argv):
               'options_list',
               'ASTOptionsList',
               tag_id=4),
+      ])
+
+  gen.AddNode(
+      name='ASTExportMetadataStatement',
+      tag_id=398,
+      parent='ASTStatement',
+      use_custom_debug_string=True,
+      comment="""
+      Generic EXPORT <object_kind> METADATA statement.
+      """,
+      fields=[
+          Field(
+              'schema_object_kind',
+              SCALAR_SCHEMA_OBJECT_KIND,
+              tag_id=2),
+          Field(
+              'name_path',
+              'ASTPathExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'with_connection_clause',
+              'ASTWithConnectionClause',
+              tag_id=4),
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              tag_id=5),
       ])
 
   gen.AddNode(
@@ -5870,22 +6020,38 @@ def main(argv):
               'privileges',
               'ASTPrivileges',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
-              'target_type',
+              'target_type_parts',
               'ASTIdentifier',
-              tag_id=3),
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_NODE_KIND,
+          ),
           Field(
               'target_path',
               'ASTPathExpression',
               tag_id=4,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'grantee_list',
               'ASTGranteeList',
               tag_id=5,
-              field_loader=FieldLoaderMethod.REQUIRED),
-      ])
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+      extra_public_defs="""
+      ABSL_DEPRECATED("Use `target_type_parts()` instead")
+      inline const ASTIdentifier* target_type() const {
+          if (target_type_parts().empty()) {
+              return nullptr;
+          }
+
+          return target_type_parts()[0];
+      }
+         """,
+  )
 
   gen.AddNode(
       name='ASTRevokeStatement',
@@ -5896,22 +6062,38 @@ def main(argv):
               'privileges',
               'ASTPrivileges',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
-              'target_type',
+              'target_type_parts',
               'ASTIdentifier',
-              tag_id=3),
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_NODE_KIND,
+          ),
           Field(
               'target_path',
               'ASTPathExpression',
               tag_id=4,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'grantee_list',
               'ASTGranteeList',
               tag_id=5,
-              field_loader=FieldLoaderMethod.REQUIRED),
-      ])
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+      extra_public_defs="""
+      ABSL_DEPRECATED("Use `target_type_parts()` instead")
+      inline const ASTIdentifier* target_type() const {
+          if (target_type_parts().empty()) {
+              return nullptr;
+          }
+
+          return target_type_parts()[0];
+      }
+         """,
+  )
 
   gen.AddNode(
       name='ASTRepeatableClause',
@@ -8015,7 +8197,6 @@ def main(argv):
               'query',
               'ASTQuery',
               tag_id=5,
-              field_loader=FieldLoaderMethod.REQUIRED,
               visibility=Visibility.PROTECTED),
           Field(
               'sql_security',
@@ -8061,6 +8242,10 @@ def main(argv):
               'cluster_by',
               'ASTClusterBy',
               tag_id=3),
+          Field(
+              'replica_source',
+              'ASTPathExpression',
+              tag_id=4),
       ],
       init_fields_order=[
           'name',
@@ -8069,7 +8254,9 @@ def main(argv):
           'cluster_by',
           'options_list',
           'query',
-      ])
+          'replica_source',
+      ],
+  )
 
   gen.AddNode(
       name='ASTCreateApproxViewStatement',
@@ -8874,35 +9061,6 @@ def main(argv):
       """,
   )
 
-  gen.AddNode(
-      name='ASTReplicaMaterializedViewDataSource',
-      tag_id=392,
-      parent='ASTTableDataSource',
-  )
-
-  gen.AddNode(
-      name='ASTCreateReplicaMaterializedViewStatement',
-      tag_id=393,
-      parent='ASTCreateStatement',
-      fields=[
-          Field(
-              'name',
-              'ASTPathExpression',
-              tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED,
-          ),
-          Field(
-              'data_source',
-              'ASTReplicaMaterializedViewDataSource',
-              tag_id=3,
-              field_loader=FieldLoaderMethod.REQUIRED,
-          ),
-          Field('options_list', 'ASTOptionsList', tag_id=4),
-      ],
-      extra_public_defs="""
-  const ASTPathExpression* GetDdlTarget() const override { return name_; }
-      """,
-  )
   gen.Generate(output_path, template_path=template_path)
 
 

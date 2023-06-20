@@ -1240,30 +1240,32 @@ ARRAY<STRUCT<
         id INT64,
         STRUCT<DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>
       >>
-[{
-   1,
-   {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
- },
- {
-   2,
-   {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
- },
- {
-   3,
-   {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
- },
- {
-   4,
-   {1, NULL, NULL, 0, NULL, 0, NULL}
- },
- {
-   5,
-   {4.5, 0.70710678118654757, 0.70710678118654757, 0.5, 0.5, 0.25, 0.5}
- },
- {
-   6,
-   {5, 5.6568542494923806, 5.6568542494923806, 4, 32, 16, 32}
- }]
+[known order:
+  {
+    1,
+    {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+  },
+  {
+    2,
+    {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+  },
+  {
+    3,
+    {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+  },
+  {
+    4,
+    {1, NULL, NULL, 0, NULL, 0, NULL}
+  },
+  {
+    5,
+    {4.5, 0.70710678118654757, 0.70710678118654757, 0.5, 0.5, 0.25, 0.5}
+  },
+  {
+    6,
+    {5, 5.6568542494923806, 5.6568542494923806, 4, 32, 16, 32}
+  }
+]
 ==
 
 [name=covar_empty_input]

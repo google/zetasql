@@ -63,7 +63,8 @@ absl::Status FormatSql(absl::string_view sql, std::string* formatted_sql) {
       formatted_statement.push_back(Unparse(parser_output->statement()));
     } else {
       const absl::Status out_status = MaybeUpdateErrorFromPayload(
-          ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET, sql, status);
+          ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+          /*keep_error_location_payload=*/false, sql, status);
       if (return_status.ok()) {
         return_status = out_status;
       } else {
@@ -85,8 +86,8 @@ absl::Status FormatSql(absl::string_view sql, std::string* formatted_sql) {
       // way to proceed forward.
       if (!token_status.ok()) {
         return MaybeUpdateErrorFromPayload(
-            ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET, sql,
-            token_status);
+            ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+            /*keep_error_location_payload=*/false, sql, token_status);
       }
       // GetParseTokens() reads until either a semicolon or end of input.
       if (parse_tokens.back().IsEndOfInput()) {

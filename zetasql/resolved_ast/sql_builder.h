@@ -115,6 +115,11 @@ class SQLBuilder : public ResolvedASTVisitor {
       kNamed = 1,
     };
     PositionalParameterOutputMode positional_parameter_mode = kQuestionMark;
+
+    // Optional catalog, can affect rendering in some corner cases:
+    //  - Opaque enum types will always render as literals if the type isn't
+    //    found, which is an indication it isn't fully supported.
+    Catalog* catalog = nullptr;
   };
 
   explicit SQLBuilder(const SQLBuilderOptions& options = SQLBuilderOptions());
@@ -151,6 +156,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedCreateViewStmt* node) override;
   absl::Status VisitResolvedCreateMaterializedViewStmt(
       const ResolvedCreateMaterializedViewStmt* node) override;
+  absl::Status VisitResolvedCreateApproxViewStmt(
+      const ResolvedCreateApproxViewStmt* node) override;
   absl::Status VisitResolvedCreateExternalTableStmt(
       const ResolvedCreateExternalTableStmt* node) override;
   absl::Status VisitResolvedCreatePrivilegeRestrictionStmt(
@@ -175,6 +182,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedExportDataStmt* node) override;
   absl::Status VisitResolvedExportModelStmt(
       const ResolvedExportModelStmt* node) override;
+  absl::Status VisitResolvedExportMetadataStmt(
+      const ResolvedExportMetadataStmt* node) override;
   absl::Status VisitResolvedCallStmt(const ResolvedCallStmt* node) override;
   absl::Status VisitResolvedDefineTableStmt(
       const ResolvedDefineTableStmt* node) override;
@@ -243,6 +252,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAlterViewStmt* node) override;
   absl::Status VisitResolvedAlterMaterializedViewStmt(
       const ResolvedAlterMaterializedViewStmt* node) override;
+  absl::Status VisitResolvedAlterApproxViewStmt(
+      const ResolvedAlterApproxViewStmt* node) override;
   absl::Status VisitResolvedAlterModelStmt(
       const ResolvedAlterModelStmt* node) override;
   absl::Status VisitResolvedRenameStmt(
@@ -272,6 +283,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAnalyticFunctionCall* node) override;
   absl::Status VisitResolvedInlineLambda(
       const ResolvedInlineLambda* node) override;
+  absl::Status VisitResolvedSequence(const ResolvedSequence* node) override;
   absl::Status VisitResolvedGetProtoField(
       const ResolvedGetProtoField* node) override;
   absl::Status VisitResolvedFlatten(const ResolvedFlatten* node) override;
@@ -458,28 +470,6 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status AddSelectListIfNeeded(const ResolvedColumnList& column_list,
                                      QueryExpression* query_expression);
 
-  // Updates the aliases of the columns in `scan_column_list` to the names in
-  // `aliases` if they appear in `columns_to_rename`. The member field
-  // `computed_column_aliases_` is not updated because these columns should not
-  // be referenceable from outside.
-  //
-  // `preserve_order`: If true, the order in which aliases are assigned to
-  // columns will be the same as the order of the columns in the
-  // `columns_to_rename` list.
-  //
-  // Preconditions:
-  // - The input `query_expression` does not have duplicate aliases in its
-  // `SelectList()`.
-  // - `aliases` does not have duplicate names.
-  // - `columns_to_rename` and `aliases` have the same length.
-  // Postconditions:
-  // - `query_expression` still does not have duplicate aliases.
-  absl::Status RenameColumnsForCorresponding(
-      const ResolvedColumnList& scan_column_list,
-      const ResolvedColumnList& columns_to_rename,
-      const std::vector<absl::string_view>& aliases, bool preserve_order,
-      QueryExpression* query_expression);
-
   // Merges the <type> and the <annotations> trees and prints the column
   // schema to <text>.
   absl::Status AppendColumnSchema(
@@ -663,7 +653,11 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Helper function for adding SQL for aggregate and group by lists.
   absl::Status ProcessAggregateScanBase(
       const ResolvedAggregateScanBase* node,
+      const std::vector<std::vector<int>>& grouping_set_id_list,
       const std::vector<int>& rollup_column_id_list,
+      absl::flat_hash_map<int /*grouping_column_id*/,
+                          int /*grouping_argument_group_by_column_id*/>
+          grouping_column_id_map,
       QueryExpression* query_expression);
 
   // Helper function to return corresponding SQL for a list of
@@ -866,6 +860,25 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Returns a new unique alias name. The default implementation generates the
   // name as "a_<id>".
   virtual std::string GenerateUniqueAliasName();
+
+  // Renames the columns of each set operation item (represented by each entry
+  // in `set_op_scan_list`) to the aliases in `final_column_list` when the
+  // column_propagation_mode of the set operation is FULL.
+  absl::Status RenameSetOperationItemsFullMode(
+      const ResolvedSetOperationScan* node,
+      const std::vector<std::pair<std::string, std::string>>& final_column_list,
+      std::vector<std::unique_ptr<QueryExpression>>& set_op_scan_list);
+
+  // Renames the columns of each set operation item (represented by each entry
+  // in `set_op_scan_list`) to the aliases in `final_column_list` when the
+  // column_propagation_mode of the set operation is not FULL, i.e. one of
+  // INNER, LEFT, and STRICT.
+  absl::Status RenameSetOperationItemsNonFullMode(
+      const ResolvedSetOperationScan* node,
+      const std::vector<std::pair<std::string, std::string>>& final_column_list,
+      ResolvedSetOperationScan::SetOperationColumnPropagationMode
+          column_propagation_mode,
+      std::vector<std::unique_ptr<QueryExpression>>& set_op_scan_list);
 };
 
 }  // namespace zetasql

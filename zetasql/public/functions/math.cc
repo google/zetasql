@@ -254,6 +254,8 @@ bool TruncDecimal(float in, int64_t digits, float* out, absl::Status* error) {
   return true;
 }
 
+double Pi() { return M_PI; }
+
 template <>
 bool Radians(double in, double* out, absl::Status* error) {
   static const double value_pi_over_180 = M_PI / 180.0;
@@ -361,6 +363,10 @@ template <>
 bool Logarithm(NumericValue in1, NumericValue in2, NumericValue* out,
                absl::Status* error) {
   return SetNumericResultOrError(in1.Log(in2), out, error);
+}
+
+NumericValue Pi_Numeric() {
+  return *NumericValue::FromPackedInt(3141592654ULL);
 }
 
 template <>
@@ -477,6 +483,12 @@ template <>
 bool Logarithm(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
                absl::Status* error) {
   return SetNumericResultOrError(in1.Log(in2), out, error);
+}
+
+BigNumericValue Pi_BigNumeric() {
+  constexpr uint64_t lo = 0xAD0D16E77D576624ULL;
+  constexpr uint64_t hi = 0xEC58DFA74641AF52ULL;
+  return BigNumericValue::FromPackedLittleEndianArray({lo, hi, 0ULL, 0ULL});
 }
 
 template <>

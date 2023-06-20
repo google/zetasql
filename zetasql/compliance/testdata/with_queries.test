@@ -70,7 +70,7 @@ ARRAY<STRUCT<INT64>>[{1}]
 select x, x in (with Q as (select 1 x, 2 y) select y from Q)
 from unnest([1,2,3]) x
 --
-ARRAY<STRUCT<x INT64, BOOL>>[{2, true}, {1, false}, {3, false}]
+ARRAY<STRUCT<x INT64, BOOL>>[unknown order:{2, true}, {1, false}, {3, false}]
 ==
 
 [name=with_on_expr_subquery2]
@@ -92,7 +92,7 @@ union all
 union all
 (with q2 as (select 'abc') select x from q1)
 --
-ARRAY<STRUCT<x INT64>>[{1}, {2}, {1}, {1}]
+ARRAY<STRUCT<x INT64>>[unknown order:{1}, {2}, {1}, {1}]
 ==
 
 [name=with_on_multiple_levels]
@@ -111,7 +111,7 @@ with T as (select 1 c union all select 3 union all select 2),
      S as (select c from T order by 1)
 select * from S;
 --
-ARRAY<STRUCT<c INT64>>[{1}, {2}, {3}]
+ARRAY<STRUCT<c INT64>>[unknown order:{1}, {2}, {3}]
 ==
 
 # Order is preserved here.
@@ -119,7 +119,7 @@ ARRAY<STRUCT<c INT64>>[{1}, {2}, {3}]
 with T as (select 1 c union all select 3 union all select 2)
 select c from T order by 1;
 --
-ARRAY<STRUCT<c INT64>>[{1}, {2}, {3}]
+ARRAY<STRUCT<c INT64>>[known order:{1}, {2}, {3}]
 ==
 
 # WITH subquery has run-once semantics.

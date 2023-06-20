@@ -8,19 +8,19 @@ ZetaSQL supports the following utility statements.
 
 ## `EXPLAIN`
 
-```
+<pre>
 EXPLAIN query;
-```
+</pre>
 
 The `EXPLAIN` statement provides information on how ZetaSQL would
 execute a given query. This statement does not execute the query.
 
 ## `DESCRIBE/DESC`
 
-```
+<pre>
 DESCRIBE [object_type] object [FROM source];
 DESC [object_type] object [FROM source];
-```
+</pre>
 
 The `DESCRIBE` statement provides a description for an object, such as a table.
 This statement is analogous to [`EXPLAIN`][explain-statement].
@@ -50,9 +50,9 @@ DESCRIBE TABLE foo;
 
 ## `SHOW`
 
-```
+<pre>
 SHOW object_type [FROM object] [LIKE pattern];
-```
+</pre>
 
 The `SHOW` statement produces a list of objects, usually in a format that
 resembles a query result.

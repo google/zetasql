@@ -29,14 +29,11 @@ cc_library(
     ],
     deps = [
         ":local_service_cc_proto",
-        "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
-        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/common:errors",
         "//zetasql/common:proto_helper",
-        "//zetasql/parser:parse_tree_cc_proto",
         "//zetasql/parser:parse_tree_serializer",
         "//zetasql/proto:options_cc_proto",
         "//zetasql/proto:simple_catalog_cc_proto",
@@ -69,7 +66,6 @@ cc_library(
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/types:optional",
         "@com_google_protobuf//:cc_wkt_protos",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 

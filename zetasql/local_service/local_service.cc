@@ -19,21 +19,17 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/proto_helper.h"
 #include "zetasql/local_service/local_service.pb.h"
 #include "zetasql/local_service/state.h"
-#include "zetasql/parser/parse_tree.pb.h"
 #include "zetasql/parser/parse_tree_serializer.h"
 #include "zetasql/proto/simple_catalog.pb.h"
 #include "zetasql/public/builtin_function.h"
@@ -59,7 +55,6 @@
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -1286,7 +1281,10 @@ absl::Status ZetaSqlLocalServiceImpl::BuildSql(const BuildSqlRequest& request,
     return absl::OkStatus();
   }
 
-  zetasql::SQLBuilder sql_builder;
+  zetasql::SQLBuilder::SQLBuilderOptions builder_options;
+  builder_options.catalog = catalog_state->GetCatalog();
+  zetasql::SQLBuilder sql_builder(builder_options);
+
   ZETASQL_CHECK_OK(ast->Accept(&sql_builder));
   response->set_sql(sql_builder.sql());
   return absl::OkStatus();
@@ -1471,12 +1469,12 @@ absl::Status ZetaSqlLocalServiceImpl::GetBuiltinFunctions(
     const ZetaSQLBuiltinFunctionOptionsProto& proto,
     GetBuiltinFunctionsResponse* resp) {
   TypeFactory factory;
-  std::map<std::string, std::unique_ptr<Function>> functions;
-  ZetaSQLBuiltinFunctionOptions options(proto);
+  absl::flat_hash_map<std::string, std::unique_ptr<Function>> functions;
+  BuiltinFunctionOptions options(proto);
   absl::flat_hash_map<std::string, const Type*> types;
 
-  ZETASQL_RETURN_IF_ERROR(zetasql::GetZetaSQLFunctionsAndTypes(&factory, options,
-                                                           &functions, &types));
+  ZETASQL_RETURN_IF_ERROR(
+      GetBuiltinFunctionsAndTypes(options, factory, functions, types));
 
   FileDescriptorSetMap file_descriptor_set_map;
   for (const auto& function : functions) {
@@ -1569,9 +1567,12 @@ absl::Status ZetaSqlLocalServiceImpl::ParseScriptImpl(
   if (request.has_sql_statement()) {
     const std::string& sql = request.sql_statement();
 
-    ZETASQL_RETURN_IF_ERROR(ParseScript(sql, parser_options,
-                                ErrorMessageMode::ERROR_MESSAGE_ONE_LINE,
-                                &parser_output));
+    ZETASQL_RETURN_IF_ERROR(ParseScript(
+        sql, parser_options, ErrorMessageMode::ERROR_MESSAGE_ONE_LINE,
+        /*keep_error_location_payload=*/
+            ErrorMessageMode::ERROR_MESSAGE_ONE_LINE ==
+            ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
+        &parser_output));
 
     return ParseTreeSerializer::Serialize(parser_output->script(),
                                           response->mutable_parsed_script());

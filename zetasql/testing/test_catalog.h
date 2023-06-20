@@ -32,6 +32,7 @@
 #include "zetasql/public/type.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -56,21 +57,21 @@ class TestCatalog : public SimpleCatalog {
                           const FindOptions& options = FindOptions()) override;
 
   // Add an error status that will be returned when this name is looked up.
-  void AddError(const std::string& name, const absl::Status& error);
+  void AddError(absl::string_view name, const absl::Status& error);
 
  private:
   // These errors will be returned for any matching lookup, regardless of type.
   absl::node_hash_map<std::string, absl::Status> errors_;
 
   // Return an error if one exists in <errors_>.
-  absl::Status GetErrorForName(const std::string& name) const;
+  absl::Status GetErrorForName(absl::string_view name) const;
 };
 
 // This is just a Function whose constructor implicitly sets the Function
 // group_ to 'TestFunction'.
 class TestFunction : public Function {
  public:
-  TestFunction(const std::string& function_name, Function::Mode mode,
+  TestFunction(absl::string_view function_name, Function::Mode mode,
                const std::vector<FunctionSignature>& function_signatures);
   TestFunction(const TestFunction&) = delete;
   TestFunction& operator=(const TestFunction&) = delete;

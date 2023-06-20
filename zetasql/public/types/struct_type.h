@@ -204,10 +204,11 @@ class StructType : public ContainerType {
 
   // Lazily built map from name to struct field index. Ambiguous lookups are
   // designated with an index of -1. This is only built if FindField is called.
+  // The key to the map is casefolded (lowercase) normalized representation of
+  // the field name so it should not be exposed outside this class.
   mutable absl::Mutex mutex_;
-  mutable absl::flat_hash_map<absl::string_view, int, zetasql_base::StringViewCaseHash,
-                              zetasql_base::StringViewCaseEqual>
-      field_name_to_index_map_ ABSL_GUARDED_BY(mutex_);
+  mutable absl::flat_hash_map<const std::string, int> field_name_to_index_map_
+      ABSL_GUARDED_BY(mutex_);
 
   friend class TypeFactory;
   FRIEND_TEST(TypeTest, FormatValueContentStructSQLLiteralMode);

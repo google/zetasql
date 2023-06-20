@@ -158,6 +158,14 @@ known_errors {
   label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_json_zero_rows"
   label: "anonymization_test:anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_json_zero_rows"
   label: "anonymization_test:anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_avg_explicit_bounds_multi_user_with_report_json_1"
+  label: "anonymization_test:anonymization_anon_avg_explicit_bounds_multi_user_with_report_json_2"
+  label: "anonymization_test:anonymization_anon_avg_implicit_bounds_multi_user_with_report_json_1"
+  label: "anonymization_test:anonymization_anon_avg_implicit_bounds_multi_user_with_report_json_2"
+  label: "anonymization_test:anonymization_anon_avg_explicit_bounds_multi_user_with_report_proto_1"
+  label: "anonymization_test:anonymization_anon_avg_explicit_bounds_multi_user_with_report_proto_2"
+  label: "anonymization_test:anonymization_anon_avg_implicit_bounds_multi_user_with_report_proto_1"
+  label: "anonymization_test:anonymization_anon_avg_implicit_bounds_multi_user_with_report_proto_2"
 }
 known_errors {
   mode: ALLOW_UNIMPLEMENTED

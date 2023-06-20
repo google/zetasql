@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "zetasql/base/arena_allocator.h"
+
 #include "zetasql/parser/ast_enums.pb.h"
 #include "zetasql/parser/ast_node_internal.h"
 #include "zetasql/parser/ast_node_kind.h"

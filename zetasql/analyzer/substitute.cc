@@ -104,9 +104,12 @@ class ScopedColumnRefLayer {
   std::vector<ColumnRefLayer>& column_refs_stack_;
 };
 
-// For the lambda body, we only need to replace column refs with the
-// corresponding arguments from the substitution template. This is separate from
-// the VariableReplacementInserter to avoid unintended interactions.
+// A visitor that manages replacement of column refs and columns in a lambda
+// body ResolvedAST node. It replaces column refs with the
+// corresponding arguments from the substitution template, and remaps columns
+// not present in 'column_map' with new column ids based on 'column_factory'.
+// This is separate from the VariableReplacementInserter to avoid unintended
+// interactions.
 // TODO: Migrate to ResolvedASTRewriteVisitor.
 class ColumnRefReplacer : public ResolvedASTDeepCopyVisitor {
  public:
@@ -115,14 +118,33 @@ class ColumnRefReplacer : public ResolvedASTDeepCopyVisitor {
   // lambda's args columns. The ResolvedColumns will be the corresponding args
   // to the named lambda function from the expression.
   explicit ColumnRefReplacer(
-      const absl::flat_hash_map<int, const ResolvedColumnRef*>& column_ref_map)
-      : lambda_column_ref_map_(column_ref_map) {}
+      const absl::flat_hash_map<int, const ResolvedColumnRef*>& column_ref_map,
+      ColumnReplacementMap& column_map, ColumnFactory& column_factory)
+      : lambda_column_ref_map_(column_ref_map),
+        column_map_(column_map),
+        column_factory_(column_factory) {}
+
+  absl::StatusOr<ResolvedColumn> CopyResolvedColumn(
+      const ResolvedColumn& column) override {
+    if (!column_map_.contains(column)) {
+      column_map_[column] = column_factory_.MakeCol(
+          column.table_name(), column.name(), column.type());
+    }
+    return column_map_[column];
+  }
 
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override;
 
  private:
   const absl::flat_hash_map<int, const ResolvedColumnRef*>&
       lambda_column_ref_map_;
+  // Map from the column ID in the input ResolvedAST to the column allocated
+  // from column_factory_.
+  ColumnReplacementMap& column_map_;
+
+  // All ResolvedColumns in the copied ResolvedAST will have new column ids
+  // allocated by column_factory_.
+  ColumnFactory& column_factory_;
 };
 
 absl::Status ColumnRefReplacer::VisitResolvedColumnRef(
@@ -144,12 +166,19 @@ absl::Status ColumnRefReplacer::VisitResolvedColumnRef(
   return absl::OkStatus();
 }
 
-// Replaces ColumnRefs in 'node' according to 'column_ref_map' based on column
-// id.
-absl::StatusOr<std::unique_ptr<ResolvedExpr>> ReplaceColumnRefs(
+// This function makes a deep copy of the ResolvedAST 'node' associated with a
+// lambda body. All of the ResolvedColumns beneath 'node' are replaced with new
+// columns with IDs allocated by 'column_factory' or directly remapped if such a
+// mapping exists in 'column_map'. All of the ResolvedColumnReferences beneath
+// 'node' will be replaced according to 'column_ref_map', which is a map
+// of lambda argument column IDs to the column references they represent in
+// the overall query.
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> ReplaceColumnRefsAndRemapColumns(
     const ResolvedExpr* node,
-    absl::flat_hash_map<int, const ResolvedColumnRef*>& column_ref_map) {
-  ColumnRefReplacer column_map_replacer(column_ref_map);
+    absl::flat_hash_map<int, const ResolvedColumnRef*>& column_ref_map,
+    ColumnReplacementMap& column_map, ColumnFactory& column_factory) {
+  ColumnRefReplacer column_map_replacer(column_ref_map, column_map,
+                                        column_factory);
   ZETASQL_RETURN_IF_ERROR(node->Accept(&column_map_replacer));
   return column_map_replacer.ConsumeRootNode<ResolvedExpr>();
 }
@@ -169,7 +198,8 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
       const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
           referenced_columns,
       const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
-          lambdas);
+          lambdas,
+      ColumnFactory* column_factory);
 
   absl::Status VisitResolvedSubqueryExpr(
       const ResolvedSubqueryExpr* node) override;
@@ -197,6 +227,8 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
   // One layer is created for each SubqueryExpr. ColumnRefs collected are
   // added to the parameter_list of the SubqueryExpr.
   std::vector<ColumnRefLayer> column_refs_stack_;
+
+  ColumnFactory* column_factory_;
 };
 
 // This object holds options, catalog and type_factory so the interior functions
@@ -204,6 +236,7 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
 class ExpressionSubstitutor {
  public:
   ExpressionSubstitutor(AnalyzerOptions options, Catalog& catalog,
+                        ColumnFactory* column_factory,
                         TypeFactory& type_factory);
 
   absl::StatusOr<std::unique_ptr<ResolvedExpr>> Substitute(
@@ -230,14 +263,18 @@ class ExpressionSubstitutor {
   // Points to the input catalog if there are no lambdas or the lazily
   // initialized multi_catalog_with_lambdas_ if there is any lambda.
   Catalog* catalog_;
+
+  ColumnFactory* column_factory_;
 };
 
 ExpressionSubstitutor::ExpressionSubstitutor(AnalyzerOptions options,
                                              Catalog& catalog,
+                                             ColumnFactory* column_factory,
                                              TypeFactory& type_factory)
     : options_(std::move(options)),
       type_factory_(type_factory),
-      catalog_(&catalog) {
+      catalog_(&catalog),
+      column_factory_(column_factory) {
   options_.set_parameter_mode(ParameterMode::PARAMETER_NAMED);
 
   // We expect options_ to come from the outer analysis of the overall query.
@@ -331,7 +368,7 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
   // 'select_list' will be replaced by the associated argument expression.
   InternalAnalyzerOptions::SetLookupExpressionCallback(
       options_,
-      [&](const std::string& column_name,
+      [&](absl::string_view column_name,
           std::unique_ptr<const ResolvedExpr>& expr) -> absl::Status {
         const ResolvedExpr* const* replaced_expr =
             zetasql_base::FindOrNull(variables, column_name);
@@ -390,7 +427,8 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
       << "while parsing substitution sql: " << sql;
   ZETASQL_VLOG(1) << "Initial ast: " << output->resolved_expr()->DebugString();
 
-  VariableReplacementInserter replacer(referenced_columns, lambdas);
+  VariableReplacementInserter replacer(referenced_columns, lambdas,
+                                       column_factory_);
   ZETASQL_RETURN_IF_ERROR(output->resolved_expr()->Accept(&replacer));
   return replacer.ConsumeRootNode<ResolvedExpr>();
 }
@@ -399,9 +437,11 @@ VariableReplacementInserter::VariableReplacementInserter(
     const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
         referenced_columns,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
-        lambdas)
+        lambdas,
+    ColumnFactory* column_factory)
     : referenced_columns_(referenced_columns),
-      lambdas_(lambdas) {}
+      lambdas_(lambdas),
+      column_factory_(column_factory) {}
 
 absl::Status VariableReplacementInserter::VisitResolvedFunctionCall(
     const ResolvedFunctionCall* node) {
@@ -446,8 +486,27 @@ absl::Status VariableReplacementInserter::VisitResolvedFunctionCall(
     lambda_columns_map.emplace(lambda->argument_list(i).column_id(),
                                substitution_column);
   }
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> body,
-                   ReplaceColumnRefs(lambda->body(), lambda_columns_map));
+
+  // We want to make sure not to copy any correlated columns
+  // external to the node, as that would result in an invalid reference.
+  ColumnReplacementMap column_map;
+  ZETASQL_ASSIGN_OR_RETURN(absl::flat_hash_set<ResolvedColumn> correlated_columns,
+                   GetCorrelatedColumnSet(*lambda->body()));
+  for (const ResolvedColumn& correlated_column : correlated_columns) {
+    column_map.emplace(correlated_column, correlated_column);
+  }
+
+  // We also want to exclude copying of ResolvedColumns underlying the column
+  // references associated with the lambda argument column from above.
+  // By adding these to ColumnReplacementMap we can avoid modification.
+  for (const auto& [_, column_ref] : lambda_columns_map) {
+    column_map.emplace(column_ref->column(), column_ref->column());
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ResolvedExpr> body,
+      ReplaceColumnRefsAndRemapColumns(lambda->body(), lambda_columns_map,
+                                       column_map, *column_factory_));
 
   PushNodeToStack(std::move(body));
   return absl::OkStatus();
@@ -518,11 +577,15 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
   ZETASQL_RET_CHECK(options.arena()) << arenas_msg;
   ZETASQL_RET_CHECK(options.column_id_sequence_number()) << arenas_msg;
 
+  ColumnFactory column_factory(0, options.id_string_pool().get(),
+                               options.column_id_sequence_number());
+
   // Don't rewrite 'expression' when we analyze it.
   // We don't need to reset the rewriters here as 'option' is copied from
   // main Analyzer pass already. Substitutor is the end of the current pass.
   options.set_enabled_rewrites({});
-  return ExpressionSubstitutor(std::move(options), catalog, type_factory)
+  return ExpressionSubstitutor(std::move(options), catalog, &column_factory,
+                               type_factory)
       .Substitute(expression, variables, lambdas);
 }
 

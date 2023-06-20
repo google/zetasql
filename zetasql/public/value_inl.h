@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
@@ -61,8 +62,6 @@ class Value::TypedList : public internal::ValueContentContainer {
   TypedList(const TypedList&) = delete;
   TypedList& operator=(const TypedList&) = delete;
   ~TypedList() override;
-
-  std::vector<Value>& values() { return values_; }
 
   const std::vector<Value>& values() const { return values_; }
 

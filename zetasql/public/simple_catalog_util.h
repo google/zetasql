@@ -18,30 +18,37 @@
 #define ZETASQL_PUBLIC_SIMPLE_CATALOG_UTIL_H_
 
 #include <memory>
+#include <optional>
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/simple_catalog.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
-// Compiles 'create_sql_stmt' and adds the resulting function to 'catalog'.
+// Compiles `create_sql_stmt` and adds the resulting function to `catalog`.
 //
-// 'create_sql_stmt': Must be a CREATE FUNCTION statement that specifies a SQL
+// `create_sql_stmt`: Must be a CREATE FUNCTION statement that specifies a SQL
 //     defined functions. Non-SQL functions are not supported by this utility.
-// 'analyzer_options': Analyzer options used to analyze 'create_sql_stmt'.
-// 'analyzer_output': Analyzer outputs from compiling 'create_sql_stmt'. The
-//     lifetime of 'analyzer_output` must exceed the lifetime of 'catalog'.
-//     The language options must support RESOLVED_CREATE_FUNCTION_STMT.
-// 'catalog': A SimpleCatalog that will own the created SQLFunction* object.
-// 'allow_persistent_function': Unless this is set to true, the utility is
+// `analyzer_options`: Analyzer options used to analyze `create_sql_stmt`.
+// `allow_persistent_function`: Unless this is set to true, the utility is
 //     restricted to CREATE TEMP FUNCTION. Use with caution, SimpleCatalog does
 //     not fully support a distinction between temp and persistent functions.
+// `function_options`: FunctionOptions to be applied to the created function.
+//     If not supplied a reasonable default for user-defined functions is used.
+// `analyzer_output`: Analyzer outputs from compiling `create_sql_stmt`. The
+//     lifetime of `analyzer_output` must exceed the lifetime of `catalog`.
+//     The language options must support RESOLVED_CREATE_FUNCTION_STMT.
+// `catalog`: A SimpleCatalog that will own the created SQLFunction* object.
 absl::Status AddFunctionFromCreateFunction(
     absl::string_view create_sql_stmt, const AnalyzerOptions& analyzer_options,
+    bool allow_persistent_function,
+    std::optional<FunctionOptions> function_options,
     std::unique_ptr<const AnalyzerOutput>& analyzer_output,
-    SimpleCatalog& catalog, bool allow_persistent_function = false);
+    SimpleCatalog& catalog);
 
 // Adds a `Table` object to `catalog` for the view defined by
 // `create_view_stmt`.

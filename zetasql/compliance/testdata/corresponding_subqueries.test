@@ -190,7 +190,7 @@ UNION ALL
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
   {2, 20},
   {1, 10},
   {1, 10},
@@ -210,7 +210,7 @@ UNION ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
   {10, 1},
   {20, 2},
   {2, 20},
@@ -230,7 +230,7 @@ UNION ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {0, 0, 0},
   {NULL, NULL, NULL},
@@ -271,7 +271,7 @@ UNION ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-2, 0.20000000298023224, -2},
   {NULL, NULL, NULL},
   {-1, 0.10000000149011612, -1},
@@ -312,7 +312,7 @@ UNION ALL CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
   {1, 10},
   {2, 20},
   {1, 10},
@@ -332,7 +332,7 @@ UNION ALL CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
   {20, 2},
   {10, 1},
   {10, 1},
@@ -352,7 +352,7 @@ UNION ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-2, -2, 0.2},
   {NULL, NULL, NULL},
   {-3, -3, 0.3},
@@ -393,7 +393,7 @@ UNION ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-1, 0.1, -1},
   {-2, 0.2, -2},
   {-3, 0.3, -3},
@@ -434,7 +434,7 @@ UNION DISTINCT
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
   {1, 10},
   {2, 20},
   {10, 1},
@@ -453,7 +453,7 @@ UNION DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
   {1, 10},
   {2, 20},
   {10, 1},
@@ -472,7 +472,7 @@ UNION DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.40000000596046448},
   {-4, 0.40000000596046448, -4},
@@ -499,7 +499,7 @@ UNION DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.40000000596046448},
   {-4, 0.40000000596046448, -4},
@@ -526,7 +526,10 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {1, 10},
+  {2, 20}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_union_all_corresponding]
 SELECT int64_val, int32_val
@@ -540,7 +543,10 @@ UNION DISTINCT CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_union_all_corresponding_union_distinct_corresponding]
 (
@@ -554,7 +560,7 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.4},
   {-3, -3, 0.3},
@@ -577,7 +583,7 @@ UNION DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.4, -4},
   {-3, 0.3, -3},
@@ -628,7 +634,7 @@ INTERSECT ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {NULL, NULL, NULL}
 ]
@@ -647,7 +653,7 @@ INTERSECT ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {NULL, NULL, NULL}
 ]
@@ -666,7 +672,10 @@ INTERSECT ALL CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_intersect_all_corresponding_union_all_corresponding]
 SELECT int64_val, int32_val
@@ -680,7 +689,10 @@ INTERSECT ALL CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {20, 2},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_union_all_corresponding_intersect_all_corresponding]
 (
@@ -694,7 +706,7 @@ INTERSECT ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-4, -4, 0.4},
   {-2, -2, 0.2},
   {-2, -2, 0.2},
@@ -720,7 +732,7 @@ INTERSECT ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {-2, 0.2, -2},
   {-2, 0.2, -2},
@@ -810,7 +822,10 @@ INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_intersect_distinct_corresponding_union_all_corresponding]
 SELECT int64_val, int32_val
@@ -824,7 +839,10 @@ INTERSECT DISTINCT CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {20, 2},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_union_all_corresponding_intersect_distinct_corresponding]
 (
@@ -838,7 +856,7 @@ INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-4, -4, 0.4},
   {-2, -2, 0.2},
   {NULL, NULL, NULL},
@@ -860,7 +878,7 @@ INTERSECT DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
@@ -882,7 +900,11 @@ EXCEPT ALL
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {1, 10}, {1, 10}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {2, 20},
+  {1, 10},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_except_all_by_position_union_all_corresponding]
 SELECT int64_val, int32_val
@@ -896,7 +918,10 @@ EXCEPT ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{20, 2}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {20, 2},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_union_all_corresponding_except_all_by_position]
 (
@@ -910,7 +935,7 @@ EXCEPT ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-4, -4, 0.40000000596046448},
   {-3, -3, 0.30000001192092896},
   {-3, -3, 0.30000001192092896},
@@ -942,7 +967,7 @@ EXCEPT ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
   {-2, 0.20000000298023224, -2},
@@ -994,7 +1019,7 @@ EXCEPT ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-2, -2, 0.2},
   {-2, -2, 0.2},
   {0, 0, 0},
@@ -1035,7 +1060,10 @@ EXCEPT DISTINCT
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_except_distinct_by_position_union_all_corresponding]
 SELECT int64_val, int32_val
@@ -1049,7 +1077,10 @@ EXCEPT DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{20, 2}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {20, 2},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_union_all_corresponding_except_distinct_by_position]
 (
@@ -1063,7 +1094,7 @@ EXCEPT DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-4, -4, 0.40000000596046448},
   {-3, -3, 0.30000001192092896},
   {-2, -2, 0.20000000298023224},
@@ -1085,7 +1116,7 @@ EXCEPT DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
   {-2, 0.20000000298023224, -2},
@@ -1166,7 +1197,7 @@ UNION ALL
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
   {1, 10},
   {2, 20},
   {10, 1},
@@ -1185,7 +1216,7 @@ UNION ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
   {10, 1},
   {20, 2},
   {1, 10},
@@ -1204,7 +1235,7 @@ UNION ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-2, -2, 0.20000000298023224},
   {NULL, NULL, NULL},
   {-1, -1, 0.10000000149011612},
@@ -1236,7 +1267,7 @@ UNION ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-2, 0.20000000298023224, -2},
   {NULL, NULL, NULL},
   {-1, 0.10000000149011612, -1},
@@ -1268,7 +1299,7 @@ UNION ALL CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
   {2, 20},
   {1, 10},
   {2, 20},
@@ -1287,7 +1318,7 @@ UNION ALL CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
   {20, 2},
   {10, 1},
   {20, 2},
@@ -1306,7 +1337,7 @@ UNION ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-4, -4, 0.4},
   {-2, -2, 0.2},
   {0, 0, 0},
@@ -1338,7 +1369,7 @@ UNION ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-1, 0.1, -1},
   {-2, 0.2, -2},
   {-3, 0.3, -3},
@@ -1370,7 +1401,7 @@ UNION DISTINCT
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
   {1, 10},
   {2, 20},
   {10, 1},
@@ -1389,7 +1420,7 @@ UNION DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
   {1, 10},
   {2, 20},
   {10, 1},
@@ -1408,7 +1439,7 @@ UNION DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.40000000596046448},
   {-4, 0.40000000596046448, -4},
@@ -1435,7 +1466,7 @@ UNION DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.40000000596046448},
   {-4, 0.40000000596046448, -4},
@@ -1462,7 +1493,10 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {1, 10},
+  {2, 20}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_union_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -1476,7 +1510,10 @@ UNION DISTINCT CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_union_distinct_corresponding_union_distinct_corresponding]
 (
@@ -1490,7 +1527,7 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.4},
   {-3, -3, 0.3},
@@ -1513,7 +1550,7 @@ UNION DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.4, -4},
   {-3, 0.3, -3},
@@ -1600,7 +1637,10 @@ INTERSECT ALL CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_intersect_all_corresponding_union_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -1614,7 +1654,10 @@ INTERSECT ALL CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {20, 2},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_union_distinct_corresponding_intersect_all_corresponding]
 (
@@ -1628,7 +1671,7 @@ INTERSECT ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-4, -4, 0.4},
   {-2, -2, 0.2},
   {NULL, NULL, NULL},
@@ -1650,7 +1693,7 @@ INTERSECT ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
@@ -1736,7 +1779,10 @@ INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_intersect_distinct_corresponding_union_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -1750,7 +1796,10 @@ INTERSECT DISTINCT CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {20, 2},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_union_distinct_corresponding_intersect_distinct_corresponding]
 (
@@ -1764,7 +1813,7 @@ INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-4, -4, 0.4},
   {-2, -2, 0.2},
   {NULL, NULL, NULL},
@@ -1786,7 +1835,7 @@ INTERSECT DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
@@ -1808,7 +1857,10 @@ EXCEPT ALL
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_except_all_by_position_union_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -1822,7 +1874,10 @@ EXCEPT ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{20, 2}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {20, 2},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_union_distinct_corresponding_except_all_by_position]
 (
@@ -1836,7 +1891,7 @@ EXCEPT ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-4, -4, 0.40000000596046448},
   {-3, -3, 0.30000001192092896},
   {-2, -2, 0.20000000298023224},
@@ -1858,7 +1913,7 @@ EXCEPT ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
@@ -1927,7 +1982,7 @@ EXCEPT ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
   {-1, 0.1, -1},
@@ -1948,7 +2003,10 @@ EXCEPT DISTINCT
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_except_distinct_by_position_union_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -1962,7 +2020,10 @@ EXCEPT DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{20, 2}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {20, 2},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_union_distinct_corresponding_except_distinct_by_position]
 (
@@ -1976,7 +2037,7 @@ EXCEPT DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-4, -4, 0.40000000596046448},
   {-3, -3, 0.30000001192092896},
   {-2, -2, 0.20000000298023224},
@@ -1998,7 +2059,7 @@ EXCEPT DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
   {-2, 0.20000000298023224, -2},
@@ -2079,7 +2140,11 @@ UNION ALL
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {1, 10},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_all_by_position_intersect_all_corresponding]
 SELECT int64_val, int32_val
@@ -2093,7 +2158,11 @@ UNION ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}, {1, 10}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2},
+  {1, 10}
+]
 ==
 [name=parenthesized_inner_outer_intersect_all_corresponding_union_all_by_position]
 (
@@ -2107,7 +2176,7 @@ UNION ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-3, -3, 0.30000001192092896},
   {NULL, NULL, NULL},
   {-2, -2, 0.20000000298023224},
@@ -2138,7 +2207,7 @@ UNION ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-2, 0.20000000298023224, -2},
   {NULL, NULL, NULL},
   {-1, 0.10000000149011612, -1},
@@ -2169,7 +2238,11 @@ UNION ALL CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {1, 10},
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_all_corresponding_intersect_all_corresponding]
 SELECT int64_val, int32_val
@@ -2183,7 +2256,11 @@ UNION ALL CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {20, 2},
+  {10, 1},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_intersect_all_corresponding_union_all_corresponding]
 (
@@ -2197,7 +2274,7 @@ UNION ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-2, -2, 0.2},
   {-3, -3, 0.3},
   {-2, -2, 0.2},
@@ -2228,7 +2305,7 @@ UNION ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-1, 0.1, -1},
   {-2, 0.2, -2},
   {-3, 0.3, -3},
@@ -2259,7 +2336,11 @@ UNION DISTINCT
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {1, 10},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_by_position_intersect_all_corresponding]
 SELECT int64_val, int32_val
@@ -2273,7 +2354,11 @@ UNION DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {1, 10},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_intersect_all_corresponding_union_distinct_by_position]
 (
@@ -2287,7 +2372,7 @@ UNION DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.40000000596046448, -4},
   {-3, -3, 0.30000001192092896},
@@ -2312,7 +2397,7 @@ UNION DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.40000000596046448, -4},
   {-3, -3, 0.30000001192092896},
@@ -2337,7 +2422,10 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {1, 10},
+  {2, 20}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_intersect_all_corresponding]
 SELECT int64_val, int32_val
@@ -2351,7 +2439,10 @@ UNION DISTINCT CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_intersect_all_corresponding_union_distinct_corresponding]
 (
@@ -2365,7 +2456,7 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.4},
   {-3, -3, 0.3},
@@ -2387,7 +2478,7 @@ UNION DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.4, -4},
   {-3, 0.3, -3},
@@ -2501,7 +2592,7 @@ INTERSECT ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-2, -2, 0.2},
   {-2, -2, 0.2},
   {NULL, NULL, NULL},
@@ -2523,7 +2614,7 @@ INTERSECT ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-2, 0.2, -2},
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
@@ -2637,7 +2728,7 @@ INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-2, -2, 0.2},
   {NULL, NULL, NULL},
   {-3, -3, 0.3},
@@ -2658,7 +2749,7 @@ INTERSECT DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
   {-3, 0.3, -3},
@@ -2693,7 +2784,10 @@ EXCEPT ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_intersect_all_corresponding_except_all_by_position]
 (
@@ -2707,7 +2801,7 @@ EXCEPT ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-3, -3, 0.30000001192092896},
   {-2, -2, 0.20000000298023224},
   {-2, -2, 0.20000000298023224},
@@ -2728,7 +2822,7 @@ EXCEPT ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
   {-2, 0.20000000298023224, -2},
@@ -2797,7 +2891,7 @@ EXCEPT ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {NULL, NULL, NULL},
   {-1, 0.1, -1},
@@ -2832,7 +2926,10 @@ EXCEPT DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_intersect_all_corresponding_except_distinct_by_position]
 (
@@ -2846,7 +2943,7 @@ EXCEPT DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-3, -3, 0.30000001192092896},
   {-2, -2, 0.20000000298023224},
   {-1, -1, 0.10000000149011612}
@@ -2866,7 +2963,7 @@ EXCEPT DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
   {-2, 0.20000000298023224, -2},
@@ -2949,7 +3046,11 @@ UNION ALL
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {1, 10},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_all_by_position_intersect_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -2963,7 +3064,11 @@ UNION ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}, {1, 10}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2},
+  {1, 10}
+]
 ==
 [name=parenthesized_inner_outer_intersect_distinct_corresponding_union_all_by_position]
 (
@@ -2977,7 +3082,7 @@ UNION ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-1, -1, 0.10000000149011612},
   {-3, -3, 0.30000001192092896},
   {NULL, NULL, NULL},
@@ -3007,7 +3112,7 @@ UNION ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-2, 0.20000000298023224, -2},
   {NULL, NULL, NULL},
   {-1, 0.10000000149011612, -1},
@@ -3037,7 +3142,11 @@ UNION ALL CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {1, 10},
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_all_corresponding_intersect_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -3051,7 +3160,11 @@ UNION ALL CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}, {10, 1}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {20, 2},
+  {10, 1},
+  {10, 1}
+]
 ==
 [name=parenthesized_inner_outer_intersect_distinct_corresponding_union_all_corresponding]
 (
@@ -3065,7 +3178,7 @@ UNION ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {NULL, NULL, NULL},
   {-1, -1, 0.1},
   {-2, -2, 0.2},
@@ -3095,7 +3208,7 @@ UNION ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-1, 0.1, -1},
   {-2, 0.2, -2},
   {-3, 0.3, -3},
@@ -3125,7 +3238,11 @@ UNION DISTINCT
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {1, 10},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_by_position_intersect_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -3139,7 +3256,11 @@ UNION DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {1, 10},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_intersect_distinct_corresponding_union_distinct_by_position]
 (
@@ -3153,7 +3274,7 @@ UNION DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.40000000596046448, -4},
   {-3, -3, 0.30000001192092896},
@@ -3178,7 +3299,7 @@ UNION DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.40000000596046448, -4},
   {-3, -3, 0.30000001192092896},
@@ -3203,7 +3324,10 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {1, 10},
+  {2, 20}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_intersect_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -3217,7 +3341,10 @@ UNION DISTINCT CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_intersect_distinct_corresponding_union_distinct_corresponding]
 (
@@ -3231,7 +3358,7 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.4},
   {-3, -3, 0.3},
@@ -3253,7 +3380,7 @@ UNION DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.4, -4},
   {-3, 0.3, -3},
@@ -3367,7 +3494,7 @@ INTERSECT ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-2, -2, 0.2},
   {NULL, NULL, NULL},
   {-3, -3, 0.3},
@@ -3388,7 +3515,7 @@ INTERSECT ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
   {-3, 0.3, -3},
@@ -3501,7 +3628,7 @@ INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-2, -2, 0.2},
   {NULL, NULL, NULL},
   {-3, -3, 0.3},
@@ -3522,7 +3649,7 @@ INTERSECT DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
   {-3, 0.3, -3},
@@ -3557,7 +3684,10 @@ EXCEPT ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_intersect_distinct_corresponding_except_all_by_position]
 (
@@ -3571,7 +3701,7 @@ EXCEPT ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-3, -3, 0.30000001192092896},
   {-2, -2, 0.20000000298023224},
   {-1, -1, 0.10000000149011612}
@@ -3591,7 +3721,7 @@ EXCEPT ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
   {-2, 0.20000000298023224, -2},
@@ -3660,7 +3790,7 @@ EXCEPT ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
@@ -3696,7 +3826,10 @@ EXCEPT DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_intersect_distinct_corresponding_except_distinct_by_position]
 (
@@ -3710,7 +3843,7 @@ EXCEPT DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-3, -3, 0.30000001192092896},
   {-2, -2, 0.20000000298023224},
   {-1, -1, 0.10000000149011612}
@@ -3730,7 +3863,7 @@ EXCEPT DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
   {-2, 0.20000000298023224, -2},
@@ -3813,7 +3946,11 @@ UNION ALL
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_all_by_position_except_all_corresponding]
 SELECT int64_val, int32_val
@@ -3827,7 +3964,11 @@ UNION ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}, {2, 20}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2},
+  {2, 20}
+]
 ==
 [name=parenthesized_inner_outer_except_all_corresponding_union_all_by_position]
 (
@@ -3841,7 +3982,7 @@ UNION ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {0, 0, 0},
   {-3, -3, 0.30000001192092896},
   {-3, -3, 0.30000001192092896},
@@ -3870,7 +4011,7 @@ UNION ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-2, 0.20000000298023224, -2},
   {NULL, NULL, NULL},
   {-1, 0.10000000149011612, -1},
@@ -3899,7 +4040,11 @@ UNION ALL CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {2, 20},
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_all_corresponding_except_all_corresponding]
 SELECT int64_val, int32_val
@@ -3913,7 +4058,11 @@ UNION ALL CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {20, 2},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_all_corresponding_union_all_corresponding]
 (
@@ -3927,7 +4076,7 @@ UNION ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {-3, -3, 0.3},
   {0, 0, 0},
   {-3, -3, 0.3},
@@ -3956,7 +4105,7 @@ UNION ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-1, 0.1, -1},
   {-2, 0.2, -2},
   {-3, 0.3, -3},
@@ -3985,7 +4134,11 @@ UNION DISTINCT
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_by_position_except_all_corresponding]
 SELECT int64_val, int32_val
@@ -3999,7 +4152,11 @@ UNION DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_all_corresponding_union_distinct_by_position]
 (
@@ -4013,7 +4170,7 @@ UNION DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.40000000596046448, -4},
   {-3, -3, 0.30000001192092896},
@@ -4037,7 +4194,7 @@ UNION DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.40000000596046448, -4},
   {-3, -3, 0.30000001192092896},
@@ -4061,7 +4218,10 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {1, 10},
+  {2, 20}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_except_all_corresponding]
 SELECT int64_val, int32_val
@@ -4075,7 +4235,10 @@ UNION DISTINCT CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_all_corresponding_union_distinct_corresponding]
 (
@@ -4089,7 +4252,7 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.4},
   {-3, -3, 0.3},
@@ -4112,7 +4275,7 @@ UNION DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.4, -4},
   {-3, 0.3, -3},
@@ -4397,7 +4560,10 @@ EXCEPT ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_all_corresponding_except_all_by_position]
 (
@@ -4411,7 +4577,7 @@ EXCEPT ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-3, -3, 0.30000001192092896},
   {-3, -3, 0.30000001192092896},
   {0, 0, 0}
@@ -4431,7 +4597,7 @@ EXCEPT ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
   {-1, 0.10000000149011612, -1},
@@ -4485,7 +4651,7 @@ EXCEPT ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {0, 0, 0},
   {-3, -3, 0.3}
 ]
@@ -4504,7 +4670,7 @@ EXCEPT ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {-2, 0.2, -2},
   {-2, 0.2, -2},
@@ -4543,7 +4709,10 @@ EXCEPT DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_all_corresponding_except_distinct_by_position]
 (
@@ -4557,7 +4726,7 @@ EXCEPT DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {-3, -3, 0.30000001192092896},
   {0, 0, 0}
 ]
@@ -4576,7 +4745,7 @@ EXCEPT DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
   {-1, 0.10000000149011612, -1},
@@ -4642,7 +4811,7 @@ EXCEPT DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {-2, 0.2, -2},
   {NULL, NULL, NULL},
@@ -4663,7 +4832,11 @@ UNION ALL
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_all_by_position_except_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -4677,7 +4850,11 @@ UNION ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}, {2, 20}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2},
+  {2, 20}
+]
 ==
 [name=parenthesized_inner_outer_except_distinct_corresponding_union_all_by_position]
 (
@@ -4691,7 +4868,7 @@ UNION ALL
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {0, 0, 0},
   {-2, 0.20000000298023224, -2},
   {NULL, NULL, NULL},
@@ -4718,7 +4895,7 @@ UNION ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-2, 0.20000000298023224, -2},
   {NULL, NULL, NULL},
   {-1, 0.10000000149011612, -1},
@@ -4745,7 +4922,11 @@ UNION ALL CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {2, 20}, {1, 10}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {2, 20},
+  {2, 20},
+  {1, 10}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_all_corresponding_except_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -4759,7 +4940,11 @@ UNION ALL CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {20, 2},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_distinct_corresponding_union_all_corresponding]
 (
@@ -4773,7 +4958,7 @@ UNION ALL CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {0, 0, 0},
   {-1, -1, 0.1},
   {-2, -2, 0.2},
@@ -4800,7 +4985,7 @@ UNION ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-1, 0.1, -1},
   {-2, 0.2, -2},
   {-3, 0.3, -3},
@@ -4827,7 +5012,11 @@ UNION DISTINCT
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[unknown order:
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_by_position_except_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -4841,7 +5030,11 @@ UNION DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_distinct_corresponding_union_distinct_by_position]
 (
@@ -4855,7 +5048,7 @@ UNION DISTINCT
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
@@ -4878,7 +5071,7 @@ UNION DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.40000000596046448, -4},
   {-3, 0.30000001192092896, -3},
@@ -4901,7 +5094,10 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, int32_val
 FROM Manual1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
+  {1, 10},
+  {2, 20}
+]
 ==
 [name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_except_distinct_corresponding]
 SELECT int64_val, int32_val
@@ -4915,7 +5111,10 @@ UNION DISTINCT CORRESPONDING
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_distinct_corresponding_union_distinct_corresponding]
 (
@@ -4929,7 +5128,7 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val, float_val, int32_val
 FROM Table1
 --
-ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[unknown order:
   {NULL, NULL, NULL},
   {-4, -4, 0.4},
   {-3, -3, 0.3},
@@ -4952,7 +5151,7 @@ UNION DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {NULL, NULL, NULL},
   {-4, 0.4, -4},
   {-3, 0.3, -3},
@@ -5229,7 +5428,10 @@ EXCEPT ALL
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_distinct_corresponding_except_all_by_position]
 (
@@ -5259,7 +5461,7 @@ EXCEPT ALL
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-2, 0.20000000298023224, -2},
   {-2, 0.20000000298023224, -2},
@@ -5329,7 +5531,7 @@ EXCEPT ALL CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {-2, 0.2, -2},
   {-2, 0.2, -2},
@@ -5369,7 +5571,10 @@ EXCEPT DISTINCT
   FROM Manual2
 )
 --
-ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[unknown order:
+  {10, 1},
+  {20, 2}
+]
 ==
 [name=parenthesized_inner_outer_except_distinct_corresponding_except_distinct_by_position]
 (
@@ -5399,7 +5604,7 @@ EXCEPT DISTINCT
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[unknown order:
   {-4, 0.40000000596046448, -4},
   {-2, 0.20000000298023224, -2},
   {NULL, NULL, NULL},
@@ -5465,7 +5670,7 @@ EXCEPT DISTINCT CORRESPONDING
   FROM Table1
 )
 --
-ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[unknown order:
   {-4, 0.4, -4},
   {-2, 0.2, -2},
   {NULL, NULL, NULL},

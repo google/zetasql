@@ -306,7 +306,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<value1 INT64, value2 INT64>
         >>
-  [{1, {100, 200}}, {2, {100, 200}}]}
+  [unknown order:{1, {100, 200}}, {2, {100, 200}}]}
 ==
 
 [name=assign_struct_column_null]
@@ -320,7 +320,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<value1 INT64, value2 INT64>
         >>
-  [{1, NULL}, {2, NULL}]}
+  [unknown order:{1, NULL}, {2, NULL}]}
 ==
 
 [name=assign_struct_column_default]
@@ -334,7 +334,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<value1 INT64, value2 INT64>
         >>
-  [{1, NULL}, {2, NULL}]}
+  [unknown order:{1, NULL}, {2, NULL}]}
 ==
 
 [name=assign_struct_field]
@@ -348,7 +348,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<value1 INT64, value2 INT64>
         >>
-  [{1, {100, 11}}, {2, {100, 21}}]}
+  [unknown order:{1, {100, 11}}, {2, {100, 21}}]}
 ==
 
 [name=assign_struct_field_null]
@@ -362,7 +362,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<value1 INT64, value2 INT64>
         >>
-  [{1, {NULL, 11}}, {2, {NULL, 21}}]}
+  [unknown order:{1, {NULL, 11}}, {2, {NULL, 21}}]}
 ==
 
 # Fails because there is a row where struct_value is NULL.
@@ -383,7 +383,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<value1 INT64, value2 INT64>
         >>
-  [{1, {NULL, 11}}, {2, {NULL, 21}}]}
+  [unknown order:{1, {NULL, 11}}, {2, {NULL, 21}}]}
 ==
 
 [name=assign_array_struct_field]
@@ -400,25 +400,27 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<int64_value INT64, array_value ARRAY<>, array_value2 ARRAY<>>
         >>
-  [{1,
-      {
-        10,
-        ARRAY<INT64>[50, 51, 52],
-        ARRAY<INT64>[111, 112, 113]
-      }},
-     {2,
-      {
-        20,
-        ARRAY<INT64>[50, 51, 52],
-        ARRAY<INT64>[221, 222, 223]
-      }},
-     {3,
-      {
-        30,
-        ARRAY<INT64>[50, 51, 52],
-        ARRAY<INT64>(NULL)
-      }},
-     {4, NULL}]
+  [unknown order:
+    {1,
+     {
+       10,
+       ARRAY<INT64>[known order:50, 51, 52],
+       ARRAY<INT64>[known order:111, 112, 113]
+     }},
+    {2,
+     {
+       20,
+       ARRAY<INT64>[known order:50, 51, 52],
+       ARRAY<INT64>[known order:221, 222, 223]
+     }},
+    {3,
+     {
+       30,
+       ARRAY<INT64>[known order:50, 51, 52],
+       ARRAY<INT64>(NULL)
+     }},
+    {4, NULL}
+  ]
 }
 ==
 
@@ -436,23 +438,25 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<int64_value INT64, array_value ARRAY<>, array_value2 ARRAY<>>
         >>
-  [{1,
-      {
-        10,
-        ARRAY<INT64>(NULL),
-        ARRAY<INT64>[111, 112, 113]
-      }},
-     {2,
-      {
-        20,
-        ARRAY<INT64>(NULL),
-        ARRAY<INT64>[221, 222, 223]
-      }},
+  [unknown order:
+    {1,
      {
-       3,
-       {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
-     },
-     {4, NULL}]
+       10,
+       ARRAY<INT64>(NULL),
+       ARRAY<INT64>[known order:111, 112, 113]
+     }},
+    {2,
+     {
+       20,
+       ARRAY<INT64>(NULL),
+       ARRAY<INT64>[known order:221, 222, 223]
+     }},
+    {
+      3,
+      {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+    },
+    {4, NULL}
+  ]
 }
 ==
 
@@ -470,25 +474,27 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<int64_value INT64, array_value ARRAY<>, array_value2 ARRAY<>>
         >>
-  [{1,
-      {
-        10,
-        ARRAY<INT64>[50, NULL, 52],
-        ARRAY<INT64>[111, 112, 113]
-      }},
-     {2,
-      {
-        20,
-        ARRAY<INT64>[50, NULL, 52],
-        ARRAY<INT64>[221, 222, 223]
-      }},
-     {3,
-      {
-        30,
-        ARRAY<INT64>[50, NULL, 52],
-        ARRAY<INT64>(NULL)
-      }},
-     {4, NULL}]
+  [unknown order:
+    {1,
+     {
+       10,
+       ARRAY<INT64>[known order:50, NULL, 52],
+       ARRAY<INT64>[known order:111, 112, 113]
+     }},
+    {2,
+     {
+       20,
+       ARRAY<INT64>[known order:50, NULL, 52],
+       ARRAY<INT64>[known order:221, 222, 223]
+     }},
+    {3,
+     {
+       30,
+       ARRAY<INT64>[known order:50, NULL, 52],
+       ARRAY<INT64>(NULL)
+     }},
+    {4, NULL}
+  ]
 }
 ==
 
@@ -506,23 +512,25 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<int64_value INT64, array_value ARRAY<>, array_value2 ARRAY<>>
         >>
-  [{1,
-      {
-        10,
-        ARRAY<INT64>(NULL),
-        ARRAY<INT64>[111, 112, 113]
-      }},
-     {2,
-      {
-        20,
-        ARRAY<INT64>(NULL),
-        ARRAY<INT64>[221, 222, 223]
-      }},
+  [unknown order:
+    {1,
      {
-       3,
-       {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
-     },
-     {4, NULL}]
+       10,
+       ARRAY<INT64>(NULL),
+       ARRAY<INT64>[known order:111, 112, 113]
+     }},
+    {2,
+     {
+       20,
+       ARRAY<INT64>(NULL),
+       ARRAY<INT64>[known order:221, 222, 223]
+     }},
+    {
+      3,
+      {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+    },
+    {4, NULL}
+  ]
 }
 ==
 
@@ -541,23 +549,25 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<int64_value INT64, array_value ARRAY<>, array_value2 ARRAY<>>
         >>
-  [{1,
-      {
-        10,
-        ARRAY<INT64>[100, 12, 13],
-        ARRAY<INT64>[111, 112, 113]
-      }},
-     {2,
-      {
-        20,
-        ARRAY<INT64>[100, 22, 23],
-        ARRAY<INT64>[221, 222, 223]
-      }},
+  [unknown order:
+    {1,
      {
-       3,
-       {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
-     },
-     {4, NULL}]
+       10,
+       ARRAY<INT64>[known order:100, 12, 13],
+       ARRAY<INT64>[known order:111, 112, 113]
+     }},
+    {2,
+     {
+       20,
+       ARRAY<INT64>[known order:100, 22, 23],
+       ARRAY<INT64>[known order:221, 222, 223]
+     }},
+    {
+      3,
+      {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+    },
+    {4, NULL}
+  ]
 }
 ==
 
@@ -585,23 +595,25 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<int64_value INT64, array_value ARRAY<>, array_value2 ARRAY<>>
         >>
-  [{1,
-      {
-        10,
-        ARRAY<INT64>[NULL, 12, 13],
-        ARRAY<INT64>[111, 112, 113]
-      }},
-     {2,
-      {
-        20,
-        ARRAY<INT64>[NULL, 22, 23],
-        ARRAY<INT64>[221, 222, 223]
-      }},
+  [unknown order:
+    {1,
      {
-       3,
-       {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
-     },
-     {4, NULL}]
+       10,
+       ARRAY<INT64>[known order:NULL, 12, 13],
+       ARRAY<INT64>[known order:111, 112, 113]
+     }},
+    {2,
+     {
+       20,
+       ARRAY<INT64>[known order:NULL, 22, 23],
+       ARRAY<INT64>[known order:221, 222, 223]
+     }},
+    {
+      3,
+      {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+    },
+    {4, NULL}
+  ]
 }
 ==
 
@@ -620,23 +632,25 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<int64_value INT64, array_value ARRAY<>, array_value2 ARRAY<>>
         >>
-  [{1,
-      {
-        10,
-        ARRAY<INT64>[11, 100, 13],
-        ARRAY<INT64>[111, 112, 113]
-      }},
-     {2,
-      {
-        20,
-        ARRAY<INT64>[21, 100, 23],
-        ARRAY<INT64>[221, 222, 223]
-      }},
+  [unknown order:
+    {1,
      {
-       3,
-       {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
-     },
-     {4, NULL}]
+       10,
+       ARRAY<INT64>[known order:11, 100, 13],
+       ARRAY<INT64>[known order:111, 112, 113]
+     }},
+    {2,
+     {
+       20,
+       ARRAY<INT64>[known order:21, 100, 23],
+       ARRAY<INT64>[known order:221, 222, 223]
+     }},
+    {
+      3,
+      {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+    },
+    {4, NULL}
+  ]
 }
 ==
 
@@ -655,23 +669,25 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<int64_value INT64, array_value ARRAY<>, array_value2 ARRAY<>>
         >>
-  [{1,
-      {
-        10,
-        ARRAY<INT64>[11, 100, 13],
-        ARRAY<INT64>[111, 112, 113]
-      }},
-     {2,
-      {
-        20,
-        ARRAY<INT64>[21, 22, 100],
-        ARRAY<INT64>[221, 222, 223]
-      }},
+  [unknown order:
+    {1,
      {
-       3,
-       {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
-     },
-     {4, NULL}]
+       10,
+       ARRAY<INT64>[known order:11, 100, 13],
+       ARRAY<INT64>[known order:111, 112, 113]
+     }},
+    {2,
+     {
+       20,
+       ARRAY<INT64>[known order:21, 22, 100],
+       ARRAY<INT64>[known order:221, 222, 223]
+     }},
+    {
+      3,
+      {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+    },
+    {4, NULL}
+  ]
 }
 ==
 
@@ -691,23 +707,25 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<int64_value INT64, array_value ARRAY<>, array_value2 ARRAY<>>
         >>
-  [{1,
-      {
-        10,
-        ARRAY<INT64>[100, 200, 13],
-        ARRAY<INT64>[111, 112, 113]
-      }},
-     {2,
-      {
-        20,
-        ARRAY<INT64>[100, 200, 23],
-        ARRAY<INT64>[221, 222, 223]
-      }},
+  [unknown order:
+    {1,
      {
-       3,
-       {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
-     },
-     {4, NULL}]
+       10,
+       ARRAY<INT64>[known order:100, 200, 13],
+       ARRAY<INT64>[known order:111, 112, 113]
+     }},
+    {2,
+     {
+       20,
+       ARRAY<INT64>[known order:100, 200, 23],
+       ARRAY<INT64>[known order:221, 222, 223]
+     }},
+    {
+      3,
+      {30, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+    },
+    {4, NULL}
+  ]
 }
 ==
 
@@ -783,14 +801,18 @@ STRUCT<
         >>
   [{1,
       {ARRAY<STRUCT<array2 ARRAY<>>>[
-         {ARRAY<STRUCT<array3 ARRAY<>>>[
-            NULL,
-            {ARRAY<STRUCT<array4 ARRAY<>>>[
-               NULL,
-               NULL,
-               {ARRAY<INT64>[NULL, NULL, NULL, 100]}
-             ]}
-          ]}
+         {
+           ARRAY<STRUCT<array3 ARRAY<>>>[known order:
+             NULL,
+             {
+               ARRAY<STRUCT<array4 ARRAY<>>>[known order:
+                 NULL,
+                 NULL,
+                 {ARRAY<INT64>[known order:NULL, NULL, NULL, 100]}
+               ]
+             }
+           ]
+         }
        ]}}]}
 ==
 
@@ -802,23 +824,25 @@ WHERE primary_key != 3
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
-    {
-      1,
-      ARRAY<STRUCT<value1 INT64, value2 INT64>>[{1000, 101}, {110, 111}, {120, 121}]
-    },
-    {
-      2,
-      ARRAY<STRUCT<value1 INT64, value2 INT64>>[{1000, 201}, {210, 211}, {220, 221}]
-    },
+>{2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
+    {1,
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
+       {1000, 101},
+       {110, 111},
+       {120, 121}
+     ]},
+    {2,
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
+       {1000, 201},
+       {210, 211},
+       {220, 221}
+     ]},
     {
       3,
       ARRAY<STRUCT<value1 INT64, value2 INT64>>(NULL)
     }
-  ]
-}
+  ]}
 ==
 
 [name=update_array_of_structs_field_first_element_to_null_with_set]
@@ -829,23 +853,25 @@ WHERE primary_key != 3
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
-    {
-      1,
-      ARRAY<STRUCT<value1 INT64, value2 INT64>>[{NULL, 101}, {110, 111}, {120, 121}]
-    },
-    {
-      2,
-      ARRAY<STRUCT<value1 INT64, value2 INT64>>[{NULL, 201}, {210, 211}, {220, 221}]
-    },
+>{2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
+    {1,
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
+       {NULL, 101},
+       {110, 111},
+       {120, 121}
+     ]},
+    {2,
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
+       {NULL, 201},
+       {210, 211},
+       {220, 221}
+     ]},
     {
       3,
       ARRAY<STRUCT<value1 INT64, value2 INT64>>(NULL)
     }
-  ]
-}
+  ]}
 ==
 
 [name=update_array_of_structs_field_second_element_with_set]
@@ -857,23 +883,25 @@ WHERE primary_key != 3
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
-    {
-      1,
-      ARRAY<STRUCT<value1 INT64, value2 INT64>>[{100, 101}, {1000, 111}, {120, 121}]
-    },
-    {
-      2,
-      ARRAY<STRUCT<value1 INT64, value2 INT64>>[{200, 201}, {1000, 211}, {220, 221}]
-    },
+>{2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
+    {1,
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
+       {100, 101},
+       {1000, 111},
+       {120, 121}
+     ]},
+    {2,
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
+       {200, 201},
+       {1000, 211},
+       {220, 221}
+     ]},
     {
       3,
       ARRAY<STRUCT<value1 INT64, value2 INT64>>(NULL)
     }
-  ]
-}
+  ]}
 ==
 
 [name=update_array_of_structs_with_set_nonliteral_offset]
@@ -885,23 +913,25 @@ WHERE primary_key != 3
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{
-  2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
-    {
-      1,
-      ARRAY<STRUCT<value1 INT64, value2 INT64>>[{100, 101}, {1000, 111}, {120, 121}]
-    },
-    {
-      2,
-      ARRAY<STRUCT<value1 INT64, value2 INT64>>[{200, 201}, {210, 211}, {1000, 221}]
-    },
+>{2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
+    {1,
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
+       {100, 101},
+       {1000, 111},
+       {120, 121}
+     ]},
+    {2,
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
+       {200, 201},
+       {210, 211},
+       {1000, 221}
+     ]},
     {
       3,
       ARRAY<STRUCT<value1 INT64, value2 INT64>>(NULL)
     }
-  ]
-}
+  ]}
 ==
 
 [name=update_two_elements_array_of_structs_with_set]
@@ -915,15 +945,15 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
     {1,
-     ARRAY<STRUCT<value1 INT64, value2 INT64>>[
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
        {1000, 101},
        {2000, 111},
        {120, 121}
      ]},
     {2,
-     ARRAY<STRUCT<value1 INT64, value2 INT64>>[
+     ARRAY<STRUCT<value1 INT64, value2 INT64>>[known order:
        {1000, 201},
        {2000, 211},
        {220, 221}
@@ -1012,30 +1042,40 @@ WHERE True
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
->{1,
+>{
+  1,
   ARRAY<STRUCT<
           primary_key INT64,
           struct_value STRUCT<struct1 STRUCT<array1 ARRAY<>>>
         >>
-  [{1,
-      {{ARRAY<STRUCT<struct2 STRUCT<array2 ARRAY<>>>>[
-          {
+  [
+    {
+      1,
+      {
+        {
+          ARRAY<STRUCT<struct2 STRUCT<array2 ARRAY<>>>>[
             {
-              ARRAY<STRUCT<struct3 STRUCT<array3 ARRAY<>>>>[
-                NULL,
-                {
+              {
+                ARRAY<STRUCT<struct3 STRUCT<array3 ARRAY<>>>>[known order:
+                  NULL,
                   {
-                    ARRAY<STRUCT<struct4 STRUCT<array4 ARRAY<>>>>[
-                      NULL,
-                      NULL,
-                      {{ARRAY<INT64>[NULL, NULL, NULL, 100]}}
-                    ]
+                    {
+                      ARRAY<STRUCT<struct4 STRUCT<array4 ARRAY<>>>>[known order:
+                        NULL,
+                        NULL,
+                        {{ARRAY<INT64>[known order:NULL, NULL, NULL, 100]}}
+                      ]
+                    }
                   }
-                }
-              ]
+                ]
+              }
             }
-          }
-        ]}}}]}
+          ]
+        }
+      }
+    }
+  ]
+}
 ==
 
 [name=assign_struct_subfield]
@@ -1053,7 +1093,7 @@ STRUCT<
                  struct_field STRUCT<nested_value1 INT64, nested_value2 INT64>
                >
         >>
-  [{1, {10, {50, 51}}}, {2, {20, {50, 51}}}]
+  [unknown order:{1, {10, {50, 51}}}, {2, {20, {50, 51}}}]
 }
 ==
 
@@ -1072,7 +1112,7 @@ STRUCT<
                  struct_field STRUCT<nested_value1 INT64, nested_value2 INT64>
                >
         >>
-  [{1, {10, NULL}}, {2, {20, NULL}}]
+  [unknown order:{1, {10, NULL}}, {2, {20, NULL}}]
 }
 ==
 
@@ -1091,7 +1131,7 @@ STRUCT<
                  struct_field STRUCT<nested_value1 INT64, nested_value2 INT64>
                >
         >>
-  [{1, {10, NULL}}, {2, {20, NULL}}]
+  [unknown order:{1, {10, NULL}}, {2, {20, NULL}}]
 }
 ==
 
@@ -1118,7 +1158,7 @@ STRUCT<
                  struct_field STRUCT<nested_value1 INT64, nested_value2 INT64>
                >
         >>
-  [
+  [unknown order:
     {1, {10, {1000, 12}}},
     {2, {20, NULL}}
   ]
@@ -1141,7 +1181,7 @@ STRUCT<
                  struct_field STRUCT<nested_value1 INT64, nested_value2 INT64>
                >
         >>
-  [
+  [unknown order:
     {1, {10, {NULL, 12}}},
     {2, {20, NULL}}
   ]
@@ -1164,7 +1204,7 @@ STRUCT<
                  struct_field STRUCT<nested_value1 INT64, nested_value2 INT64>
                >
         >>
-  [
+  [unknown order:
     {1, {10, {NULL, 12}}},
     {2, {20, NULL}}
   ]
@@ -1185,18 +1225,20 @@ STRUCT<
                                   nested_value INT64,
                                   nested_array_value ARRAY<>
                                 >>>>
-  [{1,
-      {10,
-       {
-         11,
-         ARRAY<INT64>[50, 51, 52]
-       }}},
-     {2,
-      {20,
-       {
-         21,
-         ARRAY<INT64>[50, 51, 52]
-       }}}]}
+  [unknown order:
+    {1,
+     {10,
+      {
+        11,
+        ARRAY<INT64>[known order:50, 51, 52]
+      }}},
+    {2,
+     {20,
+      {
+        21,
+        ARRAY<INT64>[known order:50, 51, 52]
+      }}}
+  ]}
 ==
 
 [name=assign_struct_array_sub_subfield_null]
@@ -1213,16 +1255,18 @@ STRUCT<
                                   nested_value INT64,
                                   nested_array_value ARRAY<>
                                 >>>>
-  [{1,
-      {
-        10,
-        {11, ARRAY<INT64>(NULL)}
-      }},
-     {2,
-      {
-        20,
-        {21, ARRAY<INT64>(NULL)}
-      }}]}
+  [unknown order:
+    {1,
+     {
+       10,
+       {11, ARRAY<INT64>(NULL)}
+     }},
+    {2,
+     {
+       20,
+       {21, ARRAY<INT64>(NULL)}
+     }}
+  ]}
 ==
 
 [name=assign_struct_array_sub_subfield_default]
@@ -1239,16 +1283,18 @@ STRUCT<
                                   nested_value INT64,
                                   nested_array_value ARRAY<>
                                 >>>>
-  [{1,
-      {
-        10,
-        {11, ARRAY<INT64>(NULL)}
-      }},
-     {2,
-      {
-        20,
-        {21, ARRAY<INT64>(NULL)}
-      }}]}
+  [unknown order:
+    {1,
+     {
+       10,
+       {11, ARRAY<INT64>(NULL)}
+     }},
+    {2,
+     {
+       20,
+       {21, ARRAY<INT64>(NULL)}
+     }}
+  ]}
 ==
 
 [name=assign_proto_struct_field]
@@ -1266,18 +1312,20 @@ STRUCT<
                  proto_field PROTO<zetasql_test__.KitchenSinkPB>
                >
         >>
-  [{1,
-      {10,
-       {
-         int64_key_1: 50
-         int64_key_2: 51
-       }}},
-     {2,
-      {20,
-       {
-         int64_key_1: 50
-         int64_key_2: 51
-       }}}]}
+  [unknown order:
+    {1,
+     {10,
+      {
+        int64_key_1: 50
+        int64_key_2: 51
+      }}},
+    {2,
+     {20,
+      {
+        int64_key_1: 50
+        int64_key_2: 51
+      }}}
+  ]}
 ==
 
 [name=assign_proto_struct_field_null]
@@ -1295,7 +1343,7 @@ STRUCT<
                  proto_field PROTO<zetasql_test__.KitchenSinkPB>
                >
         >>
-  [{1, {10, NULL}}, {2, {20, NULL}}]}
+  [unknown order:{1, {10, NULL}}, {2, {20, NULL}}]}
 ==
 
 [name=assign_proto_struct_field_default]
@@ -1313,7 +1361,7 @@ STRUCT<
                  proto_field PROTO<zetasql_test__.KitchenSinkPB>
                >
         >>
-  [{1, {10, NULL}}, {2, {20, NULL}}]}
+  [unknown order:{1, {10, NULL}}, {2, {20, NULL}}]}
 ==
 
 [name=assign_proto_subfield_in_struct]
@@ -1330,18 +1378,20 @@ STRUCT<
                  proto_field PROTO<zetasql_test__.KitchenSinkPB>
                >
         >>
-  [{1,
-      {10,
-       {
-         int64_key_1: 1000
-         int64_key_2: 12
-       }}},
-     {2,
-      {20,
-       {
-         int64_key_1: 1000
-         int64_key_2: 22
-       }}}]}
+  [unknown order:
+    {1,
+     {10,
+      {
+        int64_key_1: 1000
+        int64_key_2: 12
+      }}},
+    {2,
+     {20,
+      {
+        int64_key_1: 1000
+        int64_key_2: 22
+      }}}
+  ]}
 ==
 
 # A brief, somewhat tortuous test involving an array of structs wrapping a
@@ -1362,24 +1412,26 @@ STRUCT<
              int64_field INT64,
              proto_field PROTO<zetasql_test__.KitchenSinkPB>
            >>
-     [{10,
-             {
-               int64_key_1: 11
-               int64_key_2: 12
-               repeated_int64_val: 101
-               repeated_int64_val: 1000
-               repeated_int64_val: 103
-               nested_repeated_value {
-                 nested_int64: 201
-               }
-               nested_repeated_value {
-                 nested_int64: 202
-               }
-               nested_repeated_value {
-                 nested_int64: 203
-               }
-             }},
-            NULL]}
+     [known order:
+       {10,
+        {
+          int64_key_1: 11
+          int64_key_2: 12
+          repeated_int64_val: 101
+          repeated_int64_val: 1000
+          repeated_int64_val: 103
+          nested_repeated_value {
+            nested_int64: 201
+          }
+          nested_repeated_value {
+            nested_int64: 202
+          }
+          nested_repeated_value {
+            nested_int64: 203
+          }
+        }},
+       NULL
+     ]}
   ]}
 ==
 
@@ -1402,24 +1454,26 @@ STRUCT<
              int64_field INT64,
              proto_field PROTO<zetasql_test__.KitchenSinkPB>
            >>
-     [{10,
-             {
-               int64_key_1: 11
-               int64_key_2: 12
-               repeated_int64_val: 101
-               repeated_int64_val: 102
-               repeated_int64_val: 103
-               nested_repeated_value {
-                 nested_int64: 201
-               }
-               nested_repeated_value {
-                 nested_int64: 1000
-               }
-               nested_repeated_value {
-                 nested_int64: 203
-               }
-             }},
-            NULL]}
+     [known order:
+       {10,
+        {
+          int64_key_1: 11
+          int64_key_2: 12
+          repeated_int64_val: 101
+          repeated_int64_val: 102
+          repeated_int64_val: 103
+          nested_repeated_value {
+            nested_int64: 201
+          }
+          nested_repeated_value {
+            nested_int64: 1000
+          }
+          nested_repeated_value {
+            nested_int64: 203
+          }
+        }},
+       NULL
+     ]}
   ]}
 ==
 
@@ -1435,7 +1489,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<value1 INT64, value2 INT64>
         >>
-  [{1, {100, 200}}, {2, {100, 200}}]}
+  [unknown order:{1, {100, 200}}, {2, {100, 200}}]}
 ==
 
 [name=assign_struct_field_and_two_subfields_of_another_field]
@@ -1457,7 +1511,7 @@ STRUCT<
                  struct_field STRUCT<nested_value1 INT64, nested_value2 INT64>
                >
         >>
-  [
+  [unknown order:
     {1, {100, {200, 200}}},
     {2, {20, NULL}}
   ]

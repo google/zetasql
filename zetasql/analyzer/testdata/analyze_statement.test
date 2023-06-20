@@ -105,11 +105,15 @@ analyze
 AnalyzeStmt
 ==
 
+# ANALYZE regular_table with pseudo columns listed is allowed.
 analyze OPTIONS(p1=a1,p2=a2) AllPseudoColumns(Key, Value)
 --
-ERROR: Cannot ANALYZE pseudo-column Key [at 1:30]
-analyze OPTIONS(p1=a1,p2=a2) AllPseudoColumns(Key, Value)
-                             ^
+AnalyzeStmt
++-option_list=
+| +-p1 := Literal(type=STRING, value="a1")
+| +-p2 := Literal(type=STRING, value="a2")
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=AllPseudoColumns, column_index_list=[0, 1])
 ==
 
 analyze AllPseudoColumns;
@@ -140,8 +144,117 @@ analyze SimpleTypes, SimpleTypes(double)
                      ^
 ==
 
+[disallow_duplicate_options]
+analyze OPTIONS(p1=a1,p1=a2) SimpleTypes(int32,int64,double)
+--
+ERROR: Duplicate option specified for 'p1' [at 1:23]
+analyze OPTIONS(p1=a1,p1=a2) SimpleTypes(int32,int64,double)
+                      ^
+==
+
+# ANALYZE value_table without listing any columns is allowed.
+ANALYZE KitchenSinkValueTable{{|()}}
+--
+ALTERNATION GROUP: <empty>
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=KitchenSinkValueTable)
+--
+ALTERNATION GROUP: ()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:31]
+ANALYZE KitchenSinkValueTable()
+                              ^
+==
+
+# ANALYZE value_table with fields listed is not allowed.
 analyze KitchenSinkValueTable(int32_val, double_val)
 --
-ERROR: ANALYZE is not supported on a value table KitchenSinkValueTable yet [at 1:9]
+ERROR: int32_val is a field in the row type of value table KitchenSinkValueTable. ANALYZE statement only supports listing columns; expressions, including field accesses, are not supported in the ANALYZE statement [at 1:9]
 analyze KitchenSinkValueTable(int32_val, double_val)
+        ^
+==
+
+# ANALYZE value_table with pseudo fields listed is not allowed.
+analyze KitchenSinkValueTable(has_int32_val)
+--
+ERROR: Cannot find a column with name has_int32_val in the value table KitchenSinkValueTable [at 1:9]
+analyze KitchenSinkValueTable(has_int32_val)
+        ^
+==
+
+# ANALYZE value_table with value column listed is not allowed.
+ANALYZE TestExtraValueTable(value)
+--
+ERROR: Cannot find a column with name value in the value table TestExtraValueTable [at 1:9]
+ANALYZE TestExtraValueTable(value)
+        ^
+==
+
+# ANALYZE value_table with pseudo columns listed is allowed.
+ANALYZE TestExtraValueTable(RowId)
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=TestExtraValueTable, column_index_list=[2])
+==
+
+# ANALYZE value_table with pseudo columns listed is allowed.
+ANALYZE TestExtraValueTable(Filename, RowId)
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=TestExtraValueTable, column_index_list=[1, 2])
+==
+
+# ANALYZE both regular and value tables
+ANALYZE KitchenSinkValueTable, SimpleTypes
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=KitchenSinkValueTable)
+  +-TableAndColumnInfo(table=SimpleTypes)
+==
+
+# ANALYZE both regular and value tables
+ANALYZE KitchenSinkValueTable(int32_val), SimpleTypes
+--
+ERROR: int32_val is a field in the row type of value table KitchenSinkValueTable. ANALYZE statement only supports listing columns; expressions, including field accesses, are not supported in the ANALYZE statement [at 1:9]
+ANALYZE KitchenSinkValueTable(int32_val), SimpleTypes
+        ^
+==
+
+# ANALYZE both regular and value tables with columns listed.
+ANALYZE SimpleTypes(int32), KitchenSinkValueTable
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=SimpleTypes, column_index_list=[0])
+  +-TableAndColumnInfo(table=KitchenSinkValueTable)
+==
+
+# ANALYZE regular and value tables with pseudo columns listed.
+ANALYZE AllPseudoColumns(Key, Value), TestExtraValueTable(RowId), KitchenSinkValueTable
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=AllPseudoColumns, column_index_list=[0, 1])
+  +-TableAndColumnInfo(table=TestExtraValueTable, column_index_list=[2])
+  +-TableAndColumnInfo(table=KitchenSinkValueTable)
+==
+
+# ANALYZE table with duplicate columns.
+ANALYZE DuplicateColumns
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=DuplicateColumns)
+==
+
+# ANALYZE table with duplicate columns with column listed.
+ANALYZE DuplicateColumns(DuplicateColumns)
+--
+ERROR: Column not found: DuplicateColumns [at 1:9]
+ANALYZE DuplicateColumns(DuplicateColumns)
         ^

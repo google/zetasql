@@ -47,7 +47,8 @@ FROM example;
 
 [hash-link-to-farmhash-github]: https://github.com/google/farmhash
 
-### `FINGERPRINT`
+### `FINGERPRINT` (DEPRECATED) 
+<a id="fingerprint"></a>
 
 ```
 FINGERPRINT(input)
@@ -57,6 +58,9 @@ FINGERPRINT(input)
 
 Computes the fingerprint of the `STRING`
 or `BYTES` input using Fingerprint.
+
+This function is deprecated. For better hash quality, use another fingerprint
+hashing function.
 
 **Return type**
 
@@ -87,6 +91,9 @@ Computes the hash of the input using the
 `STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 16 bytes.
+
+Warning: MD5 is no longer considered secure.
+For increased security use another hashing function.
 
 **Return type**
 
@@ -119,6 +126,9 @@ Computes the hash of the input using the
 `STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 20 bytes.
+
+Warning: SHA1 is no longer considered secure.
+For increased security, use another hashing function.
 
 **Return type**
 

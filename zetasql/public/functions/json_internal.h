@@ -20,25 +20,27 @@
 #include <stdio.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <stack>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/common/json_parser.h"
 #include "zetasql/common/json_util.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/base/string_numbers.h"  
 #include "absl/base/attributes.h"
-#include "absl/memory/memory.h"
+#include "absl/base/optimization.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "re2/re2.h"
 
 namespace zetasql {
 namespace functions {
@@ -46,46 +48,23 @@ namespace json_internal {
 
 void RemoveBackSlashFollowedByChar(std::string* token, char esc_chr);
 
-// Checks if the given JSON path is supported and valid.
-absl::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode);
-
-// Bi-directed iterator over tokens in a valid JSON path, used by the extraction
-// algorithm. Functions in this class are inlined due to performance reasons.
-class ValidJSONPathIterator {
+// Bi-directed iterator over JSON path tokens. Functions in this class are
+// inlined due to performance reasons.
+template <typename Token>
+class JSONPathIterator {
  public:
-  typedef std::string Token;
-
-  static absl::StatusOr<std::unique_ptr<ValidJSONPathIterator>> Create(
-      absl::string_view js_path, bool sql_standard_mode);
-
-  // Rewind the iterator and reuse the tokens already parsed.
+  // Rewind the iterator.
   inline void Rewind() {
-    if (!tokens_.empty() && tokens_[0].empty()) {
-      depth_ = 1;
-      is_valid_ = true;
-    }
+    depth_ = 1;
+    is_valid_ = true;
   }
 
   inline size_t Depth() { return depth_; }
 
-  inline void Scan() {
-    for (; !End(); ++(*this)) {
-    }
-    if (text_ == "." && !sql_standard_mode_) {
-      // It's allowed to have a trailing '.' in the path in non-standard mode.
-      // It needs to be stripped. Otherwise, it will cause use-after-free issue
-      // like b/125933506.
-      text_.remove_suffix(1);
-    }
-    ZETASQL_DCHECK(text_.empty());
-  }
-
   inline bool End() { return !is_valid_; }
 
-  bool operator++();
-
   inline bool operator--() {
-    if (depth_ > 0) {
+    if (ABSL_PREDICT_TRUE(depth_ > 0)) {
       --depth_;
     }
     is_valid_ = (depth_ > 0 && depth_ <= tokens_.size());
@@ -98,32 +77,103 @@ class ValidJSONPathIterator {
     return tokens_[depth_ - 1];
   }
 
-  inline bool NoSuffixToken() {
-    return text_.empty() && depth_ == tokens_.size();
-  }
+  inline bool NoSuffixToken() { return depth_ == tokens_.size(); }
 
-  // Must call `Scan` or iterate before this contains valid number.
   inline size_t Size() { return tokens_.size(); }
 
+  ABSL_DEPRECATED("JSON paths are scanned during initialization.")
+  // This function simply moves the current token position to the end of the
+  // path. Because tokens are pre-processed this function has very limited
+  // functionality. Eventually, we would like to remove this function once all
+  // references are removed.
+  inline void Scan() {
+    depth_ = tokens_.size() + 1;
+    is_valid_ = false;
+  }
+
+  inline bool operator++() {
+    if (depth_ <= tokens_.size()) {
+      ++depth_;
+      is_valid_ = depth_ <= tokens_.size();
+    }
+    return is_valid_;
+  }
+
+ protected:
+  explicit JSONPathIterator(std::vector<Token> tokens)
+      : tokens_(std::move(tokens)) {}
+
+  const std::vector<Token> tokens_;
+  size_t depth_ = 1;
+  bool is_valid_ = true;
+};
+
+// Checks if the given JSON path is supported and valid.
+absl::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode);
+
+// Bi-directed iterator over tokens in a valid JSON path, used by the extraction
+// algorithm.
+class ValidJSONPathIterator final : public JSONPathIterator<std::string> {
+ public:
+  typedef std::string Token;
+
+  static absl::StatusOr<std::unique_ptr<ValidJSONPathIterator>> Create(
+      absl::string_view js_path, bool sql_standard_mode);
+
  private:
-  ValidJSONPathIterator(absl::string_view input, bool sql_standard_mode);
+  explicit ValidJSONPathIterator(std::vector<Token> tokens)
+      : JSONPathIterator(std::move(tokens)) {}
+};
 
-  void Init();
+// Checks if the given JSON path is supported and valid in standard sql with
+// strict notation.
+//
+// Strict notation only allows '[]' to refer to an array location and .property
+// to refer to an object member.
+absl::Status IsValidJSONPathStrict(absl::string_view text);
 
-  bool sql_standard_mode_ = false;
-  const RE2* offset_lexer_ = nullptr;   // NOT OWNED
-  const RE2* esc_key_lexer_ = nullptr;  // NOT OWNED
-  char esc_chr_ = 0;
-  absl::string_view text_;
-  bool is_valid_ = false;
-  std::vector<Token> tokens_;
-  size_t depth_ = 0;
+// Represents a strict parsed token.
+class StrictJSONPathToken {
+  using StrictTokenValue = std::variant<std::monostate, std::string, int64_t>;
+
+ public:
+  explicit StrictJSONPathToken(StrictTokenValue token)
+      : token_(std::move(token)) {}
+
+  // If the token type is neither an object nor an array, it is a no-op (token
+  // value of '$').
+  const std::string* MaybeGetObjectKey() const {
+    return std::get_if<std::string>(&token_);
+  }
+
+  const int64_t* MaybeGetArrayIndex() const {
+    return std::get_if<int64_t>(&token_);
+  }
+
+ private:
+  StrictTokenValue token_;
+};
+
+// Used for strict iteration over a JSON path. Strict notation only allows '[]'
+// to refer to an array location and .property to refer to an object member. It
+// is a bi-directed iterator over tokens in a valid JSON path in standard sql
+// notation.
+class StrictJSONPathIterator final
+    : public JSONPathIterator<StrictJSONPathToken> {
+ public:
+  // JSON path much be in standard SQL.
+  static absl::StatusOr<std::unique_ptr<StrictJSONPathIterator>> Create(
+      absl::string_view json_path);
+
+ private:
+  explicit StrictJSONPathIterator(std::vector<StrictJSONPathToken> tokens)
+      : JSONPathIterator(std::move(tokens)) {}
 };
 
 //
 // An efficient algorithm to extract the specified JSON path from the JSON text.
 // Let $n$ be the number of nodes in the tree corresponding to the JSON text
-// then the runtime of the algorithm is $\Theta(n)$ string comparisions in the
+// then the runtime of the algorithm is $\Theta(n)$ string comparisons in the
 // worst case. The space complexity is the depth of the JSON path.
 // The fundamental idea behind this algorithm is fully general to support all
 // JSON path operators (@, *, .. etc.).
@@ -132,7 +182,6 @@ class ValidJSONPathIterator {
 //
 class JSONPathExtractor : public zetasql::JSONParser {
  public:
-  typedef ValidJSONPathIterator::Token Token;
   // Maximum recursion depth when parsing JSON. We check both for stack space
   // and for depth relative to this limit when parsing; in practice, the
   // expectation is that we should reach this limit prior to exhausting stack
@@ -147,7 +196,6 @@ class JSONPathExtractor : public zetasql::JSONParser {
         matching_token_(),
         result_json_(),
         path_iterator_(*iter),
-        escaping_needed_callback1_(nullptr),
         escaping_needed_callback_(nullptr) {
     set_special_character_escaping(false);
     Init();
@@ -171,11 +219,6 @@ class JSONPathExtractor : public zetasql::JSONParser {
   void set_escaping_needed_callback(
       const std::function<void(absl::string_view, bool)>* callback) {
     escaping_needed_callback_ = callback;
-  }
-
-  void set_escaping_needed_callback1(
-      const std::function<void(absl::string_view)>* callback1) {
-    escaping_needed_callback1_ = callback1;
   }
 
   bool Extract(std::string* result, bool* is_null,
@@ -366,7 +409,7 @@ class JSONPathExtractor : public zetasql::JSONParser {
   }
 
   // This will be only called when extend_match_ is true.
-  inline void MatchAndMaintainInvariant(const std::string& key,
+  inline void MatchAndMaintainInvariant(absl::string_view key,
                                         bool is_array_index) {
     matching_token_ = false;
     if (is_array_index) {
@@ -405,10 +448,6 @@ class JSONPathExtractor : public zetasql::JSONParser {
         if (escaping_needed_callback_ != nullptr &&
             *escaping_needed_callback_ /* contains a callable target */) {
           (*escaping_needed_callback_)(val, is_key);
-        } else if (
-            escaping_needed_callback1_ != nullptr &&
-            *escaping_needed_callback1_ /* contains a callable target */) {
-          (*escaping_needed_callback1_)(val);
         }
         absl::StrAppend(&result_json_, "\"", val, "\"", is_key ? ":" : "");
       }
@@ -455,11 +494,8 @@ class JSONPathExtractor : public zetasql::JSONParser {
   bool result_contains_unescaped_key_ = false;
   // Callback to pass any strings that needed escaping when escaping special
   // characters is turned off.  No callback needed if set to nullptr.
-  const std::function<void(absl::string_view)>* escaping_needed_callback1_;
-  // Similar like above. If the parameter `is_key` is true, this callback is
-  // for JSON keys. Otherwise, this callback is for JSON values.
-  // After all usages of callback with one parameter are migrated, we can
-  // cleanup the `escaping_needed_callback1_`.
+  // If the parameter `is_key` is true, this callback is for JSON keys.
+  // Otherwise, this callback is for JSON values.
   const std::function<void(absl::string_view, bool is_key)>*
       escaping_needed_callback_;
   // Whether parsing failed due to running out of stack space.

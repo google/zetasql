@@ -107,8 +107,6 @@ message LanguageFeatureOptions {
 //
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
-//
-// Next ID: 95
 enum LanguageFeature {
   reserved 36 to 39, 44 to 46, 48, 74, 13046, 14001, 999003;
   // CROSS-VERSION FEATURES
@@ -286,6 +284,11 @@ enum LanguageFeature {
   FEATURE_DIFFERENTIAL_PRIVACY_THRESHOLDING = 90
       [(language_feature_options).in_development = true];
 
+  // Enables using max_rows_contributed to bound the number of rows a privacy
+  // unit can contribute to a dataset. See (broken link).
+  FEATURE_DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED = 95
+      [(language_feature_options).in_development = true];
+
   // Enables SELECT WITH AGGREGATION_THRESHOLD syntax,
   // see: (broken link).
   FEATURE_AGGREGATION_THRESHOLD = 92;
@@ -398,15 +401,19 @@ enum LanguageFeature {
   // Enables LAX_BOOL(JSON), LAX_INT64(JSON), LAX_FLOAT64(JSON), and
   // LAX_STRING(JSON) functions. See (broken link)
   // for details.
-  FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS = 81
-      [(language_feature_options).in_development = true];
+  FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS = 81;
 
-  // Enables JSON_ARRAY(ANY, ...),
-  // JSON_OBJECT(STRING, ANY [, STRING, ANY ...]) and
-  // JSON_OBJECT(ARRAY<STRING>, ARRAY<ANY>) functions.
+  // Enables JSON constructor functions:
+  // - JSON_ARRAY(ANY, ...),
+  // - JSON_OBJECT(STRING, ANY [, STRING, ANY ...])
+  // - JSON_OBJECT(ARRAY<STRING>, ARRAY<ANY>)
   // See (broken link) for details.
-  FEATURE_JSON_CONSTRUCTOR_FUNCTIONS = 93
-      [(language_feature_options).in_development = true];
+  FEATURE_JSON_CONSTRUCTOR_FUNCTIONS = 93;
+
+  // Enables JSON mutator functions:
+  // - JSON_REMOVE(JSON, STRING [, STRING ...])
+  // See (broken link) for details.
+  FEATURE_JSON_MUTATOR_FUNCTIONS = 98;
 
   // Enables support for WITH PARTITION COLUMNS in CREATE EXTERNAL TABLE.
   // Example:
@@ -525,13 +532,10 @@ enum LanguageFeature {
   FEATURE_NON_SQL_PROCEDURE = 75
       [(language_feature_options).in_development = true];
 
-  // TODO: Remove "in_development" annotation.
-  FEATURE_ROUND_WITH_ROUNDING_MODE = 76
-      [(language_feature_options).in_development = true];
+  FEATURE_ROUND_WITH_ROUNDING_MODE = 76;
 
   // Enables the CBRT function
-  FEATURE_CBRT_FUNCTIONS = 77
-      [(language_feature_options).in_development = true];
+  FEATURE_CBRT_FUNCTIONS = 77;
 
   // Enable support for Spanner-specific DDL syntax.
   // This is an extended syntax mode allowing compatibility with legacy
@@ -576,9 +580,7 @@ enum LanguageFeature {
   //   6. Proto functions.
   FEATURE_PROTO_BASE = 82 [(language_feature_options).in_development = true];
 
-  // This feature can be enabled to disable the new SQL functions ARRAY_SUM and
-  // ARRAY_AVG. It is here to ensure there is a way to turn these functions off
-  // in case they cause trouble.
+  // ABANDONED
   FEATURE_DISABLE_ARRAY_SUM_AND_AVG = 84
       [(language_feature_options) = { ideally_enabled: false }];
 
@@ -600,6 +602,18 @@ enum LanguageFeature {
   // to rejecting the shape in case they cause trouble.
   FEATURE_DISABLE_OUTER_JOIN_ARRAY = 94
       [(language_feature_options) = { ideally_enabled: false }];
+
+  // Enable support for external security clause for procedure.
+  FEATURE_EXTERNAL_SECURITY_PROCEDURE = 96
+      [(language_feature_options).in_development = true];
+
+  // Enables support for CREATE MATERIALIZED VIEW AS REPLICA OF ...
+  // (broken link):as-replica-of
+  FEATURE_CREATE_MATERIALIZED_VIEW_AS_REPLICA_OF = 97;
+
+  // This feature enables the new SQL functions PI,
+  // PI_NUMERIC, and PI_BIGNNUMERIC.
+  FEATURE_PI_FUNCTIONS = 99;
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -904,9 +918,7 @@ enum LanguageFeature {
 
   // LIKE ANY/SOME/ALL support.
   // (broken link)
-  // TODO: Remove "in_development"
-  FEATURE_V_1_3_LIKE_ANY_SOME_ALL = 13038
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_LIKE_ANY_SOME_ALL = 13038;
 
   // Enable support for CASE...WHEN...THEN...END CASE statement.
   // (broken link)
@@ -956,9 +968,8 @@ enum LanguageFeature {
   // Allow bare array access like a[0]. See (broken link)
   FEATURE_V_1_4_BARE_ARRAY_ACCESS = 14004;
 
-  // Enable builtin functions ARRAY_MIN, ARRAY_MAX, ARRAY_SUM and ARRAY_AVG.
-  FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS = 14005
-      [(language_feature_options).in_development = true];
+  // Enable builtin functions ARRAY_SUM and ARRAY_AVG.
+  FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS = 14005;
 
   // Enable builtin array find functions, including ARRAY_OFFSET(S), ARRAY_FIND,
   // and ARRAY_FIND_ALL. These functions have both non-lambda and lambda
@@ -1015,11 +1026,9 @@ enum LanguageFeature {
   // Enables load to temp tables
   FEATURE_V_1_4_LOAD_DATA_TEMP_TABLE = 14017;
 
-  // Enables CORRESPONDING set operations.
+  // Enables the basic CORRESPONDING set operations.
   // (broken link)
-  // TODO: Remove the "in_development" flag once the bug is fixed.
-  FEATURE_V_1_4_CORRESPONDING = 14018
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_CORRESPONDING = 14018;
 
   // Enables sequence arguments.
   // (broken link)
@@ -1032,24 +1041,67 @@ enum LanguageFeature {
   FEATURE_V_1_4_GROUPING_BUILTIN = 14020
       [(language_feature_options).in_development = true];
 
-  // EXPERIMENTAL FEATURES
-  // These are features supported in the code that are not currently part of
-  // officially supported ZetaSQL as of any version.
-  //
-  // An example:
-  // FEATURE_EXPERIMENTAL_DECIMAL_DATA_TYPES = 999001;
-  //
-  // -> Add more experimental features here.
-  //
-  // TODO: Retire the convention of FEATURE_EXPERIMENTAL_xxx features
-  // and just use the enum value annotations where appropriate.
-
-  // Enable ZetaSQL MODULES.  For an engine to fully opt into this feature,
-  // they must enable this feature flag and add support for the related
-  // StatementKinds: RESOLVED_IMPORT_STMT and RESOLVED_MODULE_STMT.
-  // See (broken link)
-  FEATURE_EXPERIMENTAL_MODULES = 999002
+  // Enables group by grouping sets/cube (see (broken link))
+  // TODO: Remove "in_development" flag
+  FEATURE_V_1_4_GROUPING_SETS = 14021
       [(language_feature_options).in_development = true];
+
+  // Preserve the original annotation when adding implicit CAST over the
+  // expression inside scan.
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN = 14022
+      [(language_feature_options).in_development = true];
+
+  // Enables outer and strict modes (FULL/LEFT/STRICT) for set operations.
+  // (broken link)
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE = 14023
+      [(language_feature_options).in_development = true];
+
+  // Enables CORRESPONDING_BY for set operations.
+  // (broken link)
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_CORRESPONDING_BY = 14024
+      [(language_feature_options).in_development = true];
+
+  // Supporting LIKE ANY/SOME/ALL with array of elements.
+  // (broken link)
+  // TODO: Remove "in_development" when array support
+  // for LIKE ANY/SOME/ALL is launched.
+  // NOTE: This feature flag must be used in conjunction with
+  // FEATURE_V_1_3_LIKE_ANY_SOME_ALL flag.
+  FEATURE_V_1_4_LIKE_ANY_SOME_ALL_ARRAY = 14025
+      [(language_feature_options).in_development = true];
+
+  // Supporting LIKE ANY/SOME/ALL with subquery.
+  // (broken link)
+  // TODO: Remove "in_development" when subquery support
+  // for LIKE ANY/SOME/ALL is launched.
+  // NOTE: This feature flag must be used in conjunction with
+  // FEATURE_V_1_3_LIKE_ANY_SOME_ALL flag.
+  FEATURE_V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY = 14026
+      [(language_feature_options).in_development = true];
+
+  // Enables ARRAY_FIRST_N, ARRAY_LAST_N, ARRAY_REMOVE_FIRST_N, and
+  // ARRAY_REMOVE_LAST_N function signatures, rewriters, and end to end
+  // testing.
+  FEATURE_V_1_4_FIRST_AND_LAST_N = 14027;
+
+  // Enables NULLIFZERO and ZEROIFNULL function signatures, rewriters, and end
+  // to end testing.
+  FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL = 14028;
+
+  // EXPERIMENTAL FEATURES -
+  //    Do not add features in this section. Use the in_development annotation
+  //    instead.
+
+  // Enable ZetaSQL modules. This feature will be turned on when analyzing
+  // module contents and must be turned on when analyzing statements that may
+  // import a module. In other context, it is useful to turn this feature on
+  // when users might be aware of modules because it changes error message
+  // strings to mention modules like "keyword SUCH_AND_SUCH can only be used
+  // inside a module".
+  FEATURE_EXPERIMENTAL_MODULES = 999002;
 
   // These are not real features. They are just for unit testing the handling of
   // various LanguageFeatureOptions.
@@ -1198,6 +1250,22 @@ enum ResolvedASTRewrite {
     (rewrite_options).default_enabled = true,
     (rewrite_options).in_development = true
   ];
+
+  // Inline SQL Aggregate Functions.
+  // In development, functionality may change before generally available.
+  // Aggregate functions that are added to the `Catalog` that are subtypes of
+  // `SQLFunctionBase` will be inlined. That removes the
+  // `ResolvedAggregateFunctionCall` and replaces it with expressions that
+  // implement the function logic. Aggregate functions add expressions to
+  // `ResolvedAggregateScan` and potentially cause the addition of a
+  // `ResolvedProjectScan` both before and after the `ResolvedAggregateScan`.
+  REWRITE_INLINE_SQL_UDAS = 22 [
+    (rewrite_options).default_enabled = false,
+    (rewrite_options).in_development = true
+  ];
+
+  REWRITE_SET_OPERATION_CORRESPONDING = 21
+      [(rewrite_options).default_enabled = true];
 }
 
 // This can be used to select strict name resolution mode.
@@ -1257,6 +1325,12 @@ enum ErrorMessageMode {
   // a second line with a substring of the input query, and a third line
   // with a caret ("^") pointing at the error location above.
   ERROR_MESSAGE_MULTI_LINE_WITH_CARET = 2;
+}
+
+// Wrapper message for the enum, to get automatic serialization and
+// deserialization as a payload.
+message ErrorMessageModeForPayload {
+  optional ErrorMessageMode mode = 1;
 }
 
 // Mode describing how parameters are defined and referenced.

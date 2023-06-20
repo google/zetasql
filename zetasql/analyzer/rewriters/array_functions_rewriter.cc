@@ -19,7 +19,6 @@
 #include <utility>
 #include <variant>
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -27,6 +26,7 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"

@@ -70,6 +70,14 @@ class AnalyzerOutputMutator {
     }
   }
 
+  const ResolvedNode* resolved_node() {
+    if (output_.statement_ != nullptr) {
+      return output_.statement_.get();
+    } else {
+      return output_.expr_.get();
+    }
+  }
+
   AnalyzerRuntimeInfo& mutable_runtime_info() { return output_.runtime_info_; }
 
   internal::TimedValue& overall_timed_value() {

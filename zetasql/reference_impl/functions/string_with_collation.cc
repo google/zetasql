@@ -70,6 +70,22 @@ class LikeWithCollationFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
+class LikeAllWithCollationFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class LikeAnyWithCollationFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
 template <typename OutType, typename FunctionType, class... Args>
 bool InvokeWithCollation(FunctionType function, Value* result,
                          absl::Status* status, absl::string_view collation_name,
@@ -220,10 +236,68 @@ absl::StatusOr<Value> LikeWithCollationFunction::Eval(
     return collator_or_status.status();
   }
   ZETASQL_ASSIGN_OR_RETURN(bool result,
-                   functions::LikeWithUtf8WithCollation(
+                   functions::LikeUtf8WithCollation(
                        args[1].string_value(), args[2].string_value(),
                        *(collator_or_status.value())));
   return Value::Bool(result);
+}
+
+absl::StatusOr<Value> LikeAllWithCollationFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_GE(args.size(), 3);
+  if (args[1].is_null()) {
+    return Value::NullBool();
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ZetaSqlCollator> collator,
+                   MakeSqlCollator(args[0].string_value()));
+
+  bool is_rhs_element_null = false;
+  auto& lhs = args[1].string_value();
+  for (int rhs_idx = 2; rhs_idx < args.size(); rhs_idx++) {
+    if (args[rhs_idx].is_null()) {
+      is_rhs_element_null = true;
+      continue;
+    }
+    ZETASQL_ASSIGN_OR_RETURN(bool result,
+                     functions::LikeUtf8WithCollation(
+                         lhs, args[rhs_idx].string_value(), *collator));
+    if (!result) {
+      return Value::Bool(false);
+    }
+  }
+
+  return is_rhs_element_null ? Value::NullBool() : Value::Bool(true);
+}
+
+absl::StatusOr<Value> LikeAnyWithCollationFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_GE(args.size(), 3);
+  if (args[1].is_null()) {
+    return Value::NullBool();
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ZetaSqlCollator> collator,
+                   MakeSqlCollator(args[0].string_value()));
+
+  bool is_rhs_element_null = false;
+  auto& lhs = args[1].string_value();
+  for (int rhs_idx = 2; rhs_idx < args.size(); rhs_idx++) {
+    if (args[rhs_idx].is_null()) {
+      is_rhs_element_null = true;
+      continue;
+    }
+    ZETASQL_ASSIGN_OR_RETURN(bool result,
+                     functions::LikeUtf8WithCollation(
+                         lhs, args[rhs_idx].string_value(), *collator));
+    if (result) {
+      return Value::Bool(true);
+    }
+  }
+
+  return is_rhs_element_null ? Value::NullBool() : Value::Bool(false);
 }
 
 }  // namespace
@@ -252,6 +326,16 @@ void RegisterBuiltinStringWithCollationFunctions() {
       {FunctionKind::kLikeWithCollation},
       [](FunctionKind kind, const Type* output_type) {
         return new LikeWithCollationFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kLikeAllWithCollation},
+      [](FunctionKind kind, const Type* output_type) {
+        return new LikeAllWithCollationFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kLikeAnyWithCollation},
+      [](FunctionKind kind, const Type* output_type) {
+        return new LikeAnyWithCollationFunction(kind, output_type);
       });
 }
 

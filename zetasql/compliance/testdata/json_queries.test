@@ -72,31 +72,31 @@ ARRAY<STRUCT<STRING, STRING>>[{"hello there", "my friend"}]
 [name=json_extract_array]
 SELECT JSON_EXTRACT_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', "$['a.b']")
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[known order:1, {"c":"foo"}, null]}]
 ==
 [required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array]
 SELECT JSON_EXTRACT_STRING_ARRAY(JSON '{"a.b": [1, "foo", null]}', "$['a.b']")
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", "foo", NULL]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"1", "foo", NULL]}]
 ==
 [required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS]
 [name=json_query_array]
 SELECT JSON_QUERY_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', "$.\"a.b\"")
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[known order:1, {"c":"foo"}, null]}]
 ==
 [required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS]
 [name=json_query_array_no_validation]
 SELECT JSON_QUERY_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', '$."a.b"')
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[known order:1, {"c":"foo"}, null]}]
 ==
 [required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS]
 [name=json_value_array]
 SELECT JSON_VALUE_ARRAY(JSON '{"a.b": [1, "foo", null]}', "$.\"a.b\"")
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", "foo", NULL]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"1", "foo", NULL]}]
 ==
 [name=json_dot_notation]
 SELECT (JSON '{"a": "foo"}').a
@@ -341,6 +341,78 @@ SELECT SAFE.double(JSON '-1.1');
 --
 ARRAY<STRUCT<DOUBLE>>[{-1.1}]
 ==
+[name=json_float64]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '1.0');
+--
+ARRAY<STRUCT<DOUBLE>>[{1}]
+==
+[name=json_float64_exact]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '1.0', wide_number_mode=>'exact');
+--
+ARRAY<STRUCT<DOUBLE>>[{1}]
+==
+[name=json_float64_2]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '1.1');
+--
+ARRAY<STRUCT<DOUBLE>>[{1.1}]
+==
+[name=json_negative_float64]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '-1.0');
+--
+ARRAY<STRUCT<DOUBLE>>[{-1}]
+==
+[name=json_negative_float64_2]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '-1.1');
+--
+ARRAY<STRUCT<DOUBLE>>[{-1.1}]
+==
+[name=json_float64_round]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '-0.0000002414214151379150123', wide_number_mode=>'round');
+--
+ARRAY<STRUCT<DOUBLE>>[{-2.41421415137915e-07}]
+==
+[name=json_float64_max_unsigned_64_exact]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '18446744073709551615', wide_number_mode=>'exact');
+--
+ERROR: generic::out_of_range: JSON number: 18446744073709551615 cannot be converted to DOUBLE without loss of precision
+==
+[name=json_float64_max_unsigned_64_round]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '18446744073709551615', wide_number_mode=>'round');
+--
+ARRAY<STRUCT<DOUBLE>>[{1.8446744073709552e+19}]
+==
+[name=json_float64_max_unsigned_64_implicit_round]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '18446744073709551615');
+--
+ARRAY<STRUCT<DOUBLE>>[{1.8446744073709552e+19}]
+==
+[name=json_float64_invalid_wide_number_mode]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT float64(JSON '18', wide_number_mode=>'roundish');
+--
+ERROR: generic::out_of_range: Invalid `wide_number_mode` specified: roundish
+==
+[name=json_safe_float64_fail_resolve_to_null]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT SAFE.float64(JSON '18446744073709551615', wide_number_mode=>'exact');
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+[name=json_safe_float64]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT SAFE.float64(JSON '-1.1');
+--
+ARRAY<STRUCT<DOUBLE>>[{-1.1}]
+==
 [name=json_array_empty]
 [required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
 SELECT JSON_ARRAY();
@@ -373,3 +445,123 @@ ARRAY<STRUCT<JSON>>[{[1.1111111111111112]}]
 SELECT JSON_ARRAY(BIGNUMERIC '1.111111111111111111');
 --
 ERROR: generic::out_of_range: Invalid input to JSON_ARRAY: Failed to convert type BIGNUMERIC to JSON
+==
+[name=json_object_empty]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT();
+--
+ARRAY<STRUCT<JSON>>[{{}}]
+==
+[name=json_object_odd_num_args]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT("a", 10, "b");
+--
+ERROR: generic::invalid_argument: No matching signature for function JSON_OBJECT for argument types: STRING, INT64, STRING. Supported signatures: JSON_OBJECT([STRING, ...], [ANY, ...]); JSON_OBJECT(ARRAY<STRING>, ARRAY) [at 1:8]
+SELECT JSON_OBJECT("a", 10, "b");
+       ^
+==
+[name=json_object_basic]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT("a", "foo", "b", true, "c", NULL);
+--
+ARRAY<STRUCT<JSON>>[{{"a":"foo","b":true,"c":null}}]
+==
+[name=json_object_arrays_basic]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT(["a", "b", "c"], [10, 15, -20]);
+--
+ARRAY<STRUCT<JSON>>[{{"a":10,"b":15,"c":-20}}]
+==
+[name=json_object_complex]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT("c", JSON '{"a": [10, true]}', "a", STRUCT("foo" AS abc, [11, 21, 31] AS xyz),
+                   "c", 10, "b", ["foo", "bar"]);
+--
+ARRAY<STRUCT<JSON>>[
+  {{"a":{"abc":"foo","xyz":[11,21,31]},"b":["foo","bar"],"c":{"a":[10,true]}}}
+]
+==
+[name=json_object_bignumeric]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS,BIGNUMERIC_TYPE]
+SELECT JSON_OBJECT("a", BIGNUMERIC '1.111111111111111111');
+--
+ARRAY<STRUCT<JSON>>[{{"a":1.1111111111111112}}]
+==
+[name=json_object_bignumeric_strict]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS,BIGNUMERIC_TYPE,JSON_STRICT_NUMBER_PARSING]
+SELECT JSON_OBJECT("a", BIGNUMERIC '1.111111111111111111');
+--
+ERROR: generic::out_of_range: Invalid input to JSON_OBJECT: Failed to convert type BIGNUMERIC to JSON
+==
+[name=json_object_arrays_null_keys]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT(CAST(NULL AS ARRAY<STRING>), [10, 20])
+--
+ERROR: generic::out_of_range: Invalid input to JSON_OBJECT: The keys array cannot be NULL
+==
+[name=json_object_arrays_size_differs_with_null_key]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT(["a", NULL], [10])
+--
+ERROR: generic::out_of_range: Invalid input to JSON_OBJECT: The number of keys and values must match
+==
+[name=json_object_arrays_null_keys_safe]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT SAFE.JSON_OBJECT(CAST(NULL AS ARRAY<STRING>), [10, 20])
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[name=json_object_arrays_null_values]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT(["a", "b"], CAST(NULL AS ARRAY<INT64>))
+--
+ERROR: generic::out_of_range: Invalid input to JSON_OBJECT: The values array cannot be NULL
+==
+[name=json_object_arrays_null_keys_and_values]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT(CAST(NULL AS ARRAY<STRING>), CAST(NULL AS ARRAY<INT64>))
+--
+ERROR: generic::out_of_range: Invalid input to JSON_OBJECT: The keys array cannot be NULL
+==
+[name=json_object_arrays_complex_values]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_OBJECT(["a", "b"], [STRUCT([10, 20] AS d, "foo" AS e, JSON '{"g": true}' AS f),
+                                STRUCT([1, -123, 2] AS d, NULL AS e, JSON '[[null]]' AS f)])
+--
+ARRAY<STRUCT<JSON>>[
+  {
+    {"a":{"d":[10,20],"e":"foo","f":{"g":true}},"b":{"d":[1,-123,2],"e":null,"f":[[null]]}}
+  }
+]
+==
+[name=json_remove_no_jsonpath]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]')
+--
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_REMOVE. Supported signature: JSON_REMOVE(JSON, STRING, [STRING, ...]) [at 1:8]
+SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]')
+       ^
+==
+[name=json_remove_null_jsonpath]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]', NULL)
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[name=json_remove_key]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]', "$[0].a")
+--
+ARRAY<STRUCT<JSON>>[{[{},null,{"b":20,"c":"foo"}]}]
+==
+[name=json_remove_array_element]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]', "$[2]")
+--
+ARRAY<STRUCT<JSON>>[{[{"a":[10]},null]}]
+==
+[name=json_remove_array_multiple_elements]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]', "$[1]", "$[0].b", "$[0].a[0]", "$[4].b", "$[1].d", "$[1].c")
+--
+ARRAY<STRUCT<JSON>>[{[{"a":[]},{"b":20}]}]

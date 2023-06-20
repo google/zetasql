@@ -4220,7 +4220,7 @@ QueryStmt
     |     |   |     | +-type=STRUCT<y INT64>
     |     |   |     | +-field_list=
     |     |   |     |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
-    |     |   |     |     +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
+    |     |   |     |     +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, FUNCTION<INT64->BOOL> condition) -> ARRAY<INT64>)
     |     |   |     |     | +-FunctionArgument
     |     |   |     |     | | +-expr=
     |     |   |     |     | |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])

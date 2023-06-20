@@ -16,7 +16,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   0,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 10}, {2, 20}]
 }
 ==
 
@@ -47,7 +47,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   0,
-  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[unknown order:{1, 10}, {2, 20}]
 }
 ==
 

@@ -18,9 +18,11 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <unordered_set>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/unicode_utils.h"
 #include "zetasql/base/case.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/map_util.h"
@@ -86,7 +88,8 @@ int64_t IdStringPool::AllocatePoolId() {
 #endif
 
 IdString IdString::ToLower(IdStringPool* pool) const {
-  return pool->Make(absl::AsciiStrToLower(ToStringView()));
+  return pool->Make(
+      zetasql::GetNormalizedAndCasefoldedString(ToStringView()));
 }
 
 }  // namespace zetasql

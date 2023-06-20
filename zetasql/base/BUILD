@@ -16,9 +16,7 @@
 
 licenses(["notice"])
 
-package(
-    default_visibility = [":zetasql_implementation"],
-)
+package(default_visibility = [":zetasql_implementation"])
 
 package_group(
     name = "zetasql_implementation",
@@ -290,6 +288,7 @@ cc_test(
         ":logging",
         ":map_util",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:node_hash_map",
     ],

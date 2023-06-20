@@ -242,6 +242,10 @@ bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
         FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
   }
 
+  if (Equivalent(types::RangeSessionizeModeEnumType())) {
+    return language_options.LanguageFeatureEnabled(FEATURE_RANGE_TYPE);
+  }
+
   if (language_options.LanguageFeatureEnabled(FEATURE_PROTO_BASE)) {
     return true;
   }

@@ -6,8 +6,8 @@ SELECT ARRAY_CONCAT_AGG(x) OVER () AS array_concat_agg FROM (
   UNION ALL SELECT [1,1]
 );
 --
-ARRAY<STRUCT<array_concat_agg ARRAY<>>>[
-  {ARRAY<INT64>[1, 1, 1, 1, 1]},
-  {ARRAY<INT64>[1, 1, 1, 1, 1]},
-  {ARRAY<INT64>[1, 1, 1, 1, 1]}
+ARRAY<STRUCT<array_concat_agg ARRAY<>>>[unknown order:
+  {ARRAY<INT64>[unknown order:1, 1, 1, 1, 1]},
+  {ARRAY<INT64>[unknown order:1, 1, 1, 1, 1]},
+  {ARRAY<INT64>[unknown order:1, 1, 1, 1, 1]}
 ]

@@ -1561,6 +1561,48 @@ QueryStmt
         +-column_index_list=[0, 1]
 ==
 
+# The TVF required schema includes 'int64 int64' and 'struct<int64> struct_int64'
+# We pass 'int32' and 'struct<int32>', requiring coercion for both.
+select column_bool, column_bytes
+from tvf_one_relation_arg_only_int64_struct_int64_input_columns(
+    (select cast(0 as int32) as int64, struct(cast(1 as int32)) as struct_int64))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_relation_arg_only_int64_struct_int64_input_columns.column_bool#5 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_only_int64_struct_int64_input_columns.column_bytes#6 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_relation_arg_only_int64_struct_int64_input_columns.[column_bool#5, column_bytes#6]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_relation_arg_only_int64_struct_int64_input_columns.[column_bool#5, column_bytes#6]
+        +-tvf=tvf_one_relation_arg_only_int64_struct_int64_input_columns((TABLE<int64 INT64, struct_int64 STRUCT<x INT64>>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<int64 INT64, struct_int64 STRUCT<x INT64>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery2.[int64#3, struct_int64#4]
+        |   |   +-expr_list=
+        |   |   | +-int64#3 :=
+        |   |   | | +-Cast(INT32 -> INT64)
+        |   |   | |   +-ColumnRef(type=INT32, column=$subquery1.int64#1)
+        |   |   | +-struct_int64#4 :=
+        |   |   |   +-Cast(STRUCT<INT32> -> STRUCT<x INT64>)
+        |   |   |     +-ColumnRef(type=STRUCT<INT32>, column=$subquery1.struct_int64#2)
+        |   |   +-input_scan=
+        |   |     +-ProjectScan
+        |   |       +-column_list=$subquery1.[int64#1, struct_int64#2]
+        |   |       +-expr_list=
+        |   |       | +-int64#1 := Literal(type=INT32, value=0, has_explicit_type=TRUE)
+        |   |       | +-struct_int64#2 := Literal(type=STRUCT<INT32>, value={1}, has_explicit_type=TRUE)
+        |   |       +-input_scan=
+        |   |         +-SingleRowScan
+        |   +-argument_column_list=$subquery2.[int64#3, struct_int64#4]
+        +-column_index_list=[0, 1]
+==
+
 # The TVF required schema includes columns 'int64 INT64' and 'string STRING'.
 # The query adds an extra input column and type coercion is required, and the
 # extra column is in the middle of the select list for the relation argument.

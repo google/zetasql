@@ -35,6 +35,7 @@ import com.google.zetasql.ZetaSQLStrings;
 import com.google.zetasql.Model;
 import com.google.zetasql.Procedure;
 import com.google.zetasql.ResolvedFunctionCallInfo;
+import com.google.zetasql.Sequence;
 import com.google.zetasql.TVFSignature;
 import com.google.zetasql.Table;
 import com.google.zetasql.TableValuedFunction;
@@ -172,6 +173,10 @@ class DebugStrings {
 
   static String toStringImpl(Connection connection) {
     return connection.getFullName();
+  }
+
+  static String toStringImpl(Sequence sequence) {
+    return sequence.getFullName();
   }
 
   static String toStringImpl(Table table) {

@@ -183,6 +183,11 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
   // a constructor arg.
   copy.get()->set_column_propagation_mode(node->column_propagation_mode());
 
+  # elif field.name == "node_source"
+  // Copy the `node_source` field explicitly because it is not a constructor
+  // arg.
+  copy.get()->set_node_source(node->node_source());
+
    # elif not field.is_constructor_arg and not field.is_node_ptr
   // Unhandled non-constructor argument not copied to new node explicitly.
   static_assert(false, CopyField{{field.name}}Of{{node.name}}MustBeImplementedManually);

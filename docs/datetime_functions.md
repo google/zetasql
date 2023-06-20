@@ -6,10 +6,120 @@
 
 ZetaSQL supports the following datetime functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#current_datetime"><code>CURRENT_DATETIME</code></a>
+
+</td>
+  <td>
+    Returns the current date and time as a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime"><code>DATETIME</code></a>
+
+</td>
+  <td>
+    Constructs a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_add"><code>DATETIME_ADD</code></a>
+
+</td>
+  <td>
+    Adds a specified time interval to a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_diff"><code>DATETIME_DIFF</code></a>
+
+</td>
+  <td>
+    Gets the number of intervals between two <code>DATETIME</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_sub"><code>DATETIME_SUB</code></a>
+
+</td>
+  <td>
+    Subtracts a specified time interval from a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_trunc"><code>DATETIME_TRUNC</code></a>
+
+</td>
+  <td>
+    Truncates a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts part of a date and time from a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_datetime"><code>FORMAT_DATETIME</code></a>
+
+</td>
+  <td>
+    Formats a <code>DATETIME</code> value according to a specified
+    format string.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#last_day"><code>LAST_DAY</code></a>
+
+</td>
+  <td>
+    Gets the last day in a specified time period that contains a
+    <code>DATETIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_datetime"><code>PARSE_DATETIME</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>DATETIME</code> value.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CURRENT_DATETIME`
 
 ```sql
 CURRENT_DATETIME([time_zone])
+```
+
+```sql
+CURRENT_DATETIME
 ```
 
 **Description**
@@ -20,6 +130,10 @@ called with no arguments.
 This function supports an optional `time_zone` parameter.
 See [Time zone definitions][datetime-timezone-definitions] for
 information on how to specify a time zone.
+
+The current date and time is recorded at the start of the query
+statement which contains this function, not when this specific function is
+evaluated.
 
 **Return Data Type**
 
@@ -724,10 +838,10 @@ each element in `datetime_string`.
 -- This works because elements on both sides match.
 SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
 
--- This doesn't work because the year element is in different locations.
+-- This produces an error because the year element is in different locations.
 SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
--- This doesn't work because one of the year elements is missing.
+-- This produces an error because one of the year elements is missing.
 SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
 -- This works because %c can find all matching elements in datetime_string.

@@ -518,7 +518,7 @@ QueryStmt
           | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
           | +-analytic_function_list=
           |   +-$analytic1#12 :=
-          |   | +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING) -> INT64)
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING weight) -> INT64)
           |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
           |   |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
           |   |   +-window_frame=
@@ -528,7 +528,7 @@ QueryStmt
           |   |       +-end_expr=
           |   |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
           |   +-$analytic2#13 :=
-          |   | +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING) -> INT64)
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING weight) -> INT64)
           |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
           |   |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
           |   |   +-window_frame=
@@ -539,7 +539,7 @@ QueryStmt
           |   |       +-end_expr=
           |   |         +-WindowFrameExpr(boundary_type=CURRENT ROW)
           |   +-$analytic3#14 :=
-          |     +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING) -> INT64)
+          |     +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING weight) -> INT64)
           |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
           |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
           |       +-window_frame=

@@ -32,6 +32,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -42,6 +43,9 @@
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/public/functions/json_internal.h"
 #include "zetasql/public/json_value.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
@@ -262,31 +266,6 @@ TEST(JsonTest, JsonEscapingNeededCallback) {
           /*sql_standard_mode=*/false,
           /*enable_special_character_escaping_in_values=*/false,
           /*enable_special_character_escaping_in_keys=*/false));
-  evaluator->set_escaping_needed_callback(
-      [&](absl::string_view str) { callback.Call(str); });
-  EXPECT_CALL(callback, Call("\t"));
-  std::string value;
-  bool is_null;
-  ZETASQL_ASSERT_OK(evaluator->Extract(json, &value, &is_null));
-  EXPECT_EQ(output, value);
-  EXPECT_FALSE(is_null);
-}
-
-TEST(JsonTest, JsonEscapingNeededCallbackWithIsKeyParameter) {
-  const std::string json = R"({"a": {"b": [ { "c" : "\t" } ] } })";
-  const std::string input = "$.a.b[0].c";
-  const std::string output = "\"\t\"";
-
-  SCOPED_TRACE(absl::Substitute("JSON_EXTRACT('$0', '$1')", json, input));
-  MockEscapingNeededCallback callback;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const std::unique_ptr<JsonPathEvaluator> evaluator,
-      JsonPathEvaluator::Create(
-          input,
-          /*sql_standard_mode=*/false,
-          /*enable_special_character_escaping_in_values=*/false,
-          /*enable_special_character_escaping_in_keys=*/false));
-  // Check the `is_key` callback parameter.
   evaluator->set_escaping_needed_callback(
       [&](absl::string_view str, bool is_key) {
         callback.Call(str);
@@ -1213,6 +1192,123 @@ TEST(IsValidJSONPathTest, BasicTests) {
                               /*sql_standard_mode=*/false),
               StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at: .[acdm]")));
+}
+
+TEST(IsValidJSONPathTest, StrictBasicTests) {
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$"));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$.a"));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$[ 0 ]"));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict(R"($."a")"));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict(R"($.a.b.c."efgh".e)"));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict(R"($.a."b.c.d".e)"));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict(R"($."b.c.d".e)"));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$.a.b.c[0].e.f"));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$.\"a\tb\"[1]"));
+}
+
+TEST(IsValidJSONPathTest, InvalidPathStrictTests) {
+  // Invalid cases.
+  std::vector<std::string> invalid_paths = {"$[0-]",
+                                            "$[0_]",
+                                            "$[-1]"
+                                            "[0]"
+                                            "$[a]",
+                                            "$['a']",
+                                            "$.a.b.c['efgh'].e",
+                                            "$.",
+                                            ".a",
+                                            "$[9223372036854775807990]"};
+
+  for (const std::string& invalid_path : invalid_paths) {
+    EXPECT_THAT(IsValidJSONPathStrict(invalid_path),
+                StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_FALSE(StrictJSONPathIterator::Create(invalid_path).ok());
+  }
+}
+
+TEST(JsonPathTest, StrictPathTests) {
+  // Test all functions for iterating through a JSON path using
+  // StrictJSONPathIterator.
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
+                         StrictJSONPathIterator::Create("$"));
+    EXPECT_EQ((**path_itr).MaybeGetArrayIndex(), nullptr);
+    EXPECT_EQ((**path_itr).MaybeGetObjectKey(), nullptr);
+    EXPECT_FALSE(++(*path_itr));
+    EXPECT_TRUE(path_itr->End());
+    path_itr->Rewind();
+    EXPECT_EQ((**path_itr).MaybeGetArrayIndex(), nullptr);
+    EXPECT_EQ((**path_itr).MaybeGetObjectKey(), nullptr);
+    EXPECT_TRUE(path_itr->NoSuffixToken());
+    EXPECT_FALSE(path_itr->End());
+  }
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
+                         StrictJSONPathIterator::Create("$.1 "));
+    // Skip first token.
+    EXPECT_TRUE(++(*path_itr));
+    EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), "1 ");
+    EXPECT_TRUE(path_itr->NoSuffixToken());
+    EXPECT_FALSE(++(*path_itr));
+    EXPECT_TRUE(path_itr->End());
+  }
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
+                         StrictJSONPathIterator::Create("$[ 0 ]"));
+    // Skip first token.
+    EXPECT_TRUE(++(*path_itr));
+    EXPECT_EQ(*(**path_itr).MaybeGetArrayIndex(), 0);
+    EXPECT_TRUE(path_itr->NoSuffixToken());
+    EXPECT_FALSE(++(*path_itr));
+    EXPECT_TRUE(path_itr->End());
+  }
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
+                         StrictJSONPathIterator::Create(R"($."a")"));
+    // Skip first token.
+    EXPECT_TRUE(++(*path_itr));
+    EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), "a");
+    EXPECT_TRUE(path_itr->NoSuffixToken());
+    EXPECT_FALSE(++(*path_itr));
+    EXPECT_TRUE(path_itr->End());
+  }
+  {
+    // Path escaping.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
+                         StrictJSONPathIterator::Create(R"($."a\"b")"));
+    EXPECT_TRUE(++(*path_itr));
+    EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), R"(a\"b)");
+    EXPECT_TRUE(path_itr->NoSuffixToken());
+    EXPECT_FALSE(++(*path_itr));
+    EXPECT_TRUE(path_itr->End());
+  }
+  {
+    // Test iterating and rewind.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
+                         StrictJSONPathIterator::Create("$.\"b.c.d\"[1].e"));
+    // Skip first token.
+    EXPECT_TRUE(++(*path_itr));
+    EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), "b.c.d");
+    EXPECT_TRUE(++(*path_itr));
+    EXPECT_EQ(*(**path_itr).MaybeGetArrayIndex(), 1);
+    EXPECT_TRUE(++(*path_itr));
+    EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), "e");
+    EXPECT_TRUE(path_itr->NoSuffixToken());
+    EXPECT_FALSE(++(*path_itr));
+    EXPECT_TRUE(path_itr->End());
+    // No-op as we've already reached the end of the path.
+    EXPECT_FALSE(++(*path_itr));
+    // Rewind a single token.
+    EXPECT_TRUE(--(*path_itr));
+    EXPECT_FALSE(path_itr->End());
+    EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), "e");
+    // Rewind to the beginning and validate both tokens and type tokens.
+    path_itr->Rewind();
+    ++(*path_itr);
+    EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), "b.c.d");
+    ++(*path_itr);
+    EXPECT_EQ(*(**path_itr).MaybeGetArrayIndex(), 1);
+  }
 }
 
 TEST(JSONPathExtractorTest, BasicParsing) {
@@ -3009,7 +3105,7 @@ TEST(JsonLaxConversionTest, String) {
   }
 }
 
-TEST(JsonArray, Compliance) {
+TEST(JsonArrayTest, Compliance) {
   const std::vector<FunctionTestCall> tests = GetFunctionTestsJsonArray();
 
   for (const FunctionTestCall& test : tests) {
@@ -3067,32 +3163,26 @@ TEST(JsonObjectTest, VariadicArgs) {
   for (const FunctionTestCall& test : tests) {
     SCOPED_TRACE(JsonObjectDebugString(test));
 
+    JsonObjectBuilder builder(GetLanguageOptionsFromTest(test),
+                              /*canonicalize_zero=*/true);
+
     std::vector<absl::string_view> keys;
     std::vector<const Value*> values;
-    absl::StatusOr<JSONValue> output;
 
-    if (test.params.num_params() == 0) {
-      // No args.
-      output = JsonObject(keys, absl::MakeSpan(values),
-                          GetLanguageOptionsFromTest(test),
-                          /*canonicalize_zero=*/true);
-    } else {
-      // Signature: JSON_OBJECT(STRING key, ANY value, ...)
-      keys.reserve((test.params.num_params() + 1) / 2);
-      values.reserve(test.params.num_params() / 2);
-      for (int i = 0; i < test.params.num_params(); i += 2) {
-        const Value& key = test.params.param(i);
-        ASSERT_TRUE(key.type()->IsString());
-        ASSERT_FALSE(key.is_null());
-        keys.push_back(key.string_value());
-      }
-      for (int i = 1; i < test.params.num_params(); i += 2) {
-        values.push_back(&test.params.param(i));
-      }
-      output = JsonObject(keys, absl::MakeSpan(values),
-                          GetLanguageOptionsFromTest(test),
-                          /*canonicalize_zero=*/true);
+    // Signature: JSON_OBJECT(STRING key, ANY value, ...)
+    keys.reserve((test.params.num_params() + 1) / 2);
+    values.reserve(test.params.num_params() / 2);
+    for (int i = 0; i < test.params.num_params(); i += 2) {
+      const Value& key = test.params.param(i);
+      ASSERT_TRUE(key.type()->IsString());
+      ASSERT_FALSE(key.is_null());
+      keys.push_back(key.string_value());
     }
+    for (int i = 1; i < test.params.num_params(); i += 2) {
+      values.push_back(&test.params.param(i));
+    }
+    absl::StatusOr<JSONValue> output =
+        JsonObject(keys, absl::MakeSpan(values), builder);
 
     const Value expected_value = test.params.result();
     const absl::Status expected_status = test.params.status();
@@ -3115,6 +3205,9 @@ TEST(JsonObjectTest, TwoArrayArgs) {
   for (const FunctionTestCall& test : tests) {
     SCOPED_TRACE(JsonObjectDebugString(test));
 
+    JsonObjectBuilder builder(GetLanguageOptionsFromTest(test),
+                              /*canonicalize_zero=*/true);
+
     // Signature: JSON_OBJECT(ARRAY<STRING> keys, ARRAY<ANY> values)
     ASSERT_EQ(test.params.num_params(), 2);
     ASSERT_TRUE(test.params.param(0).type()->IsArray());
@@ -3133,9 +3226,8 @@ TEST(JsonObjectTest, TwoArrayArgs) {
       values.push_back(&value);
     }
 
-    absl::StatusOr<JSONValue> output = JsonObject(
-        keys, absl::MakeSpan(values), GetLanguageOptionsFromTest(test),
-        /*canonicalize_zero=*/true);
+    absl::StatusOr<JSONValue> output =
+        JsonObject(keys, absl::MakeSpan(values), builder);
 
     const Value expected_value = test.params.result();
     const absl::Status expected_status = test.params.status();
@@ -3146,6 +3238,867 @@ TEST(JsonObjectTest, TwoArrayArgs) {
     } else {
       EXPECT_EQ(output.status().code(), expected_status.code());
     }
+  }
+}
+
+TEST(JsonObjectTest, ReuseBuilder) {
+  JsonObjectBuilder builder(LanguageOptions(), /*canonicalize_zero=*/true);
+
+  {
+    std::vector<absl::string_view> keys = {"a", "b"};
+    std::vector<Value> values_storage = {values::Int64(10),
+                                         values::String("foo")};
+    std::vector<const Value*> values;
+    for (const auto& value : values_storage) {
+      values.push_back(&value);
+    }
+    absl::StatusOr<JSONValue> output =
+        JsonObject(keys, absl::MakeSpan(values), builder);
+    ZETASQL_ASSERT_OK(output);
+    EXPECT_THAT(output->GetConstRef(),
+                JsonEq(JSONValue::ParseJSONString(R"({"a":10,"b":"foo"})")
+                           ->GetConstRef()));
+  }
+  {
+    std::vector<absl::string_view> keys = {"a", "c"};
+    std::vector<Value> values_storage = {values::Int64(15), values::Bool(true)};
+    std::vector<const Value*> values;
+    for (const auto& value : values_storage) {
+      values.push_back(&value);
+    }
+    absl::StatusOr<JSONValue> output =
+        JsonObject(keys, absl::MakeSpan(values), builder);
+    ZETASQL_ASSERT_OK(output);
+    EXPECT_THAT(
+        output->GetConstRef(),
+        JsonEq(
+            JSONValue::ParseJSONString(R"({"a":15,"c":true})")->GetConstRef()));
+  }
+}
+
+TEST(JsonObjectBuilderTest, NoCallsToAdd) {
+  JsonObjectBuilder builder(LanguageOptions(), /*canonicalize_zero=*/true);
+  EXPECT_THAT(builder.Build().GetConstRef(),
+              JsonEq(JSONValue::ParseJSONString("{}")->GetConstRef()));
+}
+
+TEST(JsonObjectBuilderTest, AddNoDuplicate) {
+  JsonObjectBuilder builder(LanguageOptions(), /*canonicalize_zero=*/true);
+  {
+    auto inserted = builder.Add("field", values::Int64(10));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+  }
+  {
+    auto inserted = builder.Add("field2", values::String("foo"));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+  }
+  EXPECT_THAT(
+      builder.Build().GetConstRef(),
+      JsonEq(JSONValue::ParseJSONString(R"({"field":10,"field2":"foo"})")
+                 ->GetConstRef()));
+}
+
+TEST(JsonObjectBuilderTest, AddDuplicate) {
+  JsonObjectBuilder builder(LanguageOptions(), /*canonicalize_zero=*/true);
+  {
+    auto inserted = builder.Add("field", values::Int64(10));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+  }
+  {
+    auto inserted = builder.Add("field", values::String("foo"));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_FALSE(*inserted);
+  }
+  {
+    auto inserted = builder.Add("field", values::Int64(20));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_FALSE(*inserted);
+  }
+  {
+    auto inserted = builder.Add("field2", values::Int64(20));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+  }
+  EXPECT_THAT(builder.Build().GetConstRef(),
+              JsonEq(JSONValue::ParseJSONString(R"({"field":10,"field2":20})")
+                         ->GetConstRef()));
+}
+
+TEST(JsonObjectBuilderTest, ResetBuilder) {
+  JsonObjectBuilder builder(LanguageOptions(), /*canonicalize_zero=*/true);
+  {
+    auto inserted = builder.Add("field", values::Int64(10));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+  }
+  builder.Reset();
+
+  {
+    // Same field to test that 'keys_set_' has been reset.
+    auto inserted = builder.Add("field", values::String("foo"));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+  }
+  {
+    auto inserted = builder.Add("field2", values::Int64(20));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+  }
+  EXPECT_THAT(
+      builder.Build().GetConstRef(),
+      JsonEq(JSONValue::ParseJSONString(R"({"field":"foo","field2":20})")
+                 ->GetConstRef()));
+}
+
+TEST(JsonObjectBuilderTest, ReuseBuilder) {
+  JsonObjectBuilder builder(LanguageOptions(), /*canonicalize_zero=*/true);
+  {
+    auto inserted = builder.Add("field", values::Int64(10));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+  }
+  EXPECT_THAT(
+      builder.Build().GetConstRef(),
+      JsonEq(JSONValue::ParseJSONString(R"({"field":10})")->GetConstRef()));
+
+  {
+    // Same field to test that 'keys_set_' has been reset.
+    auto inserted = builder.Add("field", values::String("foo"));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+  }
+  EXPECT_THAT(
+      builder.Build().GetConstRef(),
+      JsonEq(JSONValue::ParseJSONString(R"({"field":"foo"})")->GetConstRef()));
+}
+
+TEST(JsonObjectBuilderTest, CanonicalizeZero) {
+  {
+    JsonObjectBuilder builder(LanguageOptions(), /*canonicalize_zero=*/true);
+    auto inserted = builder.Add("field", values::Double(-0.0));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+
+    EXPECT_THAT(
+        builder.Build().GetConstRef(),
+        JsonEq(JSONValue::ParseJSONString(R"({"field":0.0})")->GetConstRef()));
+  }
+  {
+    JsonObjectBuilder builder(LanguageOptions(), /*canonicalize_zero=*/false);
+    auto inserted = builder.Add("field", values::Double(-0.0));
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+
+    EXPECT_THAT(
+        builder.Build().GetConstRef(),
+        JsonEq(JSONValue::ParseJSONString(R"({"field":-0.0})")->GetConstRef()));
+  }
+}
+
+TEST(JsonObjectBuilderTest, StrictNumberParsing) {
+  Value value = values::BigNumeric(
+      BigNumericValue::FromString("1.111111111111111111").value());
+
+  {
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+    JsonObjectBuilder builder(options, /*canonicalize_zero=*/true);
+    auto inserted = builder.Add("field", value);
+    EXPECT_THAT(inserted, StatusIs(absl::StatusCode::kOutOfRange));
+    builder.Reset();
+  }
+  {
+    JsonObjectBuilder builder(LanguageOptions(), /*canonicalize_zero=*/false);
+    auto inserted = builder.Add("field", value);
+    ZETASQL_ASSERT_OK(inserted);
+    EXPECT_TRUE(*inserted);
+
+    EXPECT_THAT(
+        builder.Build().GetConstRef(),
+        JsonEq(JSONValue::ParseJSONString(R"({"field":1.1111111111111112})")
+                   ->GetConstRef()));
+  }
+}
+
+std::unique_ptr<StrictJSONPathIterator> ParseJSONPath(absl::string_view path) {
+  return StrictJSONPathIterator::Create(path).value();
+}
+
+TEST(JsonRemoveTest, InvalidJSONPath) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  auto path_iter = ParseJSONPath("$");
+  EXPECT_THAT(JsonRemove(ref, *path_iter),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("The JSONPath cannot be '$'")));
+}
+
+TEST(JsonRemoveTest, NoOp) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true, "b": [1.1, false, []]}, 10])";
+
+  std::vector<absl::string_view> paths = {
+      // $ is not an object
+      "$.a",
+      // $[0] is not an array
+      "$[0][0]",
+      // Array index out of bound
+      "$[10]",
+      // Key doesn't exist
+      "$[2].c",
+      // $[2] doesn't have the 'c' 'key'
+      "$[2].c[1]",
+      // Array index out of bound in array at $[2].b
+      "$[2].b[4].a",
+  };
+
+  for (auto path : paths) {
+    SCOPED_TRACE(
+        absl::Substitute("JsonRemove('$0', '$1')", kInitialValue, path));
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    auto path_iter = ParseJSONPath(path);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(bool success, JsonRemove(ref, *path_iter));
+    EXPECT_FALSE(success);
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+}
+
+TEST(JsonRemoveTest, ValidRemove) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true, "b": [1.1, false, []]}, 10])";
+
+  // Pair of: JSONPath to remove, expected output.
+  std::vector<std::pair<absl::string_view, absl::string_view>>
+      paths_and_outputs = {
+          {"$[0]", R"([null,{"a":true,"b":[1.1,false,[]]},10])"},
+          {"$[1]", R"(["foo",{"a":true,"b":[1.1,false,[]]},10])"},
+          {"$[2]", R"(["foo",null,10])"},
+          {"$[2].a", R"(["foo",null,{"b":[1.1,false,[]]},10])"},
+          {"$[2].b", R"(["foo",null,{"a":true},10])"},
+          {"$[2].b[2]", R"(["foo",null,{"a":true,"b":[1.1,false]},10])"},
+      };
+
+  for (auto [path, output] : paths_and_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("JsonRemove('$0', '$1')", kInitialValue, path));
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    auto path_iter = ParseJSONPath(path);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(bool success, JsonRemove(ref, *path_iter));
+    EXPECT_TRUE(success);
+    EXPECT_THAT(ref, JsonEq(JSONValue::ParseJSONString(output)->GetConstRef()));
+  }
+}
+
+TEST(JsonRemoveTest, EmptyObjectAndArrayAreNotCleaned) {
+  {
+    // JsonRemove results in empty object which remains in the JSON value.
+    JSONValue value = JSONValue::ParseJSONString(R"([10, {"a": 10}])").value();
+    JSONValueRef ref = value.GetRef();
+    auto path_iter = ParseJSONPath("$[1].a");
+    ZETASQL_ASSERT_OK_AND_ASSIGN(bool success, JsonRemove(ref, *path_iter));
+    EXPECT_TRUE(success);
+    EXPECT_THAT(ref,
+                JsonEq(JSONValue::ParseJSONString("[10, {}]")->GetConstRef()));
+  }
+  {
+    // JsonRemove results in empty array which remains in the JSON value.
+    JSONValue value = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    JSONValueRef ref = value.GetRef();
+    auto path_iter = ParseJSONPath("$.a[0]");
+    ZETASQL_ASSERT_OK_AND_ASSIGN(bool success, JsonRemove(ref, *path_iter));
+    EXPECT_TRUE(success);
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(R"({"a": []})")->GetConstRef()));
+  }
+}
+
+TEST(JsonInsertArrayTest, NoOp) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true, "b": [1.1, false, []]}, 10])";
+
+  auto test_fn = [&kInitialValue](absl::string_view path) {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    auto path_iter = ParseJSONPath(path);
+    ZETASQL_EXPECT_OK(JsonInsertArrayElement(ref, *path_iter, Value::Int64(10),
+                                     LanguageOptions(),
+                                     /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  };
+
+  // Last token is not an array index
+  test_fn("$.a");
+  // Path doesn't exist
+  test_fn("$.a[0]");
+  // Path doesn't exist
+  test_fn("$[2].c[0]");
+  // Path doesn't point to an array ($[2] is not an array)
+  test_fn("$[2][0]");
+  // Path doesn't point to an array ($[2] is not an array)
+  test_fn("$[2][0][0]");
+  // With strict JSONPath, .0 is a member access and cannot be an array
+  // index.
+  test_fn("$.a.0");
+}
+
+TEST(JsonInsertArrayTest, ValidInserts) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true, "b": [1.1, false, []]}, 10])";
+
+  auto test_fn = [&kInitialValue](absl::string_view path, const Value& value,
+                                  bool insert_each_element,
+                                  absl::string_view expected_output) {
+    JSONValue json = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = json.GetRef();
+    auto path_iter = ParseJSONPath(path);
+    ZETASQL_ASSERT_OK(JsonInsertArrayElement(ref, *path_iter, value, LanguageOptions(),
+                                     /*canonicalize_zero=*/true,
+                                     insert_each_element));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  // Inserts into top level array.
+  test_fn("$[0]", Value::Int64(1), false,
+          R"([1,"foo",null,{"a":true,"b":[1.1,false,[]]},10])");
+  // Inserts past the array size.
+  test_fn("$[10]", Value::Int64(1), false,
+          R"(["foo",null,{"a":true,"b":[1.1,false,[]]},10,1])");
+  // Inserts into nested array.
+  test_fn("$[2].b[1]", Value::String("bar"), false,
+          R"(["foo",null,{"a":true,"b":[1.1,"bar",false,[]]},10])");
+  // Path points to an array. Does not insert into the array. Inserts
+  // before the array.
+  test_fn("$[2].b[2]", Value::String("bar"), false,
+          R"(["foo",null,{"a":true,"b":[1.1,false,"bar",[]]},10])");
+  // Inserts into nested array.
+  test_fn("$[2].b[2][0]", Value::String("bar"), false,
+          R"(["foo",null,{"a":true,"b":[1.1,false,["bar"]]},10])");
+  // Inserts into nested array, past the array size.
+  test_fn("$[2].b[2][2]", Value::String("bar"), false,
+          R"(["foo",null,{"a":true,"b":[1.1,false,["bar"]]},10])");
+  // Inserts an array as a single element.
+  test_fn("$[2].b[1]", values::StringArray({"a", "b"}), false,
+          R"(["foo",null,{"a":true,"b":[1.1,["a","b"],false,[]]},10])");
+  // Inserts an array as multiple elements.
+  test_fn("$[2].b[1]", values::StringArray({"a", "b"}), true,
+          R"(["foo",null,{"a":true,"b":[1.1,"a","b",false,[]]},10])");
+  // Inserts an array as multiple elements past the array size.
+  test_fn("$[2].b[10]", values::StringArray({"a", "b"}), true,
+          R"(["foo",null,{"a":true,"b":[1.1,false,[],"a","b"]},10])");
+}
+
+TEST(JsonInsertArrayTest, CanonicalizeZero) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true}, 10])";
+  auto path_iter = ParseJSONPath("$[1]");
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonInsertArrayElement(ref, *path_iter, Value::Double(-0.0),
+                                     LanguageOptions(),
+                                     /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(R"(["foo",0.0,null,{"a":true},10])")
+                   ->GetConstRef()));
+  }
+
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonInsertArrayElement(ref, *path_iter, Value::Double(-0.0),
+                                     LanguageOptions(),
+                                     /*canonicalize_zero=*/false));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(R"(["foo",-0.0,null,{"a":true},10])")
+                   ->GetConstRef()));
+  }
+}
+
+TEST(JsonInsertArrayTest, StrictNumberParsing) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true}, 10])";
+
+  Value big_value = values::BigNumeric(
+      BigNumericValue::FromString("1.111111111111111111").value());
+
+  auto path_iter = ParseJSONPath("$[1]");
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+
+    ASSERT_THAT(JsonInsertArrayElement(ref, *path_iter, big_value, options,
+                                       /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
+  }
+
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    ZETASQL_ASSERT_OK(JsonInsertArrayElement(ref, *path_iter, big_value,
+                                     LanguageOptions(),
+                                     /*canonicalize_zero=*/true));
+    EXPECT_THAT(ref,
+                JsonEq(JSONValue::ParseJSONString(
+                           R"(["foo",1.111111111111111111,null,{"a":true},10])")
+                           ->GetConstRef()));
+  }
+}
+
+TEST(JsonAppendArrayTest, NoOp) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true, "b": [1.1, false, []]}, 10])";
+
+  auto test_fn = [&kInitialValue](absl::string_view path) {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    auto path_iter = ParseJSONPath(path);
+    ZETASQL_EXPECT_OK(JsonAppendArrayElement(ref, *path_iter, Value::Int64(10),
+                                     LanguageOptions(),
+                                     /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  };
+
+  // Path doesn't exist
+  test_fn("$.a");
+  // Path doesn't exist
+  test_fn("$[2].c");
+  // Path doesn't exist
+  test_fn("$[4]");
+  // Path doesn't exist
+  test_fn("$[2].b[2][0]");
+  // Path doesn't point to an array
+  test_fn("$[2]");
+  // With strict JSONPath); .2 is a member access and cannot be an array
+  // index.
+  test_fn("$[2].b.2");
+}
+
+TEST(JsonAppendArrayTest, ValidInserts) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true, "b": [1.1, false, []]}, 10])";
+
+  auto test_fn = [&kInitialValue](absl::string_view path, const Value& value,
+                                  bool insert_each_element,
+                                  absl::string_view expected_output) {
+    JSONValue json = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = json.GetRef();
+    auto path_iter = ParseJSONPath(path);
+    ZETASQL_ASSERT_OK(JsonAppendArrayElement(ref, *path_iter, value, LanguageOptions(),
+                                     /*canonicalize_zero=*/true,
+                                     insert_each_element));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  // Appends into top level array.
+  test_fn("$", Value::Int64(1), false,
+          R"(["foo",null,{"a":true,"b":[1.1,false,[]]},10,1])");
+  // Appends into nested array.
+  test_fn("$[2].b", Value::String("bar"), false,
+          R"(["foo",null,{"a":true,"b":[1.1,false,[],"bar"]},10])");
+  // Appends into nested array.
+  test_fn("$[2].b[2]", Value::String("bar"), false,
+          R"(["foo",null,{"a":true,"b":[1.1,false,["bar"]]},10])");
+  // Appends an array as a single element.
+  test_fn("$[2].b", values::StringArray({"a", "b"}), false,
+          R"(["foo",null,{"a":true,"b":[1.1,false,[],["a","b"]]},10])");
+  // Appends an array as multiple elements.
+  test_fn("$[2].b", values::StringArray({"a", "b"}), true,
+          R"(["foo",null,{"a":true,"b":[1.1,false,[],"a","b"]},10])");
+}
+
+TEST(JsonAppendArrayTest, CanonicalizeZero) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true}, 10])";
+  auto path_iter = ParseJSONPath("$");
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonAppendArrayElement(ref, *path_iter, Value::Double(-0.0),
+                                     LanguageOptions(),
+                                     /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(R"(["foo",null,{"a":true},10,0.0])")
+                   ->GetConstRef()));
+  }
+
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonAppendArrayElement(ref, *path_iter, Value::Double(-0.0),
+                                     LanguageOptions(),
+                                     /*canonicalize_zero=*/false));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(R"(["foo",null,{"a":true},10,-0.0])")
+                   ->GetConstRef()));
+  }
+}
+
+TEST(JsonAppendArrayTest, StrictNumberParsing) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true}, 10])";
+  auto path_iter = ParseJSONPath("$");
+
+  Value big_value = values::BigNumeric(
+      BigNumericValue::FromString("1.111111111111111111").value());
+
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+
+    ASSERT_THAT(JsonAppendArrayElement(ref, *path_iter, big_value, options,
+                                       /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
+  }
+
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    ZETASQL_ASSERT_OK(JsonAppendArrayElement(ref, *path_iter, big_value, options,
+                                     /*canonicalize_zero=*/true));
+    EXPECT_THAT(ref,
+                JsonEq(JSONValue::ParseJSONString(
+                           R"(["foo",null,{"a":true},10,1.111111111111111111])")
+                           ->GetConstRef()));
+  }
+}
+
+TEST(JsonSetTest, NoOpTopLevelObject) {
+  constexpr absl::string_view kInitialObjectValue =
+      R"({"a":null, "b":{}, "c":[], "d":{"e":1}, "f":[2,[],{},[3,4]]})";
+
+  auto test_fn = [&kInitialObjectValue](absl::string_view path) {
+    JSONValue value = JSONValue::ParseJSONString(kInitialObjectValue).value();
+    JSONValueRef ref = value.GetRef();
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    ZETASQL_EXPECT_OK(JsonSet(ref, *path_iterator, Value::Int64(10), LanguageOptions(),
+                      /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(kInitialObjectValue)->GetConstRef()));
+  };
+
+  // Type mismatch. Path prefix "$" is an object but expected array.
+  test_fn("$[0]");
+  // Type mismatch. Path prefix "$.b" is a object but expected array.
+  test_fn("$.b[0]");
+  // Type mismatch. Path prefix "$.c" is an array but expected object.
+  test_fn("$.c.d");
+  // Type mismatch. Path prefix "$.d.e" is a scalar but expected object.
+  test_fn("$.d.e.f");
+}
+
+TEST(JsonSetTest, NoOpTopLevelObject2) {
+  // Tests when there are suffix tokens left to process and there is a type
+  // mismatch.
+  constexpr absl::string_view kInitialObjectValue =
+      R"({"a":[1],"b":{"c":2},"d":3})";
+
+  auto test_fn = [&kInitialObjectValue](absl::string_view path) {
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    JSONValue json = JSONValue::ParseJSONString(kInitialObjectValue).value();
+    JSONValueRef ref = json.GetRef();
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, Value::Int64(1), LanguageOptions(),
+                      /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(kInitialObjectValue)->GetConstRef()));
+  };
+
+  test_fn("$.a.b.c");
+  test_fn("$.b[1]");
+  test_fn("$.d.e");
+}
+
+TEST(JsonSetTest, NoOpTopLevelArray) {
+  constexpr absl::string_view kInitialArrayValue =
+      R"(["foo", null, {"a": true, "b": [1.1, [], [2]], "c": {}},
+         {"d": {"e": "f"}}])";
+
+  auto test_fn = [&kInitialArrayValue](absl::string_view path) {
+    JSONValue value = JSONValue::ParseJSONString(kInitialArrayValue).value();
+    JSONValueRef ref = value.GetRef();
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    ZETASQL_EXPECT_OK(JsonSet(ref, *path_iterator, Value::Int64(10), LanguageOptions(),
+                      /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(kInitialArrayValue)->GetConstRef()));
+  };
+
+  // Type mismatch. Path prefix "$" is an array but expected object.
+  test_fn("$.a");
+  // Type mismatch. Path prefix "$[0]" is a scalar but expected array.
+  test_fn("$[0][0]");
+  // Type mismatch. Path prefix "$[2].a" is a scalar but expected object.
+  test_fn("$[2].a.b");
+  // Type mismatch. Path prefix "$[2].b" is an array but expected object.
+  test_fn("$[2].b.a");
+}
+
+TEST(JsonSetTest, SingleJsonScalarCases) {
+  // If output is std::nullopt there should be no change in input. Set
+  // operation is a no-op.
+
+  const Value value = Value::Int64(999);
+  auto test_fn = [&](absl::string_view path,
+                     std::optional<absl::string_view> expected_output) {
+    // Test different scalar JSON representations as inputs.
+    for (absl::string_view json_string : {"1", "1.1", "false", R"("foo")"}) {
+      SCOPED_TRACE(
+          absl::Substitute("JsonSet('$0', '$1', 999)", json_string, path));
+      JSONValue json = JSONValue::ParseJSONString(json_string).value();
+      JSONValueRef ref = json.GetRef();
+      std::unique_ptr<StrictJSONPathIterator> path_iterator =
+          ParseJSONPath(path);
+      ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, LanguageOptions(),
+                        /*canonicalize_zero=*/true));
+      if (expected_output.has_value()) {
+        EXPECT_THAT(
+            ref,
+            JsonEq(
+                JSONValue::ParseJSONString(*expected_output)->GetConstRef()));
+      } else {
+        // This is an expected no-op.
+        EXPECT_THAT(
+            ref,
+            JsonEq(
+                JSONValue::ParseJSONString(json_string).value().GetConstRef()));
+      }
+    }
+  };
+
+  test_fn(/*path=*/"$", "999");
+  test_fn(/*path=*/"$.a", std::nullopt);
+  test_fn(/*path=*/"$[0]", std::nullopt);
+}
+
+TEST(JsonSetTest, ValidTopLevelEmptyObject) {
+  const Value value = Value::Int64(999);
+  auto test_fn = [&](absl::string_view path,
+                     absl::string_view expected_output) {
+    JSONValue json;
+    JSONValueRef ref = json.GetRef();
+    ref.SetToEmptyObject();
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, LanguageOptions(),
+                      /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  // Empty path.
+  test_fn(/*path=*/"$", /*expected_output=*/"999");
+  // Insert single key.
+  test_fn(/*path=*/"$.a", /*expected_output=*/R"({"a":999})");
+  // Recursive creation of multiple object keys.
+  test_fn(/*path=*/"$.a.b", /*expected_output=*/R"({"a":{"b":999}})");
+  // Recursive creation of multiple object keys and array index.
+  test_fn(/*path=*/"$.a.b[2]",
+          /*expected_output=*/R"({"a":{"b":[null, null, 999]}})");
+  // Recursive creation of multiple object keys and array index.
+  test_fn(/*path=*/"$.a.b[2].c",
+          /*expected_output=*/R"({"a":{"b":[null, null, {"c":999}]}})");
+}
+
+TEST(JsonSetTest, ValidTopLevelEmptyArray) {
+  const Value value = Value::Int64(999);
+  auto test_fn = [&](absl::string_view path,
+                     absl::string_view expected_output) {
+    JSONValue json;
+    JSONValueRef ref = json.GetRef();
+    ref.SetToEmptyArray();
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, LanguageOptions(),
+                      /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  // Empty path.
+  test_fn(/*path=*/"$", /*expected_output=*/"999");
+  // Set element into first position.
+  test_fn(/*path=*/"$[0]", /*expected_output=*/"[999]");
+  // Set past the end of the array.
+  test_fn(/*path=*/"$[2]", /*expected_output=*/"[null, null, 999]");
+  // Recursive creation of nested arrays.
+  test_fn(/*path=*/"$[2][1]", /*expected_output=*/"[null, null, [null, 999]]");
+  // Recursive creation of nested arrays and objects.
+  test_fn(/*path=*/"$[2][1].a",
+          /*expected_output=*/R"([null, null, [null, {"a":999}]])");
+
+  std::vector<std::tuple<absl::string_view, absl::string_view>>
+      inputs_and_outputs = {
+          // Empty path.
+          {"$", "999"},
+          // Set element into first position.
+          {"$[0]", "[999]"},
+          // Set past the end of the array.
+          {"$[2]", "[null, null, 999]"},
+          // Recursive creation of nested arrays.
+          {"$[2][1]", "[null, null, [null, 999]]"},
+          // Recursive creation of nested arrays and objects.
+          {"$[2][1].a", R"([null, null, [null, {"a":999}]])"}};
+}
+
+TEST(JsonSetTest, ComplexTests) {
+  constexpr absl::string_view kInitialObjectValue =
+      R"({"a":null, "b":{}, "c":[], "d":{"e":1}, "f":[2, [], {}, [3, 4]]})";
+  const Value value = Value::Int64(999);
+
+  auto test_fn = [&](absl::string_view path,
+                     absl::string_view expected_output) {
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    JSONValue json = JSONValue::ParseJSONString(kInitialObjectValue).value();
+    JSONValueRef ref = json.GetRef();
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, LanguageOptions(),
+                      /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  // Replace the entire value.
+  test_fn(/*path=*/"$", /*expected_output=*/"999");
+  // Insert object into null.
+  test_fn(
+      /*path=*/"$.a.b.c",
+      /*expected_output=*/R"({"a":{"b":{"c":999}}, "b":{}, "c":[], "d":{"e":1},
+                          "f":[2, [], {}, [3, 4]]})");
+  // Insert array into null.
+  test_fn(
+      /*path=*/"$.a[1][2]",
+      /*expected_output=*/R"({"a":[null, [null, null, 999]], "b":{}, "c":[],
+                          "d":{"e":1}, "f":[2,[],{},[3,4]]})");
+  // Set operation ignored. Type mismatch.
+  test_fn(/*path=*/"$.d[1]", /*expected_output=*/kInitialObjectValue);
+  // Replace an object key.
+  test_fn(/*path=*/"$.f", /*expected_output=*/
+          R"({"a":null, "b":{}, "c":[], "d":{"e":1}, "f":999})");
+  // Insert key into top level object.
+  test_fn(
+      /*path=*/"$.g",
+      /*expected_output=*/R"({"a":null, "b":{}, "c":[], "d":{"e":1},
+                          "f":[2,[],{},[3,4]], "g":999})");
+  // Inserts key in nested object.
+  test_fn(
+      /*path=*/"$.b.c",
+      /*expected_output=*/R"({"a":null, "b":{"c":999}, "c":[], "d":{"e":1},
+                          "f":[2,[],{},[3,4]]})");
+  // Inserts key in empty object with basic recursive creation.
+  test_fn(
+      /*path=*/"$.b.c.d",
+      /*expected_output=*/R"({"a":null, "b":{"c":{"d":999}}, "c":[],
+                "d":{"e":1}, "f":[2,[],{},[3,4]]})");
+  // Inserts into empty array.
+  test_fn(
+      /*path=*/"$.c[0]",
+      /*expected_output=*/R"({"a":null, "b":{}, "c":[999], "d":{"e":1},
+               "f":[2,[],{},[3,4]]})");
+  // Inserts into empty array with basic recursive creation.
+  test_fn(
+      /*path=*/"$.c[0][1]",
+      /*expected_output=*/R"({"a":null, "b":{}, "c":[[null, 999]],
+               "d":{"e":1}, "f":[2,[],{},[3,4]]})");
+  // Inserts into empty array with recursive creation of nested arrays
+  // and objects.
+  test_fn(
+      /*path=*/"$.c[0][1].y",
+      /*expected_output=*/R"({"a":null, "b":{}, "c":[[null, {"y":999}]],
+               "d":{"e":1}, "f":[2,[],{},[3,4]]})");
+  // Replaces specific element in an array.
+  test_fn(
+      /*path=*/"$.f[1]",
+      /*expected_output=*/R"({"a":null, "b":{}, "c":[], "d":{"e":1},
+               "f":[2, 999, {}, [3, 4]]})");
+  // Inserts past end of an array with recursive creation.
+  test_fn(
+      /*path=*/"$.f[4].x.y[1]",
+      /*expected_output=*/
+      R"({"a":null, "b":{}, "c":[], "d":{"e":1}, "f":[2, [], {}, [3, 4],
+              {"x":{"y":[null, 999]}}]})");
+}
+
+TEST(JsonSetTest, CanonicalizeZero) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true}, 10])";
+  std::unique_ptr<StrictJSONPathIterator> path_iterator =
+      ParseJSONPath(/*path*/ "$[2]");
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, Value::Double(-0.0),
+                      LanguageOptions(),
+                      /*canonicalize_zero=*/true));
+    EXPECT_THAT(ref,
+                JsonEq(JSONValue::ParseJSONString(R"(["foo", null, 0.0, 10])")
+                           ->GetConstRef()));
+  }
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, Value::Double(-0.0),
+                      LanguageOptions(),
+                      /*canonicalize_zero=*/false));
+    EXPECT_THAT(ref,
+                JsonEq(JSONValue::ParseJSONString(R"(["foo", null, -0.0, 10])")
+                           ->GetConstRef()));
+  }
+}
+
+TEST(JsonSetTest, StrictNumberParsing) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a":true}, 10])";
+  std::unique_ptr<StrictJSONPathIterator> path_iterator =
+      ParseJSONPath(/*path*/ "$[2]");
+  Value big_value = values::BigNumeric(
+      BigNumericValue::FromString("1.111111111111111111").value());
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+
+    ASSERT_THAT(JsonSet(ref, *path_iterator, big_value, options,
+                        /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
+  }
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, big_value, LanguageOptions(),
+                      /*canonicalize_zero=*/true));
+    EXPECT_THAT(ref, JsonEq(JSONValue::ParseJSONString(
+                                R"(["foo", null, 1.111111111111111111, 10])")
+                                ->GetConstRef()));
   }
 }
 

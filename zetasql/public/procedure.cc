@@ -60,7 +60,8 @@ std::string Procedure::GetSupportedSignatureUserFacingText(
   std::vector<std::string> argument_texts;
   for (const FunctionArgumentType& argument : signature_.arguments()) {
     argument_texts.push_back(argument.UserFacingNameWithCardinality(
-        product_mode, FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
+        product_mode, FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+        /*print_template_details=*/true));
   }
   return absl::StrCat(FullName(), "(", absl::StrJoin(argument_texts, ", "),
                       ")");

@@ -61,7 +61,7 @@ FROM (
 )
 ORDER BY x
 --
-ARRAY<STRUCT<INT64>>[{3}, {3}, {2}]
+ARRAY<STRUCT<INT64>>[known order:{3}, {3}, {2}]
 ==
 [required_features=BIGNUMERIC_TYPE]
 [name=case_statement_bignumeric]
@@ -77,7 +77,7 @@ FROM (
 )
 ORDER BY x
 --
-ARRAY<STRUCT<INT64>>[{3}, {3}, {2}]
+ARRAY<STRUCT<INT64>>[known order:{3}, {3}, {2}]
 ==
 [required_features=RANGE_TYPE]
 [name=case_statement_range_of_dates]
@@ -197,7 +197,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[]}]
 [name=coalesce_null_array_int64]
 SELECT COALESCE(NULL, ARRAY<INT64>[9, 0])
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[9, 0]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:9, 0]}]
 ==
 [name=coalesce_null_struct]
 SELECT COALESCE(NULL, STRUCT("a" AS s, -33 AS i))
@@ -439,9 +439,9 @@ FROM (SELECT x,
         CAST(NULL AS STRUCT<INT64, BOOL>) AS s3
       FROM UNNEST([2, 1, 3]) AS x);
 --
-ARRAY<STRUCT<s ARRAY<>>>[
+ARRAY<STRUCT<s ARRAY<>>>[unknown order:
   {ARRAY<STRUCT<INT64, BOOL>>[{NULL, true}]},
-  {ARRAY<STRUCT<INT64, BOOL>>[{1, false}, {NULL, true}]},
+  {ARRAY<STRUCT<INT64, BOOL>>[known order:{1, false}, {NULL, true}]},
   {ARRAY<STRUCT<INT64, BOOL>>[NULL]}
 ]
 ==
@@ -468,7 +468,7 @@ FROM (SELECT x,
         CAST(NULL AS zetasql_test__.TestExtraPB) AS p3
       FROM UNNEST([2, 1, 3]) AS x);
 --
-ARRAY<STRUCT<p PROTO<zetasql_test__.TestExtraPB>>>[
+ARRAY<STRUCT<p PROTO<zetasql_test__.TestExtraPB>>>[unknown order:
   {{int32_val2: 3}},
   {{int32_val1: 2}},
   {NULL}
@@ -486,9 +486,12 @@ FROM (SELECT x,
         CAST(NULL AS zetasql_test__.TestExtraPB) AS p3
       FROM UNNEST([2, 1, 3]) AS x);
 --
-ARRAY<STRUCT<p ARRAY<>>>[
+ARRAY<STRUCT<p ARRAY<>>>[unknown order:
   {ARRAY<PROTO<zetasql_test__.TestExtraPB>>[{int32_val2: 3}]},
-  {ARRAY<PROTO<zetasql_test__.TestExtraPB>>[{int32_val1: 2}, {int32_val2: 3}]},
+  {ARRAY<PROTO<zetasql_test__.TestExtraPB>>[known order:
+     {int32_val1: 2},
+     {int32_val2: 3}
+   ]},
   {ARRAY<PROTO<zetasql_test__.TestExtraPB>>[NULL]}
 ]
 ==
@@ -501,9 +504,9 @@ SELECT CASE x
 FROM (SELECT x, "foo" AS s1, "bar" AS s2, CAST(NULL AS STRING) AS s3
       FROM UNNEST([2, 1, 3]) AS x);
 --
-ARRAY<STRUCT<s ARRAY<>>>[
+ARRAY<STRUCT<s ARRAY<>>>[unknown order:
   {ARRAY<STRING>["bar"]},
-  {ARRAY<STRING>["foo", "bar"]},
+  {ARRAY<STRING>[known order:"foo", "bar"]},
   {ARRAY<STRING>[NULL]}
 ]
 ==
@@ -522,7 +525,7 @@ FROM (
 )
 ORDER BY x
 --
-ARRAY<STRUCT<INT64>>[{1}, {3}, {2}, {3}]
+ARRAY<STRUCT<INT64>>[known order:{1}, {3}, {2}, {3}]
 ==
 [required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
 [name=case_value_with_range_of_datetimes]
@@ -539,7 +542,7 @@ FROM (
 )
 ORDER BY x
 --
-ARRAY<STRUCT<INT64>>[{1}, {3}, {2}, {3}]
+ARRAY<STRUCT<INT64>>[known order:{1}, {3}, {2}, {3}]
 ==
 [required_features=RANGE_TYPE]
 [name=case_value_with_range_of_timestamps]
@@ -556,7 +559,7 @@ FROM (
 )
 ORDER BY x
 --
-ARRAY<STRUCT<INT64>>[{1}, {3}, {2}, {3}]
+ARRAY<STRUCT<INT64>>[known order:{1}, {3}, {2}, {3}]
 ==
 [required_features=RANGE_TYPE]
 [name=case_value_with_returned_range_of_dates]
@@ -573,7 +576,7 @@ FROM (
 )
 ORDER BY x
 --
-ARRAY<STRUCT<RANGE<DATE>>>[
+ARRAY<STRUCT<RANGE<DATE>>>[known order:
   {[3010-01-01, 4010-01-01)},
   {[5010-01-01, 6010-01-01)},
   {[4010-01-01, 5010-01-01)},
@@ -595,7 +598,7 @@ FROM (
 )
 ORDER BY x
 --
-ARRAY<STRUCT<RANGE<DATETIME>>>[
+ARRAY<STRUCT<RANGE<DATETIME>>>[known order:
   {[3010-01-01 00:00:00, 4010-01-01 00:00:00)},
   {[5010-01-01 00:00:00, 6010-01-01 00:00:00)},
   {[4010-01-01 00:00:00, 5010-01-01 00:00:00)},
@@ -617,7 +620,7 @@ FROM (
 )
 ORDER BY x
 --
-ARRAY<STRUCT<RANGE<TIMESTAMP>>>[
+ARRAY<STRUCT<RANGE<TIMESTAMP>>>[known order:
   {[
      3010-01-01 00:00:00+00,
      4010-01-01 00:00:00+00

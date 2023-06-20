@@ -18,12 +18,30 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
-#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"  
+#include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/interval_value.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/types/timestamp_util.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
+#include "zetasql/testing/test_function.h"
+#include "zetasql/testing/test_value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/time/time.h"
+#include "zetasql/base/map_util.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+namespace {
 
 class GetBoundariesTest : public ::testing::Test {
  public:
@@ -139,4 +157,304 @@ TEST_F(GetBoundariesTest, GetBoundariesStrictFormattingLeadingOrTrailingSpace) {
   EXPECT_EQ("2022-02-02", boundaries.end);
 }
 
+}  // namespace
+}  // namespace zetasql
+
+namespace zetasql {
+namespace functions {
+namespace {
+
+class TimestampRangeArrayGeneratorTest
+    : public ::testing::TestWithParam<FunctionTestCall> {};
+
+TEST_P(TimestampRangeArrayGeneratorTest, TestCreateAndGenerate) {
+  const FunctionTestCall& test = GetParam();
+  ASSERT_EQ(test.function_name, "generate_range_array");
+  ASSERT_EQ(test.params.num_params(), 3);
+  ASSERT_FALSE(test.params.param(0).is_null());
+  ASSERT_FALSE(test.params.param(1).is_null());
+  ASSERT_FALSE(test.params.param(2).is_null());
+
+  Value input_range_value = test.params.param(0);
+  Value start_value = input_range_value.start();
+  Value end_value = input_range_value.end();
+  IntervalValue step = test.params.param(1).interval_value();
+  bool last_partial_range = test.params.param(2).bool_value();
+
+  TimestampScale scale =
+      zetasql_base::ContainsKey(test.params.required_features(), FEATURE_TIMESTAMP_NANOS)
+          ? kNanoseconds
+          : kMicroseconds;
+
+  std::optional<absl::Time> range_start =
+      start_value.is_null() ? std::nullopt
+                            : std::make_optional(start_value.ToTime());
+  std::optional<absl::Time> range_end =
+      end_value.is_null() ? std::nullopt
+                          : std::make_optional(end_value.ToTime());
+
+  absl::StatusOr<TimestampRangeArrayGenerator> generator =
+      TimestampRangeArrayGenerator::Create(step, last_partial_range, scale);
+  std::vector<Value> results;
+  const auto& emitter = [&results](absl::Time start,
+                                   absl::Time end) -> absl::Status {
+    Value start_value = Value::Timestamp(start);
+    Value end_value = Value::Timestamp(end);
+    ZETASQL_ASSIGN_OR_RETURN(Value range_value,
+                     Value::MakeRange(start_value, end_value));
+    results.push_back(range_value);
+    return absl::OkStatus();
+  };
+
+  absl::Status status;
+  if (generator.ok()) {
+    status.Update(generator->Generate(range_start, range_end, emitter));
+  } else {
+    status.Update(generator.status());
+  }
+
+  if (test.params.status().ok()) {
+    // status OK case
+    ZETASQL_EXPECT_OK(status);
+    Value result_array =
+        Value::MakeArray(
+            test_values::MakeArrayType(types::TimestampRangeType()), results)
+            .value();
+    EXPECT_EQ(test.params.result(), result_array);
+  } else {
+    // error case
+    EXPECT_EQ(test.params.status(), status);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TimestampRangeArrayGeneratorTests, TimestampRangeArrayGeneratorTest,
+    ::testing::ValuesIn(GetFunctionTestsGenerateTimestampRangeArray()));
+
+TEST(TimestampRangeArrayGeneratorCreateTest, InvalidTimestampScale) {
+  EXPECT_THAT(TimestampRangeArrayGenerator::Create(
+                  IntervalValue::FromMicros(10).value(),
+                  /*last_partial_range=*/false, kSeconds),
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(TimestampRangeArrayGenerator::Create(
+                  IntervalValue::FromMicros(10).value(),
+                  /*last_partial_range=*/false, kMilliseconds),
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST(TimestampRangeArrayGeneratorGenerateTest, EmitterReturnsError) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(TimestampRangeArrayGenerator generator,
+                       TimestampRangeArrayGenerator::Create(
+                           IntervalValue::FromMicros(10).value(),
+                           /*last_partial_range=*/false, kMicroseconds));
+
+  int num_emitter_calls = 0;
+  auto error_emitter = [&num_emitter_calls](absl::Time start,
+                                            absl::Time end) -> absl::Status {
+    num_emitter_calls++;
+    return absl::InvalidArgumentError("test error");
+  };
+
+  std::optional<absl::Time> range_start = absl::FromUnixMicros(10);
+  std::optional<absl::Time> range_end = absl::FromUnixMicros(100);
+
+  EXPECT_THAT(generator.Generate(range_start, range_end, error_emitter),
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument,
+                                          "test error"));
+  // Verify that returning an error from the emitter immediately terminated
+  // the process.
+  EXPECT_EQ(num_emitter_calls, 1);
+}
+
+class DateRangeArrayGeneratorTest
+    : public ::testing::TestWithParam<FunctionTestCall> {};
+
+TEST_P(DateRangeArrayGeneratorTest, TestCreateAndGenerate) {
+  const FunctionTestCall& test = GetParam();
+  ASSERT_EQ(test.function_name, "generate_range_array");
+  ASSERT_EQ(test.params.num_params(), 3);
+  ASSERT_FALSE(test.params.param(0).is_null());
+  ASSERT_FALSE(test.params.param(1).is_null());
+  ASSERT_FALSE(test.params.param(2).is_null());
+
+  Value input_range_value = test.params.param(0);
+  Value start_value = input_range_value.start();
+  Value end_value = input_range_value.end();
+  IntervalValue step = test.params.param(1).interval_value();
+  bool last_partial_range = test.params.param(2).bool_value();
+
+  std::optional<int32_t> range_start =
+      start_value.is_null() ? std::nullopt
+                            : std::make_optional(start_value.date_value());
+  std::optional<int32_t> range_end =
+      end_value.is_null() ? std::nullopt
+                          : std::make_optional(end_value.date_value());
+
+  absl::StatusOr<DateRangeArrayGenerator> generator =
+      DateRangeArrayGenerator::Create(step, last_partial_range);
+  std::vector<Value> results;
+  const auto& emitter = [&results](int32_t start, int32_t end) -> absl::Status {
+    Value start_value = Value::Date(start);
+    Value end_value = Value::Date(end);
+    ZETASQL_ASSIGN_OR_RETURN(Value range_value,
+                     Value::MakeRange(start_value, end_value));
+    results.push_back(range_value);
+    return absl::OkStatus();
+  };
+
+  absl::Status status;
+  if (generator.ok()) {
+    status.Update(generator->Generate(range_start, range_end, emitter));
+  } else {
+    status.Update(generator.status());
+  }
+
+  if (test.params.status().ok()) {
+    // status OK case
+    ZETASQL_EXPECT_OK(status);
+    Value result_array =
+        Value::MakeArray(test_values::MakeArrayType(types::DateRangeType()),
+                         results)
+            .value();
+    EXPECT_EQ(test.params.result(), result_array);
+  } else {
+    // error case
+    EXPECT_EQ(test.params.status(), status);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    DateRangeArrayGeneratorTests, DateRangeArrayGeneratorTest,
+    ::testing::ValuesIn(GetFunctionTestsGenerateDateRangeArray()));
+
+TEST(DateRangeArrayGeneratorGenerateTest, EmitterReturnsError) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      DateRangeArrayGenerator generator,
+      DateRangeArrayGenerator::Create(IntervalValue::FromDays(10).value(),
+                                      /*last_partial_range=*/false));
+
+  int num_emitter_calls = 0;
+  auto error_emitter = [&num_emitter_calls](int32_t start,
+                                            int32_t end) -> absl::Status {
+    num_emitter_calls++;
+    return absl::InvalidArgumentError("test error");
+  };
+
+  std::optional<int32_t> range_start = std::optional<int32_t>(10);
+  std::optional<int32_t> range_end = std::optional<int32_t>(100);
+
+  EXPECT_THAT(generator.Generate(range_start, range_end, error_emitter),
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument,
+                                          "test error"));
+  // Verify that returning an error from the emitter immediately terminated
+  // the process.
+  EXPECT_EQ(num_emitter_calls, 1);
+}
+
+class DatetimeRangeArrayGeneratorTest
+    : public ::testing::TestWithParam<FunctionTestCall> {};
+
+TEST_P(DatetimeRangeArrayGeneratorTest, TestCreateAndGenerate) {
+  const FunctionTestCall& test = GetParam();
+  ASSERT_EQ(test.function_name, "generate_range_array");
+  ASSERT_EQ(test.params.num_params(), 3);
+  ASSERT_FALSE(test.params.param(0).is_null());
+  ASSERT_FALSE(test.params.param(1).is_null());
+  ASSERT_FALSE(test.params.param(2).is_null());
+
+  Value input_range_value = test.params.param(0);
+  Value start_value = input_range_value.start();
+  Value end_value = input_range_value.end();
+  IntervalValue step = test.params.param(1).interval_value();
+  bool last_partial_range = test.params.param(2).bool_value();
+
+  TimestampScale scale =
+      zetasql_base::ContainsKey(test.params.required_features(), FEATURE_TIMESTAMP_NANOS)
+          ? kNanoseconds
+          : kMicroseconds;
+
+  std::optional<DatetimeValue> range_start =
+      start_value.is_null() ? std::nullopt
+                            : std::make_optional(start_value.datetime_value());
+  std::optional<DatetimeValue> range_end =
+      end_value.is_null() ? std::nullopt
+                          : std::make_optional(end_value.datetime_value());
+
+  absl::StatusOr<DatetimeRangeArrayGenerator> generator =
+      DatetimeRangeArrayGenerator::Create(step, last_partial_range, scale);
+  std::vector<Value> results;
+  const auto& emitter = [&results](DatetimeValue start,
+                                   DatetimeValue end) -> absl::Status {
+    Value start_value = Value::Datetime(start);
+    Value end_value = Value::Datetime(end);
+    ZETASQL_ASSIGN_OR_RETURN(Value range_value,
+                     Value::MakeRange(start_value, end_value));
+    results.push_back(range_value);
+    return absl::OkStatus();
+  };
+
+  absl::Status status;
+  if (generator.ok()) {
+    status.Update(generator->Generate(range_start, range_end, emitter));
+  } else {
+    status.Update(generator.status());
+  }
+
+  if (test.params.status().ok()) {
+    // status OK case
+    ZETASQL_EXPECT_OK(status);
+    Value result_array =
+        Value::MakeArray(test_values::MakeArrayType(types::DatetimeRangeType()),
+                         results)
+            .value();
+    EXPECT_EQ(test.params.result(), result_array);
+  } else {
+    // error case
+    EXPECT_EQ(test.params.status(), status);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    DatetimeRangeArrayGeneratorTests, DatetimeRangeArrayGeneratorTest,
+    ::testing::ValuesIn(GetFunctionTestsGenerateDatetimeRangeArray()));
+
+TEST(DatetimeRangeArrayGeneratorCreateTest, InvalidTimestampScale) {
+  EXPECT_THAT(DatetimeRangeArrayGenerator::Create(
+                  IntervalValue::FromDays(10).value(),
+                  /*last_partial_range=*/false, kSeconds),
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(DatetimeRangeArrayGenerator::Create(
+                  IntervalValue::FromDays(10).value(),
+                  /*last_partial_range=*/false, kMilliseconds),
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST(DatetimeRangeArrayGeneratorGenerateTest, EmitterReturnsError) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(DatetimeRangeArrayGenerator generator,
+                       DatetimeRangeArrayGenerator::Create(
+                           IntervalValue::FromDays(10).value(),
+                           /*last_partial_range=*/false, kMicroseconds));
+
+  int num_emitter_calls = 0;
+  auto error_emitter = [&num_emitter_calls](DatetimeValue start,
+                                            DatetimeValue end) -> absl::Status {
+    num_emitter_calls++;
+    return absl::InvalidArgumentError("test error");
+  };
+
+  std::optional<DatetimeValue> range_start = std::optional<DatetimeValue>(
+      DatetimeValue::FromYMDHMSAndMicros(2023, 5, 1, 1, 1, 1, 1));
+  std::optional<DatetimeValue> range_end = std::optional<DatetimeValue>(
+      DatetimeValue::FromYMDHMSAndMicros(2023, 6, 1, 1, 1, 1, 1));
+
+  EXPECT_THAT(generator.Generate(range_start, range_end, error_emitter),
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument,
+                                          "test error"));
+  // Verify that returning an error from the emitter immediately terminated
+  // the process.
+  EXPECT_EQ(num_emitter_calls, 1);
+}
+
+}  // namespace
+}  // namespace functions
 }  // namespace zetasql

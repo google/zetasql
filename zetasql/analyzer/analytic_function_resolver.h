@@ -27,6 +27,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 
 namespace zetasql {
@@ -74,7 +75,8 @@ class AnalyticFunctionResolver {
   struct FlattenedWindowInfo;
 
   // Map from window names to related window information.
-  typedef std::map<std::string, std::unique_ptr<const FlattenedWindowInfo>>
+  typedef absl::btree_map<std::string,
+                          std::unique_ptr<const FlattenedWindowInfo>>
       NamedWindowInfoMap;
 
   // Constructor. Does not take ownership of <resolver>.  Takes ownership of

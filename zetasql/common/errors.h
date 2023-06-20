@@ -66,6 +66,8 @@
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "absl/base/optimization.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -99,7 +101,17 @@ inline ::zetasql_base::StatusBuilder MakeSqlError() {
 
 // Returns MakeSqlError() annotated with <point> as the error location.
 inline ::zetasql_base::StatusBuilder MakeSqlErrorAtPoint(ParseLocationPoint point) {
-  return MakeSqlError().Attach(point.ToInternalErrorLocation());
+  return MakeSqlError().AttachPayload(point.ToInternalErrorLocation());
+}
+
+// Returns MakeSqlError() annotated with the leftmost point in `range`. If
+// `range` is nullptr, then don't attach a location to the error.
+inline ::zetasql_base::StatusBuilder MakeSqlErrorAtStart(
+    const ParseLocationRange* range) {
+  if (range == nullptr) {
+    return MakeSqlError();
+  }
+  return MakeSqlError().AttachPayload(range->start().ToInternalErrorLocation());
 }
 
 // Returns an UnimplementedError with a payload corresponding to the given error
@@ -107,7 +119,7 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtPoint(ParseLocationPoint poin
 // code.
 inline ::zetasql_base::StatusBuilder MakeUnimplementedErrorAtPoint(
     ParseLocationPoint point) {
-  return zetasql_base::UnimplementedErrorBuilder().Attach(
+  return zetasql_base::UnimplementedErrorBuilder().AttachPayload(
       point.ToInternalErrorLocation());
 }
 
@@ -121,16 +133,6 @@ inline ::zetasql_base::StatusBuilder MakeEvalError() {
 // Same, but uses <error_location> as the error location.
 absl::Status StatusWithInternalErrorLocation(
     const absl::Status& status, const ParseLocationPoint& error_location);
-
-// If <status> is OK or if it does not have a InternalErrorLocation payload,
-// returns <status>. Otherwise, replaces the InternalErrorLocation payload by an
-// ErrorLocation payload. 'query' should be the query that was parsed; it is
-// used to convert the error location from line/column to byte offset or vice
-// versa. This function must be called on all errors before returning them to
-// the client. An InternalErrorLocation contained in 'status' must be valid for
-// 'query'. If it is not, then this function returns an internal error.
-absl::Status ConvertInternalErrorLocationToExternal(absl::Status status,
-                                                    absl::string_view query);
 
 inline std::string ExtractingNotSupportedDatePart(
     absl::string_view from_type, absl::string_view date_part_name) {
@@ -198,8 +200,8 @@ std::string DeprecationWarningsToDebugString(
 inline absl::Status DeprecationWarningToStatus(
     const FreestandingDeprecationWarning& warning) {
   return MakeSqlError()
-             .Attach(warning.error_location())
-             .Attach(warning.deprecation_warning())
+             .AttachPayload(warning.error_location())
+             .AttachPayload(warning.deprecation_warning())
          << warning.message();
 }
 
@@ -236,8 +238,8 @@ StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
 // info (line/offset), then clears the ErrorLocation payload from the
 // Status and returns that Status.
 inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
-    ErrorMessageMode mode, absl::string_view input_string,
-    const absl::Status& status) {
+    ErrorMessageMode mode, bool keep_error_location_payload,
+    absl::string_view input_string, const absl::Status& status) {
   if (status.ok()) return status;
 
   const absl::Status new_status =
@@ -246,21 +248,31 @@ inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
     return new_status;
   }
 
-  return MaybeUpdateErrorFromPayload(mode, input_string, new_status);
+  return MaybeUpdateErrorFromPayload(mode, keep_error_location_payload,
+                                     input_string, new_status);
+}
+
+ABSL_DEPRECATED("Inline me!")
+inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
+    ErrorMessageMode mode, absl::string_view input_string,
+    const absl::Status& status) {
+  return ConvertInternalErrorLocationAndAdjustErrorString(
+      mode, /*keep_error_location_payload=*/mode == ERROR_MESSAGE_WITH_PAYLOAD,
+      input_string, status);
 }
 
 // Same as above, but for a vector of absl::Statuses.
 inline std::vector<absl::Status>
 ConvertInternalErrorLocationsAndAdjustErrorStrings(
-    ErrorMessageMode mode, absl::string_view input_string,
-    const std::vector<absl::Status>& statuses) {
+    ErrorMessageMode mode, bool keep_error_location_payload,
+    absl::string_view input_string, const std::vector<absl::Status>& statuses) {
   if (statuses.empty()) return statuses;
 
   std::vector<absl::Status> new_statuses;
   new_statuses.reserve(statuses.size());
   for (const absl::Status& status : statuses) {
     new_statuses.push_back(ConvertInternalErrorLocationAndAdjustErrorString(
-        mode, input_string, status));
+        mode, keep_error_location_payload, input_string, status));
   }
   return new_statuses;
 }

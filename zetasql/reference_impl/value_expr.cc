@@ -3664,7 +3664,7 @@ absl::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
     const std::vector<std::vector<Value>>& rows_to_insert,
     std::vector<std::vector<Value>>& dml_returning_rows,
     EvaluationContext* context, PrimaryKeyRowMap* row_map) const {
-  absl::node_hash_map<Value, int, ValueHasher> modified_primary_keys;
+  absl::flat_hash_map<Value, int, ValueHasher> modified_primary_keys;
   const int64_t max_original_row_number = row_map->size() - 1;
   bool found_primary_key_collision = false;
   bool has_returning = stmt()->returning() != nullptr;

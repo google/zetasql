@@ -24,15 +24,20 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_ast_helper.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
@@ -142,16 +147,16 @@ class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
 
 // A visitor which collects the ResolvedColumnRef that are referenced, but not
 // local to this expression.
-class ColumnRefCollector : public ResolvedASTVisitor {
+class ColumnRefCollectorOwned : public ColumnRefVisitor {
  public:
-  explicit ColumnRefCollector(
+  explicit ColumnRefCollectorOwned(
       std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs,
       bool correlate)
       : column_refs_(column_refs), correlate_(correlate) {}
 
  private:
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
-    if (!local_columns_.contains(node->column())) {
+    if (!IsLocalColumn(node->column())) {
       std::unique_ptr<ResolvedColumnRef> resolved_column_ref =
           MakeResolvedColumnRef(node->type(), node->column(),
                                 correlate_ || node->is_correlated());
@@ -161,50 +166,14 @@ class ColumnRefCollector : public ResolvedASTVisitor {
     return absl::OkStatus();
   }
 
-  absl::Status VisitResolvedSubqueryExpr(
-      const ResolvedSubqueryExpr* node) override {
-    for (const auto& column : node->parameter_list()) {
-      ZETASQL_RETURN_IF_ERROR(VisitResolvedColumnRef(column.get()));
-    }
-    if (node->in_expr() != nullptr) {
-      ZETASQL_RETURN_IF_ERROR(node->in_expr()->Accept(this));
-    }
-    // Cut off traversal once we hit a subquery. Column refs inside subquery are
-    // either internal or already collected in parameter_list.
-    return absl::OkStatus();
-  }
-
-  absl::Status VisitResolvedInlineLambda(
-      const ResolvedInlineLambda* node) override {
-    for (const auto& column_ref : node->parameter_list()) {
-      ZETASQL_RETURN_IF_ERROR(VisitResolvedColumnRef(column_ref.get()));
-    }
-    // Cut off traversal once we hit a lambda. Column refs inside lambda body
-    // are either internal or already collected in parameter_list.
-    return absl::OkStatus();
-  }
-
-  absl::Status VisitResolvedWithExpr(const ResolvedWithExpr* node) override {
-    // Exclude the assignment columns because they are internal.
-    for (int i = 0; i < node->assignment_list_size(); ++i) {
-      local_columns_.insert(node->assignment_list(i)->column());
-    }
-    return ResolvedASTVisitor::VisitResolvedWithExpr(node);
-  }
-
-  // Columns that are local to an expression -- that is they are defined,
-  // populated, and consumed fully within the expression -- should not be
-  // collected by this code.
-  absl::flat_hash_set<ResolvedColumn> local_columns_;
-
   std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs_;
   bool correlate_;
 };
 
 }  // namespace
 
-ResolvedColumn ColumnFactory::MakeCol(const std::string& table_name,
-                                      const std::string& col_name,
+ResolvedColumn ColumnFactory::MakeCol(absl::string_view table_name,
+                                      absl::string_view col_name,
                                       const Type* type) {
   UpdateMaxColId();
   if (id_string_pool_ != nullptr) {
@@ -217,8 +186,8 @@ ResolvedColumn ColumnFactory::MakeCol(const std::string& table_name,
   }
 }
 
-ResolvedColumn ColumnFactory::MakeCol(const std::string& table_name,
-                                      const std::string& col_name,
+ResolvedColumn ColumnFactory::MakeCol(absl::string_view table_name,
+                                      absl::string_view col_name,
                                       AnnotatedType annotated_type) {
   UpdateMaxColId();
   if (id_string_pool_ != nullptr) {
@@ -258,7 +227,7 @@ absl::Status CollectColumnRefs(
     const ResolvedNode& node,
     std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs,
     bool correlate) {
-  ColumnRefCollector column_ref_collector(column_refs, correlate);
+  ColumnRefCollectorOwned column_ref_collector(column_refs, correlate);
   return node.Accept(&column_ref_collector);
 }
 
@@ -332,6 +301,8 @@ CopyResolvedASTAndRemapColumnsImpl(const ResolvedNode& input_tree,
   return visitor.ConsumeRootNode<ResolvedNode>();
 }
 
+// TODO: Propagate annotations correctly for this function, if
+// needed, after creating resolved function node.
 absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> FunctionCallBuilder::If(
     std::unique_ptr<const ResolvedExpr> condition,
     std::unique_ptr<const ResolvedExpr> then_case,
@@ -389,6 +360,8 @@ std::vector<ResolvedColumn> CreateReplacementColumns(
   return replacement_columns;
 }
 
+// TODO: Propagate annotations correctly for this function, if
+// needed, after creating resolved function node.
 absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>>
 FunctionCallBuilder::IsNull(std::unique_ptr<const ResolvedExpr> arg) {
   ZETASQL_RET_CHECK_NE(arg.get(), nullptr);
@@ -405,6 +378,8 @@ FunctionCallBuilder::IsNull(std::unique_ptr<const ResolvedExpr> arg) {
                                   ResolvedFunctionCall::DEFAULT_ERROR_MODE);
 }
 
+// TODO: Propagate annotations correctly for this function, if
+// needed, after creating resolved function node.
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::IfError(std::unique_ptr<const ResolvedExpr> try_expr,
                              std::unique_ptr<const ResolvedExpr> handle_expr) {
@@ -433,24 +408,42 @@ FunctionCallBuilder::IfError(std::unique_ptr<const ResolvedExpr> try_expr,
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::MakeArray(
-    const ArrayType* array_type,
-    std::vector<std::unique_ptr<ResolvedExpr>>& elements) {
+    const Type* element_type,
+    std::vector<std::unique_ptr<const ResolvedExpr>>& elements) {
+  ZETASQL_RET_CHECK(element_type != nullptr);
   const Function* make_array_fn = nullptr;
   ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("$make_array", &make_array_fn));
+  ZETASQL_RET_CHECK(make_array_fn != nullptr);
 
-  FunctionArgumentType make_array_arg(array_type->element_type(),
-                                      FunctionArgumentType::REPEATED,
+  // make_array has only one signature in catalog.
+  ZETASQL_RET_CHECK_EQ(make_array_fn->signatures().size(), 1);
+  const FunctionSignature* catalog_signature = make_array_fn->GetSignature(0);
+  ZETASQL_RET_CHECK(catalog_signature != nullptr);
+
+  // Construct arguments type and result type to pass to FunctionSignature.
+  const ArrayType* array_type;
+  ZETASQL_RETURN_IF_ERROR(type_factory_.MakeArrayType(element_type, &array_type));
+  FunctionArgumentType result_type(array_type,
+                                   catalog_signature->result_type().options(),
+                                   /*num_occurrences=*/1);
+  FunctionArgumentType arguments_type(array_type->element_type(),
+                                      catalog_signature->argument(0).options(),
                                       static_cast<int>(elements.size()));
-  FunctionSignature make_array_signature(
-      array_type, {make_array_arg},
-      make_array_fn->GetSignature(0)->context_id());
-  make_array_signature.SetConcreteResultType(array_type);
+  FunctionSignature make_array_signature(result_type, {arguments_type},
+                                         catalog_signature->context_id(),
+                                         catalog_signature->options());
 
-  return MakeResolvedFunctionCall(array_type, make_array_fn,
-                                  make_array_signature, std::move(elements),
-                                  ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+  std::unique_ptr<ResolvedFunctionCall> resolved_function =
+      MakeResolvedFunctionCall(array_type, make_array_fn, make_array_signature,
+                               std::move(elements),
+                               ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+  ZETASQL_RETURN_IF_ERROR(annotation_propagator_.CheckAndPropagateAnnotations(
+      /*error_node=*/nullptr, resolved_function.get()));
+  return resolved_function;
 }
 
+// TODO: Propagate annotations correctly for this function, if
+// needed, after creating resolved function node.
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::Like(std::unique_ptr<ResolvedExpr> input,
                           std::unique_ptr<ResolvedExpr> pattern) {
@@ -487,6 +480,8 @@ FunctionCallBuilder::Like(std::unique_ptr<ResolvedExpr> input,
                                   ResolvedFunctionCall::DEFAULT_ERROR_MODE);
 }
 
+// TODO: Propagate annotations correctly for this function, if
+// needed, after creating resolved function node.
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
 FunctionCallBuilder::CaseNoValue(
     std::vector<std::unique_ptr<const ResolvedExpr>> conditions,
@@ -547,6 +542,8 @@ FunctionCallBuilder::Not(std::unique_ptr<const ResolvedExpr> expression) {
                                   ResolvedFunctionCall::DEFAULT_ERROR_MODE);
 }
 
+// TODO: Propagate annotations correctly for this function, if
+// needed, after creating resolved function node.
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::Equal(std::unique_ptr<const ResolvedExpr> left_expr,
                            std::unique_ptr<const ResolvedExpr> right_expr) {
@@ -747,7 +744,8 @@ LikeAnyAllSubqueryScanBuilder::BuildAggregateScan(
                                    /*group_by_list=*/{},
                                    std::move(aggregate_list),
                                    /*grouping_set_list=*/{},
-                                   /*rollup_column_list=*/{});
+                                   /*rollup_column_list=*/{},
+                                   /*grouping_call_list=*/{});
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
@@ -800,10 +798,64 @@ bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* const function_call,
 zetasql_base::StatusBuilder MakeUnimplementedErrorAtNode(const ResolvedNode* node) {
   zetasql_base::StatusBuilder builder = zetasql_base::UnimplementedErrorBuilder();
   if (node != nullptr && node->GetParseLocationOrNULL() != nullptr) {
-    builder.Attach(
+    builder.AttachPayload(
         node->GetParseLocationOrNULL()->start().ToInternalErrorLocation());
   }
   return builder;
+}
+
+// Visitor that collects correlated columns.
+class CorrelatedColumnRefCollector : public ResolvedASTVisitor {
+ public:
+  const absl::flat_hash_set<ResolvedColumn>& GetCorrelatedColumns() const {
+    return correlated_columns_;
+  }
+
+ private:
+  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* ref) override {
+    const ResolvedColumn& col = ref->column();
+    // Only collect the external columns when they are correlated within the
+    // visited node. We ignore the internal columns who also appear in a
+    // correlated reference because it is used in a nested subquery.
+    //
+    // For example, for the following query and the visited node.
+    // select (
+    //   select (                             <= Visited node
+    //       select
+    //       from InnerTable
+    //       where InnerTable.col = Table.col and
+    //             InnerTable.col = OuterTable.col
+    //       limit 1
+    //   ) from Table
+    // ) from OuterTable
+    //
+    //  Here for the visited node, OuterTable.col is returned as a correlated
+    //  column; however Table.col will NOT be returned because Table.col is only
+    //  correlated in the inner subquery of the visited node.
+    if (ref->is_correlated()) {
+      if (!uncorrelated_column_ids_.contains(col.column_id())) {
+        correlated_columns_.insert(col);
+      }
+    } else {
+      correlated_columns_.erase(col);
+      uncorrelated_column_ids_.insert(col.column_id());
+    }
+    return absl::OkStatus();
+  }
+
+  absl::flat_hash_set<ResolvedColumn> correlated_columns_;
+  absl::flat_hash_set<int> uncorrelated_column_ids_;
+};
+
+absl::StatusOr<absl::flat_hash_set<ResolvedColumn>> GetCorrelatedColumnSet(
+    const ResolvedNode& node) {
+  absl::flat_hash_set<ResolvedColumn> column_set;
+  CorrelatedColumnRefCollector visitor;
+  ZETASQL_RETURN_IF_ERROR(node.Accept(&visitor));
+  for (const ResolvedColumn& column : visitor.GetCorrelatedColumns()) {
+    column_set.insert(column);
+  }
+  return column_set;
 }
 
 }  // namespace zetasql

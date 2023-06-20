@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/string_with_collation.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
@@ -582,7 +583,16 @@ bool EndsWithUtf8WithCollation(const ZetaSqlCollator& collator,
 
 absl::StatusOr<bool> LikeWithUtf8WithCollation(
     absl::string_view text, absl::string_view pattern,
-    const ZetaSqlCollator& collator) {
+    const ZetaSqlCollator& collator, bool allow_underscore) {
+  if (allow_underscore) {
+    return LikeUtf8WithCollationAllowUnderscore(text, pattern, collator);
+  }
+  return LikeUtf8WithCollation(text, pattern, collator);
+}
+
+absl::StatusOr<bool> LikeUtf8WithCollation(absl::string_view text,
+                                           absl::string_view pattern,
+                                           const ZetaSqlCollator& collator) {
   size_t pattern_index = 0;
   size_t next_pattern_index = 0;
   int32_t match_code_unit_pos = 0;
@@ -733,6 +743,322 @@ absl::StatusOr<bool> LikeWithUtf8WithCollation(
       return IsUnicodeStringEmpty(collator, suffix);
     }
     pattern_index = next_pattern_index;
+  }
+  return true;
+}
+
+absl::StatusOr<bool> LikeUtf8WithCollationAllowUnderscore(
+    absl::string_view text, absl::string_view pattern,
+    const ZetaSqlCollator& collator) {
+  if (collator.IsBinaryComparison()) {
+    std::unique_ptr<RE2> regexp;
+    ZETASQL_RETURN_IF_ERROR(functions::CreateLikeRegexp(pattern, TYPE_STRING, &regexp));
+    return RE2::FullMatch(text, *regexp);
+  }
+  if (!IsWellFormedUTF8(text)) {
+    return ::zetasql_base::OutOfRangeErrorBuilder()
+           << "The first operand of LIKE operator is not a valid UTF-8 string: "
+           << text;
+  }
+  if (!IsWellFormedUTF8(pattern)) {
+    return ::zetasql_base::OutOfRangeErrorBuilder()
+           << "The second operand of LIKE operator is not a valid UTF-8 "
+              "string: "
+           << pattern;
+  }
+
+  bool offset_out_of_bounds = false;
+  absl::Status status;
+  icu::ErrorCode icu_error;
+
+  // Initialize the StringSearch object with a dummy UnicodeString as the
+  // pattern. Later, each chunk is searched for by setting it as the pattern.
+  // Overlapping is not allowed and the offset should never be out of bounds.
+  std::unique_ptr<icu::StringSearch> string_search;
+  icu::UnicodeString unicode_text = icu::UnicodeString::fromUTF8(text);
+  icu::UnicodeString unicode_dummy(u" ", 1);
+  if (!text.empty()) {
+    ZETASQL_ASSIGN_OR_RETURN(string_search,
+                     InitStringSearchAtOffset(
+                         collator, unicode_text, unicode_dummy, /*offset=*/0,
+                         /*allow_overlapping=*/false, &offset_out_of_bounds));
+  }
+
+  // To match the text and pattern, first split the pattern by the string
+  // arbitrary specifiers ('%'), giving us
+  // <superchunk_1, superchunk_2, ... superchunk_n>.
+  // Then for every superchunk, split by the single character specifier ('_'),
+  // giving us <chunk_1, chunk_2, ... chunk_m>.
+  //
+  // We unescape the pattern chunks, then search them in the text one by one:
+  //
+  // * For the first (super)chunk:
+  //   Use ICU StringSearch API to check if the text starts with the pattern
+  //   chunk or only has ignorable characters before the match.
+  // * For each subsequent superchunk:
+  //   * For the first chunk, find the earliest match after the end of the
+  //     previously matched superchunk.
+  //   * For following chunks, only accept matches that immediately follow
+  //     the preceding "_".
+  //   * If match succeeds, use icu::BreakIterator::createCharacterInstance
+  //     to iterate one character forward to account for the next "_".
+  //     (broken link)
+  //   * If match fails, backtrack to the first chunk (of the current
+  //     superchunk), and find the next earliest match.
+  //   * Repeat until all chunks within the superchunk have matched or the
+  //     text is exhausted.
+  // * For the last chunk of the last superchunk:
+  //   * If it is immediately preceded by '%':
+  //     Get the last match in the text and check if the text either ends with
+  //     the chunk or only has ignorable characters after the match. If so,
+  //     the text and pattern are considereed matching.
+  //   * If it is immediately preceded by '_':
+  //     The last chunk should exactly match the remaining text. Only then
+  //     are the text and pattern considered matching.
+  //
+  // The StringSearch API only supports minimal match which means the match
+  // won't consider the ignorable characters around the matches, and cannot find
+  // matches when pattern has only ignorable characters. Some special handlings
+  // are added to handle pattern chunks and text that are empty or only have
+  // ignorable characters.
+
+  // Pattern Indices:
+  //
+  // Beginning index of the current chunk
+  int32_t current_chunk_index = 0;
+  // Beginning index of next chunk
+  // i.e. Index right after the next '_' or '%'.
+  int32_t next_chunk_index = 0;
+  // Beginning index of the current 'superchunk'
+  int32_t current_superchunk_index = -1;
+  // Beginning index of the next 'superchunk'
+  // i.e. Index right after the next '%'.
+  int32_t next_superchunk_index = -1;
+
+  // Search Text Offsets:
+  // Note: Search Text indexing will be referred to as 'offsets', consistent
+  // with how icu::UnicodeString actually iterates.
+  //
+  // Beginning offset of the latest match found in the text
+  int32_t match_code_unit_offset = 0;
+  // Offset at which the beginning of current superchunk's search is anchored.
+  // If the current superchunk did not backtrack, it is the offset immediately
+  // following the text that matched the previous superchunk.
+  // After one backtrack, it would be the offset of one code point after, and
+  // so on.
+  int32_t backtrack_anchor_text_offset = -1;
+
+  // True if current chunk is immediately preceded by "_". This means any valid
+  // match should immediately follow the "_" with no gap.
+  bool must_be_immediate_match = false;
+  std::unique_ptr<icu::BreakIterator> iterator;
+
+  bool is_und_ci = collator.GetCollationName() == "und:ci";
+  while (true) {
+    // Exclusive-end index of current chunk
+    int32_t current_chunk_limit = current_chunk_index;
+    std::string tokenized_chunk;
+    bool is_followed_by_underscore = false;
+    bool is_followed_by_percent = false;
+
+    int32_t matched_length = 0;
+    // Read a chunk of pattern split by '%' or '_' specifier and unescape the
+    // characters.
+    while (current_chunk_limit < pattern.size()) {
+      char c = pattern[current_chunk_limit++];
+      switch (c) {
+        case '_':
+          if (!is_und_ci) {
+            return ::zetasql_base::OutOfRangeErrorBuilder()
+                   << "LIKE pattern has '_' which is not allowed when its "
+                      "operands have collation other than und:ci: "
+                   << pattern;
+          }
+          is_followed_by_underscore = true;
+          current_chunk_limit--;
+          next_chunk_index++;
+          break;
+        case '\\':
+          if (current_chunk_limit >= pattern.size()) {
+            return ::zetasql_base::OutOfRangeErrorBuilder()
+                   << "LIKE pattern ends with a backslash which is not "
+                      "allowed: "
+                   << pattern;
+          }
+          c = pattern[current_chunk_limit++];
+          next_chunk_index = current_chunk_limit;
+          tokenized_chunk.push_back(c);
+          continue;
+        case '%':
+          is_followed_by_percent = true;
+          current_chunk_limit--;
+          next_chunk_index++;
+          next_superchunk_index = next_chunk_index;
+          break;
+        default:
+          next_chunk_index = current_chunk_limit;
+          tokenized_chunk.push_back(c);
+          continue;
+      }
+      break;
+    }
+    bool is_last_chunk = current_chunk_limit == pattern.size();
+    icu::UnicodeString unicode_chunk =
+        icu::UnicodeString::fromUTF8(tokenized_chunk);
+    // Skip empty chunks which do not impact the results.
+    ZETASQL_ASSIGN_OR_RETURN(bool is_chunk_empty,
+                     IsUnicodeStringEmpty(collator, unicode_chunk));
+    int32_t suffix_offset;
+    if (!is_chunk_empty) {
+      // Return false if text is empty and pattern chunk is not empty.
+      if (text.empty()) {
+        return false;
+      }
+      suffix_offset =
+          string_search->getOffset() + string_search->getMatchedLength();
+      string_search->setPattern(unicode_chunk, icu_error);
+      if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
+              icu_error, "Error in LIKE operator while setting the pattern",
+              &status))) {
+        return status;
+      }
+      // For chunks before the last chunk, use StringSearch next() function to
+      // find the earliest match. For the last chunk, find the last match in
+      // the text using last() function. The last() function resets the offset
+      // of the iterator so need to check if the matching index is overlapping
+      // with previous matches.
+      match_code_unit_offset = is_last_chunk ? string_search->last(icu_error)
+                                             : string_search->next(icu_error);
+      if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
+              icu_error, "Error in LIKE operator while searching for pattern",
+              &status))) {
+        return status;
+      }
+      // Cannot find the chunk in the text which means it is not matching.
+      if (match_code_unit_offset == USEARCH_DONE ||
+          (is_last_chunk && match_code_unit_offset < suffix_offset)) {
+        return false;
+      } else if (must_be_immediate_match) {
+        if (match_code_unit_offset != suffix_offset &&
+            current_superchunk_index >= 0) {
+          // Current matches are not valid. Backtrack.
+          backtrack_anchor_text_offset =
+              unicode_text.moveIndex32(backtrack_anchor_text_offset, 1);
+          string_search->setOffset(backtrack_anchor_text_offset, icu_error);
+          if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
+                  icu_error,
+                  "Error in LIKE operator while setting offset for "
+                  "backtracking",
+                  &status))) {
+            return status;
+          }
+          current_chunk_index = next_chunk_index = current_superchunk_index;
+          continue;
+        } else if (match_code_unit_offset != suffix_offset) {
+          return false;
+        }
+      }
+      matched_length = string_search->getMatchedLength();
+    }
+    // The first chunk should either match the start of the text or any
+    // characters preceding the match should only be ignorable characters.
+    if (current_chunk_index == 0) {
+      icu::UnicodeString prefix =
+          unicode_text.tempSubStringBetween(0, match_code_unit_offset);
+      ZETASQL_ASSIGN_OR_RETURN(bool result, IsUnicodeStringEmpty(collator, prefix));
+      if (!result) {
+        return false;
+      }
+    }
+    // The last chunk is empty, which means the pattern ends with '%', or the
+    // last chunk matches exactly the end of text; both are considered matching.
+    // Otherwise, the suffix of the text after the last match point has to be
+    // all ignorable characters to be considered matching.
+    if (is_last_chunk) {
+      // Chunk is preceded by _
+      if (must_be_immediate_match) {
+        if (string_search->getOffset() == unicode_text.length()) {
+          // Chunk is empty, and the whole text has been consumed for comparison
+          return true;
+        } else if (match_code_unit_offset + matched_length ==
+                       unicode_text.length() &&
+                   match_code_unit_offset == suffix_offset) {
+          // Chunk exactly matches the remainder of the string
+          return true;
+        } else if (current_superchunk_index >= 0) {
+          // Current matches are not valid. Backtrack.
+          backtrack_anchor_text_offset =
+              unicode_text.moveIndex32(backtrack_anchor_text_offset, 1);
+          string_search->setOffset(backtrack_anchor_text_offset, icu_error);
+          if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
+                  icu_error,
+                  "Error in LIKE operator while setting offset for "
+                  "backtracking",
+                  &status))) {
+            return status;
+          }
+          current_chunk_index = next_chunk_index = current_superchunk_index;
+          continue;
+        } else {
+          return false;
+        }
+      } else if ((current_chunk_index != 0 &&
+                  current_chunk_index == current_chunk_limit) ||
+                 match_code_unit_offset + matched_length ==
+                     unicode_text.length()) {
+        // Either last chunk is empty and preceded by %
+        // Or last chunk is exact match with remainder of text
+        return true;
+      }
+      icu::UnicodeString suffix = unicode_text.tempSubStringBetween(
+          match_code_unit_offset + matched_length, unicode_text.length());
+      return IsUnicodeStringEmpty(collator, suffix);
+    }
+
+    if (is_followed_by_underscore) {
+      if (text.empty()) {
+        return false;
+      }
+
+      // Advance by one grapheme cluster (as opposed to one code point) to
+      // account for "_". (broken link)
+      if (iterator == nullptr) {
+        iterator = absl::WrapUnique(icu::BreakIterator::createCharacterInstance(
+            icu::Locale::getRoot(), icu_error));
+        if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
+                icu_error,
+                "Error in LIKE operator while creating character iterator",
+                &status))) {
+          return status;
+        }
+      }
+      iterator->setText(unicode_text);
+      int32_t next_boundary_index = iterator->following(
+          string_search->getOffset() + string_search->getMatchedLength());
+      if (next_boundary_index == USEARCH_DONE) {
+        return false;
+      }
+
+      string_search->setOffset(next_boundary_index, icu_error);
+      if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
+              icu_error,
+              "Error in LIKE operator while "
+              "setting offset to next character boundary",
+              &status))) {
+        return status;
+      }
+      must_be_immediate_match = true;
+    }
+
+    if (is_followed_by_percent) {
+      // Moving on to the next 'superchunk'. Reset variables
+      must_be_immediate_match = false;
+      current_superchunk_index = next_superchunk_index;
+      if (!text.empty()) {
+        backtrack_anchor_text_offset = match_code_unit_offset + matched_length;
+      }
+    }
+    current_chunk_index = next_chunk_index;
   }
   return true;
 }

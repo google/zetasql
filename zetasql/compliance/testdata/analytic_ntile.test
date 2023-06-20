@@ -107,7 +107,7 @@ ARRAY<STRUCT<
 SELECT row_id, NTILE(1) OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64>>[unknown order:
   {1, 1},
   {2, 1},
   {3, 1},
@@ -125,7 +125,7 @@ ARRAY<STRUCT<row_id INT64, INT64>>[
 SELECT row_id, NTILE(2) OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64>>[unknown order:
   {1, 1},
   {2, 1},
   {3, 1},
@@ -143,7 +143,7 @@ ARRAY<STRUCT<row_id INT64, INT64>>[
 SELECT row_id, NTILE(3) OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64>>[unknown order:
   {1, 1},
   {2, 1},
   {3, 1},
@@ -161,7 +161,7 @@ ARRAY<STRUCT<row_id INT64, INT64>>[
 SELECT row_id, NTILE(9) OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64>>[unknown order:
   {1, 1},
   {2, 1},
   {3, 2},
@@ -179,7 +179,7 @@ ARRAY<STRUCT<row_id INT64, INT64>>[
 SELECT row_id, NTILE(10) OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64>>[unknown order:
   {1, 1},
   {2, 2},
   {3, 3},
@@ -197,7 +197,7 @@ ARRAY<STRUCT<row_id INT64, INT64>>[
 SELECT row_id, NTILE(11) OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64>>[unknown order:
   {1, 1},
   {2, 2},
   {3, 3},
@@ -215,7 +215,7 @@ ARRAY<STRUCT<row_id INT64, INT64>>[
 SELECT row_id, NTILE(9223372036854775807) OVER (ORDER BY row_id)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, INT64>>[
+ARRAY<STRUCT<row_id INT64, INT64>>[unknown order:
   {1, 1},
   {2, 2},
   {3, 3},
@@ -261,7 +261,7 @@ SELECT bool_val, int64_val,
        NTILE(3) OVER (PARTITION BY bool_val ORDER BY int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {false, 1, 1},
   {false, 1, 1},
@@ -281,7 +281,7 @@ NOTE: Reference implementation reports non-determinism.
 SELECT bool_val, NTILE(2) OVER (ORDER BY bool_val)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, INT64>>[unknown order:
   {NULL, 1},
   {false, 1},
   {false, 1},
@@ -300,7 +300,7 @@ SELECT str_val, int64_val,
        NTILE(8) OVER (ORDER BY str_val, int64_val DESC)
 FROM TestTable
 --
-ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
+ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {NULL, NULL, 1},
   {"A", 1, 2},
@@ -321,7 +321,7 @@ SELECT str_val, int64_val,
 FROM TestTable
 ORDER BY str_val COLLATE "en_US"
 --
-ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
+ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {NULL, NULL, 1},
   {"a", 1, 3},
@@ -342,7 +342,7 @@ SELECT int32_val, cast(int64_val as uint64),
        NTILE(8) OVER (ORDER BY int32_val, cast(int64_val as uint64) ASC)
 FROM TestTable
 --
-ARRAY<STRUCT<int32_val INT32, UINT64, INT64>>[
+ARRAY<STRUCT<int32_val INT32, UINT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {NULL, NULL, 1},
   {1, 1, 2},
@@ -363,7 +363,7 @@ SELECT cast(int32_val as uint32), int64_val,
        NTILE(7) OVER (ORDER BY cast(int32_val as uint32), int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<UINT32, int64_val INT64, INT64>>[
+ARRAY<STRUCT<UINT32, int64_val INT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {NULL, NULL, 1},
   {1, 1, 2},
@@ -391,13 +391,13 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         INT64
       >>
-[{TESTENUM2, 1},
- {TESTENUM2, 1},
- {TESTENUM1, 2},
- {TESTENUM1, 3},
- {TESTENUM0, 4},
- {NULL, 5},
- {NULL, 6}]
+[unknown order:{TESTENUM2, 1},
+               {TESTENUM2, 1},
+               {TESTENUM1, 2},
+               {TESTENUM1, 3},
+               {TESTENUM0, 4},
+               {NULL, 5},
+               {NULL, 6}]
 ==
 
 [name=ntile_double]
@@ -413,7 +413,7 @@ FROM (SELECT CAST(0 AS DOUBLE) double_val UNION ALL
       SELECT CAST("-inf" AS DOUBLE)       UNION ALL
       SELECT CAST("-inf" AS DOUBLE))
 --
-ARRAY<STRUCT<double_val DOUBLE, INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, INT64>>[unknown order:
   {NULL, 1},
   {NULL, 1},
   {nan, 2},
@@ -440,7 +440,7 @@ FROM (SELECT CAST(0 AS FLOAT) float_val UNION ALL
       SELECT CAST("-inf" AS FLOAT)      UNION ALL
       SELECT CAST("-inf" AS FLOAT))
 --
-ARRAY<STRUCT<float_val FLOAT, INT64>>[
+ARRAY<STRUCT<float_val FLOAT, INT64>>[unknown order:
   {NULL, 1},
   {NULL, 1},
   {nan, 1},
@@ -464,32 +464,32 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         INT64
       >>
-[{NULL, NULL, 1},
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   1
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   2014-01-01,
-   2015-01-01 00:00:01.011011+00,
-   2
- },
- {
-   2015-01-01,
-   2013-01-01 00:00:01.011011+00,
-   3
- },
- {
-   2015-01-01,
-   2014-01-01 00:00:01.011011+00,
-   4
- }]
+[unknown order:{NULL, NULL, 1},
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 1
+               },
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 2
+               },
+               {
+                 2014-01-01,
+                 2015-01-01 00:00:01.011011+00,
+                 2
+               },
+               {
+                 2015-01-01,
+                 2013-01-01 00:00:01.011011+00,
+                 3
+               },
+               {
+                 2015-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 4
+               }]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -499,7 +499,7 @@ SELECT bytes_val,
        NTILE(2) OVER (ORDER BY bytes_val)
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<bytes_val BYTES, INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, INT64>>[unknown order:
   {NULL, 1},
   {b"1", 1},
   {b"1", 1},
@@ -521,4 +521,4 @@ FROM (SELECT CAST(NULL as NUMERIC) numeric_val UNION ALL
       SELECT CAST(@max_val AS NUMERIC)         UNION ALL
       SELECT CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<INT64>>[{1}, {1}, {1}, {2}, {2}, {2}]
+ARRAY<STRUCT<INT64>>[unknown order:{1}, {1}, {1}, {2}, {2}, {2}]

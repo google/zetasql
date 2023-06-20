@@ -120,11 +120,13 @@ class Token : public ParseToken {
     // Marks builtin-functions, some of which may be multipart, e.g.
     // D3A_COUNT.INIT()
     BUILTIN_FUNCTION,
-    // Curly brace that starts a braced constructor. Braced constructors
-    // allow textproto-like syntax inside, with pairs "field_name: value".
-    STARTS_BRACED_CONSTR,
+    // Mark open and closing brackets in brace constructors.
+    BRACED_CONSTR_BRACKET,
     // Marks colons in braced constructors.
     BRACED_CONSTR_COLON,
+    // Marks the beginning of a field name in braced constructor. It can be '('
+    // for proto extensions.
+    BRACED_CONSTR_FIELD,
   };
 
   explicit Token(ParseToken t)

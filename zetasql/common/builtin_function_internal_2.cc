@@ -1522,7 +1522,13 @@ void GetAggregateFunctions(TypeFactory* type_factory,
         {{int64_type, {ARG_TYPE_ANY_1}, FN_GROUPING}},
         DefaultAggregateFunctionOptions()
             .set_post_resolution_argument_constraint(
-                absl::bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
+                absl::bind_front(&CheckArgumentsSupportGrouping, "Grouping"))
+            .set_supports_safe_error_mode(false)
+            .set_supports_over_clause(false)
+            .set_supports_distinct_modifier(false)
+            .set_supports_window_framing(false)
+            .set_window_ordering_support(FunctionOptions::ORDER_UNSUPPORTED)
+            .set_supports_having_modifier(false));
   }
 
   FunctionArgumentTypeOptions non_null_non_agg;
@@ -2168,7 +2174,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
         {{bool_type,
           {string_type, {string_type, REPEATED}},
           FN_STRING_LIKE_ANY,
-          FunctionSignatureOptions().set_rejects_collation()},
+          FunctionSignatureOptions().set_uses_operation_collation()},
          {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ANY}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -2185,7 +2191,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
         {{bool_type,
           {string_type, {string_type, REPEATED}},
           FN_STRING_LIKE_ALL,
-          FunctionSignatureOptions().set_rejects_collation()},
+          FunctionSignatureOptions().set_uses_operation_collation()},
          {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ALL}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -2196,7 +2202,10 @@ void GetBooleanFunctions(TypeFactory* type_factory,
             .set_sql_name("like all")
             .set_supported_signatures_callback(&EmptySupportedSignatures)
             .set_get_sql_callback(&LikeAllFunctionSQL));
+  }
 
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_LIKE_ANY_SOME_ALL_ARRAY)) {
     // Supports both LIKE ANY and LIKE SOME arrays.
     InsertFunction(
         functions, options, "$like_any_array", SCALAR,

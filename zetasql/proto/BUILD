@@ -44,7 +44,9 @@ proto_library(
     deps = [
         ":function_proto",
         ":options_proto",
+        "//zetasql/public:simple_connection_proto",
         "//zetasql/public:simple_constant_proto",
+        "//zetasql/public:simple_model_proto",
         "//zetasql/public:simple_table_proto",
         "//zetasql/public:type_proto",
     ],

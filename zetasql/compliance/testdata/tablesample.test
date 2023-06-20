@@ -141,7 +141,7 @@ FROM
    (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 10)))
    TABLESAMPLE BERNOULLI(100 PERCENT) WITH WEIGHT
 --
-ARRAY<STRUCT<INT64, weight DOUBLE>>[
+ARRAY<STRUCT<INT64, weight DOUBLE>>[unknown order:
   {2, 1},
   {4, 1},
   {6, 1},
@@ -310,7 +310,7 @@ FROM
    TABLESAMPLE RESERVOIR(5 ROWS PARTITION BY @p * e)
 ORDER BY e;
 --
-ARRAY<STRUCT<e INT64>>[{0}, {1}, {2}, {3}, {4}]
+ARRAY<STRUCT<e INT64>>[known order:{0}, {1}, {2}, {3}, {4}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -329,7 +329,7 @@ FROM
                            ELSE 6              -- each row represents 895 rows
                          END) WITH WEIGHT w;
 --
-ARRAY<STRUCT<w DOUBLE>>[{1}, {5}, {9}, {90}, {895}]
+ARRAY<STRUCT<w DOUBLE>>[unknown order:{1}, {5}, {9}, {90}, {895}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -344,7 +344,7 @@ FROM
                                        FROM UNNEST(@p_arr) AS p WITH OFFSET
                                        WHERE e < p)) WITH WEIGHT w;
 --
-ARRAY<STRUCT<w DOUBLE>>[{1}, {5}, {9}, {90}, {895}]
+ARRAY<STRUCT<w DOUBLE>>[unknown order:{1}, {5}, {9}, {90}, {895}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -356,7 +356,7 @@ FROM
    (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 9)) e)
    TABLESAMPLE RESERVOIR(3 ROWS PARTITION BY e <= 3) WITH WEIGHT w;
 --
-ARRAY<STRUCT<w DOUBLE>>[{1}, {2}]
+ARRAY<STRUCT<w DOUBLE>>[unknown order:{1}, {2}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -404,7 +404,7 @@ FROM
                          END) WITH WEIGHT w
 GROUP BY w;
 --
-ARRAY<STRUCT<w DOUBLE, INT64>>[
+ARRAY<STRUCT<w DOUBLE, INT64>>[unknown order:
   {1, 1},
   {1.3333333333333333, 3},
   {1.6666666666666667, 3},

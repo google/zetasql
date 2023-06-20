@@ -24,7 +24,7 @@ UNION ALL CORRESPONDING
 SELECT DISTINCT int32_val AS c, int64_val AS b
 FROM Manual2
 --
-ARRAY<STRUCT<b INT64, c INT32>>[{20, 2}, {10, 1}, {10, 1}]
+ARRAY<STRUCT<b INT64, c INT32>>[unknown order:{20, 2}, {10, 1}, {10, 1}]
 ==
 [name=select_distinct_union_all_corresponding_select]
 SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
@@ -33,7 +33,7 @@ UNION ALL CORRESPONDING
 SELECT int32_val AS c, int64_val AS b
 FROM Manual2
 --
-ARRAY<STRUCT<b INT64, c INT32>>[{20, 2}, {10, 1}, {10, 1}]
+ARRAY<STRUCT<b INT64, c INT32>>[unknown order:{20, 2}, {10, 1}, {10, 1}]
 ==
 [name=select_union_all_corresponding_select_distinct]
 SELECT int32_val AS c, int64_val AS b
@@ -42,7 +42,7 @@ UNION ALL CORRESPONDING
 SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
 FROM Manual1
 --
-ARRAY<STRUCT<c INT32, b INT64>>[{1, 10}, {2, 20}, {1, 10}]
+ARRAY<STRUCT<c INT32, b INT64>>[unknown order:{1, 10}, {2, 20}, {1, 10}]
 ==
 [name=union_all_duplicate_columns_different_aliases]
 SELECT int32_val AS a, int32_val AS b, int64_val AS c
@@ -51,7 +51,7 @@ UNION ALL CORRESPONDING
 SELECT int64_val AS c, int32_val AS b
 FROM Manual2
 --
-ARRAY<STRUCT<b INT32, c INT64>>[{2, 20}, {1, 10}, {1, 10}]
+ARRAY<STRUCT<b INT32, c INT64>>[unknown order:{2, 20}, {1, 10}, {1, 10}]
 ==
 [name=select_distinct_union_distinct_corresponding_select_distinct]
 SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
@@ -60,7 +60,7 @@ UNION DISTINCT CORRESPONDING
 SELECT DISTINCT int32_val AS c, int64_val AS b
 FROM Manual2
 --
-ARRAY<STRUCT<b INT64, c INT32>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<b INT64, c INT32>>[unknown order:{10, 1}, {20, 2}]
 ==
 [name=select_distinct_union_distinct_corresponding_select]
 SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
@@ -69,7 +69,7 @@ UNION DISTINCT CORRESPONDING
 SELECT int32_val AS c, int64_val AS b
 FROM Manual2
 --
-ARRAY<STRUCT<b INT64, c INT32>>[{10, 1}, {20, 2}]
+ARRAY<STRUCT<b INT64, c INT32>>[unknown order:{10, 1}, {20, 2}]
 ==
 [name=select_union_distinct_corresponding_select_distinct]
 SELECT int32_val AS c, int64_val AS b
@@ -78,7 +78,7 @@ UNION DISTINCT CORRESPONDING
 SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
 FROM Manual1
 --
-ARRAY<STRUCT<c INT32, b INT64>>[{1, 10}, {2, 20}]
+ARRAY<STRUCT<c INT32, b INT64>>[unknown order:{1, 10}, {2, 20}]
 ==
 [name=union_distinct_duplicate_columns_different_aliases]
 SELECT int32_val AS a, int32_val AS b, int64_val AS c
@@ -87,7 +87,7 @@ UNION DISTINCT CORRESPONDING
 SELECT int64_val AS c, int32_val AS b
 FROM Manual2
 --
-ARRAY<STRUCT<b INT32, c INT64>>[{1, 10}, {2, 20}]
+ARRAY<STRUCT<b INT32, c INT64>>[unknown order:{1, 10}, {2, 20}]
 ==
 [name=select_distinct_intersect_all_corresponding_select_distinct]
 SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
@@ -232,4 +232,3 @@ SELECT int64_val AS c, int32_val AS b
 FROM Manual2
 --
 ARRAY<STRUCT<b INT32, c INT64>>[{2, 20}]
-==

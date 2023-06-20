@@ -2154,7 +2154,7 @@ ARRAY<STRUCT<
 [name=groupby_expr_in_select]
 SELECT int64_val + 1 FROM AllTypesTable GROUP BY int64_val + 1
 --
-ARRAY<STRUCT<INT64>>[
+ARRAY<STRUCT<INT64>>[unknown order:
   {NULL},
   {-13},
   {-3},
@@ -2171,7 +2171,7 @@ ARRAY<STRUCT<INT64>>[
 [name=groupby_expr_in_select2]
 SELECT int64_val + CAST(int32_val AS INT64) FROM AllTypesTable GROUP BY int64_val + CAST(int32_val AS INT64)
 --
-ARRAY<STRUCT<INT64>>[
+ARRAY<STRUCT<INT64>>[unknown order:
   {NULL},
   {-38},
   {-8},
@@ -2187,7 +2187,7 @@ ARRAY<STRUCT<INT64>>[
 [name=groupby_expr_in_select3]
 SELECT -CAST(REVERSE(str_val) AS INT64) FROM AllTypesTable GROUP BY -CAST(REVERSE(str_val) AS INT64)
 --
-ARRAY<STRUCT<INT64>>[
+ARRAY<STRUCT<INT64>>[unknown order:
   {NULL},
   {-543},
   {-321},
@@ -2204,7 +2204,7 @@ ARRAY<STRUCT<INT64>>[
 [name=distinct_with_orderby]
 SELECT distinct int64_val FROM AllTypesTable ORDER BY int64_val
 --
-ARRAY<STRUCT<int64_val INT64>>[
+ARRAY<STRUCT<int64_val INT64>>[known order:
   {NULL},
   {-14},
   {-4},
@@ -2229,12 +2229,21 @@ ARRAY<STRUCT<functions INT64>>[{1}]
 [name=groupby_2]
 SELECT distinct_2 FROM TableDistincts GROUP BY distinct_2
 --
-ARRAY<STRUCT<distinct_2 INT64>>[{1}, {2}]
+ARRAY<STRUCT<distinct_2 INT64>>[unknown order:{1}, {2}]
 ==
 [name=groupby_3]
 SELECT distinct_8 FROM TableDistincts GROUP BY distinct_8
 --
-ARRAY<STRUCT<distinct_8 INT64>>[{1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}]
+ARRAY<STRUCT<distinct_8 INT64>>[unknown order:
+  {1},
+  {2},
+  {3},
+  {4},
+  {5},
+  {6},
+  {7},
+  {8}
+]
 ==
 #
 # GROUP BY with an aggregate function
@@ -2242,22 +2251,22 @@ ARRAY<STRUCT<distinct_8 INT64>>[{1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}]
 [name=groupby_4]
 SELECT distinct_2, COUNT(distinct_1) FROM TableDistincts GROUP BY distinct_2
 --
-ARRAY<STRUCT<distinct_2 INT64, INT64>>[{1, 8}, {2, 8}]
+ARRAY<STRUCT<distinct_2 INT64, INT64>>[unknown order:{1, 8}, {2, 8}]
 ==
 [name=groupby_5]
 SELECT distinct_2, COUNT(distinct_4) FROM TableDistincts GROUP BY distinct_2
 --
-ARRAY<STRUCT<distinct_2 INT64, INT64>>[{1, 8}, {2, 8}]
+ARRAY<STRUCT<distinct_2 INT64, INT64>>[unknown order:{1, 8}, {2, 8}]
 ==
 [name=groupby_6]
 SELECT distinct_2, COUNT(distinct_8) FROM TableDistincts GROUP BY distinct_2
 --
-ARRAY<STRUCT<distinct_2 INT64, INT64>>[{1, 8}, {2, 8}]
+ARRAY<STRUCT<distinct_2 INT64, INT64>>[unknown order:{1, 8}, {2, 8}]
 ==
 [name=groupby_7]
 SELECT distinct_2, AVG(distinct_4) FROM TableDistincts GROUP BY distinct_2
 --
-ARRAY<STRUCT<distinct_2 INT64, DOUBLE>>[{1, 2}, {2, 3}]
+ARRAY<STRUCT<distinct_2 INT64, DOUBLE>>[unknown order:{1, 2}, {2, 3}]
 ==
 [name=groupby_8]
 SELECT distinct_1, COUNT(*) FROM TableDistincts GROUP BY distinct_1
@@ -2267,12 +2276,17 @@ ARRAY<STRUCT<distinct_1 INT64, INT64>>[{1, 16}]
 [name=groupby_9]
 SELECT distinct_4, SUM(distinct_8) FROM TableDistincts GROUP BY distinct_4
 --
-ARRAY<STRUCT<distinct_4 INT64, INT64>>[{1, 12}, {2, 16}, {3, 20}, {4, 24}]
+ARRAY<STRUCT<distinct_4 INT64, INT64>>[unknown order:
+  {1, 12},
+  {2, 16},
+  {3, 20},
+  {4, 24}
+]
 ==
 [name=groupby_10]
 SELECT distinct_8, ANY_VALUE(distinct_1) FROM TableDistincts GROUP BY distinct_8
 --
-ARRAY<STRUCT<distinct_8 INT64, INT64>>[
+ARRAY<STRUCT<distinct_8 INT64, INT64>>[unknown order:
   {1, 1},
   {2, 1},
   {3, 1},
@@ -2289,7 +2303,7 @@ ARRAY<STRUCT<distinct_8 INT64, INT64>>[
 SELECT COUNT(distinct_1) Agg1, distinct_2, MAX(distinct_4) Agg2,
        MIN(distinct_8) Agg3 FROM TableDistincts GROUP BY distinct_2
 --
-ARRAY<STRUCT<Agg1 INT64, distinct_2 INT64, Agg2 INT64, Agg3 INT64>>[
+ARRAY<STRUCT<Agg1 INT64, distinct_2 INT64, Agg2 INT64, Agg3 INT64>>[unknown order:
   {8, 1, 3, 1},
   {8, 2, 4, 2}
 ]
@@ -2307,7 +2321,7 @@ ARRAY<STRUCT<INT64>>[{16}]
 SELECT distinct_2, distinct_4B
   FROM TableDistincts GROUP BY distinct_2, distinct_4B
 --
-ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[
+ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[unknown order:
   {1, 1},
   {1, 2},
   {1, 3},
@@ -2323,7 +2337,7 @@ ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[
 SELECT distinct_2, distinct_4B
   FROM TableDistincts GROUP BY distinct_2B, distinct_2, distinct_4B
 --
-ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[
+ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[unknown order:
   {1, 1},
   {1, 2},
   {2, 1},
@@ -2339,7 +2353,7 @@ ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[
 SELECT distinct_2, distinct_4B
   FROM TableDistincts GROUP BY distinct_2, distinct_4B, distinct_4B
 --
-ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[
+ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[unknown order:
   {1, 1},
   {1, 2},
   {1, 3},
@@ -2355,7 +2369,7 @@ ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[
 SELECT distinct_2, distinct_4B
   FROM TableDistincts GROUP BY distinct_4B, distinct_2
 --
-ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[
+ARRAY<STRUCT<distinct_2 INT64, distinct_4B INT64>>[unknown order:
   {1, 1},
   {2, 1},
   {1, 2},
@@ -2373,7 +2387,7 @@ SELECT Max2, COUNT(*) AS Cnt FROM (
     GROUP BY distinct_8)
   GROUP BY Max2
 --
-ARRAY<STRUCT<Max2 INT64, Cnt INT64>>[{1, 4}, {2, 4}]
+ARRAY<STRUCT<Max2 INT64, Cnt INT64>>[unknown order:{1, 4}, {2, 4}]
 ==
 # DISTINCT aggregation of atomic values
 [name=groupby_25]
@@ -2403,32 +2417,32 @@ ARRAY<STRUCT<id INT64,
              avg_distinct DOUBLE,
              agg_all ARRAY<>,
              agg_distinct ARRAY<>>>
-[{
-   0,
-   3,
-   2,
-   1,
-   1,
-   2,
-   2,
-   1.3333333333333333,
-   1.5,
-   ARRAY<INT64>[1, 1, 2],
-   ARRAY<INT64>[1, 2]
- },
- {
-   1,
-   2,
-   1,
-   10,
-   10,
-   10,
-   10,
-   10,
-   10,
-   ARRAY<INT64>[10, NULL, 10],
-   ARRAY<INT64>[10, NULL]
- }]
+[unknown order:{
+                 0,
+                 3,
+                 2,
+                 1,
+                 1,
+                 2,
+                 2,
+                 1.3333333333333333,
+                 1.5,
+                 ARRAY<INT64>[unknown order:1, 1, 2],
+                 ARRAY<INT64>[unknown order:1, 2]
+               },
+               {
+                 1,
+                 2,
+                 1,
+                 10,
+                 10,
+                 10,
+                 10,
+                 10,
+                 10,
+                 ARRAY<INT64>[unknown order:10, NULL, 10],
+                 ARRAY<INT64>[unknown order:10, NULL]
+               }]
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=distinct_nan_different_bitwise_representation]
@@ -2449,17 +2463,19 @@ FROM (SELECT 0 id, 1 a UNION ALL SELECT 0, 1 UNION ALL SELECT 0, 2 UNION ALL
      UNNEST(ARRAY(SELECT AS STRUCT a AS x, a AS y)) t
 GROUP BY id
 --
-ARRAY<STRUCT<id INT64, count_all INT64, agg_all ARRAY<>>>[
+ARRAY<STRUCT<id INT64, count_all INT64, agg_all ARRAY<>>>[unknown order:
   {
     0,
     3,
-    ARRAY<STRUCT<x INT64, y INT64>>[{1, 1}, {1, 1}, {2, 2}]
+    ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{1, 1}, {1, 1}, {2, 2}]
   },
-  {
-    1,
-    3,
-    ARRAY<STRUCT<x INT64, y INT64>>[{10, 10}, {10, 10}, {NULL, NULL}]
-  }
+  {1,
+   3,
+   ARRAY<STRUCT<x INT64, y INT64>>[unknown order:
+     {10, 10},
+     {10, 10},
+     {NULL, NULL}
+   ]}
 ]
 ==
 #
@@ -2473,7 +2489,7 @@ ARRAY<STRUCT<int64_val INT64>>[{1}]
 [name=groupby_filter_on_non_groupby_column]
 SELECT int32_val FROM AllTypesTable WHERE double_val = 0.0 GROUP BY int32_val
 --
-ARRAY<STRUCT<int32_val INT32>>[{NULL}, {-2}]
+ARRAY<STRUCT<int32_val INT32>>[unknown order:{NULL}, {-2}]
 ==
 [name=groupby_on_non_join_columns]
 SELECT t1.int32_val, t2.int32_val
@@ -2481,7 +2497,7 @@ FROM AllTypesTable t1
   INNER JOIN AllTypesTable t2 ON t1.row_id = t2.row_id
 GROUP BY t1.int32_val, t2.int32_val
 --
-ARRAY<STRUCT<int32_val INT32, int32_val INT32>>[
+ARRAY<STRUCT<int32_val INT32, int32_val INT32>>[unknown order:
   {NULL, NULL},
   {-24, -24},
   {-4, -4},
@@ -2501,7 +2517,7 @@ FROM AllTypesTable t1
   INNER JOIN AllTypesTable t2 ON t1.row_id = t2.row_id
 GROUP BY t1.row_id, t2.int32_val
 --
-ARRAY<STRUCT<row_id INT64, int32_val INT32>>[
+ARRAY<STRUCT<row_id INT64, int32_val INT32>>[unknown order:
   {1, -1},
   {2, -1},
   {3, -1},
@@ -2544,7 +2560,7 @@ FROM AllTypesTable t1
   INNER JOIN AllTypesTable t2 ON t1.row_id = t2.row_id
 GROUP BY t1.row_id, t2.row_id
 --
-ARRAY<STRUCT<row_id INT64, row_id INT64>>[
+ARRAY<STRUCT<row_id INT64, row_id INT64>>[unknown order:
   {1, 1},
   {2, 2},
   {3, 3},
@@ -2714,7 +2730,15 @@ from (select -0.0 DOUBLE union all
       select -cast("NAN" as DOUBLE)) val
 GROUP BY DOUBLE
 --
-ARRAY<STRUCT<DOUBLE DOUBLE>>[{NULL}, {nan}, {-inf}, {-1}, {0}, {1}, {inf}]
+ARRAY<STRUCT<DOUBLE DOUBLE>>[unknown order:
+  {NULL},
+  {nan},
+  {-inf},
+  {-1},
+  {0},
+  {1},
+  {inf}
+]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -2770,7 +2794,15 @@ from (select -0.0 DOUBLE union all
       select -cast("NAN" as DOUBLE)) val
 GROUP BY DOUBLE ORDER BY DOUBLE DESC
 --
-ARRAY<STRUCT<DOUBLE DOUBLE>>[{inf}, {1}, {0}, {-1}, {-inf}, {nan}, {NULL}]
+ARRAY<STRUCT<DOUBLE DOUBLE>>[known order:
+  {inf},
+  {1},
+  {0},
+  {-1},
+  {-inf},
+  {nan},
+  {NULL}
+]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -2907,7 +2939,15 @@ from (select cast(-0.0 as float) FLOAT union all
       select -cast("NAN" as float)) val
 GROUP BY FLOAT
 --
-ARRAY<STRUCT<FLOAT FLOAT>>[{NULL}, {nan}, {-inf}, {-1}, {0}, {1}, {inf}]
+ARRAY<STRUCT<FLOAT FLOAT>>[unknown order:
+  {NULL},
+  {nan},
+  {-inf},
+  {-1},
+  {0},
+  {1},
+  {inf}
+]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -2963,7 +3003,15 @@ from (select cast(-0.0 as float) FLOAT union all
       select -cast("NAN" as float)) val
 GROUP BY FLOAT ORDER BY FLOAT DESC
 --
-ARRAY<STRUCT<FLOAT FLOAT>>[{inf}, {1}, {0}, {-1}, {-inf}, {nan}, {NULL}]
+ARRAY<STRUCT<FLOAT FLOAT>>[known order:
+  {inf},
+  {1},
+  {0},
+  {-1},
+  {-inf},
+  {nan},
+  {NULL}
+]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -2984,14 +3032,18 @@ SELECT bool_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY bool_val
 ORDER BY bool_val ASC
 --
-ARRAY<STRUCT<bool_val BOOL, cnt INT64>>[{NULL, 6}, {false, 16}, {true, 12}]
+ARRAY<STRUCT<bool_val BOOL, cnt INT64>>[known order:
+  {NULL, 6},
+  {false, 16},
+  {true, 12}
+]
 ==
 [name=groupby_single_base_column_int32]
 SELECT int32_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY int32_val
 ORDER BY int32_val ASC
 --
-ARRAY<STRUCT<int32_val INT32, cnt INT64>>[
+ARRAY<STRUCT<int32_val INT32, cnt INT64>>[known order:
   {NULL, 6},
   {-24, 2},
   {-4, 2},
@@ -3010,7 +3062,7 @@ SELECT int64_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY int64_val
 ORDER BY int64_val ASC
 --
-ARRAY<STRUCT<int64_val INT64, cnt INT64>>[
+ARRAY<STRUCT<int64_val INT64, cnt INT64>>[known order:
   {NULL, 6},
   {-14, 2},
   {-4, 2},
@@ -3029,7 +3081,7 @@ SELECT uint32_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY uint32_val
 ORDER BY uint32_val ASC
 --
-ARRAY<STRUCT<uint32_val UINT32, cnt INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, cnt INT64>>[known order:
   {NULL, 6},
   {1, 8},
   {2, 4},
@@ -3046,7 +3098,7 @@ SELECT uint64_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY uint64_val
 ORDER BY uint64_val ASC
 --
-ARRAY<STRUCT<uint64_val UINT64, cnt INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, cnt INT64>>[known order:
   {NULL, 6},
   {1, 8},
   {2, 4},
@@ -3065,7 +3117,7 @@ SELECT float_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY float_val
 ORDER BY float_val ASC
 --
-ARRAY<STRUCT<float_val FLOAT, cnt INT64>>[
+ARRAY<STRUCT<float_val FLOAT, cnt INT64>>[known order:
   {NULL, 4},
   {nan, 2},
   {-inf, 2},
@@ -3091,7 +3143,7 @@ SELECT double_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY double_val
 ORDER BY double_val ASC
 --
-ARRAY<STRUCT<double_val DOUBLE, cnt INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, cnt INT64>>[known order:
   {NULL, 4},
   {nan, 2},
   {-inf, 2},
@@ -3116,7 +3168,7 @@ SELECT str_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY str_val
 ORDER BY str_val ASC
 --
-ARRAY<STRUCT<str_val STRING, cnt INT64>>[
+ARRAY<STRUCT<str_val STRING, cnt INT64>>[known order:
   {NULL, 6},
   {"1", 8},
   {"123", 2},
@@ -3135,7 +3187,7 @@ SELECT bytes_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY bytes_val
 ORDER BY bytes_val ASC
 --
-ARRAY<STRUCT<bytes_val BYTES, cnt INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, cnt INT64>>[known order:
   {NULL, 6},
   {b"1", 8},
   {b"123", 2},
@@ -3154,7 +3206,7 @@ SELECT date_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY date_val
 ORDER BY date_val ASC
 --
-ARRAY<STRUCT<date_val DATE, cnt INT64>>[
+ARRAY<STRUCT<date_val DATE, cnt INT64>>[known order:
   {NULL, 6},
   {2014-01-01, 6},
   {2014-01-02, 4},
@@ -3177,47 +3229,47 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         cnt INT64
       >>
-[{NULL, 6},
- {
-   2014-01-01 00:00:01.011011+00,
-   6
- },
- {
-   2014-01-02 00:00:01.011011+00,
-   2
- },
- {
-   2014-01-02 00:00:02.022022+00,
-   4
- },
- {
-   2014-01-03 00:00:03.033033+00,
-   2
- },
- {
-   2014-01-04 00:00:03.033033+00,
-   2
- },
- {
-   2014-01-04 00:00:04.044044+00,
-   2
- },
- {
-   2014-01-05 00:00:02.022022+00,
-   2
- },
- {
-   2014-02-04 00:00:04.044044+00,
-   4
- },
- {
-   2014-04-01 00:00:01.011011+00,
-   2
- },
- {
-   2014-05-02 00:00:02.022022+00,
-   2
- }]
+[known order:{NULL, 6},
+             {
+               2014-01-01 00:00:01.011011+00,
+               6
+             },
+             {
+               2014-01-02 00:00:01.011011+00,
+               2
+             },
+             {
+               2014-01-02 00:00:02.022022+00,
+               4
+             },
+             {
+               2014-01-03 00:00:03.033033+00,
+               2
+             },
+             {
+               2014-01-04 00:00:03.033033+00,
+               2
+             },
+             {
+               2014-01-04 00:00:04.044044+00,
+               2
+             },
+             {
+               2014-01-05 00:00:02.022022+00,
+               2
+             },
+             {
+               2014-02-04 00:00:04.044044+00,
+               4
+             },
+             {
+               2014-04-01 00:00:01.011011+00,
+               2
+             },
+             {
+               2014-05-02 00:00:02.022022+00,
+               2
+             }]
 ==
 [required_features=NUMERIC_TYPE]
 [name=groupby_single_base_column_numeric]
@@ -3225,7 +3277,7 @@ SELECT numeric_val, count(*) as cnt FROM AllTypesNumericTable t
 GROUP BY numeric_val
 ORDER BY numeric_val ASC
 --
-ARRAY<STRUCT<numeric_val NUMERIC, cnt INT64>>[
+ARRAY<STRUCT<numeric_val NUMERIC, cnt INT64>>[known order:
   {NULL, 6},
   {
     -99999999999999999999999999999.999999999,
@@ -3264,7 +3316,7 @@ ARRAY<STRUCT<
         bignumeric_val BIGNUMERIC,
         cnt INT64
       >>
-[
+[known order:
   {NULL, 6},
   {
     -578960446186580977117854925043439539266.34992332820282019728792003956564819968,
@@ -3316,14 +3368,18 @@ SELECT (NOT bool_val) as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 BOOL, cnt INT64>>[{NULL, 6}, {false, 12}, {true, 16}]
+ARRAY<STRUCT<c1 BOOL, cnt INT64>>[known order:
+  {NULL, 6},
+  {false, 12},
+  {true, 16}
+]
 ==
 [name=groupby_single_computed_column_int32]
 SELECT int32_val + 1 as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 INT64, cnt INT64>>[
+ARRAY<STRUCT<c1 INT64, cnt INT64>>[known order:
   {NULL, 6},
   {-23, 2},
   {-3, 2},
@@ -3342,7 +3398,7 @@ SELECT int64_val * 2 as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 INT64, cnt INT64>>[
+ARRAY<STRUCT<c1 INT64, cnt INT64>>[known order:
   {NULL, 6},
   {-28, 2},
   {-8, 2},
@@ -3361,7 +3417,7 @@ SELECT uint32_val + 7 as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 UINT64, cnt INT64>>[
+ARRAY<STRUCT<c1 UINT64, cnt INT64>>[known order:
   {NULL, 6},
   {8, 8},
   {9, 4},
@@ -3378,7 +3434,7 @@ SELECT uint64_val * 3 as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 UINT64, cnt INT64>>[
+ARRAY<STRUCT<c1 UINT64, cnt INT64>>[known order:
   {NULL, 6},
   {3, 8},
   {6, 4},
@@ -3397,7 +3453,7 @@ SELECT float_val + 0.125 as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE, cnt INT64>>[
+ARRAY<STRUCT<c1 DOUBLE, cnt INT64>>[known order:
   {NULL, 4},
   {nan, 2},
   {-inf, 2},
@@ -3423,7 +3479,7 @@ SELECT double_val * 2 as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 DOUBLE, cnt INT64>>[
+ARRAY<STRUCT<c1 DOUBLE, cnt INT64>>[known order:
   {NULL, 4},
   {nan, 2},
   {-inf, 2},
@@ -3448,7 +3504,7 @@ SELECT LTRIM(str_val) as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 STRING, cnt INT64>>[
+ARRAY<STRUCT<c1 STRING, cnt INT64>>[known order:
   {NULL, 6},
   {"1", 8},
   {"123", 2},
@@ -3467,7 +3523,7 @@ SELECT UPPER(bytes_val) as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 BYTES, cnt INT64>>[
+ARRAY<STRUCT<c1 BYTES, cnt INT64>>[known order:
   {NULL, 6},
   {b"1", 8},
   {b"123", 2},
@@ -3487,7 +3543,7 @@ SELECT numeric_val / 2 as c1, count(*) as cnt FROM AllTypesNumericTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 NUMERIC, cnt INT64>>[
+ARRAY<STRUCT<c1 NUMERIC, cnt INT64>>[known order:
   {NULL, 6},
   {
     -50000000000000000000000000000,
@@ -3519,7 +3575,7 @@ SELECT bignumeric_val / 2 as c1, count(*) as cnt FROM AllTypesBigNumericTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-ARRAY<STRUCT<c1 BIGNUMERIC, cnt INT64>>[
+ARRAY<STRUCT<c1 BIGNUMERIC, cnt INT64>>[known order:
   {NULL, 6},
   {
     -289480223093290488558927462521719769633.17496166410141009864396001978282409984,
@@ -3560,7 +3616,7 @@ SELECT bool_val, int32_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY bool_val, int32_val
 ORDER BY bool_val ASC, int32_val DESC
 --
-ARRAY<STRUCT<bool_val BOOL, int32_val INT32, cnt INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, cnt INT64>>[known order:
   {NULL, -1, 2},
   {NULL, NULL, 4},
   {false, 9, 2},
@@ -3581,7 +3637,7 @@ SELECT int32_val, -int64_val as c2, count(*) as cnt FROM AllTypesTable t
 GROUP BY int32_val, c2
 ORDER BY int32_val ASC, c2 ASC
 --
-ARRAY<STRUCT<int32_val INT32, c2 INT64, cnt INT64>>[
+ARRAY<STRUCT<int32_val INT32, c2 INT64, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, 1, 2},
   {-24, 14, 2},
@@ -3602,7 +3658,7 @@ SELECT int64_val, uint32_val + 2 as c2, count(*) as cnt FROM AllTypesTable t
 GROUP BY int64_val, c2
 ORDER BY int64_val ASC, c2 DESC
 --
-ARRAY<STRUCT<int64_val INT64, c2 UINT64, cnt INT64>>[
+ARRAY<STRUCT<int64_val INT64, c2 UINT64, cnt INT64>>[known order:
   {NULL, 3, 2},
   {NULL, NULL, 4},
   {-14, 43, 2},
@@ -3623,7 +3679,7 @@ SELECT uint32_val, uint64_val * 2 as c2, count(*) as cnt FROM AllTypesTable t
 GROUP BY uint32_val, c2
 ORDER BY uint32_val ASC, c2 ASC
 --
-ARRAY<STRUCT<uint32_val UINT32, c2 UINT64, cnt INT64>>[
+ARRAY<STRUCT<uint32_val UINT32, c2 UINT64, cnt INT64>>[known order:
   {NULL, NULL, 4},
   {NULL, 2, 2},
   {1, NULL, 2},
@@ -3644,7 +3700,7 @@ SELECT uint64_val, int32_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY uint64_val, int32_val
 ORDER BY uint64_val ASC, int32_val DESC
 --
-ARRAY<STRUCT<uint64_val UINT64, int32_val INT32, cnt INT64>>[
+ARRAY<STRUCT<uint64_val UINT64, int32_val INT32, cnt INT64>>[known order:
   {NULL, -1, 2},
   {NULL, NULL, 4},
   {1, -1, 6},
@@ -3666,7 +3722,7 @@ SELECT float_val, double_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY float_val, double_val
 ORDER BY float_val ASC, double_val ASC
 --
-ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, cnt INT64>>[
+ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, cnt INT64>>[known order:
   {NULL, NULL, 2},
   {NULL, -0, 2},
   {nan, inf, 2},
@@ -3694,7 +3750,7 @@ SELECT double_val, str_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY double_val, str_val
 ORDER BY double_val ASC, str_val DESC
 --
-ARRAY<STRUCT<double_val DOUBLE, str_val STRING, cnt INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, str_val STRING, cnt INT64>>[known order:
   {NULL, "1", 2},
   {NULL, NULL, 2},
   {nan, NULL, 2},
@@ -3722,7 +3778,7 @@ SELECT numeric_val, str_val, count(*) as cnt FROM AllTypesNumericTable t
 GROUP BY numeric_val, str_val
 ORDER BY numeric_val ASC, str_val DESC
 --
-ARRAY<STRUCT<numeric_val NUMERIC, str_val STRING, cnt INT64>>[
+ARRAY<STRUCT<numeric_val NUMERIC, str_val STRING, cnt INT64>>[known order:
   {NULL, NULL, 6},
   {
     -99999999999999999999999999999.999999999,
@@ -3768,7 +3824,7 @@ ARRAY<STRUCT<
         str_val STRING,
         cnt INT64
       >>
-[
+[known order:
   {NULL, NULL, 6},
   {
     -578960446186580977117854925043439539266.34992332820282019728792003956564819968,
@@ -3836,7 +3892,7 @@ FROM (
   FROM AllTypesTable) t
 ORDER BY t.i32, t.i64
 --
-ARRAY<STRUCT<t STRUCT<i32 INT32, i64 INT64>>>[
+ARRAY<STRUCT<t STRUCT<i32 INT32, i64 INT64>>>[known order:
   {{NULL, NULL}},
   {{NULL, -1}},
   {{-24, -14}},
@@ -3862,7 +3918,7 @@ FROM (
 GROUP BY t
 ORDER BY t.i32
 --
-ARRAY<STRUCT<i32 INT32, INT64, INT64>>[
+ARRAY<STRUCT<i32 INT32, INT64, INT64>>[unknown order:
   {NULL, 4, NULL},
   {NULL, 2, -2},
   {-24, 2, -28},
@@ -3888,7 +3944,7 @@ FROM (
 GROUP BY t
 ORDER BY t.i32
 --
-ARRAY<STRUCT<i32 INT32, INT64>>[
+ARRAY<STRUCT<i32 INT32, INT64>>[unknown order:
   {NULL, NULL},
   {NULL, -2},
   {-24, -28},
@@ -3922,18 +3978,21 @@ FROM ((SELECT NULL as a) UNION ALL
       (SELECT [1, 2])) s
 GROUP BY s.a
 --
-ARRAY<STRUCT<a ARRAY<>, INT64>>[
+ARRAY<STRUCT<a ARRAY<>, INT64>>[unknown order:
   {ARRAY<INT64>(NULL), 2},
   {ARRAY<INT64>[], 2},
   {ARRAY<INT64>[1], 2},
   {
-    ARRAY<INT64>[1, NULL],
+    ARRAY<INT64>[known order:1, NULL],
     1
   },
-  {ARRAY<INT64>[1, 2], 1},
+  {
+    ARRAY<INT64>[known order:1, 2],
+    1
+  },
   {ARRAY<INT64>[2], 1},
   {
-    ARRAY<INT64>[2, NULL],
+    ARRAY<INT64>[known order:2, NULL],
     2
   }
 ]
@@ -3953,11 +4012,14 @@ FROM ((SELECT NULL as a) UNION ALL
       (SELECT [1, 2])) s
 GROUP BY s.a
 --
-ARRAY<STRUCT<a ARRAY<>, INT64>>[
+ARRAY<STRUCT<a ARRAY<>, INT64>>[unknown order:
   {ARRAY<INT64>(NULL), 2},
   {ARRAY<INT64>[], 2},
   {ARRAY<INT64>[1], 2},
-  {ARRAY<INT64>[1, 2], 2},
+  {
+    ARRAY<INT64>[known order:1, 2],
+    2
+  },
   {ARRAY<INT64>[2], 1}
 ]
 ==
@@ -3970,33 +4032,33 @@ SELECT [(CAST(FLOOR(primary_key / 4) AS INT64), bool_val),
 FROM TableLarge
 GROUP BY a
 --
-ARRAY<STRUCT<a ARRAY<>, INT64>>[
+ARRAY<STRUCT<a ARRAY<>, INT64>>[unknown order:
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{0, NULL}, {NULL, NULL}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{0, NULL}, {NULL, NULL}],
     1
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{0, false}, {NULL, true}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{0, false}, {NULL, true}],
     1
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{0, true}, {NULL, false}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{0, true}, {NULL, false}],
     1
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{1, false}, {0, true}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{1, false}, {0, true}],
     2
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{1, true}, {1, false}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{1, true}, {1, false}],
     2
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{2, false}, {0, true}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{2, false}, {0, true}],
     2
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{2, true}, {1, false}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{2, true}, {1, false}],
     2
   }
 ]
@@ -4012,33 +4074,33 @@ SELECT [(CAST(FLOOR(primary_key / 4) AS INT64), IFNULL(bool_val, false)),
 FROM TableLarge
 GROUP BY a
 --
-ARRAY<STRUCT<a ARRAY<>, INT64>>[
+ARRAY<STRUCT<a ARRAY<>, INT64>>[unknown order:
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{0, false}, {-1, false}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{0, false}, {-1, false}],
     1
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{0, false}, {-1, true}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{0, false}, {-1, true}],
     1
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{0, true}, {-1, false}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{0, true}, {-1, false}],
     1
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{1, false}, {0, true}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{1, false}, {0, true}],
     2
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{1, true}, {1, false}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{1, true}, {1, false}],
     2
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{2, false}, {0, true}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{2, false}, {0, true}],
     2
   },
   {
-    ARRAY<STRUCT<INT64, BOOL>>[{2, true}, {1, false}],
+    ARRAY<STRUCT<INT64, BOOL>>[known order:{2, true}, {1, false}],
     2
   }
 ]
@@ -4058,37 +4120,41 @@ ARRAY<STRUCT<
         s STRUCT<ARRAY<>, BOOL>,
         INT64
       >>
-[{{
-    ARRAY<INT64>[0, NULL],
-    NULL
-  },
-  1},
- {{
-    ARRAY<INT64>[0, NULL],
-    false
-  },
-  1},
- {{
-    ARRAY<INT64>[0, NULL],
-    true
-  },
-  1},
- {
-   {ARRAY<INT64>[1, 0], false},
-   2
- },
- {
-   {ARRAY<INT64>[1, 1], true},
-   2
- },
- {
-   {ARRAY<INT64>[2, 0], false},
-   2
- },
- {
-   {ARRAY<INT64>[2, 1], true},
-   2
- }]
+[unknown order:{{
+                  ARRAY<INT64>[known order:0, NULL],
+                  NULL
+                },
+                1},
+               {{
+                  ARRAY<INT64>[known order:0, NULL],
+                  false
+                },
+                1},
+               {{
+                  ARRAY<INT64>[known order:0, NULL],
+                  true
+                },
+                1},
+               {{
+                  ARRAY<INT64>[known order:1, 0],
+                  false
+                },
+                2},
+               {{
+                  ARRAY<INT64>[known order:1, 1],
+                  true
+                },
+                2},
+               {{
+                  ARRAY<INT64>[known order:2, 0],
+                  false
+                },
+                2},
+               {{
+                  ARRAY<INT64>[known order:2, 1],
+                  true
+                },
+                2}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -4106,21 +4172,25 @@ ARRAY<STRUCT<
         s STRUCT<ARRAY<>, BOOL>,
         INT64
       >>
-[{
-   {ARRAY<INT64>[1, 0], false},
-   2
- },
- {
-   {ARRAY<INT64>[1, 1], true},
-   2
- },
- {
-   {ARRAY<INT64>[2, 0], false},
-   2
- },
- {
-   {ARRAY<INT64>[2, 1], true},
-   2
- }]
+[unknown order:{{
+                  ARRAY<INT64>[known order:1, 0],
+                  false
+                },
+                2},
+               {{
+                  ARRAY<INT64>[known order:1, 1],
+                  true
+                },
+                2},
+               {{
+                  ARRAY<INT64>[known order:2, 0],
+                  false
+                },
+                2},
+               {{
+                  ARRAY<INT64>[known order:2, 1],
+                  true
+                },
+                2}]
 
 NOTE: Reference implementation reports non-determinism.

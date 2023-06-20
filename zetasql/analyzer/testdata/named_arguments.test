@@ -1656,6 +1656,44 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$array.col#1)
               +-Literal(type=INT64, value=0)
               +-Literal(type=BOOL, value=false)
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 {default_value: 0, is_not_aggregate: true} delta, optional(1) BOOL {default_value: false, is_not_aggregate: true} allow_nulls) -> STRING
+containing resolved templated expression:
+FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
++-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+| +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+| | +-ColumnRef(type=INT64, column=$aggregate.$agg1#1)
+| | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+| |   +-ColumnRef(type=INT64, column=$aggregate.$agg2#2)
+| |   +-ArgumentRef(type=INT64, name="delta", argument_kind=NOT_AGGREGATE)
+| +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+|   +-ArgumentRef(type=BOOL, name="allow_nulls", argument_kind=NOT_AGGREGATE)
+|   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+|     +-ColumnRef(type=INT64, column=$aggregate.$agg3#3)
+|     +-ColumnRef(type=INT64, column=$aggregate.$agg4#4)
++-Literal(type=STRING, value=NULL)
++-Literal(type=STRING, value="NOT NULL")
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+      +-Literal(type=INT64, value=1)
+
+  $agg2#2 :=
+    +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
+      +-ArgumentRef(parse_location=38-42, type=STRING, name="cval", argument_kind=AGGREGATE)
+      +-distinct=TRUE
+
+  $agg3#3 :=
+    +-AggregateFunctionCall(ZetaSQL:countif(BOOL) -> INT64)
+      +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+        +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+          +-ArgumentRef(parse_location=91-95, type=STRING, name="cval", argument_kind=AGGREGATE)
+
+  $agg4#4 :=
+    +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
+      +-ArgumentRef(parse_location=126-130, type=STRING, name="cval", argument_kind=AGGREGATE)
+      +-distinct=TRUE
 ==
 
 # Regression test for b/214174087. A templated UDA has a NOT AGGREGATE argument
@@ -1684,6 +1722,44 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$array.col#1)
               +-Literal(type=INT64, value=0)
               +-Literal(type=BOOL, value=true)
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 {default_value: 0, is_not_aggregate: true} delta, optional(1) BOOL {default_value: false, is_not_aggregate: true} allow_nulls) -> STRING
+containing resolved templated expression:
+FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
++-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+| +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+| | +-ColumnRef(type=INT64, column=$aggregate.$agg1#1)
+| | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+| |   +-ColumnRef(type=INT64, column=$aggregate.$agg2#2)
+| |   +-ArgumentRef(type=INT64, name="delta", argument_kind=NOT_AGGREGATE)
+| +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+|   +-ArgumentRef(type=BOOL, name="allow_nulls", argument_kind=NOT_AGGREGATE)
+|   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+|     +-ColumnRef(type=INT64, column=$aggregate.$agg3#3)
+|     +-ColumnRef(type=INT64, column=$aggregate.$agg4#4)
++-Literal(type=STRING, value=NULL)
++-Literal(type=STRING, value="NOT NULL")
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+      +-Literal(type=INT64, value=1)
+
+  $agg2#2 :=
+    +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
+      +-ArgumentRef(parse_location=38-42, type=STRING, name="cval", argument_kind=AGGREGATE)
+      +-distinct=TRUE
+
+  $agg3#3 :=
+    +-AggregateFunctionCall(ZetaSQL:countif(BOOL) -> INT64)
+      +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+        +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+          +-ArgumentRef(parse_location=91-95, type=STRING, name="cval", argument_kind=AGGREGATE)
+
+  $agg4#4 :=
+    +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
+      +-ArgumentRef(parse_location=126-130, type=STRING, name="cval", argument_kind=AGGREGATE)
+      +-distinct=TRUE
 ==
 
 # Regression test for b/214174087. A templated UDA has a NOT AGGREGATE argument
@@ -1712,6 +1788,44 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$array.col#1)
               +-Literal(type=INT64, value=1)
               +-Literal(type=BOOL, value=false)
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 {default_value: 0, is_not_aggregate: true} delta, optional(1) BOOL {default_value: false, is_not_aggregate: true} allow_nulls) -> STRING
+containing resolved templated expression:
+FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
++-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+| +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+| | +-ColumnRef(type=INT64, column=$aggregate.$agg1#1)
+| | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+| |   +-ColumnRef(type=INT64, column=$aggregate.$agg2#2)
+| |   +-ArgumentRef(type=INT64, name="delta", argument_kind=NOT_AGGREGATE)
+| +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+|   +-ArgumentRef(type=BOOL, name="allow_nulls", argument_kind=NOT_AGGREGATE)
+|   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+|     +-ColumnRef(type=INT64, column=$aggregate.$agg3#3)
+|     +-ColumnRef(type=INT64, column=$aggregate.$agg4#4)
++-Literal(type=STRING, value=NULL)
++-Literal(type=STRING, value="NOT NULL")
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+      +-Literal(type=INT64, value=1)
+
+  $agg2#2 :=
+    +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
+      +-ArgumentRef(parse_location=38-42, type=STRING, name="cval", argument_kind=AGGREGATE)
+      +-distinct=TRUE
+
+  $agg3#3 :=
+    +-AggregateFunctionCall(ZetaSQL:countif(BOOL) -> INT64)
+      +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+        +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+          +-ArgumentRef(parse_location=91-95, type=STRING, name="cval", argument_kind=AGGREGATE)
+
+  $agg4#4 :=
+    +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
+      +-ArgumentRef(parse_location=126-130, type=STRING, name="cval", argument_kind=AGGREGATE)
+      +-distinct=TRUE
 ==
 
 # Regression test against b/244550962: Make sure the AST location of fields in

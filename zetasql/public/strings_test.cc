@@ -31,6 +31,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/base/macros.h"
+#include "absl/container/btree_set.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
@@ -271,12 +272,13 @@ static void TestInvalidBytes(const std::string& str,
 
 TEST(StringsTest, TestParsingOfAllEscapeCharacters) {
   // All the valid escapes.
-  const std::set<char> valid_escapes = {'a', 'b', 'f', 'n', 'r', 't', 'v', '\\',
-                                   '?', '"', '\'', '`', 'u', 'U', 'x', 'X'};
+  const absl::btree_set<char> valid_escapes = {'a', 'b',  'f', 'n', 'r',  't',
+                                               'v', '\\', '?', '"', '\'', '`',
+                                               'u', 'U',  'x', 'X'};
   for (int escape_char_int = 0; escape_char_int < 255; ++escape_char_int) {
     char escape_char = static_cast<char>(escape_char_int);
     absl::string_view escape_piece(&escape_char, 1);
-    if (zetasql_base::ContainsKey(valid_escapes, escape_char)) {
+    if (valid_escapes.contains(escape_char)) {
       if (escape_char == '\'') {
         TestParseString(absl::StrCat("\"a\\", escape_piece, "0010ffff\""));
       }

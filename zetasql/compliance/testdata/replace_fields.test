@@ -153,7 +153,7 @@ SELECT
   )
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.TestExtraPB>>[
+  {ARRAY<PROTO<zetasql_test__.TestExtraPB>>[known order:
      {int32_val1: 6},
      {int32_val1: 7},
      {int32_val1: 8}
@@ -361,7 +361,7 @@ ARRAY<STRUCT<STRUCT<
     11,
     "abc",
     true,
-    ARRAY<INT64>[1, 2, 3],
+    ARRAY<INT64>[known order:1, 2, 3],
     {321}
   }}]
 ==
@@ -397,7 +397,7 @@ ARRAY<STRUCT<STRUCT<nested_struct STRUCT<
      11,
      "abc",
      true,
-     ARRAY<INT64>[1, 2, 3]
+     ARRAY<INT64>[known order:1, 2, 3]
    }}}]
 ==
 

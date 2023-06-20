@@ -8,9 +8,9 @@ ZetaSQL supports the following transaction statements.
 
 ## `BEGIN`
 
-```
+<pre>
 BEGIN [TRANSACTION][ISOLATION LEVEL isolation_level];
-```
+</pre>
 
 Begins a transaction.
 
@@ -33,25 +33,25 @@ BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
 ## `START TRANSACTION`
 
-```
+<pre>
 START TRANSACTION [ISOLATION LEVEL isolation_level]
-```
+</pre>
 
 Synonymous with [`BEGIN`][begin-transaction].
 
 ## `COMMIT`
 
-```
+<pre>
 COMMIT [TRANSACTION];
-```
+</pre>
 
 Commits a transaction.
 
 ## `ROLLBACK`
 
-```
+<pre>
 ROLLBACK [TRANSACTION];
-```
+</pre>
 
 Rolls back a transaction.
 

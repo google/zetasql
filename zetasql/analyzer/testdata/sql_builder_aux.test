@@ -759,9 +759,8 @@ ANALYZE OPTIONS(p1 = "a1", p2 = "a2") SimpleTypes(int32, int64, double);
 
 analyze OPTIONS(p1=a1,p2=a2) AllPseudoColumns(Key, Value)
 --
-ERROR: Cannot ANALYZE pseudo-column Key [at 1:30]
-analyze OPTIONS(p1=a1,p2=a2) AllPseudoColumns(Key, Value)
-                             ^
+[UNPARSED_SQL]
+ANALYZE OPTIONS(p1 = "a1", p2 = "a2") AllPseudoColumns(Key, Value);
 ==
 
 analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(int32,int64,double), SimpleTypesWithAnonymizationUid(string,double)
@@ -814,3 +813,20 @@ analyze
 [UNPARSED_SQL]
 ANALYZE;
 ==
+
+ANALYZE TestExtraValueTable(RowId)
+--
+[UNPARSED_SQL]
+ANALYZE TestExtraValueTable(RowId);
+==
+
+ANALYZE TestExtraValueTable(Filename, RowId)
+--
+[UNPARSED_SQL]
+ANALYZE TestExtraValueTable(Filename, RowId);
+==
+
+ANALYZE AllPseudoColumns(Key, Value), TestExtraValueTable(RowId), KitchenSinkValueTable
+--
+[UNPARSED_SQL]
+ANALYZE AllPseudoColumns(Key, Value), TestExtraValueTable(RowId), KitchenSinkValueTable;

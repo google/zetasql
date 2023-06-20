@@ -26,9 +26,14 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/simple_type.h"
+#include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/ascii.h"
@@ -38,6 +43,7 @@ namespace zetasql {
 namespace {
 
 using ::testing::Not;
+using ::testing::Values;
 using ::zetasql_base::testing::IsOk;
 using ::zetasql_base::testing::StatusIs;
 
@@ -239,7 +245,7 @@ TEST(RewriteUtilsTest, SafePreconditionWithIferrorOverride) {
 
   EXPECT_THAT(
       CheckCatalogSupportsSafeMode("whatever", analyzer_options, catalog),
-      Not(zetasql_base::testing::IsOk()));
+      Not(IsOk()));
 
   // Adding the function back to the catalog should still work.
   const Function* iferror = removed.back().get();
@@ -287,17 +293,28 @@ TEST(RewriteUtilsTest, SafePreconditionWithIferrorLookupFailure) {
       StatusIs(absl::StatusCode::kInternal));
 }
 
+static AnalyzerOptions MakeAnalyzerOptions() {
+  AnalyzerOptions options;
+  options.mutable_language()->SetSupportsAllStatementKinds();
+  options.mutable_language()->EnableLanguageFeature(
+      LanguageFeature::FEATURE_V_1_3_COLLATION_SUPPORT);
+  options.mutable_language()->EnableLanguageFeature(
+      LanguageFeature::FEATURE_V_1_3_ANNOTATION_FRAMEWORK);
+  return options;
+}
+
 class FunctionCallBuilderTest : public ::testing::Test {
  public:
   FunctionCallBuilderTest()
-      : catalog_("function_builder_catalog"),
-        fn_builder_(analyzer_options_, catalog_) {
-    analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
-    catalog_.AddZetaSQLFunctions();
+      : analyzer_options_(MakeAnalyzerOptions()),
+        catalog_("function_builder_catalog"),
+        fn_builder_(analyzer_options_, catalog_, type_factory_) {
+    catalog_.AddZetaSQLFunctions(analyzer_options_.language());
   }
 
   AnalyzerOptions analyzer_options_;
   SimpleCatalog catalog_;
+  TypeFactory type_factory_;
   FunctionCallBuilder fn_builder_;
 };
 
@@ -315,6 +332,68 @@ TEST_F(FunctionCallBuilderTest, LikeTest) {
 FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
 +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
 +-Literal(type=STRING, value="%r", has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, MakeArray) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+
+  args.emplace_back(MakeResolvedLiteral(
+      types::StringType(), Value::String("foo"), /*has_explicit_type=*/true));
+  args.emplace_back(MakeResolvedLiteral(
+      types::StringType(), Value::String("bar"), /*has_explicit_type=*/true));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> make_arr_fn,
+                       fn_builder_.MakeArray(args[0]->type(), args));
+
+  EXPECT_EQ(make_arr_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
++-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
++-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, MakeArrayWithAnnotation) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"bar", "und:ci"}},
+                           analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> make_arr_fn,
+                       fn_builder_.MakeArray(args[0]->type(), args));
+
+  EXPECT_EQ(make_arr_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
++-type_annotation_map=[{Collation:"und:ci"}]
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:ci"}
+  +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
+  +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, MakeArrayWithMixedAnnotation) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"bar", "binary"}},
+                           analyzer_options_, catalog_, type_factory_));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> make_arr_fn,
+                       fn_builder_.MakeArray(args[0]->type(), args));
+
+  EXPECT_EQ(make_arr_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"binary"}
+  +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
+  +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
 )"));
 }
 
@@ -491,7 +570,8 @@ class LikeAnyAllSubqueryScanBuilderTest
   LikeAnyAllSubqueryScanBuilderTest()
       : column_factory_(10, &sequence_),
         catalog_("subquery_scan_builder_catalog"),
-        scan_builder_(&analyzer_options_, &catalog_, &column_factory_) {
+        scan_builder_(&analyzer_options_, &catalog_, &column_factory_,
+                      &type_factory_) {
     analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
     catalog_.AddZetaSQLFunctions();
   }
@@ -575,8 +655,8 @@ AggregateScan
 }
 
 INSTANTIATE_TEST_SUITE_P(BuildAggregateScan, LikeAnyAllSubqueryScanBuilderTest,
-                         testing::Values(ResolvedSubqueryExpr::LIKE_ANY,
-                                         ResolvedSubqueryExpr::LIKE_ALL));
+                         Values(ResolvedSubqueryExpr::LIKE_ANY,
+                                ResolvedSubqueryExpr::LIKE_ALL));
 
 }  // namespace
 }  // namespace zetasql

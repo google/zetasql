@@ -55,7 +55,9 @@ class ResolvedScan;
 class SimpleCatalogProto;
 class SimpleColumn;
 class SimpleColumnProto;
+class SimpleConnectionProto;
 class SimpleConstantProto;
+class SimpleModelProto;
 class SimpleTableProto;
 
 // SimpleCatalog is a concrete implementation of the Catalog interface.
@@ -178,11 +180,20 @@ class SimpleCatalog : public EnumerableCatalog {
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedModel(const std::string& name, const Model* model);
   void AddOwnedModel(const Model* model) ABSL_LOCKS_EXCLUDED(mutex_);
+  bool AddOwnedModelIfNotPresent(std::unique_ptr<const Model> model)
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Connections
   void AddConnection(const std::string& name, const Connection* connection)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddConnection(const Connection* connection) ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddOwnedConnection(const std::string& name,
+                          std::unique_ptr<const Connection> connection)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddOwnedConnection(std::unique_ptr<const Connection> connection)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  bool AddOwnedConnectionIfNotPresent(
+      std::unique_ptr<const Connection> connection) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Sequences
   void AddSequence(const std::string& name, const Sequence* sequence)
@@ -424,6 +435,8 @@ class SimpleCatalog : public EnumerableCatalog {
       ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<const Procedure*> procedures() const ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<Catalog*> catalogs() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<const Connection*> connections() const
+      ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<const Constant*> constants() const ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Accessors for reading a copy of the key (object-name) lists in this
@@ -434,6 +447,7 @@ class SimpleCatalog : public EnumerableCatalog {
   std::vector<std::string> table_valued_function_names() const
       ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<std::string> catalog_names() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<std::string> connection_names() const ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<std::string> constant_names() const ABSL_LOCKS_EXCLUDED(mutex_);
 
  protected:
@@ -879,7 +893,16 @@ class SimpleModel : public Model {
 
   int64_t GetSerializationId() const override { return id_; }
 
-  // TODO: Add serialize and deserialize functions.
+  // Serializes this SimpleModel to proto.
+  //
+  // See SimpleCatalog::Serialize() for details about <file_descriptor_set_map>.
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+                         SimpleModelProto* proto) const;
+
+  // Deserializes a SimpleModel from proto.
+  static absl::StatusOr<std::unique_ptr<SimpleModel>> Deserialize(
+      const SimpleModelProto& proto, const TypeDeserializer& type_deserializer);
+
  private:
   const std::string name_;
   // Columns added to the <inputs_>, <outputs_> and the corresponding maps may
@@ -906,7 +929,11 @@ class SimpleConnection : public Connection {
   std::string Name() const override { return name_; }
   std::string FullName() const override { return name_; }
 
-  // TODO: Add serialize and deserialize functions.
+  void Serialize(SimpleConnectionProto* proto) const;
+
+  static std::unique_ptr<SimpleConnection> Deserialize(
+      const SimpleConnectionProto& proto);
+
  private:
   const std::string name_;
 };

@@ -30,7 +30,7 @@ select with differential_privacy COUNT(string, 1.0, contribution_bounds_per_grou
 --
 
 
-ERROR: Number of arguments does not match for aggregate operator COUNT. Supported signature: COUNT(ANY, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) [at 1:34]
+ERROR: Number of arguments does not match for aggregate operator COUNT. Supported signature: COUNT(T2, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) [at 1:34]
 select with differential_privacy COUNT(string, 1.0, contribution_bounds_per_g...
                                  ^
 ==
@@ -40,7 +40,7 @@ select with differential_privacy COUNT(string, 1.0, contribution_bounds_per_g...
 select with differential_privacy COUNT(string, 1.0, string, contriubtion_bounds_per_group => (0, 1)), COUNT(*, 1.0, string, contribution_bounds_per_group => (0, 1)) from SimpleTypes
 --
 
-ERROR: Number of arguments does not match for aggregate operator COUNT. Supported signature: COUNT(ANY, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) [at 1:34]
+ERROR: Number of arguments does not match for aggregate operator COUNT. Supported signature: COUNT(T2, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) [at 1:34]
 select with differential_privacy COUNT(string, 1.0, string, contriubtion_boun...
                                  ^
 ==
@@ -60,7 +60,7 @@ select with differential_privacy COUNT(string, (0, 1)) from SimpleTypes
 select with differential_privacy COUNT() from SimpleTypes
 --
 
-ERROR: Number of arguments does not match for aggregate operator COUNT. Supported signature: COUNT(ANY, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) [at 1:34]
+ERROR: Number of arguments does not match for aggregate operator COUNT. Supported signature: COUNT(T2, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) [at 1:34]
 select with differential_privacy COUNT() from SimpleTypes
                                  ^
 ==

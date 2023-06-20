@@ -32,7 +32,8 @@ namespace {
 
 class CaseSensitiveUnicodeCollator : public ZetaSqlCollator {
  public:
-  CaseSensitiveUnicodeCollator() {}
+  explicit CaseSensitiveUnicodeCollator(absl::string_view collation_name)
+      : ZetaSqlCollator(collation_name) {}
 
   int64_t CompareUtf8(absl::string_view s1, absl::string_view s2,
                       absl::Status* error) const override {
@@ -93,7 +94,7 @@ class CollatorRegistration {
 
     if (collation_name == "binary" ||
         (mode != CollatorLegacyUnicodeMode::kError && is_unicode)) {
-      return std::make_unique<CaseSensitiveUnicodeCollator>();
+      return std::make_unique<CaseSensitiveUnicodeCollator>(collation_name);
     }
     // Should match zetasql::MakeEvalError(), but we want to avoid pulling
     // in those dependencies.

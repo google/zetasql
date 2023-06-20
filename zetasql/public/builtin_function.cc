@@ -28,21 +28,56 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
 class AnalyzerOptions;
+
+using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+using FlatNameToFunctionMap =
+    absl::flat_hash_map<std::string, std::unique_ptr<Function>>;
+using NameToFunctionPtrMap = absl::flat_hash_map<std::string, const Function*>;
+using NameToTypeMap = absl::flat_hash_map<std::string, const Type*>;
+
+std::pair<const NameToFunctionPtrMap&, const NameToTypeMap&>
+GetBuiltinFunctionsAndTypesForDefaultOptions() {
+  static const auto kFunctionsAndTypes =
+      []() -> std::pair<const NameToFunctionPtrMap&, const NameToTypeMap&> {
+    // Process lifetime.
+    static auto& type_factory = *(new TypeFactory);
+    static auto& types = *(new NameToTypeMap);
+    static auto& unowned_functions = *(new NameToFunctionPtrMap);
+
+    FlatNameToFunctionMap owned_functions;
+    absl::Status status = GetBuiltinFunctionsAndTypes(
+        BuiltinFunctionOptions::AllReleasedFunctions(), type_factory,
+        owned_functions, types);
+    // Non-OK status can be returned if the builtins_options is configured
+    // incorrectly, or if an internal invariant is broken do to a bug in the
+    // ZetaSQL library.
+    ZETASQL_DCHECK_OK(status);
+    for (auto& [name, function] : owned_functions) {
+      unowned_functions.emplace(name, function.release());
+    }
+    return {unowned_functions, types};
+  }();
+  return kFunctionsAndTypes;
+}
 
 static const FunctionIdToNameMap& GetFunctionIdToNameMap() {
   static FunctionIdToNameMap* id_map = [] () {
@@ -54,10 +89,10 @@ static const FunctionIdToNameMap& GetFunctionIdToNameMap() {
     // Enable the maximum language features.  This enables retrieving a maximum
     // set of functions and signatures.
     //
-    // TODO: Maybe it is better to add a new function
-    // GetAllZetaSQLFunctionsAndSignatures() that does not take any options,
-    // to ensure that we get them all.  This could be a ZetaSQL-internal
-    // only function.
+    // TODO: Change this to use only stable features and a select list
+    //   of "in_development" features that control function signatures as of the
+    //   time the change is made. When that list becomes empty, convert this to
+    //   use `GetAllBuiltinFunctionsAndTypes`.
     LanguageOptions options;
     options.EnableMaximumLanguageFeaturesForDevelopment();
     options.set_product_mode(PRODUCT_INTERNAL);
@@ -89,8 +124,20 @@ const std::string FunctionSignatureIdToName(FunctionSignatureId id) {
   return absl::StrCat("<INVALID FUNCTION ID: ", id, ">");
 }
 
-using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
-using NameToTypeMap = absl::flat_hash_map<std::string, const Type*>;
+absl::Status GetBuiltinFunctionsAndTypes(
+    const ZetaSQLBuiltinFunctionOptions& options, TypeFactory& type_factory,
+    absl::flat_hash_map<std::string, std::unique_ptr<Function>>& functions,
+    absl::flat_hash_map<std::string, const Type*>& types) {
+  ZETASQL_RET_CHECK(types.empty());
+  ZETASQL_RET_CHECK(functions.empty());
+  NameToFunctionMap inadequately_efficient_function_map;
+  ZETASQL_RETURN_IF_ERROR(GetZetaSQLFunctionsAndTypes(
+      &type_factory, options, &inadequately_efficient_function_map, &types));
+  for (auto& [name, function] : inadequately_efficient_function_map) {
+    functions[name] = std::move(function);
+  }
+  return absl::OkStatus();
+}
 
 void GetZetaSQLFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,

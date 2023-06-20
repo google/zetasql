@@ -136,6 +136,15 @@ QueryParamsWithResult& QueryParamsWithResult::AddProhibitedFeature(
   return *this;
 }
 
+QueryParamsWithResult& QueryParamsWithResult::AddProhibitedFeatures(
+    const FeatureSet& features) {
+  for (LanguageFeature feature : features) {
+    ZETASQL_DCHECK(!zetasql_base::ContainsKey(prohibited_features_, feature));
+  }
+  prohibited_features_.insert(features.begin(), features.end());
+  return *this;
+}
+
 std::vector<QueryParamsWithResult> InvertResults(
     const std::vector<QueryParamsWithResult>& tests) {
   std::vector<QueryParamsWithResult> new_tests;

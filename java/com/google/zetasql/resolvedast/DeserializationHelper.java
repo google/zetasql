@@ -35,6 +35,8 @@ import com.google.zetasql.ModelRefProto;
 import com.google.zetasql.NotFoundException;
 import com.google.zetasql.Procedure;
 import com.google.zetasql.ProcedureRefProto;
+import com.google.zetasql.Sequence;
+import com.google.zetasql.SequenceRefProto;
 import com.google.zetasql.SimpleCatalog;
 import com.google.zetasql.Table;
 import com.google.zetasql.TableRefProto;
@@ -120,6 +122,14 @@ public final class DeserializationHelper extends AbstractDeserializationHelper {
     return checkNotNull(
         catalog.getConnectionByFullName(proto.getFullName()),
         "Could not find connection '%s' in catalog.",
+        proto.getName());
+  }
+
+  @Override
+  Sequence deserialize(SequenceRefProto proto) {
+    return checkNotNull(
+        catalog.getSequenceByFullName(proto.getFullName()),
+        "Could not find sequence '%s' in catalog.",
         proto.getName());
   }
 

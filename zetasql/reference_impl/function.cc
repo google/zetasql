@@ -59,6 +59,8 @@
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/reference_impl/operator.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/strings/ascii.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "zetasql/public/functions/string_format.h"
@@ -132,15 +134,6 @@ namespace {
 static bool IsTypeWithDistinguishableTies(const Type* type,
                                           const CollatorList& collator_list) {
   return type->IsInterval() || (type->IsString() && !collator_list.empty());
-}
-
-static functions::TimestampScale GetTimestampScale(
-    const LanguageOptions& options) {
-  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-    return functions::TimestampScale::kNanoseconds;
-  } else {
-    return functions::TimestampScale::kMicroseconds;
-  }
 }
 
 // Add() and Subtract() are helper methods with a uniform signature for all
@@ -353,12 +346,6 @@ bool Invoke(FunctionType function, Value* result, absl::Status* status,
   }
   *result = Value::Make<OutType>(out);
   return true;
-}
-
-absl::Status MakeMaxArrayValueByteSizeExceededError(
-    int64_t max_value_byte_size, const zetasql_base::SourceLocation& source_loc) {
-  return zetasql_base::ResourceExhaustedErrorBuilder(source_loc)
-         << "Arrays are limited to " << max_value_byte_size << " bytes";
 }
 
 // Generates an array from start to end inclusive with the specified step size.
@@ -589,17 +576,19 @@ FunctionMap::FunctionMap() {
                      "JsonValueArray");
     RegisterFunction(FunctionKind::kToJson, "to_json", "ToJson");
     RegisterFunction(FunctionKind::kInt64, "int64", "Int64");
-    RegisterFunction(FunctionKind::kDouble, "double", "Double");
+    RegisterFunction(FunctionKind::kDouble, "float64", "Float64");
     RegisterFunction(FunctionKind::kBool, "bool", "Bool");
     RegisterFunction(FunctionKind::kJsonType, "json_type", "JsonType");
     RegisterFunction(FunctionKind::kLaxBool, "lax_bool", "LaxBool");
     RegisterFunction(FunctionKind::kLaxInt64, "lax_int64", "LaxInt64");
-    RegisterFunction(FunctionKind::kLaxDouble, "lax_double", "LaxDouble");
+    RegisterFunction(FunctionKind::kLaxDouble, "lax_float64", "LaxFloat64");
     RegisterFunction(FunctionKind::kLaxString, "lax_string", "LaxString");
     RegisterFunction(FunctionKind::kToJsonString, "to_json_string",
                      "ToJsonString");
     RegisterFunction(FunctionKind::kParseJson, "parse_json", "ParseJson");
     RegisterFunction(FunctionKind::kJsonArray, "json_array", "JsonArray");
+    RegisterFunction(FunctionKind::kJsonObject, "json_object", "JsonObject");
+    RegisterFunction(FunctionKind::kJsonRemove, "json_remove", "JsonRemove");
     RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   }();
   [this]() {
@@ -614,7 +603,11 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kLikeWithCollation, "$like_with_collation",
                      "LikeWithCollation");
     RegisterFunction(FunctionKind::kLikeAny, "$like_any", "LikeAny");
+    RegisterFunction(FunctionKind::kLikeAnyWithCollation,
+                     "$like_any_with_collation", "LikeAnyWithCollation");
     RegisterFunction(FunctionKind::kLikeAll, "$like_all", "LikeAll");
+    RegisterFunction(FunctionKind::kLikeAllWithCollation,
+                     "$like_all_with_collation", "LikeAllWithCollation");
     RegisterFunction(FunctionKind::kLikeAnyArray, "$like_any_array",
                      "LikeAnyArray");
     RegisterFunction(FunctionKind::kLikeAllArray, "$like_all_array",
@@ -690,6 +683,10 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kCsch, "csch", "Csch");
     RegisterFunction(FunctionKind::kSech, "sech", "Sech");
     RegisterFunction(FunctionKind::kCoth, "coth", "Coth");
+    RegisterFunction(FunctionKind::kPi, "pi", "Pi");
+    RegisterFunction(FunctionKind::kPiNumeric, "pi_numeric", "Pi_numeric");
+    RegisterFunction(FunctionKind::kPiBigNumeric, "pi_bignumeric",
+                     "Pi_bignumeric");
     RegisterFunction(FunctionKind::kCorr, "corr", "Corr");
     RegisterFunction(FunctionKind::kCovarPop, "covar_pop", "Covar_pop");
     RegisterFunction(FunctionKind::kCovarSamp, "covar_samp", "Covar_samp");
@@ -703,6 +700,10 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kAnonSumWithReportJson,
                      "$anon_sum_with_report_json", "AnonSumWithReportJson");
     RegisterFunction(FunctionKind::kAnonAvg, "anon_avg", "Anon_avg");
+    RegisterFunction(FunctionKind::kAnonAvgWithReportProto,
+                     "$anon_avg_with_report_proto", "AnonAvgWithReportProto");
+    RegisterFunction(FunctionKind::kAnonAvgWithReportJson,
+                     "$anon_avg_with_report_json", "AnonAvgWithReportJson");
     RegisterFunction(FunctionKind::kAnonVarPop, "anon_var_pop", "Anon_var_pop");
     RegisterFunction(FunctionKind::kAnonStddevPop, "anon_stddev_pop",
                      "Anon_stddev_pop");
@@ -943,6 +944,13 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kArrayFirst, "array_first", "ArrayFirst");
     RegisterFunction(FunctionKind::kArrayLast, "array_last", "ArrayLast");
     RegisterFunction(FunctionKind::kArraySlice, "array_slice", "ArraySlice");
+    RegisterFunction(FunctionKind::kArrayFirstN, "array_first_n",
+                     "array_first_n");
+    RegisterFunction(FunctionKind::kArrayLastN, "array_last_n", "array_last_n");
+    RegisterFunction(FunctionKind::kArrayRemoveFirstN, "array_remove_first_n",
+                     "array_remove_first_n");
+    RegisterFunction(FunctionKind::kArrayRemoveLastN, "array_remove_last_n",
+                     "array_remove_last_n");
     RegisterFunction(FunctionKind::kArrayMin, "array_min", "ArrayMin");
     RegisterFunction(FunctionKind::kArrayMax, "array_max", "ArrayMax");
     RegisterFunction(FunctionKind::kRangeCtor, "range", "Range");
@@ -956,6 +964,8 @@ FunctionMap::FunctionMap() {
                      "RangeOverlaps");
     RegisterFunction(FunctionKind::kRangeIntersect, "range_intersect",
                      "RangeIntersect");
+    RegisterFunction(FunctionKind::kGenerateRangeArray, "generate_range_array",
+                     "GenerateRangeArray");
     RegisterFunction(FunctionKind::kArraySum, "array_sum", "ArraySum");
     RegisterFunction(FunctionKind::kArrayAvg, "array_avg", "ArrayAvg");
     RegisterFunction(FunctionKind::kArrayOffset, "array_offset", "ArrayOffset");
@@ -1515,6 +1525,20 @@ absl::StatusOr<JSONValueConstRef> GetJSONValueConstRef(
 
 }  // namespace
 
+absl::Status MakeMaxArrayValueByteSizeExceededError(
+    int64_t max_value_byte_size, const zetasql_base::SourceLocation& source_loc) {
+  return zetasql_base::ResourceExhaustedErrorBuilder(source_loc)
+         << "Arrays are limited to " << max_value_byte_size << " bytes";
+}
+
+functions::TimestampScale GetTimestampScale(const LanguageOptions& options) {
+  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+    return functions::TimestampScale::kNanoseconds;
+  } else {
+    return functions::TimestampScale::kMicroseconds;
+  }
+}
+
 ABSL_CONST_INIT absl::Mutex BuiltinFunctionRegistry::mu_(absl::kConstInit);
 
 /* static */ absl::StatusOr<BuiltinScalarFunction*>
@@ -1801,6 +1825,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return fct.release();
     }
     case FunctionKind::kLikeWithCollation:
+    case FunctionKind::kLikeAnyWithCollation:
+    case FunctionKind::kLikeAllWithCollation:
       ZETASQL_RETURN_IF_ERROR(
           ValidateInputTypesSupportEqualityComparison(kind, input_types));
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
@@ -1863,6 +1889,10 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kSech:
     case FunctionKind::kCoth:
       return new MathFunction(kind, output_type);
+    case FunctionKind::kPi:
+    case FunctionKind::kPiNumeric:
+    case FunctionKind::kPiBigNumeric:
+      return new NullaryFunction(kind, output_type);
     case FunctionKind::kConcat:
       return new ConcatFunction(kind, output_type);
     case FunctionKind::kLower:
@@ -1961,6 +1991,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kLaxDouble:
     case FunctionKind::kLaxString:
     case FunctionKind::kJsonArray:
+    case FunctionKind::kJsonObject:
+    case FunctionKind::kJsonRemove:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kStartsWithWithCollation:
     case FunctionKind::kEndsWithWithCollation:
@@ -1997,6 +2029,10 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kArrayLast:
       return new ArrayFirstLastFunction(kind, output_type);
     case FunctionKind::kArraySlice:
+    case FunctionKind::kArrayFirstN:
+    case FunctionKind::kArrayLastN:
+    case FunctionKind::kArrayRemoveFirstN:
+    case FunctionKind::kArrayRemoveLastN:
       return new ArraySliceFunction(kind, output_type);
     case FunctionKind::kArraySum:
     case FunctionKind::kArrayAvg:
@@ -2131,6 +2167,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kRangeEnd:
     case FunctionKind::kRangeOverlaps:
     case FunctionKind::kRangeIntersect:
+    case FunctionKind::kGenerateRangeArray:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     default:
       ZETASQL_RET_CHECK_FAIL() << BuiltinFunctionCatalog::GetDebugNameByKind(kind)
@@ -3665,29 +3702,55 @@ absl::StatusOr<Value> ArrayFirstLastFunction::Eval(
 absl::StatusOr<Value> ArraySliceFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_EQ(args.size(), 3);
-  ZETASQL_RET_CHECK(kind() == FunctionKind::kArraySlice);
-  if (args[0].is_null() || args[1].is_null() || args[2].is_null()) {
+  ZETASQL_RET_CHECK_GE(args.size(), 2);
+  if (HasNulls(args)) {
     return Value::Null(output_type());
+  }
+  if (kind() == FunctionKind::kArraySlice) {
+    ZETASQL_RET_CHECK_EQ(args.size(), 3);
+  } else {
+    ZETASQL_RET_CHECK_EQ(args.size(), 2);
+    if (args[1].int64_value() < 0) {
+      return ::zetasql_base::OutOfRangeErrorBuilder()
+             << "The n argument to " << absl::AsciiStrToUpper(debug_name())
+             << " must not be negative.";
+    }
   }
   int array_length = args[0].num_elements();
   if (array_length > 1 &&
       InternalValue::GetOrderKind(args[0]) == InternalValue::kIgnoresOrder) {
     context->SetNonDeterministicOutput();
   }
-  int64_t start = args[1].int64_value();
-  int64_t end = args[2].int64_value();
-  if (array_length == 0 || (start < -array_length && end < -array_length) ||
-      (start >= array_length && end >= array_length)) {
-    return Value::EmptyArray(output_type()->AsArray());
+  int64_t start = 0;
+  int64_t end = array_length;
+  switch (kind()) {
+    case FunctionKind::kArraySlice:
+      start = args[1].int64_value();
+      end = args[2].int64_value();
+      if (start < 0) {
+        start += array_length;
+      }
+      if (end < 0) {
+        end += array_length;
+      }
+      break;
+    case FunctionKind::kArrayFirstN:
+      end = args[1].int64_value() - 1;
+      break;
+    case FunctionKind::kArrayLastN:
+      start = array_length - args[1].int64_value();
+      break;
+    case FunctionKind::kArrayRemoveFirstN:
+      start = args[1].int64_value();
+      break;
+    case FunctionKind::kArrayRemoveLastN:
+      end = array_length - args[1].int64_value() - 1;
+      break;
+    default: {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected function: " << debug_name();
+    }
   }
-  if (start < 0) {
-    start += array_length;
-  }
-  if (end < 0) {
-    end += array_length;
-  }
-  if (start > end) {
+  if (array_length == 0 || end < 0 || start >= array_length || start > end) {
     return Value::EmptyArray(output_type()->AsArray());
   }
   start = std::max(int64_t{0}, start);
@@ -4474,6 +4537,9 @@ static absl::StatusOr<bool> IsEqualToTarget(const Value& element,
   if (!collator_list.empty()) {
     ZETASQL_RET_CHECK(element.type()->kind() == TYPE_STRING);
     absl::Status status = absl::OkStatus();
+    if (element.is_null() || target.is_null()) {
+      return element.is_null() && target.is_null();
+    }
     int64_t res = collator_list[0]->CompareUtf8(element.string_value(),
                                                 target.string_value(), &status);
     ZETASQL_RETURN_IF_ERROR(status);
@@ -5382,6 +5448,8 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       ZETASQL_ASSIGN_OR_RETURN(anon_int64_, builder.Build());
       break;
     }
+    case FCT(FunctionKind::kAnonAvgWithReportProto, TYPE_DOUBLE):
+    case FCT(FunctionKind::kAnonAvgWithReportJson, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonAvg, TYPE_DOUBLE): {
       ::differential_privacy::BoundedMean<double>::Builder builder;
       ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilder<>(args_, &builder));
@@ -5907,6 +5975,8 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonAvg, TYPE_DOUBLE):
+    case FCT(FunctionKind::kAnonAvgWithReportProto, TYPE_DOUBLE):
+    case FCT(FunctionKind::kAnonAvgWithReportJson, TYPE_DOUBLE):
       anon_double_->AddEntry(value.double_value());
       break;
     case FCT(FunctionKind::kAnonSum, TYPE_INT64):
@@ -6864,10 +6934,12 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
       return GetAnonReturnValue(anon_int64_);
     case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_INT64):
       return GetAnonProtoReturnValue(anon_int64_);
+    case FCT(FunctionKind::kAnonAvgWithReportProto, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_DOUBLE):
       return GetAnonProtoReturnValue(anon_double_);
     case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_INT64):
       return GetAnonJsonReturnValue(anon_int64_);
+    case FCT(FunctionKind::kAnonAvgWithReportJson, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_DOUBLE):
       return GetAnonJsonReturnValue(anon_double_);
 
@@ -8644,6 +8716,15 @@ absl::StatusOr<Value> NullaryFunction::Eval(
     }
     case FunctionKind::kCurrentTime: {
       return Value::Time(context->GetCurrentTimeInDefaultTimezone());
+    }
+    case FunctionKind::kPi: {
+      return Value::Double(functions::Pi());
+    }
+    case FunctionKind::kPiNumeric: {
+      return Value::Numeric(functions::Pi_Numeric());
+    }
+    case FunctionKind::kPiBigNumeric: {
+      return Value::BigNumeric(functions::Pi_BigNumeric());
     }
     default:
       break;
@@ -10760,6 +10841,11 @@ absl::Status ValidateMicrosPrecision(const Value& value,
         ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(element, context));
       }
     }
+  }
+  if (value.type()->IsRange()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(value.start(), context));
+    ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(value.end(), context));
+    return absl::OkStatus();
   }
   // TODO: Validate struct fields and range endpoints.
   //    Maybe refactor this into a generic visitor which collects refs to the

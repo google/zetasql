@@ -45,7 +45,7 @@ QueryStmt
         +-argument_list=
         | +-FunctionArgument
         |   +-connection=
-        |     +-Connection(connection=connection2)
+        |     +-Connection(connection=connection3)
         +-column_index_list=[0]
 
 ==

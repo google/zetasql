@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
@@ -689,14 +690,16 @@ class Function {
   // argument names if the argument names are not positional-only.
   std::string GetNoMatchingFunctionSignatureErrorMessage(
       const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
-      absl::Span<const absl::string_view> argument_names) const;
+      absl::Span<const absl::string_view> argument_names,
+      bool argument_types_on_new_line = false) const;
 
   // Returns a generic error message for the no matching function signature
   // error condition.
   static const std::string GetGenericNoMatchingFunctionSignatureErrorMessage(
       const std::string& qualified_function_name,
       const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
-      absl::Span<const absl::string_view> argument_names = {});
+      absl::Span<const absl::string_view> argument_names = {},
+      bool argument_types_on_new_line = false);
 
   const SupportedSignaturesCallback& GetSupportedSignaturesCallback() const;
 
@@ -707,10 +710,12 @@ class Function {
   // In num_signatures returns number of signatures used to build a string.
   //
   // `print_style` controls the way function argument names are printed.
+  // If `print_template_details` is true, template arguments ARG_ANY_1/2 are
+  // printed as T1/T2 rather than just as ANY.
   std::string GetSupportedSignaturesUserFacingText(
       const LanguageOptions& language_options,
-      FunctionArgumentType::NamePrintingStyle print_style,
-      int* num_signatures) const;
+      FunctionArgumentType::NamePrintingStyle print_style, int* num_signatures,
+      bool print_template_details = false) const;
 
   const BadArgumentErrorPrefixCallback&
   GetBadArgumentErrorPrefixCallback() const;

@@ -81,7 +81,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, NULL, NULL},
   {2, NULL, NULL},
   {3, 1, 1},
@@ -107,7 +107,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING and CURRENT ROW)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, 1, 1},
   {2, 1, 2},
   {3, 1, 3},
@@ -133,7 +133,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING and 2 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, 1, 3},
   {2, 1, 4},
   {3, 1, 5},
@@ -160,7 +160,7 @@ FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING and
                                           UNBOUNDED FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, 1, 16},
   {2, 1, 16},
   {3, 1, 16},
@@ -186,7 +186,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 2 PRECEDING and 1 PRECEDING)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, NULL, NULL},
   {2, 1, 1},
   {3, 1, 2},
@@ -212,7 +212,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING and 2 PRECEDING)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, NULL, NULL},
   {2, NULL, NULL},
   {3, NULL, NULL},
@@ -238,7 +238,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 2 PRECEDING and CURRENT ROW)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, 1, 1},
   {2, 1, 2},
   {3, 1, 3},
@@ -264,7 +264,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 2 PRECEDING and 1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, 1, 2},
   {2, 1, 3},
   {3, 1, 4},
@@ -290,7 +290,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN CURRENT ROW and CURRENT ROW)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, 1, 1},
   {2, 2, 2},
   {3, 3, 3},
@@ -316,7 +316,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN CURRENT ROW and 2 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, 1, 3},
   {2, 2, 4},
   {3, 3, 5},
@@ -342,7 +342,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 1 FOLLOWING and 2 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, 2, 3},
   {2, 3, 4},
   {3, 4, 5},
@@ -368,7 +368,7 @@ SELECT row_id,
 FROM AnalyticTableWithSpecialValues
 WINDOW w AS (ORDER BY row_id ROWS BETWEEN 2 FOLLOWING and 1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[unknown order:
   {1, NULL, NULL},
   {2, NULL, NULL},
   {3, NULL, NULL},
@@ -403,7 +403,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, 1, 2},
@@ -434,7 +434,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, 0, 1, 2},
@@ -465,7 +465,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -2147483648, 1, 2},
@@ -496,7 +496,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, 0, 1, 2},
@@ -526,7 +526,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {4, -9223372036854775807, NULL, NULL},
   {3, -9223372036854775807, NULL, NULL},
   {5, -9223372036854775806, NULL, NULL},
@@ -555,7 +555,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {4, 0, NULL, NULL},
   {3, 0, NULL, NULL},
   {5, 1, NULL, NULL},
@@ -584,7 +584,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {4, -2147483648, NULL, NULL},
   {3, -2147483648, NULL, NULL},
   {5, -2147483647, NULL, NULL},
@@ -613,7 +613,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {4, 0, NULL, NULL},
   {3, 0, NULL, NULL},
   {5, 1, NULL, NULL},
@@ -642,7 +642,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, 1, 4},
@@ -673,7 +673,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, 1, 5},
@@ -704,7 +704,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, NULL, NULL},
@@ -735,7 +735,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, NULL, NULL},
@@ -766,7 +766,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, 3, 4},
@@ -797,7 +797,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, 3, 5},
@@ -828,7 +828,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 16},
   {2, NULL, 1, 16},
   {3, -9223372036854775807, 3, 16},
@@ -859,7 +859,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, 3, 4},
@@ -890,7 +890,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, 3, 5},
@@ -921,7 +921,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 16},
   {2, NULL, 1, 16},
   {3, -9223372036854775807, 3, 16},
@@ -952,7 +952,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, 5, 5},
@@ -983,7 +983,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, 0, 5, 5},
@@ -1014,7 +1014,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -2147483648, 5, 5},
@@ -1045,7 +1045,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, 0, 5, 5},
@@ -1076,7 +1076,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, NULL, NULL},
@@ -1107,7 +1107,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, 0, NULL, NULL},
@@ -1138,7 +1138,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -2147483648, NULL, NULL},
@@ -1169,7 +1169,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, 0, NULL, NULL},
@@ -1200,7 +1200,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 16},
   {2, NULL, 1, 16},
   {3, -9223372036854775807, 6, 16},
@@ -1231,7 +1231,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 16},
   {2, NULL, 1, 16},
   {3, 0, 6, 16},
@@ -1262,7 +1262,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 16},
   {2, NULL, 1, 16},
   {3, -2147483648, 6, 16},
@@ -1293,7 +1293,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 16},
   {2, NULL, 1, 16},
   {3, 0, 6, 16},
@@ -1324,7 +1324,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, NULL, NULL},
@@ -1355,7 +1355,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, 0, NULL, NULL},
@@ -1386,7 +1386,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -2147483648, NULL, NULL},
@@ -1417,7 +1417,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, 0, NULL, NULL},
@@ -1448,7 +1448,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, NULL, NULL},
@@ -1480,7 +1480,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, -9223372036854775807, 3, 6},
@@ -1511,7 +1511,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, NULL, NULL},
   {16, 9223372036854775807, NULL, NULL},
   {14, 9223372036854775806, NULL, NULL},
@@ -1542,7 +1542,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 18446744073709551615, NULL, NULL},
   {16, 18446744073709551615, NULL, NULL},
   {14, 18446744073709551614, NULL, NULL},
@@ -1573,7 +1573,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 2147483647, NULL, NULL},
   {16, 2147483647, NULL, NULL},
   {14, 2147483646, NULL, NULL},
@@ -1604,7 +1604,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 4294967295, NULL, NULL},
   {16, 4294967295, NULL, NULL},
   {14, 4294967294, NULL, NULL},
@@ -1635,7 +1635,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 16, 15},
   {16, 9223372036854775807, 16, 15},
   {14, 9223372036854775806, 16, 14},
@@ -1666,7 +1666,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 16, 14},
   {16, 9223372036854775807, 16, 14},
   {14, 9223372036854775806, 16, 13},
@@ -1697,7 +1697,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, NULL, NULL},
   {16, 9223372036854775807, NULL, NULL},
   {14, 9223372036854775806, 16, 15},
@@ -1728,7 +1728,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 18446744073709551615, NULL, NULL},
   {16, 18446744073709551615, NULL, NULL},
   {14, 18446744073709551614, 16, 15},
@@ -1759,7 +1759,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 2147483647, NULL, NULL},
   {16, 2147483647, NULL, NULL},
   {14, 2147483646, 16, 15},
@@ -1790,7 +1790,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 4294967295, NULL, NULL},
   {16, 4294967295, NULL, NULL},
   {14, 4294967294, 16, 15},
@@ -1821,7 +1821,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, NULL, NULL},
   {16, 9223372036854775807, NULL, NULL},
   {14, 9223372036854775806, NULL, NULL},
@@ -1852,7 +1852,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 18446744073709551615, NULL, NULL},
   {16, 18446744073709551615, NULL, NULL},
   {14, 18446744073709551614, NULL, NULL},
@@ -1883,7 +1883,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 2147483647, NULL, NULL},
   {16, 2147483647, NULL, NULL},
   {14, 2147483646, NULL, NULL},
@@ -1914,7 +1914,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 4294967295, NULL, NULL},
   {16, 4294967295, NULL, NULL},
   {14, 4294967294, NULL, NULL},
@@ -1945,7 +1945,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 16, 15},
   {16, 9223372036854775807, 16, 15},
   {14, 9223372036854775806, 16, 14},
@@ -1976,7 +1976,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 16, 14},
   {16, 9223372036854775807, 16, 14},
   {14, 9223372036854775806, 16, 13},
@@ -2007,7 +2007,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 16, 1},
   {16, 9223372036854775807, 16, 1},
   {14, 9223372036854775806, 16, 1},
@@ -2038,7 +2038,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 16, 15},
   {16, 9223372036854775807, 16, 15},
   {14, 9223372036854775806, 14, 14},
@@ -2069,7 +2069,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 16, 14},
   {16, 9223372036854775807, 16, 14},
   {14, 9223372036854775806, 14, 13},
@@ -2100,7 +2100,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 16, 1},
   {16, 9223372036854775807, 16, 1},
   {14, 9223372036854775806, 14, 1},
@@ -2131,7 +2131,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 14, 14},
   {16, 9223372036854775807, 14, 14},
   {14, 9223372036854775806, 13, 13},
@@ -2162,7 +2162,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, NULL, NULL},
   {16, 9223372036854775807, NULL, NULL},
   {14, 9223372036854775806, NULL, NULL},
@@ -2193,7 +2193,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 13, 1},
   {16, 9223372036854775807, 13, 1},
   {14, 9223372036854775806, 13, 1},
@@ -2224,7 +2224,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, NULL, NULL},
   {16, 9223372036854775807, NULL, NULL},
   {14, 9223372036854775806, NULL, NULL},
@@ -2255,7 +2255,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, NULL, NULL},
   {16, 9223372036854775807, NULL, NULL},
   {14, 9223372036854775806, NULL, NULL},
@@ -2286,7 +2286,7 @@ ARRAY<STRUCT<row_id INT64,
              uint64_val UINT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 18446744073709551615, NULL, NULL},
   {16, 18446744073709551615, NULL, NULL},
   {14, 18446744073709551614, NULL, NULL},
@@ -2317,7 +2317,7 @@ ARRAY<STRUCT<row_id INT64,
              int32_val INT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 2147483647, NULL, NULL},
   {16, 2147483647, NULL, NULL},
   {14, 2147483646, NULL, NULL},
@@ -2348,7 +2348,7 @@ ARRAY<STRUCT<row_id INT64,
              uint32_val UINT32,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 4294967295, NULL, NULL},
   {16, 4294967295, NULL, NULL},
   {14, 4294967294, NULL, NULL},
@@ -2380,7 +2380,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, 16, 7},
   {16, 9223372036854775807, 16, 7},
   {14, 9223372036854775806, 16, 7},
@@ -2411,7 +2411,7 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 16, 1},
   {2, NULL, 16, 1},
   {3, -9223372036854775807, 16, 1},
@@ -2442,7 +2442,7 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {1, NULL, 1, 2},
   {2, NULL, 1, 2},
   {3, nan, 3, 4},
@@ -2472,22 +2472,22 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, NULL, 1, 2},
- {2, NULL, 1, 2},
- {3, nan, 3, 4},
- {4, nan, 3, 4},
- {5, -inf, 5, 6},
- {6, -inf, 5, 6},
- {7, 10.5, 7, 11},
- {8, 10.5, 7, 11},
- {9, 10.5, 7, 11},
- {11, 12.5, 7, 13},
- {10, 12.5, 7, 13},
- {12, 13.5, 10, 14},
- {13, 14, 10, 14},
- {14, 15, 12, 14},
- {15, inf, 15, 16},
- {16, inf, 15, 16}]
+[unknown order:{1, NULL, 1, 2},
+               {2, NULL, 1, 2},
+               {3, nan, 3, 4},
+               {4, nan, 3, 4},
+               {5, -inf, 5, 6},
+               {6, -inf, 5, 6},
+               {7, 10.5, 7, 11},
+               {8, 10.5, 7, 11},
+               {9, 10.5, 7, 11},
+               {11, 12.5, 7, 13},
+               {10, 12.5, 7, 13},
+               {12, 13.5, 10, 14},
+               {13, 14, 10, 14},
+               {14, 15, 12, 14},
+               {15, inf, 15, 16},
+               {16, inf, 15, 16}]
 ==
 
 [name=range_window_inf_nan_keys_3]
@@ -2500,22 +2500,22 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, NULL, 1, 2},
- {2, NULL, 1, 2},
- {3, nan, 3, 4},
- {4, nan, 3, 4},
- {5, -inf, 5, 6},
- {6, -inf, 5, 6},
- {7, 10.5, 10, 11},
- {8, 10.5, 10, 11},
- {9, 10.5, 10, 11},
- {11, 12.5, 12, 13},
- {10, 12.5, 12, 13},
- {12, 13.5, 14, 14},
- {13, 14, 14, 14},
- {14, 15, NULL, NULL},
- {15, inf, 15, 16},
- {16, inf, 15, 16}]
+[unknown order:{1, NULL, 1, 2},
+               {2, NULL, 1, 2},
+               {3, nan, 3, 4},
+               {4, nan, 3, 4},
+               {5, -inf, 5, 6},
+               {6, -inf, 5, 6},
+               {7, 10.5, 10, 11},
+               {8, 10.5, 10, 11},
+               {9, 10.5, 10, 11},
+               {11, 12.5, 12, 13},
+               {10, 12.5, 12, 13},
+               {12, 13.5, 14, 14},
+               {13, 14, 14, 14},
+               {14, 15, NULL, NULL},
+               {15, inf, 15, 16},
+               {16, inf, 15, 16}]
 ==
 
 # INF offset with positive infinity order keys.
@@ -2565,7 +2565,7 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {3, nan, 3, 4},
   {4, nan, 3, 4},
   {7, 10.5, NULL, NULL},
@@ -2597,18 +2597,18 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[{3, nan, 3, 4},
- {4, nan, 3, 4},
- {7, 10.5, 10, 16},
- {8, 10.5, 10, 16},
- {9, 10.5, 10, 16},
- {10, 12.5, 14, 16},
- {11, 12.5, 14, 16},
- {12, 13.5, 15, 16},
- {13, 14, 15, 16},
- {14, 15, 15, 16},
- {15, inf, 15, 16},
- {16, inf, 15, 16}]
+[unknown order:{3, nan, 3, 4},
+               {4, nan, 3, 4},
+               {7, 10.5, 10, 16},
+               {8, 10.5, 10, 16},
+               {9, 10.5, 10, 16},
+               {10, 12.5, 14, 16},
+               {11, 12.5, 14, 16},
+               {12, 13.5, 15, 16},
+               {13, 14, 15, 16},
+               {14, 15, 15, 16},
+               {15, inf, 15, 16},
+               {16, inf, 15, 16}]
 ==
 
 [name=range_window_inf_offset_5]
@@ -2627,18 +2627,18 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[{15, inf, 16, 15},
- {16, inf, 16, 15},
- {14, 15, 16, 14},
- {13, 14, 16, 13},
- {12, 13.5, 16, 12},
- {10, 12.5, 16, 10},
- {11, 12.5, 16, 10},
- {7, 10.5, 16, 7},
- {8, 10.5, 16, 7},
- {9, 10.5, 16, 7},
- {3, nan, 4, 3},
- {4, nan, 4, 3}]
+[unknown order:{15, inf, 16, 15},
+               {16, inf, 16, 15},
+               {14, 15, 16, 14},
+               {13, 14, 16, 13},
+               {12, 13.5, 16, 12},
+               {10, 12.5, 16, 10},
+               {11, 12.5, 16, 10},
+               {7, 10.5, 16, 7},
+               {8, 10.5, 16, 7},
+               {9, 10.5, 16, 7},
+               {3, nan, 4, 3},
+               {4, nan, 4, 3}]
 ==
 
 [name=range_window_inf_offset_6]
@@ -2657,7 +2657,7 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, inf, 16, 15},
   {16, inf, 16, 15},
   {14, 15, NULL, NULL},
@@ -2720,18 +2720,18 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[{3, nan, 3, 4},
- {4, nan, 3, 4},
- {5, -inf, 5, 6},
- {6, -inf, 5, 6},
- {8, 10.5, 5, 9},
- {9, 10.5, 5, 9},
- {7, 10.5, 5, 9},
- {11, 12.5, 5, 11},
- {10, 12.5, 5, 11},
- {12, 13.5, 5, 12},
- {13, 14, 5, 13},
- {14, 15, 5, 14}]
+[unknown order:{3, nan, 3, 4},
+               {4, nan, 3, 4},
+               {5, -inf, 5, 6},
+               {6, -inf, 5, 6},
+               {8, 10.5, 5, 9},
+               {9, 10.5, 5, 9},
+               {7, 10.5, 5, 9},
+               {11, 12.5, 5, 11},
+               {10, 12.5, 5, 11},
+               {12, 13.5, 5, 12},
+               {13, 14, 5, 13},
+               {14, 15, 5, 14}]
 ==
 
 [name=range_window_inf_offset_10]
@@ -2750,7 +2750,7 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {3, nan, 3, 4},
   {4, nan, 3, 4},
   {5, -inf, 5, 6},
@@ -2842,7 +2842,7 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {14, 15, NULL, NULL},
   {13, 14, NULL, NULL},
   {12, 13.5, NULL, NULL},
@@ -2874,18 +2874,18 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[{14, 15, 11, 5},
- {13, 14, 9, 5},
- {12, 13.5, 9, 5},
- {11, 12.5, 9, 5},
- {10, 12.5, 9, 5},
- {8, 10.5, 6, 5},
- {9, 10.5, 6, 5},
- {7, 10.5, 6, 5},
- {5, -inf, 6, 5},
- {6, -inf, 6, 5},
- {3, nan, 4, 3},
- {4, nan, 4, 3}]
+[unknown order:{14, 15, 11, 5},
+               {13, 14, 9, 5},
+               {12, 13.5, 9, 5},
+               {11, 12.5, 9, 5},
+               {10, 12.5, 9, 5},
+               {8, 10.5, 6, 5},
+               {9, 10.5, 6, 5},
+               {7, 10.5, 6, 5},
+               {5, -inf, 6, 5},
+               {6, -inf, 6, 5},
+               {3, nan, 4, 3},
+               {4, nan, 4, 3}]
 ==
 
 # Multiple order keys.
@@ -2901,7 +2901,7 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, inf, 16, 15},
   {16, 9223372036854775807, inf, 16, 15},
   {14, 9223372036854775806, 15, 16, 14},
@@ -2933,7 +2933,7 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, inf, 16, 15},
   {16, 9223372036854775807, inf, 16, 15},
   {14, 9223372036854775806, 15, 14, 14},
@@ -2965,7 +2965,7 @@ ARRAY<STRUCT<row_id INT64,
              double_val DOUBLE,
              start_boundary INT64,
              end_boundary INT64>>
-[
+[unknown order:
   {15, 9223372036854775807, inf, 16, 1},
   {16, 9223372036854775807, inf, 16, 1},
   {14, 9223372036854775806, 15, 16, 1},
@@ -3004,12 +3004,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, NULL, NULL},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {4, 12, 1, 1},
- {5, 13, 1, 3},
- {6, 13, 1, 3}]
+[unknown order:{1, 10, NULL, NULL},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {4, 12, 1, 1},
+               {5, 13, 1, 3},
+               {6, 13, 1, 3}]
 ==
 
 [name=range_window_asc_without_special_values_2]
@@ -3023,12 +3023,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 1},
- {3, 11, 1, 3},
- {2, 11, 1, 3},
- {4, 12, 1, 4},
- {5, 13, 1, 6},
- {6, 13, 1, 6}]
+[unknown order:{1, 10, 1, 1},
+               {3, 11, 1, 3},
+               {2, 11, 1, 3},
+               {4, 12, 1, 4},
+               {5, 13, 1, 6},
+               {6, 13, 1, 6}]
 ==
 
 [name=range_window_asc_without_special_values_3]
@@ -3042,12 +3042,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 4},
- {3, 11, 1, 6},
- {2, 11, 1, 6},
- {4, 12, 1, 6},
- {5, 13, 1, 6},
- {6, 13, 1, 6}]
+[unknown order:{1, 10, 1, 4},
+               {3, 11, 1, 6},
+               {2, 11, 1, 6},
+               {4, 12, 1, 6},
+               {5, 13, 1, 6},
+               {6, 13, 1, 6}]
 ==
 
 [name=range_window_asc_without_special_values_4]
@@ -3061,12 +3061,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 6},
- {3, 11, 1, 6},
- {2, 11, 1, 6},
- {4, 12, 1, 6},
- {5, 13, 1, 6},
- {6, 13, 1, 6}]
+[unknown order:{1, 10, 1, 6},
+               {3, 11, 1, 6},
+               {2, 11, 1, 6},
+               {4, 12, 1, 6},
+               {5, 13, 1, 6},
+               {6, 13, 1, 6}]
 ==
 
 [name=range_window_asc_without_special_values_5]
@@ -3080,12 +3080,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, NULL, NULL},
- {3, 11, 1, 1},
- {2, 11, 1, 1},
- {4, 12, 1, 3},
- {5, 13, 2, 4},
- {6, 13, 2, 4}]
+[unknown order:{1, 10, NULL, NULL},
+               {3, 11, 1, 1},
+               {2, 11, 1, 1},
+               {4, 12, 1, 3},
+               {5, 13, 2, 4},
+               {6, 13, 2, 4}]
 ==
 
 [name=range_window_asc_without_special_values_6]
@@ -3099,12 +3099,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, NULL, NULL},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {4, 12, NULL, NULL},
- {5, 13, NULL, NULL},
- {6, 13, NULL, NULL}]
+[unknown order:{1, 10, NULL, NULL},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {4, 12, NULL, NULL},
+               {5, 13, NULL, NULL},
+               {6, 13, NULL, NULL}]
 ==
 
 [name=range_window_asc_without_special_values_7]
@@ -3118,12 +3118,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 1},
- {3, 11, 1, 3},
- {2, 11, 1, 3},
- {4, 12, 1, 4},
- {5, 13, 2, 6},
- {6, 13, 2, 6}]
+[unknown order:{1, 10, 1, 1},
+               {3, 11, 1, 3},
+               {2, 11, 1, 3},
+               {4, 12, 1, 4},
+               {5, 13, 2, 6},
+               {6, 13, 2, 6}]
 ==
 
 [name=range_window_asc_without_special_values_8]
@@ -3137,12 +3137,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 4},
- {3, 11, 1, 6},
- {2, 11, 1, 6},
- {4, 12, 1, 6},
- {5, 13, 2, 6},
- {6, 13, 2, 6}]
+[unknown order:{1, 10, 1, 4},
+               {3, 11, 1, 6},
+               {2, 11, 1, 6},
+               {4, 12, 1, 6},
+               {5, 13, 2, 6},
+               {6, 13, 2, 6}]
 ==
 
 [name=range_window_asc_without_special_values_9]
@@ -3156,12 +3156,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 6},
- {3, 11, 1, 6},
- {2, 11, 1, 6},
- {4, 12, 1, 6},
- {5, 13, 2, 6},
- {6, 13, 2, 6}]
+[unknown order:{1, 10, 1, 6},
+               {3, 11, 1, 6},
+               {2, 11, 1, 6},
+               {4, 12, 1, 6},
+               {5, 13, 2, 6},
+               {6, 13, 2, 6}]
 ==
 
 [name=range_window_asc_without_special_values_10]
@@ -3175,12 +3175,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 1},
- {3, 11, 2, 3},
- {2, 11, 2, 3},
- {4, 12, 4, 4},
- {5, 13, 5, 6},
- {6, 13, 5, 6}]
+[unknown order:{1, 10, 1, 1},
+               {3, 11, 2, 3},
+               {2, 11, 2, 3},
+               {4, 12, 4, 4},
+               {5, 13, 5, 6},
+               {6, 13, 5, 6}]
 ==
 
 [name=range_window_asc_without_special_values_11]
@@ -3194,12 +3194,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 4},
- {3, 11, 2, 6},
- {2, 11, 2, 6},
- {4, 12, 4, 6},
- {5, 13, 5, 6},
- {6, 13, 5, 6}]
+[unknown order:{1, 10, 1, 4},
+               {3, 11, 2, 6},
+               {2, 11, 2, 6},
+               {4, 12, 4, 6},
+               {5, 13, 5, 6},
+               {6, 13, 5, 6}]
 ==
 
 [name=range_window_asc_without_special_values_12]
@@ -3213,12 +3213,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 6},
- {3, 11, 2, 6},
- {2, 11, 2, 6},
- {4, 12, 4, 6},
- {5, 13, 5, 6},
- {6, 13, 5, 6}]
+[unknown order:{1, 10, 1, 6},
+               {3, 11, 2, 6},
+               {2, 11, 2, 6},
+               {4, 12, 4, 6},
+               {5, 13, 5, 6},
+               {6, 13, 5, 6}]
 ==
 
 [name=range_window_asc_without_special_values_13]
@@ -3232,12 +3232,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 2, 4},
- {3, 11, 4, 6},
- {2, 11, 4, 6},
- {4, 12, 5, 6},
- {5, 13, NULL, NULL},
- {6, 13, NULL, NULL}]
+[unknown order:{1, 10, 2, 4},
+               {3, 11, 4, 6},
+               {2, 11, 4, 6},
+               {4, 12, 5, 6},
+               {5, 13, NULL, NULL},
+               {6, 13, NULL, NULL}]
 ==
 
 [name=range_window_asc_without_special_values_14]
@@ -3251,12 +3251,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, NULL, NULL},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {4, 12, NULL, NULL},
- {5, 13, NULL, NULL},
- {6, 13, NULL, NULL}]
+[unknown order:{1, 10, NULL, NULL},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {4, 12, NULL, NULL},
+               {5, 13, NULL, NULL},
+               {6, 13, NULL, NULL}]
 ==
 
 [name=range_window_asc_without_special_values_15]
@@ -3270,12 +3270,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 4, 6},
- {3, 11, 5, 6},
- {2, 11, 5, 6},
- {4, 12, NULL, NULL},
- {5, 13, NULL, NULL},
- {6, 13, NULL, NULL}]
+[unknown order:{1, 10, 4, 6},
+               {3, 11, 5, 6},
+               {2, 11, 5, 6},
+               {4, 12, NULL, NULL},
+               {5, 13, NULL, NULL},
+               {6, 13, NULL, NULL}]
 ==
 
 [name=range_window_asc_without_special_values_16]
@@ -3289,12 +3289,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, NULL, NULL},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {4, 12, NULL, NULL},
- {5, 13, NULL, NULL},
- {6, 13, NULL, NULL}]
+[unknown order:{1, 10, NULL, NULL},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {4, 12, NULL, NULL},
+               {5, 13, NULL, NULL},
+               {6, 13, NULL, NULL}]
 ==
 
 [name=range_window_asc_without_special_values_17]
@@ -3308,12 +3308,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, NULL, NULL},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {4, 12, NULL, NULL},
- {5, 13, NULL, NULL},
- {6, 13, NULL, NULL}]
+[unknown order:{1, 10, NULL, NULL},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {4, 12, NULL, NULL},
+               {5, 13, NULL, NULL},
+               {6, 13, NULL, NULL}]
 ==
 
 [name=range_window_asc_without_special_values_18]
@@ -3328,12 +3328,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{1, 10, 1, 6},
- {3, 11, 1, 6},
- {2, 11, 1, 6},
- {4, 12, 1, 6},
- {5, 13, 1, 6},
- {6, 13, 1, 6}]
+[unknown order:{1, 10, 1, 6},
+               {3, 11, 1, 6},
+               {2, 11, 1, 6},
+               {4, 12, 1, 6},
+               {5, 13, 1, 6},
+               {6, 13, 1, 6}]
 ==
 
 [name=range_window_desc_without_special_values_1]
@@ -3347,12 +3347,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, NULL, NULL},
- {6, 13, NULL, NULL},
- {4, 12, NULL, NULL},
- {3, 11, 6, 5},
- {2, 11, 6, 5},
- {1, 10, 6, 4}]
+[unknown order:{5, 13, NULL, NULL},
+               {6, 13, NULL, NULL},
+               {4, 12, NULL, NULL},
+               {3, 11, 6, 5},
+               {2, 11, 6, 5},
+               {1, 10, 6, 4}]
 ==
 
 [name=range_window_desc_without_special_values_2]
@@ -3366,12 +3366,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 5},
- {6, 13, 6, 5},
- {4, 12, 6, 4},
- {3, 11, 6, 2},
- {2, 11, 6, 2},
- {1, 10, 6, 1}]
+[unknown order:{5, 13, 6, 5},
+               {6, 13, 6, 5},
+               {4, 12, 6, 4},
+               {3, 11, 6, 2},
+               {2, 11, 6, 2},
+               {1, 10, 6, 1}]
 ==
 
 [name=range_window_desc_without_special_values_3]
@@ -3385,12 +3385,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 2},
- {6, 13, 6, 2},
- {4, 12, 6, 1},
- {3, 11, 6, 1},
- {2, 11, 6, 1},
- {1, 10, 6, 1}]
+[unknown order:{5, 13, 6, 2},
+               {6, 13, 6, 2},
+               {4, 12, 6, 1},
+               {3, 11, 6, 1},
+               {2, 11, 6, 1},
+               {1, 10, 6, 1}]
 ==
 
 [name=range_window_desc_without_special_values_4]
@@ -3404,12 +3404,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 1},
- {6, 13, 6, 1},
- {4, 12, 6, 1},
- {3, 11, 6, 1},
- {2, 11, 6, 1},
- {1, 10, 6, 1}]
+[unknown order:{5, 13, 6, 1},
+               {6, 13, 6, 1},
+               {4, 12, 6, 1},
+               {3, 11, 6, 1},
+               {2, 11, 6, 1},
+               {1, 10, 6, 1}]
 ==
 
 [name=range_window_desc_without_special_values_5]
@@ -3423,12 +3423,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, NULL, NULL},
- {6, 13, NULL, NULL},
- {4, 12, 6, 5},
- {3, 11, 6, 4},
- {2, 11, 6, 4},
- {1, 10, 4, 2}]
+[unknown order:{5, 13, NULL, NULL},
+               {6, 13, NULL, NULL},
+               {4, 12, 6, 5},
+               {3, 11, 6, 4},
+               {2, 11, 6, 4},
+               {1, 10, 4, 2}]
 ==
 
 [name=range_window_desc_without_special_values_6]
@@ -3442,12 +3442,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, NULL, NULL},
- {6, 13, NULL, NULL},
- {4, 12, NULL, NULL},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {1, 10, NULL, NULL}]
+[unknown order:{5, 13, NULL, NULL},
+               {6, 13, NULL, NULL},
+               {4, 12, NULL, NULL},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {1, 10, NULL, NULL}]
 ==
 
 [name=range_window_desc_without_special_values_7]
@@ -3461,12 +3461,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 5},
- {6, 13, 6, 5},
- {4, 12, 6, 4},
- {3, 11, 6, 2},
- {2, 11, 6, 2},
- {1, 10, 4, 1}]
+[unknown order:{5, 13, 6, 5},
+               {6, 13, 6, 5},
+               {4, 12, 6, 4},
+               {3, 11, 6, 2},
+               {2, 11, 6, 2},
+               {1, 10, 4, 1}]
 ==
 
 [name=range_window_desc_without_special_values_8]
@@ -3480,12 +3480,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 2},
- {6, 13, 6, 2},
- {4, 12, 6, 1},
- {3, 11, 6, 1},
- {2, 11, 6, 1},
- {1, 10, 4, 1}]
+[unknown order:{5, 13, 6, 2},
+               {6, 13, 6, 2},
+               {4, 12, 6, 1},
+               {3, 11, 6, 1},
+               {2, 11, 6, 1},
+               {1, 10, 4, 1}]
 ==
 
 [name=range_window_desc_without_special_values_9]
@@ -3499,12 +3499,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 1},
- {6, 13, 6, 1},
- {4, 12, 6, 1},
- {3, 11, 6, 1},
- {2, 11, 6, 1},
- {1, 10, 4, 1}]
+[unknown order:{5, 13, 6, 1},
+               {6, 13, 6, 1},
+               {4, 12, 6, 1},
+               {3, 11, 6, 1},
+               {2, 11, 6, 1},
+               {1, 10, 4, 1}]
 ==
 
 [name=range_window_desc_without_special_values_10]
@@ -3518,12 +3518,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 5},
- {6, 13, 6, 5},
- {4, 12, 4, 4},
- {3, 11, 3, 2},
- {2, 11, 3, 2},
- {1, 10, 1, 1}]
+[unknown order:{5, 13, 6, 5},
+               {6, 13, 6, 5},
+               {4, 12, 4, 4},
+               {3, 11, 3, 2},
+               {2, 11, 3, 2},
+               {1, 10, 1, 1}]
 ==
 
 [name=range_window_desc_without_special_values_11]
@@ -3537,12 +3537,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 2},
- {6, 13, 6, 2},
- {4, 12, 4, 1},
- {3, 11, 3, 1},
- {2, 11, 3, 1},
- {1, 10, 1, 1}]
+[unknown order:{5, 13, 6, 2},
+               {6, 13, 6, 2},
+               {4, 12, 4, 1},
+               {3, 11, 3, 1},
+               {2, 11, 3, 1},
+               {1, 10, 1, 1}]
 ==
 
 [name=range_window_desc_without_special_values_12]
@@ -3556,12 +3556,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 1},
- {6, 13, 6, 1},
- {4, 12, 4, 1},
- {3, 11, 3, 1},
- {2, 11, 3, 1},
- {1, 10, 1, 1}]
+[unknown order:{5, 13, 6, 1},
+               {6, 13, 6, 1},
+               {4, 12, 4, 1},
+               {3, 11, 3, 1},
+               {2, 11, 3, 1},
+               {1, 10, 1, 1}]
 ==
 
 [name=range_window_desc_without_special_values_13]
@@ -3575,12 +3575,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 4, 2},
- {6, 13, 4, 2},
- {4, 12, 3, 1},
- {3, 11, 1, 1},
- {2, 11, 1, 1},
- {1, 10, NULL, NULL}]
+[unknown order:{5, 13, 4, 2},
+               {6, 13, 4, 2},
+               {4, 12, 3, 1},
+               {3, 11, 1, 1},
+               {2, 11, 1, 1},
+               {1, 10, NULL, NULL}]
 ==
 
 [name=range_window_desc_without_special_values_14]
@@ -3594,12 +3594,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, NULL, NULL},
- {6, 13, NULL, NULL},
- {4, 12, NULL, NULL},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {1, 10, NULL, NULL}]
+[unknown order:{5, 13, NULL, NULL},
+               {6, 13, NULL, NULL},
+               {4, 12, NULL, NULL},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {1, 10, NULL, NULL}]
 ==
 
 [name=range_window_desc_without_special_values_15]
@@ -3613,12 +3613,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 3, 1},
- {6, 13, 3, 1},
- {4, 12, 1, 1},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {1, 10, NULL, NULL}]
+[unknown order:{5, 13, 3, 1},
+               {6, 13, 3, 1},
+               {4, 12, 1, 1},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {1, 10, NULL, NULL}]
 ==
 
 [name=range_window_desc_without_special_values_16]
@@ -3632,12 +3632,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, NULL, NULL},
- {6, 13, NULL, NULL},
- {4, 12, NULL, NULL},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {1, 10, NULL, NULL}]
+[unknown order:{5, 13, NULL, NULL},
+               {6, 13, NULL, NULL},
+               {4, 12, NULL, NULL},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {1, 10, NULL, NULL}]
 ==
 
 [name=range_window_desc_without_special_values_17]
@@ -3651,12 +3651,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, NULL, NULL},
- {6, 13, NULL, NULL},
- {4, 12, NULL, NULL},
- {3, 11, NULL, NULL},
- {2, 11, NULL, NULL},
- {1, 10, NULL, NULL}]
+[unknown order:{5, 13, NULL, NULL},
+               {6, 13, NULL, NULL},
+               {4, 12, NULL, NULL},
+               {3, 11, NULL, NULL},
+               {2, 11, NULL, NULL},
+               {1, 10, NULL, NULL}]
 ==
 
 [name=range_window_desc_without_special_values_18]
@@ -3671,12 +3671,12 @@ ARRAY<STRUCT<row_id INT64,
              int64_val INT64,
              start_boundary INT64,
              end_boundary INT64>>
-[{5, 13, 6, 1},
- {6, 13, 6, 1},
- {4, 12, 6, 1},
- {3, 11, 6, 1},
- {2, 11, 6, 1},
- {1, 10, 6, 1}]
+[unknown order:{5, 13, 6, 1},
+               {6, 13, 6, 1},
+               {4, 12, 6, 1},
+               {3, 11, 6, 1},
+               {2, 11, 6, 1},
+               {1, 10, 6, 1}]
 ==
 
 # -----------------------------------------------------------------------------

@@ -49,6 +49,7 @@ using ::zetasql::JSONValueConstRef;
 using ::zetasql::JSONValueRef;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 using WideNumberMode = ::zetasql::JSONParsingOptions::WideNumberMode;
 
@@ -1187,6 +1188,62 @@ TEST(JSONValueTest, NormalizedEqualsArray) {
   EXPECT_FALSE(ref.NormalizedEquals(other_ref));
 }
 
+TEST(JSONValueTest, GetMemberIfExistsOnNonObject) {
+  {
+    // JSON null
+    JSONValue json;
+    EXPECT_FALSE(json.GetRef().GetMemberIfExists("key").has_value());
+  }
+
+  {
+    // Int64
+    JSONValue json(int64_t{10});
+    EXPECT_FALSE(json.GetRef().GetMemberIfExists("key").has_value());
+  }
+  {
+    // Uint64
+    JSONValue json(uint64_t{10});
+    EXPECT_FALSE(json.GetRef().GetMemberIfExists("key").has_value());
+  }
+  {
+    // Boolean
+    JSONValue json(true);
+    EXPECT_FALSE(json.GetRef().GetMemberIfExists("key").has_value());
+  }
+  {
+    // String
+    JSONValue json(std::string{"foo"});
+    EXPECT_FALSE(json.GetRef().GetMemberIfExists("key").has_value());
+  }
+  {
+    // Array
+    JSONValue json;
+    json.GetRef().SetToEmptyArray();
+    EXPECT_FALSE(json.GetRef().GetMemberIfExists("key").has_value());
+  }
+}
+
+TEST(JSONValueTest, GetMemberIfExistsOnObject) {
+  JSONValue json =
+      JSONValue::ParseJSONString(R"({"key": 10, "key2": [true]})").value();
+  JSONValueRef ref = json.GetRef();
+
+  {
+    auto member = ref.GetMemberIfExists("key");
+    ASSERT_TRUE(member.has_value());
+    member->SetString("foo");
+  }
+
+  {
+    auto member = ref.GetMemberIfExists("inexistent key");
+    EXPECT_FALSE(member.has_value());
+  }
+
+  JSONValue expected =
+      JSONValue::ParseJSONString(R"({"key": "foo", "key2": [true]})").value();
+  EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+}
+
 TEST(JSONValueTest, ParseWithNestingLimit) {
   JSONParsingOptions options{.wide_number_mode = WideNumberMode::kRound,
                              .max_nesting = std::nullopt};
@@ -1248,6 +1305,555 @@ TEST(JSONValueTest, ParseWithNestingLimit) {
       result.status().message(),
       HasSubstr(
           "Max nesting of 3 has been exceeded while parsing JSON document"));
+}
+
+TEST(JSONValueTest, InsertArrayElementIntoNull) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+
+  EXPECT_TRUE(ref.IsNull());
+
+  EXPECT_THAT(ref.InsertArrayElement(JSONValue(int64_t{10}), 0),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an array")));
+}
+
+TEST(JSONValueTest, InsertArrayElementIntoObject) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.SetToEmptyObject();
+  ref.GetMember("key").SetInt64(10);
+
+  EXPECT_TRUE(ref.IsObject());
+
+  EXPECT_THAT(ref.InsertArrayElement(JSONValue(int64_t{10}), 0),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an array")));
+}
+
+TEST(JSONValueTest, InsertArrayElementIntoPrimitiveTypes) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.SetString("hello");
+
+  EXPECT_TRUE(ref.IsString());
+
+  EXPECT_THAT(ref.InsertArrayElement(JSONValue(int64_t{10}), 0),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an array")));
+}
+
+TEST(JSONValueTest, InsertArrayElement) {
+  {
+    // Empty array.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElement(JSONValue(int64_t{10}), 0));
+    ASSERT_EQ(ref.GetArraySize(), 1);
+    ASSERT_TRUE(ref.GetArrayElement(0).IsInt64());
+    EXPECT_EQ(ref.GetArrayElement(0).GetInt64(), 10);
+  }
+
+  constexpr absl::string_view kInitialValue = "[1, \"foo\", null, {}]";
+  {
+    // Insert at the beginning of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElement(JSONValue(int64_t{10}), 0));
+    EXPECT_EQ(ref.GetArraySize(), 5);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[10, 1, \"foo\", null, {}]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Insert in the middle of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElement(JSONValue(int64_t{10}), 2));
+    EXPECT_EQ(ref.GetArraySize(), 5);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", 10, null, {}]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Insert at the end of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElement(JSONValue(int64_t{10}), 4));
+    EXPECT_EQ(ref.GetArraySize(), 5);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, 10]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Insert past the end of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElement(JSONValue(int64_t{10}), 10));
+    EXPECT_EQ(ref.GetArraySize(), 5);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, 10]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+}
+
+TEST(JSONValueTest, InsertArrayElements) {
+  {
+    // Empty array.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert), 0));
+    ASSERT_EQ(ref.GetArraySize(), 2);
+    ASSERT_TRUE(ref.GetArrayElement(0).IsInt64());
+    EXPECT_EQ(ref.GetArrayElement(0).GetInt64(), 10);
+    ASSERT_TRUE(ref.GetArrayElement(1).IsString());
+    EXPECT_EQ(ref.GetArrayElement(1).GetString(), "bar");
+  }
+
+  constexpr absl::string_view kInitialValue = "[1, \"foo\", null, {}]";
+  {
+    // Insert 0 element.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements({}, 0));
+    EXPECT_EQ(ref.GetArraySize(), 4);
+    EXPECT_TRUE(ref.NormalizedEquals(
+        JSONValue::ParseJSONString(kInitialValue).value().GetConstRef()));
+  }
+
+  {
+    // Insert at the beginning of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert), 0));
+    EXPECT_EQ(ref.GetArraySize(), 6);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[10, \"bar\", 1, \"foo\", null, {}]")
+            .value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Insert in the middle of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert), 2));
+    EXPECT_EQ(ref.GetArraySize(), 6);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", 10, \"bar\", null, {}]")
+            .value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Insert at the end of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert), 4));
+    EXPECT_EQ(ref.GetArraySize(), 6);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, 10, \"bar\"]")
+            .value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Insert past the end of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert), 10));
+    EXPECT_EQ(ref.GetArraySize(), 6);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, 10, \"bar\"]")
+            .value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+}
+
+TEST(JSONValueTest, AppendArrayElementIntoNull) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+
+  EXPECT_TRUE(ref.IsNull());
+
+  EXPECT_THAT(ref.AppendArrayElement(JSONValue(int64_t{10})),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an array")));
+}
+
+TEST(JSONValueTest, AppendArrayElementIntoObject) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.SetToEmptyObject();
+  ref.GetMember("key").SetInt64(10);
+
+  EXPECT_TRUE(ref.IsObject());
+
+  EXPECT_THAT(ref.AppendArrayElement(JSONValue(int64_t{10})),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an array")));
+}
+
+TEST(JSONValueTest, AppendArrayElementIntoPrimitiveTypes) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.SetString("hello");
+
+  EXPECT_TRUE(ref.IsString());
+
+  EXPECT_THAT(ref.AppendArrayElement(JSONValue(int64_t{10})),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an array")));
+}
+
+TEST(JSONValueTest, AppendArrayElement) {
+  {
+    // Empty array.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    ZETASQL_ASSERT_OK(ref.AppendArrayElement(JSONValue(int64_t{10})));
+    ASSERT_EQ(ref.GetArraySize(), 1);
+    ASSERT_TRUE(ref.GetArrayElement(0).IsInt64());
+    EXPECT_EQ(ref.GetArrayElement(0).GetInt64(), 10);
+  }
+
+  {
+    // Non-empty array.
+    constexpr absl::string_view kInitialValue = "[1, \"foo\", null, {}, true]";
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ASSERT_EQ(ref.GetArraySize(), 5);
+
+    ZETASQL_ASSERT_OK(ref.AppendArrayElement(JSONValue(int64_t{10})));
+    EXPECT_EQ(ref.GetArraySize(), 6);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, true, 10]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+}
+
+TEST(JSONValueTest, AppendArrayElements) {
+  {
+    // Empty array.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    ZETASQL_ASSERT_OK(ref.AppendArrayElements(std::move(values_to_insert)));
+    ASSERT_EQ(ref.GetArraySize(), 2);
+    ASSERT_TRUE(ref.GetArrayElement(0).IsInt64());
+    EXPECT_EQ(ref.GetArrayElement(0).GetInt64(), 10);
+    ASSERT_TRUE(ref.GetArrayElement(1).IsString());
+    EXPECT_EQ(ref.GetArrayElement(1).GetString(), "bar");
+  }
+
+  constexpr absl::string_view kInitialValue = "[1, \"foo\", null, {}, true]";
+  {
+    // Append 0 element.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 5);
+
+    ZETASQL_ASSERT_OK(ref.AppendArrayElements({}));
+    EXPECT_EQ(ref.GetArraySize(), 5);
+    EXPECT_TRUE(ref.NormalizedEquals(
+        JSONValue::ParseJSONString(kInitialValue).value().GetConstRef()));
+  }
+
+  {
+    // Non-empty array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ASSERT_EQ(ref.GetArraySize(), 5);
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    ZETASQL_ASSERT_OK(ref.AppendArrayElements(std::move(values_to_insert)));
+    EXPECT_EQ(ref.GetArraySize(), 7);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, true, 10, \"bar\"]")
+            .value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+}
+
+TEST(JSONValueTest, RemoveArrayElementFromNull) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+
+  EXPECT_TRUE(ref.IsNull());
+
+  EXPECT_THAT(ref.RemoveArrayElement(0),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an array")));
+}
+
+TEST(JSONValueTest, RemoveArrayElementFromObject) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.SetToEmptyObject();
+  ref.GetMember("key").SetInt64(10);
+
+  EXPECT_TRUE(ref.IsObject());
+
+  EXPECT_THAT(ref.RemoveArrayElement(0),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an array")));
+}
+
+TEST(JSONValueTest, RemoveArrayElementFromPrimitiveTypes) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.SetString("hello");
+
+  EXPECT_TRUE(ref.IsString());
+
+  EXPECT_THAT(ref.RemoveArrayElement(0),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an array")));
+}
+
+TEST(JSONValueTest, RemoveArrayElement) {
+  {
+    // Empty array.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    EXPECT_THAT(ref.RemoveArrayElement(0), IsOkAndHolds(false));
+    EXPECT_EQ(ref.GetArraySize(), 0);
+  }
+
+  constexpr absl::string_view kInitialValue = "[1, \"foo\", null, {}]";
+  {
+    // Remove at the beginning of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    EXPECT_THAT(ref.RemoveArrayElement(0), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetArraySize(), 3);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[\"foo\", null, {}]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Remove in the middle of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    EXPECT_THAT(ref.RemoveArrayElement(2), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetArraySize(), 3);
+    JSONValue expected = JSONValue::ParseJSONString("[1, \"foo\", {}]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Remove at the end of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    EXPECT_THAT(ref.RemoveArrayElement(3), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetArraySize(), 3);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", null]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Remove past the end of an array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    EXPECT_THAT(ref.RemoveArrayElement(10), IsOkAndHolds(false));
+    EXPECT_EQ(ref.GetArraySize(), 4);
+    JSONValue expected = JSONValue::ParseJSONString(kInitialValue).value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Negative index.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    EXPECT_THAT(ref.RemoveArrayElement(-1), IsOkAndHolds(false));
+    EXPECT_EQ(ref.GetArraySize(), 4);
+    JSONValue expected = JSONValue::ParseJSONString(kInitialValue).value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Remove all elements.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ASSERT_EQ(ref.GetArraySize(), 4);
+
+    EXPECT_THAT(ref.RemoveArrayElement(1), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetArraySize(), 3);
+    EXPECT_THAT(ref.RemoveArrayElement(0), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetArraySize(), 2);
+    EXPECT_THAT(ref.RemoveArrayElement(1), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetArraySize(), 1);
+    EXPECT_THAT(ref.RemoveArrayElement(0), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetArraySize(), 0);
+    JSONValue expected = JSONValue::ParseJSONString("[]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+
+    EXPECT_THAT(ref.RemoveArrayElement(1), IsOkAndHolds(false));
+    EXPECT_EQ(ref.GetArraySize(), 0);
+    EXPECT_THAT(ref.RemoveArrayElement(0), IsOkAndHolds(false));
+    EXPECT_EQ(ref.GetArraySize(), 0);
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+}
+
+TEST(JSONValueTest, RemoveMemberFromNull) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+
+  EXPECT_TRUE(ref.IsNull());
+
+  EXPECT_THAT(ref.RemoveMember("key"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an object")));
+}
+
+TEST(JSONValueTest, RemoveMemberFromArray) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.SetToEmptyArray();
+  ref.GetArrayElement(0).SetInt64(10);
+
+  EXPECT_TRUE(ref.IsArray());
+
+  EXPECT_THAT(ref.RemoveMember("key"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an object")));
+}
+
+TEST(JSONValueTest, RemoveMemberFromPrimitiveTypes) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.SetString("hello");
+
+  EXPECT_TRUE(ref.IsString());
+
+  EXPECT_THAT(ref.RemoveMember("key"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("JSON value is not an object")));
+}
+
+TEST(JSONValueTest, RemoveMember) {
+  {
+    // Empty object.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyObject();
+
+    EXPECT_THAT(ref.RemoveMember("key"), IsOkAndHolds(false));
+  }
+
+  constexpr absl::string_view kInitialValue =
+      R"({"key": 10, "foo": [1, true]})";
+  {
+    // Remove inexistent key.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetMembers().size(), 2);
+
+    EXPECT_THAT(ref.RemoveMember("inexistent key"), IsOkAndHolds(false));
+    EXPECT_EQ(ref.GetMembers().size(), 2);
+    JSONValue expected = JSONValue::ParseJSONString(kInitialValue).value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetMembers().size(), 2);
+
+    EXPECT_THAT(ref.RemoveMember("key"), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetMembers().size(), 1);
+    JSONValue expected =
+        JSONValue::ParseJSONString("{\"foo\": [1, true]}").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Remove all keys.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetMembers().size(), 2);
+
+    EXPECT_THAT(ref.RemoveMember("key"), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetMembers().size(), 1);
+    EXPECT_THAT(ref.RemoveMember("foo"), IsOkAndHolds(true));
+    EXPECT_EQ(ref.GetMembers().size(), 0);
+    JSONValue expected = JSONValue::ParseJSONString("{}").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+
+    EXPECT_THAT(ref.RemoveMember("key"), IsOkAndHolds(false));
+    EXPECT_EQ(ref.GetMembers().size(), 0);
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
 }
 
 // TODO: Add more tests.

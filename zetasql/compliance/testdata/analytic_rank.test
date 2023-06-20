@@ -108,7 +108,7 @@ SELECT bool_val, int64_val,
        RANK() OVER (PARTITION BY bool_val ORDER BY int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {false, 1, 1},
   {false, 1, 1},
@@ -126,7 +126,7 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64>>[
 SELECT bool_val, RANK() OVER (ORDER BY bool_val)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, INT64>>[
+ARRAY<STRUCT<bool_val BOOL, INT64>>[unknown order:
   {NULL, 1},
   {false, 2},
   {false, 2},
@@ -145,7 +145,7 @@ SELECT str_val, int64_val,
        RANK() OVER (ORDER BY str_val, int64_val DESC)
 FROM TestTable
 --
-ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
+ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {NULL, NULL, 1},
   {"A", 1, 3},
@@ -166,7 +166,7 @@ SELECT str_val, int64_val,
 FROM TestTable
 ORDER BY str_val COLLATE "en_US"
 --
-ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
+ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {NULL, NULL, 1},
   {"a", 1, 4},
@@ -185,7 +185,7 @@ SELECT int32_val, cast(int64_val as uint64),
        RANK() OVER (ORDER BY int32_val, cast(int64_val as uint64) ASC)
 FROM TestTable
 --
-ARRAY<STRUCT<int32_val INT32, UINT64, INT64>>[
+ARRAY<STRUCT<int32_val INT32, UINT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {NULL, NULL, 1},
   {1, 1, 3},
@@ -204,7 +204,7 @@ SELECT cast(int32_val as uint32), int64_val,
        RANK() OVER (ORDER BY cast(int32_val as uint32), int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<UINT32, int64_val INT64, INT64>>[
+ARRAY<STRUCT<UINT32, int64_val INT64, INT64>>[unknown order:
   {NULL, NULL, 1},
   {NULL, NULL, 1},
   {1, 1, 3},
@@ -226,7 +226,7 @@ FROM unnest([CAST(0 AS DOUBLE), CAST(1 AS DOUBLE), CAST(null AS DOUBLE),
              CAST("NaN" AS DOUBLE), CAST("-inf" AS DOUBLE),
              CAST("-inf" AS DOUBLE)]) as double_val
 --
-ARRAY<STRUCT<double_val DOUBLE, INT64>>[
+ARRAY<STRUCT<double_val DOUBLE, INT64>>[unknown order:
   {NULL, 1},
   {NULL, 1},
   {nan, 3},
@@ -248,7 +248,7 @@ FROM unnest([CAST(0 AS FLOAT), CAST(1 AS FLOAT), CAST(null AS FLOAT),
              CAST("NaN" AS FLOAT), CAST("-inf" AS FLOAT),
              CAST("-inf" AS FLOAT)]) as float_val
 --
-ARRAY<STRUCT<float_val FLOAT, INT64>>[
+ARRAY<STRUCT<float_val FLOAT, INT64>>[unknown order:
   {NULL, 1},
   {NULL, 1},
   {nan, 3},
@@ -272,32 +272,32 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         INT64
       >>
-[{NULL, NULL, 1},
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   2
- },
- {
-   2014-01-01,
-   2015-01-01 00:00:01.011011+00,
-   4
- },
- {
-   2015-01-01,
-   2013-01-01 00:00:01.011011+00,
-   5
- },
- {
-   2015-01-01,
-   2014-01-01 00:00:01.011011+00,
-   6
- }]
+[unknown order:{NULL, NULL, 1},
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 2
+               },
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 2
+               },
+               {
+                 2014-01-01,
+                 2015-01-01 00:00:01.011011+00,
+                 4
+               },
+               {
+                 2015-01-01,
+                 2013-01-01 00:00:01.011011+00,
+                 5
+               },
+               {
+                 2015-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 6
+               }]
 ==
 
 [name=rank_bytes]
@@ -305,7 +305,7 @@ SELECT bytes_val,
        RANK() OVER (ORDER BY bytes_val)
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<bytes_val BYTES, INT64>>[
+ARRAY<STRUCT<bytes_val BYTES, INT64>>[unknown order:
   {NULL, 1},
   {b"1", 2},
   {b"1", 2},
@@ -329,11 +329,11 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         INT64
       >>
-[{TESTENUM2, 1},
- {TESTENUM2, 1},
- {TESTENUM1, 3},
- {TESTENUM1, 3},
- {TESTENUM0, 5},
- {NULL, 6},
- {NULL, 6}]
+[unknown order:{TESTENUM2, 1},
+               {TESTENUM2, 1},
+               {TESTENUM1, 3},
+               {TESTENUM1, 3},
+               {TESTENUM0, 5},
+               {NULL, 6},
+               {NULL, 6}]
 

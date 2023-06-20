@@ -30,6 +30,7 @@
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/variant.h"
@@ -226,7 +227,18 @@ absl::Status ParseStatement(absl::string_view statement_string,
 absl::Status ParseScript(absl::string_view script_string,
                          const ParserOptions& parser_options_in,
                          ErrorMessageMode error_message_mode,
+                         bool keep_error_location_payload,
                          std::unique_ptr<ParserOutput>* output);
+
+ABSL_DEPRECATED("Inline me!")
+inline absl::Status ParseScript(absl::string_view script_string,
+                                const ParserOptions& parser_options_in,
+                                ErrorMessageMode error_message_mode,
+                                std::unique_ptr<ParserOutput>* output) {
+  return ParseScript(script_string, parser_options_in, error_message_mode,
+                     /*keep_error_location_payload=*/
+                     error_message_mode == ERROR_MESSAGE_WITH_PAYLOAD, output);
+}
 
 // Parses one statement from a string that may contain multiple statements.
 // This can be called in a loop with the same <resume_location> to parse

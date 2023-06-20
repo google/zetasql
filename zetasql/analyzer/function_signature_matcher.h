@@ -42,7 +42,7 @@ struct FunctionArgumentOverride {
   // Index of the argument to be overridden.
   int index;
   // New argument used to override the original argument at index.
-  // Currently only lambda.
+  // Currently only lambda or sequence.
   std::unique_ptr<const ResolvedFunctionArgument> argument;
 };
 
@@ -61,7 +61,7 @@ using ResolveLambdaCallback = std::function<absl::Status(
 // match.
 //
 // <arg_ast_nodes> are the list of parser ASTNodes for each input_arguments.
-// It's used to assist lambda arguments resolving.
+// It's used to assist lambda and sequence argument resolving.
 // <resolve_lambda_callback> is called to resolve lambda arguments if any. It
 // can be set to nullptr if no lambda argument is expected.
 // The resolved lambda arguments, if any, are put into <arg_overrides> if the
@@ -73,7 +73,7 @@ absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const FunctionSignature& signature, bool allow_argument_coercion,
     TypeFactory* type_factory,
     const ResolveLambdaCallback* resolve_lambda_callback,
-    std::unique_ptr<FunctionSignature>* result_signature,
+    std::unique_ptr<FunctionSignature>* concrete_result_signature,
     SignatureMatchResult* signature_match_result,
     std::vector<FunctionArgumentOverride>* arg_overrides);
 

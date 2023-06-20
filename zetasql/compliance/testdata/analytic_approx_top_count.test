@@ -12,11 +12,29 @@
 SELECT APPROX_TOP_COUNT(x, 2) OVER () as approx_top_count
 FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x
 --
-ARRAY<STRUCT<approx_top_count ARRAY<>>>[
-  {ARRAY<STRUCT<value STRING, count INT64>>[{"pear", 3}, {"apple", 2}]},
-  {ARRAY<STRUCT<value STRING, count INT64>>[{"pear", 3}, {"apple", 2}]},
-  {ARRAY<STRUCT<value STRING, count INT64>>[{"pear", 3}, {"apple", 2}]},
-  {ARRAY<STRUCT<value STRING, count INT64>>[{"pear", 3}, {"apple", 2}]},
-  {ARRAY<STRUCT<value STRING, count INT64>>[{"pear", 3}, {"apple", 2}]},
-  {ARRAY<STRUCT<value STRING, count INT64>>[{"pear", 3}, {"apple", 2}]}
+ARRAY<STRUCT<approx_top_count ARRAY<>>>[unknown order:
+  {ARRAY<STRUCT<value STRING, count INT64>>[known order:
+     {"pear", 3},
+     {"apple", 2}
+   ]},
+  {ARRAY<STRUCT<value STRING, count INT64>>[known order:
+     {"pear", 3},
+     {"apple", 2}
+   ]},
+  {ARRAY<STRUCT<value STRING, count INT64>>[known order:
+     {"pear", 3},
+     {"apple", 2}
+   ]},
+  {ARRAY<STRUCT<value STRING, count INT64>>[known order:
+     {"pear", 3},
+     {"apple", 2}
+   ]},
+  {ARRAY<STRUCT<value STRING, count INT64>>[known order:
+     {"pear", 3},
+     {"apple", 2}
+   ]},
+  {ARRAY<STRUCT<value STRING, count INT64>>[known order:
+     {"pear", 3},
+     {"apple", 2}
+   ]}
 ]

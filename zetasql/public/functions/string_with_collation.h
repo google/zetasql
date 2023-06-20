@@ -76,13 +76,35 @@ bool EndsWithUtf8WithCollation(const ZetaSqlCollator& collator,
                                absl::string_view str, absl::string_view substr,
                                bool* out, absl::Status* status);
 
+// TODO: Mark as deprecated when
+// LikeUtf8WithCollationAllowUnderscore is functional.
 // Returns true when the <text> matches the <pattern> with collation specified
 // in the <collator>. The <pattern> can have '%' specifiers which represent 0 or
 // more characters. This function searches the <pattern> using ICU StringSearch
 // API and follows the rules specified by the collation.
-absl::StatusOr<bool> LikeWithUtf8WithCollation(
+absl::StatusOr<bool> LikeUtf8WithCollation(absl::string_view text,
+                                           absl::string_view pattern,
+                                           const ZetaSqlCollator& collator);
+
+// Returns true when the <text> matches the <pattern> with collation specified
+// in the <collator>. The <pattern> can have '%' (representing 0 or more
+// characters) and '_' specifiers (representing 1 character). This function
+// searches the <pattern> using ICU StringSearch API and follows the rules
+// specified by the collation,
+// except that each '_' matches one grapheme cluster in character space.
+// (https://unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries)
+// (broken link) for details on underscore matching behavior.
+absl::StatusOr<bool> LikeUtf8WithCollationAllowUnderscore(
     absl::string_view text, absl::string_view pattern,
     const ZetaSqlCollator& collator);
+
+// <allow_underscore> is true when
+// FeatureOptions.enable_underscore_in_collation is true, in which case
+// underscores are allowed in patterns with "und:ci" collation.
+ABSL_DEPRECATED("Inline me!")
+absl::StatusOr<bool> LikeWithUtf8WithCollation(
+    absl::string_view text, absl::string_view pattern,
+    const ZetaSqlCollator& collator, bool allow_underscore = false);
 }  // namespace functions
 }  // namespace zetasql
 

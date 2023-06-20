@@ -1,0 +1,251 @@
+SELECT *
+FROM T
+GROUP BY ALL
+--
+QueryStatement [0-28] [SELECT * FROM T GROUP BY ALL]
+  Query [0-28] [SELECT * FROM T GROUP BY ALL]
+    Select [0-28] [SELECT * FROM T GROUP BY ALL]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-15] [FROM T]
+        TablePathExpression [14-15] [T]
+          PathExpression [14-15] [T]
+            Identifier(T) [14-15] [T]
+      GroupBy [16-28] [GROUP BY ALL]
+        GroupByAll [25-28] [ALL]
+--
+SELECT
+  *
+FROM
+  T
+GROUP BY ALL
+==
+
+SELECT *
+FROM table AS {{T|`ALL`}}
+GROUP BY {{ALL|`ALL`}}
+--
+ALTERNATION GROUP: T,ALL
+--
+QueryStatement [0-37] [SELECT * FROM...GROUP BY ALL]
+  Query [0-37] [SELECT * FROM...GROUP BY ALL]
+    Select [0-37] [SELECT * FROM...GROUP BY ALL]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-24] [FROM table AS T]
+        TablePathExpression [14-24] [table AS T]
+          PathExpression [14-19] [table]
+            Identifier(table) [14-19] [table]
+          Alias [20-24] [AS T]
+            Identifier(T) [23-24] [T]
+      GroupBy [25-37] [GROUP BY ALL]
+        GroupByAll [34-37] [ALL]
+--
+SELECT
+  *
+FROM
+  table AS T
+GROUP BY ALL
+--
+ALTERNATION GROUP: T,`ALL`
+--
+QueryStatement [0-39] [SELECT * FROM...GROUP BY `ALL`]
+  Query [0-39] [SELECT * FROM...GROUP BY `ALL`]
+    Select [0-39] [SELECT * FROM...GROUP BY `ALL`]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-24] [FROM table AS T]
+        TablePathExpression [14-24] [table AS T]
+          PathExpression [14-19] [table]
+            Identifier(table) [14-19] [table]
+          Alias [20-24] [AS T]
+            Identifier(T) [23-24] [T]
+      GroupBy [25-39] [GROUP BY `ALL`]
+        GroupingItem [34-39] [`ALL`]
+          PathExpression [34-39] [`ALL`]
+            Identifier(`ALL`) [34-39] [`ALL`]
+--
+SELECT
+  *
+FROM
+  table AS T
+GROUP BY `ALL`
+--
+ALTERNATION GROUP: `ALL`,ALL
+--
+QueryStatement [0-41] [SELECT * FROM...GROUP BY ALL]
+  Query [0-41] [SELECT * FROM...GROUP BY ALL]
+    Select [0-41] [SELECT * FROM...GROUP BY ALL]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-28] [FROM table AS `ALL`]
+        TablePathExpression [14-28] [table AS `ALL`]
+          PathExpression [14-19] [table]
+            Identifier(table) [14-19] [table]
+          Alias [20-28] [AS `ALL`]
+            Identifier(`ALL`) [23-28] [`ALL`]
+      GroupBy [29-41] [GROUP BY ALL]
+        GroupByAll [38-41] [ALL]
+--
+SELECT
+  *
+FROM
+  table AS `ALL`
+GROUP BY ALL
+--
+ALTERNATION GROUP: `ALL`,`ALL`
+--
+QueryStatement [0-43] [SELECT * FROM...GROUP BY `ALL`]
+  Query [0-43] [SELECT * FROM...GROUP BY `ALL`]
+    Select [0-43] [SELECT * FROM...GROUP BY `ALL`]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-28] [FROM table AS `ALL`]
+        TablePathExpression [14-28] [table AS `ALL`]
+          PathExpression [14-19] [table]
+            Identifier(table) [14-19] [table]
+          Alias [20-28] [AS `ALL`]
+            Identifier(`ALL`) [23-28] [`ALL`]
+      GroupBy [29-43] [GROUP BY `ALL`]
+        GroupingItem [38-43] [`ALL`]
+          PathExpression [38-43] [`ALL`]
+            Identifier(`ALL`) [38-43] [`ALL`]
+--
+SELECT
+  *
+FROM
+  table AS `ALL`
+GROUP BY `ALL`
+==
+
+SELECT *
+FROM T
+GROUP BY {{|DISTINCT}}
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected end of statement [at 3:9]
+GROUP BY 
+        ^
+--
+ALTERNATION GROUP: DISTINCT
+--
+ERROR: Syntax error: Unexpected keyword DISTINCT [at 3:10]
+GROUP BY DISTINCT
+         ^
+==
+
+SELECT *
+FROM T
+GROUP @{ key = 5 } BY ALL
+--
+QueryStatement [0-41] [SELECT * FROM...5 } BY ALL]
+  Query [0-41] [SELECT * FROM...5 } BY ALL]
+    Select [0-41] [SELECT * FROM...5 } BY ALL]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-15] [FROM T]
+        TablePathExpression [14-15] [T]
+          PathExpression [14-15] [T]
+            Identifier(T) [14-15] [T]
+      GroupBy [16-41] [GROUP @{ key = 5 } BY ALL]
+        Hint [22-34] [@{ key = 5 }]
+          HintEntry [25-32] [key = 5]
+            Identifier(key) [25-28] [key]
+            IntLiteral(5) [31-32] [5]
+        GroupByAll [38-41] [ALL]
+--
+SELECT
+  *
+FROM
+  T
+GROUP @{ key = 5 } BY ALL
+==
+
+SELECT *
+FROM T
+GROUP BY ALL {{ALL|a|1}}
+--
+ALTERNATION GROUP: ALL
+--
+ERROR: Syntax error: Expected end of input but got keyword ALL [at 3:14]
+GROUP BY ALL ALL
+             ^
+--
+ALTERNATION GROUP: a
+--
+ERROR: Syntax error: Expected end of input but got identifier "a" [at 3:14]
+GROUP BY ALL a
+             ^
+--
+ALTERNATION GROUP: 1
+--
+ERROR: Syntax error: Expected end of input but got integer literal "1" [at 3:14]
+GROUP BY ALL 1
+             ^
+==
+
+SELECT *
+FROM T
+GROUP BY ALL
+QUALIFY a = 1
+--
+ERROR: QUALIFY is not supported [at 4:1]
+QUALIFY a = 1
+^
+==
+
+[language_features=V_1_3_QUALIFY]
+[{{|no_}}qualify_reserved]
+SELECT *
+FROM T
+GROUP BY ALL
+QUALIFY a = 1
+--
+QueryStatement [0-42] [SELECT * FROM...QUALIFY a = 1]
+  Query [0-42] [SELECT * FROM...QUALIFY a = 1]
+    Select [0-42] [SELECT * FROM...QUALIFY a = 1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-15] [FROM T]
+        TablePathExpression [14-15] [T]
+          PathExpression [14-15] [T]
+            Identifier(T) [14-15] [T]
+      GroupBy [16-28] [GROUP BY ALL]
+        GroupByAll [25-28] [ALL]
+      Qualify [29-42] [QUALIFY a = 1]
+        BinaryExpression(=) [37-42] [a = 1]
+          PathExpression [37-38] [a]
+            Identifier(a) [37-38] [a]
+          IntLiteral(1) [41-42] [1]
+--
+SELECT
+  *
+FROM
+  T
+GROUP BY ALL
+QUALIFY a = 1
+==
+
+SELECT *
+FROM T
+GROUP BY ALL, {{a|1}}
+--
+ALTERNATION GROUP: a
+--
+ERROR: Syntax error: Expected end of input but got "," [at 3:13]
+GROUP BY ALL, a
+            ^
+--
+ALTERNATION GROUP: 1
+--
+ERROR: Syntax error: Expected end of input but got "," [at 3:13]
+GROUP BY ALL, 1
+            ^

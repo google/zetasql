@@ -322,21 +322,14 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // that starts with "DESCRIPTOR" "(". It is resolved in favor of DESCRIPTOR(
 // rule, which is the desired behavior.
 //
-// AMBIGUOUS CASE 10: FILTER_FIELDS(...)
-// --------------------------------
-// The FILTER_FIELDS keyword is non-reserved and can be used as an identifier.
-// This causes a shift/reduce conflict between keyword_as_identifier and the
-// rule that starts with "FILTER_FIELDS" "(". It is resolved in favor of the
-// FILTER_FIELDS( rule, which is the desired behavior.
-//
-// AMBIGUOUS CASE 11: ANALYZE OPTIONS(...)
+// AMBIGUOUS CASE 10: ANALYZE OPTIONS(...)
 // --------------------------------
 // The OPTIONS keyword is non-reserved and can be used as an identifier.
 // This causes a shift/reduce conflict between keyword_as_identifier and the
 // rule that starts with "ANALYZE"  "OPTIONS" "(". It is resolved in favor of
 // the OPTIONS( rule, which is the desired behavior.
 //
-// AMBIGUOUS CASE 12: SELECT * FROM T QUALIFY
+// AMBIGUOUS CASE 11: SELECT * FROM T QUALIFY
 // --------------------------------
 // The QUALIFY keyword is non-reserved and can be used as an identifier.
 // This causes a shift/reduce conflict between keyword_as_identifier and the
@@ -345,7 +338,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // error messages to user when QUALIFY clause is used without
 // WHERE/GROUP BY/HAVING.
 //
-// AMBIGUOUS CASE 13: ALTER COLUMN
+// AMBIGUOUS CASE 12: ALTER COLUMN
 // --------------------------------
 // Spanner DDL compatibility extensions provide support for Spanner flavor of
 // ALTER COLUMN action, which expects full column definition instead of
@@ -358,7 +351,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // or reduce DROP as type identifier in Spanner-specific rule. Bison chooses to
 // shift, which is a desired behavior.
 //
-// AMBIGUOUS CASE 14: SEQUENCE CLAMPED
+// AMBIGUOUS CASE 13: SEQUENCE CLAMPED
 // ----------------------------------
 // MyFunction(SEQUENCE clamped)
 // Resolve to a function call passing a SEQUENCE input argument type.
@@ -394,7 +387,6 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: CREATE TABLE GENERATED
 //   1: CREATE EXTERNAL TABLE FUNCTION
 //   1: DESCRIPTOR
-//   1: FILTER FIELDS
 //   1: WITH <identifier>
 //   1: ANALYZE
 //   6: QUALIFY
@@ -428,6 +420,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTAuxLoadDataStatement::InsertionMode insertion_mode;
   zetasql::ASTCreateStatement::Scope create_scope;
   zetasql::ASTCreateStatement::SqlSecurity sql_security;
+  zetasql::ASTCreateStatement::SqlSecurity external_security;
   zetasql::ASTDropStatement::DropMode drop_mode;
   zetasql::ASTForeignKeyReference::Match foreign_key_match;
   zetasql::ASTForeignKeyActions::Action foreign_key_action;
@@ -496,6 +489,10 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
     zetasql::ASTSetOperationColumnMatchMode* column_match_mode;
     zetasql::ASTColumnList* column_list;
   } column_match_suffix;
+  struct {
+    zetasql::ASTQuery* query;
+    zetasql::ASTPathExpression* replica_source;
+  } query_or_replica_source_info;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -881,7 +878,6 @@ using zetasql::ASTDropStatement;
 %token KW_ADD "ADD"
 %token KW_AGGREGATE "AGGREGATE"
 %token KW_ALTER "ALTER"
-%token KW_ANONYMIZATION "ANONYMIZATION"
 %token KW_ANALYZE "ANALYZE"
 %token KW_APPROX "APPROX"
 %token KW_ARE "ARE"
@@ -927,7 +923,6 @@ using zetasql::ASTDropStatement;
 %token KW_EXTERNAL "EXTERNAL"
 %token KW_FILES "FILES"
 %token KW_FILTER "FILTER"
-%token KW_FILTER_FIELDS "FILTER_FIELDS"
 %token KW_FILL "FILL"
 %token KW_FIRST "FIRST"
 %token KW_FOREIGN "FOREIGN"
@@ -962,6 +957,7 @@ using zetasql::ASTDropStatement;
 %token KW_MATERIALIZED "MATERIALIZED"
 %token KW_MAX "MAX"
 %token KW_MESSAGE "MESSAGE"
+%token KW_METADATA "METADATA"
 %token KW_MIN "MIN"
 %token KW_MODEL "MODEL"
 %token KW_MODULE "MODULE"
@@ -1009,6 +1005,7 @@ using zetasql::ASTDropStatement;
 %token KW_SEARCH "SEARCH"
 %token KW_SECURITY "SECURITY"
 %token KW_SEQUENCE "SEQUENCE"
+%token KW_SETS "SETS"
 %token KW_SHOW "SHOW"
 %token KW_SIMPLE "SIMPLE"
 %token KW_SNAPSHOT "SNAPSHOT"
@@ -1086,6 +1083,7 @@ using zetasql::ASTDropStatement;
 %type <expression> array_constructor_prefix
 %type <expression> array_constructor_prefix_no_expressions
 %type <node> array_type
+%type <query_or_replica_source_info> query_or_replica_source
 %type <node> as_query
 %type <node> as_sql_function_body_or_string
 %type <node> assert_statement
@@ -1129,8 +1127,7 @@ using zetasql::ASTDropStatement;
 %type <node> create_table_statement
 %type <node> create_view_statement
 %type <node> create_entity_statement
-%type <node> create_replica_materialized_view_statement
-%type <node> replica_materialized_view_data_source
+%type <node> cube_list
 %type <node> undrop_statement
 %type <node> column_with_options
 %type <node> column_with_options_list
@@ -1146,8 +1143,11 @@ using zetasql::ASTDropStatement;
 %type <node> explain_statement
 %type <node> export_data_statement
 %type <node> export_model_statement
+%type <node> export_metadata_statement
 %type <expression> expression expression_not_parenthesized
 %type <expression> expression_maybe_parenthesized
+%type <node> expression_with_opt_alias
+%type <node> unnest_expression_prefix
 %type <node> generic_entity_type
 %type <node> generic_sub_entity_type
 %type <identifier> sub_entity_type_identifier
@@ -1188,7 +1188,11 @@ using zetasql::ASTDropStatement;
 %type <node> grantee_list
 %type <node> grantee_list_with_parens_prefix
 %type <node> group_by_clause_prefix
+%type <node> group_by_all
+%type <node> group_by_preamble
 %type <node> grouping_item
+%type <node> grouping_set
+%type <node> grouping_set_list
 %type <node> hint
 %type <node> hint_entry
 %type <node> hint_with_body
@@ -1364,6 +1368,8 @@ using zetasql::ASTDropStatement;
 %type <node> opt_returning_clause
 %type <sql_security> opt_sql_security_clause
 %type <sql_security> sql_security_clause_kind
+%type <external_security> opt_external_security_clause
+%type <external_security> external_security_clause_kind
 %type <node> opt_table_and_column_info_list
 %type <node> opt_with_report_format
 %type <node> pivot_value
@@ -1401,6 +1407,7 @@ using zetasql::ASTDropStatement;
 %type <expression> parameter_expression
 %type <expression> system_variable_expression
 %type <node> parenthesized_in_rhs
+%type <node> parenthesized_anysomeall_list_in_rhs
 %type <node> partition_by_clause_prefix
 %type <node> partition_by_clause_prefix_no_hint
 %type <expression> path_expression
@@ -1542,6 +1549,7 @@ using zetasql::ASTDropStatement;
 %type <node> alter_action_list
 %type <node> alter_action
 %type <expression> named_argument
+%type <expression> opt_array_zip_mode
 %type <node> column_position
 %type <node> opt_column_position
 %type <expression> fill_using_expression
@@ -1763,7 +1771,6 @@ sql_statement_body:
     | create_external_table_statement
     | create_external_table_function_statement
     | create_model_statement
-    | create_replica_materialized_view_statement
     | create_schema_statement
     | create_snapshot_table_statement
     | create_table_function_statement
@@ -1777,6 +1784,7 @@ sql_statement_body:
     | explain_statement
     | export_data_statement
     | export_model_statement
+    | export_metadata_statement
     | grant_statement
     | rename_statement
     | revoke_statement
@@ -2596,17 +2604,31 @@ unlabeled_begin_end_block_or_language_as_code:
       }
     ;
 
+opt_external_security_clause:
+    "EXTERNAL" "SECURITY" external_security_clause_kind { $$ = $3; }
+    | %empty
+      {
+        $$ = zetasql::ASTCreateStatement::SQL_SECURITY_UNSPECIFIED;
+      }
+    ;
+
+external_security_clause_kind:
+  "INVOKER" { $$ = zetasql::ASTCreateStatement::SQL_SECURITY_INVOKER; }
+  | "DEFINER" { $$ = zetasql::ASTCreateStatement::SQL_SECURITY_DEFINER; }
+
 create_procedure_statement:
     "CREATE" opt_or_replace opt_create_scope "PROCEDURE" opt_if_not_exists
-    path_expression procedure_parameters opt_with_connection_clause
-    opt_options_list unlabeled_begin_end_block_or_language_as_code
+    path_expression procedure_parameters opt_external_security_clause
+    opt_with_connection_clause opt_options_list
+    unlabeled_begin_end_block_or_language_as_code
     {
       auto* create =
           MAKE_NODE(ASTCreateProcedureStatement, @$,
-                    {$6, $7, $9, $10.body, $8, $10.language, $10.code});
+                    {$6, $7, $10, $11.body, $9, $11.language, $11.code});
       create->set_is_or_replace($2);
       create->set_scope($3);
       create->set_is_if_not_exists($5);
+      create->set_external_security($8);
       $$ = create;
     }
 
@@ -3068,21 +3090,6 @@ create_index_statement:
         create->set_is_if_not_exists($7);
         create->set_is_search($5);
         create->set_spanner_is_null_filtered($4);
-        $$ = create;
-      }
-    ;
-
-create_replica_materialized_view_statement:
-    "CREATE" opt_or_replace "REPLICA" "MATERIALIZED" "VIEW" opt_if_not_exists maybe_dashed_path_expression
-     "FROM" replica_materialized_view_data_source opt_options_list
-      {
-        auto* create =
-            MAKE_NODE(ASTCreateReplicaMaterializedViewStatement, @$, {
-              $maybe_dashed_path_expression,
-              $replica_materialized_view_data_source,
-              $opt_options_list});
-        create->set_is_if_not_exists($6);
-        create->set_is_or_replace($2);
         $$ = create;
       }
     ;
@@ -4075,10 +4082,10 @@ create_view_statement:
     "CREATE" opt_or_replace "MATERIALIZED" opt_recursive "VIEW"
     opt_if_not_exists maybe_dashed_path_expression opt_column_with_options_list
     opt_sql_security_clause opt_partition_by_clause_no_hint
-    opt_cluster_by_clause_no_hint opt_options_list as_query
+    opt_cluster_by_clause_no_hint opt_options_list "AS" query_or_replica_source
       {
-        auto* create = MAKE_NODE(
-          ASTCreateMaterializedViewStatement, @$, {$7, $8, $10, $11, $12, $13});
+        auto* create = MAKE_NODE(ASTCreateMaterializedViewStatement, @$,
+          {$7, $8, $10, $11, $12, $14.query, $14.replica_source});
         create->set_is_or_replace($2);
         create->set_recursive($4);
         create->set_scope(zetasql::ASTCreateStatement::DEFAULT_SCOPE);
@@ -4102,9 +4109,21 @@ create_view_statement:
         $$ = create;
       }
     ;
+query_or_replica_source:
+    query
+    {
+      $$.query = $1;
+    }
+    |
+    "REPLICA" "OF" maybe_dashed_path_expression
+    {
+      $$.replica_source = static_cast<zetasql::ASTPathExpression*>($3);
+    }
+    ;
 
 as_query:
     "AS" query { $$ = $2; }
+    ;
 
 opt_as_query:
     as_query { $$ = $1; }
@@ -4175,10 +4194,31 @@ export_model_statement:
       }
     ;
 
+export_metadata_statement:
+    "EXPORT" table_or_table_function "METADATA" "FROM"
+    maybe_dashed_path_expression opt_with_connection_clause opt_options_list
+      {
+        if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
+          YYERROR_AND_ABORT_AT(@2,
+          "EXPORT TABLE FUNCTION METADATA is not supported");
+        }
+        auto* export_metadata =
+        MAKE_NODE(ASTExportMetadataStatement, @$, {$5, $6, $7});
+        export_metadata->set_schema_object_kind(
+          zetasql::SchemaObjectKind::kTable);
+        $$ = export_metadata;
+      }
+    ;
+
 grant_statement:
     "GRANT" privileges "ON" identifier path_expression "TO" grantee_list
       {
         $$ = MAKE_NODE(ASTGrantStatement, @$, {$2, $4, $5, $7});
+      }
+    | "GRANT" privileges "ON" identifier identifier path_expression
+        "TO" grantee_list
+      {
+        $$ = MAKE_NODE(ASTGrantStatement, @$, {$2, $4, $5, $6, $8});
       }
     | "GRANT" privileges "ON" path_expression "TO" grantee_list
       {
@@ -4190,6 +4230,11 @@ revoke_statement:
     "REVOKE" privileges "ON" identifier path_expression "FROM" grantee_list
       {
         $$ = MAKE_NODE(ASTRevokeStatement, @$, {$2, $4, $5, $7});
+      }
+    | "REVOKE" privileges "ON" identifier identifier path_expression
+        "FROM" grantee_list
+      {
+        $$ = MAKE_NODE(ASTRevokeStatement, @$, {$2, $4, $5, $6, $8});
       }
     | "REVOKE" privileges "ON" path_expression "FROM" grantee_list
       {
@@ -5812,6 +5857,48 @@ rollup_list:
       }
     ;
 
+cube_list:
+    "CUBE" "(" expression
+      {
+        $$ = MAKE_NODE(ASTCube, @$, {$3});
+      }
+    | cube_list "," expression
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+grouping_set:
+    "(" ")"
+      {
+        auto* grouping_set = MAKE_NODE(ASTGroupingSet, @$, {});
+        $$ = parser->WithEndLocation(grouping_set, @$);
+      }
+    | expression
+      {
+        $$ = MAKE_NODE(ASTGroupingSet, @$, {parser->WithEndLocation($1, @$)});
+      }
+    | rollup_list ")"
+      {
+        $$ = MAKE_NODE(ASTGroupingSet, @$, {parser->WithEndLocation($1, @$)});
+      }
+    | cube_list ")"
+      {
+        $$ = MAKE_NODE(ASTGroupingSet, @$, {parser->WithEndLocation($1, @$)});
+      }
+    ;
+
+grouping_set_list:
+    "GROUPING" "SETS" "(" grouping_set
+      {
+        $$ = MAKE_NODE(ASTGroupingSetList, @$, {$4});
+      }
+    | grouping_set_list "," grouping_set
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+      ;
+
 grouping_item:
     expression
       {
@@ -5821,24 +5908,46 @@ grouping_item:
       {
         $$ = MAKE_NODE(ASTGroupingItem, @$, {parser->WithEndLocation($1, @$)});
       }
+    | cube_list ")"
+      {
+        $$ = MAKE_NODE(ASTGroupingItem, @$, {parser->WithEndLocation($1, @$)});
+      }
+    | grouping_set_list ")"
+      {
+        $$ = MAKE_NODE(ASTGroupingItem, @$, {parser->WithEndLocation($1, @$)});
+      }
+    ;
+
+group_by_preamble:
+    "GROUP" opt_hint "BY"
+      {
+        $$ = $opt_hint;
+      }
     ;
 
 group_by_clause_prefix:
-    "GROUP" opt_hint "BY" grouping_item
+    group_by_preamble[hint] grouping_item[item]
       {
-        $$ = MAKE_NODE(ASTGroupBy, @$, {$2, $4});
+        $$ = MAKE_NODE(ASTGroupBy, @$, {$hint, $item});
       }
-    | group_by_clause_prefix "," grouping_item
+    | group_by_clause_prefix[prefix] "," grouping_item[item]
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = WithExtraChildren($prefix, {$item});
+      }
+    ;
+
+group_by_all:
+    group_by_preamble[hint] KW_ALL[all]
+      {
+        auto* group_by_all = MAKE_NODE(ASTGroupByAll, @all, {});
+        $$ = MAKE_NODE(ASTGroupBy, @$, {$hint, group_by_all});
       }
     ;
 
 group_by_clause:
-    group_by_clause_prefix
-      {
-        $$ = parser->WithEndLocation($1, @$);
-      };
+    group_by_all
+    | group_by_clause_prefix
+    ;
 
 opt_group_by_clause:
     group_by_clause
@@ -6123,6 +6232,41 @@ parenthesized_in_rhs:
       }
     ;
 
+parenthesized_anysomeall_list_in_rhs:
+    // This block of the rule will cover following types of queries:
+    // (1) LIKE ANY|SOME|ALL (query)
+    // (2) LIKE ANY|SOME|ALL ((query))
+    // (3) LIKE ANY|SOME|ALL ('a', (query))
+    // (1) falls under V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY feature since it is
+    // not treated as a scalar query. (2) and (3) are treated a scalar queries.
+    parenthesized_query[query]
+      {
+        if (!$query->parenthesized() &&
+          !parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY)) {
+          YYERROR_AND_ABORT_AT(@1, "The LIKE ANY|SOME|ALL operator does "
+            "not support subquery expression as patterns. "
+            "Patterns must be string or bytes; "
+            "did you mean LIKE ANY|SOME|ALL (pattern1, pattern2, ...)?");
+        }
+        $query->set_parenthesized(false);
+        auto* sub_query = MAKE_NODE(ASTExpressionSubquery, @query, {$query});
+        $$ = MAKE_NODE(ASTInList, @$, {sub_query});
+      }
+    // We use expression_maybe_parenthesized here because it's an optionally
+    // parenthesized expression which is NOT a query.
+    | "(" expression_maybe_parenthesized[e] ")"
+      {
+        $$ = MAKE_NODE(ASTInList, @e, {$e});
+      }
+    | in_list_two_or_more_prefix ")"
+      {
+        // Don't include the ")" in the location, to match the JavaCC parser.
+        // TODO: Fix that.
+        $$ = parser->WithEndLocation($1, @1);
+      }
+    ;
+
 in_list_two_or_more_prefix:
     "(" expression "," expression
       {
@@ -6136,10 +6280,31 @@ in_list_two_or_more_prefix:
       }
     ;
 
-unnest_expression:
-    "UNNEST" "(" expression ")"
+expression_with_opt_alias:
+    expression opt_as_alias_with_required_as[opt_alias]
       {
-        $$ = MAKE_NODE(ASTUnnestExpression, @$, {$3});
+        $$ = MAKE_NODE(ASTExpressionWithOptAlias, @$, {$expression, $opt_alias});
+      }
+
+unnest_expression_prefix:
+    "UNNEST" "(" expression_with_opt_alias[expression]
+      {
+        $$ = MAKE_NODE(ASTUnnestExpression, @$, {$expression});
+      }
+    | unnest_expression_prefix[prefix] "," expression_with_opt_alias[expression]
+      {
+        $$ = WithExtraChildren($prefix, {$expression});
+      }
+
+opt_array_zip_mode:
+    "," named_argument { $$ = $named_argument; }
+    | %empty { $$ = nullptr; }
+
+unnest_expression:
+    unnest_expression_prefix[prefix] opt_array_zip_mode ")"
+      {
+        $$ = parser->WithEndLocation(
+          WithExtraChildren($prefix, {$opt_array_zip_mode}), @$);
       }
     | "UNNEST" "(" "SELECT"
       {
@@ -6488,7 +6653,7 @@ expression_not_parenthesized:
           like_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = like_expression;
         }
-    | expression like_operator any_some_all opt_hint parenthesized_in_rhs %prec "LIKE"
+    | expression like_operator any_some_all opt_hint parenthesized_anysomeall_list_in_rhs %prec "LIKE"
         {
           // Bison allows some cases like IN on the left hand side because it's
           // not ambiguous. The language doesn't allow this.
@@ -8476,7 +8641,6 @@ keyword_as_identifier:
     | "AGGREGATE"
     | "ADD"
     | "ALTER"
-    | "ANONYMIZATION"
     | "ANALYZE"
     | "APPROX"
     | "ARE"
@@ -8524,7 +8688,6 @@ keyword_as_identifier:
     | "EXTERNAL"
     | "FILES"
     | "FILTER"
-    | "FILTER_FIELDS"
     | "FILL"
     | "FIRST"
     | "FOREIGN"
@@ -8559,6 +8722,7 @@ keyword_as_identifier:
     | "MATERIALIZED"
     | "MAX"
     | "MESSAGE"
+    | "METADATA"
     | "MIN"
     | "MODEL"
     | "MODULE"
@@ -8613,6 +8777,7 @@ keyword_as_identifier:
     | "SEARCH"
     | "SECURITY"
     | "SEQUENCE"
+    | "SETS"
     | "SHOW"
     | "SIMPLE"
     | "SNAPSHOT"
@@ -9059,13 +9224,6 @@ clone_data_source:
     maybe_dashed_path_expression opt_at_system_time opt_where_clause
       {
         $$ = MAKE_NODE(ASTCloneDataSource, @$, {$1, $2, $3});
-      }
-    ;
-
-replica_materialized_view_data_source:
-  maybe_dashed_path_expression
-      {
-        $$ = MAKE_NODE(ASTReplicaMaterializedViewDataSource, @$, {$1});
       }
     ;
 
@@ -10096,6 +10254,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTExportDataStatement::kConcreteNodeKind; }
     | "EXPORT" "MODEL"
       { $$ = zetasql::ASTExportModelStatement::kConcreteNodeKind; }
+    | "EXPORT" table_or_table_function "METADATA"
+      { $$ = zetasql::ASTExportMetadataStatement::kConcreteNodeKind; }
     | "INSERT" { $$ = zetasql::ASTInsertStatement::kConcreteNodeKind; }
     | "UPDATE" { $$ = zetasql::ASTUpdateStatement::kConcreteNodeKind; }
     | "DELETE" { $$ = zetasql::ASTDeleteStatement::kConcreteNodeKind; }
@@ -10255,8 +10415,6 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTCreateMaterializedViewStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "SNAPSHOT" "TABLE"
       { $$ = zetasql::ASTCreateSnapshotTableStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace "REPLICA" "MATERIALIZED" "VIEW"
-      { $$ = zetasql::ASTCreateReplicaMaterializedViewStatement::kConcreteNodeKind; }
     | "CALL"
       { $$ = zetasql::ASTCallStatement::kConcreteNodeKind; }
     | "RETURN"
@@ -10455,4 +10613,3 @@ void zetasql_bison_parser::BisonParserImpl::error(
   *error_location = zetasql::ParseLocationPoint::FromByteOffset(
       parser->filename().ToStringView(), loc.begin.column);
 }
-

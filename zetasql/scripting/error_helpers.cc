@@ -86,7 +86,7 @@ ConvertLocalErrorToScriptError(const ScriptSegment& segment) {
     ZETASQL_RET_CHECK_OK(status_or_new_error_loc.status())
         << "Unable to adjust error location: "
         << status_or_new_error_loc.status();
-    b.Attach(status_or_new_error_loc.value());
+    b.AttachPayload(status_or_new_error_loc.value());
     return b;
   };
 }

@@ -127,6 +127,22 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       absl::StatusCode::kResourceExhausted,
       "Cannot construct array Value larger than "));
 
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kResourceExhausted,
+      "Out of memory for MemoryAccountant"));
+
+  // Expected errors for JSON_OBJECT.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Invalid input to JSON_OBJECT: The (keys|values) array cannot be NULL"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Invalid input to JSON_OBJECT: A key cannot be NULL"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Invalid input to JSON_OBJECT: The number of keys and values must "
+      "match"));
+
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
 }

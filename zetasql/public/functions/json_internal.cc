@@ -16,18 +16,20 @@
 
 #include "zetasql/public/functions/json_internal.h"
 
-#include <iterator>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/strip.h"
+#include "absl/strings/string_view.h"
 #include "re2/re2.h"
 #include "zetasql/base/status_macros.h"
 
@@ -46,6 +48,8 @@ static LazyRE2 kOffsetRegex = {"\\[\\s*[\\p{L}\\p{N}\\d_\\-]+\\s*\\]"};
 static LazyRE2 kOffsetLexerStandard = {"\\[\\s*([\\p{N}\\d_\\-]+)\\s*\\]"};
 static LazyRE2 kOffsetRegexStandard = {"\\[\\s*[\\p{N}\\d_\\-]+\\s*\\]"};
 
+static LazyRE2 kOffsetLexerStrict = {"\\[\\s*([\\p{N}\\d]+)\\s*\\]"};
+
 // (?: alterantive-grouping) indicates a non-capuring group. Currently RE2
 // does not support *+ and ++ which avoid backtracking and efficient.
 // Matches strings with escaped single quotes.
@@ -60,6 +64,10 @@ static LazyRE2 kEscKeyRegexStandard = {
 
 static LazyRE2 kUnSupportedLexer = {"(\\*|\\.\\.|@)"};
 static LazyRE2 kBeginRegex = {"\\$"};
+
+constexpr char kStandardEscapeChar = '"';
+constexpr char kLegacyEscapeChar = '\'';
+constexpr absl::string_view kBeginToken = "";
 
 }  // namespace
 
@@ -95,6 +103,29 @@ absl::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode) {
   return absl::OkStatus();
 }
 
+absl::Status IsValidJSONPathStrict(absl::string_view text) {
+  if (!RE2::Consume(&text, *kBeginRegex)) {
+    return absl::OutOfRangeError("JSONPath must start with '$'");
+  }
+
+  while (!text.empty()) {
+    if (!RE2::Consume(&text, *kKeyRegex) &&
+        !RE2::Consume(&text, *kEscKeyRegexStandard)) {
+      std::string parsed_string;
+      if (!RE2::Consume(&text, *kOffsetLexerStrict, &parsed_string)) {
+        return absl::OutOfRangeError(
+            absl::StrCat("Invalid token in JSONPath at: ", text));
+      }
+      int64_t index;
+      if (!absl::SimpleAtoi(parsed_string, &index)) {
+        return absl::OutOfRangeError(
+            absl::StrCat("Invalid array index: ", parsed_string));
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+
 void RemoveBackSlashFollowedByChar(std::string* token, char esc_chr) {
   if (token && !token->empty()) {
     std::string::const_iterator ritr = token->cbegin();
@@ -112,60 +143,99 @@ void RemoveBackSlashFollowedByChar(std::string* token, char esc_chr) {
   }
 }
 
+// Validates and initializes a json path. During parsing, initializes all tokens
+// that can be re-used by `ValidJSONPathIterator`. This avoids duplicate
+// intensive regex matching.
+absl::StatusOr<std::vector<std::string>> ValidateAndInitializePathTokens(
+    absl::string_view path, bool sql_standard_mode) {
+  if (!RE2::Consume(&path, *kBeginRegex)) {
+    return absl::OutOfRangeError("JSONPath must start with '$'");
+  }
+  std::vector<std::string> tokens;
+  tokens.push_back(std::string(kBeginToken));
+  RE2* esc_key_lexer;
+  RE2* offset_lexer;
+  char esc_chr;
+  if (sql_standard_mode) {
+    esc_key_lexer = kEscKeyLexerStandard.get();
+    offset_lexer = kOffsetLexerStandard.get();
+    esc_chr = kStandardEscapeChar;
+  } else {
+    esc_key_lexer = kEscKeyLexer.get();
+    offset_lexer = kOffsetLexer.get();
+    esc_chr = kLegacyEscapeChar;
+  }
+  while (!path.empty()) {
+    std::string token;
+    std::string esc_token;
+    if (RE2::Consume(&path, *offset_lexer, &token) ||
+        RE2::Consume(&path, *kKeyLexer, &token)) {
+      tokens.push_back(std::move(token));
+    } else if (RE2::Consume(&path, *esc_key_lexer, &esc_token)) {
+      RemoveBackSlashFollowedByChar(&esc_token, esc_chr);
+      tokens.push_back(std::move(esc_token));
+    } else {
+      // In non-standard mode, it's allowed to have a trailing dot.
+      if (path == "." && !sql_standard_mode) {
+        break;
+      }
+      if (RE2::PartialMatch(path, *kUnSupportedLexer, &token)) {
+        return absl::OutOfRangeError(
+            absl::StrCat("Unsupported operator in JSONPath: ", token));
+      }
+      return absl::OutOfRangeError(
+          absl::StrCat("Invalid token in JSONPath at: ", path));
+    }
+  }
+  return tokens;
+}
+
 absl::StatusOr<std::unique_ptr<ValidJSONPathIterator>>
 ValidJSONPathIterator::Create(absl::string_view js_path,
                               bool sql_standard_mode) {
-  ZETASQL_RETURN_IF_ERROR(IsValidJSONPath(js_path, sql_standard_mode));
-  return absl::WrapUnique(
-      new ValidJSONPathIterator(js_path, sql_standard_mode));
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<Token> tokens,
+                   ValidateAndInitializePathTokens(js_path, sql_standard_mode));
+  return absl::WrapUnique(new ValidJSONPathIterator(std::move(tokens)));
 }
 
-bool ValidJSONPathIterator::operator++() {
-  if ((depth_ == tokens_.size()) && !text_.empty()) {
-    Token token;
-    Token esc_token;
-    is_valid_ = RE2::Consume(&text_, *offset_lexer_, &token) ||
-                RE2::Consume(&text_, *kKeyLexer, &token);
-    if (is_valid_) {
-      ++depth_;
-      tokens_.push_back(token);
-    } else if ((is_valid_ =
-                    RE2::Consume(&text_, *esc_key_lexer_, &esc_token))) {
-      ++depth_;
-      RemoveBackSlashFollowedByChar(&esc_token, esc_chr_);
-      tokens_.push_back(esc_token);
+// Validates and initializes a json path. During parsing, initializes all tokens
+// that can be re-used by `StrictJSONPathIterator`. This avoids duplicate
+// intensive regex matching.
+absl::StatusOr<std::vector<StrictJSONPathToken>>
+ValidateAndInitializeStrictPathTokens(absl::string_view path) {
+  std::vector<StrictJSONPathToken> tokens;
+  if (!RE2::Consume(&path, *kBeginRegex)) {
+    return absl::OutOfRangeError("JSONPath must start with '$'");
+  }
+  tokens.push_back(StrictJSONPathToken(std::monostate()));
+  while (!path.empty()) {
+    std::string parsed_string;
+    if (RE2::Consume(&path, *kKeyLexer, &parsed_string)) {
+      StrictJSONPathToken strict_token(std::move(parsed_string));
+      tokens.push_back(std::move(strict_token));
+    } else if ((RE2::Consume(&path, *kOffsetLexerStrict, &parsed_string))) {
+      int64_t index;
+      if (!absl::SimpleAtoi(parsed_string, &index)) {
+        return absl::OutOfRangeError(absl::StrCat(
+            "JSONPath contains invalid array index: ", parsed_string));
+      }
+      StrictJSONPathToken strict_token(index);
+      tokens.push_back(std::move(strict_token));
+    } else if (RE2::Consume(&path, *kEscKeyLexerStandard, &parsed_string)) {
+      tokens.push_back(StrictJSONPathToken(std::move(parsed_string)));
+    } else {
+      return absl::OutOfRangeError(
+          absl::StrCat("Invalid token in JSONPath at: ", path));
     }
-  } else if (depth_ <= tokens_.size()) {
-    ++depth_;
-    is_valid_ = depth_ <= tokens_.size();
   }
-  return is_valid_;
+  return tokens;
 }
 
-ValidJSONPathIterator::ValidJSONPathIterator(absl::string_view input,
-                                             bool sql_standard_mode)
-    : sql_standard_mode_(sql_standard_mode), text_(input) {
-  Init();
-  offset_lexer_ = kOffsetLexer.get();
-  esc_key_lexer_ = kEscKeyLexer.get();
-  esc_chr_ = '\'';
-  if (sql_standard_mode) {
-    offset_lexer_ = kOffsetLexerStandard.get();
-    esc_key_lexer_ = kEscKeyLexerStandard.get();
-    esc_chr_ = '"';
-  }
-}
-
-void ValidJSONPathIterator::Init() {
-  depth_ = 0;
-  is_valid_ = RE2::Consume(&text_, *kBeginRegex);
-  ZETASQL_DCHECK(is_valid_);
-  // also consume "." in the case of the path begin just "$."
-  if (text_ == ".") {
-    absl::ConsumePrefix(&text_, ".");
-  }
-  tokens_.push_back("");
-  depth_ = 1;
+absl::StatusOr<std::unique_ptr<StrictJSONPathIterator>>
+StrictJSONPathIterator::Create(absl::string_view path) {
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<StrictJSONPathToken> tokens,
+                   ValidateAndInitializeStrictPathTokens(path));
+  return absl::WrapUnique(new StrictJSONPathIterator(std::move(tokens)));
 }
 
 }  // namespace json_internal

@@ -41,6 +41,7 @@
 #include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
@@ -193,12 +194,12 @@ class ResolvedASTRewriteVisitorTest : public ::testing::Test {
 
   // Create AST and deep copied AST for a given query. Verify that all
   // statuses work as expected and that the debug string matches.
-  std::unique_ptr<const ResolvedNode> TestDeepCopyAST(const std::string& query);
+  std::unique_ptr<const ResolvedNode> TestDeepCopyAST(absl::string_view query);
   std::unique_ptr<const ResolvedNode> TestModifyJoinScanCopyVisitor(
-      const std::string& query);
+      absl::string_view query);
   std::unique_ptr<const ResolvedNode> TestCastFilterScanCopyVisitor(
-      const std::string& query);
-  absl::Status TestErrorPropagationInVisitor(const std::string& query,
+      absl::string_view query);
+  absl::Status TestErrorPropagationInVisitor(absl::string_view query,
                                              int pre_visit_error_value,
                                              int post_visit_error_value,
                                              int wrong_type_error_value);
@@ -216,7 +217,7 @@ class ResolvedASTRewriteVisitorTest : public ::testing::Test {
 };
 
 std::unique_ptr<const ResolvedNode>
-ResolvedASTRewriteVisitorTest::TestDeepCopyAST(const std::string& query) {
+ResolvedASTRewriteVisitorTest::TestDeepCopyAST(absl::string_view query) {
   // Parse query into AST.
   analyzer_outputs_.emplace_back();
   ZETASQL_EXPECT_OK(AnalyzeStatement(query, options_, &catalog_, &type_factory_,
@@ -275,20 +276,20 @@ ResolvedASTRewriteVisitorTest::ApplyCopyVisitor(
 
 std::unique_ptr<const ResolvedNode>
 ResolvedASTRewriteVisitorTest::TestModifyJoinScanCopyVisitor(
-    const std::string& query) {
+    absl::string_view query) {
   ModifyJoinScanCopyVisitor visitor;
   return ApplyCopyVisitor(query, &visitor);
 }
 
 std::unique_ptr<const ResolvedNode>
 ResolvedASTRewriteVisitorTest::TestCastFilterScanCopyVisitor(
-    const std::string& query) {
+    absl::string_view query) {
   CastFilterScanCopyVisitor visitor;
   return ApplyCopyVisitor(query, &visitor);
 }
 
 absl::Status ResolvedASTRewriteVisitorTest::TestErrorPropagationInVisitor(
-    const std::string& query, int pre_visit_error_value,
+    absl::string_view query, int pre_visit_error_value,
     int post_visit_error_value, int wrong_type_error_value) {
   ErrorCopyVisitor visitor(pre_visit_error_value, post_visit_error_value,
                            wrong_type_error_value);

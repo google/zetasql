@@ -37,10 +37,13 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
+#include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
+class Rewriter;
 class ResolvedOption;
 class AnalyzerOutput;
 
@@ -62,7 +65,8 @@ typedef std::map<std::string, const Type*> QueryParametersMap;
 // For example, if @@foo.bar has type INT32, the corresponding map entry is:
 //    key = {"foo", "bar"}
 //    value = type_factory->get_int32()
-typedef std::map<std::vector<std::string>, const Type*, StringVectorCaseLess>
+typedef absl::btree_map<std::vector<std::string>, const Type*,
+                        StringVectorCaseLess>
     SystemVariablesMap;
 
 struct AllowedOptionProperties {
@@ -84,6 +88,11 @@ struct AllowedOptionProperties {
 // Hint, option and qualifier names are all case insensitive.
 // The resolved AST will contain the original case as written by the user.
 //
+// The <disallow_duplicate_option_names> field will disallow duplicate option
+// names for non-anonymization and non-aggregation_threshold options.
+// anonymization and aggregation_threshold options already disallow duplicate
+// option names by default.
+//
 // The <disallow_unknown_options> and <disallow_unknown_hints_with_qualifiers>
 // fields can be set to indicate that errors should be given on unknown
 // options or hints (with specific qualifiers).  Unknown hints with other
@@ -96,11 +105,14 @@ struct AllowedHintsAndOptions {
   // This is recommended constructor to use for normal settings.
   // All supported hints and options should be added with the Add methods.
   // Unknown options will be errors.
+  // Duplicate option names will be permitted (for non-anonymization and
+  // non-aggregation_threshold options)
   // Unknown hints without qualifiers, or with <qualifier>, will be errors.
-  // Unkonwn hints with other qualifiers will be allowed (because these are
+  // Unknown hints with other qualifiers will be allowed (because these are
   // typically interpreted as hints intended for other engines).
   explicit AllowedHintsAndOptions(absl::string_view qualifier) {
     disallow_unknown_options = true;
+    disallow_duplicate_option_names = false;
     disallow_unknown_hints_with_qualifiers.emplace("");
     disallow_unknown_hints_with_qualifiers.emplace(qualifier);
   }
@@ -144,6 +156,10 @@ struct AllowedHintsAndOptions {
 
   // If true, give an error for an unknown option.
   bool disallow_unknown_options = false;
+  // If true, give an error if an option name appears more than once in a single
+  // options list. Does not apply to anonymization and aggregate_threshold
+  // options.
+  bool disallow_duplicate_option_names = false;
 
   // For each qualifier in this set, give errors for unknown hints with that
   // qualifier.  If "" is in the set, give errors for unknown unqualified hints.
@@ -207,6 +223,9 @@ class AnalyzerOptions {
 
   using LookupExpressionColumnCallback =
       std::function<absl::Status(const std::string&, const Type**)>;
+
+  using LookupCatalogColumnCallback =
+      std::function<absl::StatusOr<const Column*>(const std::string&)>;
 
   typedef std::function<absl::Status(const std::string&,
                                      std::unique_ptr<const ResolvedExpr>&)>
@@ -287,6 +306,43 @@ class AnalyzerOptions {
   // Returns the set of rewrites that are enabled by default.
   static absl::btree_set<ResolvedASTRewrite> DefaultRewrites();
 
+  // Adds new non-built-in rewriter that will be applied before all built-in
+  // rewriters. Rewriters added here will be applied in order they were added.
+  // If added multiple times, the rewriter will run once for each slot where it
+  // was added in the sequence.
+  void add_leading_rewriter(std::shared_ptr<Rewriter> rewriter) {
+    data_->leading_rewriters.push_back(std::move(rewriter));
+  }
+  // Sets non-built-in rewriters that will be applied before all built-in
+  // rewriters.
+  void set_leading_rewriters(std::vector<std::shared_ptr<Rewriter>> rewriters) {
+    data_->leading_rewriters = std::move(rewriters);
+  }
+  // Returns non-built-in rewriters that will be applied before all built-in
+  // rewriters.
+  const std::vector<std::shared_ptr<Rewriter>>& leading_rewriters() const {
+    return data_->leading_rewriters;
+  }
+
+  // Adds new non-built-in rewriter that will be applied after all built-in
+  // rewriters. Rewriters added here will be applied in order they were added.
+  // If added multiple times, the rewriter will run once for each slot where it
+  // was added in the sequence.
+  void add_trailing_rewriter(std::shared_ptr<Rewriter> rewriter) {
+    data_->trailing_rewriters.push_back(std::move(rewriter));
+  }
+  // Sets non-built-in rewriters that will be applied after all built-in
+  // rewriters.
+  void set_trailing_rewriters(
+      std::vector<std::shared_ptr<Rewriter>> rewriters) {
+    data_->trailing_rewriters = std::move(rewriters);
+  }
+  // Returns non-built-in rewriters that will be applied after all built-in
+  // rewriters.
+  const std::vector<std::shared_ptr<Rewriter>>& trailing_rewriters() const {
+    return data_->trailing_rewriters;
+  }
+
   // Options for Find*() name lookups into the Catalog.
   const Catalog::FindOptions& find_options() const {
     return data_->find_options;
@@ -297,7 +353,7 @@ class AnalyzerOptions {
   }
 
   // Adds a named query parameter.
-  // Parameter name lookups are case insensitive. Paramater names in the output
+  // Parameter name lookups are case insensitive. Parameter names in the output
   // ResolvedParameter nodes will always be in lowercase.
   //
   // ZetaSQL only uses the parameter Type and not the Value. Query analysis is
@@ -394,6 +450,15 @@ class AnalyzerOptions {
   void SetLookupExpressionColumnCallback(
       const LookupExpressionColumnCallback& lookup_expression_column_callback);
 
+  // SetLookupCatalogColumnCallback is used to add a callback function to
+  // resolve columns in the catalog. The columns referenced in the expressions
+  // but not added in SetInScopeExpressionColumn will be resolved using this
+  // callback. Note that SetLookupCatalogColumnCallback should not be used in
+  // conjunction with SetLookupExpressionColumnCallback in the same
+  // AnalyzerOptions.
+  void SetLookupCatalogColumnCallback(
+      const LookupCatalogColumnCallback& lookup_catalog_column_callback);
+
   ABSL_DEPRECATED("This function is going away. Please don't add new uses.")
   LookupExpressionColumnCallback lookup_expression_column_callback() const {
     return data_->lookup_expression_column_callback;
@@ -489,6 +554,13 @@ class AnalyzerOptions {
       zetasql::ERROR_MESSAGE_ONE_LINE;
   static constexpr ErrorMessageMode ERROR_MESSAGE_MULTI_LINE_WITH_CARET =
       zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET;
+
+  void set_attach_error_location_payload(bool attach_error_location_payload) {
+    data_->attach_error_location_payload = attach_error_location_payload;
+  }
+  bool attach_error_location_payload() const {
+    return data_->attach_error_location_payload;
+  }
 
   void set_error_message_mode(ErrorMessageMode mode) {
     data_->error_message_mode = mode;
@@ -589,6 +661,20 @@ class AnalyzerOptions {
     return data_->preserve_unnecessary_cast;
   }
 
+  void set_show_function_signature_mismatch_details(bool value) {
+    data_->show_function_signature_mismatch_details = value;
+  }
+  bool show_function_signature_mismatch_details() const {
+    return data_->show_function_signature_mismatch_details;
+  }
+
+  // If true (default), the analyzer will attempt to fold cast of literals
+  // into target types.
+  void set_fold_literal_cast(bool value) { data_->fold_literal_cast = value; }
+  // Returns true (default) if the analyzer attempts to fold cast of literals
+  // into target types.
+  bool fold_literal_cast() const { return data_->fold_literal_cast; }
+
   // Controls whether to preserve aliases of aggregate columns and analytic
   // function columns. This option has no effect on query semantics and just
   // changes what names are used inside ResolvedColumns.
@@ -643,6 +729,26 @@ class AnalyzerOptions {
 
   const std::vector<AnnotationSpec*>& get_annotation_specs() const {
     return data_->annotation_specs;
+  }
+
+  enum class FieldsAccessedMode {
+    // This mode is best effort at clearing accessed fields, but
+    // will always set all fields whenever at least one rewriter runs.
+    // This is meant to match an unfortunate behavior introduced with the
+    // rewriter framework.
+    // This mode is meant to be temporary.
+    // This is the default (and only) mode.
+    LEGACY_FIELDS_ACCESSED_MODE
+  };
+
+  void set_fields_accessed_mode(FieldsAccessedMode mode) const {
+    data_->fields_accessed_mode = mode;
+  }
+
+  // This mode determines how/when the returned ResolvedAST's
+  // FieldsAccessed bits are cleared on return.
+  FieldsAccessedMode fields_accessed_mode() const {
+    return data_->fields_accessed_mode;
   }
 
  private:
@@ -722,6 +828,10 @@ class AnalyzerOptions {
     // Allocate all IdStrings in the resolved AST in this pool.
     // The pool will also be referenced in AnalyzerOutput to keep it alive.
     std::shared_ptr<IdStringPool> id_string_pool;
+
+    // Include error location as a payload. This is independent from the
+    // location in the message itself, controlled by ErrorMessageMode.
+    bool attach_error_location_payload = false;
 
     ErrorMessageMode error_message_mode = ERROR_MESSAGE_ONE_LINE;
 
@@ -815,14 +925,32 @@ class AnalyzerOptions {
     // analyzer test column ids.
     absl::btree_set<ResolvedASTRewrite> enabled_rewrites = DefaultRewrites();
 
+    // Engine supplied rewriters that are applied before any built-in rewrites.
+    // The pointers in this vector will be dereferenced in order and the
+    // pointed-to Rewriter will run once per dereference.
+    std::vector<std::shared_ptr<Rewriter>> leading_rewriters;
+
+    // Engine supplied rewriters that are applied before any built-in rewrites.
+    // The pointers in this vector will be dereferenced in order and the
+    // pointed-to Rewriter will run once per dereference.
+    std::vector<std::shared_ptr<Rewriter>> trailing_rewriters;
+
     // Controls whether the analyzer will add a ResolvedCAST node for a CAST
     // operation in the query even when the source and target types are the
     // same.
     bool preserve_unnecessary_cast = false;
 
+    bool show_function_signature_mismatch_details = false;
+
+    // Controls if CAST of literal is implicitly folded to the target type.
+    bool fold_literal_cast = true;
+
     // The annotations specs that are passed in and should be handled by
     // the annotation framework.
     std::vector<AnnotationSpec*> annotation_specs;  // Not owned.
+
+    FieldsAccessedMode fields_accessed_mode =
+        FieldsAccessedMode::LEGACY_FIELDS_ACCESSED_MODE;
   };
   std::unique_ptr<Data> data_;
 

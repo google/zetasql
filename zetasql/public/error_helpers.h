@@ -20,6 +20,7 @@
 #include <string>
 
 #include "zetasql/public/options.pb.h"
+#include "absl/base/attributes.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
@@ -84,7 +85,8 @@ std::string GetErrorStringWithCaret(absl::string_view input,
 //
 // Otherwise, if <status> has an ErrorLocation and/or ErrorSource payload,
 // removes those payloads and updates the error message to include location
-// and source info.
+// and source info. 'keep_error_location_payload' leaves the payload after it
+// updates the Status, instead of clearing it.
 //
 // For the ErrorLocation payload, the updated message will include
 // "[at <line>:<column>]", and if <mode> is ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
@@ -96,12 +98,20 @@ std::string GetErrorStringWithCaret(absl::string_view input,
 // are multiple ErrorSource payloads, then the messages are in order based
 // on their dependencies - if an error has a source error then the source
 // error message will appear immediately after the original error message.
-//
-// Note: <status> must not include an InternalErrorLocation (which is only
-// used internally).
 absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
+                                         bool keep_error_location_payload,
                                          absl::string_view input_text,
                                          const absl::Status& status);
+
+ABSL_DEPRECATED("Inline me!")
+inline absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
+                                                absl::string_view input_text,
+                                                const absl::Status& status) {
+  return MaybeUpdateErrorFromPayload(mode,
+                                     /*keep_error_location_payload=*/
+                                     mode == ERROR_MESSAGE_WITH_PAYLOAD,
+                                     input_text, status);
+}
 
 // If <status> contains an (external) ErrorLocation payload, and if that
 // ErrorLocation does not have a filename, then updates the ErrorLocation
@@ -109,6 +119,23 @@ absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
 // updated ErrorLocation.  Otherwise, just returns <status>.
 absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
     const absl::Status& status, const std::string& filename);
+
+// If <status> is OK or if it does not have a InternalErrorLocation payload,
+// returns <status>. Otherwise, replaces the InternalErrorLocation payload by an
+// ErrorLocation payload. 'query' should be the query that was parsed; it is
+// used to convert the error location from line/column to byte offset or vice
+// versa. This function is called on all errors before returning them to
+// the client.
+//
+// An InternalErrorLocation contained in 'status' must be valid for
+// 'query'. If it is not, then this function returns an internal error.
+absl::Status ConvertInternalErrorLocationToExternal(absl::Status status,
+                                                    absl::string_view query);
+
+// The type url for the ErrorMessageMode payload. Used to indicate what mode
+// was applied to a given error message (e.g. caret on same line or multiline).
+inline static constexpr absl::string_view kErrorMessageModeUrl =
+    "type.googleapis.com/zetasql.ErrorMessageModeForPayload";
 
 }  // namespace zetasql
 

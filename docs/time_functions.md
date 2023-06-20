@@ -12,6 +12,10 @@ ZetaSQL supports the following time functions.
 CURRENT_TIME([time_zone])
 ```
 
+```sql
+CURRENT_TIME
+```
+
 **Description**
 
 Returns the current time as a `TIME` object. Parentheses are optional when
@@ -20,6 +24,10 @@ called with no arguments.
 This function supports an optional `time_zone` parameter.
 See [Time zone definitions][time-link-to-timezone-definitions] for information
 on how to specify a time zone.
+
+The current time is recorded at the start of the query
+statement which contains this function, not when this specific function is
+evaluated.
 
 **Return Data Type**
 
@@ -152,10 +160,10 @@ each element in `time_string`.
 -- This works because elements on both sides match.
 SELECT PARSE_TIME("%I:%M:%S", "07:30:00")
 
--- This doesn't work because the seconds element is in different locations.
+-- This produces an error because the seconds element is in different locations.
 SELECT PARSE_TIME("%S:%I:%M", "07:30:00")
 
--- This doesn't work because one of the seconds elements is missing.
+-- This produces an error because one of the seconds elements is missing.
 SELECT PARSE_TIME("%I:%M", "07:30:00")
 
 -- This works because %T can find all matching elements in time_string.

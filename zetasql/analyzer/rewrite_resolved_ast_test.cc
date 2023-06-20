@@ -16,19 +16,26 @@
 
 #include <memory>
 
-#include "zetasql/analyzer/rewriters/map_function_rewriter.h"
-#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
+#include "absl/time/time.h"
 
 ABSL_DECLARE_FLAG(double, zetasql_stack_usage_proportion_warning);
+ABSL_DECLARE_FLAG(bool, zetasql_disable_rewriter_checker);
+
+using ::testing::Gt;
 
 namespace zetasql {
 
@@ -177,6 +184,31 @@ TEST(RewriteResolvedAstTest, RewriterWarnsComplextyJustOnce) {
               ::testing::ElementsAre(zetasql_base::testing::StatusIs(
                   absl::StatusCode::kResourceExhausted)));
   absl::SetFlag(&FLAGS_zetasql_stack_usage_proportion_warning, old_value);
+}
+
+TEST(RewriteResolvedAstTest, RewriteWithRewriteDetectedDisabled) {
+  absl::SetFlag(&FLAGS_zetasql_disable_rewriter_checker, true);
+  AnalyzerOptions options;
+  options.mutable_language()->EnableMaximumLanguageFeatures();
+  ZETASQL_CHECK_OK(options.AddExpressionColumn("k", types::Int64Type()));
+
+  TypeFactory types;
+  const Type* map_type;
+  ZETASQL_CHECK_OK(types.MakeProtoType(
+      zetasql_test__::MessageWithMapField::descriptor(), &map_type));
+  ZETASQL_CHECK_OK(options.AddExpressionColumn("mapproto", map_type));
+
+  SimpleCatalog catalog("catalog", &types);
+  catalog.AddZetaSQLFunctions();
+
+  std::unique_ptr<const AnalyzerOutput> output;
+  auto status =
+      AnalyzeExpression("mapproto.string_int32_map[SAFE_KEY('foo')] + k",
+                        options, &catalog, &types, &output);
+  ZETASQL_EXPECT_OK(status);
+  EXPECT_TRUE(output->resolved_expr() != nullptr);
+  EXPECT_THAT(output->runtime_info().rewriters_timed_value().elapsed_duration(),
+              Gt(absl::Nanoseconds(0)));
 }
 
 }  // namespace zetasql

@@ -379,8 +379,12 @@ class TypeFactory {
 
   // Takes ownership of <annotation_map> and returns a raw pointer owned by this
   // TypeFactory. The output pointer may be different from the input.
+  // `normalize` parameter indicates whether to call normalize on annotation map
+  // before transferring ownership or not. Normalize function internally
+  // erases the annotation map if it is empty. Set `normalize` to false if the
+  // internal annotation map should not be erased.
   absl::StatusOr<const AnnotationMap*> TakeOwnership(
-      std::unique_ptr<AnnotationMap> annotation_map);
+      std::unique_ptr<AnnotationMap> annotation_map, bool normalize = true);
 
   // Makes a ZetaSQL Type from a self-contained ZetaSQL TypeProto.  The
   // <type_proto> FileDescriptorSets are loaded into the pool.  The <pool>
@@ -657,6 +661,14 @@ const EnumType* DifferentialPrivacyReportFormatEnumType();
 // ARRAY_ZIP and UNNEST when there are multiple arrays of different lengths.
 // This is an opaque enum type.
 const EnumType* ArrayZipModeEnumType();
+
+// Accessor for the enum type
+// (functions::RangeSessionizeEnums::RangeSessionizeMode) that represents the
+// sessionize option used as an optional argument of
+// RANGE_SESSIONIZE and RANGE_NORMALIZE TVFs. It determines
+// sessionization behavior on overlapping/meeting ranges.
+// This is an opaque enum type.
+const EnumType* RangeSessionizeModeEnumType();
 
 // Return a type of 'type_kind' if 'type_kind' is a simple type, otherwise
 // returns nullptr. This is similar to TypeFactory::MakeSimpleType, but doesn't

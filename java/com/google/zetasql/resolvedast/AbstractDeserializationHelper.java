@@ -50,6 +50,8 @@ import com.google.zetasql.ProcedureRefProto;
 import com.google.zetasql.ResolvedCollationProto;
 import com.google.zetasql.ResolvedColumnProto;
 import com.google.zetasql.ResolvedFunctionCallInfo;
+import com.google.zetasql.Sequence;
+import com.google.zetasql.SequenceRefProto;
 import com.google.zetasql.TVFSignature;
 import com.google.zetasql.Table;
 import com.google.zetasql.TableRefProto;
@@ -117,6 +119,8 @@ public abstract class AbstractDeserializationHelper {
   abstract Model deserialize(ModelRefProto proto);
 
   abstract Connection deserialize(ConnectionRefProto proto);
+
+  abstract Sequence deserialize(SequenceRefProto proto);
 
   @Nullable
   abstract Table deserialize(TableRefProto proto);

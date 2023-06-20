@@ -15,21 +15,30 @@
 //
 
 #include <cstdint>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "google/protobuf/wrappers.pb.h"
+#include "zetasql/common/float_margin.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/interval_value_test_util.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/types/array_type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "re2/re2.h"
 
@@ -784,121 +793,6 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString() {
 
   AddStringByteEnumDateTimestampTestCases(/*is_to_json=*/false, all_tests);
   AddArrayStructAndProtoTestCases(/*is_to_json=*/false, all_tests);
-
-  // NUMERIC
-  const std::vector<std::pair<NumericValue, Value>> numeric_test_cases = {
-      {NumericValue(static_cast<int64_t>(0)), String("0")},
-      {NumericValue::FromDouble(3.14).value(), String("\"3.14\"")},
-      {NumericValue::FromStringStrict("555551.618033989").value(),
-       String("\"555551.618033989\"")},
-      {NumericValue::FromStringStrict("0.000000001").value(),
-       String("\"0.000000001\"")},
-      {NumericValue::FromStringStrict("-0.000000001").value(),
-       String("\"-0.000000001\"")},
-      {NumericValue::FromStringStrict("55555551.618033989").value(),
-       String("\"55555551.618033989\"")},
-      {NumericValue::FromStringStrict("1234567890.123456789").value(),
-       String("\"1234567890.123456789\"")},
-      {NumericValue::FromStringStrict("1234567890.12345678").value(),
-       String("\"1234567890.12345678\"")},
-      {NumericValue(9007199254740992ll), String("9007199254740992")},
-      {NumericValue(9007199254740993ll), String("\"9007199254740993\"")},
-      {NumericValue(-9007199254740992ll), String("-9007199254740992")},
-      {NumericValue(-9007199254740993ll), String("\"-9007199254740993\"")},
-      {NumericValue(2147483647), String("2147483647")},
-      {NumericValue(2147483648), String("2147483648")},
-      {NumericValue(-2147483648), String("-2147483648")},
-      {NumericValue(-2147483649), String("-2147483649")},
-      {NumericValue::MaxValue(),
-       String("\"99999999999999999999999999999.999999999\"")},
-      {NumericValue::FromStringStrict("99999999999999999999999999999").value(),
-       String("\"99999999999999999999999999999\"")},
-      {NumericValue::MinValue(),
-       String("\"-99999999999999999999999999999.999999999\"")},
-      {NumericValue::FromStringStrict("-99999999999999999999999999999").value(),
-       String("\"-99999999999999999999999999999\"")},
-  };
-  // BIGNUMERIC
-  const std::vector<std::pair<BigNumericValue, Value>> big_numeric_test_cases =
-      {
-          {BigNumericValue::MaxValue(),
-           String("\"578960446186580977117854925043439539266."
-                  "34992332820282019728792003956564819967\"")},
-          {BigNumericValue::MinValue(),
-           String("\"-578960446186580977117854925043439539266."
-                  "34992332820282019728792003956564819968\"")},
-          {BigNumericValue::FromStringStrict(
-               "99999999999999999999999999999.000000001")
-               .value(),
-           String("\"99999999999999999999999999999.000000001\"")},
-          {BigNumericValue::FromStringStrict(
-               "-99999999999999999999999999999.000000001")
-               .value(),
-           String("\"-99999999999999999999999999999.000000001\"")},
-          {BigNumericValue::FromStringStrict(
-               "10000000000000000000000000000000000000.1")
-               .value(),
-           String("\"10000000000000000000000000000000000000.1\"")},
-          {BigNumericValue::FromStringStrict(
-               "-10000000000000000000000000000000000000.1")
-               .value(),
-           String("\"-10000000000000000000000000000000000000.1\"")},
-          {BigNumericValue::FromStringStrict("1e38").value(),
-           String("\"100000000000000000000000000000000000000\"")},
-          {BigNumericValue::FromStringStrict("1e-38").value(),
-           String("\"0.00000000000000000000000000000000000001\"")},
-          {BigNumericValue::FromStringStrict(
-               "1.00000000000000000000000000000000000001")
-               .value(),
-           String("\"1.00000000000000000000000000000000000001\"")},
-          {BigNumericValue::FromStringStrict(
-               "-1.00000000000000000000000000000000000001")
-               .value(),
-           String("\"-1.00000000000000000000000000000000000001\"")},
-          {BigNumericValue::FromStringStrict(
-               "10000000000000000000000000000000000000."
-               "00000000000000000000000000000000000001")
-               .value(),
-           String("\"10000000000000000000000000000000000000."
-                  "00000000000000000000000000000000000001\"")},
-          {BigNumericValue::FromStringStrict(
-               "-10000000000000000000000000000000000000."
-               "00000000000000000000000000000000000001")
-               .value(),
-           String("\"-10000000000000000000000000000000000000."
-                  "00000000000000000000000000000000000001\"")},
-      };
-
-  for (const auto& numeric_test_case : numeric_test_cases) {
-    all_tests.emplace_back(
-        "to_json_string",
-        QueryParamsWithResult({Value::Numeric(numeric_test_case.first)},
-                              numeric_test_case.second)
-            .AddRequiredFeature(FEATURE_NUMERIC_TYPE));
-    // Reuse the numeric cases for bignumeric
-    all_tests.emplace_back(
-        "to_json_string",
-        QueryParamsWithResult(
-            {Value::BigNumeric(BigNumericValue(numeric_test_case.first))},
-            numeric_test_case.second)
-            .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE));
-  }
-  for (const auto& big_numeric_test_case : big_numeric_test_cases) {
-    all_tests.emplace_back(
-        "to_json_string",
-        QueryParamsWithResult({Value::BigNumeric(big_numeric_test_case.first)},
-                              big_numeric_test_case.second)
-            .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE));
-  }
-  all_tests.emplace_back(
-      "to_json_string",
-      QueryParamsWithResult({Value::NullNumeric()}, String("null"))
-          .AddRequiredFeature(FEATURE_NUMERIC_TYPE));
-  all_tests.emplace_back(
-      "to_json_string",
-      QueryParamsWithResult({Value::NullBigNumeric()}, String("null"))
-          .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE));
-
   AddCivilAndNanoTestCases(/*is_to_json=*/false, all_tests);
   AddIntervalValueTestCases(/*is_to_json=*/false, all_tests);
   AddJsonTestCases(/*is_to_json=*/false, all_tests);
@@ -1149,248 +1043,6 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson() {
 
   AddStringByteEnumDateTimestampTestCases(/*is_to_json=*/true, all_tests);
   AddArrayStructAndProtoTestCases(/*is_to_json=*/true, all_tests);
-
-  // NUMERIC
-  // Used to keep the test cases for NUMERIC value. The `bool` indicates the
-  // param value for stringify_wide_numbers in TO_JSON.
-  const std::vector<std::pair<std::pair<NumericValue, bool>, Value>>
-      numeric_test_cases = {
-          {{NumericValue(static_cast<int64_t>(0)), false},
-           values::Json(JSONValue(int64_t{0}))},
-          {{NumericValue::FromDouble(3.14).value(), false},
-           values::Json(JSONValue(3.14))},
-          {{NumericValue::FromStringStrict("555551.618033989").value(), false},
-           values::Json(JSONValue(555551.618033989))},
-          {{NumericValue::FromStringStrict("0.000000001").value(), false},
-           values::Json(JSONValue(0.000000001))},
-          {{NumericValue::FromStringStrict("-0.000000001").value(), false},
-           values::Json(JSONValue(-0.000000001))},
-          {{NumericValue::FromStringStrict("55555551.618033989").value(),
-            false},
-           values::Json(JSONValue(55555551.618033989))},
-          {{NumericValue::FromStringStrict("1234567890.123456789").value(),
-            false},
-           values::Json(JSONValue(1234567890.123456789))},
-          {{NumericValue::FromStringStrict("1234567890.12345678").value(),
-            false},
-           values::Json(JSONValue(1234567890.12345678))},
-          {{NumericValue::FromStringStrict("0.123456789").value(), true},
-           values::Json(JSONValue(0.123456789))},
-          {{NumericValue(9007199254740992ll), false},
-           values::Json(JSONValue(int64_t{9007199254740992}))},
-          {{NumericValue(9007199254740992ll), true},
-           values::Json(JSONValue(int64_t{9007199254740992}))},
-          {{NumericValue(-9007199254740992ll), true},
-           values::Json(JSONValue(int64_t{-9007199254740992}))},
-
-          // Cases in pair where results differ with different stringify value.
-          {{NumericValue(9007199254740993ll), false},
-           values::Json(JSONValue(int64_t{9007199254740993}))},
-          {{NumericValue(9007199254740993ll), true},
-           values::Json(JSONValue(std::string("9007199254740993")))},
-
-          {{NumericValue(-9007199254740993ll), false},
-           values::Json(JSONValue(int64_t{-9007199254740993}))},
-          {{NumericValue(-9007199254740993ll), true},
-           values::Json(JSONValue(std::string("-9007199254740993")))},
-
-          {{NumericValue::MaxValue(), false},
-           values::Json(JSONValue(99999999999999999999999999999.999999999))},
-          {{NumericValue::MaxValue(), true},
-           values::Json(JSONValue(
-               std::string("99999999999999999999999999999.999999999")))},
-
-          {{NumericValue::FromStringStrict("99999999999999999999999999999")
-                .value(),
-            false},
-           values::Json(JSONValue(std::stod("99999999999999999999999999999")))},
-          {{NumericValue::FromStringStrict("99999999999999999999999999999")
-                .value(),
-            true},
-           values::Json(
-               JSONValue(std::string("99999999999999999999999999999")))},
-
-          {{NumericValue::MinValue(), false},
-           values::Json(JSONValue(-99999999999999999999999999999.999999999))},
-          {{NumericValue::MinValue(), true},
-           values::Json(JSONValue(
-               std::string("-99999999999999999999999999999.999999999")))},
-
-          {{NumericValue::FromStringStrict("-99999999999999999999999999999")
-                .value(),
-            false},
-           values::Json(
-               JSONValue(std::stod("-99999999999999999999999999999")))},
-          {{NumericValue::FromStringStrict("-99999999999999999999999999999")
-                .value(),
-            true},
-           values::Json(
-               JSONValue(std::string("-99999999999999999999999999999")))},
-      };
-  // BIGNUMERIC
-  const std::vector<std::pair<std::pair<BigNumericValue, bool>, Value>>
-      big_numeric_test_cases = {
-          {{BigNumericValue::FromStringStrict("0.12345678901234").value(),
-            true},
-           values::Json(JSONValue(0.12345678901234))},
-          {{BigNumericValue::FromStringStrict("1234567890.12345").value(),
-            true},
-           values::Json(JSONValue(1234567890.12345))},
-          {{BigNumericValue::FromStringStrict("0.000001").value(), true},
-           values::Json(JSONValue(0.000001))},
-          {{BigNumericValue::MaxValue(), false},
-           values::Json(
-               JSONValue(std::stod("578960446186580977117854925043439539266."
-                                   "34992332820282019728792003956564819967")))},
-          {{BigNumericValue::MinValue(), false},
-           values::Json(
-               JSONValue(std::stod("-578960446186580977117854925043439539266."
-                                   "34992332820282019728792003956564819968")))},
-          {{BigNumericValue::FromStringStrict(
-                "-99999999999999999999999999999.000000001")
-                .value(),
-            false},
-           values::Json(JSONValue(
-               std::stod("-99999999999999999999999999999.000000001")))},
-
-          {{BigNumericValue::FromStringStrict(
-                "10000000000000000000000000000000000000.1")
-                .value(),
-            false},
-           values::Json(JSONValue(
-               std::stod("10000000000000000000000000000000000000.1")))},
-          {{BigNumericValue::FromStringStrict(
-                "-10000000000000000000000000000000000000.1")
-                .value(),
-            false},
-
-           // Cases in pair where results differ with different stringify value.
-           values::Json(JSONValue(
-               std::stod("-10000000000000000000000000000000000000.1")))},
-          {{BigNumericValue::FromStringStrict("1e38").value(), false},
-           values::Json(JSONValue(
-               std::stod("100000000000000000000000000000000000000")))},
-          {{BigNumericValue::FromStringStrict("1e38").value(), true},
-           values::Json(JSONValue(1e38))},
-
-          {{BigNumericValue::FromStringStrict("1e-38").value(), true},
-           values::Json(JSONValue(1e-38))},
-          {{BigNumericValue::FromStringStrict("1e-38").value(), false},
-           values::Json(JSONValue(
-               std::stod("0.00000000000000000000000000000000000001")))},
-
-          {{BigNumericValue::FromStringStrict(
-                "1.00000000000000000000000000000000000001")
-                .value(),
-            false},
-           values::Json(JSONValue(
-               std::stod("1.00000000000000000000000000000000000001")))},
-          {{BigNumericValue::FromStringStrict(
-                "1.00000000000000000000000000000000000001")
-                .value(),
-            true},
-           values::Json(JSONValue(
-               std::string("1.00000000000000000000000000000000000001")))},
-
-          {{BigNumericValue::FromStringStrict(
-                "-1.00000000000000000000000000000000000001")
-                .value(),
-            false},
-           values::Json(JSONValue(
-               std::stod("-1.00000000000000000000000000000000000001")))},
-          {{BigNumericValue::FromStringStrict(
-                "-1.00000000000000000000000000000000000001")
-                .value(),
-            true},
-           values::Json(JSONValue(
-               std::string("-1.00000000000000000000000000000000000001")))},
-
-          {{BigNumericValue::FromStringStrict(
-                "10000000000000000000000000000000000000."
-                "00000000000000000000000000000000000001")
-                .value(),
-            true},
-           values::Json(JSONValue(
-               std::string("10000000000000000000000000000000000000."
-                           "00000000000000000000000000000000000001")))},
-          {{BigNumericValue::FromStringStrict(
-                "10000000000000000000000000000000000000."
-                "00000000000000000000000000000000000001")
-                .value(),
-            false},
-           values::Json(
-               JSONValue(std::stod("10000000000000000000000000000000000000."
-                                   "00000000000000000000000000000000000001")))},
-
-          {{BigNumericValue::FromStringStrict(
-                "-10000000000000000000000000000000000000."
-                "00000000000000000000000000000000000001")
-                .value(),
-            true},
-           values::Json(JSONValue(
-               std::string("-10000000000000000000000000000000000000."
-                           "00000000000000000000000000000000000001")))},
-          {{BigNumericValue::FromStringStrict(
-                "-10000000000000000000000000000000000000."
-                "00000000000000000000000000000000000001")
-                .value(),
-            false},
-           values::Json(
-               JSONValue(std::stod("-10000000000000000000000000000000000000."
-                                   "00000000000000000000000000000000000001")))},
-      };
-  for (const auto& numeric_test_case : numeric_test_cases) {
-    all_tests.emplace_back(
-        "to_json",
-        QueryParamsWithResult({Value::Numeric(numeric_test_case.first.first),
-                               numeric_test_case.first.second},
-                              numeric_test_case.second)
-            .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NUMERIC_TYPE,
-                                 FEATURE_NAMED_ARGUMENTS}));
-    all_tests.emplace_back(
-        "to_json",
-        QueryParamsWithResult(
-            {Value::BigNumeric(BigNumericValue(numeric_test_case.first.first)),
-             numeric_test_case.first.second},
-            numeric_test_case.second)
-            .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_BIGNUMERIC_TYPE,
-                                 FEATURE_NAMED_ARGUMENTS}));
-  }
-  for (const auto& big_numeric_test_case : big_numeric_test_cases) {
-    all_tests.emplace_back(
-        "to_json",
-        QueryParamsWithResult(
-            {Value::BigNumeric(big_numeric_test_case.first.first),
-             big_numeric_test_case.first.second},
-            big_numeric_test_case.second)
-            .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_BIGNUMERIC_TYPE,
-                                 FEATURE_NAMED_ARGUMENTS}));
-  }
-  all_tests.emplace_back(
-      "to_json",
-      QueryParamsWithResult({Value::NullNumeric()}, Value::Json(JSONValue()))
-          .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NUMERIC_TYPE}));
-  all_tests.emplace_back(
-      "to_json",
-      QueryParamsWithResult({Value::NullBigNumeric()}, Value::Json(JSONValue()))
-          .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_BIGNUMERIC_TYPE}));
-  // Adds additional JSON_STRICT_NUMBER_PARSING test case.
-  all_tests.emplace_back(
-      "to_json",
-      QueryParamsWithResult({NumericValue::MaxValue()},
-                            Value::Json(JSONValue()), kOutOfRange)
-          .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NUMERIC_TYPE,
-                               FEATURE_JSON_STRICT_NUMBER_PARSING}));
-  all_tests.emplace_back(
-      "to_json",
-      QueryParamsWithResult({BigNumericValue::FromStringStrict(
-                                 "-10000000000000000000000000000000000000."
-                                 "00000000000000000000000000000000000001")
-                                 .value()},
-                            Value::Json(JSONValue()), kOutOfRange)
-          .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_BIGNUMERIC_TYPE,
-                               FEATURE_JSON_STRICT_NUMBER_PARSING}));
-
   AddCivilAndNanoTestCases(/*is_to_json=*/true, all_tests);
   AddIntervalValueTestCases(/*is_to_json=*/true, all_tests);
   AddJsonTestCases(/*is_to_json=*/true, all_tests);

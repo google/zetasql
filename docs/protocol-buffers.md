@@ -2,7 +2,8 @@
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-# Work with protocol buffers
+# Work with protocol buffers 
+<a id="protocol-buffers"></a>
 
 Protocol buffers are a flexible, efficient mechanism for serializing structured
 data. They are easy to create, small in size, and efficient to send over RPCs.

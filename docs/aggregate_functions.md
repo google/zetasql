@@ -8,6 +8,157 @@ ZetaSQL supports the following general aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#any_value"><code>ANY_VALUE</code></a>
+
+</td>
+  <td>
+    Returns an expression for some row.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_agg"><code>ARRAY_AGG</code></a>
+
+</td>
+  <td>
+    Returns an array of values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#array_concat_agg"><code>ARRAY_CONCAT_AGG</code></a>
+
+</td>
+  <td>
+    Concatenates arrays and returns a single array as a result.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#avg"><code>AVG</code></a>
+
+</td>
+  <td>
+    Returns the average of non-<code>NULL</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_and"><code>BIT_AND</code></a>
+
+</td>
+  <td>
+    Performs a bitwise AND operation on an expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_or"><code>BIT_OR</code></a>
+
+</td>
+  <td>
+    Performs a bitwise OR operation on an expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bit_xor"><code>BIT_XOR</code></a>
+
+</td>
+  <td>
+    Performs a bitwise XOR operation on an expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#count"><code>COUNT</code></a>
+
+</td>
+  <td>
+    Returns the number of rows in the input, or the number of rows with an
+    expression evaluated to any value other than <code>NULL</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#countif"><code>COUNTIF</code></a>
+
+</td>
+  <td>
+    Returns the count of <code>TRUE</code> values for an expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#logical_and"><code>LOGICAL_AND</code></a>
+
+</td>
+  <td>
+    Returns the logical AND of all non-<code>NULL</code> expressions.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#logical_or"><code>LOGICAL_OR</code></a>
+
+</td>
+  <td>
+    Returns the logical OR of all non-<code>NULL</code> expressions.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#max"><code>MAX</code></a>
+
+</td>
+  <td>
+    Returns the maximum non-<code>NULL</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#min"><code>MIN</code></a>
+
+</td>
+  <td>
+    Returns the minimum non-<code>NULL</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string_agg"><code>STRING_AGG</code></a>
+
+</td>
+  <td>
+    Returns a <code>STRING</code> or <code>BYTES</code> value obtained by
+    concatenating non-<code>NULL</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sum"><code>SUM</code></a>
+
+</td>
+  <td>
+    Returns the sum of non-<code>NULL</code> values.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `ANY_VALUE`
 
 ```sql
@@ -444,7 +595,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
-`AVG` can be used with differential privacy. To learn more, see
+`AVG` can be used with differential privacy. For more information, see
 [Differentially private aggregate functions][dp-functions].
 
 Caveats:
@@ -747,7 +898,7 @@ This function with DISTINCT supports specifying [collation][collation].
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
-`COUNT` can be used with differential privacy. To learn more, see
+`COUNT` can be used with differential privacy. For more information, see
 [Differentially private aggregate functions][dp-functions].
 
 **Supported Argument Types**
@@ -1479,7 +1630,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
-`SUM` can be used with differential privacy. To learn more, see
+`SUM` can be used with differential privacy. For more information, see
 [Differentially private aggregate functions][dp-functions].
 
 Caveats:

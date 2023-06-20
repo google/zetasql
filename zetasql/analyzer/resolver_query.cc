@@ -49,8 +49,10 @@
 #include "zetasql/analyzer/recursive_queries.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/resolver_common_inl.h"
+#include "zetasql/resolved_ast/node_sources.h"
 // This includes common macro definitions to define in the resolver cc files.
 #include "zetasql/common/string_util.h"
+#include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
@@ -78,9 +80,11 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
@@ -115,6 +119,126 @@
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+
+namespace {
+
+// Extracts an expression from the given scan at the provided column,
+// returning nullptr if the column doesn't exist in the scan or does not
+// contain an expression.
+absl::StatusOr<const ResolvedExpr*> GetColumnExpr(
+    const ResolvedProjectScan* scan, const ResolvedColumn& column) {
+  for (const std::unique_ptr<const ResolvedComputedColumn>& computed_column :
+       scan->expr_list()) {
+    const ResolvedExpr* expr = computed_column->expr();
+    ZETASQL_RET_CHECK_NE(expr, nullptr);
+    if (computed_column->column().column_id() == column.column_id()) {
+      return expr;
+    }
+  }
+  return nullptr;
+}
+
+// Validates nested struct constructor in rollup, cube and grouping sets. Only
+// single-level struct constructors are allowed in the grouping set.
+// See (broken link):syntax.
+absl::Status ValidateNestedStructConstructor(const ASTExpression* expr,
+                                             const LanguageOptions& language,
+                                             absl::string_view clause_name) {
+  // The expr will be null if it's an empty grouping set, a.k.a. ().
+  if (expr == nullptr) {
+    return absl::OkStatus();
+  }
+  if (!expr->Is<ASTStructConstructorWithParens>()) {
+    return absl::OkStatus();
+  }
+
+  const ASTStructConstructorWithParens* struct_constructor =
+      expr->GetAs<ASTStructConstructorWithParens>();
+  for (const ASTExpression* field_expr :
+       struct_constructor->field_expressions()) {
+    if (field_expr->Is<ASTStructConstructorWithParens>()) {
+      return MakeSqlErrorAt(field_expr)
+             << "Nested column list is not allowed in " << clause_name;
+    }
+  }
+  return absl::OkStatus();
+}
+
+// Validates Rollup to check the feature option is set properly, and all its
+// expressions are not nested struct constructors.
+absl::Status ValidateRollup(const ASTRollup* rollup,
+                            const LanguageOptions& language,
+                            size_t grouping_item_count) {
+  ZETASQL_RET_CHECK(rollup != nullptr);
+  if (!language.LanguageFeatureEnabled(FEATURE_GROUP_BY_ROLLUP)) {
+    return MakeSqlErrorAt(rollup) << "GROUP BY ROLLUP is unsupported";
+  }
+  if (grouping_item_count > 1) {
+    return MakeSqlErrorAt(rollup)
+           << "The GROUP BY clause only supports ROLLUP when there are no "
+           << "other grouping elements";
+  }
+  // Currently Rollup allows nested struct construtor, and it will be disabled
+  // under the proposal (broken link).
+  if (language.LanguageFeatureEnabled(FEATURE_V_1_4_GROUPING_SETS)) {
+    for (const ASTExpression* expr : rollup->expressions()) {
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateNestedStructConstructor(expr, language, "ROLLUP"));
+    }
+  }
+  return absl::OkStatus();
+}
+
+// Validates Cube to check the feature option is set properly, and all its
+// expressions are not nested struct constructors.
+absl::Status ValidateCube(const ASTCube* cube, const LanguageOptions& language,
+                          size_t grouping_item_count) {
+  ZETASQL_RET_CHECK(cube != nullptr);
+  if (!language.LanguageFeatureEnabled(FEATURE_V_1_4_GROUPING_SETS)) {
+    return MakeSqlErrorAt(cube) << "GROUP BY CUBE is unsupported";
+  }
+  if (grouping_item_count > 1) {
+    return MakeSqlErrorAt(cube)
+           << "The GROUP BY clause only supports CUBE when there are no other "
+           << "grouping elements";
+  }
+  for (const ASTExpression* expr : cube->expressions()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateNestedStructConstructor(expr, language, "CUBE"));
+  }
+  return absl::OkStatus();
+}
+
+// Validates GroupingSetList and all its sub grouping set.
+absl::Status ValidateGroupingSetList(
+    const ASTGroupingSetList* grouping_set_list,
+    const LanguageOptions& language, size_t grouping_item_count) {
+  ZETASQL_RET_CHECK(grouping_set_list != nullptr);
+  if (!language.LanguageFeatureEnabled(FEATURE_V_1_4_GROUPING_SETS)) {
+    return MakeSqlErrorAt(grouping_set_list)
+           << "GROUP BY GROUPING SETS is unsupported";
+  }
+  if (grouping_item_count > 1) {
+    return MakeSqlErrorAt(grouping_set_list)
+           << "The GROUP BY clause only supports GROUPING SETS when there are "
+              "no other grouping elements";
+  }
+  for (const ASTGroupingSet* grouping_set :
+       grouping_set_list->grouping_sets()) {
+    if (grouping_set->rollup() != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(ValidateRollup(grouping_set->rollup(), language,
+                                     grouping_item_count));
+    } else if (grouping_set->cube() != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateCube(grouping_set->cube(), language, grouping_item_count));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(ValidateNestedStructConstructor(
+          grouping_set->expression(), language, "GROUPING SETS"));
+    }
+  }
+  return absl::OkStatus();
+}
+
+}  // namespace
 
 // These are constant identifiers used mostly for generated column or table
 // names.  We use a single IdString for each so we never have to allocate
@@ -433,13 +557,17 @@ absl::Status Resolver::AddAggregateScan(
        query_resolution_info->aggregate_columns_to_compute()) {
     column_list.push_back(aggregate_column->column());
   }
+  for (const std::unique_ptr<const ResolvedGroupingCall>& grouping_call :
+       query_resolution_info->grouping_columns_list()) {
+    column_list.push_back(grouping_call->output_column());
+  }
 
   std::vector<std::unique_ptr<const ResolvedColumnRef>> rollup_column_list;
   std::vector<std::unique_ptr<const ResolvedGroupingSet>> grouping_set_list;
 
   // Retrieve the grouping sets and rollup list for the aggregate scan, if any.
-  query_resolution_info->ReleaseGroupingSetsAndRollupList(&grouping_set_list,
-                                                          &rollup_column_list);
+  ZETASQL_RETURN_IF_ERROR(query_resolution_info->ReleaseGroupingSetsAndRollupList(
+      &grouping_set_list, &rollup_column_list));
 
   ZETASQL_RET_CHECK(!column_list.empty());
   std::unique_ptr<ResolvedAggregateScan> aggregate_scan =
@@ -447,7 +575,8 @@ absl::Status Resolver::AddAggregateScan(
           column_list, std::move(*current_scan),
           query_resolution_info->release_group_by_columns_to_compute(),
           query_resolution_info->release_aggregate_columns_to_compute(),
-          std::move(grouping_set_list), std::move(rollup_column_list));
+          std::move(grouping_set_list), std::move(rollup_column_list),
+          query_resolution_info->release_grouping_columns_list());
   // If the feature is not enabled, any collation annotation that might exist on
   // the grouping expressions is ignored.
   if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
@@ -1301,17 +1430,18 @@ static constexpr bool IsAlwaysAggregateSelectWithMode(SelectWithMode mode) {
 //    QueryResolutionInfo, in the following order:
 //    1. PROJECT scan for dot-star columns
 //    2. AGGREGATE scan
-//    3. PROJECT scan for columns needed by HAVING
+//    3. PROJECT scan for columns needed by HAVING or QUALIFY
 //    4. FILTER scan for HAVING
 //    5. PROJECT scan for columns needed by analytic functions
 //    6. ANALYTIC scan
-//    7. PROJECT scan if needed for DISTINCT
-//    8. AGGREGATE scan for DISTINCT
-//    9. PROJECT scan for columns needed by ORDER BY
-//   10. ORDER BY scan
-//   11. LIMIT OFFSET scan
-//   12. PROJECT scan for AS STRUCT/PROTO
-//   13. PROJECT scan for handling HINTs
+//    7. FILTER scan for QUALIFY
+//    8. PROJECT scan if needed for DISTINCT
+//    9. AGGREGATE scan for DISTINCT
+//   10. PROJECT scan for columns needed by ORDER BY
+//   11. ORDER BY scan
+//   12. LIMIT OFFSET scan
+//   13. PROJECT scan for AS STRUCT/PROTO
+//   14. PROJECT scan for handling HINTs
 //
 // For a more detailed discussion, see (broken link).
 absl::Status Resolver::ResolveSelect(
@@ -1321,6 +1451,8 @@ absl::Status Resolver::ResolveSelect(
     const Type* inferred_type_for_query,
     std::unique_ptr<const ResolvedScan>* output,
     std::shared_ptr<const NameList>* output_name_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
   ZETASQL_ASSIGN_OR_RETURN(SelectWithMode select_with_mode,
                    ExtractSelectWithMode(language(), select));
 
@@ -1370,6 +1502,7 @@ absl::Status Resolver::ResolveSelect(
 
   query_resolution_info->set_has_group_by(select->group_by() != nullptr);
   query_resolution_info->set_has_having(select->having() != nullptr);
+  query_resolution_info->set_has_qualify(select->qualify() != nullptr);
   query_resolution_info->set_has_order_by(order_by != nullptr);
 
   // Return an appropriate error for anonymization queries that don't perform
@@ -1388,13 +1521,13 @@ absl::Status Resolver::ResolveSelect(
   }
 
   if (query_resolution_info->HasGroupByOrAggregation() &&
-      query_resolution_info->HasHavingOrOrderBy()) {
+      query_resolution_info->HasHavingOrQualifyOrOrderBy()) {
     // We have GROUP BY or aggregation in the SELECT list (we performed
     // first pass SELECT list expression resolution above), and we have
-    // either HAVING or ORDER BY.  This implies that the expressions in
-    // HAVING or ORDER BY could reference SELECT list aliases, which might
-    // need to resolve against either the pre- or post- grouping version
-    // of the column.  Consider:
+    // either HAVING or QUALIFY or ORDER BY.  This implies that the expressions
+    // in HAVING or QUALIFY or ORDER BY could reference SELECT list aliases,
+    // which might need to resolve against either the pre- or post- grouping
+    // version of the column.  Consider:
     //
     //   SELECT key as foo
     //   FROM table
@@ -1412,7 +1545,7 @@ absl::Status Resolver::ResolveSelect(
     // table.key since the aggregation function is applied on top of it.  To
     // address this, we need to assign and remember pre-grouped versions of
     // all the SELECT list columns that have non-internal aliases (since those
-    // could get referenced in HAVING or ORDER BY).
+    // could get referenced in HAVING or QUALIFY or ORDER BY).
     ZETASQL_RETURN_IF_ERROR(AnalyzeSelectColumnsToPrecomputeBeforeAggregation(
         query_resolution_info.get()));
   }
@@ -2204,7 +2337,7 @@ static bool ExcludeOrReplaceColumn(
   if (column_replacements == nullptr) {
     return false;
   }
-  if (zetasql_base::ContainsKey(column_replacements->excluded_columns, column_name)) {
+  if (column_replacements->excluded_columns.contains(column_name)) {
     return true;
   }
   if (zetasql_base::ContainsKey(column_replacements->replaced_columns, column_name)) {
@@ -2229,34 +2362,34 @@ absl::Status Resolver::AddNameListToSelectList(
   for (const NamedColumn& named_column : name_list->columns()) {
     // Process exclusions first because MakeColumnRef will add columns
     // to referenced_columns_ and then they cannot be pruned.
-    if (!named_column.is_value_table_column &&
-        ExcludeOrReplaceColumn(ast_expression, named_column.name,
+    if (!named_column.is_value_table_column() &&
+        ExcludeOrReplaceColumn(ast_expression, named_column.name(),
                                column_replacements, select_column_state_list)) {
       continue;
     }
 
     std::unique_ptr<const ResolvedColumnRef> column_ref =
-        MakeColumnRefWithCorrelation(named_column.column,
+        MakeColumnRefWithCorrelation(named_column.column(),
                                      correlated_columns_set_list);
-    if (named_column.is_value_table_column) {
+    if (named_column.is_value_table_column()) {
       // For value tables with fields, SELECT * expands to those fields
       // rather than showing the container value.
       // For scalar-valued value tables, or values with zero fields,
       // we'll just get the value rather than its fields.
-      ZETASQL_RET_CHECK(!named_column.name.empty());
+      ZETASQL_RET_CHECK(!named_column.name().empty());
 
       ZETASQL_RETURN_IF_ERROR(AddColumnFieldsToSelectList(
           ast_expression, column_ref.get(),
           /*src_column_has_aggregation=*/false,
           /*src_column_has_analytic=*/false,
-          /*column_alias_if_no_fields=*/named_column.name,
+          /*column_alias_if_no_fields=*/named_column.name(),
           (ignore_excluded_value_table_fields
-               ? &named_column.excluded_field_names
+               ? &named_column.excluded_field_names()
                : nullptr),
           select_column_state_list, column_replacements));
     } else {
       select_column_state_list->AddSelectColumn(
-          ast_expression, named_column.name, named_column.is_explicit,
+          ast_expression, named_column.name(), named_column.is_explicit(),
           /*has_aggregation=*/false, /*has_analytic=*/false,
           std::move(column_ref));
     }
@@ -2367,7 +2500,7 @@ absl::Status Resolver::ResolveSelectDistinct(
   for (int column_pos = 0; column_pos < input_name_list->num_columns();
        ++column_pos) {
     const NamedColumn& named_column = input_name_list->column(column_pos);
-    const ResolvedColumn& column = named_column.column;
+    const ResolvedColumn& column = named_column.column();
     SelectColumnState* select_column_state =
         select_column_state_list->GetSelectColumnState(column_pos);
     const ASTNode* ast_column_location = select_column_state->ast_expr;
@@ -2376,7 +2509,7 @@ absl::Status Resolver::ResolveSelectDistinct(
     if (!TypeSupportsGrouping(column.type(), &no_grouping_type)) {
       return MakeSqlErrorAt(ast_column_location)
              << "Column "
-             << ColumnAliasOrPosition(named_column.name, column_pos)
+             << ColumnAliasOrPosition(named_column.name(), column_pos)
              << " of type " << no_grouping_type
              << " cannot be used in SELECT DISTINCT";
     }
@@ -2419,8 +2552,8 @@ absl::Status Resolver::ResolveSelectDistinct(
           distinct_column, MakeColumnRef(column));
     }
 
-    ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(named_column.name, distinct_column,
-                                         named_column.is_explicit));
+    ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(named_column.name(), distinct_column,
+                                         named_column.is_explicit()));
     // Update the SelectListColumnState with the new post-DISTINCT
     // ResolvedColumn information.
     select_column_state->resolved_select_column = distinct_column;
@@ -2531,7 +2664,7 @@ absl::Status Resolver::ResolveSelectStarModifiers(
              << "Cannot use REPLACE with internal alias "
              << ToIdentifierLiteral(identifier);
     }
-    if (zetasql_base::ContainsKey(column_replacements->excluded_columns, identifier)) {
+    if (column_replacements->excluded_columns.contains(identifier)) {
       return MakeSqlErrorAt(ast_replace_item->alias())
              << "Column " << ToIdentifierLiteral(identifier)
              << " cannot occur in both SELECT * EXCEPT and REPLACE";
@@ -3181,7 +3314,192 @@ absl::Status Resolver::HandleGroupByExpression(
   return absl::OkStatus();
 }
 
-// Analyze the GROUP BY expressions.  Map SELECT list ordinal and
+absl::Status Resolver::ValidateGroupByAll(const ASTGroupBy* group_by) {
+  if (group_by->all() != nullptr) {
+    return MakeSqlErrorAt(group_by->all()) << "GROUP BY ALL is not supported";
+  }
+  return absl::OkStatus();
+}
+
+// Resolves a list of expressions from the same grouping set, while the grouping
+// set type is specified by the kind argument.
+//
+// For each expression
+// 1. If it's a ASTStructConstructorWithParens, then extract all field
+//    expressions from the struct constructor, and resolve each field expression
+//    to grouping set column. This is for the use case of multi-columns, e.g.
+//    In the example ROLLUP((x, y), z), (x, y) is parsed to an
+//    ASTStructConstructorWithParens, so we have to extract sub-expressions in
+//    the parentheses manually at first.
+// 2. Otherwise, resolve the expression to a grouping set column.
+//
+// Resolved columns will be added to GroupingSetInfo in query_resolution_info.
+// Each grouping item may have multiple columns, and they are added into
+// ResolvedComputedColumnList, e.g. ROLLUP(x, y) has two grouping set item.
+// For multi-columns grouping set item, the column list contains columns
+// extracted from the ASTStructConstructor. For non-multi-columns, the column
+// list contains only one column resolved from the expression. E.g. ROLLUP((x,
+// y), z) has two grouping set item, the first item's column list is [x, y] and
+// the second is [z].
+//
+// Example for a query with the following grouping sets specifications:
+//   GROUPING SETS(x, (y, z), ROLLUP(x, y), CUBE((x, y), z))
+// The 4 GroupingSetInfos look like accordingly:
+//
+// GroupingSetInfo {
+//    kind: kGroupingSet
+//    grouping_set_item_list: [[x]]
+// }
+// GroupingSetInfo {
+//    kind: kGroupingSet
+//    grouping_set_item_list: [[y], [z]]
+// }
+// GroupingSetInfo {
+//    kind: kRollup
+//    grouping_set_item_list: [[x], [y]]
+// }
+// GroupingSetInfo {
+//    kind: kCube
+//    grouping_set_item_list: [[x, y], [z]]
+// }
+absl::Status Resolver::ResolveGroupingSetExpressions(
+    const absl::Span<const ASTExpression* const> expressions,
+    const NameScope* from_clause_scope, GroupingSetKind kind,
+    QueryResolutionInfo* query_resolution_info) {
+  GroupingSetInfo grouping_set_info = {.kind = kind};
+  for (const ASTExpression* expr : expressions) {
+    ResolvedComputedColumnList column_list;
+    // The expr is null when it's an empty grouping set. In this case, we simply
+    // put the empty column list to grouping set item list and continue, without
+    // going through the resolving process.
+    if (expr == nullptr) {
+      // A empty grouping_set_info will be added to the grouping set list.
+      continue;
+    }
+    // Resolve the single-level annoymous struct construtor to a column list,
+    // the expression has been validated without nested struct construtors.
+    // Only resolve the annoymous struct construtor to a column list when:
+    // 1. The current grouping set is a cube, OR
+    // 2. The current groupint set is rollup, and FEATURE_V_1_4_GROUPING_SETS is
+    //    enabled. We will not change the existing behavior of ROLLUP when
+    //    FEATURE_V_1_4_GROUPING_SETS is not enabled.
+    if (expr->Is<ASTStructConstructorWithParens>() &&
+        (kind != GroupingSetKind::kRollup ||
+         language().LanguageFeatureEnabled(FEATURE_V_1_4_GROUPING_SETS))) {
+      const ASTStructConstructorWithParens* struct_constructor =
+          expr->GetAsOrDie<ASTStructConstructorWithParens>();
+      for (const ASTExpression* field_expression :
+           struct_constructor->field_expressions()) {
+        ZETASQL_RET_CHECK(field_expression != nullptr);
+        ZETASQL_RETURN_IF_ERROR(ResolveGroupingItemExpression(
+            field_expression, from_clause_scope, /*from_grouping_set=*/true,
+            query_resolution_info, &column_list));
+      }
+    } else {
+      ZETASQL_RETURN_IF_ERROR(ResolveGroupingItemExpression(
+          expr, from_clause_scope, /*from_grouping_set=*/true,
+          query_resolution_info, &column_list));
+    }
+    grouping_set_info.grouping_set_item_list.push_back(column_list);
+  }
+  query_resolution_info->AddGroupingSet(grouping_set_info);
+  return absl::OkStatus();
+}
+
+// Analyzes group by items. If the group by item is a GROUPING SETS, ROLLUP, or
+// CUBE, validate them accordingly and resolve the list of expressions by
+// ResolveGroupingSetExpressions. If the group by item is a normal expression or
+// column, simply resolve it via ResolveGroupingItemExpression.
+absl::Status Resolver::ResolveGroupByExprs(
+    const ASTGroupBy* group_by, const NameScope* from_clause_scope,
+    QueryResolutionInfo* query_resolution_info) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  ZETASQL_RETURN_IF_ERROR(ValidateGroupByAll(group_by));
+
+  for (const ASTGroupingItem* grouping_item : group_by->grouping_items()) {
+    if (grouping_item->rollup() != nullptr) {
+      // GROUP BY ROLLUP
+      const ASTRollup* rollup = grouping_item->rollup();
+      ZETASQL_RETURN_IF_ERROR(ValidateRollup(rollup, language(),
+                                     group_by->grouping_items().size()));
+      ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
+          rollup->expressions(), from_clause_scope, GroupingSetKind::kRollup,
+          query_resolution_info));
+      // We've validated that ROLLUP is the only grouping item in the query, so
+      // break early here.
+      break;
+    } else if (grouping_item->cube() != nullptr) {
+      // GROUP BY CUBE
+      const ASTCube* cube = grouping_item->cube();
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateCube(cube, language(), group_by->grouping_items().size()));
+      ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
+          cube->expressions(), from_clause_scope, GroupingSetKind::kCube,
+          query_resolution_info));
+      return MakeSqlErrorAt(cube) << "GROUP BY CUBE is not implemented";
+    } else if (grouping_item->grouping_set_list() != nullptr) {
+      // GROUP BY GROUPING SETS
+      const ASTGroupingSetList* grouping_set_list =
+          grouping_item->grouping_set_list();
+      ZETASQL_RETURN_IF_ERROR(ValidateGroupingSetList(
+          grouping_set_list, language(), group_by->grouping_items().size()));
+      bool has_rollup_or_cube = false;
+      for (const ASTGroupingSet* grouping_set :
+           grouping_set_list->grouping_sets()) {
+        ZETASQL_RET_CHECK(grouping_set != nullptr);
+        if (grouping_set->rollup() != nullptr) {
+          // ROLLUP in GROUP BY GROUPING SETS()
+          has_rollup_or_cube = true;
+          ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
+              grouping_set->rollup()->expressions(), from_clause_scope,
+              GroupingSetKind::kCube, query_resolution_info));
+        } else if (grouping_set->cube() != nullptr) {
+          // CUBE in GROUP BY GROUPING SETS()
+          has_rollup_or_cube = true;
+          ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
+              grouping_set->cube()->expressions(), from_clause_scope,
+              GroupingSetKind::kCube, query_resolution_info));
+        } else {
+          // Column list in GROUP BY GROUPING SETS or empty grouping set ()
+          const ASTExpression* expr = grouping_set->expression();
+          std::vector<const ASTExpression*> grouping_set_item_expr_list;
+          // This is an anonymous struct construtor, we treat it as a grouping
+          // set item list. The node is already validated that there is no
+          // nested struct constructor inside.
+          if (expr != nullptr && expr->Is<ASTStructConstructorWithParens>()) {
+            const ASTStructConstructorWithParens* struct_constructor =
+                expr->GetAsOrDie<ASTStructConstructorWithParens>();
+            ZETASQL_RET_CHECK(struct_constructor != nullptr);
+            for (const ASTExpression* field_expression :
+                 struct_constructor->field_expressions()) {
+              ZETASQL_RET_CHECK(field_expression != nullptr);
+              grouping_set_item_expr_list.push_back(field_expression);
+            }
+          } else {
+            // This is a single expression or an empty grouping set
+            grouping_set_item_expr_list.push_back(expr);
+          }
+          ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
+              grouping_set_item_expr_list, from_clause_scope,
+              GroupingSetKind::kGroupingSet, query_resolution_info));
+        }
+      }
+      if (has_rollup_or_cube) {
+        return MakeSqlErrorAt(grouping_set_list)
+               << "ROLLUP or CUBE in GROUP BY GROUPING SETS is not implemented";
+      }
+    } else {
+      // GROUP BY expressions
+      ZETASQL_RET_CHECK(grouping_item->expression() != nullptr);
+      ZETASQL_RETURN_IF_ERROR(ResolveGroupingItemExpression(
+          grouping_item->expression(), from_clause_scope,
+          /*from_grouping_set=*/false, query_resolution_info));
+    }
+  }
+  return absl::OkStatus();
+}
+
+// Analyze the GROUP BY expression.  Map SELECT list ordinal and
 // alias references to the appropriate SelectColumnState in
 // <query_resolution_info>, and resolve other expressions against
 // the <from_clause_scope>.  For GROUP BY expressions that
@@ -3219,166 +3537,130 @@ absl::Status Resolver::HandleGroupByExpression(
 // 6) If grouping by an expression, update the mapping from the pre-GROUP BY
 //    expression to the post-GROUP BY column.
 // 7) Add a ResolvedComputedColumn for the GROUP BY expression.
-absl::Status Resolver::ResolveGroupByExprs(
-    const ASTGroupBy* group_by, const NameScope* from_clause_scope,
-    QueryResolutionInfo* query_resolution_info) {
-  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
-  // Check whether this is a GROUP BY ROLLUP. Only a single ROLLUP with no
-  // other items in the list is supported.
-  std::vector<const ASTExpression*> grouping_expressions;
-  bool is_rollup = false;
-  if (group_by->grouping_items().size() == 1 &&
-      group_by->grouping_items()[0]->rollup() != nullptr) {
-    const ASTRollup* rollup = group_by->grouping_items()[0]->rollup();
-    if (!language().LanguageFeatureEnabled(FEATURE_GROUP_BY_ROLLUP)) {
-      return MakeSqlErrorAt(rollup) << "GROUP BY ROLLUP is unsupported";
-    }
-    const absl::Span<const ASTExpression* const>& expressions =
-        rollup->expressions();
-    grouping_expressions.assign(expressions.begin(), expressions.end());
-    is_rollup = true;
-  } else {
-    // Ensure that there is no ROLLUP in the list, and build the list of
-    // expressions.
-    grouping_expressions.reserve(group_by->grouping_items().size());
-    for (const ASTGroupingItem* ast_grouping_item :
-         group_by->grouping_items()) {
-      if (ast_grouping_item->rollup() != nullptr) {
-        if (!language().LanguageFeatureEnabled(FEATURE_GROUP_BY_ROLLUP)) {
-          return MakeSqlErrorAt(ast_grouping_item->rollup())
-                 << "GROUP BY ROLLUP is unsupported";
-        } else {
-          return MakeSqlErrorAt(ast_grouping_item->rollup())
-                 << "The GROUP BY clause only supports ROLLUP when there are "
-                    "no other grouping elements";
-        }
-      }
-      ZETASQL_RET_CHECK(ast_grouping_item->expression() != nullptr);
-      grouping_expressions.push_back(ast_grouping_item->expression());
-    }
+// 8) If the expression is from a grouping set, then add the
+// ResolvedComputedColumn to the pass-in GroupingSetItem.
+absl::Status Resolver::ResolveGroupingItemExpression(
+    const ASTExpression* ast_group_by_expr, const NameScope* from_clause_scope,
+    bool from_grouping_set, QueryResolutionInfo* query_resolution_info,
+    ResolvedComputedColumnList* column_list) {
+  ZETASQL_RET_CHECK(ast_group_by_expr != nullptr);
+  if (from_grouping_set) {
+    ZETASQL_RET_CHECK(column_list != nullptr);
   }
 
-  // Populate the group by list in <query_resolution_info>.
-  for (const ASTExpression* ast_group_by_expr : grouping_expressions) {
-    ZETASQL_RET_CHECK(ast_group_by_expr != nullptr);
+  ExprResolutionInfo no_aggregation(from_clause_scope, "GROUP BY");
 
-    ExprResolutionInfo no_aggregation(from_clause_scope, "GROUP BY");
+  ZETASQL_DCHECK_NE(ast_group_by_expr->node_kind(), AST_IDENTIFIER)
+      << "We expect to get PathExpressions, not Identifiers here";
 
-    ZETASQL_DCHECK_NE(ast_group_by_expr->node_kind(), AST_IDENTIFIER)
-        << "We expect to get PathExpressions, not Identifiers here";
-
-    const SelectColumnState* group_by_column_state = nullptr;
-    // Determine if the GROUP BY expression exactly matches a SELECT list alias.
-    if (ast_group_by_expr->node_kind() == AST_PATH_EXPRESSION) {
-      const IdString alias = ast_group_by_expr->GetAsOrDie<ASTPathExpression>()
-                                 ->first_name()
-                                 ->GetAsIdString();
-      ZETASQL_RETURN_IF_ERROR(query_resolution_info->select_column_state_list()
-                          ->FindAndValidateSelectColumnStateByAlias(
-                              /*clause_name=*/"GROUP BY clause",
-                              ast_group_by_expr, alias, &no_aggregation,
-                              &group_by_column_state));
-      if (group_by_column_state != nullptr &&
-          ast_group_by_expr->GetAsOrDie<ASTPathExpression>()->num_names() !=
-              1) {
-        // We resolved the first identifier in a path expression to a SELECT
-        // list alias.  There is currently no way that accessing the column's
-        // fields in the GROUP BY can possibly be valid.  Consider:
-        //   SELECT foo as foo2
-        //   FROM (select as struct 1 as a, 2 as b) foo
-        //   GROUP BY foo2.a
-        // This is invalid since 'foo' is in the SELECT list but it is not
-        // in the GROUP BY.
-        //
-        // If we add foo2 to the GROUP BY, then the query is invalid since
-        // we do not allow grouping by STRUCT.
-        //
-        // If we were to allow grouping by PROTO or STRUCT then the following
-        // query could be valid, but at this time it is not valid:
-        //   SELECT foo as foo2
-        //   FROM (select as struct 1 as a, 2 as b) foo
-        //   GROUP BY foo, foo.a, foo.b;
-        return MakeSqlErrorAt(ast_group_by_expr)
-               << "Cannot GROUP BY field references from SELECT list alias "
-               << alias;
-      }
-    }
-
-    std::unique_ptr<const ResolvedExpr> resolved_expr;
-    if (group_by_column_state == nullptr) {
-      ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_group_by_expr, from_clause_scope,
-                                        "GROUP BY", &resolved_expr));
-
-      // Determine if the GROUP BY expression is an integer literal
-      // representing a SELECT list column ordinal.  Look for GROUP BY 1,2,3.
-      if (resolved_expr->node_kind() == RESOLVED_LITERAL &&
-          !resolved_expr->GetAs<ResolvedLiteral>()->has_explicit_type()) {
-        const Value& value = resolved_expr->GetAs<ResolvedLiteral>()->value();
-        if (value.type_kind() == TYPE_INT64 && !value.is_null()) {
-          ZETASQL_RETURN_IF_ERROR(query_resolution_info->select_column_state_list()
-                              ->FindAndValidateSelectColumnStateByOrdinal(
-                                  /*expr_description=*/"GROUP BY",
-                                  ast_group_by_expr, value.int64_value(),
-                                  &no_aggregation, &group_by_column_state));
-        }
-      }
-    }
-
-    ResolvedColumn group_by_column;
-    if (group_by_column_state != nullptr) {
-      if (group_by_column_state->is_group_by_column) {
-        // We are already grouping by this SELECT list column, so we do not need
-        // to do more unless the query uses GROUP BY ROLLUP, in which case we
-        // need to add another entry in the rollup list for it.
-        if (!is_rollup) {
-          continue;
-        }
-
-        const ResolvedComputedColumn* existing_computed_column = nullptr;
-        for (const std::unique_ptr<const ResolvedComputedColumn>&
-                 group_by_column :
-             query_resolution_info->group_by_columns_to_compute()) {
-          if (group_by_column_state->resolved_select_column ==
-              group_by_column->column()) {
-            existing_computed_column = group_by_column.get();
-            break;
-          }
-        }
-
-        ZETASQL_RET_CHECK_NE(existing_computed_column, nullptr)
-            << "Expected to find existing group by column matching "
-            << group_by_column_state->resolved_select_column.DebugString();
-        // Field paths may repeat inside the rollup list. We have already
-        // resolved this field path, so just add another entry for it.
-        query_resolution_info->AddRollupColumn(existing_computed_column);
-        continue;
-      }
-      ZETASQL_RETURN_IF_ERROR(HandleGroupBySelectColumn(
-          group_by_column_state, query_resolution_info, &resolved_expr,
-          &group_by_column));
-    } else {
-      ZETASQL_RETURN_IF_ERROR(
-          HandleGroupByExpression(ast_group_by_expr, query_resolution_info,
-                                  &resolved_expr, &group_by_column));
-    }
-    ZETASQL_RET_CHECK(resolved_expr != nullptr);
-
-    // Cannot GROUP BY proto, array, or struct.
-    std::string no_grouping_type;
-    if (!TypeSupportsGrouping(resolved_expr->type(), &no_grouping_type)) {
+  const SelectColumnState* group_by_column_state = nullptr;
+  // Determine if the GROUP BY expression exactly matches a SELECT list alias.
+  if (ast_group_by_expr->node_kind() == AST_PATH_EXPRESSION) {
+    const ASTPathExpression* path_expr =
+        ast_group_by_expr->GetAsOrDie<ASTPathExpression>();
+    const IdString alias = path_expr->first_name()->GetAsIdString();
+    ZETASQL_RETURN_IF_ERROR(query_resolution_info->select_column_state_list()
+                        ->FindAndValidateSelectColumnStateByAlias(
+                            /*clause_name=*/"GROUP BY clause",
+                            ast_group_by_expr, alias, &no_aggregation,
+                            &group_by_column_state));
+    if (group_by_column_state != nullptr && path_expr->num_names() != 1) {
+      // We resolved the first identifier in a path expression to a SELECT
+      // list alias.  There is currently no way that accessing the column's
+      // fields in the GROUP BY can possibly be valid.  Consider:
+      //   SELECT foo as foo2
+      //   FROM (select as struct 1 as a, 2 as b) foo
+      //   GROUP BY foo2.a
+      // This is invalid since 'foo' is in the SELECT list but it is not
+      // in the GROUP BY.
+      //
+      // If we add foo2 to the GROUP BY, then the query is invalid since
+      // we do not allow grouping by STRUCT.
+      //
+      // If we were to allow grouping by PROTO or STRUCT then the following
+      // query could be valid, but at this time it is not valid:
+      //   SELECT foo as foo2
+      //   FROM (select as struct 1 as a, 2 as b) foo
+      //   GROUP BY foo, foo.a, foo.b;
       return MakeSqlErrorAt(ast_group_by_expr)
-             << "Grouping by expressions of type " << no_grouping_type
-             << " is not allowed";
-    }
-
-    const ResolvedComputedColumn* computed_column =
-        query_resolution_info->AddGroupByComputedColumnIfNeeded(
-            group_by_column, std::move(resolved_expr));
-    if (is_rollup) {
-      query_resolution_info->AddRollupColumn(computed_column);
+             << "Cannot GROUP BY field references from SELECT list alias "
+             << alias;
     }
   }
 
+  std::unique_ptr<const ResolvedExpr> resolved_expr;
+  if (group_by_column_state == nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_group_by_expr, from_clause_scope,
+                                      "GROUP BY", &resolved_expr));
+
+    // Determine if the GROUP BY expression is an integer literal
+    // representing a SELECT list column ordinal.  Look for GROUP BY 1,2,3.
+    if (resolved_expr->node_kind() == RESOLVED_LITERAL &&
+        !resolved_expr->GetAs<ResolvedLiteral>()->has_explicit_type()) {
+      const Value& value = resolved_expr->GetAs<ResolvedLiteral>()->value();
+      if (value.type_kind() == TYPE_INT64 && !value.is_null()) {
+        ZETASQL_RETURN_IF_ERROR(query_resolution_info->select_column_state_list()
+                            ->FindAndValidateSelectColumnStateByOrdinal(
+                                /*expr_description=*/"GROUP BY",
+                                ast_group_by_expr, value.int64_value(),
+                                &no_aggregation, &group_by_column_state));
+      }
+    }
+  }
+
+  ResolvedColumn group_by_column;
+  if (group_by_column_state != nullptr) {
+    if (group_by_column_state->is_group_by_column) {
+      // We are already grouping by this SELECT list column, so we do not need
+      // to do more unless the query uses GROUPING SETS, in which case we need
+      // to add another entry in the grouping set list for it.
+      if (!from_grouping_set) {
+        return absl::OkStatus();
+      }
+
+      const ResolvedComputedColumn* existing_computed_column = nullptr;
+      for (const std::unique_ptr<const ResolvedComputedColumn>&
+               group_by_column :
+           query_resolution_info->group_by_columns_to_compute()) {
+        if (group_by_column_state->resolved_select_column ==
+            group_by_column->column()) {
+          existing_computed_column = group_by_column.get();
+          break;
+        }
+      }
+
+      ZETASQL_RET_CHECK_NE(existing_computed_column, nullptr)
+          << "Expected to find existing group by column matching "
+          << group_by_column_state->resolved_select_column.DebugString();
+      // Field paths may repeat inside the grouping set list. We have already
+      // resolved this field path, so just add another entry for it.
+      column_list->push_back(existing_computed_column);
+      return absl::OkStatus();
+    }
+    ZETASQL_RETURN_IF_ERROR(
+        HandleGroupBySelectColumn(group_by_column_state, query_resolution_info,
+                                  &resolved_expr, &group_by_column));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(HandleGroupByExpression(ast_group_by_expr,
+                                            query_resolution_info,
+                                            &resolved_expr, &group_by_column));
+  }
+  ZETASQL_RET_CHECK(resolved_expr != nullptr);
+
+  // Cannot GROUP BY proto, array, or struct.
+  std::string no_grouping_type;
+  if (!TypeSupportsGrouping(resolved_expr->type(), &no_grouping_type)) {
+    return MakeSqlErrorAt(ast_group_by_expr)
+           << "Grouping by expressions of type " << no_grouping_type
+           << " is not allowed";
+  }
+
+  const ResolvedComputedColumn* computed_column =
+      query_resolution_info->AddGroupByComputedColumnIfNeeded(
+          group_by_column, std::move(resolved_expr));
+  if (from_grouping_set) {
+    column_list->push_back(computed_column);
+  }
   return absl::OkStatus();
 }
 
@@ -3599,7 +3881,7 @@ absl::Status Resolver::ResolveSelectAs(
     }
     std::unique_ptr<NameList> name_list(new NameList);
     ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(kValueColumnId,
-                                         input_name_list->column(0).column,
+                                         input_name_list->column(0).column(),
                                          /*is_explicit=*/false));
     name_list->set_is_value_table(true);
     *output_name_list = std::move(name_list);
@@ -3684,11 +3966,12 @@ absl::Status Resolver::CreateStructFromNameList(
   for (const auto& named_column : name_list->columns()) {
     // Internal aliases mean the column has no visible name, so we make a
     // struct with an anonymous field.
-    fields.emplace_back(
-        IsInternalAlias(named_column.name) ? "" : named_column.name.ToString(),
-        named_column.column.type());
+    fields.emplace_back(IsInternalAlias(named_column.name())
+                            ? ""
+                            : named_column.name().ToString(),
+                        named_column.column().type());
     field_exprs.emplace_back(MakeColumnRefWithCorrelation(
-        named_column.column, correlated_column_sets));
+        named_column.column(), correlated_column_sets));
   }
   const StructType* struct_type;
   ZETASQL_RETURN_IF_ERROR(type_factory_->MakeStructType(fields, &struct_type));
@@ -3719,18 +4002,18 @@ absl::Status Resolver::ConvertScanToProto(
     const ASTNode* ast_column_location =
         select_column_state_list.GetSelectColumnState(i)->ast_expr;
     const NamedColumn& named_column = input_name_list->column(i);
-    if (IsInternalAlias(named_column.name)) {
+    if (IsInternalAlias(named_column.name())) {
       return MakeSqlErrorAt(ast_column_location)
              << "Cannot construct PROTO from query result because column "
              << (i + 1) << " has no name";
     }
 
     std::unique_ptr<ResolvedColumnRef> expr =
-        MakeColumnRef(named_column.column);
+        MakeColumnRef(named_column.column());
     MaybeRecordParseLocation(ast_column_location, expr.get());
     arguments.emplace_back(
         ast_column_location, std::move(expr),
-        std::make_unique<AliasOrASTPathExpression>(named_column.name));
+        std::make_unique<AliasOrASTPathExpression>(named_column.name()));
   }
 
   std::unique_ptr<const ResolvedExpr> resolved_build_proto_expr;
@@ -3883,8 +4166,8 @@ Resolver::SetOperationResolver::SetOperationResolver(
                                 set_operation_->GetSQLForOperation(),
                                 /*oldsub=*/" ", /*newsub=*/"_"))))) {}
 
-absl::StatusOr<std::vector<IdString>>
-Resolver::SetOperationResolver::GetMatchingColumns(
+absl::StatusOr<std::vector<Resolver::SetOperationResolver::ColumnMetadata>>
+Resolver::SetOperationResolver::GetSetOperationOutputColumns(
     const std::vector<ResolvedInputResult>& resolved_inputs,
     ASTSetOperation::ColumnMatchMode column_match_mode) const {
   ZETASQL_RET_CHECK(column_match_mode == ASTSetOperation::CORRESPONDING ||
@@ -3901,7 +4184,7 @@ Resolver::SetOperationResolver::GetMatchingColumns(
   }
   switch (column_match_mode) {
     case ASTSetOperation::CORRESPONDING:
-      return GetMatchingColumnsCorresponding(resolved_inputs);
+      return GetSetOperationOutputColumnsCorresponding(resolved_inputs);
     case ASTSetOperation::CORRESPONDING_BY:
       return absl::UnimplementedError("CORRESPONDING BY is not supported");
     case ASTSetOperation::BY_POSITION:
@@ -3921,11 +4204,10 @@ Resolver::SetOperationResolver::ASTColumnPropagationMode() const {
       *set_operation_->metadata()->set_operation_metadata_list(0));
 }
 
-absl::StatusOr<std::vector<IdString>>
-Resolver::SetOperationResolver::GetMatchingColumnsCorresponding(
+absl::StatusOr<std::vector<Resolver::SetOperationResolver::ColumnMetadata>>
+Resolver::SetOperationResolver::GetSetOperationOutputColumnsCorresponding(
     const std::vector<ResolvedInputResult>& resolved_inputs) const {
-  absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
-      column_intersection;
+  // Validation needed for CORRESPONDING regardless of column_propagation_mode.
   for (int query_idx = 0; query_idx < resolved_inputs.size(); ++query_idx) {
     absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
         column_names;
@@ -3934,48 +4216,106 @@ Resolver::SetOperationResolver::GetMatchingColumnsCorresponding(
     for (int column_idx = 0; column_idx < named_column_list.size();
          ++column_idx) {
       const NamedColumn& column = named_column_list[column_idx];
-      if (IsInternalAlias(column.name)) {
+      if (IsInternalAlias(column.name())) {
         return MakeSqlErrorAtLocalNode(set_operation_->inputs(query_idx))
                << "Anonymous columns are not allowed in set operations when "
                << "CORRESPONDING is used: query " << (query_idx + 1)
                << ", column " << (column_idx + 1);
       }
-      if (!column_names.insert(column.name).second) {
+      if (!column_names.insert(column.name()).second) {
         return MakeSqlErrorAtLocalNode(set_operation_->inputs(query_idx))
                << "Duplicate columns found when using CORRESPONDING in set "
-               << "operations: " << column.name.ToString() << " in query "
+               << "operations: " << column.name().ToString() << " in query "
                << (query_idx + 1);
       }
     }
-    if (query_idx > 0) {
-      absl::erase_if(column_intersection, [&](const IdString& name) {
-        return !column_names.contains(name);
-      });
-    } else {
-      column_intersection = column_names;
+  }
+
+  // Calculates the final column list based on column_propagation_mode.
+  switch (ASTColumnPropagationMode()) {
+    case ASTSetOperation::INNER: {
+      absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
+          column_intersection;
+      for (int query_idx = 0; query_idx < resolved_inputs.size(); ++query_idx) {
+        absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
+            column_names;
+        for (const NamedColumn& named_column :
+             resolved_inputs[query_idx].name_list->columns()) {
+          ZETASQL_RET_CHECK(column_names.insert(named_column.name()).second);
+        }
+        if (query_idx > 0) {
+          absl::erase_if(column_intersection, [&](const IdString& name) {
+            return !column_names.contains(name);
+          });
+        } else {
+          column_intersection = column_names;
+        }
+      }
+      if (column_intersection.empty()) {
+        // Report error at the set operation.
+        const ASTNode* op_type = set_operation_->metadata()
+                                     ->set_operation_metadata_list(0)
+                                     ->op_type();
+        return MakeSqlErrorAtLocalNode(op_type)
+               << "Queries of the set operation using CORRESPONDING do not "
+               << "have any columns in common";
+      }
+      std::vector<ColumnMetadata> matched_column_list;
+      // The columns in `matched_column_list` are returned in the order they
+      // appear in the first query input.
+      for (const NamedColumn& column :
+           resolved_inputs.front().name_list->columns()) {
+        if (column_intersection.contains(column.name())) {
+          matched_column_list.emplace_back(column.name(),
+                                           column.column().type());
+        }
+      }
+      return matched_column_list;
+    }
+    case ASTSetOperation::LEFT: {
+      return absl::UnimplementedError("LEFT mode is not implemented");
+    }
+    case ASTSetOperation::FULL: {
+      // The output columns is a union of all input scan columns ensuring no
+      // duplicate aliases. The column order reflects the sequence of input
+      // scans, and within each scan, the left-to-right order of first
+      // appearance of each unique alias.
+      //
+      // For example, consider the following statement:
+      //
+      // ```SQL
+      // SELECT 1 AS A, 2 AS B
+      // FULL UNION ALL CORRESPONDING
+      // SELECT 3 AS C, 4 AS A, 5 AS D
+      // ```
+      //
+      // The output columns will be [A, B, C, D]. The column A of the second
+      // scan does not show up twice in the list, and its order in the list
+      // is determined by its first appearance, i.e. the column A of the first
+      // scan.
+      absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
+          seen_columns;
+      std::vector<ColumnMetadata> unique_column_metadata_list;
+      unique_column_metadata_list.reserve(
+          resolved_inputs.front().name_list->columns().size());
+      for (const ResolvedInputResult& resolved_input : resolved_inputs) {
+        for (const NamedColumn& column : resolved_input.name_list->columns()) {
+          if (seen_columns.insert(column.name()).second) {
+            unique_column_metadata_list.emplace_back(column.name(),
+                                                     column.column().type());
+          }
+        }
+      }
+      return unique_column_metadata_list;
+    }
+    case ASTSetOperation::STRICT: {
+      return absl::UnimplementedError("STRICT mode is not implemented");
     }
   }
-  if (column_intersection.empty()) {
-    // Report error at the set operation.
-    const ASTNode* op_type =
-        set_operation_->metadata()->set_operation_metadata_list(0)->op_type();
-    return MakeSqlErrorAtLocalNode(op_type)
-           << "Queries of the set operation using CORRESPONDING do not have "
-           << "any columns in common";
-  }
-  std::vector<IdString> matched_column_list;
-  // The columns in `matched_column_list` are returned in the order they appear
-  // in the first query input.
-  for (const auto& column : resolved_inputs.front().name_list->columns()) {
-    if (column_intersection.contains(column.name)) {
-      matched_column_list.push_back(column.name);
-    }
-  }
-  return matched_column_list;
 }
 
-absl::Status Resolver::SetOperationResolver::SelectAndReorderColumns(
-    const std::vector<IdString>& matched_column_names,
+absl::Status Resolver::SetOperationResolver::AdjustAndReorderColumns(
+    const std::vector<ColumnMetadata>& set_operation_output_columns,
     std::vector<ResolvedInputResult>& resolved_inputs) const {
   for (int query_idx = 0; query_idx < resolved_inputs.size(); ++query_idx) {
     absl::flat_hash_map<IdString, const NamedColumn*, IdStringCaseHash,
@@ -3983,26 +4323,67 @@ absl::Status Resolver::SetOperationResolver::SelectAndReorderColumns(
         named_columns;
     for (const auto& named_column :
          resolved_inputs[query_idx].name_list->columns()) {
-      named_columns[named_column.name] = &named_column;
+      named_columns[named_column.name()] = &named_column;
     }
 
-    // Selects and reorders the columns of `resolved_inputs` to be the same
-    // as `matched_column_names`.
-    ResolvedColumnList reordered_column_list;
-    reordered_column_list.reserve(matched_column_names.size());
-    auto reordered_name_list = std::make_shared<NameList>();
-    for (const auto& column_name : matched_column_names) {
-      auto named_column_iter = named_columns.find(column_name);
-      ZETASQL_RET_CHECK(named_column_iter != named_columns.end());
-      const NamedColumn* named_column = named_column_iter->second;
-      reordered_column_list.push_back(named_column->column);
-      ZETASQL_RETURN_IF_ERROR(reordered_name_list->AddColumn(
-          named_column->name, named_column->column, named_column->is_explicit));
+    ResolvedColumnList new_output_column_list;
+    new_output_column_list.reserve(set_operation_output_columns.size());
+    auto new_name_list = std::make_shared<NameList>();
+    new_name_list->ReserveColumns(set_operation_output_columns.size());
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>> null_columns;
+
+    for (const ColumnMetadata& column : set_operation_output_columns) {
+      auto named_column_iter = named_columns.find(column.column_alias);
+      if (named_column_iter == named_columns.end()) {
+        ZETASQL_RET_CHECK_NE(ASTColumnPropagationMode(), ASTSetOperation::INNER);
+        // This column does not appear in this query. Prepare a computed NULL
+        // column.
+        std::unique_ptr<const ResolvedComputedColumn> null_column =
+            MakeResolvedComputedColumn(
+                ResolvedColumn(
+                    resolver_->AllocateColumnId(),
+                    resolver_->MakeIdString("$null_column_for_outer_set_op"),
+                    resolver_->MakeIdString(column.column_alias.ToStringView()),
+                    // No annotations are assigned to the created NULL columns.
+                    // This is consistent with the case when an input to a set
+                    // operation has a literal null, e.g.
+                    //
+                    // SELECT COLLATE('abc', 'en-us')
+                    // UNION ALL
+                    // SELECT NULL
+                    column.type),
+                resolver_->MakeResolvedLiteralWithoutLocation(
+                    Value::Null(column.type)));
+        resolver_->RecordColumnAccess(null_column->column());
+        ZETASQL_RETURN_IF_ERROR(new_name_list->AddColumn(column.column_alias,
+                                                 null_column->column(),
+                                                 /*is_explicit=*/false));
+        new_output_column_list.push_back(null_column->column());
+        null_columns.push_back(std::move(null_column));
+      } else {
+        const NamedColumn* named_column = named_column_iter->second;
+        new_output_column_list.push_back(named_column->column());
+        ZETASQL_RETURN_IF_ERROR(new_name_list->AddColumn(named_column->name(),
+                                                 named_column->column(),
+                                                 named_column->is_explicit()));
+      }
     }
 
     ResolvedSetOperationItem* input = resolved_inputs[query_idx].node.get();
-    *input->mutable_output_column_list() = std::move(reordered_column_list);
-    resolved_inputs[query_idx].name_list = reordered_name_list;
+    if (!null_columns.empty()) {
+      // Need to add a ProjectScan to pad NULL columns.
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<const ResolvedProjectScan> project_scan,
+          ResolvedProjectScanBuilder()
+              .set_column_list(new_output_column_list)
+              .set_expr_list(std::move(null_columns))
+              .set_input_scan(input->release_scan())
+              .set_node_source(kNodeSourceResolverSetOperationCorresponding)
+              .Build());
+      input->set_scan(std::move(project_scan));
+    }
+    *input->mutable_output_column_list() = std::move(new_output_column_list);
+    resolved_inputs[query_idx].name_list = new_name_list;
   }
   return absl::OkStatus();
 }
@@ -4027,10 +4408,13 @@ absl::Status Resolver::SetOperationResolver::Resolve(
   }
 
   if (ASTColumnMatchMode() != ASTSetOperation::BY_POSITION) {
-    ZETASQL_ASSIGN_OR_RETURN(std::vector<IdString> matched_column_names,
-                     GetMatchingColumns(resolved_inputs, ASTColumnMatchMode()));
+    resolver_->analyzer_output_properties_.MarkRelevant(
+        REWRITE_SET_OPERATION_CORRESPONDING);
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::vector<ColumnMetadata> set_op_output_columns,
+        GetSetOperationOutputColumns(resolved_inputs, ASTColumnMatchMode()));
     ZETASQL_RETURN_IF_ERROR(
-        SelectAndReorderColumns(matched_column_names, resolved_inputs));
+        AdjustAndReorderColumns(set_op_output_columns, resolved_inputs));
   }
 
   std::vector<std::vector<InputArgumentType>> column_type_lists;
@@ -4671,7 +5055,7 @@ Resolver::SetOperationResolver::BuildColumnTypeLists(
     // Construct an InputArgumentType for each column in the name_list,
     // including literal values when present.
     for (int i = 0; i < curr_name_list.num_columns(); ++i) {
-      const ResolvedColumn& column = curr_name_list.column(i).column;
+      const ResolvedColumn& column = curr_name_list.column(i).column();
 
       // If this column was computed, find the expr that computed it.
       // If the computed expr was a literal, include the literal value.
@@ -4704,7 +5088,7 @@ Resolver::SetOperationResolver::BuildColumnLists(
     if (ASTColumnMatchMode() == ASTSetOperation::BY_POSITION) {
       return absl::StrCat(col_idx + 1);
     }
-    return first_item_name_list.column(col_idx).name.ToString();
+    return first_item_name_list.column(col_idx).name().ToString();
   };
 
   // Compute common supertypes and final column_list names for the set
@@ -4743,7 +5127,7 @@ Resolver::SetOperationResolver::BuildColumnLists(
              << no_grouping_type;
     }
 
-    const IdString name = first_item_name_list.column(i).name;
+    const IdString name = first_item_name_list.column(i).name();
     column_list.push_back(ResolvedColumn(resolver_->AllocateColumnId(),
                                          op_type_str_, name, supertype));
     resolver_->RecordColumnAccess(column_list.back());
@@ -4789,10 +5173,10 @@ Resolver::SetOperationResolver::BuildFinalNameList(
   // The first subquery determines the name and explicit attribute of each
   // column, as well as whether the result is a value table.
   for (int i = 0; i < final_column_list.size(); ++i) {
-    const IdString name = first_item_name_list.column(i).name;
+    const IdString name = first_item_name_list.column(i).name();
     ZETASQL_RETURN_IF_ERROR(
         name_list->AddColumn(name, final_column_list.at(i),
-                             first_item_name_list.column(i).is_explicit));
+                             first_item_name_list.column(i).is_explicit()));
   }
 
   if (first_item_name_list.is_value_table()) {
@@ -4874,19 +5258,35 @@ absl::Status Resolver::SetOperationResolver::ValidateCorresponding() const {
   ZETASQL_RET_CHECK_NE(set_operation_->metadata(), nullptr);
   for (const auto* metadata :
        set_operation_->metadata()->set_operation_metadata_list()) {
-    if (!resolver_->language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_CORRESPONDING)) {
-      if (metadata->column_match_mode() != nullptr) {
-        return MakeSqlErrorAt(metadata->column_match_mode())
-               << "CORRESPONDING and CORRESPONDING BY for set operations are "
-                  "not supported";
+    // Verify that the related language features are turned on if
+    // column_match_mode and column_propagation_mode are specified.
+    {
+      const ASTSetOperationColumnMatchMode* column_match_mode =
+          metadata->column_match_mode();
+      if (column_match_mode != nullptr) {
+        if (!resolver_->language().LanguageFeatureEnabled(
+                FEATURE_V_1_4_CORRESPONDING) &&
+            column_match_mode->value() == ASTSetOperation::CORRESPONDING) {
+          return MakeSqlErrorAt(column_match_mode)
+                 << "CORRESPONDING for set operations is not supported";
+        }
+        if (!resolver_->language().LanguageFeatureEnabled(
+                FEATURE_V_1_4_CORRESPONDING_BY) &&
+            column_match_mode->value() == ASTSetOperation::CORRESPONDING_BY) {
+          return MakeSqlErrorAt(column_match_mode)
+                 << "CORRESPONDING BY for set operations is not supported";
+        }
       }
-      if (metadata->column_propagation_mode() != nullptr) {
+
+      const ASTSetOperationColumnPropagationMode* column_propagation_mode =
+          metadata->column_propagation_mode();
+      if (!resolver_->language().LanguageFeatureEnabled(
+              FEATURE_V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE) &&
+          column_propagation_mode != nullptr) {
         return MakeSqlErrorAt(metadata->column_propagation_mode())
                << "Column propagation mode (FULL/LEFT/STRICT) for set "
-                  "operations are not supported";
+               << "operations are not supported";
       }
-      continue;
     }
 
     ASTSetOperation::ColumnMatchMode match_mode = GetColumnMatchMode(*metadata);
@@ -4904,8 +5304,12 @@ absl::Status Resolver::SetOperationResolver::ValidateCorresponding() const {
         }
         break;
       case ASTSetOperation::CORRESPONDING:
-        if (metadata->column_propagation_mode() != nullptr) {
-          // TODO: Add support for FULL/LEFT/STRICT.
+        if (metadata->column_propagation_mode() != nullptr &&
+            (metadata->column_propagation_mode()->value() ==
+                 ASTSetOperation::LEFT ||
+             metadata->column_propagation_mode()->value() ==
+                 ASTSetOperation::STRICT)) {
+          // TODO: Add support for LEFT/STRICT.
           return MakeSqlErrorAt(metadata->column_propagation_mode())
                  << ColumnPropagationModeToString(
                         metadata->column_propagation_mode()->value())
@@ -5115,14 +5519,34 @@ absl::Status Resolver::CreateWrapperScanWithCasts(
             GetASTNodeForColumn(ast_query, i, target_column_list.size());
         std::unique_ptr<const ResolvedExpr> casted_expr =
             MakeColumnRef(scan_column);
+        AnnotatedType annotated_target_type = {target_type,
+                                               /*annotation_map=*/nullptr};
+        // If the feature is enabled, we keep the original <type_annotation_map>
+        // when coercing types of the columns since we may need to process the
+        // annotations (e.g. collation) of the original columns at a later
+        // stage.
+        if (language().LanguageFeatureEnabled(
+                FEATURE_V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN)) {
+          annotated_target_type = {target_type,
+                                   scan_column.type_annotation_map()};
+        }
+        Collation collation_for_cast;
+        if (annotated_target_type.annotation_map != nullptr) {
+          ZETASQL_ASSIGN_OR_RETURN(
+              collation_for_cast,
+              Collation::MakeCollation(*annotated_target_type.annotation_map));
+        }
         ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-            ast_location, target_type, /*format=*/nullptr,
-            /*time_zone=*/nullptr, TypeParameters(), scan->get(),
+            ast_location, annotated_target_type, /*format=*/nullptr,
+            /*time_zone=*/nullptr,
+            TypeModifiers::MakeTypeModifiers(TypeParameters(),
+                                             std::move(collation_for_cast)),
+            scan->get(),
             /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
             &casted_expr));
         const ResolvedColumn casted_column(AllocateColumnId(), scan_alias,
                                            scan_column.name_id(),
-                                           target_column_list[i].type());
+                                           annotated_target_type);
 
         // These casted columns should not get pruned.  We wouldn't create them
         // if they weren't required for the query.
@@ -5150,6 +5574,8 @@ absl::Status Resolver::ResolveFromClauseAndCreateScan(
     const NameScope* external_scope,
     std::unique_ptr<const ResolvedScan>* output_scan,
     std::shared_ptr<const NameList>* output_name_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
   if (select->from_clause() != nullptr) {
     ZETASQL_RET_CHECK(select->from_clause()->table_expression() != nullptr);
     return ResolveTableExpression(select->from_clause()->table_expression(),
@@ -5284,7 +5710,7 @@ static absl::Status ConvertValueTableNameListToNameListWithValueTable(
 
   std::shared_ptr<NameList> new_name_list(new NameList);
   ZETASQL_RETURN_IF_ERROR(new_name_list->AddValueTableColumn(
-      alias, input_name_list->column(0).column, ast_location));
+      alias, input_name_list->column(0).column(), ast_location));
   *output_name_list = new_name_list;
   return absl::OkStatus();
 }
@@ -5307,7 +5733,7 @@ absl::Status Resolver::CheckValidValueTable(const ASTPathExpression* path_expr,
 }
 
 absl::Status Resolver::CheckValidValueTableFromTVF(
-    const ASTTVF* path_expr, const std::string& full_tvf_name,
+    const ASTTVF* path_expr, absl::string_view full_tvf_name,
     const TVFRelation& schema) const {
   int64_t num_pseudo_columns = std::count_if(
       schema.columns().begin(), schema.columns().end(),
@@ -5702,12 +6128,12 @@ absl::Status Resolver::ResolvePivotClause(
   output_column_list.reserve(input_scan->column_list().size());
   for (int i = 0; i < input_name_list->num_columns(); ++i) {
     const NamedColumn& named_col = input_name_list->column(i);
-    const ResolvedColumn& col = named_col.column;
+    const ResolvedColumn& col = named_col.column();
     if (!referenced_columns.contains(col)) {
       std::string no_grouping_type;
       if (!TypeSupportsGrouping(col.type(), &no_grouping_type)) {
         return MakeSqlErrorAt(ast_pivot_clause)
-               << "Column " << ColumnAliasOrPosition(named_col.name, i)
+               << "Column " << ColumnAliasOrPosition(named_col.name(), i)
                << " of type " << no_grouping_type
                << " cannot be used as an implicit grouping column of a PIVOT "
                   "clause";
@@ -5715,14 +6141,14 @@ absl::Status Resolver::ResolvePivotClause(
 
       // Columns from the input table not referenced in either a pivot
       // expression or FOR expression are considered implicit group-by columns.
-      ResolvedColumn output_col(AllocateColumnId(), kGroupById, named_col.name,
-                                col.annotated_type());
+      ResolvedColumn output_col(AllocateColumnId(), kGroupById,
+                                named_col.name(), col.annotated_type());
       output_column_list.push_back(output_col);
 
       group_by_list.push_back(
           MakeResolvedComputedColumn(output_col, MakeColumnRef(col)));
 
-      ZETASQL_RETURN_IF_ERROR(final_name_list->AddColumn(named_col.name, output_col,
+      ZETASQL_RETURN_IF_ERROR(final_name_list->AddColumn(named_col.name(), output_col,
                                                  /*is_explicit=*/true));
     }
   }
@@ -6022,15 +6448,15 @@ absl::Status Resolver::ResolveUnpivotClause(
       projected_input_column_list;
   for (int i = 0; i < input_name_list->num_columns(); ++i) {
     const NamedColumn& named_col = input_name_list->column(i);
-    const ResolvedColumn& col = named_col.column;
+    const ResolvedColumn& col = named_col.column();
     if (!in_clause_input_columns.contains(col)) {
       ResolvedColumn output_col(AllocateColumnId(),
-                                /*table_name=*/kUnpivotColumnId, named_col.name,
-                                col.type());
+                                /*table_name=*/kUnpivotColumnId,
+                                named_col.name(), col.type());
       output_column_list.push_back(output_col);
       projected_input_column_list.push_back(
           MakeResolvedComputedColumn(output_col, MakeColumnRef(col)));
-      ZETASQL_RETURN_IF_ERROR(final_name_list->AddColumn(named_col.name, output_col,
+      ZETASQL_RETURN_IF_ERROR(final_name_list->AddColumn(named_col.name(), output_col,
                                                  /*is_explicit=*/true));
     }
   }
@@ -6082,6 +6508,8 @@ absl::Status Resolver::ResolveTablePathExpression(
     const ASTTablePathExpression* table_ref, const NameScope* scope,
     std::unique_ptr<const ResolvedScan>* output,
     std::shared_ptr<const NameList>* output_name_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
   const ASTForSystemTime* for_system_time = table_ref->for_system_time();
   if (for_system_time != nullptr &&
       !language().LanguageFeatureEnabled(FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF)) {
@@ -6114,7 +6542,7 @@ absl::Status Resolver::ResolveTablePathExpression(
     return ResolveArrayScan(table_ref, path_expr,
                             /*on_clause=*/nullptr, /*using_clause=*/nullptr,
                             /*ast_join=*/nullptr, /*is_outer_scan=*/false,
-                            /*include_lhs_name_list=*/true,
+                            /*include_lhs_name_list=*/false,
                             /*resolved_input_scan=*/&no_lhs_scan,
                             /*name_list_input=*/nullptr, scope, output,
                             output_name_list);
@@ -6529,8 +6957,8 @@ absl::Status Resolver::ResolveNamedSubqueryRef(
   // may not map 1:1 with select-list column names, we need to build a map.
   std::map<ResolvedColumn, IdString> with_column_to_alias;
   for (const NamedColumn& named_column : named_subquery->name_list->columns()) {
-    zetasql_base::InsertIfNotPresent(&with_column_to_alias, named_column.column,
-                            named_column.name);
+    zetasql_base::InsertIfNotPresent(&with_column_to_alias, named_column.column(),
+                            named_column.name());
   }
 
   // Make a new ResolvedColumn for each column from the WITH scan.
@@ -6564,13 +6992,13 @@ absl::Status Resolver::ResolveNamedSubqueryRef(
   // Make a new NameList pointing at the new ResolvedColumns.
   std::shared_ptr<NameList> name_list(new NameList);
   for (const NamedColumn& named_column : named_subquery->name_list->columns()) {
-    const ResolvedColumn& old_column = named_column.column;
+    const ResolvedColumn& old_column = named_column.column();
     auto found_column = old_column_to_new_column.find(old_column);
     ZETASQL_RET_CHECK(found_column != old_column_to_new_column.end());
     const ResolvedColumn& new_column = found_column->second;
 
-    ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(named_column.name, new_column,
-                                         named_column.is_explicit));
+    ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(named_column.name(), new_column,
+                                         named_column.is_explicit()));
   }
   if (named_subquery->name_list->is_value_table()) {
     ZETASQL_RET_CHECK_EQ(name_list->num_columns(), 1);
@@ -6602,7 +7030,7 @@ absl::Status Resolver::ResolveNamedSubqueryRef(
 
 absl::Status Resolver::ResolveColumnInUsing(
     const ASTIdentifier* ast_identifier, const NameList& name_list,
-    const std::string& side_name, IdString key_name,
+    absl::string_view side_name, IdString key_name,
     ResolvedColumn* found_column,
     std::unique_ptr<const ResolvedExpr>* compute_expr_for_found_column) {
   compute_expr_for_found_column->reset();
@@ -6636,7 +7064,7 @@ absl::Status Resolver::ResolveColumnInUsing(
     case NameTarget::RANGE_VARIABLE:
       if (found_name.scan_columns()->is_value_table()) {
         ZETASQL_RET_CHECK_EQ(found_name.scan_columns()->num_columns(), 1);
-        *found_column = found_name.scan_columns()->column(0).column;
+        *found_column = found_name.scan_columns()->column(0).column();
         break;
       } else {
         return MakeSqlErrorAt(ast_identifier)
@@ -6932,34 +7360,34 @@ absl::Status Resolver::ResolveJoin(
   //     ON cond3 )
   // * Now, cond3 can see only TA, TB, and not T1, T2, T3, T4.
   // * The select-list can see only TA, TB, and not T1, T2, T3, T4.
-  std::unique_ptr<const NameScope> scope_for_rhs_storage;
-  const NameScope* scope_for_rhs;
-  if (join->rhs()->node_kind() == AST_JOIN) {
-    // This is a parenthesized join.  We don't need to handle this specially in
-    // the parser because we don't need to detect parentheses on the lhs.
-    // If we supported the extra level of aliases in the second example above,
-    // we'd need to mark parenthesized joins in the parse tree.
+  auto external_and_lhs_scope =
+      std::make_unique<NameScope>(external_scope, name_list_lhs);
+  const NameScope* rhs_from_scope;
+  if (join->rhs()->node_kind() == AST_JOIN || is_right_or_full_join) {
+    // A clean scope only includes external names (and none of the names
+    // introduced locally in the same FROM clause). There are two cases where we
+    // need a "clean" scope on the right hand side of the JOIN:
     //
-    // Note that even though joins written inside parentheses are supposed to
-    // observe a clean scope that only includes external names (and none of
-    // the names introduced locally in the same FROM clause), we don't need
-    // to pass around that clean scope separately.  When we traverse to a lhs
-    // child, we always pass a clean scope.  When we traverse to a rhs child,
-    // we pass a clean scope for all join nodes, and only pass a scope
-    // including names from the lhs for non-join nodes (e.g. table names,
-    // path expressions, table subqueries).  Therefore, we always have a clean
-    // scope object available for parenthesized joins.
-    scope_for_rhs = external_scope;
+    // 1. The right hans side is a parenthesized join. We don't need to handle
+    // this specially in the parser because we don't need to detect parentheses
+    // on the lhs. If we supported the extra level of aliases in the second
+    // example above, we'd need to mark parenthesized joins in the parse tree.
+    //
+    // 2. The rhs is not a parenthesized join (e.g. table names, path
+    // expressions, table subqueries) and the current JOIN type is RIGHT JOIN or
+    // FULL JOIN.
+    //
+    // Otherwise, the lhs name scope is still needed because it is allowed to
+    // have names correlated to the lhs of the JOIN.
+    rhs_from_scope = external_scope;
   } else {
-    scope_for_rhs_storage =
-        std::make_unique<NameScope>(external_scope, name_list_lhs);
-    scope_for_rhs = scope_for_rhs_storage.get();
+    rhs_from_scope = external_and_lhs_scope.get();
   }
 
   // Peek at rhs_node to see if we should try to resolve it as an array scan.
-  // If the first identifier can be resolved inside <scope_for_rhs>, then try
+  // If the first identifier can be resolved inside <rhs_from_scope>, then try
   // to resolve this join as an array scan.
-  if (join->rhs()->node_kind() == AST_TABLE_PATH_EXPRESSION) {
+  if (rhs_is_table_path_expr) {
     const ASTTablePathExpression* table_ref =
         join->rhs()->GetAsOrDie<ASTTablePathExpression>();
     const ASTPathExpression* rhs_path_expr = table_ref->path_expr();
@@ -7003,7 +7431,7 @@ absl::Status Resolver::ResolveJoin(
       return ResolveArrayScan(table_ref, path_expr, join->on_clause(),
                               join->using_clause(), join, is_left_outer,
                               /*include_lhs_name_list=*/true, &resolved_lhs,
-                              name_list_lhs, scope_for_rhs, output,
+                              name_list_lhs, rhs_from_scope, output,
                               output_name_list);
     }
   }
@@ -7012,7 +7440,7 @@ absl::Status Resolver::ResolveJoin(
   std::unique_ptr<const ResolvedScan> resolved_rhs;
   std::shared_ptr<const NameList> name_list_rhs;
   ZETASQL_RETURN_IF_ERROR(ResolveTableExpression(join->rhs(), external_scope,
-                                         scope_for_rhs, &resolved_rhs,
+                                         rhs_from_scope, &resolved_rhs,
                                          &name_list_rhs));
 
   // True iff this join type accepts (and requires) an ON or USING clause.
@@ -7893,7 +8321,7 @@ absl::Status Resolver::PrepareTVFInputArguments(
             << ast_tvf->DebugString();
         for (int j = 0; j < name_list->num_columns(); ++j) {
           tvf_relation_columns.emplace_back(
-              name_list->column(j).name.ToString(), column_list[j].type());
+              name_list->column(j).name().ToString(), column_list[j].type());
         }
         tvf_input_arguments->push_back(
             TVFInputArgumentType(TVFRelation(tvf_relation_columns)));
@@ -8104,7 +8532,7 @@ absl::StatusOr<InputArgumentType> Resolver::GetTVFArgType(
                      resolved_tvf_arg.GetNameList());
     if (name_list->is_value_table()) {
       input_arg_type = InputArgumentType::RelationInputArgumentType(
-          TVFRelation::ValueTable(name_list->column(0).column.type()));
+          TVFRelation::ValueTable(name_list->column(0).column().type()));
     } else {
       TVFRelation::ColumnList provided_input_relation_columns;
       provided_input_relation_columns.reserve(name_list->num_columns());
@@ -8115,7 +8543,7 @@ absl::StatusOr<InputArgumentType> Resolver::GetTVFArgType(
       for (int j = 0; j < name_list->num_columns(); ++j) {
         const NamedColumn& named_column = name_list->column(j);
         provided_input_relation_columns.emplace_back(
-            named_column.name.ToString(), named_column.column.type());
+            named_column.name().ToString(), named_column.column().type());
       }
       input_arg_type = InputArgumentType::RelationInputArgumentType(
           TVFRelation(provided_input_relation_columns));
@@ -8184,7 +8612,7 @@ absl::Status Resolver::CheckIfMustCoerceOrRearrangeTVFRelationArgColumns(
   ZETASQL_RET_CHECK_EQ(required_schema.num_columns(), name_list->columns().size());
   for (int i = 0; i < num_provided_columns; ++i) {
     if (!zetasql_base::CaseEqual(required_schema.column(i).name,
-                                name_list->column(i).name.ToString())) {
+                                name_list->column(i).name().ToString())) {
       *add_projection = true;
       return absl::OkStatus();
     }
@@ -8221,7 +8649,7 @@ absl::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
   // list of provided columns.
   std::map<std::string, int, zetasql_base::CaseLess> col_name_to_idx;
   for (int col_idx = 0; col_idx < num_provided_columns; ++col_idx) {
-    col_name_to_idx.emplace(name_list->column(col_idx).name.ToString(),
+    col_name_to_idx.emplace(name_list->column(col_idx).name().ToString(),
                             col_idx);
   }
 
@@ -8249,12 +8677,12 @@ absl::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
         zetasql_base::FindPtrOrNull(signature_match_result.tvf_relation_coercion_map(),
                            {arg_idx, provided_col_idx});
     const ResolvedColumn& provided_input_column =
-        name_list->column(provided_col_idx).column;
+        name_list->column(provided_col_idx).column();
     if (result_type == nullptr) {
       new_column_list.push_back(provided_input_column);
     } else {
       new_column_list.emplace_back(AllocateColumnId(), new_project_alias,
-                                   name_list->column(provided_col_idx).name,
+                                   name_list->column(provided_col_idx).name(),
                                    result_type);
       std::unique_ptr<const ResolvedExpr> resolved_cast(
           MakeColumnRef(provided_input_column, /*is_correlated=*/false));
@@ -8268,7 +8696,7 @@ absl::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
     // is not pruned away later.
     RecordColumnAccess(new_column_list.back());
     ZETASQL_RETURN_IF_ERROR(new_project_name_list->AddColumn(
-        name_list->column(provided_col_idx).name, new_column_list.back(),
+        name_list->column(provided_col_idx).name(), new_column_list.back(),
         /*is_explicit=*/true));
   }
   if (tvf_signature_arg.options().relation_input_schema().is_value_table()) {
@@ -8285,6 +8713,64 @@ absl::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
   return absl::OkStatus();
 }
 
+// Validates the given `unnest_expr` has the valid aliases and correct number of
+// expressions. An SQL error will be returned if
+// - `unnest_expr` contains more than one expression.
+// - Any of the expressions in `unnest_expr` contains an alias.
+// TODO: Update the checks once we are ready to support column
+// aliases and multiple expressions in UNNEST.
+static absl::Status ValidateUnnestAliases(
+    const ASTUnnestExpression* unnest_expr,
+    const ASTTablePathExpression* table_ref) {
+  ZETASQL_RET_CHECK_NE(unnest_expr, nullptr);
+  ZETASQL_RET_CHECK_NE(table_ref, nullptr);
+
+  if (table_ref->alias() != nullptr) {
+    // The unnest expression has legacy alias. No argument aliases are allowed
+    // and there should be exactly one expression in UNNEST.
+    if (unnest_expr->expressions().size() != 1) {
+      return MakeSqlErrorAt(table_ref->alias())
+             << "Table alias in UNNEST in FROM clause is not allowed when "
+             << "UNNEST contains multiple arguments";
+    }
+    if (unnest_expr->expressions()[0]->optional_alias() != nullptr) {
+      return MakeSqlErrorAt(table_ref->alias())
+             << "Table alias in UNNEST in FROM clause is not allowed when "
+             << "arguments in UNNEST have alias";
+    }
+  }
+
+  if (unnest_expr->expressions().size() > 1) {
+    return MakeSqlErrorAt(unnest_expr->expressions()[1])
+           << "Multiple arguments in UNNEST in FROM clause is not implemented";
+  }
+  for (const ASTExpressionWithOptAlias* expr : unnest_expr->expressions()) {
+    if (expr->optional_alias() != nullptr) {
+      return MakeSqlErrorAt(expr->optional_alias())
+             << "Argument alias in UNNEST in FROM clause is not implemented";
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ValidateArrayZipMode(
+    const ASTNamedArgument* array_zip_mode) const {
+  if (array_zip_mode == nullptr) {
+    // Ok to not specify an array zip mode.
+    return absl::OkStatus();
+  }
+  static constexpr absl::string_view kArrayZipModeArgName = "mode";
+  if (!zetasql_base::CaseEqual(array_zip_mode->name()->GetAsStringView(),
+                              kArrayZipModeArgName)) {
+    return MakeSqlErrorAt(array_zip_mode)
+           << "Unsupported named argument `"
+           << array_zip_mode->name()->GetAsStringView() << "` in UNNEST";
+  }
+  return MakeSqlErrorAt(array_zip_mode)
+         << "The named argument `" << kArrayZipModeArgName
+         << "` used in UNNEST is not implemented";
+}
+
 absl::Status Resolver::ResolveArrayScan(
     const ASTTablePathExpression* table_ref,
     std::optional<PathExpressionSpan> path_expr, const ASTOnClause* on_clause,
@@ -8294,6 +8780,8 @@ absl::Status Resolver::ResolveArrayScan(
     const std::shared_ptr<const NameList>& name_list_input,
     const NameScope* scope, std::unique_ptr<const ResolvedScan>* output,
     std::shared_ptr<const NameList>* output_name_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
   // There might not be a lhs_scan, but the unique_ptr should be non-NULL.
   ZETASQL_RET_CHECK(resolved_input_scan != nullptr);
   ZETASQL_RET_CHECK_EQ(*resolved_input_scan == nullptr, name_list_input == nullptr);
@@ -8412,24 +8900,30 @@ absl::Status Resolver::ResolveArrayScan(
     ZETASQL_RET_CHECK(table_ref->unnest_expr() != nullptr);
     const ASTUnnestExpression* unnest = table_ref->unnest_expr();
 
+    ZETASQL_RETURN_IF_ERROR(ValidateUnnestAliases(unnest, table_ref));
+    ZETASQL_RETURN_IF_ERROR(ValidateArrayZipMode(unnest->array_zip_mode()));
+
     ExprResolutionInfo info(scope, "UNNEST");
     FlattenState::Restorer restorer;
     if (language().LanguageFeatureEnabled(
             FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
       info.flatten_state.set_can_flatten(true, &restorer);
     }
-    const absl::Status resolve_expr_status =
-        ResolveExpr(unnest->expression(), &info, &resolved_value_expr);
+    const absl::Status resolve_expr_status = ResolveExpr(
+        unnest->expressions()[0]->expression(), &info, &resolved_value_expr);
 
     // If resolving the expression failed, and it looked like a valid table
     // name, then give a more helpful error message.
     if (!resolve_expr_status.ok() &&
         absl::StartsWith(resolve_expr_status.message(),
                          "Unrecognized name: ") &&
-        unnest->expression()->node_kind() == AST_PATH_EXPRESSION) {
+        unnest->expressions()[0]->expression()->node_kind() ==
+            AST_PATH_EXPRESSION) {
       const ASTPathExpression* path_expr =
-          unnest->expression()->GetAsOrDie<ASTPathExpression>();
-      const Table* table;
+          unnest->expressions()[0]
+              ->expression()
+              ->GetAsOrDie<ASTPathExpression>();
+      const Table* table = nullptr;
       int num_names_consumed = 0;
       const absl::Status find_status = catalog_->FindTableWithPathPrefix(
           path_expr->ToIdentifierVector(), analyzer_options_.find_options(),
@@ -8454,7 +8948,7 @@ absl::Status Resolver::ResolveArrayScan(
 
     value_type = resolved_value_expr->type();
     if (!value_type->IsArray()) {
-      return MakeSqlErrorAt(unnest->expression())
+      return MakeSqlErrorAt(unnest->expressions()[0]->expression())
              << "Values referenced in UNNEST must be arrays. "
              << "UNNEST contains expression of type "
              << value_type->ShortTypeName(product_mode());
@@ -9074,26 +9568,6 @@ absl::Status Resolver::ResolveForSystemTimeExpr(
   return absl::OkStatus();
 }
 
-namespace {
-
-// Extracts an expression from the given scan at the provided column,
-// returning nullptr if the column doesn't exist in the scan or does not
-// contain an expression.
-absl::StatusOr<const ResolvedExpr*> GetColumnExpr(
-    const ResolvedProjectScan* scan, const ResolvedColumn& column) {
-  for (const std::unique_ptr<const ResolvedComputedColumn>& computed_column :
-       scan->expr_list()) {
-    const ResolvedExpr* expr = computed_column->expr();
-    ZETASQL_RET_CHECK_NE(expr, nullptr);
-    if (computed_column->column().column_id() == column.column_id()) {
-      return expr;
-    }
-  }
-  return nullptr;
-}
-
-}  // namespace
-
 absl::Status Resolver::CoerceQueryStatementResultToTypes(
     const ASTNode* ast_node, absl::Span<const Type* const> types,
     std::unique_ptr<const ResolvedScan>* scan,
@@ -9109,13 +9583,13 @@ absl::Status Resolver::CoerceQueryStatementResultToTypes(
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> casted_exprs;
   auto name_list = std::make_shared<NameList>();
   for (int i = 0; i < types.size(); ++i) {
-    const Type* result_type = column_list[i].column.type();
+    const Type* result_type = column_list[i].column().type();
     const Type* target_type = types[i];
     if (result_type->Equals(target_type)) {
-      casted_column_list.emplace_back(column_list[i].column);
-      ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(column_list[i].name,
-                                           column_list[i].column,
-                                           column_list[i].is_explicit));
+      casted_column_list.emplace_back(column_list[i].column());
+      ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(column_list[i].name(),
+                                           column_list[i].column(),
+                                           column_list[i].is_explicit()));
     } else {
       // Extract and coerce an expression out of each column.
       //
@@ -9135,10 +9609,10 @@ absl::Status Resolver::CoerceQueryStatementResultToTypes(
 
       ZETASQL_ASSIGN_OR_RETURN(const ResolvedExpr* column_expr,
                        GetColumnExpr((*scan)->GetAs<ResolvedProjectScan>(),
-                                     column_list[i].column));
+                                     column_list[i].column()));
       std::unique_ptr<const ResolvedExpr> column_ref;
       if (column_expr == nullptr) {
-        column_ref = MakeColumnRef(column_list[i].column);
+        column_ref = MakeColumnRef(column_list[i].column());
         column_expr = column_ref.get();
       }
       // Disallow untyped parameters for now, we can't mutably change them and
@@ -9161,7 +9635,7 @@ absl::Status Resolver::CoerceQueryStatementResultToTypes(
                << target_type->ShortTypeName(product_mode());
       }
       std::unique_ptr<const ResolvedExpr> casted_expr =
-          MakeColumnRef(column_list[i].column);
+          MakeColumnRef(column_list[i].column());
       const ASTNode* ast_location =
           GetASTNodeForColumn(ast_node, i, static_cast<int>(types.size()));
       ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
@@ -9170,14 +9644,14 @@ absl::Status Resolver::CoerceQueryStatementResultToTypes(
           /* set_has_explicit_type =*/false,
           /* return_null_on_error =*/false, &casted_expr));
       const ResolvedColumn casted_column(AllocateColumnId(), kCastedColumnId,
-                                         column_list[i].name, target_type);
+                                         column_list[i].name(), target_type);
       RecordColumnAccess(casted_column);
       casted_column_list.emplace_back(casted_column);
       casted_exprs.push_back(
           MakeResolvedComputedColumn(casted_column, std::move(casted_expr)));
       ZETASQL_RETURN_IF_ERROR(
-          name_list->AddColumn(column_list[i].name, casted_column,
-                               (*output_name_list)->column(i).is_explicit));
+          name_list->AddColumn(column_list[i].name(), casted_column,
+                               (*output_name_list)->column(i).is_explicit()));
     }
   }
   if (!casted_exprs.empty()) {

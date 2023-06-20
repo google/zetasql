@@ -172,7 +172,7 @@ class ResolverTest : public ::testing::Test {
 
   // Test that <cast_expression> successfully resolves to an expression
   // of the expected type.
-  void TestCastExpression(const std::string& cast_expression,
+  void TestCastExpression(absl::string_view cast_expression,
                           const Type* expected_cast_type) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;
@@ -208,8 +208,8 @@ class ResolverTest : public ::testing::Test {
     return resolved_expression;
   }
 
-  void TestCaseExpression(const std::string& query,
-                          const std::string& expected_case_function_name) {
+  void TestCaseExpression(absl::string_view query,
+                          absl::string_view expected_case_function_name) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;
     ZETASQL_ASSERT_OK(ParseExpression(query, ParserOptions(), &parser_output)) << query;
@@ -237,8 +237,8 @@ class ResolverTest : public ::testing::Test {
               resolved_function_call->function()->FullName());
   }
 
-  void ParseAndResolveFunction(const std::string& query,
-                               const std::string& expected_function_name,
+  void ParseAndResolveFunction(absl::string_view query,
+                               absl::string_view expected_function_name,
                                bool is_aggregate_function = false,
                                bool aggregation_allowed = false) {
     std::unique_ptr<ParserOutput> parser_output;
@@ -275,8 +275,8 @@ class ResolverTest : public ::testing::Test {
     }
   }
 
-  void ResolveFunctionFails(const std::string& query,
-                            const std::string& expected_error_substr,
+  void ResolveFunctionFails(absl::string_view query,
+                            absl::string_view expected_error_substr,
                             bool aggregation_allowed = false) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;
@@ -293,8 +293,8 @@ class ResolverTest : public ::testing::Test {
         << resolved_expression->DebugString();
   }
 
-  void ParseFunctionFails(const std::string& query,
-                          const std::string& expected_error_substr) {
+  void ParseFunctionFails(absl::string_view query,
+                          absl::string_view expected_error_substr) {
     std::unique_ptr<ParserOutput> parser_output;
 
     // Parsing should fail.
@@ -303,7 +303,7 @@ class ResolverTest : public ::testing::Test {
         << "Query: " << query;
   }
 
-  void TestResolveParameterExprSuccess(const std::string& query,
+  void TestResolveParameterExprSuccess(absl::string_view query,
                                        const Type* expected_type) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expr;
@@ -318,8 +318,8 @@ class ResolverTest : public ::testing::Test {
     EXPECT_TRUE(resolved_expr->type()->Equals(expected_type));
   }
 
-  void TestResolveParameterExprFails(const std::string& query,
-                                     const std::string& expected_error_substr) {
+  void TestResolveParameterExprFails(absl::string_view query,
+                                     absl::string_view expected_error_substr) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expr;
     // Parsing should succeed.
@@ -334,7 +334,7 @@ class ResolverTest : public ::testing::Test {
   }
 
   // 'path_expression' must parse to a ASTPathExpression or ASTIdentifier.
-  void TestFindFieldDescriptorsSuccess(const std::string& path_expression,
+  void TestFindFieldDescriptorsSuccess(absl::string_view path_expression,
                                        const ProtoType* root_type) {
     std::unique_ptr<ParserOutput> parser_output;
     ZETASQL_ASSERT_OK(ParseExpression(path_expression, ParserOptions(), &parser_output))
@@ -370,9 +370,9 @@ class ResolverTest : public ::testing::Test {
   }
 
   // 'path_expression' must parse to a ASTPathExpression or ASTIdentifier.
-  void TestFindFieldDescriptorsFail(const std::string& path_expression,
+  void TestFindFieldDescriptorsFail(absl::string_view path_expression,
                                     const ProtoType* root_type,
-                                    const std::string& expected_error_substr) {
+                                    absl::string_view expected_error_substr) {
     std::unique_ptr<ParserOutput> parser_output;
     ZETASQL_ASSERT_OK(ParseExpression(path_expression, ParserOptions(), &parser_output))
         << path_expression;
@@ -391,8 +391,8 @@ class ResolverTest : public ::testing::Test {
         StatusIs(_, HasSubstr(expected_error_substr)));
   }
 
-  void TestResolverErrorMessage(const std::string& query,
-                                const std::string& expected_error_substr) {
+  void TestResolverErrorMessage(absl::string_view query,
+                                absl::string_view expected_error_substr) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;
     // Parsing should succeed.
@@ -420,8 +420,8 @@ class ResolverTest : public ::testing::Test {
         "pArAm_mIxEdcaSe", type_factory_.get_string()));
   }
 
-  void TestIntervalLiteral(const std::string& expected,
-                           const std::string& input) {
+  void TestIntervalLiteral(absl::string_view expected,
+                           absl::string_view input) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;
     ZETASQL_ASSERT_OK(ParseExpression(input, ParserOptions(), &parser_output)) << input;
@@ -439,7 +439,7 @@ class ResolverTest : public ::testing::Test {
     EXPECT_EQ(expected, resolved_literal->value().DebugString());
   }
 
-  void TestIntervalLiteralError(const std::string& input) {
+  void TestIntervalLiteralError(absl::string_view input) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;
     ZETASQL_ASSERT_OK(ParseExpression(input, ParserOptions(), &parser_output)) << input;
@@ -451,7 +451,7 @@ class ResolverTest : public ::testing::Test {
         << input;
   }
 
-  void TestRangeLiteral(const std::string& expected, const std::string& input) {
+  void TestRangeLiteral(absl::string_view expected, absl::string_view input) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;
     ZETASQL_ASSERT_OK(ParseExpression(input, ParserOptions(), &parser_output)) << input;
@@ -469,7 +469,7 @@ class ResolverTest : public ::testing::Test {
     EXPECT_EQ(expected, resolved_literal->value().DebugString());
   }
 
-  void TestRangeLiteralError(const std::string& input) {
+  void TestRangeLiteralError(absl::string_view input) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;
     ZETASQL_ASSERT_OK(ParseExpression(input, ParserOptions(), &parser_output)) << input;

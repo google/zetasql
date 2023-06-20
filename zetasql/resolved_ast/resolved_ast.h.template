@@ -241,6 +241,13 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
       ResolvedNode::ConstructorOverload::NEW_CONSTRUCTOR;
 
 # for field in node.fields
+ bool {{field.name}}_accessed() const {
+   return accessed_ & {{field.bitmap}};
+ }
+# endfor
+
+
+# for field in node.fields
   # if not field.is_default_constructible
   absl::optional<{{field.member_type}}> {{field.member_name}};
   # else
@@ -507,7 +514,31 @@ inline std::unique_ptr<ResolvedTVFArgument> MakeResolvedTVFArgument(
         std::move(connection),
         std::move(descriptor_arg),
         argument_column_list,
-        /*inline_lambda=*/nullptr);
+        /*inline_lambda=*/nullptr,
+        /*sequence=*/nullptr);
+}
+
+// This is here for backward compatibility because we added sequence to
+// ResolvedFunctionArgument. Once engine implementations are updated, this
+// should be removed.
+ABSL_DEPRECATED("use eight argument MakeResolvedFunctionArgument")
+inline std::unique_ptr<ResolvedFunctionArgument> MakeResolvedFunctionArgument(
+    std::unique_ptr<const ResolvedExpr> expr,
+    std::unique_ptr<const ResolvedScan> scan,
+    std::unique_ptr<const ResolvedModel> model,
+    std::unique_ptr<const ResolvedConnection> connection,
+    std::unique_ptr<const ResolvedDescriptor> descriptor_arg,
+    const std::vector<ResolvedColumn>& argument_column_list,
+    std::unique_ptr<ResolvedInlineLambda> inline_lambda) {
+  return MakeResolvedFunctionArgument(
+        std::move(expr),
+        std::move(scan),
+        std::move(model),
+        std::move(connection),
+        std::move(descriptor_arg),
+        argument_column_list,
+        std::move(inline_lambda),
+        /*sequence=*/nullptr);
 }
 
 // This is here for backward compatibility because we removed
@@ -530,6 +561,59 @@ inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
       std::move(time_zone),
       TypeModifiers::MakeTypeModifiers(
           type_parameters, zetasql::Collation()));
+}
+
+// This is here for backward compatibility because we added
+// <grouping_call_list> as an optional constructor arg for the
+// ResolvedAggregateScan
+template <
+  typename group_by_list_t
+      = std::vector<std::unique_ptr<const ResolvedComputedColumn>>,
+  typename aggregate_list_t
+      = std::vector<std::unique_ptr<const ResolvedComputedColumn>>,
+  typename grouping_set_list_t
+      = std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>,
+  typename rollup_column_list_t
+      = std::vector<std::unique_ptr<const ResolvedColumnRef>>>
+std::unique_ptr<ResolvedAggregateScan> MakeResolvedAggregateScan(
+    const std::vector<ResolvedColumn>& column_list,
+    std::unique_ptr<const ResolvedScan> input_scan,
+    group_by_list_t group_by_list,
+    aggregate_list_t aggregate_list,
+    grouping_set_list_t grouping_set_list,
+    rollup_column_list_t rollup_column_list) {
+  static_assert(std::is_base_of<
+      ResolvedComputedColumn,
+      typename std::decay<decltype(**(group_by_list.begin()))>::type>::value,
+      "group_by_list must be a container of unique_ptr with elements of type "
+      "ResolvedComputedColumn (or its descendants).");
+  static_assert(std::is_base_of<
+      ResolvedComputedColumn,
+      typename std::decay<decltype(**(aggregate_list.begin()))>::type>::value,
+      "aggregate_list must be a container of unique_ptr with elements of type "
+      "ResolvedComputedColumn (or its descendants).");
+  static_assert(std::is_base_of<
+      ResolvedGroupingSetBase,
+      typename std::decay<decltype(**(grouping_set_list.begin()))>::type>::value,
+      "grouping_set_list must be a container of unique_ptr with elements of type "
+      "ResolvedGroupingSetBase (or its descendants).");
+  static_assert(std::is_base_of<
+      ResolvedColumnRef,
+      typename std::decay<decltype(**(rollup_column_list.begin()))>::type>::value,
+      "rollup_column_list must be a container of unique_ptr with elements of type "
+      "ResolvedColumnRef (or its descendants).");
+  return MakeResolvedAggregateScan(
+      column_list,
+      std::move(input_scan),
+      {std::make_move_iterator(group_by_list.begin()),
+       std::make_move_iterator(group_by_list.end())},
+      {std::make_move_iterator(aggregate_list.begin()),
+       std::make_move_iterator(aggregate_list.end())},
+      {std::make_move_iterator(grouping_set_list.begin()),
+       std::make_move_iterator(grouping_set_list.end())},
+      {std::make_move_iterator(rollup_column_list.begin()),
+       std::make_move_iterator(rollup_column_list.end())},
+      /*grouping_call_list=*/{});
 }
 
 }  // namespace zetasql

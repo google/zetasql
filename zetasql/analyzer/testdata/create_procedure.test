@@ -291,3 +291,28 @@ LANGUAGE python;
 ERROR: LANGUAGE is not supported [at 2:1]
 LANGUAGE python;
 ^
+==
+
+[disallow_duplicate_options]
+CREATE PROCEDURE procedure_name()
+OPTIONS (a=1,a=2)
+BEGIN
+END;
+--
+ERROR: Duplicate option specified for 'a' [at 2:14]
+OPTIONS (a=1,a=2)
+             ^
+==
+
+# invalid statement with the external security clause
+CREATE PROCEDURE procedure_name()
+EXTERNAL SECURITY DEFINER
+OPTIONS(a=1, b="2")
+BEGIN
+  SELECT 1;
+  RETURN;
+END;
+--
+ERROR: EXTERNAL SECURITY clause is not supported [at 1:1]
+CREATE PROCEDURE procedure_name()
+^

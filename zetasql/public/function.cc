@@ -34,14 +34,11 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
-#include "zetasql/base/case.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
-#include "absl/strings/strip.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -516,25 +513,29 @@ absl::Status Function::CheckPostResolutionArgumentConstraints(
 const std::string Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
     const std::string& qualified_function_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
-    absl::Span<const absl::string_view> argument_names) {
+    absl::Span<const absl::string_view> argument_names,
+    bool argument_types_on_new_line) {
   return absl::StrCat(
       "No matching signature for ", qualified_function_name,
       (arguments.empty()
            ? " with no arguments"
-           : absl::StrCat(" for argument types: ",
+           : absl::StrCat(argument_types_on_new_line ? "\n  Argument types: "
+                                                     : " for argument types: ",
                           InputArgumentType::ArgumentsToString(
                               arguments, product_mode, argument_names))));
 }
 
 std::string Function::GetNoMatchingFunctionSignatureErrorMessage(
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
-    absl::Span<const absl::string_view> argument_names) const {
+    absl::Span<const absl::string_view> argument_names,
+    bool argument_types_on_new_line) const {
   if (GetNoMatchingSignatureCallback() != nullptr) {
     return GetNoMatchingSignatureCallback()(QualifiedSQLName(), arguments,
                                             product_mode);
   }
   return GetGenericNoMatchingFunctionSignatureErrorMessage(
-      QualifiedSQLName(), arguments, product_mode, argument_names);
+      QualifiedSQLName(), arguments, product_mode, argument_names,
+      argument_types_on_new_line);
 }
 
 // TODO: When we use this to make error messages for signatures that
@@ -542,8 +543,8 @@ std::string Function::GetNoMatchingFunctionSignatureErrorMessage(
 // this.
 std::string Function::GetSupportedSignaturesUserFacingText(
     const LanguageOptions& language_options,
-    FunctionArgumentType::NamePrintingStyle print_style,
-    int* num_signatures) const {
+    FunctionArgumentType::NamePrintingStyle print_style, int* num_signatures,
+    bool print_template_details) const {
   // Make a good guess
   *num_signatures = NumSignatures();
   if (GetSupportedSignaturesCallback() != nullptr) {
@@ -561,8 +562,8 @@ std::string Function::GetSupportedSignaturesUserFacingText(
       absl::StrAppend(&supported_signatures, "; ");
     }
     std::vector<std::string> argument_texts =
-        signature.GetArgumentsUserFacingTextWithCardinality(language_options,
-                                                            print_style);
+        signature.GetArgumentsUserFacingTextWithCardinality(
+            language_options, print_style, print_template_details);
     (*num_signatures)++;
     absl::StrAppend(&supported_signatures, GetSQL(argument_texts));
   }

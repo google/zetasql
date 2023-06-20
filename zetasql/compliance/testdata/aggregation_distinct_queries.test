@@ -700,13 +700,17 @@ ARRAY<STRUCT<INT64>>[{6}]
 SELECT COUNT(DISTINCT str_val), bool_val
 FROM TableAllTypes GROUP BY bool_val ORDER BY bool_Val
 --
-ARRAY<STRUCT<INT64, bool_val BOOL>>[{1, NULL}, {6, false}, {4, true}]
+ARRAY<STRUCT<INT64, bool_val BOOL>>[known order:
+  {1, NULL},
+  {6, false},
+  {4, true}
+]
 ==
 [name=aggregation_distinct_count_group_by_and_having]
 SELECT COUNT(DISTINCT int64_val), bool_val FROM TableAllTypes
   GROUP BY bool_val HAVING COUNT(DISTINCT str_val) < 5 ORDER BY bool_val
 --
-ARRAY<STRUCT<INT64, bool_val BOOL>>[{0, NULL}, {4, true}]
+ARRAY<STRUCT<INT64, bool_val BOOL>>[known order:{0, NULL}, {4, true}]
 ==
 # ----------------------------------------------------------------------------
 # COUNTIF
@@ -738,7 +742,7 @@ ARRAY<STRUCT<INT64>>[{0}]
 SELECT COUNTIF(DISTINCT bool_val), int32_val
 FROM TableAllTypes GROUP BY int32_val ORDER BY int32_val
 --
-ARRAY<STRUCT<INT64, int32_val INT32>>[
+ARRAY<STRUCT<INT64, int32_val INT32>>[known order:
   {0, NULL},
   {0, -24},
   {0, -4},
@@ -766,7 +770,7 @@ ARRAY<STRUCT<INT64,
                     a BOOL,
                     b_struct STRUCT<c INT32, d INT64>
                   >>>
-[
+[known order:
   {0, {NULL, NULL}},
   {0, {NULL, {NULL, 1}}},
   {0, {false, {NULL, 1}}},
@@ -791,13 +795,18 @@ ARRAY<STRUCT<
         key STRUCT<key1 BOOL>,
         INT64
       >>
-[{{NULL}, 2}, {{false}, 7}, {{true}, 4}]
+[known order:{{NULL}, 2}, {{false}, 7}, {{true}, 4}]
 ==
 [name=aggregation_distinct_countif_group_by_and_having]
 SELECT COUNTIF(DISTINCT bool_val), int32_val FROM TableAllTypes
   GROUP BY int32_val HAVING COUNTIF(distinct bool_val) > 0 ORDER BY int32_val
 --
-ARRAY<STRUCT<INT64, int32_val INT32>>[{1, -3}, {1, -1}, {1, 1}, {1, 13}]
+ARRAY<STRUCT<INT64, int32_val INT32>>[known order:
+  {1, -3},
+  {1, -1},
+  {1, 1},
+  {1, 13}
+]
 ==
 # ----------------------------------------------------------------------------
 # ARRAY_AGG
@@ -828,73 +837,89 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>,
              ARRAY<>>>
-[
-  {
-    ARRAY<BOOL>[true, false, NULL],
-    ARRAY<DOUBLE>[inf,
-                  -inf,
-                  NULL,
-                  0.125,
-                  -0.25,
-                  -0.375,
-                  -0,
-                  -0.125,
-                  -0.75,
-                  nan,
-                  -0.5],
-    ARRAY<FLOAT>[nan,
-                 inf,
-                 NULL,
-                 0.125,
-                 0.75,
-                 -0.375,
-                 -0.125,
-                 -0.25,
-                 -inf,
-                 -0,
-                 -0.5],
-    ARRAY<STRING>["1", "2", "3", NULL, "6", "24", "345", "123", "222", "4", "432"],
-    ARRAY<INT32>[-1, -2, -3, NULL, 1, 2, 13, 5, 9, -4, -24],
-    ARRAY<UINT32>[1, 2, 3, NULL, 11, 5, 31, 4, 41],
-    ARRAY<INT64>[-1, -2, -3, NULL, 1, 16, 23, 3, 9, -4, -14],
-    ARRAY<UINT64>[1, 2, 3, NULL, 11, 9, 32, 8, 4, 54],
-    ARRAY<DATE>[2014-01-01,
-                2014-01-02,
-                2014-01-03,
-                NULL,
-                2014-01-08,
-                2014-02-02,
-                2014-01-06,
-                2014-02-01,
-                2014-05-02,
-                2014-01-04,
-                2014-02-04],
-    ARRAY<BYTES>[b"1",
-                 b"2",
-                 b"3",
-                 NULL,
-                 b"7",
-                 b"22",
-                 b"345",
-                 b"123",
-                 b"234",
-                 b"4",
-                 b"433"],
-    ARRAY<TIMESTAMP>[
-      2014-01-01 00:00:01+00,
-      2014-01-02 00:00:02+00,
-      2014-01-03 00:00:03+00,
-      NULL,
-      2014-01-07 00:00:01+00,
-      2014-03-02 00:00:02+00,
-      2014-02-03 00:00:03+00,
-      2014-02-04 00:00:04+00,
-      2014-03-01 00:00:01+00,
-      2014-05-02 00:00:02+00,
-      2014-01-04 00:00:04+00
-    ]
-  }
-]
+[{ARRAY<BOOL>[unknown order:true, false, NULL],
+  ARRAY<DOUBLE>[unknown order:
+    inf,
+    -inf,
+    NULL,
+    0.125,
+    -0.25,
+    -0.375,
+    -0,
+    -0.125,
+    -0.75,
+    nan,
+    -0.5
+  ],
+  ARRAY<FLOAT>[unknown order:
+    nan,
+    inf,
+    NULL,
+    0.125,
+    0.75,
+    -0.375,
+    -0.125,
+    -0.25,
+    -inf,
+    -0,
+    -0.5
+  ],
+  ARRAY<STRING>[unknown order:
+    "1",
+    "2",
+    "3",
+    NULL,
+    "6",
+    "24",
+    "345",
+    "123",
+    "222",
+    "4",
+    "432"
+  ],
+  ARRAY<INT32>[unknown order:-1, -2, -3, NULL, 1, 2, 13, 5, 9, -4, -24],
+  ARRAY<UINT32>[unknown order:1, 2, 3, NULL, 11, 5, 31, 4, 41],
+  ARRAY<INT64>[unknown order:-1, -2, -3, NULL, 1, 16, 23, 3, 9, -4, -14],
+  ARRAY<UINT64>[unknown order:1, 2, 3, NULL, 11, 9, 32, 8, 4, 54],
+  ARRAY<DATE>[unknown order:
+    2014-01-01,
+    2014-01-02,
+    2014-01-03,
+    NULL,
+    2014-01-08,
+    2014-02-02,
+    2014-01-06,
+    2014-02-01,
+    2014-05-02,
+    2014-01-04,
+    2014-02-04
+  ],
+  ARRAY<BYTES>[unknown order:
+    b"1",
+    b"2",
+    b"3",
+    NULL,
+    b"7",
+    b"22",
+    b"345",
+    b"123",
+    b"234",
+    b"4",
+    b"433"
+  ],
+  ARRAY<TIMESTAMP>[unknown order:
+    2014-01-01 00:00:01+00,
+    2014-01-02 00:00:02+00,
+    2014-01-03 00:00:03+00,
+    NULL,
+    2014-01-07 00:00:01+00,
+    2014-03-02 00:00:02+00,
+    2014-02-03 00:00:03+00,
+    2014-02-04 00:00:04+00,
+    2014-03-01 00:00:01+00,
+    2014-05-02 00:00:02+00,
+    2014-01-04 00:00:04+00
+  ]}]
 ==
 [name=aggregation_distinct_array_agg_3]
 SELECT ARRAY_AGG(DISTINCT bool_val), ARRAY_AGG(DISTINCT double_val),
@@ -939,7 +964,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 SELECT row_id, ARRAY_AGG(DISTINCT int32_val) FROM TableAllTypes
   GROUP BY row_id ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, ARRAY<>>>[
+ARRAY<STRUCT<row_id INT64, ARRAY<>>>[known order:
   {1, ARRAY<INT32>[-1]},
   {2, ARRAY<INT32>[-1]},
   {3, ARRAY<INT32>[-1]},
@@ -969,7 +994,7 @@ FROM TableAllTypes GROUP BY bool_val HAVING bool_val ORDER BY bool_val
 ARRAY<STRUCT<bool_val BOOL, ARRAY<>>>[
   {
     true,
-    ARRAY<INT32>[-1, -3, 1, 13]
+    ARRAY<INT32>[unknown order:-1, -3, 1, 13]
   }
 ]
 ==
@@ -1030,7 +1055,7 @@ ARRAY<STRUCT<STRING, BYTES>>[{NULL, NULL}]
 SELECT STRING_AGG(DISTINCT str_val), row_id
 FROM TableAllTypes GROUP BY row_id ORDER BY row_id
 --
-ARRAY<STRUCT<STRING, row_id INT64>>[
+ARRAY<STRUCT<STRING, row_id INT64>>[known order:
   {"1", 1},
   {"1", 2},
   {"1", 3},
@@ -1238,7 +1263,7 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 SELECT MAX(DISTINCT int32_val), MIN(DISTINCT uint32_val), int64_val
 FROM TableAllTypes GROUP BY int64_val ORDER BY int64_val
 --
-ARRAY<STRUCT<INT32, UINT32, int64_val INT64>>[
+ARRAY<STRUCT<INT32, UINT32, int64_val INT64>>[known order:
   {-1, 1, NULL},
   {-24, 41, -14},
   {-4, 4, -4},
@@ -1256,7 +1281,7 @@ ARRAY<STRUCT<INT32, UINT32, int64_val INT64>>[
 SELECT MAX(DISTINCT int32_val), int64_val
 FROM TableAllTypes GROUP BY int64_val HAVING MIN(DISTINCT uint32_val) > 4 ORDER BY int64_val
 --
-ARRAY<STRUCT<INT32, int64_val INT64>>[
+ARRAY<STRUCT<INT32, int64_val INT64>>[known order:
   {-24, -14},
   {1, 1},
   {5, 3},
@@ -1327,7 +1352,7 @@ ARRAY<STRUCT<DOUBLE>>[{NULL}]
 SELECT AVG(DISTINCT int64_val), row_id
 FROM TableAllTypes GROUP BY row_id ORDER BY row_id
 --
-ARRAY<STRUCT<DOUBLE, row_id INT64>>[
+ARRAY<STRUCT<DOUBLE, row_id INT64>>[known order:
   {-1, 1},
   {-1, 2},
   {-1, 3},
@@ -1358,7 +1383,14 @@ ARRAY<STRUCT<
         int_distinct_avg DOUBLE,
         row_id INT64
       >>
-[{1, 10}, {3, 11}, {16, 12}, {9, 13}, {23, 14}, {3, 18}, {16, 19}, {9, 20}]
+[known order:{1, 10},
+             {3, 11},
+             {16, 12},
+             {9, 13},
+             {23, 14},
+             {3, 18},
+             {16, 19},
+             {9, 20}]
 ==
 # ----------------------------------------------------------------------------
 # SUM
@@ -1404,13 +1436,17 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 SELECT SUM(DISTINCT uint64_val), bool_val
 FROM TableAllTypes GROUP BY bool_val ORDER BY bool_val
 --
-ARRAY<STRUCT<UINT64, bool_val BOOL>>[{NULL, NULL}, {78, false}, {47, true}]
+ARRAY<STRUCT<UINT64, bool_val BOOL>>[known order:
+  {NULL, NULL},
+  {78, false},
+  {47, true}
+]
 ==
 [name=aggregation_distinct_sum_group_by_and_having]
 SELECT SUM(DISTINCT uint64_val), bool_val FROM TableAllTypes
   GROUP BY bool_val HAVING COUNT(DISTINCT int64_val) > 1 ORDER BY bool_val
 --
-ARRAY<STRUCT<UINT64, bool_val BOOL>>[{78, false}, {47, true}]
+ARRAY<STRUCT<UINT64, bool_val BOOL>>[known order:{78, false}, {47, true}]
 ==
 # ----------------------------------------------------------------------------
 # BIT_AND
@@ -1445,7 +1481,7 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 SELECT BIT_AND(DISTINCT int32_val), row_id
 FROM TableAllTypes GROUP BY row_id ORDER BY row_id
 --
-ARRAY<STRUCT<INT32, row_id INT64>>[
+ARRAY<STRUCT<INT32, row_id INT64>>[known order:
   {-1, 1},
   {-1, 2},
   {-1, 3},
@@ -1510,7 +1546,7 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 SELECT BIT_OR(DISTINCT int32_val), row_id
 FROM TableAllTypes GROUP BY row_id ORDER BY row_id
 --
-ARRAY<STRUCT<INT32, row_id INT64>>[
+ARRAY<STRUCT<INT32, row_id INT64>>[known order:
   {-1, 1},
   {-1, 2},
   {-1, 3},
@@ -1567,7 +1603,7 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 SELECT BIT_XOR(DISTINCT int32_val), row_id
 FROM TableAllTypes GROUP BY row_id ORDER BY row_id
 --
-ARRAY<STRUCT<INT32, row_id INT64>>[
+ARRAY<STRUCT<INT32, row_id INT64>>[known order:
   {-1, 1},
   {-1, 2},
   {-1, 3},
@@ -1622,7 +1658,7 @@ ARRAY<STRUCT<BOOL>>[{NULL}]
 SELECT row_id, LOGICAL_OR(DISTINCT bool_val)
 FROM TableAllTypes GROUP BY row_id ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BOOL>>[
+ARRAY<STRUCT<row_id INT64, BOOL>>[known order:
   {1, true},
   {2, true},
   {3, true},
@@ -1677,7 +1713,7 @@ ARRAY<STRUCT<BOOL>>[{NULL}]
 SELECT row_id, LOGICAL_AND(DISTINCT bool_val) FROM TableAllTypes
   GROUP BY row_id ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, BOOL>>[
+ARRAY<STRUCT<row_id INT64, BOOL>>[known order:
   {1, true},
   {2, true},
   {3, true},
@@ -1704,7 +1740,7 @@ ARRAY<STRUCT<row_id INT64, BOOL>>[
 SELECT row_id, LOGICAL_AND(DISTINCT bool_val) logical_and FROM TableAllTypes
   GROUP BY row_id HAVING logical_and ORDER BY row_id
 --
-ARRAY<STRUCT<row_id INT64, logical_and BOOL>>[
+ARRAY<STRUCT<row_id INT64, logical_and BOOL>>[known order:
   {1, true},
   {2, true},
   {3, true},

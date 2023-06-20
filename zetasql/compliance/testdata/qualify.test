@@ -25,7 +25,10 @@ SELECT i, p, o FROM t1
   WHERE true
   QUALIFY ROW_NUMBER() OVER (PARTITION BY p ORDER BY o) = 1;
 --
-ARRAY<STRUCT<i INT64, p STRING, o INT64>>[{4, "B", 1}, {1, "A", 1}]
+ARRAY<STRUCT<i INT64, p STRING, o INT64>>[unknown order:
+  {4, "B", 1},
+  {1, "A", 1}
+]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -35,7 +38,7 @@ SELECT i, p, o, ROW_NUMBER() OVER (PARTITION BY p ORDER BY o) as row_num FROM t1
   WHERE true
   QUALIFY row_num = 1;
 --
-ARRAY<STRUCT<i INT64, p STRING, o INT64, row_num INT64>>[
+ARRAY<STRUCT<i INT64, p STRING, o INT64, row_num INT64>>[unknown order:
   {4, "B", 1, 1},
   {1, "A", 1, 1}
 ]
@@ -90,7 +93,7 @@ FROM t1
 GROUP BY o
 QUALIFY SUM(SUM(i)) OVER (ORDER BY o ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) > 5;
 --
-ARRAY<STRUCT<o INT64>>[{2}, {3}]
+ARRAY<STRUCT<o INT64>>[unknown order:{2}, {3}]
 ==
 
 [name=qualify_group_by_and_alias]
@@ -99,7 +102,7 @@ FROM t1
 GROUP BY o
 QUALIFY x > 1;
 --
-ARRAY<STRUCT<o INT64, INT64, x INT64>>[{2, 7, 2}, {3, 9, 3}]
+ARRAY<STRUCT<o INT64, INT64, x INT64>>[unknown order:{2, 7, 2}, {3, 9, 3}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -110,7 +113,7 @@ FROM t1
 GROUP BY o
 QUALIFY RANK() OVER (ORDER BY SUM(i)) > 1;
 --
-ARRAY<STRUCT<o INT64>>[{2}, {3}]
+ARRAY<STRUCT<o INT64>>[unknown order:{2}, {3}]
 ==
 
 [name=qualify_aggregation_and_analytic_in_both_select_and_qualify]
@@ -120,5 +123,31 @@ GROUP BY o
 QUALIFY MAX(i) > 4 AND SUM(SUM(i)) OVER (ORDER BY o ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) > 12
 --
 ARRAY<STRUCT<o INT64, INT64, INT64>>[{3, 3, 3}]
+
+NOTE: Reference implementation reports non-determinism.
+
+==
+
+[name=qualify_reference_pre_grouped_column]
+SELECT o, ROW_NUMBER() OVER (ORDER BY o)
+FROM t1
+GROUP BY o
+QUALIFY COUNT(o) > 1
+ORDER BY o
+--
+ARRAY<STRUCT<o INT64, INT64>>[known order:{1, 1}, {2, 2}, {3, 3}]
+
+NOTE: Reference implementation reports non-determinism.
+
+==
+
+[name=qualify_reference_post_grouped_column]
+SELECT o, ROW_NUMBER() OVER (ORDER BY o)
+FROM t1
+GROUP BY o
+QUALIFY o > 1
+ORDER BY o
+--
+ARRAY<STRUCT<o INT64, INT64>>[known order:{2, 2}, {3, 3}]
 
 NOTE: Reference implementation reports non-determinism.

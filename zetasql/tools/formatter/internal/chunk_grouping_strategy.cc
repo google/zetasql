@@ -958,7 +958,7 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
       AddBlockForChainableOperator(chunk_block, &chunk);
     } else if (previous_chunk.OpensParenOrBracketBlock()) {
       AddBlockFollowingOpeningBracket(&previous_chunk, &chunk);
-    } else if (chunk.LastToken().Is(Token::Type::BRACED_CONSTR_COLON)) {
+    } else if (chunk.FirstToken().Is(Token::Type::BRACED_CONSTR_FIELD)) {
       // In braced constructors commas are optional, but otherwise, fields
       // behave as in the list.
       AddBlockFollowingAComma(&previous_chunk, &chunk);

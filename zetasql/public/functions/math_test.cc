@@ -142,6 +142,13 @@ void CompareResult<bool>(const QueryParamsWithResult& param,
   }
 }
 
+template <typename OutType>
+void TestNullaryFunction(const QueryParamsWithResult& param,
+                         OutType (*function)()) {
+  ZETASQL_CHECK_EQ(0, param.num_params());
+  return CompareResult(param, absl::OkStatus(), function());
+}
+
 template <typename InType, typename OutType>
 void TestUnaryFunction(const QueryParamsWithResult& param,
                        bool (*function)(InType, OutType*,
@@ -386,6 +393,12 @@ TEST_P(MathTemplateTest, Testlib) {
       default:
         FAIL() << "unrecognized type for " << function;
     }
+  } else if (function == "pi") {
+    return TestNullaryFunction(param.params, &Pi);
+  } else if (function == "pi_numeric") {
+    return TestNullaryFunction(param.params, &Pi_Numeric);
+  } else if (function == "pi_bignumeric") {
+    return TestNullaryFunction(param.params, &Pi_BigNumeric);
   } else if (function == "cos") {
     return TestUnaryFunction(param.params, &Cos<double>);
   } else if (function == "acos") {
@@ -538,6 +551,8 @@ INSTANTIATE_TEST_SUITE_P(Cbrt, MathTemplateTest,
                          testing::ValuesIn(GetFunctionTestsCbrt()));
 INSTANTIATE_TEST_SUITE_P(DegreesRadiansPi, MathTemplateTest,
                          testing::ValuesIn(GetFunctionTestsDegreesRadiansPi()));
+INSTANTIATE_TEST_SUITE_P(Pi, MathTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsPi()));
 INSTANTIATE_TEST_SUITE_P(Rounding, MathTemplateTest,
                          testing::ValuesIn(GetFunctionTestsRounding()));
 

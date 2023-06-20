@@ -21,7 +21,6 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/common/aggregate_null_handling.h"
 #include "zetasql/common/errors.h"
@@ -35,6 +34,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -351,7 +351,8 @@ absl::Status PivotRewriterVisitor::VisitResolvedPivotScan(
           aggregate_scan_column_list, std::move(input_with_pivot_column),
           std::move(group_by_list), std::move(aggregate_list),
           /*grouping_set_list=*/{},
-          /*rollup_column_list=*/{});
+          /*rollup_column_list=*/{},
+          /*grouping_call_list=*/{});
 
   std::unique_ptr<ResolvedScan> result;
   if (!output_computed_columns_to_aggregate_column.empty()) {

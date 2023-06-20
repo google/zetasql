@@ -18,8 +18,8 @@
 
 #include <algorithm>
 #include <functional>
-#include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -32,6 +32,7 @@
 #include "zetasql/analyzer/analyzer_test_options.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"  
+#include "zetasql/common/unicode_utils.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
@@ -81,17 +82,18 @@
 #include "absl/algorithm/container.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/container/node_hash_set.h"
 #include "absl/flags/commandlineflag.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
 #include "absl/functional/bind_front.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -103,8 +105,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-
-ABSL_DECLARE_FLAG(bool, zetasql_show_function_signature_mismatch_details);
 
 ABSL_FLAG(std::string, test_file, "", "location of test data file.");
 
@@ -134,9 +134,9 @@ class SQLBuilderWithNestedCatalogSupport : public SQLBuilder {
 
 // Make the unittest fail with message <str>, and also return <str> so it
 // can be used in the file-based output to make it easy to find.
-static std::string AddFailure(const std::string& str) {
+static std::string AddFailure(absl::string_view str) {
   ADD_FAILURE() << str;
-  return str;
+  return std::string(str);
 }
 
 static AllowedHintsAndOptions GetAllowedHintsAndOptions(
@@ -340,7 +340,7 @@ class AnalyzerTestRunner {
    public:
     // "suppressed_functions" is a comma separated list of built-in function
     // names to exclude when using "SampleCatalog".
-    CatalogHolder(const std::string& catalog_name,
+    CatalogHolder(absl::string_view catalog_name,
                   absl::string_view suppressed_functions,
                   const AnalyzerOptions& analyzer_options,
                   TypeFactory* type_factory) {
@@ -349,7 +349,7 @@ class AnalyzerTestRunner {
     Catalog* catalog() { return catalog_; }
 
    private:
-    void Init(const std::string& catalog_name,
+    void Init(absl::string_view catalog_name,
               absl::string_view suppressed_functions,
               const AnalyzerOptions& analyzer_options,
               TypeFactory* type_factory) {
@@ -429,6 +429,10 @@ class AnalyzerTestRunner {
       options.set_annotation_specs(annotation_specs);
     }
 
+    if (test_case_options_.GetBool(kIdStringAllowUnicodeCharacters)) {
+      absl::SetFlag(&FLAGS_zetasql_idstring_allow_unicode_characters, true);
+    }
+
     // Turn off AST rewrites. We'll run them later so we can show both ASTs.
     options.set_enabled_rewrites({});
 
@@ -475,6 +479,12 @@ class AnalyzerTestRunner {
     if (test_case_options_.GetBool(kUseHintsAllowlist)) {
       options.set_allowed_hints_and_options(
           GetAllowedHintsAndOptions(&type_factory));
+    }
+
+    if (test_case_options_.GetBool(kDisallowDuplicateOptions)) {
+      AllowedHintsAndOptions copy = options.allowed_hints_and_options();
+      copy.disallow_duplicate_option_names = true;
+      options.set_allowed_hints_and_options(copy);
     }
 
     if (!test_case_options_.GetString(kParameterMode).empty()) {
@@ -759,11 +769,10 @@ class AnalyzerTestRunner {
       if (!status.ok() &&
           test_case_options_.GetBool(kAlsoShowSignatureMismatchDetails) &&
           absl::StrContains(status.message(), "No matching signature")) {
-        absl::FlagSaver flag_saver;
-        absl::SetFlag(&FLAGS_zetasql_show_function_signature_mismatch_details,
-                      true);
+        AnalyzerOptions case_options = options;
+        case_options.set_show_function_signature_mismatch_details(true);
         detailed_sig_mismatch_status = AnalyzeStatement(
-            test_case, options, catalog, type_factory, &output);
+            test_case, case_options, catalog, type_factory, &output);
         ZETASQL_CHECK(!detailed_sig_mismatch_status.ok())
             << "Expecting 'No matching signature' error";
       }
@@ -843,11 +852,11 @@ class AnalyzerTestRunner {
       if (!status.ok() &&
           test_case_options_.GetBool(kAlsoShowSignatureMismatchDetails) &&
           absl::StrContains(status.message(), "No matching signature")) {
-        absl::FlagSaver flag_saver;
-        absl::SetFlag(&FLAGS_zetasql_show_function_signature_mismatch_details,
-                      true);
+        AnalyzerOptions case_analyzer_options = options;
+        case_analyzer_options.set_show_function_signature_mismatch_details(
+            true);
         detailed_sig_mismatch_status = AnalyzeExpression(
-            test_case, options, catalog, type_factory, &output);
+            test_case, case_analyzer_options, catalog, type_factory, &output);
         ZETASQL_CHECK(!detailed_sig_mismatch_status.ok())
             << "Expecting 'No matching signature' error";
       }
@@ -967,41 +976,94 @@ class AnalyzerTestRunner {
     }
   }
 
+  void AddDescendantFunctionCalls(
+      const ResolvedNode* node,
+      std::vector<const ResolvedNode*>& future_nodes) {
+    // We do not add directly to 'future_nodes' because GetDescendantsSatisfying
+    // clears its argument vector.
+    std::vector<const ResolvedNode*> more_nodes;
+    node->GetDescendantsSatisfying(&ResolvedNode::Is<ResolvedFunctionCallBase>,
+                                   &more_nodes);
+    future_nodes.insert(future_nodes.end(), more_nodes.begin(),
+                        more_nodes.end());
+  }
+
+  // Acts as a helper for VisitResolvedTemplatedSQLUDFObjects. Takes a node off
+  // the front of `future_nodes` and if it is a node that needs more information
+  // attached to the analyzer test output we attach that info. If that object
+  // itself contains more nodes needing more information attached to the test
+  // output those are added to `future_nodes`.
+  // `debug_strings` is used to prevent duplicate function template expansions
+  //     from appearing with the same test case.
+  // `test_result_string` is the golden file output that we are appending to.
+  void VisitFirstResolvedTemplatedSQLUDFObject(
+      std::vector<const ResolvedNode*>& future_nodes,
+      absl::flat_hash_set<std::string>& debug_strings,
+      std::string& test_result_string) {
+    const ResolvedNode* node = future_nodes.front();
+    future_nodes.erase(future_nodes.begin());
+    const TemplatedSQLFunctionCall* sql_function_call = nullptr;
+    std::string signature_string = "";
+    if (node->node_kind() == RESOLVED_FUNCTION_CALL) {
+      const auto* function_call = static_cast<const ResolvedFunctionCall*>(node);
+      if (!function_call->function()->Is<TemplatedSQLFunction>()) {
+        return;  // uninteresting
+      }
+      sql_function_call = static_cast<const TemplatedSQLFunctionCall*>(
+          function_call->function_call_info().get());
+      signature_string = function_call->signature().DebugString(
+          function_call->function()->FullName(),
+          /*verbose=*/true);
+    } else if (node->node_kind() == RESOLVED_AGGREGATE_FUNCTION_CALL) {
+      const auto* function_call = node->GetAs<ResolvedAggregateFunctionCall>();
+      if (!function_call->function()->Is<TemplatedSQLFunction>()) {
+        return;  // uninteresting
+      }
+      sql_function_call = static_cast<const TemplatedSQLFunctionCall*>(
+          function_call->function_call_info().get());
+      signature_string = function_call->signature().DebugString(
+          function_call->function()->FullName(),
+          /*verbose=*/true);
+      for (const auto& agg_expr :
+           sql_function_call->aggregate_expression_list()) {
+        AddDescendantFunctionCalls(agg_expr.get(), future_nodes);
+      }
+    } else {
+      // Other descendants of ResolvedFunctionCallBase can exit here.
+      return;
+    }
+    std::string templated_expr_debug_str =
+        sql_function_call->expr()->DebugString();
+    std::string debug_string = absl::StrCat(
+        "\nWith Templated SQL function call:\n  ", signature_string,
+        "\ncontaining resolved templated expression:\n",
+        templated_expr_debug_str);
+    for (const auto& agg_expr :
+         sql_function_call->aggregate_expression_list()) {
+      absl::StrAppend(
+          &debug_string, "\n  ",
+          absl::StripSuffix(
+              absl::StrReplaceAll(agg_expr->DebugString(), {{"\n", "\n    "}}),
+              "    "));
+    }
+    if (debug_strings.insert(debug_string).second) {
+      absl::StrAppend(&test_result_string, debug_string);
+    }
+    AddDescendantFunctionCalls(sql_function_call->expr(), future_nodes);
+  }
+
   // Visits a ResolvedNode 'node' and traverses it to search for resolved
   // templated scalar function calls. If any are found, adds additional debug
   // strings to 'debug_strings' and appends them to 'test_result_string' if not
   // already present in the former.
-  void VisitResolvedTemplatedSQLUDFObjects(const ResolvedNode* node,
-                                           std::set<std::string>* debug_strings,
-                                           std::string* test_result_string) {
+  void VisitResolvedTemplatedSQLUDFObjects(
+      const ResolvedNode* node, absl::flat_hash_set<std::string>* debug_strings,
+      std::string* test_result_string) {
     std::vector<const ResolvedNode*> future_nodes;
-    if (node->node_kind() == RESOLVED_FUNCTION_CALL) {
-      node->GetChildNodes(&future_nodes);
-      const auto* function_call = static_cast<const ResolvedFunctionCall*>(node);
-      if (function_call->function()->Is<TemplatedSQLFunction>()) {
-        const auto* sql_function_call =
-            static_cast<const TemplatedSQLFunctionCall*>(
-                function_call->function_call_info().get());
-        std::string templated_expr_debug_str =
-            sql_function_call->expr()->DebugString();
-        std::string debug_string =
-            absl::StrCat("\nWith Templated SQL function call:\n  ",
-                         function_call->signature().DebugString(
-                             function_call->function()->FullName(),
-                             /*verbose=*/true),
-                         "\ncontaining resolved templated expression:\n",
-                         templated_expr_debug_str);
-        if (zetasql_base::InsertIfNotPresent(debug_strings, debug_string)) {
-          absl::StrAppend(test_result_string, debug_string);
-        }
-        future_nodes.push_back(sql_function_call->expr());
-      }
-    } else {
-      node->GetDescendantsWithKinds({RESOLVED_FUNCTION_CALL}, &future_nodes);
-    }
-    for (const ResolvedNode* future_node : future_nodes) {
-      VisitResolvedTemplatedSQLUDFObjects(future_node, debug_strings,
-                                          test_result_string);
+    AddDescendantFunctionCalls(node, future_nodes);
+    while (!future_nodes.empty()) {
+      VisitFirstResolvedTemplatedSQLUDFObject(future_nodes, *debug_strings,
+                                              *test_result_string);
     }
   }
 
@@ -1009,9 +1071,9 @@ class AnalyzerTestRunner {
   // templated table-valued function calls. If any are found, adds additional
   // debug strings to 'debug_strings' and appends them to 'test_result_string'
   // if not already present in the former.
-  void VisitResolvedTemplatedSQLTVFObjects(const ResolvedNode* node,
-                                           std::set<std::string>* debug_strings,
-                                           std::string* test_result_string) {
+  void VisitResolvedTemplatedSQLTVFObjects(
+      const ResolvedNode* node, absl::flat_hash_set<std::string>* debug_strings,
+      std::string* test_result_string) {
     std::vector<const ResolvedNode*> future_nodes;
     if (node->node_kind() == RESOLVED_TVFSCAN) {
       node->GetChildNodes(&future_nodes);
@@ -1040,7 +1102,7 @@ class AnalyzerTestRunner {
     }
   }
 
-  void ExtractTableResolutionTimeInfoMapAsString(const std::string& test_case,
+  void ExtractTableResolutionTimeInfoMapAsString(absl::string_view test_case,
                                                  const AnalyzerOptions& options,
                                                  TypeFactory* type_factory,
                                                  Catalog* catalog,
@@ -1056,24 +1118,25 @@ class AnalyzerTestRunner {
   }
 
   void ExtractTableResolutionTimeInfoMapFromASTAsString(
-      const std::string& test_case, const AnalyzerOptions& options,
+      absl::string_view test_case, const AnalyzerOptions& options,
       TypeFactory* type_factory, Catalog* catalog, std::string* output,
       std::string* output_with_deferred_analysis) {
     std::unique_ptr<ParserOutput> parser_output;
     absl::Status status =
         ParseStatement(test_case, options.GetParserOptions(), &parser_output);
     status = MaybeUpdateErrorFromPayload(
-        options.error_message_mode(), test_case, status);
+        options.error_message_mode(), options.attach_error_location_payload(),
+        test_case, status);
     TableResolutionTimeInfoMap table_resolution_time_info_map;
     if (status.ok()) {
       absl::Status status = ExtractTableResolutionTimeFromASTStatement(
           *parser_output->statement(), options, test_case, type_factory,
-              catalog, &table_resolution_time_info_map);
+          catalog, &table_resolution_time_info_map);
       *output = FormatTableResolutionTimeInfoMap(
           status, table_resolution_time_info_map);
 
       auto deferred_extract_helper =
-          [&parser_output, &options, &test_case, type_factory, catalog,
+          [&parser_output, &options, test_case, type_factory, catalog,
            &table_resolution_time_info_map]() -> absl::Status {
         ZETASQL_RETURN_IF_ERROR(ExtractTableResolutionTimeFromASTStatement(
             *parser_output->statement(), options, test_case,
@@ -1168,7 +1231,7 @@ class AnalyzerTestRunner {
 
   void HandleOneResult(
       const std::string& test_case, const AnalyzerOptions& options,
-      TypeFactory* type_factory, Catalog* catalog, const std::string& mode,
+      TypeFactory* type_factory, Catalog* catalog, absl::string_view mode,
       const absl::Status& status,
       const absl::Status& detailed_sig_mismatch_status,
       const std::unique_ptr<const AnalyzerOutput>& output,
@@ -1203,9 +1266,14 @@ class AnalyzerTestRunner {
       }
 
       // Append strings for any resolved templated objects in 'output'.
-      std::set<std::string> debug_strings;
+      absl::flat_hash_set<std::string> debug_strings;
       VisitResolvedTemplatedSQLUDFObjects(node, &debug_strings,
                                           &test_result_string);
+      // The algorithm used for SQLTVFs doesn't deal with TVFs that invoke
+      // UDFs or UDAs. The easiest way to show such function templates invoked
+      // by TVF templates and vice versa would be to combine TVFs into the
+      // existing process for UDFs and UDAs which is more easily generalized.
+      // TODO: Extend VisitResolvedTemplatedSQLUDFObjects to cover TVFs.
       VisitResolvedTemplatedSQLTVFObjects(node, &debug_strings,
                                           &test_result_string);
 
@@ -1292,13 +1360,14 @@ class AnalyzerTestRunner {
         // We do not run the unparser if the original query failed analysis.
         output != nullptr) {
       std::string result_string;
-      TestUnparsing(test_case, options, mode == "statement",
+      TestUnparsing(test_case, options, catalog, mode == "statement",
                     output.get(), &result_string);
       absl::StrAppend(&test_result_string, "\n", result_string);
       absl::StripAsciiWhitespace(&test_result_string);
     }
 
     if (mode == "statement" &&
+        !test_case_options_.GetBool(kDoNotShowReplacedLiterals) &&
         !test_case_options_.GetString(kParseLocationRecordType).empty() &&
         !zetasql_base::CaseEqual(
             test_case_options_.GetString(kParseLocationRecordType),
@@ -1361,7 +1430,7 @@ class AnalyzerTestRunner {
             continue;
           }
           if (test_case_options_.GetBool(kRunUnparser)) {
-            TestUnparsing(test_case, options, /*is_statement=*/true,
+            TestUnparsing(test_case, options, catalog, /*is_statement=*/true,
                           rewrite_output.get(), &outcome.unparsed);
           }
         } else if (outcome.status.ok()) {
@@ -1371,7 +1440,7 @@ class AnalyzerTestRunner {
             continue;
           }
           if (test_case_options_.GetBool(kRunUnparser)) {
-            TestUnparsing(test_case, options, /*is_statement=*/false,
+            TestUnparsing(test_case, options, catalog, /*is_statement=*/false,
                           rewrite_output.get(), &outcome.unparsed);
           }
         }
@@ -1464,7 +1533,7 @@ class AnalyzerTestRunner {
     return result;
   }
 
-  void CheckExtractTableNames(const std::string& test_case,
+  void CheckExtractTableNames(absl::string_view test_case,
                               const AnalyzerOptions& options,
                               const AnalyzerOutput* analyzer_output) {
     {
@@ -1620,7 +1689,7 @@ class AnalyzerTestRunner {
     }
   }
 
-  void CheckStrictMode(const std::string& test_case,
+  void CheckStrictMode(absl::string_view test_case,
                        const AnalyzerOptions& orig_options,
                        const absl::Status& orig_status,
                        const AnalyzerOutput* orig_output, Catalog* catalog,
@@ -2046,6 +2115,16 @@ class AnalyzerTestRunner {
                CompareOptionList(output_export_stmt->option_list(),
                                  unparsed_export_stmt->option_list());
       }
+      case RESOLVED_EXPORT_METADATA_STMT: {
+        const ResolvedExportMetadataStmt* output_export_stmt =
+            output_stmt->GetAs<ResolvedExportMetadataStmt>();
+        const ResolvedExportMetadataStmt* unparsed_export_stmt =
+            unparsed_stmt->GetAs<ResolvedExportMetadataStmt>();
+        return ComparePath(output_export_stmt->name_path(),
+                           unparsed_export_stmt->name_path()) &&
+               CompareOptionList(output_export_stmt->option_list(),
+                                 unparsed_export_stmt->option_list());
+      }
       case RESOLVED_CREATE_CONSTANT_STMT: {
         return CompareNode(output_stmt, unparsed_stmt);
       }
@@ -2072,6 +2151,7 @@ class AnalyzerTestRunner {
       case RESOLVED_ALTER_ALL_ROW_ACCESS_POLICIES_STMT:
       case RESOLVED_ALTER_DATABASE_STMT:
       case RESOLVED_ALTER_MATERIALIZED_VIEW_STMT:
+      case RESOLVED_ALTER_APPROX_VIEW_STMT:
       case RESOLVED_ALTER_PRIVILEGE_RESTRICTION_STMT:
       case RESOLVED_ALTER_MODEL_STMT:
       case RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT:
@@ -2089,6 +2169,7 @@ class AnalyzerTestRunner {
       case RESOLVED_CREATE_EXTERNAL_TABLE_STMT:
       case RESOLVED_CREATE_FUNCTION_STMT:
       case RESOLVED_CREATE_MATERIALIZED_VIEW_STMT:
+      case RESOLVED_CREATE_APPROX_VIEW_STMT:
       case RESOLVED_CREATE_MODEL_STMT:
       case RESOLVED_CREATE_PROCEDURE_STMT:
       case RESOLVED_CREATE_PRIVILEGE_RESTRICTION_STMT:
@@ -2134,9 +2215,29 @@ class AnalyzerTestRunner {
   }
 
   bool CompareExpressionShape(const ResolvedExpr* output_expr,
-                              const ResolvedExpr* unparsed_expr) {
+                              const ResolvedExpr* unparsed_expr,
+                              const bool mark_fields_accessed = false) {
+    if (mark_fields_accessed) {
+      output_expr->MarkFieldsAccessed();
+      unparsed_expr->MarkFieldsAccessed();
+    }
     return output_expr->type()->DebugString() ==
            unparsed_expr->type()->DebugString();
+  }
+
+  // returns true if `output_expr` produces the same type of output as
+  // `unparsed_expr`. Other fields in these expressions are ignored and marked
+  // as accessed.
+  bool ExpressionShapeEqual(const ResolvedExpr* output_expr,
+                            const ResolvedExpr* unparsed_expr) {
+    return CompareExpressionShape(output_expr, unparsed_expr,
+                                  /*mark_fields_accessed=*/true);
+  }
+
+  bool ExpressionPtrShapeEqual(
+      const std::unique_ptr<const ResolvedExpr>& output_expr,
+      const std::unique_ptr<const ResolvedExpr>& unparsed_expr) {
+    return ExpressionShapeEqual(output_expr.get(), unparsed_expr.get());
   }
 
   // We do custom comparison of output_column_list of the statement node where
@@ -2295,8 +2396,8 @@ class AnalyzerTestRunner {
       // (and not the expressions themselves).
       if (output_option->qualifier() != unparsed_option->qualifier() ||
           output_option->name() != unparsed_option->name() ||
-          !output_option->value()->type()->Equals(
-              unparsed_option->value()->type())) {
+          !ExpressionShapeEqual(output_option->value(),
+                                unparsed_option->value())) {
         return false;
       }
     }
@@ -2367,8 +2468,7 @@ class AnalyzerTestRunner {
     }
   }
 
-  void CheckSupportedStatementKind(const std::string& sql,
-                                   ResolvedNodeKind kind,
+  void CheckSupportedStatementKind(absl::string_view sql, ResolvedNodeKind kind,
                                    AnalyzerOptions options) {
     // This is used so that we only test each statement kind once.
     static std::set<ResolvedNodeKind> statement_kinds_to_be_skipped = {
@@ -2425,6 +2525,8 @@ class AnalyzerTestRunner {
             RESOLVED_CREATE_VIEW_STMT ||
         original_analyzer_output->resolved_statement()->node_kind() ==
             RESOLVED_CREATE_MATERIALIZED_VIEW_STMT ||
+        original_analyzer_output->resolved_statement()->node_kind() ==
+            RESOLVED_CREATE_APPROX_VIEW_STMT ||
         original_options.statement_context() ==
             StatementContext::CONTEXT_MODULE) {
       return absl::OkStatus();
@@ -2531,9 +2633,9 @@ class AnalyzerTestRunner {
     return absl::OkStatus();
   }
 
-  void TestUnparsing(const std::string& test_case,
-                     const AnalyzerOptions& orig_options, bool is_statement,
-                     const AnalyzerOutput* analyzer_output,
+  void TestUnparsing(absl::string_view test_case,
+                     const AnalyzerOptions& orig_options, Catalog* catalog,
+                     bool is_statement, const AnalyzerOutput* analyzer_output,
                      std::string* result_string) {
     ZETASQL_CHECK(analyzer_output != nullptr);
     result_string->clear();
@@ -2552,6 +2654,7 @@ class AnalyzerTestRunner {
         analyzer_output->undeclared_parameters();
     builder_options.undeclared_positional_parameters =
         analyzer_output->undeclared_positional_parameters();
+    builder_options.catalog = catalog;
     const std::string positional_parameter_mode =
         test_case_options_.GetString(kUnparserPositionalParameterMode);
     if (positional_parameter_mode == "question_mark") {

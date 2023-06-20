@@ -70,3 +70,12 @@ ERROR: generic::out_of_range: error
 SELECT IF(FALSE, JSON '1', ERROR("error"))
 --
 ERROR: generic::out_of_range: error
+==
+
+[name=json_cast_to_json]
+[required_features=JSON_TYPE]
+# The IF expression is one way to get a self-cast to appear in the
+# ResolvedAST that wont be removed by the Resolver.
+SELECT IF(TRUE, JSON '1', ERROR("error"))
+--
+ARRAY<STRUCT<JSON>>[{1}]

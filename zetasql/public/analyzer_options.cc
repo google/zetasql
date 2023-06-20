@@ -23,12 +23,16 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/time_zone_util.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/base/case.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
+#include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
           "Run validator on resolved AST before returning it.");
@@ -134,6 +138,8 @@ absl::Status AllowedHintsAndOptions::Deserialize(
     }
   }
   result->disallow_unknown_options = proto.disallow_unknown_options();
+  result->disallow_duplicate_option_names =
+      proto.disallow_duplicate_option_names();
   for (const auto& hint : proto.hint()) {
     if (hint.has_type()) {
       const Type* type;
@@ -186,6 +192,7 @@ absl::Status AllowedHintsAndOptions::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     AllowedHintsAndOptionsProto* proto) const {
   proto->set_disallow_unknown_options(disallow_unknown_options);
+  proto->set_disallow_duplicate_option_names(disallow_duplicate_option_names);
   for (const auto& qualifier : disallow_unknown_hints_with_qualifiers) {
     proto->add_disallow_unknown_hints_with_qualifier(qualifier);
   }
@@ -395,6 +402,8 @@ absl::Status AnalyzerOptions::Deserialize(
   result->set_parameter_mode(proto.parameter_mode());
   result->set_preserve_column_aliases(proto.preserve_column_aliases());
   result->set_preserve_unnecessary_cast(proto.preserve_unnecessary_cast());
+  result->set_show_function_signature_mismatch_details(
+      proto.show_function_signature_mismatch_details());
 
   if (proto.has_allowed_hints_and_options()) {
     AllowedHintsAndOptions hints_and_options("");
@@ -478,6 +487,8 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   proto->set_parameter_mode(data_->parameter_mode);
   proto->set_preserve_column_aliases(data_->preserve_column_aliases);
   proto->set_preserve_unnecessary_cast(data_->preserve_unnecessary_cast);
+  proto->set_show_function_signature_mismatch_details(
+      data_->show_function_signature_mismatch_details);
 
   ZETASQL_RETURN_IF_ERROR(data_->allowed_hints_and_options.Serialize(
       map, proto->mutable_allowed_hints_and_options()));
@@ -640,6 +651,23 @@ void AnalyzerOptions::SetLookupExpressionColumnCallback(
     if (column_type != nullptr) {
       expr = MakeResolvedExpressionColumn(column_type, column_name);
     }
+    return absl::OkStatus();
+  };
+}
+
+void AnalyzerOptions::SetLookupCatalogColumnCallback(
+    const LookupCatalogColumnCallback& lookup_catalog_column_callback) {
+  data_->lookup_expression_callback =
+      [lookup_catalog_column_callback](
+          const std::string& column_name,
+          std::unique_ptr<const ResolvedExpr>& expr) -> absl::Status {
+    ZETASQL_ASSIGN_OR_RETURN(const Column* column,
+                     lookup_catalog_column_callback(column_name));
+
+    ZETASQL_ASSIGN_OR_RETURN(expr, ResolvedCatalogColumnRefBuilder()
+                               .set_column(column)
+                               .set_type(column->GetType())
+                               .Build());
     return absl::OkStatus();
   };
 }

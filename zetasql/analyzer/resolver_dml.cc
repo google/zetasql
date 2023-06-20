@@ -428,7 +428,7 @@ absl::Status Resolver::ResolveInsertStatement(
       const ResolvedColumn* column =
           zetasql_base::FindOrNull(table_scan_columns, column_name_id);
       if (column != nullptr) {
-        if (zetasql_base::ContainsKey(ambiguous_column_names, column_name_id)) {
+        if (ambiguous_column_names.contains(column_name_id)) {
           return MakeSqlErrorAt(column_name)
                  << "Column " << column_name_id
                  << " is ambiguous and cannot be referenced";
@@ -463,9 +463,9 @@ absl::Status Resolver::ResolveInsertStatement(
               FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST)) {
         // Implicitly expand column list to all writable non-pseudo columns.
         for (const NamedColumn& named_column : name_list->columns()) {
-          const IdString column_name_id = named_column.name;
-          const ResolvedColumn& column = named_column.column;
-          if (zetasql_base::ContainsKey(ambiguous_column_names, column_name_id)) {
+          const IdString column_name_id = named_column.name();
+          const ResolvedColumn& column = named_column.column();
+          if (ambiguous_column_names.contains(column_name_id)) {
             return MakeSqlErrorAt(ast_statement)
                    << "Column " << column_name_id
                    << " is ambiguous and cannot be referenced";
@@ -2049,7 +2049,7 @@ absl::Status Resolver::ResolveReturningClause(
   std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
   for (const NamedColumn& named_column : output_name_list->columns()) {
     output_column_list.push_back(MakeResolvedOutputColumn(
-        named_column.name.ToString(), named_column.column));
+        named_column.name().ToString(), named_column.column()));
   }
 
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> computed_columns =

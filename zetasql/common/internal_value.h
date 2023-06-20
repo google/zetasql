@@ -101,6 +101,11 @@ class InternalValue {
     if (x.type_kind() != TYPE_PROTO) return nullptr;
     return x.proto_ptr_;
   }
+
+  static std::string FormatInternal(const Value& x,
+                                    Value::FormatInternalOptions options) {
+    return x.FormatInternal(options);
+  }
 };
 
 }  // namespace zetasql

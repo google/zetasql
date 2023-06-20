@@ -137,7 +137,7 @@ class JsonPrettyPrinter {
 
   // Returns an error if the size of the given string exceeds
   // max_json_output_size_bytes().
-  absl::Status CheckOutputSize(const std::string& output) {
+  absl::Status CheckOutputSize(absl::string_view output) {
     if (output.size() > max_json_output_size_) {
       return MakeEvalError()
              << "Output of TO_JSON_STRING exceeds max allowed "

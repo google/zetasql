@@ -27,8 +27,11 @@ absl::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
     absl::string_view script_string, const ParserOptions& parser_options,
     ErrorMessageMode error_message_mode) {
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_RETURN_IF_ERROR(ParseScript(script_string, parser_options, error_message_mode,
-                              &parser_output));
+  ZETASQL_RETURN_IF_ERROR(
+      ParseScript(script_string, parser_options, error_message_mode,
+                  /*keep_error_location_payload=*/error_message_mode ==
+                      ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
+                  &parser_output));
 
   // Verify that we can obtain a ParsedScript from the AST.  This performs
   // various checks, such as that BREAK and CONTINUE statements have an

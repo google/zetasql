@@ -88,6 +88,8 @@ class ZetaSqlCollator {
   // ZetaSqlCollator, nullptr otherwise.
   virtual const icu::RuleBasedCollator* GetIcuCollator() const = 0;
 
+  absl::string_view GetCollationName() const { return collation_name_; }
+
   friend absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
   MakeSqlCollator(absl::string_view collation_name,
                   CollatorLegacyUnicodeMode mode);
@@ -97,7 +99,10 @@ class ZetaSqlCollator {
                       CollatorLegacyUnicodeMode mode);
 
  protected:
+  explicit ZetaSqlCollator(absl::string_view collation_name)
+      : collation_name_(collation_name) {}
   ZetaSqlCollator() = default;
+  std::string collation_name_;
 };
 
 // Returns a instance of ZetaSqlCollator corresponding to the given

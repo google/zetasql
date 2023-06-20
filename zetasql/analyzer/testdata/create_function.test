@@ -1127,3 +1127,14 @@ language testlang as "return 's';"
 ERROR: Syntax error: Expected ")" or "," but got string literal 'und:ci' [at 1:39]
 create function fn( a int32, b string 'und:ci' ) returns string
                                       ^
+
+==
+
+[disallow_duplicate_options]
+create function fn( s string )
+returns string language testlang as "return 'a';"
+options ( a=b, b=c, c=d, a=z );
+--
+ERROR: Duplicate option specified for 'a' [at 3:26]
+options ( a=b, b=c, c=d, a=z );
+                         ^

@@ -22,6 +22,7 @@
 #include "zetasql/analyzer/rewriters/array_functions_rewriter.h"
 #include "zetasql/analyzer/rewriters/builtin_function_inliner.h"
 #include "zetasql/analyzer/rewriters/flatten_rewriter.h"
+#include "zetasql/analyzer/rewriters/set_operation_corresponding_rewriter.h"
 #include "zetasql/analyzer/rewriters/like_any_all_rewriter.h"
 #include "zetasql/analyzer/rewriters/map_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/nulliferror_function_rewriter.h"
@@ -52,6 +53,8 @@ void RegisterBuiltinRewriters() {
     // the function bodies that are inserted by this rule.
     r.Register(ResolvedASTRewrite::REWRITE_INLINE_SQL_FUNCTIONS,
                GetSqlFunctionInliner());
+    r.Register(ResolvedASTRewrite::REWRITE_INLINE_SQL_UDAS,
+               GetSqlAggregateInliner());
     r.Register(ResolvedASTRewrite::REWRITE_INLINE_SQL_TVFS, GetSqlTvfInliner());
     r.Register(ResolvedASTRewrite::REWRITE_INLINE_SQL_VIEWS,
                GetSqlViewInliner());
@@ -75,6 +78,9 @@ void RegisterBuiltinRewriters() {
                GetBuiltinFunctionInliner());
     r.Register(ResolvedASTRewrite::REWRITE_LIKE_ANY_ALL,
                GetLikeAnyAllRewriter());
+
+    r.Register(ResolvedASTRewrite::REWRITE_SET_OPERATION_CORRESPONDING,
+               GetSetOperationCorrespondingRewriter());
 
     // This rewriter should typically be the last in the rewrite sequence
     // because it cleans up after several other rewriters add ResolvedWithExprs.

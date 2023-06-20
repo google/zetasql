@@ -274,7 +274,7 @@ QueryStmt
     +-expr_list=
     | +-$col1#2 := FunctionCall(Lazy_resolution_function:NullaryWithLambda() -> BOOL)
     | +-$col2#3 :=
-    |   +-FunctionCall(ZetaSQL:array_includes(ARRAY<DOUBLE> array_to_search, LAMBDA(DOUBLE->BOOL) condition) -> BOOL)
+    |   +-FunctionCall(ZetaSQL:array_includes(ARRAY<DOUBLE> array_to_search, FUNCTION<DOUBLE->BOOL> condition) -> BOOL)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<DOUBLE>, value=[1, 2, 3])

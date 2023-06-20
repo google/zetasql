@@ -51,23 +51,27 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>,
              ARRAY<>>>
-[{ARRAY<BOOL>[true, false, true],
-  ARRAY<INT32>[1, 0, -1],
-  ARRAY<UINT32>[2, 1, 0],
-  ARRAY<INT64>[8589934592, 0, -8589934592],
-  ARRAY<UINT64>[8589934592, 1, 0],
-  ARRAY<FLOAT>[1.1, 0, -1.1],
-  ARRAY<DOUBLE>[1.1, 0, -1.1],
-  ARRAY<STRING>["σ", "π", "⨝"],
-  ARRAY<BYTES>[b"a", b"b", b"c"],
-  ARRAY<DATE>[1984-08-02, 2000-01-01, 2014-09-11],
-  ARRAY<TIMESTAMP>[
+[{ARRAY<BOOL>[known order:true, false, true],
+  ARRAY<INT32>[known order:1, 0, -1],
+  ARRAY<UINT32>[known order:2, 1, 0],
+  ARRAY<INT64>[known order:8589934592, 0, -8589934592],
+  ARRAY<UINT64>[known order:8589934592, 1, 0],
+  ARRAY<FLOAT>[known order:1.1, 0, -1.1],
+  ARRAY<DOUBLE>[known order:1.1, 0, -1.1],
+  ARRAY<STRING>[known order:"σ", "π", "⨝"],
+  ARRAY<BYTES>[known order:b"a", b"b", b"c"],
+  ARRAY<DATE>[known order:1984-08-02, 2000-01-01, 2014-09-11],
+  ARRAY<TIMESTAMP>[known order:
     1984-08-02 01:01:01.001001+00,
     2000-01-01 01:01:01.001001+00,
     2014-09-11 01:01:01.001001+00
   ],
-  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2],
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:
+    TESTENUM0,
+    TESTENUM1,
+    TESTENUM2
+  ],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
     {
       int64_key_1: 11
       int64_key_2: 12
@@ -81,7 +85,7 @@ ARRAY<STRUCT<ARRAY<>,
       int64_key_2: 32
     }
   ],
-  ARRAY<STRUCT<INT64, INT64>>[{11, 12}, {21, 22}, {31, 32}]}]
+  ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, {21, 22}, {31, 32}]}]
 ==
 [name=select_array_parameters_with_null]
 [parameters=
@@ -127,34 +131,38 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>,
              ARRAY<>>>
-[{ARRAY<BOOL>[true, NULL, true],
-  ARRAY<INT32>[1, NULL, -1],
-  ARRAY<UINT32>[2, NULL, 0],
-  ARRAY<INT64>[8589934592, NULL, -8589934592],
-  ARRAY<UINT64>[8589934592, NULL, 0],
-  ARRAY<FLOAT>[1.1, NULL, -1.1],
-  ARRAY<DOUBLE>[1.1, NULL, -1.1],
-  ARRAY<STRING>["σ", NULL, "⨝"],
-  ARRAY<BYTES>[b"a", NULL, b"c"],
-  ARRAY<DATE>[1984-08-02, NULL, 2014-09-11],
-  ARRAY<TIMESTAMP>[
-    1984-08-02 01:01:01.001001+00,
-    NULL,
-    2014-09-11 01:01:01.001001+00
-  ],
-  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, NULL, TESTENUM2],
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
-    {
-      int64_key_1: 11
-      int64_key_2: 12
-    },
-    NULL,
-    {
-      int64_key_1: 31
-      int64_key_2: 32
-    }
-  ],
-  ARRAY<STRUCT<INT64, INT64>>[{11, 12}, NULL, {31, 32}]}]
+[
+  {
+    ARRAY<BOOL>[known order:true, NULL, true],
+    ARRAY<INT32>[known order:1, NULL, -1],
+    ARRAY<UINT32>[known order:2, NULL, 0],
+    ARRAY<INT64>[known order:8589934592, NULL, -8589934592],
+    ARRAY<UINT64>[known order:8589934592, NULL, 0],
+    ARRAY<FLOAT>[known order:1.1, NULL, -1.1],
+    ARRAY<DOUBLE>[known order:1.1, NULL, -1.1],
+    ARRAY<STRING>[known order:"σ", NULL, "⨝"],
+    ARRAY<BYTES>[known order:b"a", NULL, b"c"],
+    ARRAY<DATE>[known order:1984-08-02, NULL, 2014-09-11],
+    ARRAY<TIMESTAMP>[known order:
+      1984-08-02 01:01:01.001001+00,
+      NULL,
+      2014-09-11 01:01:01.001001+00
+    ],
+    ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:TESTENUM0, NULL, TESTENUM2],
+    ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
+      {
+        int64_key_1: 11
+        int64_key_2: 12
+      },
+      NULL,
+      {
+        int64_key_1: 31
+        int64_key_2: 32
+      }
+    ],
+    ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, NULL, {31, 32}]
+  }
+]
 ==
 [name=select_array_parameters_with_null_prefix]
 [parameters=
@@ -195,29 +203,29 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>,
              ARRAY<>>>
-[{ARRAY<BOOL>[NULL, true],
-  ARRAY<INT32>[NULL, -1],
-  ARRAY<UINT32>[NULL, 0],
-  ARRAY<INT64>[NULL, -8589934592],
-  ARRAY<UINT64>[NULL, 0],
-  ARRAY<FLOAT>[NULL, -1.1],
-  ARRAY<DOUBLE>[NULL, -1.1],
-  ARRAY<STRING>[NULL, "⨝"],
-  ARRAY<BYTES>[NULL, b"c"],
-  ARRAY<DATE>[NULL, 2014-09-11],
-  ARRAY<TIMESTAMP>[
+[{ARRAY<BOOL>[known order:NULL, true],
+  ARRAY<INT32>[known order:NULL, -1],
+  ARRAY<UINT32>[known order:NULL, 0],
+  ARRAY<INT64>[known order:NULL, -8589934592],
+  ARRAY<UINT64>[known order:NULL, 0],
+  ARRAY<FLOAT>[known order:NULL, -1.1],
+  ARRAY<DOUBLE>[known order:NULL, -1.1],
+  ARRAY<STRING>[known order:NULL, "⨝"],
+  ARRAY<BYTES>[known order:NULL, b"c"],
+  ARRAY<DATE>[known order:NULL, 2014-09-11],
+  ARRAY<TIMESTAMP>[known order:
     NULL,
     2014-09-11 01:01:01.001001+00
   ],
-  ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL, TESTENUM2],
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:NULL, TESTENUM2],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
     NULL,
     {
       int64_key_1: 31
       int64_key_2: 32
     }
   ],
-  ARRAY<STRUCT<INT64, INT64>>[NULL, {31, 32}]}]
+  ARRAY<STRUCT<INT64, INT64>>[known order:NULL, {31, 32}]}]
 ==
 [name=select_array_parameters_with_null_suffix]
 [parameters=
@@ -258,29 +266,29 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>,
              ARRAY<>>>
-[{ARRAY<BOOL>[true, NULL],
-  ARRAY<INT32>[1, NULL],
-  ARRAY<UINT32>[2, NULL],
-  ARRAY<INT64>[8589934592, NULL],
-  ARRAY<UINT64>[8589934592, NULL],
-  ARRAY<FLOAT>[1.1, NULL],
-  ARRAY<DOUBLE>[1.1, NULL],
-  ARRAY<STRING>["σ", NULL],
-  ARRAY<BYTES>[b"a", NULL],
-  ARRAY<DATE>[1984-08-02, NULL],
-  ARRAY<TIMESTAMP>[
+[{ARRAY<BOOL>[known order:true, NULL],
+  ARRAY<INT32>[known order:1, NULL],
+  ARRAY<UINT32>[known order:2, NULL],
+  ARRAY<INT64>[known order:8589934592, NULL],
+  ARRAY<UINT64>[known order:8589934592, NULL],
+  ARRAY<FLOAT>[known order:1.1, NULL],
+  ARRAY<DOUBLE>[known order:1.1, NULL],
+  ARRAY<STRING>[known order:"σ", NULL],
+  ARRAY<BYTES>[known order:b"a", NULL],
+  ARRAY<DATE>[known order:1984-08-02, NULL],
+  ARRAY<TIMESTAMP>[known order:
     1984-08-02 01:01:01.001001+00,
     NULL
   ],
-  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, NULL],
-  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:TESTENUM0, NULL],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
     {
       int64_key_1: 11
       int64_key_2: 12
     },
     NULL
   ],
-  ARRAY<STRUCT<INT64, INT64>>[{11, 12}, NULL]}]
+  ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, NULL]}]
 ==
 [name=select_array_parameters_all_nulls]
 [parameters=
@@ -317,20 +325,20 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>>>
 [{
-   ARRAY<BOOL>[NULL, NULL],
-   ARRAY<INT32>[NULL, NULL],
-   ARRAY<UINT32>[NULL, NULL],
-   ARRAY<INT64>[NULL, NULL],
-   ARRAY<UINT64>[NULL, NULL],
-   ARRAY<FLOAT>[NULL, NULL],
-   ARRAY<DOUBLE>[NULL, NULL],
-   ARRAY<STRING>[NULL, NULL],
-   ARRAY<BYTES>[NULL, NULL],
-   ARRAY<DATE>[NULL, NULL],
-   ARRAY<TIMESTAMP>[NULL, NULL],
-   ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL, NULL],
-   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[NULL, NULL],
-   ARRAY<STRUCT<INT64, INT64>>[NULL, NULL]
+   ARRAY<BOOL>[known order:NULL, NULL],
+   ARRAY<INT32>[known order:NULL, NULL],
+   ARRAY<UINT32>[known order:NULL, NULL],
+   ARRAY<INT64>[known order:NULL, NULL],
+   ARRAY<UINT64>[known order:NULL, NULL],
+   ARRAY<FLOAT>[known order:NULL, NULL],
+   ARRAY<DOUBLE>[known order:NULL, NULL],
+   ARRAY<STRING>[known order:NULL, NULL],
+   ARRAY<BYTES>[known order:NULL, NULL],
+   ARRAY<DATE>[known order:NULL, NULL],
+   ARRAY<TIMESTAMP>[known order:NULL, NULL],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[known order:NULL, NULL],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:NULL, NULL],
+   ARRAY<STRUCT<INT64, INT64>>[known order:NULL, NULL]
  }]
 ==
 [name=select_array_parameters_singleton_null]
@@ -552,7 +560,7 @@ ARRAY<STRUCT<ARRAY<>,
 [parameters=ARRAY<STRING>['σ', 'π', '⨝'] string_arr]
 SELECT elem FROM UNNEST(@string_arr) AS elem
 --
-ARRAY<STRUCT<elem STRING>>[{"σ"}, {"π"}, {"⨝"}]
+ARRAY<STRUCT<elem STRING>>[unknown order:{"σ"}, {"π"}, {"⨝"}]
 ==
 ##
 ## From here, several queries to test offset/ordinality without joins.
@@ -561,7 +569,7 @@ ARRAY<STRUCT<elem STRING>>[{"σ"}, {"π"}, {"⨝"}]
 [parameters=ARRAY<STRING>['σ', 'π', '⨝', NULL] string_arr]
 SELECT elem, offset FROM UNNEST(@string_arr) elem WITH OFFSET
 --
-ARRAY<STRUCT<elem STRING, offset INT64>>[
+ARRAY<STRUCT<elem STRING, offset INT64>>[unknown order:
   {"σ", 0},
   {"π", 1},
   {"⨝", 2},
@@ -572,7 +580,7 @@ ARRAY<STRUCT<elem STRING, offset INT64>>[
 [parameters=ARRAY<STRING>['σ', 'π', '⨝', NULL] string_arr]
 SELECT elem, off FROM UNNEST(@string_arr) elem WITH OFFSET off
 --
-ARRAY<STRUCT<elem STRING, off INT64>>[
+ARRAY<STRUCT<elem STRING, off INT64>>[unknown order:
   {"σ", 0},
   {"π", 1},
   {"⨝", 2},
@@ -585,7 +593,7 @@ SELECT elem, offset
 FROM UNNEST(@string_arr) elem WITH OFFSET
 ORDER BY offset desc
 --
-ARRAY<STRUCT<elem STRING, offset INT64>>[
+ARRAY<STRUCT<elem STRING, offset INT64>>[known order:
   {NULL, 3},
   {"⨝", 2},
   {"π", 1},
@@ -598,7 +606,7 @@ SELECT elem, off
 FROM UNNEST(@string_arr) elem WITH OFFSET off
 ORDER BY off desc
 --
-ARRAY<STRUCT<elem STRING, off INT64>>[
+ARRAY<STRUCT<elem STRING, off INT64>>[known order:
   {NULL, 3},
   {"⨝", 2},
   {"π", 1},

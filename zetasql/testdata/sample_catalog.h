@@ -18,6 +18,7 @@
 #define ZETASQL_TESTDATA_SAMPLE_CATALOG_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -25,12 +26,13 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
 #include "zetasql/public/analyzer_output.h"
-#include "zetasql/public/constant.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -68,8 +70,8 @@ class SampleCatalog {
   TypeFactory* type_factory() { return types_; }
 
   // Useful for configuring EvaluatorTableIterators for tables in the catalog.
-  SimpleTable* GetTableOrDie(const std::string& name);
-  absl::StatusOr<SimpleTable*> GetTable(const std::string& name);
+  SimpleTable* GetTableOrDie(absl::string_view name);
+  absl::StatusOr<SimpleTable*> GetTable(absl::string_view name);
 
  private:
   std::unique_ptr<google::protobuf::DescriptorPoolDatabase> alt_descriptor_database_;
@@ -112,7 +114,7 @@ class SampleCatalog {
   void AddSqlDefinedTableFunctionFromCreate(
       absl::string_view create_table_function,
       const LanguageOptions& language_options,
-      const std::string& user_id_column = "");
+      absl::string_view user_id_column = "");
   void LoadNonTemplatedSqlTableValuedFunctions(
       const LanguageOptions& language_options);
   void LoadTemplatedSQLTableValuedFunctions();
@@ -123,6 +125,7 @@ class SampleCatalog {
   void LoadProcedures();
   void LoadConstants();
   void LoadConnections();
+  void LoadSequences();
   // Load signatures for well known functional programming functions for example
   // FILTER, TRANSFORM, REDUCE.
   void LoadWellKnownLambdaArgFunctions();
@@ -145,9 +148,10 @@ class SampleCatalog {
                              const LanguageOptions& language_options);
   // Add a SQL function to catalog starting from a full create_function
   // statement.
-  void AddSqlDefinedFunctionFromCreate(absl::string_view create_function,
-                                       const LanguageOptions& language_options,
-                                       bool inline_sql_functions = true);
+  void AddSqlDefinedFunctionFromCreate(
+      absl::string_view create_function,
+      const LanguageOptions& language_options, bool inline_sql_functions = true,
+      std::optional<FunctionOptions> function_options = std::nullopt);
 
   void LoadSqlFunctions(const LanguageOptions& language_options);
 
@@ -214,6 +218,10 @@ class SampleCatalog {
   // Connections owned by this catalog.
   std::unordered_map<std::string, std::unique_ptr<SimpleConnection>>
       owned_connections_;
+
+  // Sequences owned by this catalog.
+  std::unordered_map<std::string, std::unique_ptr<SimpleSequence>>
+      owned_sequences_;
 
   // Manages the lifetime of ResolvedAST objects for SQL defined statements like
   // views, SQL functions, column expressions, or SQL TVFs.

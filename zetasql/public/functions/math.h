@@ -476,6 +476,12 @@ bool Coth(T in, T* out, absl::Status* error) {
   return internal::CheckFloatingPointError("COTH", in, *out, error);
 }
 
+double Pi();
+
+NumericValue Pi_Numeric();
+
+BigNumericValue Pi_BigNumeric();
+
 // Declare specializations defined in math.cc.
 
 template <>

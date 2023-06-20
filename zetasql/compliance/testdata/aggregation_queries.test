@@ -655,7 +655,7 @@ SELECT bool_val, AVG(double_val) FROM TableLarge
   WHERE NOT IS_INF(double_val) AND NOT IS_NAN(double_val)
     GROUP BY bool_val ORDER BY bool_val
 --
-ARRAY<STRUCT<bool_val BOOL, DOUBLE>>[{false, 0.6}, {true, 0.6}]
+ARRAY<STRUCT<bool_val BOOL, DOUBLE>>[known order:{false, 0.6}, {true, 0.6}]
 ==
 # AVG should work with GROUP BY and HAVING.
 [name=aggregation_avg_group_by_and_having_1]
@@ -732,7 +732,7 @@ ERROR: generic::out_of_range: uint64 overflow
 [name=aggregation_sum_group_by]
 SELECT row_id, SUM(int64_val) int64_sum FROM TableLarge GROUP BY row_id
 --
-ARRAY<STRUCT<row_id INT64, int64_sum INT64>>[
+ARRAY<STRUCT<row_id INT64, int64_sum INT64>>[unknown order:
   {1, NULL},
   {2, NULL},
   {3, NULL},
@@ -754,7 +754,11 @@ ARRAY<STRUCT<row_id INT64, int64_sum INT64>>[
 SELECT row_id, SUM(int64_val) int64_sum
 FROM TableLarge GROUP BY row_id HAVING int64_sum IS NULL
 --
-ARRAY<STRUCT<row_id INT64, int64_sum INT64>>[{2, NULL}, {1, NULL}, {3, NULL}]
+ARRAY<STRUCT<row_id INT64, int64_sum INT64>>[unknown order:
+  {2, NULL},
+  {1, NULL},
+  {3, NULL}
+]
 ==
 # ----------------------------------------------------------------------------
 # COUNT
@@ -824,7 +828,7 @@ ARRAY<STRUCT<INT64>>[{0}]
 [name=aggregation_count_group_by]
 SELECT int32_val, COUNT(double_val) FROM TableAllTypes GROUP BY int32_val
 --
-ARRAY<STRUCT<int32_val INT32, INT64>>[
+ARRAY<STRUCT<int32_val INT32, INT64>>[unknown order:
   {NULL, 2},
   {-24, 1},
   {-4, 1},
@@ -1029,7 +1033,7 @@ ARRAY<STRUCT<BOOL,
 SELECT MIN(int32_val), MAX(uint32_val), bool_val FROM TableAllTypes
   GROUP BY bool_val ORDER BY bool_val
 --
-ARRAY<STRUCT<INT32, UINT32, bool_val BOOL>>[
+ARRAY<STRUCT<INT32, UINT32, bool_val BOOL>>[known order:
   {-1, 1, NULL},
   {-24, 41, false},
   {-3, 31, true}
@@ -1040,7 +1044,7 @@ ARRAY<STRUCT<INT32, UINT32, bool_val BOOL>>[
 SELECT MIN(int32_val), bool_val FROM TableAllTypes
   GROUP BY bool_val having MAX(uint32_val) > 30 ORDER BY bool_val
 --
-ARRAY<STRUCT<INT32, bool_val BOOL>>[{-24, false}, {-3, true}]
+ARRAY<STRUCT<INT32, bool_val BOOL>>[known order:{-24, false}, {-3, true}]
 ==
 [name=aggregation_min_max_double_float_nan]
 SELECT MIN(double_val), MAX(double_val), MIN(float_val), MAX(float_val)
@@ -1140,7 +1144,7 @@ FROM (
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
     ARRAY<DOUBLE>[1],
-    ARRAY<DOUBLE>[1, nan]
+    ARRAY<DOUBLE>[known order:1, nan]
   }
 ]
 ==
@@ -1160,8 +1164,8 @@ FROM (
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<INT64>[1, NULL, 2],
-    ARRAY<INT64>[1, NULL, 3]
+    ARRAY<INT64>[known order:1, NULL, 2],
+    ARRAY<INT64>[known order:1, NULL, 3]
   }
 ]
 ==
@@ -1181,8 +1185,8 @@ FROM (
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<DOUBLE>[1, nan, 2],
-    ARRAY<DOUBLE>[1, nan, 3]
+    ARRAY<DOUBLE>[known order:1, nan, 2],
+    ARRAY<DOUBLE>[known order:1, nan, 3]
   }
 ]
 ==
@@ -1206,8 +1210,8 @@ FROM (
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<DOUBLE>[1, NULL, 2],
-    ARRAY<DOUBLE>[1, nan, 2]
+    ARRAY<DOUBLE>[known order:1, NULL, 2],
+    ARRAY<DOUBLE>[known order:1, nan, 2]
   }
 ]
 ==
@@ -1231,8 +1235,8 @@ FROM (
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<DOUBLE>[1, NULL, 2],
-    ARRAY<DOUBLE>[1, inf]
+    ARRAY<DOUBLE>[known order:1, NULL, 2],
+    ARRAY<DOUBLE>[known order:1, inf]
   }
 ]
 ==
@@ -1255,8 +1259,8 @@ FROM (
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<DOUBLE>[1, NULL, 2],
-    ARRAY<DOUBLE>[1, -inf]
+    ARRAY<DOUBLE>[known order:1, NULL, 2],
+    ARRAY<DOUBLE>[known order:1, -inf]
   }
 ]
 ==
@@ -1307,8 +1311,8 @@ SELECT array_agg(x), array_agg(y) FROM T
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   {
-    ARRAY<INT64>[2, 1],
-    ARRAY<STRING>["bar", "foo"]
+    ARRAY<INT64>[unknown order:2, 1],
+    ARRAY<STRING>[unknown order:"bar", "foo"]
   }
 ]
 ==
@@ -1330,173 +1334,221 @@ ARRAY<STRUCT<ARRAY<>,
              ARRAY<>,
              ARRAY<>,
              ARRAY<>>>
-[
-  {
-    ARRAY<BOOL>[true,
-                false,
-                true,
-                NULL,
-                true,
-                false,
-                true,
-                false,
-                true,
-                true,
-                false,
-                false,
-                NULL,
-                false,
-                false,
-                false,
-                NULL],
-    ARRAY<DOUBLE>[inf,
-                  0,
-                  0.375,
-                  NULL,
-                  0.625,
-                  -0.25,
-                  -0.375,
-                  -0,
-                  0.125,
-                  -inf,
-                  0.25,
-                  0.5,
-                  nan,
-                  -0.125,
-                  -0.75,
-                  -0.5,
-                  NULL],
-    ARRAY<FLOAT>[nan,
-                 0.25,
-                 0.375,
-                 NULL,
-                 0.625,
-                 0.75,
-                 -0.375,
-                 NULL,
-                 0.125,
-                 inf,
-                 -inf,
-                 0.5,
-                 -0,
-                 -0.125,
-                 -0.25,
-                 -0.5,
-                 0],
-    ARRAY<STRING>["1",
-                  "2",
-                  "3",
-                  NULL,
-                  "6",
-                  "24",
-                  "345",
-                  NULL,
-                  "1",
-                  "1",
-                  "2",
-                  "4",
-                  NULL,
-                  "123",
-                  "222",
-                  "432",
-                  "1"],
-    ARRAY<INT32>[-1,
-                 -2,
-                 -3,
-                 NULL,
-                 1,
-                 2,
-                 13,
-                 NULL,
-                 -1,
-                 -1,
-                 -2,
-                 -4,
-                 NULL,
-                 5,
-                 9,
-                 -24,
-                 -1],
-    ARRAY<UINT32>[1, 2, 3, NULL, 11, 5, 31, NULL, 1, 1, 2, 4, NULL, 11, 4, 41, 1],
-    ARRAY<INT64>[-1,
-                 -2,
-                 -3,
-                 NULL,
-                 1,
-                 16,
-                 23,
-                 -1,
-                 -1,
-                 -1,
-                 -2,
-                 -4,
-                 NULL,
-                 3,
-                 9,
-                 -14,
-                 NULL],
-    ARRAY<UINT64>[1, 2, 3, NULL, 11, 9, 32, 1, 1, 1, 2, 4, NULL, 8, 8, 54, NULL],
-    ARRAY<DATE>[2014-01-01,
-                2014-01-02,
-                2014-01-03,
-                NULL,
-                2014-01-08,
-                2014-02-02,
-                2014-01-06,
-                NULL,
-                2014-01-01,
-                2014-01-01,
-                2014-01-02,
-                2014-01-04,
-                NULL,
-                2014-02-01,
-                2014-05-02,
-                2014-02-04,
-                2014-02-04],
-    ARRAY<BYTES>[b"1",
-                 b"2",
-                 b"3",
-                 NULL,
-                 b"7",
-                 b"22",
-                 b"345",
-                 b"1",
-                 b"1",
-                 b"1",
-                 b"2",
-                 b"4",
-                 NULL,
-                 b"123",
-                 b"234",
-                 b"433",
-                 NULL],
-    ARRAY<TIMESTAMP>[
-      2014-01-01 00:00:01+00,
-      2014-01-02 00:00:02+00,
-      2014-01-03 00:00:03+00,
-      NULL,
-      2014-01-07 00:00:01+00,
-      2014-03-02 00:00:02+00,
-      2014-02-03 00:00:03+00,
-      2014-02-04 00:00:04+00,
-      2014-01-01 00:00:01+00,
-      2014-01-01 00:00:01+00,
-      2014-01-02 00:00:02+00,
-      2014-01-04 00:00:04+00,
-      NULL,
-      2014-03-01 00:00:01+00,
-      2014-05-02 00:00:02+00,
-      2014-02-04 00:00:04+00,
-      NULL
-    ]
-  }
-]
+[{ARRAY<BOOL>[unknown order:
+    true,
+    false,
+    true,
+    NULL,
+    true,
+    false,
+    true,
+    false,
+    true,
+    true,
+    false,
+    false,
+    NULL,
+    false,
+    false,
+    false,
+    NULL
+  ],
+  ARRAY<DOUBLE>[unknown order:
+    inf,
+    0,
+    0.375,
+    NULL,
+    0.625,
+    -0.25,
+    -0.375,
+    -0,
+    0.125,
+    -inf,
+    0.25,
+    0.5,
+    nan,
+    -0.125,
+    -0.75,
+    -0.5,
+    NULL
+  ],
+  ARRAY<FLOAT>[unknown order:
+    nan,
+    0.25,
+    0.375,
+    NULL,
+    0.625,
+    0.75,
+    -0.375,
+    NULL,
+    0.125,
+    inf,
+    -inf,
+    0.5,
+    -0,
+    -0.125,
+    -0.25,
+    -0.5,
+    0
+  ],
+  ARRAY<STRING>[unknown order:
+    "1",
+    "2",
+    "3",
+    NULL,
+    "6",
+    "24",
+    "345",
+    NULL,
+    "1",
+    "1",
+    "2",
+    "4",
+    NULL,
+    "123",
+    "222",
+    "432",
+    "1"
+  ],
+  ARRAY<INT32>[unknown order:
+    -1,
+    -2,
+    -3,
+    NULL,
+    1,
+    2,
+    13,
+    NULL,
+    -1,
+    -1,
+    -2,
+    -4,
+    NULL,
+    5,
+    9,
+    -24,
+    -1
+  ],
+  ARRAY<UINT32>[unknown order:
+    1,
+    2,
+    3,
+    NULL,
+    11,
+    5,
+    31,
+    NULL,
+    1,
+    1,
+    2,
+    4,
+    NULL,
+    11,
+    4,
+    41,
+    1
+  ],
+  ARRAY<INT64>[unknown order:
+    -1,
+    -2,
+    -3,
+    NULL,
+    1,
+    16,
+    23,
+    -1,
+    -1,
+    -1,
+    -2,
+    -4,
+    NULL,
+    3,
+    9,
+    -14,
+    NULL
+  ],
+  ARRAY<UINT64>[unknown order:
+    1,
+    2,
+    3,
+    NULL,
+    11,
+    9,
+    32,
+    1,
+    1,
+    1,
+    2,
+    4,
+    NULL,
+    8,
+    8,
+    54,
+    NULL
+  ],
+  ARRAY<DATE>[unknown order:
+    2014-01-01,
+    2014-01-02,
+    2014-01-03,
+    NULL,
+    2014-01-08,
+    2014-02-02,
+    2014-01-06,
+    NULL,
+    2014-01-01,
+    2014-01-01,
+    2014-01-02,
+    2014-01-04,
+    NULL,
+    2014-02-01,
+    2014-05-02,
+    2014-02-04,
+    2014-02-04
+  ],
+  ARRAY<BYTES>[unknown order:
+    b"1",
+    b"2",
+    b"3",
+    NULL,
+    b"7",
+    b"22",
+    b"345",
+    b"1",
+    b"1",
+    b"1",
+    b"2",
+    b"4",
+    NULL,
+    b"123",
+    b"234",
+    b"433",
+    NULL
+  ],
+  ARRAY<TIMESTAMP>[unknown order:
+    2014-01-01 00:00:01+00,
+    2014-01-02 00:00:02+00,
+    2014-01-03 00:00:03+00,
+    NULL,
+    2014-01-07 00:00:01+00,
+    2014-03-02 00:00:02+00,
+    2014-02-03 00:00:03+00,
+    2014-02-04 00:00:04+00,
+    2014-01-01 00:00:01+00,
+    2014-01-01 00:00:01+00,
+    2014-01-02 00:00:02+00,
+    2014-01-04 00:00:04+00,
+    NULL,
+    2014-03-01 00:00:01+00,
+    2014-05-02 00:00:02+00,
+    2014-02-04 00:00:04+00,
+    NULL
+  ]}]
 ==
 # ARRAY_AGG works with GROUP BY
 [name=aggregation_array_agg_group_by]
 SELECT ARRAY_AGG(bool_val), row_id FROM TableAllTypes GROUP BY row_id
 --
-ARRAY<STRUCT<ARRAY<>, row_id INT64>>[
+ARRAY<STRUCT<ARRAY<>, row_id INT64>>[unknown order:
   {ARRAY<BOOL>[true], 1},
   {ARRAY<BOOL>[true], 2},
   {ARRAY<BOOL>[true], 3},
@@ -1524,7 +1576,7 @@ SELECT JSON 'null' UNION ALL
 SELECT CAST(NULL AS JSON) UNION ALL
 SELECT JSON '10')
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[null, 10, {"a":10}, NULL]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[unknown order:null, 10, {"a":10}, NULL]}]
 ==
 # ----------------------------------------------------------------------------
 # ARRAY_AGG over empty input produces NULL
@@ -1541,13 +1593,13 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 [name=array_agg_all_NULLs]
 SELECT array_agg(x) FROM ((SELECT NULL x) UNION ALL (SELECT NULL))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[NULL, NULL]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:NULL, NULL]}]
 ==
 
 [name=array_agg_mix_NULL_and_nonNULLs]
 SELECT array_agg(x) FROM ((SELECT "foo" x) UNION ALL (SELECT NULL))
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[NULL, "foo"]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[unknown order:NULL, "foo"]}]
 ==
 
 
@@ -1587,8 +1639,8 @@ ARRAY<STRUCT<count_all INT64,
    2,
    1.3333333333333333,
    1.5,
-   ARRAY<INT64>[1, 1, 2],
-   ARRAY<INT64>[1, 2]
+   ARRAY<INT64>[unknown order:1, 1, 2],
+   ARRAY<INT64>[unknown order:1, 2]
  }]
 ==
 # Aggregation of struct values
@@ -1601,7 +1653,7 @@ FROM (SELECT 1 a UNION ALL SELECT 1 UNION ALL SELECT 2),
 ARRAY<STRUCT<count_all INT64, agg_all ARRAY<>>>[
   {
     3,
-    ARRAY<STRUCT<x INT64, y INT64>>[{1, 1}, {1, 1}, {2, 2}]
+    ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{1, 1}, {1, 1}, {2, 2}]
   }
 ]
 ==
@@ -1670,7 +1722,7 @@ FROM (SELECT 1 AS key, 10 AS value UNION ALL
       SELECT 2, 20)
 GROUP BY (key + 1)
 --
-ARRAY<STRUCT<INT64>>[{1}, {1}]
+ARRAY<STRUCT<INT64>>[unknown order:{1}, {1}]
 ==
 # ----------------------------------------------------------------------------
 # STRING_AGG
@@ -1881,7 +1933,7 @@ SELECT id, bit_and(x) FROM
  SELECT "b" id, 5 x UNION ALL SELECT "b", 6)
 GROUP BY id
 --
-ARRAY<STRUCT<id STRING, INT64>>[{"a", 1}, {"b", 4}]
+ARRAY<STRUCT<id STRING, INT64>>[unknown order:{"a", 1}, {"b", 4}]
 ==
 
 # ----------------------------------------------------------------------------
@@ -1978,7 +2030,7 @@ SELECT id, bit_or(x) FROM
  SELECT "b" id, 5 x UNION ALL SELECT "b", 6)
 GROUP BY id
 --
-ARRAY<STRUCT<id STRING, INT64>>[{"a", 7}, {"b", 7}]
+ARRAY<STRUCT<id STRING, INT64>>[unknown order:{"a", 7}, {"b", 7}]
 ==
 
 # ----------------------------------------------------------------------------
@@ -2075,7 +2127,7 @@ SELECT id, bit_xor(x) FROM
  SELECT "b" id, 5 x UNION ALL SELECT "b", 6)
 GROUP BY id
 --
-ARRAY<STRUCT<id STRING, INT64>>[{"a", 6}, {"b", 3}]
+ARRAY<STRUCT<id STRING, INT64>>[unknown order:{"a", 6}, {"b", 3}]
 ==
 
 # ----------------------------------------------------------------------------
@@ -2137,7 +2189,11 @@ SELECT id, logical_and(x) FROM
  SELECT "c" id, false x UNION ALL SELECT "c", false)
 GROUP BY id
 --
-ARRAY<STRUCT<id STRING, BOOL>>[{"a", false}, {"b", true}, {"c", false}]
+ARRAY<STRUCT<id STRING, BOOL>>[unknown order:
+  {"a", false},
+  {"b", true},
+  {"c", false}
+]
 ==
 
 # ----------------------------------------------------------------------------
@@ -2199,7 +2255,11 @@ SELECT id, logical_or(x) FROM
  SELECT "c" id, false x UNION ALL SELECT "c", false)
 GROUP BY id
 --
-ARRAY<STRUCT<id STRING, BOOL>>[{"a", true}, {"b", true}, {"c", false}]
+ARRAY<STRUCT<id STRING, BOOL>>[unknown order:
+  {"a", true},
+  {"b", true},
+  {"c", false}
+]
 ==
 
 # ----------------------------------------------------------------------------
@@ -2255,7 +2315,7 @@ ARRAY<STRUCT<
         STRUCT<int_field INT64, str_field STRING>,
         PROTO<zetasql_test__.TestNullabilityInnerPB>
       >>
-[{ARRAY<INT64>[1, 2, 3],
+[{ARRAY<INT64>[known order:1, 2, 3],
   {1, "foo"},
   {
     required_field: 1

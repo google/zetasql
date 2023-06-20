@@ -132,7 +132,8 @@ class TemplatedSQLTVF : public TableValuedFunction {
   // these status objects with payload, and only produce the mode-versioned
   // status when fetched through FindXXX() calls?
   absl::Status ForwardNestedResolutionAnalysisError(
-      const absl::Status& status, ErrorMessageMode mode) const;
+      const absl::Status& status, ErrorMessageMode mode,
+      bool keep_error_location_payload) const;
 
   // Returns a new error reporting a failed expectation of the sql_body_
   // (for example, if it is a CREATE TABLE instead of a SELECT statement).

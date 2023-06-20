@@ -121,7 +121,7 @@ SELECT bool_val, int64_val,
        PERCENT_RANK() OVER (PARTITION BY bool_val ORDER BY int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, int64_val INT64, DOUBLE>>[
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64, DOUBLE>>[unknown order:
   {NULL, NULL, 0},
   {false, 1, 0},
   {false, 1, 0},
@@ -139,7 +139,7 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64, DOUBLE>>[
 SELECT bool_val, PERCENT_RANK() OVER (ORDER BY bool_val)
 FROM TestTable
 --
-ARRAY<STRUCT<bool_val BOOL, DOUBLE>>[
+ARRAY<STRUCT<bool_val BOOL, DOUBLE>>[unknown order:
   {NULL, 0},
   {false, 0.1111111111111111},
   {false, 0.1111111111111111},
@@ -158,7 +158,7 @@ SELECT str_val, int64_val,
        PERCENT_RANK() OVER (ORDER BY str_val, int64_val DESC)
 FROM TestTable
 --
-ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
+ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[unknown order:
   {NULL, NULL, 0},
   {NULL, NULL, 0},
   {"A", 1, 0.22222222222222221},
@@ -179,7 +179,7 @@ SELECT str_val, int64_val,
 FROM TestTable
 ORDER BY str_val COLLATE "en_US"
 --
-ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
+ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[unknown order:
   {NULL, NULL, 0},
   {NULL, NULL, 0},
   {"a", 1, 0.33333333333333331},
@@ -198,7 +198,7 @@ SELECT int32_val, cast(int64_val as uint64),
        PERCENT_RANK() OVER (ORDER BY int32_val, cast(int64_val as uint64) ASC)
 FROM TestTable
 --
-ARRAY<STRUCT<int32_val INT32, UINT64, DOUBLE>>[
+ARRAY<STRUCT<int32_val INT32, UINT64, DOUBLE>>[unknown order:
   {NULL, NULL, 0},
   {NULL, NULL, 0},
   {1, 1, 0.22222222222222221},
@@ -217,7 +217,7 @@ SELECT cast(int32_val as uint32), int64_val,
        PERCENT_RANK() OVER (ORDER BY cast(int32_val as uint32), int64_val)
 FROM TestTable
 --
-ARRAY<STRUCT<UINT32, int64_val INT64, DOUBLE>>[
+ARRAY<STRUCT<UINT32, int64_val INT64, DOUBLE>>[unknown order:
   {NULL, NULL, 0},
   {NULL, NULL, 0},
   {1, 1, 0.22222222222222221},
@@ -251,7 +251,7 @@ ARRAY<STRUCT<
         enum_val ENUM<zetasql_test__.TestEnum>,
         DOUBLE
       >>
-[
+[unknown order:
   {TESTENUM2, 0},
   {TESTENUM2, 0},
   {TESTENUM1, 0.33333333333333331},
@@ -284,7 +284,7 @@ FROM (SELECT CAST(0 AS DOUBLE) as double_val
       UNION ALL
       SELECT CAST("-inf" AS DOUBLE))
 --
-ARRAY<STRUCT<double_val DOUBLE, DOUBLE>>[
+ARRAY<STRUCT<double_val DOUBLE, DOUBLE>>[unknown order:
   {NULL, 0},
   {NULL, 0},
   {nan, 0.22222222222222221},
@@ -320,7 +320,7 @@ FROM (SELECT CAST(0 AS FLOAT) as float_val
       UNION ALL
       SELECT CAST("-inf" AS FLOAT))
 --
-ARRAY<STRUCT<float_val FLOAT, DOUBLE>>[
+ARRAY<STRUCT<float_val FLOAT, DOUBLE>>[unknown order:
   {NULL, 0},
   {NULL, 0},
   {nan, 0.22222222222222221},
@@ -346,7 +346,7 @@ FROM (SELECT CAST(NULL as NUMERIC) numeric_val UNION ALL
       SELECT CAST(@max_val AS NUMERIC) UNION ALL
       SELECT CAST(@min_val AS NUMERIC))
 --
-ARRAY<STRUCT<numeric_val NUMERIC, DOUBLE>>[
+ARRAY<STRUCT<numeric_val NUMERIC, DOUBLE>>[unknown order:
   {NULL, 0},
   {
     -99999999999999999999999999999.999999999,
@@ -372,32 +372,32 @@ ARRAY<STRUCT<
         timestamp_val TIMESTAMP,
         DOUBLE
       >>
-[{NULL, NULL, 0},
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   0.2
- },
- {
-   2014-01-01,
-   2014-01-01 00:00:01.011011+00,
-   0.2
- },
- {
-   2014-01-01,
-   2015-01-01 00:00:01.011011+00,
-   0.6
- },
- {
-   2015-01-01,
-   2013-01-01 00:00:01.011011+00,
-   0.8
- },
- {
-   2015-01-01,
-   2014-01-01 00:00:01.011011+00,
-   1
- }]
+[unknown order:{NULL, NULL, 0},
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 0.2
+               },
+               {
+                 2014-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 0.2
+               },
+               {
+                 2014-01-01,
+                 2015-01-01 00:00:01.011011+00,
+                 0.6
+               },
+               {
+                 2015-01-01,
+                 2013-01-01 00:00:01.011011+00,
+                 0.8
+               },
+               {
+                 2015-01-01,
+                 2014-01-01 00:00:01.011011+00,
+                 1
+               }]
 ==
 
 [name=percent_rank_bytes]
@@ -405,7 +405,7 @@ SELECT bytes_val,
        PERCENT_RANK() OVER (ORDER BY bytes_val)
 FROM TableDateTimeBytes
 --
-ARRAY<STRUCT<bytes_val BYTES, DOUBLE>>[
+ARRAY<STRUCT<bytes_val BYTES, DOUBLE>>[unknown order:
   {NULL, 0},
   {b"1", 0.2},
   {b"1", 0.2},

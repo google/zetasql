@@ -177,6 +177,9 @@ class JSONValueConstRef {
   // If the JSON value being referenced is an object, returns whether the 'key'
   // references an existing member. If the JSON value is not an object, returns
   // false.
+  //
+  // Note: If the intent is to check for a key existence before accessing it,
+  // use GetMemberIfExists() to avoid an additional map lookup.
   bool HasMember(absl::string_view key) const;
   // If the JSON value being referenced is an object, returns the member
   // corresponding to the given 'key'. If such 'key' does not exist, then
@@ -202,7 +205,7 @@ class JSONValueConstRef {
   // Requires IsArray() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
   size_t GetArraySize() const;
   // If the JSON value being referenced is an array, returns the element at
-  // 'index'. If such element does not exists (index >= GetArraySize()), then
+  // 'index'. If such element does not exist (index >= GetArraySize()), then
   // the returned value is an invalid object.
   //
   // Requires IsArray() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
@@ -279,18 +282,28 @@ class JSONValueRef : public JSONValueConstRef {
   void SetToEmptyArray();
 
   // If the JSON value being referenced is an object, returns the member
-  // corresponding to the given 'key'. If such 'key' does not exists, creates
-  // a null value corresponding the 'key' and returns it.
+  // corresponding to the given 'key'. If such 'key' does not exist, creates
+  // a null value corresponding to the 'key' and returns it.
   //
   // Requires IsObject() or IsNull() to be true. Otherwise, the call results in
   // ZETASQL_LOG(FATAL).
   JSONValueRef GetMember(absl::string_view key);
+  // If the JSON value being referenced is an object, returns the member
+  // corresponding to the given 'key' if it exists. If such 'key' does not
+  // exist or if the JSON value is not an object, then returns std::nullopt.
+  std::optional<JSONValueRef> GetMemberIfExists(absl::string_view key);
   // If the JSON value being referenced is an object, returns all the key/value
   // pairs corresponding to members of the object.
   //
   // Requires IsObject() or IsNull() to be true. Otherwise, the call results in
   // ZETASQL_LOG(FATAL).
   std::vector<std::pair<absl::string_view, JSONValueRef>> GetMembers();
+  // If the JSON value being referenced is an object, removes the key/value
+  // pair corresponding to 'key' if it exists. Return true if the member exists,
+  // false otherwise.
+  //
+  // Returns an error if the JSON value is not an object.
+  absl::StatusOr<bool> RemoveMember(absl::string_view key);
 
   // If the JSON value being referenced is an array, returns the element at
   // 'index'. If the element does not exist, resizes the array with null
@@ -304,6 +317,37 @@ class JSONValueRef : public JSONValueConstRef {
   // Requires IsArray() or IsNull() to be true. Otherwise, the call results in
   // ZETASQL_LOG(FATAL).
   std::vector<JSONValueRef> GetArrayElements();
+  // If the JSON value being referenced is an array, inserts 'json_value' at
+  // 'index'. If 'index' is greater than the size of the array, appends the
+  // value at the end of the array.
+  //
+  // Returns an error if the JSON value is not an array.
+  absl::Status InsertArrayElement(JSONValue json_value, size_t index);
+  // If the JSON value being referenced is an array, inserts 'json_values' at
+  // 'index'. If 'index' is greater than the size of the array, appends the
+  // values at the end of the array. The values are inserted in the same order
+  // as their order in the vector.
+  //
+  // Returns an error if the JSON value is not an array.
+  absl::Status InsertArrayElements(std::vector<JSONValue> json_values,
+                                   size_t index);
+  // If the JSON value being referenced is an array, adds 'json_value' at the
+  // end of the array.
+  //
+  // Returns an error if the JSON value is not an array.
+  absl::Status AppendArrayElement(JSONValue json_value);
+  // If the JSON value being referenced is an array, adds 'json_value' at the
+  // end of the array. The values are appended in the same order as their order
+  // in the vector.
+  //
+  // Returns an error if the JSON value is not an array.
+  absl::Status AppendArrayElements(std::vector<JSONValue> json_values);
+  // If the JSON value being referenced is an array, removes the element at
+  // 'index' and returns true. If 'index' is not a valid value, does nothing and
+  // returns false.
+  //
+  // Returns an error if the JSON value is not an array.
+  absl::StatusOr<bool> RemoveArrayElement(int64_t index);
 
  private:
   explicit JSONValueRef(JSONValue::Impl* impl);

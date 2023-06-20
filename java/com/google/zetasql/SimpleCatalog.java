@@ -35,7 +35,9 @@ import com.google.zetasql.LocalService.RegisterResponse;
 import com.google.zetasql.LocalService.UnregisterRequest;
 import com.google.zetasql.SimpleCatalogProtos.SimpleCatalogProto;
 import com.google.zetasql.SimpleCatalogProtos.SimpleCatalogProto.NamedTypeProto;
+import com.google.zetasql.SimpleConnectionProtos.SimpleConnectionProto;
 import com.google.zetasql.SimpleConstantProtos.SimpleConstantProto;
+import com.google.zetasql.SimpleModelProtos.SimpleModelProto;
 import com.google.zetasql.SimpleTableProtos.SimpleTableProto;
 import io.grpc.StatusRuntimeException;
 import java.util.HashMap;
@@ -83,6 +85,9 @@ public class SimpleCatalog extends Catalog {
   // tables.
   // When inserting into tables, insert the name into global_names as well.
   private final Set<String> globalNames = new HashSet<>();
+  private final Map<String, SimpleConnection> connections = new HashMap<>();
+  private final Map<String, SimpleModel> models = new HashMap<>();
+  private final Map<Long, SimpleModel> modelsById = new HashMap<>();
   private DescriptorPool descriptorPool;
   ZetaSQLBuiltinFunctionOptionsProto builtinFunctionOptions;
 
@@ -220,7 +225,7 @@ public class SimpleCatalog extends Catalog {
   public SimpleCatalogProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     SimpleCatalogProto.Builder builder = SimpleCatalogProto.newBuilder();
     builder.setName(name);
-    // The built-in function definations are not serialized. Instead, the BuiltinFunctionOptions
+    // The built-in function definitions are not serialized. Instead, the BuiltinFunctionOptions
     // which specify which functions to include and exclude will be serialized, and the C++
     // deserialization will recreate the same built-in function signatures according to this.
     if (builtinFunctionOptions != null) {
@@ -246,9 +251,18 @@ public class SimpleCatalog extends Catalog {
       builder.addCustomTvf(tvf.getValue().serialize(fileDescriptorSetsBuilder));
     }
 
+    for (Entry<String, SimpleConnection> connection : connections.entrySet()) {
+      builder.addConnection(connection.getValue().serialize());
+    }
+
     for (Entry<String, Constant> constant : constants.entrySet()) {
       builder.addConstant(constant.getValue().serialize(fileDescriptorSetsBuilder));
     }
+
+    for (Entry<String, SimpleModel> model : models.entrySet()) {
+      builder.addModel(model.getValue().serialize(fileDescriptorSetsBuilder));
+    }
+
     for (Entry<String, Function> function : customFunctions.entrySet()) {
       builder.addCustomFunction(function.getValue().serialize(fileDescriptorSetsBuilder));
     }
@@ -265,6 +279,16 @@ public class SimpleCatalog extends Catalog {
     return builder.build();
   }
 
+  /** Add simple connection into this catalog. Connection names are case insensitive. */
+  public void addConnection(SimpleConnection connection) {
+    Preconditions.checkState(!registered);
+    Preconditions.checkNotNull(connection.getFullName());
+    Preconditions.checkArgument(
+        !connections.containsKey(Ascii.toLowerCase(connection.getFullName())));
+    String fullName = connection.getFullName();
+    connections.put(Ascii.toLowerCase(fullName), connection);
+  }
+
   /** Add simple constant into this catalog. Constant names are case insensitive. */
   public void addConstant(Constant constant) {
     Preconditions.checkState(!registered);
@@ -272,6 +296,17 @@ public class SimpleCatalog extends Catalog {
     List<String> namePath = constant.getNamePath();
     Preconditions.checkArgument(!namePath.isEmpty());
     constants.put(Ascii.toLowerCase(namePath.get(namePath.size() - 1)), constant);
+  }
+
+  /** Add simple model into this catalog. Model names are case insensitive. */
+  public void addModel(SimpleModel model) {
+    Preconditions.checkState(!registered);
+    Preconditions.checkNotNull(model.getFullName());
+    Preconditions.checkArgument(!models.containsKey(Ascii.toLowerCase(model.getFullName())));
+    Preconditions.checkArgument(!modelsById.containsKey(model.getId()));
+    String fullName = model.getFullName();
+    models.put(Ascii.toLowerCase(fullName), model);
+    modelsById.put(model.getId(), model);
   }
 
   /**
@@ -349,6 +384,35 @@ public class SimpleCatalog extends Catalog {
     Preconditions.checkState(!registered);
     Preconditions.checkArgument(types.containsKey(nameInLowerCase), "missing key: %s", name);
     types.remove(nameInLowerCase);
+  }
+
+  /** Removes the provided connection from this catalog. */
+  public void removeConnection(SimpleConnection connection) {
+    removeConnection(connection.getName());
+  }
+
+  /**
+   * Removes the connection with the provided name from this catalog. Names are case insensitive.
+   */
+  public void removeConnection(String name) {
+    String nameInLowerCase = Ascii.toLowerCase(name);
+    Preconditions.checkState(!registered);
+    Preconditions.checkArgument(connections.containsKey(nameInLowerCase), "missing key: %s", name);
+    connections.remove(nameInLowerCase);
+  }
+
+  /** Removes the provided model from this catalog. */
+  public void removeModel(SimpleModel model) {
+    removeModel(model.getFullName());
+  }
+
+  /** Removes the model with the provided fullname from this catalog. Names are case insensitive. */
+  public void removeModel(String fullName) {
+    String nameInLowerCase = Ascii.toLowerCase(fullName);
+    Preconditions.checkState(!registered);
+    Preconditions.checkArgument(models.containsKey(nameInLowerCase), "missing key: %s", name);
+    SimpleModel model = models.remove(nameInLowerCase);
+    modelsById.remove(model.getId());
   }
 
   /**
@@ -601,6 +665,15 @@ public class SimpleCatalog extends Catalog {
     return ImmutableList.copyOf(procedures.values());
   }
 
+  public ImmutableList<Connection> getConnectionList() {
+    return ImmutableList.copyOf(connections.values());
+  }
+
+  @Override
+  protected Connection getConnection(String name, FindOptions options) {
+    return connections.get(Ascii.toLowerCase(name));
+  }
+
   public ImmutableList<Constant> getConstantList() {
     return ImmutableList.copyOf(constants.values());
   }
@@ -608,6 +681,15 @@ public class SimpleCatalog extends Catalog {
   @Override
   protected Constant getConstant(String name, FindOptions options) {
     return constants.get(Ascii.toLowerCase(name));
+  }
+
+  public ImmutableList<Model> getModelList() {
+    return ImmutableList.copyOf(models.values());
+  }
+
+  @Override
+  protected Model getModel(String name, FindOptions options) {
+    return models.get(Ascii.toLowerCase(name));
   }
 
   @Override
@@ -680,12 +762,24 @@ public class SimpleCatalog extends Catalog {
   }
 
   public SimpleModel getModelById(long serializationId) {
-    // TODO: Add support for Model in the Java implementation.
-    return null;
+    SimpleModel model = modelsById.get(serializationId);
+    if (model == null) {
+      for (SimpleCatalog catalog : catalogs.values()) {
+        model = catalog.getModelById(serializationId);
+        if (model != null) {
+          break;
+        }
+      }
+    }
+    return model;
   }
 
-  public SimpleConnection getConnectionByFullName(String fullName) {
-    // TODO: Add support for Connection in the Java implementation.
+  public Connection getConnectionByFullName(String fullName) {
+    return getConnection(fullName);
+  }
+
+  public Sequence getSequenceByFullName(String fullName) {
+    // TODO: Add support for Sequence in the Java implementation.
     return null;
   }
 
@@ -725,8 +819,16 @@ public class SimpleCatalog extends Catalog {
       catalog.addSimpleCatalog(SimpleCatalog.deserialize(catalogProto, pools));
     }
 
+    for (SimpleConnectionProto connectionProto : proto.getConnectionList()) {
+      catalog.addConnection(SimpleConnection.deserialize(connectionProto));
+    }
+
     for (SimpleConstantProto constantProto : proto.getConstantList()) {
       catalog.addConstant(Constant.deserialize(constantProto, pools, catalog.getTypeFactory()));
+    }
+
+    for (SimpleModelProto modelProto : proto.getModelList()) {
+      catalog.addModel(SimpleModel.deserialize(modelProto, pools, catalog.getTypeFactory()));
     }
 
     for (TableValuedFunctionProto tvfProto : proto.getCustomTvfList()) {

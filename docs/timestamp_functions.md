@@ -13,8 +13,8 @@ To learn more, see
 [How time zones work with timestamp functions][timestamp-link-to-timezone-definitions].
 
 NOTE: These functions return a runtime error if overflow occurs; result
-values are bounded by the defined [date][data-types-link-to-date_type]
-and [timestamp][data-types-link-to-timestamp_type] min/max values.
+values are bounded by the defined [`DATE` range][data-types-link-to-date_type]
+and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 ### `CURRENT_TIMESTAMP`
 
@@ -22,14 +22,22 @@ and [timestamp][data-types-link-to-timestamp_type] min/max values.
 CURRENT_TIMESTAMP()
 ```
 
+```sql
+CURRENT_TIMESTAMP
+```
+
 **Description**
 
-`CURRENT_TIMESTAMP()` produces a TIMESTAMP value that is continuous,
-non-ambiguous, has exactly 60 seconds per minute and does not repeat values over
-the leap second. Parentheses are optional.
+Returns the current date and time as a timestamp object. The timestamp is
+continuous, non-ambiguous, has exactly 60 seconds per minute and does not repeat
+values over the leap second. Parentheses are optional.
 
 This function handles leap seconds by smearing them across a window of 20 hours
 around the inserted leap second.
+
+The current date and time is recorded at the start of the query
+statement which contains this function, not when this specific function is
+evaluated.
 
 **Supported Input Types**
 
@@ -55,7 +63,7 @@ When a column named `current_timestamp` is present, the column name and the
 function call without parentheses are ambiguous. To ensure the function call,
 add parentheses; to ensure the column name, qualify it with its
 [range variable][timestamp-functions-link-to-range-variables]. For example, the
-following query will select the function in the `now` column and the table
+following query selects the function in the `now` column and the table
 column in the `current_timestamp` column.
 
 ```sql
@@ -123,11 +131,9 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 
 **Return Data Type**
 
-`INT64`, except when:
+`INT64`, except in the following cases:
 
-+ `part` is `DATE`, returns a `DATE` object.
-+ `part` is `DATETIME`, returns a `DATETIME` object.
-+ `part` is `TIME`, returns a `TIME` object.
++ If `part` is `DATE`, the function returns a `DATE` object.
 
 **Examples**
 
@@ -149,7 +155,7 @@ FROM Input
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
-time parts from a column of timestamps.
+time parts from a column of type `TIMESTAMP`.
 
 ```sql
 WITH Timestamps AS (
@@ -218,7 +224,7 @@ FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
 
 Formats a timestamp according to the specified `format_string`.
 
-See [Supported Format Elements For TIMESTAMP][timestamp-format-elements]
+See [Format elements for date and time parts][timestamp-format-elements]
 for a list of format elements that this function supports.
 
 **Return Data Type**
@@ -281,10 +287,10 @@ each element in `timestamp_string`.
 -- This works because elements on both sides match.
 SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
 
--- This doesn't work because the year element is in different locations.
+-- This produces an error because the year element is in different locations.
 SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
--- This doesn't work because one of the year elements is missing.
+-- This produces an error because one of the year elements is missing.
 SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
 -- This works because %c can find all matching elements in timestamp_string.
@@ -339,7 +345,7 @@ STRING(timestamp_expression[, time_zone])
 
 **Description**
 
-Converts a `timestamp_expression` to a STRING data type. Supports an optional
+Converts a timestamp to a string. Supports an optional
 parameter to specify a time zone. See
 [Time zone definitions][timestamp-link-to-timezone-definitions] for information
 on how to specify a time zone.
@@ -372,17 +378,17 @@ TIMESTAMP(datetime_expression[, time_zone])
 
 **Description**
 
-+  `string_expression[, time_zone]`: Converts a STRING expression to a TIMESTAMP
-   data type. `string_expression` must include a
++  `string_expression[, time_zone]`: Converts a string to a
+   timestamp. `string_expression` must include a
    timestamp literal.
-   If `string_expression` includes a time_zone in the timestamp literal, do not
-   include an explicit `time_zone`
+   If `string_expression` includes a time zone in the timestamp literal, do
+   not include an explicit `time_zone`
    argument.
-+  `date_expression[, time_zone]`: Converts a DATE object to a TIMESTAMP
-   data type. The value returned is the earliest timestamp that falls within the
-   given date.
++  `date_expression[, time_zone]`: Converts a date to a timestamp.
+   The value returned is the earliest timestamp that falls within
+   the given date.
 +  `datetime_expression[, time_zone]`: Converts a
-   DATETIME object to a TIMESTAMP data type.
+   datetime to a timestamp.
 
 This function supports an optional
 parameter to [specify a time zone][timestamp-link-to-timezone-definitions]. If
@@ -473,8 +479,8 @@ any time zone.
 + `MILLISECOND`
 + `SECOND`
 + `MINUTE`
-+ `HOUR`. Equivalent to 60 `MINUTE`s.
-+ `DAY`. Equivalent to 24 `HOUR`s.
++ `HOUR`. Equivalent to 60 `MINUTE` parts.
++ `DAY`. Equivalent to 24 `HOUR` parts.
 
 **Return Data Types**
 
@@ -504,12 +510,12 @@ TIMESTAMP_DIFF(timestamp_expression_a, timestamp_expression_b, date_part)
 **Description**
 
 Returns the whole number of specified `date_part` intervals between two
-`TIMESTAMP` objects (`timestamp_expression_a` - `timestamp_expression_b`).
-If the first `TIMESTAMP` is earlier than the second one,
-the output is negative. Throws an error if the computation overflows the
+timestamps (`timestamp_expression_a` - `timestamp_expression_b`).
+If the first timestamp is earlier than the second one,
+the output is negative. Produces an error if the computation overflows the
 result type, such as if the difference in
 nanoseconds
-between the two `TIMESTAMP` objects would overflow an
+between the two timestamps would overflow an
 `INT64` value.
 
 `TIMESTAMP_DIFF` supports the following values for `date_part`:
@@ -543,8 +549,8 @@ SELECT
  *---------------------------------------------+---------------------------------------------+-------*/
 ```
 
-In the following example, the first timestamp occurs before the second
-timestamp, resulting in a negative output.
+In the following example, the first timestamp occurs before the
+second timestamp, resulting in a negative output.
 
 ```sql
 SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS negative_diff;
@@ -771,8 +777,8 @@ independent of any time zone.
 + `MILLISECOND`
 + `SECOND`
 + `MINUTE`
-+ `HOUR`. Equivalent to 60 `MINUTE`s.
-+ `DAY`. Equivalent to 24 `HOUR`s.
++ `HOUR`. Equivalent to 60 `MINUTE` parts.
++ `DAY`. Equivalent to 24 `HOUR` parts.
 
 **Return Data Type**
 
@@ -801,8 +807,8 @@ TIMESTAMP_TRUNC(timestamp_expression, date_time_part[, time_zone])
 
 **Description**
 
-Truncates a `TIMESTAMP` value to the granularity of `date_time_part`.
-The `TIMESTAMP` value is always rounded to the beginning of `date_time_part`,
+Truncates a timestamp to the granularity of `date_time_part`.
+The timestamp is always rounded to the beginning of `date_time_part`,
 which can be one of the following:
 
 + `NANOSECOND`: If used, nothing is truncated from the value.
@@ -861,13 +867,13 @@ Use this parameter if you want to use a time zone other than the
 default time zone, which is implementation defined, as part of the
 truncate operation.
 
-When truncating a `TIMESTAMP` to `MINUTE`
-or`HOUR`, `TIMESTAMP_TRUNC` determines the civil time of the
-`TIMESTAMP` in the specified (or default) time zone
-and subtracts the minutes and seconds (when truncating to HOUR) or the seconds
-(when truncating to MINUTE) from that `TIMESTAMP`.
+When truncating a timestamp to `MINUTE`
+or`HOUR` parts, `TIMESTAMP_TRUNC` determines the civil time of the
+timestamp in the specified (or default) time zone
+and subtracts the minutes and seconds (when truncating to `HOUR`) or the seconds
+(when truncating to `MINUTE`) from that timestamp.
 While this provides intuitive results in most cases, the result is
-non-intuitive near daylight savings transitions that are not hour aligned.
+non-intuitive near daylight savings transitions that are not hour-aligned.
 
 **Return Data Type**
 
@@ -894,7 +900,7 @@ column shows the output of `TIMESTAMP_TRUNC` using weeks that start on Monday.
 Because the `timestamp_expression` falls on a Sunday in UTC, `TIMESTAMP_TRUNC`
 truncates it to the preceding Monday. The third column shows the same function
 with the optional [Time zone definition][timestamp-link-to-timezone-definitions]
-argument 'Pacific/Auckland'. Here the function truncates the
+argument 'Pacific/Auckland'. Here, the function truncates the
 `timestamp_expression` using New Zealand Daylight Time, where it falls on a
 Monday.
 
@@ -1051,15 +1057,17 @@ SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
 ### How time zones work with timestamp functions 
 <a id="timezone_definitions"></a>
 
-A timestamp represents an absolute point in time, independent of any time zone.
-However, when a timestamp value is displayed, it is usually converted to a
-human-readable format consisting of a civil date and time (YYYY-MM-DD HH:MM:SS)
-and a time zone. Note that _this is not the internal representation of the
-timestamp_; it is only a human-understandable way to describe the point in time
+A timestamp represents an absolute point in time, independent of any time
+zone. However, when a timestamp value is displayed, it is usually converted to
+a human-readable format consisting of a civil date and time
+(YYYY-MM-DD HH:MM:SS)
+and a time zone. This is not the internal representation of the
+`TIMESTAMP`; it is only a human-understandable way to describe the point in time
 that the timestamp represents.
 
 Some timestamp functions have a time zone argument. A time zone is needed to
-convert between civil time (YYYY-MM-DD HH:MM:SS) and absolute time (timestamps).
+convert between civil time (YYYY-MM-DD HH:MM:SS) and the absolute time
+represented by a timestamp.
 A function like `PARSE_TIMESTAMP` takes an input string that represents a
 civil time and returns a timestamp that represents an absolute time. A
 time zone is needed for this conversion. A function like `EXTRACT` takes an
@@ -1070,10 +1078,10 @@ is used.
 
 Certain date and timestamp functions allow you to override the default time zone
 and specify a different one. You can specify a time zone by either supplying
-the [time zone name][timezone-by-name] (for example, `America/Los_Angeles`)
+the time zone name (for example, `America/Los_Angeles`)
 or time zone offset from UTC (for example, -08).
 
-To learn more about how time zones work with timestamps, see
+To learn more about how time zones work with the `TIMESTAMP` type, see
 [Time zones][data-types-timezones].
 
 [timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones

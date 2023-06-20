@@ -50,7 +50,7 @@ ARRAY<STRUCT<
 select key, value.(zetasql_test__.KitchenSinkExtension.int_extension)
 from Extensions order by 1
 --
-ARRAY<STRUCT<key INT64, INT64>>[{1, 0}, {2, NULL}, {4, 506}]
+ARRAY<STRUCT<key INT64, INT64>>[known order:{1, 0}, {2, NULL}, {4, 506}]
 ==
 
 [name=select_optional_extension]
@@ -64,7 +64,7 @@ ARRAY<STRUCT<
         PROTO<zetasql_test__.KitchenSinkExtension>,
         value STRING
       >>
-[
+[known order:
   {1, NULL, NULL},
   {2, NULL, NULL},
   {4, {value: "504"}, "504"}
@@ -76,7 +76,7 @@ select key,
        value.(zetasql_test__.KitchenSinkExtension.repeated_extension)
 from Extensions order by 1
 --
-ARRAY<STRUCT<key INT64, ARRAY<>>>[
+ARRAY<STRUCT<key INT64, ARRAY<>>>[known order:
   {
     1,
     ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>[]
@@ -86,7 +86,7 @@ ARRAY<STRUCT<key INT64, ARRAY<>>>[
     ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>(NULL)
   },
   {4,
-   ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>[
+   ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>[known order:
      {value: "507"},
      {value: "508"}
    ]}
@@ -104,7 +104,7 @@ ARRAY<STRUCT<
         u PROTO<zetasql_test__.KitchenSinkExtension>,
         value STRING
       >>
-[
+[unknown order:
   {4, {value: "508"}, "508"},
   {4, {value: "507"}, "507"}
 ]

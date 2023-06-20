@@ -488,13 +488,13 @@ FROM Employees;
 ### `ENDS_WITH`
 
 ```sql
-ENDS_WITH(value1, value2)
+ENDS_WITH(value, suffix)
 ```
 
 **Description**
 
-Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second
-value is a suffix of the first.
+Takes two `STRING` or `BYTES` values. Returns `TRUE` if `suffix`
+is a suffix of `value`.
 
 This function supports specifying [collation][collation].
 
@@ -1169,6 +1169,11 @@ The `STRING` is formatted as follows:
       e.g. b"abc\x01\x02"
     </td>
   </tr>
+  <tr>
+    <td>BOOL</td>
+    <td>boolean value</td>
+    <td>boolean value</td>
+  </tr>
 
   <tr>
     <td>ENUM</td>
@@ -1509,23 +1514,23 @@ SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM examp
 ### `INSTR`
 
 ```sql
-INSTR(source_value, search_value[, position[, occurrence]])
+INSTR(value, subvalue[, position[, occurrence]])
 ```
 
 **Description**
 
-Returns the lowest 1-based position of `search_value` in `source_value`.
-`source_value` and `search_value` must be the same type, either
+Returns the lowest 1-based position of `subvalue` in `value`.
+`value` and `subvalue` must be the same type, either
 `STRING` or `BYTES`.
 
 If `position` is specified, the search starts at this position in
-`source_value`, otherwise it starts at `1`, which is the beginning of
-`source_value`. If `position` is negative, the function searches backwards
-from the end of `source_value`, with `-1` indicating the last character.
+`value`, otherwise it starts at `1`, which is the beginning of
+`value`. If `position` is negative, the function searches backwards
+from the end of `value`, with `-1` indicating the last character.
 `position` is of type `INT64` and cannot be `0`.
 
 If `occurrence` is specified, the search returns the position of a specific
-instance of `search_value` in `source_value`. If not specified, `occurrence`
+instance of `subvalue` in `value`. If not specified, `occurrence`
 defaults to `1` and returns the position of the first occurrence.
 For `occurrence` > `1`, the function includes overlapping occurrences.
 `occurrence` is of type `INT64` and must be positive.
@@ -1538,7 +1543,7 @@ Returns `0` if:
 
 + No match is found.
 + If `occurrence` is greater than the number of matches found.
-+ If `position` is greater than the length of `source_value`.
++ If `position` is greater than the length of `value`.
 
 Returns `NULL` if:
 
@@ -1557,31 +1562,31 @@ Returns an error if:
 
 ```sql
 WITH example AS
-(SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 1 as
+(SELECT 'banana' as value, 'an' as subvalue, 1 as position, 1 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 2 as
+SELECT 'banana' as value, 'an' as subvalue, 1 as position, 2 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 3 as
+SELECT 'banana' as value, 'an' as subvalue, 1 as position, 3 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, 3 as position, 1 as
+SELECT 'banana' as value, 'an' as subvalue, 3 as position, 1 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, -1 as position, 1 as
+SELECT 'banana' as value, 'an' as subvalue, -1 as position, 1 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'an' as search_value, -3 as position, 1 as
+SELECT 'banana' as value, 'an' as subvalue, -3 as position, 1 as
 occurrence UNION ALL
-SELECT 'banana' as source_value, 'ann' as search_value, 1 as position, 1 as
+SELECT 'banana' as value, 'ann' as subvalue, 1 as position, 1 as
 occurrence UNION ALL
-SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 1 as
+SELECT 'helloooo' as value, 'oo' as subvalue, 1 as position, 1 as
 occurrence UNION ALL
-SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 2 as
+SELECT 'helloooo' as value, 'oo' as subvalue, 1 as position, 2 as
 occurrence
 )
-SELECT source_value, search_value, position, occurrence, INSTR(source_value,
-search_value, position, occurrence) AS instr
+SELECT value, subvalue, position, occurrence, INSTR(value,
+subvalue, position, occurrence) AS instr
 FROM example;
 
 /*--------------+--------------+----------+------------+-------*
- | source_value | search_value | position | occurrence | instr |
+ | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 1          | 2     |
  | banana       | an           | 1        | 2          | 4     |
@@ -2366,69 +2371,69 @@ Returns an error if:
 
 ```sql
 WITH example AS (
-  SELECT 'ab@gmail.com' AS source_value, '@[^.]*' AS regexp UNION ALL
-  SELECT 'ab@mail.com', '@[^.]*' UNION ALL
-  SELECT 'abc@gmail.com', '@[^.]*' UNION ALL
-  SELECT 'abc.com', '@[^.]*')
+  SELECT 'ab@cd-ef' AS source_value, '@[^-]*' AS regexp UNION ALL
+  SELECT 'ab@d-ef', '@[^-]*' UNION ALL
+  SELECT 'abc@cd-ef', '@[^-]*' UNION ALL
+  SELECT 'abc-ef', '@[^-]*')
 SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) AS instr
 FROM example;
 
-/*---------------+--------+-------*
- | source_value  | regexp | instr |
- +---------------+--------+-------+
- | ab@gmail.com  | @[^.]* | 3     |
- | ab@mail.com   | @[^.]* | 3     |
- | abc@gmail.com | @[^.]* | 4     |
- | abc.com       | @[^.]* | 0     |
- *---------------+--------+-------*/
+/*--------------+--------+-------*
+ | source_value | regexp | instr |
+ +--------------+--------+-------+
+ | ab@cd-ef     | @[^-]* | 3     |
+ | ab@d-ef      | @[^-]* | 3     |
+ | abc@cd-ef    | @[^-]* | 4     |
+ | abc-ef       | @[^-]* | 0     |
+ *--------------+--------+-------*/
 ```
 
 ```sql
 WITH example AS (
-  SELECT 'a@gmail.com b@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position UNION ALL
-  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 2 UNION ALL
-  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 3 UNION ALL
-  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 4)
+  SELECT 'a@cd-ef b@cd-ef' AS source_value, '@[^-]*' AS regexp, 1 AS position UNION ALL
+  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 2 UNION ALL
+  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 3 UNION ALL
+  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 4)
 SELECT
   source_value, regexp, position,
   REGEXP_INSTR(source_value, regexp, position) AS instr
 FROM example;
 
-/*-------------------------+--------+----------+-------*
- | source_value            | regexp | position | instr |
- +-------------------------+--------+----------+-------+
- | a@gmail.com b@gmail.com | @[^.]* | 1        | 2     |
- | a@gmail.com b@gmail.com | @[^.]* | 2        | 2     |
- | a@gmail.com b@gmail.com | @[^.]* | 3        | 14    |
- | a@gmail.com b@gmail.com | @[^.]* | 4        | 14    |
- *-------------------------+--------+----------+-------*/
+/*-----------------+--------+----------+-------*
+ | source_value    | regexp | position | instr |
+ +-----------------+--------+----------+-------+
+ | a@cd-ef b@cd-ef | @[^-]* | 1        | 2     |
+ | a@cd-ef b@cd-ef | @[^-]* | 2        | 2     |
+ | a@cd-ef b@cd-ef | @[^-]* | 3        | 10    |
+ | a@cd-ef b@cd-ef | @[^-]* | 4        | 10    |
+ *-----------------+--------+----------+-------*/
 ```
 
 ```sql
 WITH example AS (
-  SELECT 'a@gmail.com b@gmail.com c@gmail.com' AS source_value,
-         '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
-  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 2 UNION ALL
-  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 3)
+  SELECT 'a@cd-ef b@cd-ef c@cd-ef' AS source_value,
+         '@[^-]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
+  SELECT 'a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 2 UNION ALL
+  SELECT 'a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 3)
 SELECT
   source_value, regexp, position, occurrence,
   REGEXP_INSTR(source_value, regexp, position, occurrence) AS instr
 FROM example;
 
-/*-------------------------------------+--------+----------+------------+-------*
- | source_value                        | regexp | position | occurrence | instr |
- +-------------------------------------+--------+----------+------------+-------+
- | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 1          | 2     |
- | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 2          | 14    |
- | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 3          | 26    |
- *-------------------------------------+--------+----------+------------+-------*/
+/*-------------------------+--------+----------+------------+-------*
+ | source_value            | regexp | position | occurrence | instr |
+ +-------------------------+--------+----------+------------+-------+
+ | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 1          | 2     |
+ | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 2          | 10    |
+ | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 3          | 18    |
+ *-------------------------+--------+----------+------------+-------*/
 ```
 
 ```sql
 WITH example AS (
-  SELECT 'a@gmail.com' AS source_value, '@[^.]*' AS regexp,
+  SELECT 'a@cd-ef' AS source_value, '@[^-]*' AS regexp,
          1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
-  SELECT 'a@gmail.com', '@[^.]*', 1, 1, 1)
+  SELECT 'a@cd-ef', '@[^-]*', 1, 1, 1)
 SELECT
   source_value, regexp, position, occurrence, o_position,
   REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) AS instr
@@ -2437,8 +2442,8 @@ FROM example;
 /*--------------+--------+----------+------------+------------+-------*
  | source_value | regexp | position | occurrence | o_position | instr |
  +--------------+--------+----------+------------+------------+-------+
- | a@gmail.com  | @[^.]* | 1        | 1          | 0          | 2     |
- | a@gmail.com  | @[^.]* | 1        | 1          | 1          | 8     |
+ | a@cd-ef      | @[^-]* | 1        | 1          | 0          | 2     |
+ | a@cd-ef      | @[^-]* | 1        | 1          | 1          | 5     |
  *--------------+--------+----------+------------+------------+-------*/
 ```
 
@@ -3037,13 +3042,13 @@ FROM letters;
 ### `STARTS_WITH`
 
 ```sql
-STARTS_WITH(value1, value2)
+STARTS_WITH(value, prefix)
 ```
 
 **Description**
 
-Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second value is a
-prefix of the first.
+Takes two `STRING` or `BYTES` values. Returns `TRUE` if `prefix` is a
+prefix of `value`.
 
 This function supports specifying [collation][collation].
 
@@ -3079,13 +3084,13 @@ FROM items;
 ### `STRPOS`
 
 ```sql
-STRPOS(value1, value2)
+STRPOS(value, subvalue)
 ```
 
 **Description**
 
 Takes two `STRING` or `BYTES` values. Returns the 1-based position of the first
-occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
+occurrence of `subvalue` inside `value`. Returns `0` if `subvalue` is not found.
 
 This function supports specifying [collation][collation].
 

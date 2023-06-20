@@ -597,3 +597,12 @@ CreateExternalTableStmt
   +-WithPartitionColumns
     +-column_definition_list=
       +-ColumnDefinition(name="y", type=INT64, column=t.y#2)
+==
+
+[disallow_duplicate_options]
+create external table a.b.c.T
+options (x = 5, x = abc)
+--
+ERROR: Duplicate option specified for 'x' [at 2:17]
+options (x = 5, x = abc)
+                ^

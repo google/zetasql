@@ -16,33 +16,39 @@
 
 #include "zetasql/compliance/compliance_label_extractor.h"
 
-#include <map>
 #include <memory>
-#include <set>
 #include <string>
+#include <tuple>
 #include <utility>
-#include <vector>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/common/function_utils.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
-using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+using NameToFunctionMap =
+    absl::flat_hash_map<std::string, std::unique_ptr<Function>>;
 using PrefixSet =
     absl::btree_set<std::string, zetasql_base::CaseLess>;
 using CaseInsensitiveMap =
@@ -64,11 +70,12 @@ using UnderscoreAndDotPrefixSets = std::pair<PrefixSet, PrefixSet>;
 static UnderscoreAndDotPrefixSets*
 GetFunctionPrefixSetsFromZetaSQLFunctions() {
   TypeFactory type_factory;
-  LanguageOptions options;
-  options.EnableMaximumLanguageFeatures();
-  options.set_product_mode(PRODUCT_INTERNAL);
   NameToFunctionMap functions;
-  GetZetaSQLFunctions(&type_factory, options, &functions);
+  absl::flat_hash_map<std::string, const Type*> types_ignored;
+  absl::Status status = GetBuiltinFunctionsAndTypes(
+      BuiltinFunctionOptions::AllReleasedFunctions(), type_factory, functions,
+      types_ignored);
+  ZETASQL_DCHECK_OK(status);
 
   CaseInsensitiveMap underscore_prefix_cnt;
   UnderscoreAndDotPrefixSets* prefix_sets = new UnderscoreAndDotPrefixSets;
@@ -218,6 +225,16 @@ class ComplianceLabelSets {
 
   bool AddTypeKind(TypeKind type_kind) {
     return type_kinds_set_.insert(type_kind).second;
+  }
+
+  bool AddSetOperationModeLabel(
+      ResolvedSetOperationScanEnums::SetOperationType op_type,
+      ResolvedSetOperationScanEnums::SetOperationColumnMatchMode match_mode,
+      ResolvedSetOperationScanEnums::SetOperationColumnPropagationMode
+          propagation_mode) {
+    return set_operation_modes_
+        .insert(std::make_tuple(op_type, match_mode, propagation_mode))
+        .second;
   }
 
   bool AddFunctionSignatureLabel(
@@ -464,6 +481,20 @@ class ComplianceLabelSets {
         }
       }
     }
+
+    // Generate labels for set operations in the following format:
+    // "SetOperation:<OperationType>:<MatchMode>:<PropagationMode>"
+    for (const auto [op_type, match_mode, propagation_mode] :
+         set_operation_modes_) {
+      output.insert(absl::StrCat(
+          "SetOperation:",
+          ResolvedSetOperationScanEnums::SetOperationType_Name(op_type), ":",
+          ResolvedSetOperationScanEnums::SetOperationColumnMatchMode_Name(
+              match_mode),
+          ":",
+          ResolvedSetOperationScanEnums::SetOperationColumnPropagationMode_Name(
+              propagation_mode)));
+    }
   }
 
  private:
@@ -478,6 +509,11 @@ class ComplianceLabelSets {
       aggregate_function_modifiers_;
   absl::flat_hash_map<FunctionSignatureId, WindowFunctionModifierLabel>
       window_function_modifiers_;
+  absl::flat_hash_set<std::tuple<
+      ResolvedSetOperationScanEnums::SetOperationType,
+      ResolvedSetOperationScanEnums::SetOperationColumnMatchMode,
+      ResolvedSetOperationScanEnums::SetOperationColumnPropagationMode>>
+      set_operation_modes_;
 };
 
 class ComplianceLabelExtractor : public ResolvedASTVisitor {
@@ -620,6 +656,25 @@ class ComplianceLabelExtractor : public ResolvedASTVisitor {
     compliance_labels_.AddTypeKind(node->return_type()->kind());
     ZETASQL_VLOG(5) << "Inserted type kind (ResolvedCreateFunctionStmt): "
             << TypeKind_Name(node->return_type()->kind()) << ".\n";
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedSetOperationScan(
+      const ResolvedSetOperationScan* node) override {
+    compliance_labels_.AddSetOperationModeLabel(
+        node->op_type(), node->column_match_mode(),
+        node->column_propagation_mode());
+    ZETASQL_VLOG(5) << "Inserted set operation label: "
+            << ResolvedSetOperationScanEnums::SetOperationType_Name(
+                   node->op_type())
+            << ":"
+            << ResolvedSetOperationScanEnums::SetOperationColumnMatchMode_Name(
+                   node->column_match_mode())
+            << ":"
+            << ResolvedSetOperationScanEnums::
+                   SetOperationColumnPropagationMode_Name(
+                       node->column_propagation_mode())
+            << ".\n";
     return DefaultVisit(node);
   }
 

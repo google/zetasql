@@ -22,8 +22,8 @@
 #include <cstdint>
 #include <iterator>
 #include <limits>
-#include <memory>
 #include <numeric>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -45,9 +45,9 @@
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "gtest/gtest.h"
 #include "absl/container/btree_map.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace {
@@ -1966,6 +1966,352 @@ static const std::vector<QueryParamsWithResult> GetArraySliceTestCases(
         QueryParamsWithResult({input123, Value::Int64(-5), Value::Int64(5)},
                               input123)
             .WrapWithFeatureSet(feature_set));
+
+    // 8 Extreme values for start and end
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input123, Value::Int64(int64max), Value::Int64(int64max)},
+            values::EmptyArray(array_type))
+            .AddRequiredFeatures(feature_set));
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input123, Value::Int64(int64min), Value::Int64(int64min)},
+            values::EmptyArray(array_type))
+            .AddRequiredFeatures(feature_set));
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input123, Value::Int64(int64max), Value::Int64(int64min)},
+            values::EmptyArray(array_type))
+            .AddRequiredFeatures(feature_set));
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input123, Value::Int64(int64min), Value::Int64(int64max)},
+            input123)
+            .AddRequiredFeatures(feature_set));
+  }
+  return test_cases;
+}
+
+// Generates test cases from the design spec for the ARRAY_FIRST_N,
+// ARRAY_LAST_N, ARRAY_REMOVE_FIRST_N, ARRAY_REMOVE_LAST_N family of functions.
+// These tests are not intended to provide significant coverage, but should be
+// straightforward and readable to verify the most basic functionality.
+// See: (broken link)
+enum ArrayPrefixSuffixFunctionName {
+  kArrayFirstN,
+  kArrayLastN,
+  kArrayRemoveFirstN,
+  kArrayRemoveLastN
+};
+static std::vector<QueryParamsWithResult> GetArrayFirstNLastNDesignDocTests(
+    bool is_safe, ArrayPrefixSuffixFunctionName kind) {
+  const absl::StatusCode kErrorCode =
+      is_safe ? absl::StatusCode::kOk : absl::StatusCode::kOutOfRange;
+
+  Value i0 = Value::Int64(0);
+  Value i1 = Value::Int64(1);
+  Value i2 = Value::Int64(2);
+  Value i3 = Value::Int64(3);
+  Value i4 = Value::Int64(4);
+  Value i5 = Value::Int64(5);
+  Value i6 = Value::Int64(6);
+  const ArrayType* type = nullptr;
+  ZETASQL_CHECK_OK(type_factory()->MakeArrayType(i0.type(), &type));
+  Value arr_12345 = *Value::MakeArray(type, {i1, i2, i3, i4, i5});
+  Value arr_12 = *Value::MakeArray(type, {i1, i2});
+  Value arr_45 = *Value::MakeArray(type, {i4, i5});
+  Value arr_123 = *Value::MakeArray(type, {i1, i2, i3});
+  Value arr_345 = *Value::MakeArray(type, {i3, i4, i5});
+  Value arr_empty = Value::EmptyArray(type);
+  Value arr_null = Value::Null(type);
+
+  std::vector<QueryParamsWithResult> test_cases;
+  // Error cases are common to all functions.
+  test_cases.push_back(QueryParamsWithResult({arr_12345, Value::Int64(-1)},
+                                             arr_null, kErrorCode));
+  test_cases.push_back(QueryParamsWithResult({arr_12345, Value::Int64(-3)},
+                                             arr_null, kErrorCode));
+  test_cases.push_back(QueryParamsWithResult({arr_12345, Value::Int64(-6)},
+                                             arr_null, kErrorCode));
+
+  // Null cases are common to all functions.
+  test_cases.push_back(QueryParamsWithResult({arr_null, i0}, arr_null));
+  test_cases.push_back(
+      QueryParamsWithResult({arr_12345, Value::NullInt64()}, arr_null));
+
+  // Cases that differ.
+  switch (kind) {
+    case kArrayFirstN:
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i0}, arr_empty));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i2}, arr_12));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i3}, arr_123));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i5}, arr_12345));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i6}, arr_12345));
+      break;
+    case kArrayLastN:
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i0}, arr_empty));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i2}, arr_45));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i3}, arr_345));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i5}, arr_12345));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i6}, arr_12345));
+      break;
+    case kArrayRemoveFirstN:
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i0}, arr_12345));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i2}, arr_345));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i3}, arr_45));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i5}, arr_empty));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i6}, arr_empty));
+      break;
+    case kArrayRemoveLastN:
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i0}, arr_12345));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i2}, arr_123));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i3}, arr_12));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i5}, arr_empty));
+      test_cases.push_back(QueryParamsWithResult({arr_12345, i6}, arr_empty));
+      break;
+  }
+
+  if (is_safe) {
+    for (auto& test_case : test_cases) {
+      test_case.AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+    }
+  }
+  return test_cases;
+}
+
+// For more complete coverage of ARRAY_FIRST_N, ARRAY_LAST_N,
+// ARRAY_REMOVE_FIRST_N, ARRAY_REMOVE_LAST_N, we pull from the extensive set
+// of ARRAY_SLICE tests and re-apply relevant ones that slice off a prefix or
+// a suffix.
+struct PrefixOrSuffixTestCase {
+  QueryParamsWithResult array_slice_test;
+  // This is the length of the prefix or suffix to be returned, or nullopt if
+  // the relevant parameter from the array slice test was SQL NULL.
+  std::optional<int64_t> length = std::nullopt;
+
+  const Value& input_arr() const { return array_slice_test.param(0); }
+  const Value& result() const { return array_slice_test.result(); }
+  void CopyFeaturesTo(QueryParamsWithResult& new_test) const {
+    new_test.AddRequiredFeatures(array_slice_test.required_features());
+    new_test.AddProhibitedFeatures(array_slice_test.prohibited_features());
+  }
+};
+std::vector<PrefixOrSuffixTestCase> GetPrefixCasesFromArraySlice(bool is_safe) {
+  std::vector<PrefixOrSuffixTestCase> test_cases;
+  for (const auto& slice_test : GetArraySliceTestCases(is_safe)) {
+    const Value& input_array = slice_test.param(0);
+    const Value& slice_start_offset = slice_test.param(1);
+    const Value& slice_end_offset = slice_test.param(2);
+    if (slice_start_offset.is_null()) {
+      continue;  // Skip when we cannot determine if it is a prefix.
+    }
+    bool is_prefix_by_start_zero = slice_start_offset.int64_value() == 0;
+    bool is_prefix_by_start_neg_len =
+        !input_array.is_null() &&
+        slice_start_offset.int64_value() == -input_array.num_elements();
+    bool is_prefix = is_prefix_by_start_zero || is_prefix_by_start_neg_len;
+    if (!is_prefix) {
+      continue;  // Skip test cases that are not prefixes.
+    }
+    if (slice_end_offset.is_null()) {
+      // This is a useful test case with a null length argument.
+      test_cases.push_back({.array_slice_test = slice_test});
+      continue;
+    }
+    int64_t end_offset = slice_end_offset.int64_value();
+    if (end_offset < 0) {
+      // The ARRAY_SLICE function allows negative offsets to mean the offset
+      // from the end of the array. For prefix cases, we need the offset from
+      // the front, which means we need to adjust by the array length.
+      if (input_array.is_null()) {
+        continue;  // Skip test that can't be translated into offset from front.
+      }
+      end_offset += input_array.num_elements();
+    }
+    // Because ARRAY_SLICE uses an inclusive range, add one.
+    int64_t length = end_offset + 1;
+    test_cases.push_back({.array_slice_test = slice_test, .length = length});
+  }
+  return test_cases;
+}
+std::vector<PrefixOrSuffixTestCase> GetSuffixCasesFromArraySlice(bool is_safe) {
+  std::vector<PrefixOrSuffixTestCase> test_cases;
+  for (const auto& slice_test : GetArraySliceTestCases(is_safe)) {
+    const Value& input_array = slice_test.param(0);
+    const Value& slice_start_offset = slice_test.param(1);
+    const Value& slice_end_offset = slice_test.param(2);
+    if (slice_end_offset.is_null()) {
+      continue;  // Skip when we cannot determine if it is a suffix.
+    }
+    bool is_suffix_by_end_neg_one = slice_end_offset.int64_value() == -1;
+    bool is_suffix_by_end_len_minus_one =
+        !input_array.is_null() &&
+        slice_end_offset.int64_value() == (input_array.num_elements() - 1);
+    bool is_suffix = is_suffix_by_end_neg_one || is_suffix_by_end_len_minus_one;
+    if (!is_suffix) {
+      continue;  // Skip test cases that are not suffixes.
+    }
+    if (slice_start_offset.is_null()) {
+      // This is a useful test case with a null length argument.
+      test_cases.push_back({.array_slice_test = slice_test});
+      continue;
+    }
+    int64_t start_offset = slice_start_offset.int64_value();
+    if (start_offset >= 0) {
+      // The ARRAY_SLICE function allows positive offsets to mean the offset
+      // from the front of the array. For suffix cases, we need the offset from
+      // the end, which means we need to adjust by the array length.
+      if (input_array.is_null()) {
+        continue;  // Skip test that can't be translated into offset from end.
+      }
+      start_offset -= input_array.num_elements();
+    }
+    int64_t length = -start_offset;
+    test_cases.push_back({.array_slice_test = slice_test, .length = length});
+  }
+  return test_cases;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirstN(bool is_safe) {
+  std::vector<QueryParamsWithResult> test_cases =
+      GetArrayFirstNLastNDesignDocTests(is_safe, kArrayFirstN);
+
+  const absl::StatusCode kErrorCode =
+      is_safe ? absl::StatusCode::kOk : absl::StatusCode::kOutOfRange;
+
+  for (const auto& prefix_case : GetPrefixCasesFromArraySlice(is_safe)) {
+    const Type* result_type = prefix_case.result().type();
+    if (!prefix_case.length.has_value()) {
+      test_cases.push_back(
+          QueryParamsWithResult({prefix_case.input_arr(), Value::NullInt64()},
+                                Value::Null(result_type)));
+    } else {
+      Value length_arg = Value::Int64(prefix_case.length.value());
+      if (length_arg.int64_value() < 0) {
+        test_cases.push_back(
+            QueryParamsWithResult({prefix_case.input_arr(), length_arg},
+                                  Value::Null(result_type), kErrorCode));
+      } else {
+        test_cases.push_back(QueryParamsWithResult(
+            {prefix_case.input_arr(), length_arg}, prefix_case.result()));
+      }
+    }
+    prefix_case.CopyFeaturesTo(test_cases.back());
+  }
+  for (auto& test_case : test_cases) {
+    test_case.AddRequiredFeature(FEATURE_V_1_4_FIRST_AND_LAST_N);
+  }
+  return test_cases;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayLastN(bool is_safe) {
+  std::vector<QueryParamsWithResult> test_cases =
+      GetArrayFirstNLastNDesignDocTests(is_safe, kArrayLastN);
+
+  const absl::StatusCode kErrorCode =
+      is_safe ? absl::StatusCode::kOk : absl::StatusCode::kOutOfRange;
+
+  for (const auto& suffix_case : GetSuffixCasesFromArraySlice(is_safe)) {
+    const Type* result_type = suffix_case.result().type();
+    if (!suffix_case.length.has_value()) {
+      test_cases.push_back(
+          QueryParamsWithResult({suffix_case.input_arr(), Value::NullInt64()},
+                                Value::Null(result_type)));
+    } else {
+      Value length_arg = Value::Int64(suffix_case.length.value());
+      if (length_arg.int64_value() < 0) {
+        test_cases.push_back(
+            QueryParamsWithResult({suffix_case.input_arr(), length_arg},
+                                  Value::Null(result_type), kErrorCode));
+      } else {
+        test_cases.push_back(QueryParamsWithResult(
+            {suffix_case.input_arr(), length_arg}, suffix_case.result()));
+      }
+    }
+    suffix_case.CopyFeaturesTo(test_cases.back());
+  }
+  for (auto& test_case : test_cases) {
+    test_case.AddRequiredFeature(FEATURE_V_1_4_FIRST_AND_LAST_N);
+  }
+  return test_cases;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayRemoveFirstN(
+    bool is_safe) {
+  std::vector<QueryParamsWithResult> test_cases =
+      GetArrayFirstNLastNDesignDocTests(is_safe, kArrayRemoveFirstN);
+
+  const absl::StatusCode kErrorCode =
+      is_safe ? absl::StatusCode::kOk : absl::StatusCode::kOutOfRange;
+
+  for (const auto& suffix_case : GetSuffixCasesFromArraySlice(is_safe)) {
+    const Type* result_type = suffix_case.result().type();
+    if (!suffix_case.length.has_value()) {
+      test_cases.push_back(
+          QueryParamsWithResult({suffix_case.input_arr(), Value::NullInt64()},
+                                Value::Null(result_type)));
+    } else {
+      if (suffix_case.input_arr().is_null()) {
+        // We know the length of the suffix that ARRAY_SLICE requested, but we
+        // can't turn that into a length of suffix to remove without knowing
+        // the array length. Skip this test.
+        continue;
+      }
+      Value length_arg = Value::Int64(suffix_case.input_arr().num_elements() -
+                                      suffix_case.length.value());
+      if (length_arg.int64_value() < 0) {
+        test_cases.push_back(
+            QueryParamsWithResult({suffix_case.input_arr(), length_arg},
+                                  Value::Null(result_type), kErrorCode));
+      } else {
+        test_cases.push_back(QueryParamsWithResult(
+            {suffix_case.input_arr(), length_arg}, suffix_case.result()));
+      }
+    }
+    suffix_case.CopyFeaturesTo(test_cases.back());
+  }
+  for (auto& test_case : test_cases) {
+    test_case.AddRequiredFeature(FEATURE_V_1_4_FIRST_AND_LAST_N);
+  }
+  return test_cases;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayRemoveLastN(
+    bool is_safe) {
+  std::vector<QueryParamsWithResult> test_cases =
+      GetArrayFirstNLastNDesignDocTests(is_safe, kArrayRemoveLastN);
+
+  const absl::StatusCode kErrorCode =
+      is_safe ? absl::StatusCode::kOk : absl::StatusCode::kOutOfRange;
+
+  for (const auto& prefix_case : GetPrefixCasesFromArraySlice(is_safe)) {
+    const Type* result_type = prefix_case.result().type();
+    if (!prefix_case.length.has_value()) {
+      test_cases.push_back(
+          QueryParamsWithResult({prefix_case.input_arr(), Value::NullInt64()},
+                                Value::Null(result_type)));
+    } else {
+      if (prefix_case.input_arr().is_null()) {
+        // We know the length of the prefix that ARRAY_SLICE requested, but we
+        // can't turn that into a length of suffix to remove without knowing
+        // the array length. Skip this test.
+        continue;
+      }
+      Value length_arg = Value::Int64(prefix_case.input_arr().num_elements() -
+                                      prefix_case.length.value());
+      if (length_arg.int64_value() < 0) {
+        test_cases.push_back(
+            QueryParamsWithResult({prefix_case.input_arr(), length_arg},
+                                  Value::Null(result_type), kErrorCode));
+      } else {
+        test_cases.push_back(QueryParamsWithResult(
+            {prefix_case.input_arr(), length_arg}, prefix_case.result()));
+      }
+    }
+    prefix_case.CopyFeaturesTo(test_cases.back());
+  }
+  for (auto& test_case : test_cases) {
+    test_case.AddRequiredFeature(FEATURE_V_1_4_FIRST_AND_LAST_N);
   }
   return test_cases;
 }
@@ -2506,10 +2852,6 @@ static const std::vector<QueryParamsWithResult> GetArraySumTestCases(
       if (is_safe) {
         test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
       }
-      // TODO: Remove opt-in required feature
-      // FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS and use opt-out prohibited
-      // feature FEATURE_DISABLE_ARRAY_SUM_AND_AVG instead when ARRAY_SUM and
-      // ARRAY_AVG are both done.
       QueryParamsWithResult::FeatureSet feature_set;
       feature_set.insert(FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS);
       if (!v.required_features.empty()) {
@@ -2829,10 +3171,6 @@ static const std::vector<QueryParamsWithResult> GetArrayAvgTestCases(
       if (is_safe) {
         test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
       }
-      // TODO: Remove opt-in required feature
-      // FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS and use opt-out prohibited
-      // feature FEATURE_DISABLE_ARRAY_SUM_AND_AVG instead when ARRAY_SUM and
-      // ARRAY_AVG are both done.
       QueryParamsWithResult::FeatureSet feature_set;
       feature_set.insert(FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS);
       if (!v.required_features.empty()) {
@@ -3894,6 +4232,69 @@ std::vector<QueryParamsWithResult> GetFunctionTestsNullIf() {
   WrapNumericTestCases(&result);
   WrapBigNumericTestCases(&result);
   WrapRangeTestCases(&result);
+  return result;
+}
+
+struct NullIfZeroTestCase {
+  Value zero_value;
+  Value null_value;
+  Value nonzero_value;
+};
+
+// Each returned row contains 0, NULL, and a nonzero value.
+// There is one row for each zeroable type.
+static std::vector<NullIfZeroTestCase> GetRowsOfZeroableValues() {
+  std::vector<NullIfZeroTestCase> v = {{.zero_value = Int32(0),
+                                        .null_value = NullInt32(),
+                                        .nonzero_value = Int32(1)},
+                                       {.zero_value = Int64(0),
+                                        .null_value = NullInt64(),
+                                        .nonzero_value = Int64(1)},
+                                       {.zero_value = Uint32(0),
+                                        .null_value = NullUint32(),
+                                        .nonzero_value = Uint32(1)},
+                                       {.zero_value = Uint64(0),
+                                        .null_value = NullUint64(),
+                                        .nonzero_value = Uint64(1)},
+                                       {.zero_value = Float(0.0),
+                                        .null_value = NullFloat(),
+                                        .nonzero_value = Float(1.1)},
+                                       {.zero_value = Double(0.0),
+                                        .null_value = NullDouble(),
+                                        .nonzero_value = Double(1.1)},
+                                       {.zero_value = NumericFromDouble(0.0),
+                                        .null_value = NullNumeric(),
+                                        .nonzero_value = Numeric(-100)},
+                                       {.zero_value = BigNumericFromDouble(0.0),
+                                        .null_value = NullBigNumeric(),
+                                        .nonzero_value = BigNumeric(-100)}};
+  return v;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsZeroIfNull_NullIfZero(
+    bool is_zero_if_null, bool is_safe) {
+  std::vector<QueryParamsWithResult> result;
+  for (const auto& v : GetRowsOfZeroableValues()) {
+    if (is_zero_if_null) {
+      result.push_back({{v.zero_value}, v.zero_value});
+    } else {
+      result.push_back({{v.zero_value}, v.null_value});
+    }
+    if (is_zero_if_null) {
+      result.push_back({{v.null_value}, v.zero_value});
+    } else {
+      result.push_back({{v.null_value}, v.null_value});
+    }
+    result.push_back({{v.nonzero_value}, v.nonzero_value});
+  }
+  WrapNumericTestCases(&result);
+  WrapBigNumericTestCases(&result);
+  for (auto& test_case : result) {
+    if (is_safe) {
+      test_case.AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+    }
+    test_case.AddRequiredFeature(FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL);
+  }
   return result;
 }
 

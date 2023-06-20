@@ -184,21 +184,21 @@ public class FunctionArgumentTypeTest {
     FunctionArgumentType t1ArgType = new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_1);
     List<FunctionArgumentType> lambdaArgs = new ArrayList<>();
     FunctionArgumentType lambdaArg = new FunctionArgumentType(lambdaArgs, boolArgType);
-    assertThat(lambdaArg.debugString()).isEqualTo(" LAMBDA(()->BOOL)");
+    assertThat(lambdaArg.debugString()).isEqualTo(" FUNCTION<()->BOOL>");
     assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
     assertThat(lambdaArg.getType()).isNull();
     checkSerializeAndDeserialize(lambdaArg);
 
     lambdaArgs.add(t1ArgType);
     lambdaArg = new FunctionArgumentType(lambdaArgs, boolArgType);
-    assertThat(lambdaArg.debugString()).isEqualTo(" LAMBDA(<T1>->BOOL)");
+    assertThat(lambdaArg.debugString()).isEqualTo(" FUNCTION<<T1>->BOOL>");
     assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
     assertThat(lambdaArg.getType()).isNull();
     checkSerializeAndDeserialize(lambdaArg);
 
     lambdaArgs.add(int64ArgType);
     lambdaArg = new FunctionArgumentType(lambdaArgs, boolArgType);
-    assertThat(lambdaArg.debugString()).isEqualTo(" LAMBDA((<T1>, INT64)->BOOL)");
+    assertThat(lambdaArg.debugString()).isEqualTo(" FUNCTION<(<T1>, INT64)->BOOL>");
     assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
     assertThat(lambdaArg.getType()).isNull();
     checkSerializeAndDeserialize(lambdaArg);
@@ -211,7 +211,7 @@ public class FunctionArgumentTypeTest {
                 .setArgumentName("mylambda")
                 .setNamedArgumentKind(NamedArgumentKind.NAMED_ONLY)
                 .build());
-    assertThat(lambdaArg.debugString()).isEqualTo(" LAMBDA((<T1>, INT64)->BOOL) mylambda");
+    assertThat(lambdaArg.debugString()).isEqualTo(" FUNCTION<(<T1>, INT64)->BOOL> mylambda");
     assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
     assertThat(lambdaArg.getType()).isNull();
     assertThat(lambdaArg.getOptions()).isNotNull();
@@ -540,9 +540,9 @@ public class FunctionArgumentTypeTest {
                     new FunctionArgumentType(
                         SignatureArgumentKind.ARG_TYPE_LAMBDA,
                         validOptionalArgTypeOptionNull,
-                        /*numOccurrences=*/ 1)))
+                        /* numOccurrences= */ 1)))
         .hasMessageThat()
-        .contains("LAMBDA argument cannot have a default value");
+        .contains("<function<T->T>> argument cannot have a default value");
   }
 
   @Test

@@ -8,11 +8,11 @@
 SELECT ARRAY_AGG(elem) OVER()
 FROM UNNEST(ARRAY<BOOL>[true, false, null, true]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<BOOL>[false, true, true, NULL]},
-  {ARRAY<BOOL>[false, true, true, NULL]},
-  {ARRAY<BOOL>[false, true, true, NULL]},
-  {ARRAY<BOOL>[false, true, true, NULL]}
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<BOOL>[unknown order:false, true, true, NULL]},
+  {ARRAY<BOOL>[unknown order:false, true, true, NULL]},
+  {ARRAY<BOOL>[unknown order:false, true, true, NULL]},
+  {ARRAY<BOOL>[unknown order:false, true, true, NULL]}
 ]
 ==
 [name=array_agg_with_null_INT32_analytic]
@@ -30,7 +30,7 @@ SELECT
     OVER(ORDER BY elem RANGE BETWEEN 2 FOLLOWING AND 1 FOLLOWING)
 FROM UNNEST(ARRAY<INT32>[1, 0, -10, null]) elem;
 --
-ARRAY<STRUCT<elem INT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem INT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {NULL,
    ARRAY<INT32>[NULL],
    ARRAY<INT32>[NULL],
@@ -39,7 +39,7 @@ ARRAY<STRUCT<elem INT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
    ARRAY<INT32>[NULL]},
   {
     -10,
-    ARRAY<INT32>[NULL, -10],
+    ARRAY<INT32>[unknown order:NULL, -10],
     ARRAY<INT32>[-10],
     ARRAY<INT32>[-10],
     ARRAY<INT32>[0],
@@ -47,16 +47,16 @@ ARRAY<STRUCT<elem INT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
   },
   {
     0,
-    ARRAY<INT32>[NULL, -10, 0, 1],
-    ARRAY<INT32>[0, 1],
-    ARRAY<INT32>[0, 1],
+    ARRAY<INT32>[unknown order:NULL, -10, 0, 1],
+    ARRAY<INT32>[unknown order:0, 1],
+    ARRAY<INT32>[unknown order:0, 1],
     ARRAY<INT32>[1],
     ARRAY<INT32>(NULL)
   },
   {
     1,
-    ARRAY<INT32>[NULL, -10, 0, 1],
-    ARRAY<INT32>[0, 1],
+    ARRAY<INT32>[unknown order:NULL, -10, 0, 1],
+    ARRAY<INT32>[unknown order:0, 1],
     ARRAY<INT32>[1],
     ARRAY<INT32>(NULL),
     ARRAY<INT32>(NULL)
@@ -78,30 +78,30 @@ SELECT
     OVER(ORDER BY elem DESC RANGE BETWEEN 1 PRECEDING AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<UINT32>[2, null, 0, 1]) elem;
 --
-ARRAY<STRUCT<elem UINT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem UINT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     2,
     ARRAY<UINT32>(NULL),
     ARRAY<UINT32>(NULL),
     ARRAY<UINT32>[2],
-    ARRAY<UINT32>[2, 1, 0],
-    ARRAY<UINT32>[2, 1, 0, NULL]
+    ARRAY<UINT32>[unknown order:2, 1, 0],
+    ARRAY<UINT32>[unknown order:2, 1, 0, NULL]
   },
   {
     1,
     ARRAY<UINT32>(NULL),
     ARRAY<UINT32>[2],
-    ARRAY<UINT32>[2, 1],
-    ARRAY<UINT32>[2, 1, 0],
-    ARRAY<UINT32>[2, 1, 0, NULL]
+    ARRAY<UINT32>[unknown order:2, 1],
+    ARRAY<UINT32>[unknown order:2, 1, 0],
+    ARRAY<UINT32>[unknown order:2, 1, 0, NULL]
   },
   {
     0,
     ARRAY<UINT32>(NULL),
-    ARRAY<UINT32>[2, 1],
-    ARRAY<UINT32>[1, 0],
-    ARRAY<UINT32>[2, 1, 0],
-    ARRAY<UINT32>[1, 0, NULL]
+    ARRAY<UINT32>[unknown order:2, 1],
+    ARRAY<UINT32>[unknown order:1, 0],
+    ARRAY<UINT32>[unknown order:2, 1, 0],
+    ARRAY<UINT32>[unknown order:1, 0, NULL]
   },
   {NULL,
    ARRAY<UINT32>[NULL],
@@ -124,34 +124,34 @@ SELECT
     OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<INT64>[null, 8589934592, 0, -8589934592]) elem;
 --
-ARRAY<STRUCT<elem INT64, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem INT64, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     NULL,
     ARRAY<INT64>(NULL),
     ARRAY<INT64>[NULL],
-    ARRAY<INT64>[NULL, -8589934592],
-    ARRAY<INT64>[NULL, -8589934592, 0, 8589934592]
+    ARRAY<INT64>[unknown order:NULL, -8589934592],
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0, 8589934592]
   },
   {
     -8589934592,
     ARRAY<INT64>[NULL],
-    ARRAY<INT64>[NULL, -8589934592],
-    ARRAY<INT64>[NULL, -8589934592, 0],
-    ARRAY<INT64>[NULL, -8589934592, 0, 8589934592]
+    ARRAY<INT64>[unknown order:NULL, -8589934592],
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0],
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0, 8589934592]
   },
   {
     0,
-    ARRAY<INT64>[NULL, -8589934592],
-    ARRAY<INT64>[NULL, -8589934592, 0],
-    ARRAY<INT64>[NULL, -8589934592, 0, 8589934592],
-    ARRAY<INT64>[NULL, -8589934592, 0, 8589934592]
+    ARRAY<INT64>[unknown order:NULL, -8589934592],
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0],
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0, 8589934592],
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0, 8589934592]
   },
   {
     8589934592,
-    ARRAY<INT64>[NULL, -8589934592, 0],
-    ARRAY<INT64>[NULL, -8589934592, 0, 8589934592],
-    ARRAY<INT64>[NULL, -8589934592, 0, 8589934592],
-    ARRAY<INT64>[NULL, -8589934592, 0, 8589934592]
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0],
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0, 8589934592],
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0, 8589934592],
+    ARRAY<INT64>[unknown order:NULL, -8589934592, 0, 8589934592]
   }
 ]
 ==
@@ -170,46 +170,46 @@ SELECT
     OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<UINT64>[8589934592, 1, null, null, 0]) elem;
 --
-ARRAY<STRUCT<elem UINT64, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem UINT64, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     8589934592,
     ARRAY<UINT64>(NULL),
     ARRAY<UINT64>(NULL),
     ARRAY<UINT64>[8589934592],
-    ARRAY<UINT64>[8589934592, 1],
-    ARRAY<UINT64>[8589934592, 1, 0, NULL, NULL]
+    ARRAY<UINT64>[unknown order:8589934592, 1],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0, NULL, NULL]
   },
   {
     1,
     ARRAY<UINT64>(NULL),
     ARRAY<UINT64>[8589934592],
-    ARRAY<UINT64>[8589934592, 1],
-    ARRAY<UINT64>[8589934592, 1, 0],
-    ARRAY<UINT64>[8589934592, 1, 0, NULL, NULL]
+    ARRAY<UINT64>[unknown order:8589934592, 1],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0, NULL, NULL]
   },
   {
     0,
     ARRAY<UINT64>(NULL),
-    ARRAY<UINT64>[8589934592, 1],
-    ARRAY<UINT64>[8589934592, 1, 0],
-    ARRAY<UINT64>[8589934592, 1, 0, NULL],
-    ARRAY<UINT64>[8589934592, 1, 0, NULL, NULL]
+    ARRAY<UINT64>[unknown order:8589934592, 1],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0, NULL],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0, NULL, NULL]
   },
   {
     NULL,
     ARRAY<UINT64>(NULL),
-    ARRAY<UINT64>[1, 0],
-    ARRAY<UINT64>[1, 0, NULL],
-    ARRAY<UINT64>[1, 0, NULL, NULL],
-    ARRAY<UINT64>[1, 0, NULL, NULL]
+    ARRAY<UINT64>[unknown order:1, 0],
+    ARRAY<UINT64>[unknown order:1, 0, NULL],
+    ARRAY<UINT64>[unknown order:1, 0, NULL, NULL],
+    ARRAY<UINT64>[unknown order:1, 0, NULL, NULL]
   },
   {
     NULL,
     ARRAY<UINT64>(NULL),
-    ARRAY<UINT64>[0, NULL],
-    ARRAY<UINT64>[0, NULL, NULL],
-    ARRAY<UINT64>[0, NULL, NULL],
-    ARRAY<UINT64>[0, NULL, NULL]
+    ARRAY<UINT64>[unknown order:0, NULL],
+    ARRAY<UINT64>[unknown order:0, NULL, NULL],
+    ARRAY<UINT64>[unknown order:0, NULL, NULL],
+    ARRAY<UINT64>[unknown order:0, NULL, NULL]
   }
 ]
 
@@ -226,20 +226,25 @@ SELECT
     OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<FLOAT>[1.1, 0.0, -1.1, null]) elem;
 --
-ARRAY<STRUCT<elem FLOAT, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem FLOAT, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     NULL,
     ARRAY<FLOAT>[NULL],
-    ARRAY<FLOAT>[NULL, -1.1],
-    ARRAY<FLOAT>[NULL, -1.1, 0, 1.1]
+    ARRAY<FLOAT>[unknown order:NULL, -1.1],
+    ARRAY<FLOAT>[unknown order:NULL, -1.1, 0, 1.1]
   },
   {
     -1.1,
     ARRAY<FLOAT>[-1.1],
-    ARRAY<FLOAT>[-1.1, 0],
-    ARRAY<FLOAT>[-1.1, 0, 1.1]
+    ARRAY<FLOAT>[unknown order:-1.1, 0],
+    ARRAY<FLOAT>[unknown order:-1.1, 0, 1.1]
   },
-  {0, ARRAY<FLOAT>[0], ARRAY<FLOAT>[0, 1.1], ARRAY<FLOAT>[0, 1.1]},
+  {
+    0,
+    ARRAY<FLOAT>[0],
+    ARRAY<FLOAT>[unknown order:0, 1.1],
+    ARRAY<FLOAT>[unknown order:0, 1.1]
+  },
   {1.1, ARRAY<FLOAT>[1.1], ARRAY<FLOAT>[1.1], ARRAY<FLOAT>[1.1]}
 ]
 ==
@@ -256,12 +261,12 @@ SELECT
     OVER(ORDER BY elem DESC ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<DOUBLE>[1.1, 0.0, -1.1]) elem;
 --
-ARRAY<STRUCT<elem DOUBLE, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem DOUBLE, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     1.1,
     ARRAY<DOUBLE>(NULL),
     ARRAY<DOUBLE>[-1.1],
-    ARRAY<DOUBLE>[0, -1.1],
+    ARRAY<DOUBLE>[unknown order:0, -1.1],
     ARRAY<DOUBLE>[-1.1]
   },
   {0,
@@ -281,9 +286,9 @@ SELECT ARRAY_AGG(elem)
   OVER(PARTITION BY LENGTH(elem) ORDER BY elem)
 FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝']) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
   {ARRAY<STRING>["aσ"]},
-  {ARRAY<STRING>["aσ", "d⨝"]},
+  {ARRAY<STRING>[unknown order:"aσ", "d⨝"]},
   {ARRAY<STRING>["bcπ"]}
 ]
 ==
@@ -292,9 +297,9 @@ SELECT ARRAY_AGG(elem)
   OVER(PARTITION BY LENGTH(elem) ORDER BY elem DESC)
 FROM UNNEST(ARRAY<BYTES>[b"a", b"bc", b"A"]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
   {ARRAY<BYTES>[b"a"]},
-  {ARRAY<BYTES>[b"a", b"A"]},
+  {ARRAY<BYTES>[unknown order:b"a", b"A"]},
   {ARRAY<BYTES>[b"bc"]}
 ]
 ==
@@ -304,10 +309,10 @@ SELECT ARRAY_AGG(elem)
      ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
 FROM UNNEST(ARRAY<DATE>["2000-01-01", "1984-08-02", "2014-09-11"]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
   {ARRAY<DATE>[1984-08-02]},
   {ARRAY<DATE>[2000-01-01]},
-  {ARRAY<DATE>[2000-01-01, 2014-09-11]}
+  {ARRAY<DATE>[unknown order:2000-01-01, 2014-09-11]}
 ]
 ==
 [name=array_agg_with_null_TIMESTAMP_analytic]
@@ -318,8 +323,8 @@ FROM UNNEST(ARRAY<TIMESTAMP>["1984-08-02 01:01:01.001001 UTC",
                              "2000-01-01 01:01:01.001001 UTC",
                              "2014-08-11 01:01:01.001001 UTC"]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<TIMESTAMP>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<TIMESTAMP>[unknown order:
      1984-08-02 01:01:01.001001+00,
      2014-08-11 01:01:01.001001+00
    ]},
@@ -332,12 +337,12 @@ SELECT ARRAY_AGG(elem) OVER(PARTITION BY elem)
 FROM UNNEST(ARRAY<zetasql_test__.TestEnum>[
     "TESTENUM0", "TESTENUM1", "TESTENUM0", "TESTENUM2", "TESTENUM2"]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM0]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM0]},
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[unknown order:TESTENUM0, TESTENUM0]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[unknown order:TESTENUM0, TESTENUM0]},
   {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM1]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM2, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM2, TESTENUM2]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[unknown order:TESTENUM2, TESTENUM2]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[unknown order:TESTENUM2, TESTENUM2]}
 ]
 ==
 [name=array_agg_with_null_proto_analytic]
@@ -379,8 +384,8 @@ FROM UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[
     int_with_no_default_nullable: 10
   ''']) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -391,7 +396,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: -10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -403,7 +408,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 0
      }
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -422,7 +427,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
      {
        int64_key_1: 2
        int64_key_2: 102
@@ -455,14 +460,14 @@ SELECT ARRAY_AGG(elem)
 FROM UNNEST(ARRAY<STRUCT<x int64, y int64>>[
   (11, 12), (21, 0), (31, null), (-10, 0), (10, 0), (3, 12), (2, null)]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRUCT<x INT64, y INT64>>[{31, NULL}, {2, NULL}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{31, NULL}, {2, NULL}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{21, 0}, {10, 0}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{21, 0}, {10, 0}, {-10, 0}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{10, 0}, {-10, 0}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{11, 12}, {3, 12}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{11, 12}, {3, 12}]}
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{31, NULL}, {2, NULL}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{31, NULL}, {2, NULL}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{21, 0}, {10, 0}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{21, 0}, {10, 0}, {-10, 0}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{10, 0}, {-10, 0}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{11, 12}, {3, 12}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{11, 12}, {3, 12}]}
 ]
 ==
 
@@ -475,26 +480,26 @@ FROM (SELECT 1 row_id, CAST(NULL as NUMERIC) numeric_val UNION ALL
       SELECT 4, -1.230000001)
 WINDOW test_window AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, numeric_val NUMERIC, ARRAY<>>>[
+ARRAY<STRUCT<row_id INT64, numeric_val NUMERIC, ARRAY<>>>[unknown order:
   {
     1,
     NULL,
-    ARRAY<NUMERIC>[NULL, 0.01]
+    ARRAY<NUMERIC>[unknown order:NULL, 0.01]
   },
   {
     2,
     0.01,
-    ARRAY<NUMERIC>[NULL, 0.01, 3.5]
+    ARRAY<NUMERIC>[unknown order:NULL, 0.01, 3.5]
   },
   {
     3,
     3.5,
-    ARRAY<NUMERIC>[0.01, 3.5, -1.230000001]
+    ARRAY<NUMERIC>[unknown order:0.01, 3.5, -1.230000001]
   },
   {
     4,
     -1.230000001,
-    ARRAY<NUMERIC>[3.5, -1.230000001]
+    ARRAY<NUMERIC>[unknown order:3.5, -1.230000001]
   }
 ]
 ==
@@ -513,11 +518,11 @@ ARRAY<STRUCT<
         bignumeric_val BIGNUMERIC,
         ARRAY<>
       >>
-[
+[unknown order:
   {
     1,
     NULL,
-    ARRAY<BIGNUMERIC>[
+    ARRAY<BIGNUMERIC>[unknown order:
       NULL,
       123456789012345678901234567890123456789.12345678901234567890123456789012345678
     ]
@@ -525,7 +530,7 @@ ARRAY<STRUCT<
   {
     2,
     123456789012345678901234567890123456789.12345678901234567890123456789012345678,
-    ARRAY<BIGNUMERIC>[
+    ARRAY<BIGNUMERIC>[unknown order:
       NULL,
       123456789012345678901234567890123456789.12345678901234567890123456789012345678,
       3.5
@@ -534,7 +539,7 @@ ARRAY<STRUCT<
   {
     3,
     3.5,
-    ARRAY<BIGNUMERIC>[
+    ARRAY<BIGNUMERIC>[unknown order:
       123456789012345678901234567890123456789.12345678901234567890123456789012345678,
       3.5,
       -1.23000000000000000000000000000000000001
@@ -542,7 +547,7 @@ ARRAY<STRUCT<
   },
   {4,
    -1.23000000000000000000000000000000000001,
-   ARRAY<BIGNUMERIC>[
+   ARRAY<BIGNUMERIC>[unknown order:
      3.5,
      -1.23000000000000000000000000000000000001
    ]}
@@ -555,10 +560,10 @@ ARRAY<STRUCT<
 SELECT ARRAY_AGG(elem) OVER()
 FROM UNNEST(ARRAY<BOOL>[true, false, true]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<BOOL>[false, true, true]},
-  {ARRAY<BOOL>[false, true, true]},
-  {ARRAY<BOOL>[false, true, true]}
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<BOOL>[unknown order:false, true, true]},
+  {ARRAY<BOOL>[unknown order:false, true, true]},
+  {ARRAY<BOOL>[unknown order:false, true, true]}
 ]
 ==
 [name=array_agg_without_null_INT32_analytic]
@@ -576,7 +581,7 @@ SELECT
     OVER(ORDER BY elem RANGE BETWEEN 2 FOLLOWING AND 1 FOLLOWING)
 FROM UNNEST(ARRAY<INT32>[1, 0, -10]) elem;
 --
-ARRAY<STRUCT<elem INT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem INT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {-10,
    ARRAY<INT32>[-10],
    ARRAY<INT32>[-10],
@@ -585,16 +590,16 @@ ARRAY<STRUCT<elem INT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
    ARRAY<INT32>(NULL)},
   {
     0,
-    ARRAY<INT32>[-10, 0, 1],
-    ARRAY<INT32>[0, 1],
-    ARRAY<INT32>[0, 1],
+    ARRAY<INT32>[unknown order:-10, 0, 1],
+    ARRAY<INT32>[unknown order:0, 1],
+    ARRAY<INT32>[unknown order:0, 1],
     ARRAY<INT32>[1],
     ARRAY<INT32>(NULL)
   },
   {
     1,
-    ARRAY<INT32>[-10, 0, 1],
-    ARRAY<INT32>[0, 1],
+    ARRAY<INT32>[unknown order:-10, 0, 1],
+    ARRAY<INT32>[unknown order:0, 1],
     ARRAY<INT32>[1],
     ARRAY<INT32>(NULL),
     ARRAY<INT32>(NULL)
@@ -616,30 +621,30 @@ SELECT
     OVER(ORDER BY elem DESC RANGE BETWEEN 1 PRECEDING AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<UINT32>[2, 0, 1]) elem;
 --
-ARRAY<STRUCT<elem UINT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem UINT32, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     2,
     ARRAY<UINT32>(NULL),
     ARRAY<UINT32>(NULL),
     ARRAY<UINT32>[2],
-    ARRAY<UINT32>[2, 1, 0],
-    ARRAY<UINT32>[2, 1, 0]
+    ARRAY<UINT32>[unknown order:2, 1, 0],
+    ARRAY<UINT32>[unknown order:2, 1, 0]
   },
   {
     1,
     ARRAY<UINT32>(NULL),
     ARRAY<UINT32>[2],
-    ARRAY<UINT32>[2, 1],
-    ARRAY<UINT32>[2, 1, 0],
-    ARRAY<UINT32>[2, 1, 0]
+    ARRAY<UINT32>[unknown order:2, 1],
+    ARRAY<UINT32>[unknown order:2, 1, 0],
+    ARRAY<UINT32>[unknown order:2, 1, 0]
   },
   {
     0,
     ARRAY<UINT32>(NULL),
-    ARRAY<UINT32>[2, 1],
-    ARRAY<UINT32>[1, 0],
-    ARRAY<UINT32>[2, 1, 0],
-    ARRAY<UINT32>[1, 0]
+    ARRAY<UINT32>[unknown order:2, 1],
+    ARRAY<UINT32>[unknown order:1, 0],
+    ARRAY<UINT32>[unknown order:2, 1, 0],
+    ARRAY<UINT32>[unknown order:1, 0]
   }
 ]
 ==
@@ -656,27 +661,27 @@ SELECT
     OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<INT64>[8589934592, 0, -8589934592]) elem;
 --
-ARRAY<STRUCT<elem INT64, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem INT64, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     -8589934592,
     ARRAY<INT64>(NULL),
     ARRAY<INT64>[-8589934592],
-    ARRAY<INT64>[-8589934592, 0],
-    ARRAY<INT64>[-8589934592, 0, 8589934592]
+    ARRAY<INT64>[unknown order:-8589934592, 0],
+    ARRAY<INT64>[unknown order:-8589934592, 0, 8589934592]
   },
   {
     0,
     ARRAY<INT64>[-8589934592],
-    ARRAY<INT64>[-8589934592, 0],
-    ARRAY<INT64>[-8589934592, 0, 8589934592],
-    ARRAY<INT64>[-8589934592, 0, 8589934592]
+    ARRAY<INT64>[unknown order:-8589934592, 0],
+    ARRAY<INT64>[unknown order:-8589934592, 0, 8589934592],
+    ARRAY<INT64>[unknown order:-8589934592, 0, 8589934592]
   },
   {
     8589934592,
-    ARRAY<INT64>[-8589934592, 0],
-    ARRAY<INT64>[-8589934592, 0, 8589934592],
-    ARRAY<INT64>[-8589934592, 0, 8589934592],
-    ARRAY<INT64>[-8589934592, 0, 8589934592]
+    ARRAY<INT64>[unknown order:-8589934592, 0],
+    ARRAY<INT64>[unknown order:-8589934592, 0, 8589934592],
+    ARRAY<INT64>[unknown order:-8589934592, 0, 8589934592],
+    ARRAY<INT64>[unknown order:-8589934592, 0, 8589934592]
   }
 ]
 ==
@@ -695,30 +700,30 @@ SELECT
     OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<UINT64>[8589934592, 1, 0]) elem;
 --
-ARRAY<STRUCT<elem UINT64, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem UINT64, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     8589934592,
     ARRAY<UINT64>(NULL),
     ARRAY<UINT64>(NULL),
     ARRAY<UINT64>[8589934592],
-    ARRAY<UINT64>[8589934592, 1],
-    ARRAY<UINT64>[8589934592, 1, 0]
+    ARRAY<UINT64>[unknown order:8589934592, 1],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0]
   },
   {
     1,
     ARRAY<UINT64>(NULL),
     ARRAY<UINT64>[8589934592],
-    ARRAY<UINT64>[8589934592, 1],
-    ARRAY<UINT64>[8589934592, 1, 0],
-    ARRAY<UINT64>[8589934592, 1, 0]
+    ARRAY<UINT64>[unknown order:8589934592, 1],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0]
   },
   {
     0,
     ARRAY<UINT64>(NULL),
-    ARRAY<UINT64>[8589934592, 1],
-    ARRAY<UINT64>[8589934592, 1, 0],
-    ARRAY<UINT64>[8589934592, 1, 0],
-    ARRAY<UINT64>[8589934592, 1, 0]
+    ARRAY<UINT64>[unknown order:8589934592, 1],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0],
+    ARRAY<UINT64>[unknown order:8589934592, 1, 0]
   }
 ]
 ==
@@ -733,14 +738,19 @@ SELECT
     OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<FLOAT>[1.1, 0.0, -1.1]) elem;
 --
-ARRAY<STRUCT<elem FLOAT, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem FLOAT, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     -1.1,
     ARRAY<FLOAT>[-1.1],
-    ARRAY<FLOAT>[-1.1, 0],
-    ARRAY<FLOAT>[-1.1, 0, 1.1]
+    ARRAY<FLOAT>[unknown order:-1.1, 0],
+    ARRAY<FLOAT>[unknown order:-1.1, 0, 1.1]
   },
-  {0, ARRAY<FLOAT>[0], ARRAY<FLOAT>[0, 1.1], ARRAY<FLOAT>[0, 1.1]},
+  {
+    0,
+    ARRAY<FLOAT>[0],
+    ARRAY<FLOAT>[unknown order:0, 1.1],
+    ARRAY<FLOAT>[unknown order:0, 1.1]
+  },
   {1.1, ARRAY<FLOAT>[1.1], ARRAY<FLOAT>[1.1], ARRAY<FLOAT>[1.1]}
 ]
 ==
@@ -757,12 +767,12 @@ SELECT
     OVER(ORDER BY elem DESC ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
 FROM UNNEST(ARRAY<DOUBLE>[1.1, 0.0, -1.1]) elem;
 --
-ARRAY<STRUCT<elem DOUBLE, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+ARRAY<STRUCT<elem DOUBLE, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[unknown order:
   {
     1.1,
     ARRAY<DOUBLE>(NULL),
     ARRAY<DOUBLE>[-1.1],
-    ARRAY<DOUBLE>[0, -1.1],
+    ARRAY<DOUBLE>[unknown order:0, -1.1],
     ARRAY<DOUBLE>[-1.1]
   },
   {0,
@@ -782,9 +792,9 @@ SELECT ARRAY_AGG(elem)
   OVER(PARTITION BY LENGTH(elem) ORDER BY elem)
 FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝']) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
   {ARRAY<STRING>["aσ"]},
-  {ARRAY<STRING>["aσ", "d⨝"]},
+  {ARRAY<STRING>[unknown order:"aσ", "d⨝"]},
   {ARRAY<STRING>["bcπ"]}
 ]
 ==
@@ -793,9 +803,9 @@ SELECT ARRAY_AGG(elem)
   OVER(PARTITION BY LENGTH(elem) ORDER BY elem DESC)
 FROM UNNEST(ARRAY<BYTES>[b"a", b"bc", b"A"]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
   {ARRAY<BYTES>[b"a"]},
-  {ARRAY<BYTES>[b"a", b"A"]},
+  {ARRAY<BYTES>[unknown order:b"a", b"A"]},
   {ARRAY<BYTES>[b"bc"]}
 ]
 ==
@@ -805,10 +815,10 @@ SELECT ARRAY_AGG(elem)
      ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
 FROM UNNEST(ARRAY<DATE>["2000-01-01", "1984-08-02", "2014-09-11"]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
   {ARRAY<DATE>[1984-08-02]},
   {ARRAY<DATE>[2000-01-01]},
-  {ARRAY<DATE>[2000-01-01, 2014-09-11]}
+  {ARRAY<DATE>[unknown order:2000-01-01, 2014-09-11]}
 ]
 ==
 [name=array_agg_without_null_TIMESTAMP_analytic]
@@ -819,8 +829,8 @@ FROM UNNEST(ARRAY<TIMESTAMP>["1984-08-02 01:01:01.001001 UTC",
                              "2000-01-01 01:01:01.001001 UTC",
                              "2014-08-11 01:01:01.001001 UTC"]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<TIMESTAMP>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<TIMESTAMP>[unknown order:
      1984-08-02 01:01:01.001001+00,
      2014-08-11 01:01:01.001001+00
    ]},
@@ -833,12 +843,12 @@ SELECT ARRAY_AGG(elem) OVER(PARTITION BY elem)
 FROM UNNEST(ARRAY<zetasql_test__.TestEnum>[
     "TESTENUM0", "TESTENUM1", "TESTENUM0", "TESTENUM2", "TESTENUM2"]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM0]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM0]},
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[unknown order:TESTENUM0, TESTENUM0]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[unknown order:TESTENUM0, TESTENUM0]},
   {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM1]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM2, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM2, TESTENUM2]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[unknown order:TESTENUM2, TESTENUM2]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[unknown order:TESTENUM2, TESTENUM2]}
 ]
 ==
 [name=array_agg_without_null_proto_analytic]
@@ -880,8 +890,8 @@ FROM UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[
     int_with_no_default_nullable: 10
   ''']) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -892,7 +902,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: -10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -904,7 +914,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 0
      }
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -923,7 +933,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
      {
        int64_key_1: 2
        int64_key_2: 102
@@ -956,14 +966,14 @@ SELECT ARRAY_AGG(elem)
 FROM UNNEST(ARRAY<STRUCT<x int64, y int64>>[
   (11, 12), (21, 0), (31, 0), (-10, 0), (10, 0), (3, 12), (2, 0)]) elem;
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRUCT<x INT64, y INT64>>[{31, 0}, {21, 0}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{31, 0}, {21, 0}, {10, 0}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{21, 0}, {10, 0}, {2, 0}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{10, 0}, {2, 0}, {-10, 0}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{2, 0}, {-10, 0}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{11, 12}, {3, 12}]},
-  {ARRAY<STRUCT<x INT64, y INT64>>[{11, 12}, {3, 12}]}
+ARRAY<STRUCT<ARRAY<>>>[unknown order:
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{31, 0}, {21, 0}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{31, 0}, {21, 0}, {10, 0}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{21, 0}, {10, 0}, {2, 0}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{10, 0}, {2, 0}, {-10, 0}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{2, 0}, {-10, 0}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{11, 12}, {3, 12}]},
+  {ARRAY<STRUCT<x INT64, y INT64>>[unknown order:{11, 12}, {3, 12}]}
 ]
 ==
 
@@ -976,26 +986,26 @@ FROM (SELECT 1 row_id, 5 numeric_val UNION ALL
       SELECT 4, -1.230000001)
 WINDOW test_window AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
 --
-ARRAY<STRUCT<row_id INT64, numeric_val DOUBLE, ARRAY<>>>[
+ARRAY<STRUCT<row_id INT64, numeric_val DOUBLE, ARRAY<>>>[unknown order:
   {
     1,
     5,
-    ARRAY<DOUBLE>[5, 0.01]
+    ARRAY<DOUBLE>[unknown order:5, 0.01]
   },
   {
     2,
     0.01,
-    ARRAY<DOUBLE>[5, 0.01, 3.5]
+    ARRAY<DOUBLE>[unknown order:5, 0.01, 3.5]
   },
   {
     3,
     3.5,
-    ARRAY<DOUBLE>[0.01, 3.5, -1.230000001]
+    ARRAY<DOUBLE>[unknown order:0.01, 3.5, -1.230000001]
   },
   {
     4,
     -1.230000001,
-    ARRAY<DOUBLE>[3.5, -1.230000001]
+    ARRAY<DOUBLE>[unknown order:3.5, -1.230000001]
   }
 ]
 ==
@@ -1014,11 +1024,11 @@ ARRAY<STRUCT<
         bignumeric_val BIGNUMERIC,
         ARRAY<>
       >>
-[
+[unknown order:
   {
     1,
     5,
-    ARRAY<BIGNUMERIC>[
+    ARRAY<BIGNUMERIC>[unknown order:
       5,
       123456789012345678901234567890123456789.12345678901234567890123456789012345678
     ]
@@ -1026,7 +1036,7 @@ ARRAY<STRUCT<
   {
     2,
     123456789012345678901234567890123456789.12345678901234567890123456789012345678,
-    ARRAY<BIGNUMERIC>[
+    ARRAY<BIGNUMERIC>[unknown order:
       5,
       123456789012345678901234567890123456789.12345678901234567890123456789012345678,
       3.5
@@ -1035,7 +1045,7 @@ ARRAY<STRUCT<
   {
     3,
     3.5,
-    ARRAY<BIGNUMERIC>[
+    ARRAY<BIGNUMERIC>[unknown order:
       123456789012345678901234567890123456789.12345678901234567890123456789012345678,
       3.5,
       -1.23000000000000000000000000000000000001
@@ -1043,7 +1053,7 @@ ARRAY<STRUCT<
   },
   {4,
    -1.23000000000000000000000000000000000001,
-   ARRAY<BIGNUMERIC>[
+   ARRAY<BIGNUMERIC>[unknown order:
      3.5,
      -1.23000000000000000000000000000000000001
    ]}

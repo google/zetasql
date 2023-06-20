@@ -113,11 +113,14 @@ public class AllowedHintsAndOptionsTest {
     allowed.addAnonymizationOption("anon_option", null);
     allowed.addAnonymizationOption(
         "anon_option_with_type", TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE));
+    allowed.setDisallowDuplicateOptionNames(true);
     FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
     AllowedHintsAndOptions allowed2 =
         AllowedHintsAndOptions.deserialize(
             allowed.serialize(builder), builder.getDescriptorPools(), factory);
     assertThat(allowed2.getDisallowUnknownOptions()).isEqualTo(allowed.getDisallowUnknownOptions());
+    assertThat(allowed2.getDisallowDuplicateOptionNames())
+        .isEqualTo(allowed.getDisallowDuplicateOptionNames());
     assertThat(allowed2.getDisallowUnknownHintsWithQualifiers())
         .containsExactlyElementsIn(allowed.getDisallowUnknownHintsWithQualifiers());
     assertThat(allowed2.getHintList()).hasSize(allowed.getHintList().size());
@@ -135,6 +138,7 @@ public class AllowedHintsAndOptionsTest {
     AllowedHintsAndOptionsProto.Builder protoBuilder = AllowedHintsAndOptionsProto.newBuilder();
     TextFormat.merge(
         "disallow_unknown_options: true\n"
+            + "disallow_duplicate_option_names: false\n"
             + "disallow_unknown_hints_with_qualifier: \"qual\"\n"
             + "disallow_unknown_hints_with_qualifier: \"\"\n"
             + "hint {\n"
@@ -199,6 +203,7 @@ public class AllowedHintsAndOptionsTest {
     AllowedHintsAndOptionsProto.Builder protoBuilder = AllowedHintsAndOptionsProto.newBuilder();
     TextFormat.merge(
         "disallow_unknown_options: true\n"
+            + "disallow_duplicate_option_names: false\n"
             + "disallow_unknown_hints_with_qualifier: \"qual\"\n"
             + "disallow_unknown_hints_with_qualifier: \"\"\n"
             + "differential_privacy_option {\n"
@@ -224,12 +229,14 @@ public class AllowedHintsAndOptionsTest {
     allowed.addHint("test_qual", "hint1", TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE), true);
     allowed.addHint("test_qual", "HINT2", null, false);
     allowed.setDisallowUnknownOptions(false);
+    allowed.setDisallowDuplicateOptionNames(true);
     allowed.disallowUnknownHintsWithQualifier("qual2");
     allowed.addAnonymizationOption(
         "anonymization_option1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
     allowed.addAnonymizationOption("Anonymization_Option2", null);
 
     assertThat(allowed.getDisallowUnknownOptions()).isFalse();
+    assertThat(allowed.getDisallowDuplicateOptionNames()).isTrue();
 
     assertThat(allowed.getDisallowUnknownHintsWithQualifiers()).hasSize(3);
     assertThat(allowed.getDisallowUnknownHintsWithQualifiers()).contains("qual");
@@ -281,11 +288,11 @@ public class AllowedHintsAndOptionsTest {
             "The number of fields of AllowedHintsAndOptionsProto has changed, please also update "
                 + "the serialization code accordingly.")
         .that(AllowedHintsAndOptionsProto.getDescriptor().getFields())
-        .hasSize(6);
+        .hasSize(7);
     assertWithMessage(
             "The number of fields in AllowedHintsAndOptions class has changed, please also update "
                 + "the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(AllowedHintsAndOptions.class))
-        .isEqualTo(6);
+        .isEqualTo(7);
   }
 }

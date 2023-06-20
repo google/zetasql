@@ -60,6 +60,11 @@ class AnalyzerTestCase;
 //                      By default, we run strict mode but don't show output.
 //   parse_location_record_type - What parse location to record in Resolved AST
 //                                nodes.
+//   do_not_show_replaced_literals
+//       - The test framework assumes that if parse_location is recorded, then
+//         it should test the literal replacer. For tests that need parse
+//         locations but not literal replacement, this flag suppresses some
+//         noisy golden file output.
 //   parse_multiple - if true, use AnalyzeNextStatement to analyze a sequence
 //                    of statements from the same string.
 //   default_timezone - default timezone to use for analysis.
@@ -129,6 +134,7 @@ extern const char* const kParseMultiple;
 extern const char* const kPositionalParameters;
 extern const char* const kProductMode;
 extern const char* const kParseLocationRecordType;
+extern const char* const kDoNotShowReplacedLiterals;
 extern const char* const kCreateNewColumnForEachProjectedOutput;
 extern const char* const kRunInJava;
 extern const char* const kRunUnparser;
@@ -162,6 +168,8 @@ extern const char* const kSuppressBuiltinFunctions;
 extern const char* const kOptionNamesToIgnoreInLiteralReplacement;
 extern const char* const kScrubLimitOffsetInLiteralReplacement;
 extern const char* const kAlsoShowSignatureMismatchDetails;
+extern const char* const kIdStringAllowUnicodeCharacters;
+extern const char* const kDisallowDuplicateOptions;
 
 // set_flag
 // Causes a command line flag to be set to a particular value during the run

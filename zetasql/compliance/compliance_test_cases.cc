@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <set>
@@ -412,11 +413,9 @@ void CodebasedTestsEnvironment::SetUp() {
       test_db, code_based_test_driver->GetSupportedLanguageOptions()));
   ZETASQL_CHECK_OK(code_based_test_driver->CreateDatabase(test_db));
 
-  if (!code_based_test_driver->IsReferenceImplementation()) {
-    code_based_reference_driver = new ReferenceDriver(
-        code_based_test_driver->GetSupportedLanguageOptions());
-    ZETASQL_EXPECT_OK(code_based_reference_driver->CreateDatabase(test_db));
-  }
+  code_based_reference_driver = new ReferenceDriver(
+      code_based_test_driver->GetSupportedLanguageOptions());
+  ZETASQL_EXPECT_OK(code_based_reference_driver->CreateDatabase(test_db));
 }
 
 void CodebasedTestsEnvironment::TearDown() {
@@ -581,7 +580,7 @@ void ComplianceCodebasedTests::RunNormalizeFunctionCalls(
         "SELECT $0(@p0$1) AS $2", call.function_name,
         call.params.num_params() <= 1
             ? ""
-            : absl::StrCat(", ", call.params.param(1).enum_name()),
+            : absl::StrCat(", ", call.params.param(1).EnumDisplayName()),
         kColA);
     QueryParamsWithResult new_params = call.params;
     ConvertResultsToSingletons(&new_params);
@@ -852,6 +851,59 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArraySliceFunctions, 2) {
   SetNamePrefix("SafeArraySlice");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsArraySlice(/*is_safe=*/true)),
                          "SAFE.ARRAY_SLICE");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFirstNFunctions, 1) {
+  SetNamePrefix("ArrayFirstN");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFirstN(/*is_safe=*/false)),
+                         "ARRAY_FIRST_N");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayFirstNFunctions, 1) {
+  SetNamePrefix("SafeArrayFirstN");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFirstN(/*is_safe=*/true)),
+                         "SAFE.ARRAY_FIRST_N");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayLastNFunctions, 1) {
+  SetNamePrefix("ArrayLastN");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayLastN(/*is_safe=*/false)),
+                         "ARRAY_LAST_N");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayLastNFunctions, 1) {
+  SetNamePrefix("SafeArrayLastN");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayLastN(/*is_safe=*/true)),
+                         "SAFE.ARRAY_LAST_N");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayRemoveFirstNFunctions, 1) {
+  SetNamePrefix("ArrayRemoveFirstN");
+  RunFunctionTestsPrefix(
+      Shard(GetFunctionTestsArrayRemoveFirstN(/*is_safe=*/false)),
+      "ARRAY_REMOVE_FIRST_N");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayRemoveFirstNFunctions,
+               1) {
+  SetNamePrefix("SafeArrayRemoveFirstN");
+  RunFunctionTestsPrefix(
+      Shard(GetFunctionTestsArrayRemoveFirstN(/*is_safe=*/true)),
+      "SAFE.ARRAY_REMOVE_FIRST_N");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayRemoveLastNFunctions, 1) {
+  SetNamePrefix("ArrayRemoveLastN");
+  RunFunctionTestsPrefix(
+      Shard(GetFunctionTestsArrayRemoveLastN(/*is_safe=*/false)),
+      "ARRAY_REMOVE_LAST_N");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayRemoveLastNFunctions, 1) {
+  SetNamePrefix("SafeArrayRemoveLastN");
+  RunFunctionTestsPrefix(
+      Shard(GetFunctionTestsArrayRemoveLastN(/*is_safe=*/true)),
+      "SAFE.ARRAY_REMOVE_LAST_N");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayMinFunctions, 1) {
@@ -1284,6 +1336,17 @@ std::vector<FunctionTestCall> EnableJsonConstructorFunctionsForTest(
   return tests;
 }
 
+// Wraps test cases with FEATURE_JSON_MUTATOR_FUNCTIONS and
+// FEATURE_JSON_TYPE.
+std::vector<FunctionTestCall> EnableJsonMutatorFunctionsForTest(
+    std::vector<FunctionTestCall> tests) {
+  for (auto& test_case : tests) {
+    test_case.params = test_case.params.AddRequiredFeatures(
+        {FEATURE_JSON_TYPE, FEATURE_JSON_MUTATOR_FUNCTIONS});
+  }
+  return tests;
+}
+
 }  // namespace
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonQuery, 1) {
@@ -1393,6 +1456,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxInt64, 1) {
       GetFunctionTestsConvertJsonLaxInt64())));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxFloat64, 1) {
+  SetNamePrefix("ConvertJsonLaxFloat64");
+  RunFunctionCalls(Shard(EnableJsonLaxValueExtractionFunctionsForTest(
+      GetFunctionTestsConvertJsonLaxFloat64())));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxDouble, 1) {
   SetNamePrefix("ConvertJsonLaxDouble");
   RunFunctionCalls(Shard(EnableJsonLaxValueExtractionFunctionsForTest(
@@ -1409,6 +1478,22 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonArray, 1) {
   SetNamePrefix("JsonArray");
   RunFunctionCalls(Shard(
       EnableJsonConstructorFunctionsForTest(GetFunctionTestsJsonArray())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonObject, 5) {
+  SetNamePrefix("JsonObject");
+  std::vector<FunctionTestCall> tests = GetFunctionTestsJsonObject();
+  std::vector<FunctionTestCall> tests2 = GetFunctionTestsJsonObjectArrays();
+  tests.insert(tests.end(), std::make_move_iterator(tests2.begin()),
+               std::make_move_iterator(tests2.end()));
+
+  RunFunctionCalls(Shard(EnableJsonConstructorFunctionsForTest(tests)));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonRemove, 1) {
+  SetNamePrefix("JsonRemove");
+  RunFunctionCalls(
+      Shard(EnableJsonMutatorFunctionsForTest(GetFunctionTestsJsonRemove())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
@@ -1650,6 +1735,34 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestConditionals_NullIf, 1) {
   RunFunctionTestsPrefix(Shard(GetFunctionTestsNullIf()), "NullIf");
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConditionals_ZeroIfNull, 1) {
+  SetNamePrefix("ZeroIfNull");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsZeroIfNull_NullIfZero(
+                             /*is_zero_if_null=*/true, /*is_safe=*/false)),
+                         "ZEROIFNULL");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConditionals_NullIfZero, 1) {
+  SetNamePrefix("NullIfZero");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsZeroIfNull_NullIfZero(
+                             /*is_zero_if_null=*/false, /*is_safe=*/false)),
+                         "NULLIFZERO");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConditionals_SafeZeroIfNull, 1) {
+  SetNamePrefix("SafeZeroIfNull");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsZeroIfNull_NullIfZero(
+                             /*is_zero_if_null=*/true, /*is_safe=*/true)),
+                         "SAFE.ZEROIFNULL");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConditionals_SafeNullIfZero, 1) {
+  SetNamePrefix("SafeNullIfZero");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsZeroIfNull_NullIfZero(
+                             /*is_zero_if_null=*/false, /*is_safe=*/true)),
+                         "SAFE.NULLIFZERO");
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestConditionals_Coalesce, 1) {
   SetNamePrefix("Coalesce");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsCoalesce()), "Coalesce");
@@ -1792,6 +1905,11 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Trigonometric, 1) {
 SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_InverseTrigonometric,
                1) {
   RunFunctionCalls(Shard(GetFunctionTestsInverseTrigonometric()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Pi, 1) {
+  // No need to set PREFIX, RunFunctionCalls() will do it.
+  RunFunctionCalls(Shard(GetFunctionTestsPi(/*include_safe_calls=*/true)));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Cbrt, 1) {
@@ -2255,6 +2373,20 @@ SHARDED_TEST_F(ComplianceCodebasedTests, RangeIntersect, 1) {
   RunFunctionTestsCustom(
       Shard(GetFunctionTestsRangeIntersect()),
       [](const FunctionTestCall& f) { return "range_intersect(@p0, @p1)"; });
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, GenerateRangeArray, 1) {
+  SetNamePrefix("GenerateRangeArray");
+  auto sql_string_fn = [](const FunctionTestCall& f) {
+    ZETASQL_CHECK_GE(f.params.num_params(), 2);
+    return (f.params.num_params() == 2) ? "generate_range_array(@p0, @p1)"
+                                        : "generate_range_array(@p0, @p1, @p2)";
+  };
+  RunFunctionTestsCustom(Shard(GetFunctionTestsGenerateTimestampRangeArray()),
+                         sql_string_fn);
+  RunFunctionTestsCustom(
+      Shard(GetFunctionTestsGenerateTimestampRangeArrayExtras()),
+      sql_string_fn);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalUnaryMinus, 1) {

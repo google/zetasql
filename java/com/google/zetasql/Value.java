@@ -1556,10 +1556,13 @@ public class Value implements Serializable {
   }
 
   private void checkValueHasKind(TypeKind kind) {
-    Preconditions.checkState(
-        getType().getKind() == kind,
-        "Value is a %s, but was expecting %s",
-        Ascii.toLowerCase(getType().getKind().toString()).replace("type_", ""),
-        Ascii.toLowerCase(kind.toString()).replace("type_", ""));
+    // Inlining `checkState` so that the String replacements are done lazily.
+    if (getType().getKind() != kind) {
+      throw new IllegalStateException(
+          Strings.lenientFormat(
+              "Value is a %s, but was expecting %s",
+              Ascii.toLowerCase(getType().getKind().toString()).replace("type_", ""),
+              Ascii.toLowerCase(kind.toString()).replace("type_", "")));
+    }
   }
 }

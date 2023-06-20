@@ -1914,6 +1914,7 @@ absl::Status AggregateAnalyticArg::Eval(
       *partition_schema_, partition, order_keys, params, context, &windows,
       &window_frame_is_deterministic));
 
+  uint64_t num_windows = 0;
   for (const AnalyticWindow& window : windows) {
     // Call AggregateArg::EvalAgg to evaluate the argument expressions and
     // compute the aggregate on each window.
@@ -1922,6 +1923,7 @@ absl::Status AggregateAnalyticArg::Eval(
     ZETASQL_ASSIGN_OR_RETURN(const Value agg_value,
                      aggregator_->EvalAgg(window_tuples, params, context));
     values->emplace_back(agg_value);
+    ZETASQL_RETURN_IF_ERROR(PeriodicallyVerifyNotAborted(context, ++num_windows));
   }
 
   // We conservatively treat aggregation results as non-deterministic
