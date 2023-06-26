@@ -19,6 +19,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stack>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -662,6 +663,29 @@ absl::Status JsonAddArrayElement(JSONValueRef input,
   // Only contains a value for kInsert.
   std::optional<int64_t> index_to_insert;
 
+  // We convert `value` into JSONValue first and return an error if conversion
+  // fails, before even checking whether the path exists or not.
+  ZETASQL_RET_CHECK(value.is_valid());
+  std::vector<JSONValue> elements_to_insert;
+  if (add_each_element && value.type()->IsArray()) {
+    // If the value to be inserted in an array and add_each_element is true, the
+    // function adds each element separately instead of a single JSON array
+    // value.
+    elements_to_insert.reserve(value.num_elements());
+    for (const Value& element : value.elements()) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValue e,
+          functions::ToJson(element, /*stringify_wide_numbers=*/false,
+                            language_options, canonicalize_zero));
+      elements_to_insert.push_back(std::move(e));
+    }
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue e,
+                     functions::ToJson(value, /*stringify_wide_numbers=*/false,
+                                       language_options, canonicalize_zero));
+    elements_to_insert.push_back(std::move(e));
+  }
+
   for (; !path_iterator.End(); ++path_iterator) {
     const StrictJSONPathToken& token = *path_iterator;
     if (add_type == AddType::kInsert && path_iterator.NoSuffixToken()) {
@@ -696,7 +720,7 @@ absl::Status JsonAddArrayElement(JSONValueRef input,
 
   ZETASQL_RET_CHECK(path_iterator.End());
 
-  if (!input.IsArray()) {
+  if (!input.IsArray() && !input.IsNull()) {
     // Do nothing.
     return absl::OkStatus();
   }
@@ -706,36 +730,39 @@ absl::Status JsonAddArrayElement(JSONValueRef input,
     return absl::OkStatus();
   }
 
-  // If the value to be inserted in an array and add_each_element is true, the
-  // function adds each element separately instead of a single JSON array value.
-  ZETASQL_RET_CHECK(value.is_valid());
+  bool was_null = false;
+  if (input.IsNull()) {
+    was_null = true;
+    input.SetToEmptyArray();
+  }
+
+  absl::Status status;
   if (add_each_element && value.type()->IsArray()) {
-    std::vector<JSONValue> elements;
-    elements.reserve(value.num_elements());
-    for (const Value& element : value.elements()) {
-      ZETASQL_ASSIGN_OR_RETURN(
-          JSONValue e,
-          functions::ToJson(element, /*stringify_wide_numbers=*/false,
-                            language_options, canonicalize_zero));
-      elements.push_back(std::move(e));
-    }
     if (add_type == AddType::kInsert) {
-      ZETASQL_RET_CHECK_OK(
-          input.InsertArrayElements(std::move(elements), *index_to_insert));
+      status = input.InsertArrayElements(std::move(elements_to_insert),
+                                         *index_to_insert);
     } else {
-      ZETASQL_RET_CHECK_OK(input.AppendArrayElements(std::move(elements)));
+      status = input.AppendArrayElements(std::move(elements_to_insert));
     }
   } else {
-    ZETASQL_ASSIGN_OR_RETURN(JSONValue e,
-                     functions::ToJson(value, /*stringify_wide_numbers=*/false,
-                                       language_options, canonicalize_zero));
+    ZETASQL_RET_CHECK_EQ(elements_to_insert.size(), 1);
     if (add_type == AddType::kInsert) {
-      ZETASQL_RET_CHECK_OK(input.InsertArrayElement(std::move(e), *index_to_insert));
+      status = input.InsertArrayElement(std::move(elements_to_insert[0]),
+                                        *index_to_insert);
     } else {
-      ZETASQL_RET_CHECK_OK(input.AppendArrayElement(std::move(e)));
+      status = input.AppendArrayElement(std::move(elements_to_insert[0]));
     }
   }
-  return absl::OkStatus();
+
+  if (!status.ok()) {
+    // If there was an error, make sure the original value is not modified.
+    if (was_null) {
+      input.SetNull();
+    }
+    ZETASQL_RET_CHECK(absl::IsOutOfRange(status));
+  }
+
+  return status;
 }
 
 }  // namespace
@@ -771,11 +798,12 @@ absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
   // First token is always empty (no-op).
   ++path_iterator;
 
+  ZETASQL_ASSIGN_OR_RETURN(JSONValue converted_value,
+                   functions::ToJson(value, /*stringify_wide_numbers=*/false,
+                                     language_options, canonicalize_zero));
+
   // The input path is '$'. This implies that we replace the entire value.
   if (path_iterator.End()) {
-    ZETASQL_ASSIGN_OR_RETURN(JSONValue converted_value,
-                     functions::ToJson(value, /*stringify_wide_numbers=*/false,
-                                       language_options, canonicalize_zero));
     input.Set(std::move(converted_value));
     return absl::OkStatus();
   }
@@ -784,39 +812,208 @@ absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
   //
   // Cases for each token in path:
   // 1) If token in path exists in current JSON element, continue processing
-  //    the JSON subtree with next the path token.
-  // 2) If the token in path does not exist or has a value of JSON 'null' in
-  //    JSON element, insert it and continue inserting the rest of the path.
-  //   (Recursive creation)
+  //    the JSON subtree with the next path token.
+  // 2) If the member doesn't exist or the array index is out of bounds or
+  //    the current JSON element is null, then exit the loop. Auto-creation will
+  //    happen next.
   // 3) If there is a type mismatch, this is not a valid Set operation so
   //    ignore operation and return early.
   for (; !path_iterator.End(); ++path_iterator) {
     const StrictJSONPathToken& token = *path_iterator;
     if (auto* key = token.MaybeGetObjectKey();
-        (input.IsObject() || input.IsNull()) && key != nullptr) {
-      input = input.GetMember(*key);
-      continue;
+        input.IsObject() && key != nullptr) {
+      if (auto member = input.GetMemberIfExists(*key); member.has_value()) {
+        input = *member;
+        continue;
+      } else {
+        // Member doesn't exist.
+        break;
+      }
     } else if (auto* index = token.MaybeGetArrayIndex();
-               (input.IsArray() || input.IsNull()) && index != nullptr) {
+               input.IsArray() && index != nullptr) {
       // Negative indexes should have thrown an error during path validation.
       if (ABSL_PREDICT_FALSE(*index < 0)) {
         return MakeEvalError()
                << "Negative indexes are not supported in JSON paths.";
       }
-      // If `index` is larger than the length of the JSON array, it
-      // is automatically resized with null elements.
-      input = input.GetArrayElement(*index);
-      continue;
+      if (*index < input.GetArraySize()) {
+        input = input.GetArrayElement(*index);
+        continue;
+      } else {
+        // Array index doesn't exist.
+        break;
+      }
+    } else if (input.IsNull()) {
+      // Auto-creation is allowed on JSON 'null'.
+      break;
     }
     // Type mismatch, ignore operation and return early.
     return absl::OkStatus();
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(JSONValue converted_value,
-                   functions::ToJson(value, /*stringify_wide_numbers=*/false,
-                                     language_options, canonicalize_zero));
+  if (!path_iterator.End()) {
+    // Auto-creation will happen. Make sure it won't create an oversized array.
+    size_t path_position = path_iterator.Depth() - 1;
+    for (; !path_iterator.End(); ++path_iterator) {
+      const StrictJSONPathToken& token = *path_iterator;
+      auto* index = token.MaybeGetArrayIndex();
+      if (index == nullptr) {
+        // Nothing to worry about for object creation.
+        continue;
+      }
+      // Negative indexes should have thrown an error during path validation.
+      if (ABSL_PREDICT_FALSE(*index < 0)) {
+        return MakeEvalError()
+               << "Negative indexes are not supported in JSON paths.";
+      }
+      if (ABSL_PREDICT_FALSE(*index >= kJSONMaxArraySize)) {
+        return MakeEvalError()
+               << "Exceeded maximum array size of " << kJSONMaxArraySize;
+      }
+    }
+    path_iterator.Rewind();
+    for (int i = 0; i < path_position; ++i) {
+      ++path_iterator;
+    }
+  }
+
+  // Auto-creation if !path_iterator.End()
+  for (; !path_iterator.End(); ++path_iterator) {
+    const StrictJSONPathToken& token = *path_iterator;
+    if (auto* key = token.MaybeGetObjectKey(); key != nullptr) {
+      ZETASQL_RET_CHECK(input.IsObject() || input.IsNull());
+      input = input.GetMember(*key);
+    } else {
+      auto* index = token.MaybeGetArrayIndex();
+      ZETASQL_RET_CHECK(index != nullptr);
+      ZETASQL_RET_CHECK(input.IsArray() || input.IsNull());
+      // If `index` is larger than the length of the JSON array, it
+      // is automatically resized with null elements.
+      input = input.GetArrayElement(*index);
+    }
+  }
+
   input.Set(std::move(converted_value));
   return absl::OkStatus();
+}
+
+namespace {
+
+struct JsonValueNode {
+  JSONValueRef node;
+  // Set to true after all children have been processed.
+  bool processed = false;
+};
+
+inline bool IsComplexType(JSONValueRef ref) {
+  return ref.IsObject() || ref.IsArray();
+}
+
+absl::Status StripNullsImpl(JSONValueRef input, bool include_arrays,
+                            JSONValueRef::RemoveEmptyOptions options) {
+  ZETASQL_RET_CHECK(options == JSONValueRef::RemoveEmptyOptions::kNone ||
+            options == JSONValueRef::RemoveEmptyOptions::kObject ||
+            options == JSONValueRef::RemoveEmptyOptions::kObjectAndArray);
+  if (!IsComplexType(input)) {
+    // Nothing to process.
+    return absl::OkStatus();
+  }
+  JSONValueRef root = input;
+  std::stack<JsonValueNode> stack;
+  stack.push({
+      .node = input,
+  });
+  while (!stack.empty()) {
+    auto& stack_element = stack.top();
+    JSONValueRef json_node = stack_element.node;
+    // Have not processed `json_node` yet. Process all children.
+    if (!stack_element.processed) {
+      if (json_node.IsObject()) {
+        for (auto& [key, value] : json_node.GetMembers()) {
+          if (IsComplexType(value)) {
+            stack.push({.node = value});
+          }
+        }
+      } else if (json_node.IsArray()) {
+        for (auto& array_element : json_node.GetArrayElements()) {
+          if (IsComplexType(array_element)) {
+            stack.push({.node = array_element});
+          }
+        }
+      }
+      stack_element.processed = true;
+    } else {
+      // All children of `json_node` have been processed and we can now
+      // safely cleanup `json_node`.
+      stack.pop();
+      if (json_node.IsObject()) {
+        ZETASQL_RETURN_IF_ERROR(json_node.CleanupJsonObject(options));
+      } else if (include_arrays) {
+        ZETASQL_RET_CHECK(json_node.IsArray());
+        ZETASQL_RETURN_IF_ERROR(json_node.CleanupJsonArray(options));
+      }
+    }
+  }
+
+  // If the JSON value is "{}" or "[]" and `remove_empty`, set the JSON value
+  // to JSON 'null'.
+  if ((options == JSONValueRef::RemoveEmptyOptions::kObject ||
+       options == JSONValueRef::RemoveEmptyOptions::kObjectAndArray) &&
+      root.IsObject() && root.GetObjectSize() == 0) {
+    root.SetNull();
+  } else if (options == JSONValueRef::RemoveEmptyOptions::kObjectAndArray &&
+             root.IsArray() && root.GetArraySize() == 0) {
+    root.SetNull();
+  }
+  return absl::OkStatus();
+}
+
+}  // namespace
+
+absl::Status JsonStripNulls(JSONValueRef input,
+                            StrictJSONPathIterator& path_iterator,
+                            bool include_arrays, bool remove_empty) {
+  path_iterator.Rewind();
+  // First token is always empty.
+  ++path_iterator;
+
+  // Match the subtree pointed to by `path_iterator`. If the path doesn't
+  // exist in `input` do nothing and return early.
+  for (; !path_iterator.End(); ++path_iterator) {
+    const StrictJSONPathToken& token = *path_iterator;
+    if (auto* key = token.MaybeGetObjectKey();
+        input.IsObject() && key != nullptr) {
+      if (std::optional<JSONValueRef> member = input.GetMemberIfExists(*key);
+          member.has_value()) {
+        input = *member;
+        continue;
+      }
+    } else if (auto* index = token.MaybeGetArrayIndex();
+               input.IsArray() && index != nullptr) {
+      // Negative indexes should have thrown an error during path validation.
+      if (ABSL_PREDICT_FALSE(*index < 0)) {
+        return MakeEvalError()
+               << "Negative indexes are not supported in JSON paths.";
+      }
+      if (*index < input.GetArraySize()) {
+        input = input.GetArrayElement(*index);
+        continue;
+      }
+    }
+    // Nonexistent member, invalid array index, or type mismatch. Ignore
+    // operation and return early.
+    return absl::OkStatus();
+  }
+
+  JSONValueRef::RemoveEmptyOptions options;
+  if (remove_empty) {
+    options = include_arrays ? JSONValueRef::RemoveEmptyOptions::kObjectAndArray
+                             : JSONValueRef::RemoveEmptyOptions::kObject;
+  } else {
+    options = JSONValueRef::RemoveEmptyOptions::kNone;
+  }
+
+  return StripNullsImpl(input, include_arrays, options);
 }
 
 }  // namespace functions

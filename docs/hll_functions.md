@@ -154,6 +154,68 @@ GROUP BY country;
 
 [precision_hll]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_hll
 
+### `HLL_COUNT.MERGE`
+
+```
+HLL_COUNT.MERGE(sketch)
+```
+
+**Description**
+
+An aggregate function that returns the cardinality of several
+[HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
+
+Each `sketch` must be initialized on the same type. Attempts to merge sketches
+for different types results in an error. For example, you cannot merge a sketch
+initialized from `INT64` data with one initialized from `STRING` data.
+
+If the merged sketches were initialized with different precisions, the precision
+will be downgraded to the lowest precision involved in the merge.
+
+This function ignores `NULL` values when merging sketches. If the merge happens
+over zero rows or only over `NULL` values, the function returns `0`.
+
+**Supported input types**
+
+`BYTES`
+
+**Return type**
+
+`INT64`
+
+**Example**
+
+ The following query counts the number of distinct users across all countries
+ who have at least one invoice.
+
+```sql
+SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  );
+
+/*--------------------------------------*
+ | distinct_customers_with_open_invoice |
+ +--------------------------------------+
+ |                                    3 |
+ *--------------------------------------*/
+```
+
+[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+
 ### `HLL_COUNT.MERGE_PARTIAL`
 
 ```
@@ -214,68 +276,6 @@ FROM
  +----------------------------------------------------------------------------------------------+
  | "\010p\020\006\030\002 \013\202\007\020\020\003\030\017 \0242\010\320\2408\352}\244\223\002" |
  *----------------------------------------------------------------------------------------------*/
-```
-
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
-
-### `HLL_COUNT.MERGE`
-
-```
-HLL_COUNT.MERGE(sketch)
-```
-
-**Description**
-
-An aggregate function that returns the cardinality of several
-[HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
-
-Each `sketch` must be initialized on the same type. Attempts to merge sketches
-for different types results in an error. For example, you cannot merge a sketch
-initialized from `INT64` data with one initialized from `STRING` data.
-
-If the merged sketches were initialized with different precisions, the precision
-will be downgraded to the lowest precision involved in the merge.
-
-This function ignores `NULL` values when merging sketches. If the merge happens
-over zero rows or only over `NULL` values, the function returns `0`.
-
-**Supported input types**
-
-`BYTES`
-
-**Return type**
-
-`INT64`
-
-**Example**
-
- The following query counts the number of distinct users across all countries
- who have at least one invoice.
-
-```sql
-SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
-FROM
-  (
-    SELECT
-      country,
-      HLL_COUNT.INIT(customer_id) AS hll_sketch
-    FROM
-      UNNEST(
-        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
-          ('UA', 'customer_id_1', 'invoice_id_11'),
-          ('BR', 'customer_id_3', 'invoice_id_31'),
-          ('CZ', 'customer_id_2', 'invoice_id_22'),
-          ('CZ', 'customer_id_2', 'invoice_id_23'),
-          ('BR', 'customer_id_3', 'invoice_id_31'),
-          ('UA', 'customer_id_2', 'invoice_id_24')])
-    GROUP BY country
-  );
-
-/*--------------------------------------*
- | distinct_customers_with_open_invoice |
- +--------------------------------------+
- |                                    3 |
- *--------------------------------------*/
 ```
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html

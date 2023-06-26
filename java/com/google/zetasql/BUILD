@@ -49,26 +49,33 @@ TYPES_SRCS = [
     "StructAnnotationMap.java",
 ]
 
+# There are several libraries that require this explicit list of dependencies
+# in order to produce valid maven artifacts.  These must all be kept in sync
+# and automated tools (build_cleaner) don't understand this requirement.
+BUILTIN_PROTO_DEPS = [
+    "//zetasql/proto:anon_output_with_report_java_proto",
+    "//zetasql/public/functions:array_find_mode_java_proto",
+    "//zetasql/public/functions:array_zip_mode_java_proto",
+    "//zetasql/public/functions:datetime_java_proto",
+    "//zetasql/public/functions:differential_privacy_java_proto",
+    "//zetasql/public/functions:normalize_mode_java_proto",
+    "//zetasql/public/functions:range_sessionize_mode_java_proto",
+    "//zetasql/public/functions:rounding_mode_java_proto",
+    "//zetasql/public:function_java_proto",
+    "//zetasql/public:type_proto_java_proto",
+    "//zetasql/public:value_java_proto",
+    "//zetasql/proto:function_java_proto",
+]
+
 java_library(
     name = "types",
     srcs = TYPES_SRCS,
     tags = ["maven_coordinates=com.google.zetasql:zetasql-types:${project.version}"],
-    deps = [
-        "//zetasql/proto:anon_output_with_report_java_proto",
-        "//zetasql/proto:function_java_proto",
+    deps = BUILTIN_PROTO_DEPS + [
         "//zetasql/public:annotation_java_proto",
         "//zetasql/public:options_java_proto",
         "//zetasql/public:simple_value_java_proto",
         "//zetasql/public:type_parameters_java_proto",
-        "//zetasql/public:type_proto_java_proto",
-        "//zetasql/public:value_java_proto",
-        "//zetasql/public/functions:array_find_mode_java_proto",
-        "//zetasql/public/functions:array_zip_mode_java_proto",
-        "//zetasql/public/functions:datetime_java_proto",
-        "//zetasql/public/functions:differential_privacy_java_proto",
-        "//zetasql/public/functions:normalize_mode_java_proto",
-        "//zetasql/public/functions:range_sessionize_mode_java_proto",
-        "//zetasql/public/functions:rounding_mode_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
         "@com_google_auto_value",
         "@com_google_protobuf//:protobuf_java",
@@ -90,17 +97,12 @@ java_library(
 
 jarjar_library(
     name = "types_jar",
-    jars = [
+    jars = BUILTIN_PROTO_DEPS + [
         ":types",
         ":types_proto_resources",
-        "//zetasql/proto:anon_output_with_report_java_proto",
-        "//zetasql/proto:function_java_proto",
         "//zetasql/public:deprecation_warning_java_proto",
         "//zetasql/public:error_location_java_proto",
-        "//zetasql/public:function_java_proto",
         "//zetasql/public:options_java_proto",
-        "//zetasql/public:type_proto_java_proto",
-        "//zetasql/public:value_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
     ],
     rules = [
@@ -119,16 +121,11 @@ pom_file(
     name = "types_pom",
     artifact_id = "zetasql-types",
     artifact_name = "Types",
-    targets = [
+    targets = BUILTIN_PROTO_DEPS + [
         ":types",
-        "//zetasql/proto:anon_output_with_report_java_proto",
-        "//zetasql/proto:function_java_proto",
         "//zetasql/public:deprecation_warning_java_proto",
         "//zetasql/public:error_location_java_proto",
-        "//zetasql/public:function_java_proto",
         "//zetasql/public:options_java_proto",
-        "//zetasql/public:type_proto_java_proto",
-        "//zetasql/public:value_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
     ],
 )
@@ -357,19 +354,17 @@ SIMPLE_CATALOG_SRCS = [
 java_library(
     name = "client",
     srcs = COMMON_SRCS + SIMPLE_CATALOG_SRCS + CATALOG_SRCS,
-    deps = [
+    deps = BUILTIN_PROTO_DEPS + [
         ":channel_provider",
         ":types",
         "//zetasql/local_service:local_service_java_grpc",
         "//zetasql/local_service:local_service_java_proto",
-        "//zetasql/proto:function_java_proto",
         "//zetasql/proto:options_java_proto",
         "//zetasql/proto:simple_catalog_java_proto",
         "//zetasql/public:builtin_function_java_proto",
         "//zetasql/public:deprecation_warning_java_proto",
         "//zetasql/public:error_location_java_proto",
         "//zetasql/public:formatter_options_java_proto",
-        "//zetasql/public:function_java_proto",
         "//zetasql/public:options_java_proto",
         "//zetasql/public:parse_location_range_java_proto",
         "//zetasql/public:parse_resume_location_java_proto",
@@ -377,12 +372,6 @@ java_library(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_model_java_proto",
         "//zetasql/public:simple_table_java_proto",
-        "//zetasql/public:type_proto_java_proto",
-        "//zetasql/public/functions:array_find_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
-        "//zetasql/public/functions:array_zip_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
-        "//zetasql/public/functions:datetime_java_proto",  # unuseddeps: keep # buildcleaner: keep
-        "//zetasql/public/functions:normalize_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
-        "//zetasql/public/functions:rounding_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",  # buildcleaner: keep
         "//zetasql/resolved_ast:serialization_java_proto",
         "@com_google_auto_value",
@@ -503,7 +492,7 @@ java_library(
 
 jarjar_library(
     name = "client_jar",
-    jars = [
+    jars = BUILTIN_PROTO_DEPS + [
         ":analyzer",
         ":parser",
         ":channel_provider",
@@ -525,12 +514,6 @@ jarjar_library(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_model_java_proto",
         "//zetasql/public:simple_table_java_proto",
-        "//zetasql/public/functions:array_find_mode_java_proto",
-        "//zetasql/public/functions:array_zip_mode_java_proto",
-        "//zetasql/public/functions:datetime_java_proto",
-        "//zetasql/public/functions:differential_privacy_java_proto",
-        "//zetasql/public/functions:normalize_mode_java_proto",
-        "//zetasql/public/functions:rounding_mode_java_proto",
         "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",
@@ -569,7 +552,7 @@ pom_file(
     name = "client_pom",
     artifact_id = "zetasql-client",
     artifact_name = "Core Client",
-    targets = [
+    targets = BUILTIN_PROTO_DEPS + [
         ":analyzer",
         ":channel_provider",
         ":client",
@@ -589,12 +572,6 @@ pom_file(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_model_java_proto",
         "//zetasql/public:simple_table_java_proto",
-        "//zetasql/public/functions:array_find_mode_java_proto",
-        "//zetasql/public/functions:array_zip_mode_java_proto",
-        "//zetasql/public/functions:datetime_java_proto",
-        "//zetasql/public/functions:differential_privacy_java_proto",
-        "//zetasql/public/functions:normalize_mode_java_proto",
-        "//zetasql/public/functions:rounding_mode_java_proto",
         "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",

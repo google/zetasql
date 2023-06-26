@@ -16,14 +16,17 @@
 
 #include "zetasql/reference_impl/functions/range.h"
 
+#include <cstdint>
 #include <optional>
 #include <utility>
 #include <vector>
 
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/range.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"
 #include "absl/status/status.h"
+#include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_macros.h"
@@ -50,6 +53,64 @@ bool IsStartLessThan(const Value& s1, const Value& s2) {
 // end being null/unbounded represents +inf
 bool IsEndLessThan(const Value& e1, const Value& e2) {
   return e1.is_null() ? false : e2.is_null() ? true : e1.LessThan(e2);
+}
+
+template <typename LogicalType>
+LogicalType ExtractRangeBoundary(const Value& boundary);
+
+template <>
+int32_t ExtractRangeBoundary(const Value& boundary) {
+  return boundary.date_value();
+}
+
+template <>
+DatetimeValue ExtractRangeBoundary(const Value& boundary) {
+  return boundary.datetime_value();
+}
+
+template <>
+absl::Time ExtractRangeBoundary(const Value& boundary) {
+  return boundary.ToTime();
+}
+
+Value MakeRangeBoundary(int32_t boundary) { return Value::Date(boundary); }
+
+Value MakeRangeBoundary(const DatetimeValue& boundary) {
+  return Value::Datetime(boundary);
+}
+
+Value MakeRangeBoundary(const absl::Time boundary) {
+  return Value::Timestamp(boundary);
+}
+
+template <typename GeneratorType>
+absl::StatusOr<GeneratorType> CreateRangeArrayGenerator(
+    const IntervalValue& step, bool last_partial_range,
+    EvaluationContext* context);
+
+template <>
+absl::StatusOr<functions::DateRangeArrayGenerator> CreateRangeArrayGenerator(
+    const IntervalValue& step, bool last_partial_range,
+    EvaluationContext* context) {
+  return functions::DateRangeArrayGenerator::Create(step, last_partial_range);
+}
+
+template <>
+absl::StatusOr<functions::DatetimeRangeArrayGenerator>
+CreateRangeArrayGenerator(const IntervalValue& step, bool last_partial_range,
+                          EvaluationContext* context) {
+  return functions::DatetimeRangeArrayGenerator::Create(
+      step, last_partial_range,
+      GetTimestampScale(context->GetLanguageOptions()));
+}
+
+template <>
+absl::StatusOr<functions::TimestampRangeArrayGenerator>
+CreateRangeArrayGenerator(const IntervalValue& step, bool last_partial_range,
+                          EvaluationContext* context) {
+  return functions::TimestampRangeArrayGenerator::Create(
+      step, last_partial_range,
+      GetTimestampScale(context->GetLanguageOptions()));
 }
 
 class RangeFunction : public SimpleBuiltinScalarFunction {
@@ -214,14 +275,60 @@ class GenerateRangeArrayFunction : public SimpleBuiltinScalarFunction {
       : SimpleBuiltinScalarFunction(FunctionKind::kGenerateRangeArray,
                                     output_type) {}
 
+  template <typename LogicalType, typename GeneratorType>
+  absl::StatusOr<std::vector<Value>> EvalForElement(
+      const Value& range, const IntervalValue& step, bool last_partial_range,
+      EvaluationContext* context) const;
+
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;
-
-  absl::StatusOr<std::vector<Value>> EvalForTimestampElement(
-      const Value& range, const IntervalValue& step, bool last_partial_range,
-      EvaluationContext* context) const;
 };
+
+template <typename LogicalType, typename GeneratorType>
+absl::StatusOr<std::vector<Value>> GenerateRangeArrayFunction::EvalForElement(
+    const Value& range, const IntervalValue& step, bool last_partial_range,
+    EvaluationContext* context) const {
+  static_assert(
+      (std::is_same_v<LogicalType, int32_t> &&
+       std::is_same_v<GeneratorType, functions::DateRangeArrayGenerator>) ||
+      (std::is_same_v<LogicalType, DatetimeValue> &&
+       std::is_same_v<GeneratorType, functions::DatetimeRangeArrayGenerator>) ||
+      (std::is_same_v<LogicalType, absl::Time> &&
+       std::is_same_v<GeneratorType, functions::TimestampRangeArrayGenerator>));
+
+  std::optional<LogicalType> range_start =
+      range.start().is_null()
+          ? std::nullopt
+          : std::make_optional(
+                ExtractRangeBoundary<LogicalType>(range.start()));
+  std::optional<LogicalType> range_end =
+      range.end().is_null()
+          ? std::nullopt
+          : std::make_optional(ExtractRangeBoundary<LogicalType>(range.end()));
+
+  ZETASQL_ASSIGN_OR_RETURN(const GeneratorType& generator,
+                   CreateRangeArrayGenerator<GeneratorType>(
+                       step, last_partial_range, context));
+
+  std::vector<Value> result;
+  int64_t bytes_so_far = 0;
+  ZETASQL_RETURN_IF_ERROR(generator.Generate(
+      range_start, range_end,
+      [&result, &bytes_so_far, context](
+          const LogicalType& start, const LogicalType& end) -> absl::Status {
+        ZETASQL_ASSIGN_OR_RETURN(Value range, Value::MakeRange(MakeRangeBoundary(start),
+                                                       MakeRangeBoundary(end)));
+        bytes_so_far += range.physical_byte_size();
+        if (bytes_so_far > context->options().max_value_byte_size) {
+          return MakeMaxArrayValueByteSizeExceededError(
+              context->options().max_value_byte_size, ZETASQL_LOC);
+        }
+        result.push_back(range);
+        return absl::OkStatus();
+      }));
+  return result;
+}
 
 absl::StatusOr<Value> GenerateRangeArrayFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
@@ -233,50 +340,39 @@ absl::StatusOr<Value> GenerateRangeArrayFunction::Eval(
   }
 
   ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
-
   ZETASQL_DCHECK(args[0].type()->IsRangeType());
-  if (args[0].type()->AsRange()->element_type()->kind() !=
-      TypeKind::TYPE_TIMESTAMP) {
-    return ::zetasql_base::UnimplementedErrorBuilder()
-           << "Unsupported argument type for generate_range_array.";
-  }
-  ZETASQL_ASSIGN_OR_RETURN(std::vector<Value> result,
-                   EvalForTimestampElement(args[0], args[1].interval_value(),
-                                           args[2].bool_value(), context));
-  return Value::MakeArray(output_type()->AsArray(), std::move(result));
-}
 
-absl::StatusOr<std::vector<Value>>
-GenerateRangeArrayFunction::EvalForTimestampElement(
-    const Value& range, const IntervalValue& step, bool last_partial_range,
-    EvaluationContext* context) const {
-  ZETASQL_ASSIGN_OR_RETURN(functions::TimestampRangeArrayGenerator generator,
-                   functions::TimestampRangeArrayGenerator::Create(
-                       step, last_partial_range,
-                       GetTimestampScale(context->GetLanguageOptions())));
-  std::optional<absl::Time> range_start =
-      range.start().is_null() ? std::nullopt
-                              : std::make_optional(range.start().ToTime());
-  std::optional<absl::Time> range_end =
-      range.end().is_null() ? std::nullopt
-                            : std::make_optional(range.end().ToTime());
   std::vector<Value> result;
-  int64_t bytes_so_far = 0;
-  ZETASQL_RETURN_IF_ERROR(generator.Generate(
-      range_start, range_end,
-      [&result, &bytes_so_far, context](absl::Time start,
-                                        absl::Time end) -> absl::Status {
-        ZETASQL_ASSIGN_OR_RETURN(Value range, Value::MakeRange(Value::Timestamp(start),
-                                                       Value::Timestamp(end)));
-        bytes_so_far += range.physical_byte_size();
-        if (bytes_so_far > context->options().max_value_byte_size) {
-          return MakeMaxArrayValueByteSizeExceededError(
-              context->options().max_value_byte_size, ZETASQL_LOC);
-        }
-        result.push_back(range);
-        return absl::OkStatus();
-      }));
-  return result;
+  switch (args[0].type()->AsRange()->element_type()->kind()) {
+    case TypeKind::TYPE_DATE: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          result, (EvalForElement<int32_t, functions::DateRangeArrayGenerator>(
+                      args[0], args[1].interval_value(), args[2].bool_value(),
+                      context)));
+      break;
+    }
+    case TypeKind::TYPE_DATETIME: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          result, (EvalForElement<DatetimeValue,
+                                  functions::DatetimeRangeArrayGenerator>(
+                      args[0], args[1].interval_value(), args[2].bool_value(),
+                      context)));
+      break;
+    }
+    case TypeKind::TYPE_TIMESTAMP: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          result,
+          (EvalForElement<absl::Time, functions::TimestampRangeArrayGenerator>(
+              args[0], args[1].interval_value(), args[2].bool_value(),
+              context)));
+      break;
+    }
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported range element type for generate_range_array.";
+  }
+
+  return Value::MakeArray(output_type()->AsArray(), std::move(result));
 }
 
 }  // namespace

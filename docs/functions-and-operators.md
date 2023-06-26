@@ -4755,6 +4755,15 @@ To learn about the syntax for aggregate function calls, see
 </tr>
 
 <tr>
+  <td><a href="#stddev"><code>STDDEV</code></a>
+
+</td>
+  <td>
+    An alias of the <code>STDDEV_SAMP</code> function.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#stddev_pop"><code>STDDEV_POP</code></a>
 
 </td>
@@ -4769,15 +4778,6 @@ To learn about the syntax for aggregate function calls, see
 </td>
   <td>
     Returns the sample (unbiased) standard deviation of the values.
-  </td>
-</tr>
-
-<tr>
-  <td><a href="#stddev"><code>STDDEV</code></a>
-
-</td>
-  <td>
-    An alias of the <code>STDDEV_SAMP</code> function.
   </td>
 </tr>
 
@@ -5262,6 +5262,33 @@ FROM
 
 [stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
+### `STDDEV`
+
+```sql
+STDDEV(
+  [ DISTINCT ]
+  expression
+  [ HAVING { MAX | MIN } expression2 ]
+)
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
+```
+
+**Description**
+
+An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
+
+[stat-agg-link-to-stddev-samp]: #stddev_samp
+
 ### `STDDEV_POP`
 
 ```sql
@@ -5497,33 +5524,6 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)
  | NaN     |
  *---------*/
 ```
-
-### `STDDEV`
-
-```sql
-STDDEV(
-  [ DISTINCT ]
-  expression
-  [ HAVING { MAX | MIN } expression2 ]
-)
-[ OVER over_clause ]
-
-over_clause:
-  { named_window | ( [ window_specification ] ) }
-
-window_specification:
-  [ named_window ]
-  [ PARTITION BY partition_expression [, ...] ]
-  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
-  [ window_frame_clause ]
-
-```
-
-**Description**
-
-An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
-
-[stat-agg-link-to-stddev-samp]: #stddev_samp
 
 ### `VAR_POP`
 
@@ -7903,6 +7903,68 @@ GROUP BY country;
 
 [precision_hll]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_hll
 
+### `HLL_COUNT.MERGE`
+
+```
+HLL_COUNT.MERGE(sketch)
+```
+
+**Description**
+
+An aggregate function that returns the cardinality of several
+[HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
+
+Each `sketch` must be initialized on the same type. Attempts to merge sketches
+for different types results in an error. For example, you cannot merge a sketch
+initialized from `INT64` data with one initialized from `STRING` data.
+
+If the merged sketches were initialized with different precisions, the precision
+will be downgraded to the lowest precision involved in the merge.
+
+This function ignores `NULL` values when merging sketches. If the merge happens
+over zero rows or only over `NULL` values, the function returns `0`.
+
+**Supported input types**
+
+`BYTES`
+
+**Return type**
+
+`INT64`
+
+**Example**
+
+ The following query counts the number of distinct users across all countries
+ who have at least one invoice.
+
+```sql
+SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  );
+
+/*--------------------------------------*
+ | distinct_customers_with_open_invoice |
+ +--------------------------------------+
+ |                                    3 |
+ *--------------------------------------*/
+```
+
+[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+
 ### `HLL_COUNT.MERGE_PARTIAL`
 
 ```
@@ -7963,68 +8025,6 @@ FROM
  +----------------------------------------------------------------------------------------------+
  | "\010p\020\006\030\002 \013\202\007\020\020\003\030\017 \0242\010\320\2408\352}\244\223\002" |
  *----------------------------------------------------------------------------------------------*/
-```
-
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
-
-### `HLL_COUNT.MERGE`
-
-```
-HLL_COUNT.MERGE(sketch)
-```
-
-**Description**
-
-An aggregate function that returns the cardinality of several
-[HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
-
-Each `sketch` must be initialized on the same type. Attempts to merge sketches
-for different types results in an error. For example, you cannot merge a sketch
-initialized from `INT64` data with one initialized from `STRING` data.
-
-If the merged sketches were initialized with different precisions, the precision
-will be downgraded to the lowest precision involved in the merge.
-
-This function ignores `NULL` values when merging sketches. If the merge happens
-over zero rows or only over `NULL` values, the function returns `0`.
-
-**Supported input types**
-
-`BYTES`
-
-**Return type**
-
-`INT64`
-
-**Example**
-
- The following query counts the number of distinct users across all countries
- who have at least one invoice.
-
-```sql
-SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
-FROM
-  (
-    SELECT
-      country,
-      HLL_COUNT.INIT(customer_id) AS hll_sketch
-    FROM
-      UNNEST(
-        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
-          ('UA', 'customer_id_1', 'invoice_id_11'),
-          ('BR', 'customer_id_3', 'invoice_id_31'),
-          ('CZ', 'customer_id_2', 'invoice_id_22'),
-          ('CZ', 'customer_id_2', 'invoice_id_23'),
-          ('BR', 'customer_id_3', 'invoice_id_31'),
-          ('UA', 'customer_id_2', 'invoice_id_24')])
-    GROUP BY country
-  );
-
-/*--------------------------------------*
- | distinct_customers_with_open_invoice |
- +--------------------------------------+
- |                                    3 |
- *--------------------------------------*/
 ```
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
@@ -16356,6 +16356,75 @@ FROM items;
 
 [string-link-to-trim]: #trim
 
+### `NORMALIZE`
+
+```sql
+NORMALIZE(value[, normalization_mode])
+```
+
+**Description**
+
+Takes a string value and returns it as a normalized string. If you do not
+provide a normalization mode, `NFC` is used.
+
+[Normalization][string-link-to-normalization-wikipedia] is used to ensure that
+two strings are equivalent. Normalization is often used in situations in which
+two strings render the same on the screen but have different Unicode code
+points.
+
+`NORMALIZE` supports four optional normalization modes:
+
+| Value   | Name                                           | Description|
+|---------|------------------------------------------------|------------|
+| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
+| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
+| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
+| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT a, b, a = b as normalized
+FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
+
+/*---+---+------------*
+ | a | b | normalized |
+ +---+---+------------+
+ | ê | ê | true       |
+ *---+---+------------*/
+```
+The following example normalizes different space characters.
+
+```sql
+WITH EquivalentNames AS (
+  SELECT name
+  FROM UNNEST([
+      'Jane\u2004Doe',
+      'John\u2004Smith',
+      'Jane\u2005Doe',
+      'Jane\u2006Doe',
+      'John Smith']) AS name
+)
+SELECT
+  NORMALIZE(name, NFKC) AS normalized_name,
+  COUNT(*) AS name_count
+FROM EquivalentNames
+GROUP BY 1;
+
+/*-----------------+------------*
+ | normalized_name | name_count |
+ +-----------------+------------+
+ | John Smith      | 2          |
+ | Jane Doe        | 3          |
+ *-----------------+------------*/
+```
+
+[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
+
 ### `NORMALIZE_AND_CASEFOLD`
 
 ```sql
@@ -16431,75 +16500,6 @@ FROM Strings;
 [string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
 
 [string-link-to-normalize]: #normalize
-
-### `NORMALIZE`
-
-```sql
-NORMALIZE(value[, normalization_mode])
-```
-
-**Description**
-
-Takes a string value and returns it as a normalized string. If you do not
-provide a normalization mode, `NFC` is used.
-
-[Normalization][string-link-to-normalization-wikipedia] is used to ensure that
-two strings are equivalent. Normalization is often used in situations in which
-two strings render the same on the screen but have different Unicode code
-points.
-
-`NORMALIZE` supports four optional normalization modes:
-
-| Value   | Name                                           | Description|
-|---------|------------------------------------------------|------------|
-| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
-| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
-| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
-| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-```sql
-SELECT a, b, a = b as normalized
-FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
-
-/*---+---+------------*
- | a | b | normalized |
- +---+---+------------+
- | ê | ê | true       |
- *---+---+------------*/
-```
-The following example normalizes different space characters.
-
-```sql
-WITH EquivalentNames AS (
-  SELECT name
-  FROM UNNEST([
-      'Jane\u2004Doe',
-      'John\u2004Smith',
-      'Jane\u2005Doe',
-      'Jane\u2006Doe',
-      'John Smith']) AS name
-)
-SELECT
-  NORMALIZE(name, NFKC) AS normalized_name,
-  COUNT(*) AS name_count
-FROM EquivalentNames
-GROUP BY 1;
-
-/*-----------------+------------*
- | normalized_name | name_count |
- +-----------------+------------+
- | John Smith      | 2          |
- | Jane Doe        | 3          |
- *-----------------+------------*/
-```
-
-[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
 
 ### `OCTET_LENGTH`
 
@@ -16580,55 +16580,6 @@ FROM
  | !b@bar.org     | false               | true                |
  | c@buz.net      | false               | false               |
  *----------------+---------------------+---------------------*/
-```
-
-[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
-
-### `REGEXP_EXTRACT_ALL`
-
-```sql
-REGEXP_EXTRACT_ALL(value, regexp)
-```
-
-**Description**
-
-Returns an array of all substrings of `value` that match the
-[re2 regular expression][string-link-to-re2], `regexp`. Returns an empty array
-if there is no match.
-
-If the regular expression contains a capturing group (`(...)`), and there is a
-match for that capturing group, that match is added to the results. If there
-are multiple matches for a capturing group, the last match is added to the
-results.
-
-The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
-example, using this function to extract `ana` from `banana` returns only one
-substring, not two.
-
-Returns an error if:
-
-+ The regular expression is invalid
-+ The regular expression has more than one capturing group
-
-**Return type**
-
-`ARRAY<STRING>` or `ARRAY<BYTES>`
-
-**Examples**
-
-```sql
-WITH code_markdown AS
-  (SELECT 'Try `function(x)` or `function(y)`' as code)
-
-SELECT
-  REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
-FROM code_markdown;
-
-/*----------------------------*
- | example                    |
- +----------------------------+
- | [function(x), function(y)] |
- *----------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -16722,6 +16673,55 @@ SELECT value, regex, REGEXP_EXTRACT(value, regex) AS result FROM characters;
  | xyztb | (.)+b   | t        |
  | ab    | (z)?b   | NULL     |
  *-------+---------+----------*/
+```
+
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
+### `REGEXP_EXTRACT_ALL`
+
+```sql
+REGEXP_EXTRACT_ALL(value, regexp)
+```
+
+**Description**
+
+Returns an array of all substrings of `value` that match the
+[re2 regular expression][string-link-to-re2], `regexp`. Returns an empty array
+if there is no match.
+
+If the regular expression contains a capturing group (`(...)`), and there is a
+match for that capturing group, that match is added to the results. If there
+are multiple matches for a capturing group, the last match is added to the
+results.
+
+The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
+example, using this function to extract `ana` from `banana` returns only one
+substring, not two.
+
+Returns an error if:
+
++ The regular expression is invalid
++ The regular expression has more than one capturing group
+
+**Return type**
+
+`ARRAY<STRING>` or `ARRAY<BYTES>`
+
+**Examples**
+
+```sql
+WITH code_markdown AS
+  (SELECT 'Try `function(x)` or `function(y)`' as code)
+
+SELECT
+  REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
+FROM code_markdown;
+
+/*----------------------------*
+ | example                    |
+ +----------------------------+
+ | [function(x), function(y)] |
+ *----------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -18190,212 +18190,172 @@ FROM items;
 ZetaSQL supports the following functions, which can retrieve and
 transform JSON data.
 
-### Function overview
-
-#### Standard JSON extraction functions (recommended)
-
-The following functions use double quotes to escape invalid
-[JSONPath][JSONPath-format] characters: <code>"a.b"</code>.
-
-This behavior is consistent with the ANSI standard.
+### Function list
 
 <table>
   <thead>
     <tr>
-      <th>JSON function</th>
-      <th>Description</th>
-      <th>Return type</th>
+      <th>Name</th>
+      <th>Summary</th>
     </tr>
   </thead>
   <tbody>
-    
-    <tr>
-      <td><a href="#json_query"><code>JSON_QUERY</code></a></td>
-      <td>
-        Extracts a JSON value, such as an array or object, or a JSON
-        scalar value, such as a string, number, or boolean.
-      </td>
-      <td>
-        JSON-formatted <code>STRING</code>
-         or
-        <code>JSON</code>
-        
-      </td>
-    </tr>
-    <tr>
-      <td><a href="#json_value"><code>JSON_VALUE</code></a></td>
-      <td>
-        Extracts a scalar value.
-        A scalar value can represent a string, number, or boolean.
-        Removes the outermost quotes and unescapes the values.
-        Returns a SQL <code>NULL</code> if a non-scalar value is selected.
-      </td>
-      <td><code>STRING</code></td>
-    </tr>
-    
-    
-    <tr>
-      <td><a href="#json_query_array"><code>JSON_QUERY_ARRAY</code></a></td>
-      <td>
-        Extracts an array of JSON values, such as arrays or objects, and
-        JSON scalar values, such as strings, numbers, and booleans.
-      </td>
-      <td>
-        <code>ARRAY&lt;JSON-formatted STRING&gt;</code>
-         or
-        <code>ARRAY&lt;JSON&gt;</code>
-        
-      </td>
-    </tr>
-    
-    
-    <tr>
-      <td><a href="#json_value_array"><code>JSON_VALUE_ARRAY</code></a></td>
-      <td>
-        Extracts an array of scalar values. A scalar value can represent a
-        string, number, or boolean.
-        Removes the outermost quotes and unescapes the values.
-        Returns a SQL <code>NULL</code> if the selected value is not an array or
-        not an array containing only scalar values.
-      </td>
-      <td><code>ARRAY&lt;STRING&gt;</code></td>
-    </tr>
-    
-  </tbody>
-</table>
 
-#### Legacy JSON extraction functions
+<tr>
+  <td><a href="#bool_for_json"><code>BOOL</code></a>
 
-The following functions use single quotes and brackets to escape invalid
-[JSONPath][JSONPath-format] characters: <code>['a.b']</code></td>.
+</td>
+  <td>
+    Extracts a JSON boolean and converts it to a
+    SQL <code>BOOL</code> value.
+  </td>
+</tr>
 
-While these functions are supported by ZetaSQL, we recommend using
-the functions in the previous table.
+<tr>
+  <td>
+  
+  <a href="#double_for_json"><code>DOUBLE</code></a>
 
-<table>
-  <thead>
-    <tr>
-      <th>JSON function</th>
-      <th>Description</th>
-      <th>Return type</th>
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td><a href="#json_extract"><code>JSON_EXTRACT</code></a></td>
-      <td>
-        Extracts a JSON value, such as an array or object, or a JSON
-        scalar value, such as a string, number, or boolean.
-      </td>
-      <td>
-        JSON-formatted <code>STRING</code>
-         or
-        <code>JSON</code>
-        
-      </td>
-    </tr>
-    <tr>
-      <td><a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a></td>
-      <td>
-        Extracts a scalar value.
-        A scalar value can represent a string, number, or boolean.
-        Removes the outermost quotes and unescapes the values.
-        Returns a SQL <code>NULL</code> if a non-scalar value is selected.
-      </td>
-      <td><code>STRING</code></td>
-    </tr>
-    
-    
-    
-  </tbody>
-</table>
+  
+  </td>
+  <td>
+    Extracts a JSON number and converts it to a
+    SQL <code>DOUBLE</code> value.
+  </td>
+</tr>
 
-#### Other JSON functions
+<tr>
+  <td><a href="#int64_for_json"><code>INT64</code></a>
 
-<table>
-  <thead>
-    <tr>
-      <th>JSON function</th>
-      <th>Description</th>
-      <th>Return type</th>
-    </tr>
-  </thead>
-  <tbody>
+</td>
+  <td>
+    Extracts a JSON number and converts it to a
+    SQL <code>INT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_extract"><code>JSON_EXTRACT</code></a>
+
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON value and converts it to a SQL
+    JSON-formatted <code>STRING</code>
+     or
+    <code>JSON</code>
     
-    <tr>
-      <td><a href="#parse_json"><code>PARSE_JSON</code></a></td>
-      <td>
-        Takes a JSON-formatted string and returns a JSON value.
-      </td>
-      <td><code>JSON</code></td>
-    </tr>
+    value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a>
+
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON scalar value and converts it to a SQL
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_query"><code>JSON_QUERY</code></a>
+
+</td>
+  <td>
+    Extracts a JSON value and converts it to a SQL
+    JSON-formatted <code>STRING</code>
+     or
+    <code>JSON</code>
     
+    value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_query_array"><code>JSON_QUERY_ARRAY</code></a>
+
+</td>
+  <td>
+    Extracts a JSON array and converts it to
+    a SQL <code>ARRAY&lt;JSON-formatted STRING&gt;</code>
+     or
+    <code>ARRAY&lt;JSON&gt;</code>
     
-    <tr>
-      <td><a href="#to_json"><code>TO_JSON</code></a></td>
-      <td>
-        Takes a SQL value and returns a JSON value.
-      </td>
-      <td><code>JSON</code></td>
-    </tr>
-    
-    
-    <tr>
-      <td><a href="#to_json_string"><code>TO_JSON_STRING</code></a></td>
-      <td>
-        Takes a SQL value and returns a JSON-formatted string
-        representation of the value.
-      </td>
-      <td>JSON-formatted <code>STRING</code></td>
-    </tr>
-    
-    
-    
-    <tr>
-      <td><a href="#string_for_json"><code>STRING</code></a></td>
-      <td>
-        Extracts a string from JSON.
-      </td>
-      <td><code>STRING</code></td>
-    </tr>
-    
-    
-    <tr>
-      <td><a href="#bool_for_json"><code>BOOL</code></a></td>
-      <td>
-        Extracts a boolean from JSON.
-      </td>
-      <td><code>BOOL</code></td>
-    </tr>
-    
-    
-    <tr>
-      <td><a href="#int64_for_json"><code>INT64</code></a></td>
-      <td>
-        Extracts a 64-bit integer from JSON.
-      </td>
-      <td><code>INT64</code></td>
-    </tr>
-    
-    
-    <tr>
-      <td><a href="#double_for_json"><code>DOUBLE</code></a></td>
-      <td>
-        Extracts a 64-bit floating-point number from JSON.
-      </td>
-      <td><code>DOUBLE</code></td>
-    </tr>
-    
-    
-    <tr>
-      <td><a href="#json_type"><code>JSON_TYPE</code></a></td>
-      <td>
-        Returns the type of the outermost JSON value as a string.
-      </td>
-      <td><code>STRING</code></td>
-    </tr>
-    
+    value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_type"><code>JSON_TYPE</code></a>
+
+</td>
+  <td>
+    Gets the JSON type of the outermost JSON value and converts the name of
+    this type to a SQL <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_value"><code>JSON_VALUE</code></a>
+
+</td>
+  <td>
+    Extracts a JSON scalar value and converts it to a SQL
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_value_array"><code>JSON_VALUE_ARRAY</code></a>
+
+</td>
+  <td>
+    Extracts a JSON array of scalar values and converts it to a SQL
+    <code>ARRAY&lt;STRING&gt;</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_json"><code>PARSE_JSON</code></a>
+
+</td>
+  <td>
+    Converts a JSON-formatted <code>STRING</code> value to a
+    <code>JSON</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string_for_json"><code>STRING</code></a>
+
+</td>
+  <td>
+    Extracts a JSON string and converts it to a
+    SQL <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_json"><code>TO_JSON</code></a>
+
+</td>
+  <td>
+    Converts a SQL value to a JSON value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_json_string"><code>TO_JSON_STRING</code></a>
+
+</td>
+  <td>
+    Converts a SQL value to a JSON-formatted <code>STRING</code> value.
+  </td>
+</tr>
+
   </tbody>
 </table>
 
@@ -18408,15 +18368,18 @@ BOOL(json_expr)
 
 **Description**
 
-Takes a JSON expression, extracts a JSON boolean, and returns that value as a SQL
-`BOOL`. If the expression is SQL `NULL`, the function returns SQL
-`NULL`. If the extracted JSON value is not a boolean, an error is produced.
+Extracts a JSON boolean and converts it to a SQL `BOOL` value.
+
+Arguments:
 
 +   `json_expr`: JSON. For example:
 
     ```
     JSON '{"name": "sky", "color" : "blue"}'
     ```
+
+    If the expression is SQL `NULL`, the function returns SQL
+    `NULL`. If the extracted JSON value is not a boolean, an error is produced.
 
 **Return type**
 
@@ -18462,10 +18425,10 @@ DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 
 **Description**
 
-Takes a JSON expression, extracts a JSON number and returns that value as a SQL
-`DOUBLE`. If the expression is SQL `NULL`, the
-function returns SQL `NULL`. If the extracted JSON value is not a number, an
-error is produced.
+Extracts a JSON number and converts it to a
+SQL `DOUBLE` value.
+
+Arguments:
 
 +   `json_expr`: JSON. For example:
 
@@ -18473,17 +18436,20 @@ error is produced.
     JSON '{"name": "sky", "color" : "blue"}'
     ```
 
-This function supports an optional mandatory-named argument called
-`wide_number_mode` which defines what happens with a number that cannot be
-represented as a DOUBLE without loss of precision.
+    If the expression is SQL `NULL`, the
+    function returns SQL `NULL`. If the extracted JSON value is not a number, an
+    error is produced.
++   `wide_number_mode`: Optional mandatory-named argument,
+    which defines what happens with a number that cannot be
+    represented as a `DOUBLE` without loss of
+    precision. This argument accepts one of the two case-sensitive values:
 
-This argument accepts one of the two case-sensitive values:
-
-+   ‘exact’: The function fails if the result cannot be represented as a
-    `DOUBLE` without loss of precision.
-+   ‘round’: The numeric value stored in JSON will be rounded to
-    `DOUBLE`. If such rounding is not possible, the
-    function fails. This is the default value if the argument is not specified.
+    +   `exact`: The function fails if the result cannot be represented as a
+        `DOUBLE` without loss of precision.
+    +   `round`: The numeric value stored in JSON will be rounded to
+        `DOUBLE`. If such rounding is not possible,
+        the function fails. This is the default value if the argument is not
+        specified.
 
 **Return type**
 
@@ -18558,16 +18524,19 @@ INT64(json_expr)
 
 **Description**
 
-Takes a JSON expression, extracts a JSON number and returns that value as a SQL
-`INT64`. If the expression is SQL `NULL`, the function returns SQL
-`NULL`. If the extracted JSON number has a fractional part or is outside of the
-INT64 domain, an error is produced.
+Extracts a JSON number and converts it to a SQL `INT64` value.
+
+Arguments:
 
 +   `json_expr`: JSON. For example:
 
     ```
     JSON '{"name": "sky", "color" : "blue"}'
     ```
+
+    If this expression is SQL `NULL`, the function returns SQL
+    `NULL`. If the extracted JSON number has a fractional part or is outside of
+    the `INT64` domain, an error is produced.
 
 **Return type**
 
@@ -18615,112 +18584,6 @@ SELECT INT64(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ```
 
-### `JSON_EXTRACT_SCALAR`
-
-Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
-
-```sql
-JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
-```
-
-```sql
-JSON_EXTRACT_SCALAR(json_expr[, json_path])
-```
-
-**Description**
-
-Extracts a scalar value and then returns it as a string. A scalar value can
-represent a string, number, or boolean. Removes the outermost quotes and
-unescapes the return values. If a JSON key uses invalid
-[JSONPath][JSONPath-format] characters, then you can escape those characters
-using single quotes and brackets.
-
-+   `json_string_expr`: A JSON-formatted string. For example:
-
-    ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-+   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
-    provided, then the JSONPath `$` symbol is applied, which means that all of
-    the data is analyzed.
-
-    If `json_path` returns a JSON `null` or a non-scalar value (in other words,
-    if `json_path` refers to an object or an array), then a SQL `NULL` is
-    returned.
-
-There are differences between the JSON-formatted string and JSON input types.
-For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-In the following example, `age` is extracted.
-
-```sql
-SELECT JSON_EXTRACT_SCALAR(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
-
-/*------------*
- | scalar_age |
- +------------+
- | 6          |
- *------------*/
-```
-
-The following example compares how results are returned for the `JSON_EXTRACT`
-and `JSON_EXTRACT_SCALAR` functions.
-
-```sql
-SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
-  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
-  JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
-  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
-
-/*-----------+-------------+----------+------------*
- | json_name | scalar_name | json_age | scalar_age |
- +-----------+-------------+----------+------------+
- | "Jakob"   | Jakob       | "6"      | 6          |
- *-----------+-------------+----------+------------*/
-```
-
-```sql
-SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
-  JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
-
-/*--------------------+---------------------*
- | json_extract       | json_extract_scalar |
- +--------------------+---------------------+
- | ["apple","banana"] | NULL                |
- *--------------------+---------------------*/
-```
-
-In cases where a JSON key uses invalid JSONPath characters, you can escape those
-characters using single quotes and brackets, `[' ']`. For example:
-
-```sql
-SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
-
-/*-------*
- | hello |
- +-------+
- | world |
- *-------*/
-```
-
-[json-value]: #json_value
-
-[JSONPath-format]: #JSONPath_format
-
-[differences-json-and-string]: #differences_json_and_string
-
 ### `JSON_EXTRACT`
 
 Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
@@ -18735,10 +18598,12 @@ JSON_EXTRACT(json_expr, json_path)
 
 **Description**
 
-Extracts a JSON value, such as an array or object, or a JSON scalar
-value, such as a string, number, or boolean. If a JSON key uses invalid
-[JSONPath][JSONPath-format] characters, then you can escape those characters
-using single quotes and brackets.
+Extracts a JSON value and converts it to a
+SQL JSON-formatted `STRING` or `JSON` value.
+This function uses single quotes and brackets to escape invalid
+[JSONPath][JSONPath-format] characters in JSON keys. For example: `['a.b']`.
+
+Arguments:
 
 +   `json_string_expr`: A JSON-formatted string. For example:
 
@@ -18879,6 +18744,273 @@ SELECT JSON_EXTRACT(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
 
 [differences-json-and-string]: #differences_json_and_string
 
+### `JSON_EXTRACT_SCALAR`
+
+Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
+
+```sql
+JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
+```
+
+```sql
+JSON_EXTRACT_SCALAR(json_expr[, json_path])
+```
+
+**Description**
+
+Extracts a JSON scalar value and converts it to a SQL `STRING` value.
+In addition, this function:
+
++   Removes the outermost quotes and unescapes the return values.
++   Returns a SQL `NULL` if a non-scalar value is selected.
++   Uses single quotes and brackets to escape invalid [JSONPath][JSONPath-format]
+    characters in JSON keys. For example: `['a.b']`.
+
+Arguments:
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+    If `json_path` returns a JSON `null` or a non-scalar value (in other words,
+    if `json_path` refers to an object or an array), then a SQL `NULL` is
+    returned.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+In the following example, `age` is extracted.
+
+```sql
+SELECT JSON_EXTRACT_SCALAR(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
+/*------------*
+ | scalar_age |
+ +------------+
+ | 6          |
+ *------------*/
+```
+
+The following example compares how results are returned for the `JSON_EXTRACT`
+and `JSON_EXTRACT_SCALAR` functions.
+
+```sql
+SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
+  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
+  JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
+  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
+/*-----------+-------------+----------+------------*
+ | json_name | scalar_name | json_age | scalar_age |
+ +-----------+-------------+----------+------------+
+ | "Jakob"   | Jakob       | "6"      | 6          |
+ *-----------+-------------+----------+------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
+  JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
+
+/*--------------------+---------------------*
+ | json_extract       | json_extract_scalar |
+ +--------------------+---------------------+
+ | ["apple","banana"] | NULL                |
+ *--------------------+---------------------*/
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using single quotes and brackets, `[' ']`. For example:
+
+```sql
+SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
+
+/*-------*
+ | hello |
+ +-------+
+ | world |
+ *-------*/
+```
+
+[json-value]: #json_value
+
+[JSONPath-format]: #JSONPath_format
+
+[differences-json-and-string]: #differences_json_and_string
+
+### `JSON_QUERY`
+
+```sql
+JSON_QUERY(json_string_expr, json_path)
+```
+
+```sql
+JSON_QUERY(json_expr, json_path)
+```
+
+**Description**
+
+Extracts a JSON value and converts it to a SQL
+JSON-formatted `STRING` or
+`JSON` value.
+This function uses double quotes to escape invalid
+[JSONPath][JSONPath-format] characters in JSON keys. For example: `"a.b"`.
+
+Arguments:
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
+
+    Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
+    For example:
+
+    ```sql
+    SELECT JSON_QUERY("null", "$") -- Returns a SQL NULL
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
+
+    Extracts a JSON `null` when a JSON `null` is encountered.
+
+    ```sql
+    SELECT JSON_QUERY(JSON 'null', "$") -- Returns a JSON 'null'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
+
+**Return type**
+
++ `json_string_expr`: A JSON-formatted `STRING`
++ `json_expr`: `JSON`
+
+**Examples**
+
+In the following example, JSON data is extracted and returned as JSON.
+
+```sql
+SELECT
+  JSON_QUERY(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
+  AS json_data;
+
+/*-----------------------------------*
+ | json_data                         |
+ +-----------------------------------+
+ | {"students":[{"id":5},{"id":12}]} |
+ *-----------------------------------*/
+```
+
+In the following examples, JSON data is extracted and returned as
+JSON-formatted strings.
+
+```sql
+SELECT JSON_QUERY(json_text, '$') AS json_text_string
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  ]) AS json_text;
+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
+ | {"class":{"students":[{"name":"Jane"}]}}                  |
+ | {"class":{"students":[]}}                                 |
+ | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
+ *-----------------------------------------------------------*/
+```
+
+```sql
+SELECT JSON_QUERY(json_text, '$.class.students[0]') AS first_student
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  ]) AS json_text;
+
+/*-----------------*
+ | first_student   |
+ +-----------------+
+ | {"name":"Jane"} |
+ | NULL            |
+ | {"name":"John"} |
+ *-----------------*/
+```
+
+```sql
+SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  ]) AS json_text;
+
+/*-------------------*
+ | second_student    |
+ +-------------------+
+ | NULL              |
+ | NULL              |
+ | NULL              |
+ | "Jamie"           |
+ *-------------------*/
+```
+
+```sql
+SELECT JSON_QUERY(json_text, '$.class."students"') AS student_names
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  ]) AS json_text;
+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
+ | [{"name":"Jane"}]                  |
+ | []                                 |
+ | [{"name":"John"},{"name":"Jamie"}] |
+ *------------------------------------*/
+```
+
+```sql
+SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
+SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
+```sql
+SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
+SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
+[JSONPath-format]: #JSONPath_format
+
+[differences-json-and-string]: #differences_json_and_string
+
 ### `JSON_QUERY_ARRAY`
 
 ```sql
@@ -18891,11 +19023,13 @@ JSON_QUERY_ARRAY(json_expr[, json_path])
 
 **Description**
 
-Extracts an array of JSON values, such as arrays or objects, and
-JSON scalar values, such as strings, numbers, and booleans.
-If a JSON key uses invalid
-[JSONPath][JSONPath-format] characters, then you can escape those characters
-using double quotes.
+Extracts a JSON array and converts it to
+a SQL `ARRAY<JSON-formatted STRING>` or
+`ARRAY<JSON>` value.
+In addition, this function uses double quotes to escape invalid
+[JSONPath][JSONPath-format] characters in JSON keys. For example: `"a.b"`.
+
+Arguments:
 
 +   `json_string_expr`: A JSON-formatted string. For example:
 
@@ -19071,160 +19205,6 @@ SELECT JSON_QUERY_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 
 [differences-json-and-string]: #differences_json_and_string
 
-### `JSON_QUERY`
-
-```sql
-JSON_QUERY(json_string_expr, json_path)
-```
-
-```sql
-JSON_QUERY(json_expr, json_path)
-```
-
-**Description**
-
-Extracts a JSON value, such as an array or object, or a JSON scalar
-value, such as a string, number, or boolean. If a JSON key uses invalid
-[JSONPath][JSONPath-format] characters, then you can escape those characters
-using double quotes.
-
-+   `json_string_expr`: A JSON-formatted string. For example:
-
-    ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-
-    Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
-    For example:
-
-    ```sql
-    SELECT JSON_QUERY("null", "$") -- Returns a SQL NULL
-    ```
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-
-    Extracts a JSON `null` when a JSON `null` is encountered.
-
-    ```sql
-    SELECT JSON_QUERY(JSON 'null', "$") -- Returns a JSON 'null'
-    ```
-+   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input.
-
-There are differences between the JSON-formatted string and JSON input types.
-For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
-
-**Return type**
-
-+ `json_string_expr`: A JSON-formatted `STRING`
-+ `json_expr`: `JSON`
-
-**Examples**
-
-In the following example, JSON data is extracted and returned as JSON.
-
-```sql
-SELECT
-  JSON_QUERY(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
-  AS json_data;
-
-/*-----------------------------------*
- | json_data                         |
- +-----------------------------------+
- | {"students":[{"id":5},{"id":12}]} |
- *-----------------------------------*/
-```
-
-In the following examples, JSON data is extracted and returned as
-JSON-formatted strings.
-
-```sql
-SELECT JSON_QUERY(json_text, '$') AS json_text_string
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
-
-/*-----------------------------------------------------------*
- | json_text_string                                          |
- +-----------------------------------------------------------+
- | {"class":{"students":[{"name":"Jane"}]}}                  |
- | {"class":{"students":[]}}                                 |
- | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
- *-----------------------------------------------------------*/
-```
-
-```sql
-SELECT JSON_QUERY(json_text, '$.class.students[0]') AS first_student
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
-
-/*-----------------*
- | first_student   |
- +-----------------+
- | {"name":"Jane"} |
- | NULL            |
- | {"name":"John"} |
- *-----------------*/
-```
-
-```sql
-SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
-
-/*-------------------*
- | second_student    |
- +-------------------+
- | NULL              |
- | NULL              |
- | NULL              |
- | "Jamie"           |
- *-------------------*/
-```
-
-```sql
-SELECT JSON_QUERY(json_text, '$.class."students"') AS student_names
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
-
-/*------------------------------------*
- | student_names                      |
- +------------------------------------+
- | [{"name":"Jane"}]                  |
- | []                                 |
- | [{"name":"John"},{"name":"Jamie"}] |
- *------------------------------------*/
-```
-
-```sql
-SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
-SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
-```
-
-```sql
-SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
-SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
-```
-
-[JSONPath-format]: #JSONPath_format
-
-[differences-json-and-string]: #differences_json_and_string
-
 ### `JSON_TYPE` 
 <a id="json_type"></a>
 
@@ -19234,24 +19214,20 @@ JSON_TYPE(json_expr)
 
 **Description**
 
-Takes a JSON expression and returns the type of the outermost JSON value as a
-SQL `STRING`. The names of these JSON types can be returned:
+Gets the JSON type of the outermost JSON value and converts the name of
+this type to a SQL `STRING` value. The names of these JSON types can be
+returned: `object`, `array`, `string`, `number`, `boolean`, `null`
 
-+ `object`
-+ `array`
-+ `string`
-+ `number`
-+ `boolean`
-+ `null`
-
-If the expression is SQL `NULL`, the function returns SQL `NULL`. If the
-extracted JSON value is not a valid JSON type, an error is produced.
+Arguments:
 
 +   `json_expr`: JSON. For example:
 
     ```
     JSON '{"name": "sky", "color" : "blue"}'
     ```
+
+    If this expression is SQL `NULL`, the function returns SQL `NULL`. If the
+    extracted JSON value is not a valid JSON type, an error is produced.
 
 **Return type**
 
@@ -19299,11 +19275,15 @@ JSON_VALUE(json_expr[, json_path])
 
 **Description**
 
-Extracts a scalar value and then returns it as a string. A scalar value can
-represent a string, number, or boolean. Removes the outermost quotes and
-unescapes the return values. If a JSON key uses invalid
-[JSONPath][JSONPath-format] characters, then you can escape those characters
-using double quotes.
+Extracts a JSON scalar value and converts it to a SQL `STRING` value.
+In addition, this function:
+
++   Removes the outermost quotes and unescapes the values.
++   Returns a SQL `NULL` if a non-scalar value is selected.
++   Uses double quotes to escape invalid [JSONPath][JSONPath-format] characters
+    in JSON keys. For example: `"a.b"`.
+
+Arguments:
 
 +   `json_string_expr`: A JSON-formatted string. For example:
 
@@ -19401,10 +19381,17 @@ JSON_VALUE_ARRAY(json_expr[, json_path])
 
 **Description**
 
-Extracts an array of scalar values and returns an array of string-formatted
-scalar values. A scalar value can represent a string, number, or boolean.
-If a JSON key uses invalid [JSONPath][JSONPath-format] characters, you can
-escape those characters using double quotes.
+Extracts a JSON array of scalar values and converts it to a SQL
+`ARRAY<STRING>` value.
+In addition, this function:
+
++   Removes the outermost quotes and unescapes the values.
++   Returns a SQL `NULL` if the selected value is not an array or
+    not an array containing only scalar values.
++   Uses double quotes to escape invalid [JSONPath][JSONPath-format] characters
+    in JSON keys. For example: `"a.b"`.
+
+Arguments:
 
 +   `json_string_expr`: A JSON-formatted string. For example:
 
@@ -19617,25 +19604,31 @@ PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 
 **Description**
 
-Takes a SQL `STRING` value and returns a SQL `JSON` value.
-The `STRING` value represents a string-formatted JSON value.
+Converts a JSON-formatted `STRING` value to a `JSON` value.
 
-This function supports an optional mandatory-named argument called
-`wide_number_mode` that determines how to handle numbers that cannot be stored
-in a `JSON` value without the loss of precision. If used,
-`wide_number_mode` must include one of these values:
+Arguments:
 
-+ `exact`: Only accept numbers that can be stored without loss of precision. If
-  a number that cannot be stored without loss of precision is encountered,
-  the function throws an error.
-+ `round`: If a number that cannot be stored without loss of precision is
-  encountered, attempt to round it to a number that can be stored without
-  loss of precision. If the number cannot be rounded, the function throws an
-  error.
++   `json_string_expr`: A JSON-formatted string. For example:
 
-If `wide_number_mode` is not used, the function implicitly includes
-`wide_number_mode=>'exact'`. If a number appears in a JSON object or array,
-the `wide_number_mode` argument is applied to the number in the object or array.
+    ```
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `wide_number_mode`: Optional mandatory-named argument that determines how to
+    handle numbers that cannot be stored in a `JSON` value without the loss of
+    precision. If used, `wide_number_mode` must include one of these values:
+
+    +   `exact`: Only accept numbers that can be stored without loss of
+        precision. If a number that cannot be stored without loss of precision
+        is encountered, the function throws an error.
+    +   `round`: If a number that cannot be stored without loss of precision is
+        encountered, attempt to round it to a number that can be stored without
+        loss of precision. If the number cannot be rounded, the function throws
+        an error.
+
+    If `wide_number_mode` is not used, the function implicitly includes
+    `wide_number_mode=>'exact'`. If a number appears in a JSON object or array,
+    the `wide_number_mode` argument is applied to the number in the object or
+    array.
 
 Numbers from the following domains can be stored in JSON without loss of
 precision:
@@ -19693,15 +19686,18 @@ STRING(json_expr)
 
 **Description**
 
-Takes a JSON expression, extracts a JSON string, and returns that value as a SQL
-`STRING`. If the expression is SQL `NULL`, the function returns SQL
-`NULL`. If the extracted JSON value is not a string, an error is produced.
+Extracts a JSON string and converts it to a SQL `STRING` value.
+
+Arguments:
 
 +   `json_expr`: JSON. For example:
 
     ```
     JSON '{"name": "sky", "color" : "blue"}'
     ```
+
+    If this expression is SQL `NULL`, the function returns SQL
+    `NULL`. If the extracted JSON value is not a string, an error is produced.
 
 **Return type**
 
@@ -19738,80 +19734,6 @@ SELECT STRING(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
 ```
 
-### `TO_JSON_STRING`
-
-```sql
-TO_JSON_STRING(value[, pretty_print])
-```
-
-**Description**
-
-Takes a SQL value and returns a JSON-formatted string
-representation of the value. The value must be a supported ZetaSQL
-data type. You can review the ZetaSQL data types that this function
-supports and their JSON encodings [here][json-encodings].
-
-This function supports an optional boolean parameter called `pretty_print`.
-If `pretty_print` is `true`, the returned value is formatted for easy
-readability.
-
-**Return type**
-
-A JSON-formatted `STRING`
-
-**Examples**
-
-Convert rows in a table to JSON-formatted strings.
-
-```sql
-With CoordinatesTable AS (
-    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
-    (SELECT 3 AS id, [50,60] AS coordinates))
-SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
-FROM CoordinatesTable AS t;
-
-/*----+-------------+--------------------------------*
- | id | coordinates | json_data                      |
- +----+-------------+--------------------------------+
- | 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
- | 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
- | 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
- *----+-------------+--------------------------------*/
-```
-
-Convert rows in a table to JSON-formatted strings that are easy to read.
-
-```sql
-With CoordinatesTable AS (
-    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates))
-SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
-FROM CoordinatesTable AS t;
-
-/*----+-------------+--------------------*
- | id | coordinates | json_data          |
- +----+-------------+--------------------+
- | 1  | [10, 20]    | {                  |
- |    |             |   "id": 1,         |
- |    |             |   "coordinates": [ |
- |    |             |     10,            |
- |    |             |     20             |
- |    |             |   ]                |
- |    |             | }                  |
- +----+-------------+--------------------+
- | 2  | [30, 40]    | {                  |
- |    |             |   "id": 2,         |
- |    |             |   "coordinates": [ |
- |    |             |     30,            |
- |    |             |     40             |
- |    |             |   ]                |
- |    |             | }                  |
- *----+-------------+--------------------*/
-```
-
-[json-encodings]: #json_encodings
-
 ### `TO_JSON`
 
 ```sql
@@ -19820,32 +19742,38 @@ TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE }])
 
 **Description**
 
-Takes a SQL value and returns a JSON value. The value
-must be a supported ZetaSQL data type. You can review the
-ZetaSQL data types that this function supports and their
-JSON encodings [here][json-encodings].
+Converts a SQL value to a JSON value.
 
-This function supports an optional mandatory-named argument called
-`stringify_wide_numbers`.
+Arguments:
 
-+ If this argument is `TRUE`, numeric values outside
-  of the `DOUBLE` type domain are encoded as strings.
-+ If this argument is not used or is `FALSE`, numeric values outside
-  of the `DOUBLE` type domain are not encoded
-  as strings, but are stored as JSON numbers. If a numerical value cannot be
-  stored in JSON without loss of precision, an error is thrown.
++   `sql_value`: The SQL value to convert to a JSON value. You can review the
+    ZetaSQL data types that this function supports and their
+    JSON encodings [here][json-encodings].
++   `stringify_wide_numbers`: Optional mandatory-named argument.
 
-The following numerical data types are affected by the
-`stringify_wide_numbers` argument:
+    If this argument is `TRUE`, numeric values outside
+    of the `DOUBLE` type domain are encoded as strings.
 
+    If this argument is not used or is `FALSE`, numeric values outside
+    of the `DOUBLE` type domain are not encoded
+    as strings, but are stored as JSON numbers. If a numerical value cannot be
+    stored in JSON without loss of precision, an error is thrown.
+
+    The following numerical data types are affected by the
+    `stringify_wide_numbers` argument:
+
+    
+    
 + `INT64`
 + `UINT64`
 + `NUMERIC`
 + `BIGNUMERIC`
 
-If one of these numerical data types appears in a container data type
-such as an `ARRAY` or `STRUCT`, the `stringify_wide_numbers` argument is
-applied to the numerical data types in the container data type.
+    
+
+    If one of these numerical data types appears in a container data type
+    such as an `ARRAY` or `STRUCT`, the `stringify_wide_numbers` argument is
+    applied to the numerical data types in the container data type.
 
 **Return type**
 
@@ -19935,6 +19863,80 @@ FROM T1 AS t;
  | {"id":9.007199254740992e+15} |
  | {"id":2.1}                   |
  *------------------------------*/
+```
+
+[json-encodings]: #json_encodings
+
+### `TO_JSON_STRING`
+
+```sql
+TO_JSON_STRING(value[, pretty_print])
+```
+
+**Description**
+
+Converts a SQL value to a JSON-formatted `STRING` value.
+
+Arguments:
+
++   `value`: A SQL value. You can review the ZetaSQL data types that
+    this function supports and their JSON encodings [here][json-encodings].
++   `pretty_print`: Optional boolean parameter. If `pretty_print` is `true`, the
+    `returned value is formatted for easy readability.
+
+**Return type**
+
+A JSON-formatted `STRING`
+
+**Examples**
+
+Convert rows in a table to JSON-formatted strings.
+
+```sql
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
+FROM CoordinatesTable AS t;
+
+/*----+-------------+--------------------------------*
+ | id | coordinates | json_data                      |
+ +----+-------------+--------------------------------+
+ | 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
+ | 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
+ | 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
+ *----+-------------+--------------------------------*/
+```
+
+Convert rows in a table to JSON-formatted strings that are easy to read.
+
+```sql
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates))
+SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
+FROM CoordinatesTable AS t;
+
+/*----+-------------+--------------------*
+ | id | coordinates | json_data          |
+ +----+-------------+--------------------+
+ | 1  | [10, 20]    | {                  |
+ |    |             |   "id": 1,         |
+ |    |             |   "coordinates": [ |
+ |    |             |     10,            |
+ |    |             |     20             |
+ |    |             |   ]                |
+ |    |             | }                  |
+ +----+-------------+--------------------+
+ | 2  | [30, 40]    | {                  |
+ |    |             |   "id": 2,         |
+ |    |             |   "coordinates": [ |
+ |    |             |     30,            |
+ |    |             |     40             |
+ |    |             |   ]                |
+ |    |             | }                  |
+ *----+-------------+--------------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -28754,27 +28756,6 @@ Returns `TRUE` provided the following two conditions are satisfied:
 
 `BOOL`
 
-### `ST_UNION_AGG`
-
-```sql
-ST_UNION_AGG(geography)
-```
-
-**Description**
-
-Returns a `GEOGRAPHY` that represents the point set
-union of all input `GEOGRAPHY`s.
-
-`ST_UNION_AGG` ignores `NULL` input `GEOGRAPHY` values.
-
-See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
-
-**Return type**
-
-`GEOGRAPHY`
-
-[st-union]: #st_union
-
 ### `ST_UNION`
 
 ```sql
@@ -28808,6 +28789,27 @@ See [`ST_UNION_AGG`][st-union-agg] for the aggregate version of `ST_UNION`.
 `GEOGRAPHY`
 
 [st-union-agg]: #st_union_agg
+
+### `ST_UNION_AGG`
+
+```sql
+ST_UNION_AGG(geography)
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` that represents the point set
+union of all input `GEOGRAPHY`s.
+
+`ST_UNION_AGG` ignores `NULL` input `GEOGRAPHY` values.
+
+See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
+
+**Return type**
+
+`GEOGRAPHY`
+
+[st-union]: #st_union
 
 ### `ST_WITHIN`
 

@@ -129,7 +129,8 @@ struct FunctionSignatureProxy {
 
 using FunctionIdToNameMap =
     absl::flat_hash_map<FunctionSignatureId, std::string>;
-using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+using NameToFunctionMap =
+    absl::flat_hash_map<std::string, std::unique_ptr<Function>>;
 using NameToTypeMap = absl::flat_hash_map<std::string, const Type*>;
 
 bool ArgumentsAreComparable(const std::vector<InputArgumentType>& arguments,

@@ -50,6 +50,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/node_sources.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -641,6 +642,95 @@ absl::Status Validator::ValidateOrderByAndLimitClausesOfAggregateFunctionCall(
   if (aggregate_function_call->limit() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(
         ValidateArgumentIsInt64Constant(aggregate_function_call->limit()));
+  }
+  return absl::OkStatus();
+}
+
+// Validates GroupingSet and grouping columns based on grouping conditions.
+absl::Status Validator::ValidateGroupingSetList(
+    const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+        grouping_set_list,
+    const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+        rollup_column_list,
+    const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
+        group_by_list) {
+  if (!grouping_set_list.empty()) {
+    // This validation is true when only ROLLUP exists in the query.
+    // TODO: Add more validations when cube/rollup/grouping sets
+    // can work together.
+    if (!rollup_column_list.empty()) {
+      // There should be a grouping set for every prefix of the rollup list,
+      // including the empty one.
+      VALIDATOR_RET_CHECK_EQ(grouping_set_list.size(),
+                             rollup_column_list.size() + 1);
+    }
+    std::set<ResolvedColumn> group_by_columns;
+    for (const auto& group_by_column : group_by_list) {
+      group_by_columns.insert(group_by_column->column());
+    }
+
+    // group_by_columns should be non-empty, and each item in the rollup list or
+    // a grouping set should be a computed column from group_by_columns.
+    VALIDATOR_RET_CHECK(!group_by_columns.empty());
+    std::set<ResolvedColumn> rollup_columns;
+    for (const auto& column_ref : rollup_column_list) {
+      ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(column_ref->column(),
+                                                      group_by_columns));
+      rollup_columns.insert(column_ref->column());
+    }
+    // This won't be true when grouping sets, rollup, and cube exist. Keeping
+    // this check here to make sure that we don't break any contract before
+    // grouping sets are ready. Once grouping sets are ready, we should remove
+    // this check completely.
+    // TODO: Remove this check once grouping sets are ready.
+    if (!rollup_columns.empty()) {
+      // All group by columns should also be rollup columns. We can't use
+      // std::set_intersect because ResolvedColumn does not support assignment.
+      for (const ResolvedColumn& group_by_column : group_by_columns) {
+        ZETASQL_RETURN_IF_ERROR(
+            CheckColumnIsPresentInColumnSet(group_by_column, rollup_columns));
+      }
+    }
+
+    for (const auto& grouping_set_base : grouping_set_list) {
+      if (grouping_set_base->Is<ResolvedGroupingSet>()) {
+        const ResolvedGroupingSet* grouping_set =
+            grouping_set_base->GetAs<ResolvedGroupingSet>();
+        // Columns should be unique within each grouping set.
+        absl::flat_hash_set<ResolvedColumn> grouping_set_columns;
+        for (const auto& column_ref : grouping_set->group_by_column_list()) {
+          ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(column_ref->column(),
+                                                          group_by_columns));
+          VALIDATOR_RET_CHECK(zetasql_base::InsertIfNotPresent(&grouping_set_columns,
+                                                      column_ref->column()));
+        }
+      } else {
+        // rollup or cube
+        VALIDATOR_RET_CHECK(grouping_set_base->Is<ResolvedRollup>() ||
+                            grouping_set_base->Is<ResolvedCube>());
+        const auto& multi_column_list =
+            grouping_set_base->Is<ResolvedRollup>()
+                ? grouping_set_base->GetAs<ResolvedRollup>()
+                      ->rollup_column_list()
+                : grouping_set_base->GetAs<ResolvedCube>()->cube_column_list();
+        for (const auto& multi_column : multi_column_list) {
+          // Duplicated columns are not allowed in multi-column, while
+          // rollup and cube are allowed to have duplicated multi-columns.
+          absl::flat_hash_set<ResolvedColumn> multi_column_set;
+          // Multi-column is not allowed to be empty.
+          VALIDATOR_RET_CHECK(!multi_column->column_list().empty());
+          for (const auto& column_ref : multi_column->column_list()) {
+            ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(
+                column_ref->column(), group_by_columns));
+            VALIDATOR_RET_CHECK(zetasql_base::InsertIfNotPresent(&multi_column_set,
+                                                        column_ref->column()));
+          }
+        }
+      }
+    }
+  } else {
+    // Presence of grouping sets should indicate that there is a rollup list.
+    VALIDATOR_RET_CHECK(rollup_column_list.empty());
   }
   return absl::OkStatus();
 }
@@ -1455,61 +1545,9 @@ absl::Status Validator::ValidateResolvedAggregateScan(
     group_by_columns.insert(group_by_column->column());
   }
 
-  if (!scan->grouping_set_list().empty()) {
-    // This validation is true when only ROLLUP exists in the query.
-    // TODO: Add more validations when cube/rollup/grouping sets
-    // can work together.
-    if (!scan->rollup_column_list().empty()) {
-      // There should be a grouping set for every prefix of the rollup list,
-      // including the empty one.
-      VALIDATOR_RET_CHECK_EQ(scan->grouping_set_list_size(),
-                             scan->rollup_column_list_size() + 1);
-    }
-    std::set<ResolvedColumn> group_by_columns;
-    for (const auto& group_by_column : scan->group_by_list()) {
-      group_by_columns.insert(group_by_column->column());
-    }
-
-    // group_by_columns should be non-empty, and each item in the rollup list or
-    // a grouping set should be a computed column from group_by_columns.
-    VALIDATOR_RET_CHECK(!group_by_columns.empty());
-    std::set<ResolvedColumn> rollup_columns;
-    for (const auto& column_ref : scan->rollup_column_list()) {
-      ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(column_ref->column(),
-                                                      group_by_columns));
-      rollup_columns.insert(column_ref->column());
-    }
-    // This won't be true when grouping sets, rollup, and cube exist. Keeping
-    // this check here to make sure that we don't break any contract before
-    // grouping sets are ready. Once grouping sets are ready, we should remove
-    // this check completely.
-    // TODO: Remove this check once grouping sets are ready.
-    if (!rollup_columns.empty()) {
-      // All group by columns should also be rollup columns. We can't use
-      // std::set_intersect because ResolvedColumn does not support assignment.
-      for (const ResolvedColumn& group_by_column : group_by_columns) {
-        ZETASQL_RETURN_IF_ERROR(
-            CheckColumnIsPresentInColumnSet(group_by_column, rollup_columns));
-      }
-    }
-
-    for (const auto& grouping_set_base : scan->grouping_set_list()) {
-      ZETASQL_RET_CHECK(grouping_set_base->Is<ResolvedGroupingSet>());
-      const ResolvedGroupingSet* grouping_set =
-          grouping_set_base->GetAs<ResolvedGroupingSet>();
-      // Columns should be unique within each grouping set.
-      std::set<ResolvedColumn> grouping_set_columns;
-      for (const auto& column_ref : grouping_set->group_by_column_list()) {
-        ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(column_ref->column(),
-                                                        group_by_columns));
-        VALIDATOR_RET_CHECK(zetasql_base::InsertIfNotPresent(&grouping_set_columns,
-                                                    column_ref->column()));
-      }
-    }
-  } else {
-    // Presence of grouping sets should indicate that there is a rollup list.
-    VALIDATOR_RET_CHECK(scan->rollup_column_list().empty());
-  }
+  ZETASQL_RETURN_IF_ERROR(ValidateGroupingSetList(scan->grouping_set_list(),
+                                          scan->rollup_column_list(),
+                                          scan->group_by_list()));
 
   std::set<ResolvedColumn> visible_columns;
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
@@ -1900,6 +1938,24 @@ absl::Status Validator::ValidateResolvedAnalyticFunctionGroup(
       ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
           input_visible_columns, visible_parameters, column_ref.get()));
     }
+    if (language_options_.LanguageFeatureEnabled(
+            FEATURE_V_1_3_COLLATION_SUPPORT)) {
+      if (!group->partition_by()->collation_list().empty()) {
+        VALIDATOR_RET_CHECK_EQ(
+            group->partition_by()->collation_list().size(),
+            group->partition_by()->partition_by_list().size());
+        for (int i = 0; i < group->partition_by()->collation_list().size();
+             ++i) {
+          VALIDATOR_RET_CHECK(
+              group->partition_by()->collation_list()[i].HasCompatibleStructure(
+                  group->partition_by()->partition_by_list()[i]->type()))
+              << "Collation must have compatible structure with the type of "
+                 "the element in partition_by_list with the same index";
+        }
+      }
+    } else {
+      VALIDATOR_RET_CHECK(group->partition_by()->collation_list().empty());
+    }
   }
 
   if (group->order_by() != nullptr) {
@@ -2096,6 +2152,25 @@ absl::Status Validator::ValidateResolvedSetOperationScan(
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedSetOperationItem(
         input_item.get(), set_op_scan->column_list(), visible_parameters));
   }
+
+  // `column_propagation_mode`-specific validation for set operation items.
+  switch (set_op_scan->column_propagation_mode()) {
+    case ResolvedSetOperationScan::LEFT: {
+      const ResolvedSetOperationItem& first_item =
+          *set_op_scan->input_item_list(0);
+      // The first item must not be wrapped with a ProjectScan to pad NULL
+      // columns.
+      VALIDATOR_RET_CHECK_NE(first_item.scan()->node_source(),
+                             kNodeSourceResolverSetOperationCorresponding);
+      break;
+    }
+    case ResolvedSetOperationScan::FULL:
+    case ResolvedSetOperationScan::INNER:
+    case ResolvedSetOperationScan::STRICT: {
+      // TODO: Add validation for STRICT.
+    }
+  }
+
   set_op_scan->op_type();  // Mark field as visited.
 
   switch (set_op_scan->column_match_mode()) {
@@ -2108,17 +2183,10 @@ absl::Status Validator::ValidateResolvedSetOperationScan(
     }
     case ResolvedSetOperationScan::CORRESPONDING: {
       // TODO: Update this check when we are ready to support
-      // LEFT and STRICT for CORRESPONDING.
-      switch (set_op_scan->column_propagation_mode()) {
-        case ResolvedSetOperationScan::INNER:
-          break;
-        case ResolvedSetOperationScan::STRICT:
-          VALIDATOR_RET_CHECK_FAIL() << "STRICT mode is not implemented";
-        case ResolvedSetOperationScan::LEFT:
-          VALIDATOR_RET_CHECK_FAIL() << "LEFT mode is not implemented";
-        case ResolvedSetOperationScan::FULL:
-          break;
-      }
+      // STRICT for CORRESPONDING.
+      VALIDATOR_RET_CHECK_NE(set_op_scan->column_propagation_mode(),
+                             ResolvedSetOperationScan::STRICT)
+          << "STRICT mode is not implemented";
       absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
           column_names;
       for (const auto& column : set_op_scan->column_list()) {

@@ -101,10 +101,12 @@ cc_library(
     deps = [
         "//zetasql/base:source_location",
         "//zetasql/base:status",
+        "//zetasql/public:civil_time",
         "//zetasql/public:value",
         "//zetasql/public/functions:range",
         "//zetasql/reference_impl:evaluation",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
     ],
 )

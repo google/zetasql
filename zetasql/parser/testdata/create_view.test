@@ -148,7 +148,7 @@ CreateViewStatement(is_temp) [0-95] [create temp...cross join t4]
       SetOperationMetadataList [54-64] [union all]
         SetOperationMetadata [54-64] [union all]
           SetOperationType [55-60] [union]
-          ASTSetOperationAllOrDistinct [61-64] [all]
+          SetOperationAllOrDistinct [61-64] [all]
       Select [38-54] [select 1 from t2]
         SelectList [45-46] [1]
           SelectColumn [45-46] [1]
@@ -1325,4 +1325,3 @@ ALTERNATION GROUP: approx
 ERROR: Syntax error: Expected keyword AS but got keyword WITH [at 1:23]
 create approx view t1 with connection `myproject.us-west-2.myconnection` as s...
                       ^
-==

@@ -299,7 +299,7 @@ TEST(TVFTest, TestSignatureTextUppercasesNameByDefault) {
             *tvf_schema);
 
     EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
-                  LanguageOptions()),
+                  LanguageOptions(), /*print_template_and_name_details=*/false),
               "TEST_TVF_NAME([ANY, ...])");
 }
 
@@ -329,7 +329,7 @@ TEST(TVFTest, TestSignatureTextLowercasesNameWhenSpecified) {
             *tvf_schema, tvf_options);
 
     EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
-                  LanguageOptions()),
+                  LanguageOptions(), /*print_template_and_name_details=*/false),
               "test_tvf_name([ANY, ...])");
 }
 

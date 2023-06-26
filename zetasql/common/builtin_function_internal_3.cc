@@ -1381,6 +1381,45 @@ void GetJSONFunctions(TypeFactory* type_factory,
       FunctionOptions()
           .add_required_language_feature(FEATURE_JSON_TYPE)
           .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+
+  InsertFunction(
+      functions, options, "json_set", SCALAR,
+      {{json_type,
+        {json_type,
+         {string_type, FunctionArgumentTypeOptions().set_must_be_constant()},
+         ARG_TYPE_ARBITRARY,
+         {string_type, FunctionArgumentTypeOptions()
+                           .set_cardinality(REPEATED)
+                           .set_must_be_constant()},
+         {ARG_TYPE_ARBITRARY,
+          FunctionArgumentTypeOptions().set_cardinality(REPEATED)}},
+        FN_JSON_SET}},
+      FunctionOptions()
+          .add_required_language_feature(FEATURE_JSON_TYPE)
+          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+
+  InsertFunction(
+      functions, options, "json_strip_nulls", SCALAR,
+      {{json_type,
+        {json_type,
+         {string_type, FunctionArgumentTypeOptions()
+                           .set_cardinality(FunctionEnums::OPTIONAL)
+                           .set_must_be_constant()
+                           .set_default(Value::String("$"))},
+         {bool_type, FunctionArgumentTypeOptions()
+                         .set_cardinality(FunctionEnums::OPTIONAL)
+                         .set_must_be_constant()
+                         .set_argument_name("include_arrays", kNamedOnly)
+                         .set_default(Value::Bool(true))},
+         {bool_type, FunctionArgumentTypeOptions()
+                         .set_cardinality(FunctionEnums::OPTIONAL)
+                         .set_must_be_constant()
+                         .set_argument_name("remove_empty", kNamedOnly)
+                         .set_default(Value::Bool(false))}},
+        FN_JSON_STRIP_NULLS}},
+      FunctionOptions()
+          .add_required_language_feature(FEATURE_JSON_TYPE)
+          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 }
 
 absl::Status GetNumericFunctions(TypeFactory* type_factory,

@@ -257,7 +257,7 @@ QueryStatement [0-42] [select EXISTS...select 2)]
                 SetOperationMetadataList [22-32] [union all]
                   SetOperationMetadata [22-32] [union all]
                     SetOperationType [23-28] [union]
-                    ASTSetOperationAllOrDistinct [29-32] [all]
+                    SetOperationAllOrDistinct [29-32] [all]
                 Select [14-22] [select 1]
                   SelectList [21-22] [1]
                     SelectColumn [21-22] [1]
@@ -529,4 +529,3 @@ select safe_cast(select key from keyvalue)
 ERROR: The argument to SAFE_CAST is an expression, not a query; to use a query as an expression, the query must be wrapped with additional parentheses to make it a scalar subquery expression [at 1:18]
 select safe_cast(select key from keyvalue)
                  ^
-==

@@ -306,6 +306,8 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonObject(
 std::vector<FunctionTestCall> GetFunctionTestsJsonObjectArrays(
     bool include_null_key_tests = true);
 std::vector<FunctionTestCall> GetFunctionTestsJsonRemove();
+std::vector<FunctionTestCall> GetFunctionTestsJsonSet();
+std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();
@@ -321,7 +323,10 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateTimestampRangeArray();
 std::vector<FunctionTestCall>
 GetFunctionTestsGenerateTimestampRangeArrayExtras();
 std::vector<FunctionTestCall> GetFunctionTestsGenerateDateRangeArray();
+std::vector<FunctionTestCall> GetFunctionTestsGenerateDateRangeArrayExtras();
 std::vector<FunctionTestCall> GetFunctionTestsGenerateDatetimeRangeArray();
+std::vector<FunctionTestCall>
+GetFunctionTestsGenerateDatetimeRangeArrayExtras();
 
 }  // namespace zetasql
 

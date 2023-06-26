@@ -1483,6 +1483,7 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonRemove() {
   std::vector<FunctionTestCall> tests = {
       // NULL
       {"json_remove", {NullJson(), NullString()}, NullJson()},
+      {"json_remove", {NullJson(), String("$.a")}, NullJson()},
       {"json_remove", {ParseJson(R"({"a": 10})"), NullString()}, NullJson()},
       {"json_remove",
        {ParseJson(R"({"a": 10})"), String("$.a"), NullString()},
@@ -1567,4 +1568,498 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonRemove() {
   return tests;
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
+  std::vector<FunctionTestCall> tests;
+  // Test cases from TO_JSON to make sure JSON_SET applies TO_JSON semantics
+  // to arguments.
+  for (FunctionTestCall& test : GetFunctionTestsToJson()) {
+    if (test.params.num_params() == 2) {
+      if (test.params.param(1).is_null() || test.params.param(1).bool_value()) {
+        // No stringify mode in JSON_OBJECT.
+        continue;
+      }
+    }
+    auto features_set = test.params.required_features();
+    features_set.erase(FEATURE_NAMED_ARGUMENTS);
+
+    absl::string_view json_string = R"({"a": 10})";
+    if (test.params.status().ok()) {
+      auto json_result = JSONValue::ParseJSONString(json_string).value();
+      json_result.GetRef().GetMember("a").Set(
+          JSONValue::CopyFrom(test.params.result().json_value()));
+      Value result = Json(std::move(json_result));
+      tests.push_back({"json_set", QueryParamsWithResult(
+                                       {ParseJson(json_string), String("$.a"),
+                                        test.params.param(0)},
+                                       result)
+                                       .AddRequiredFeatures(features_set)});
+    } else {
+      tests.push_back({"json_set", QueryParamsWithResult(
+                                       {ParseJson(json_string), String("$.a"),
+                                        test.params.param(0)},
+                                       NullJson(), test.params.status())
+                                       .AddRequiredFeatures(features_set)});
+    }
+  }
+
+  absl::string_view json_string =
+      R"({"a":null, "b":{}, "c":[], "d":{"e": 1}, "f":["foo", [], {}, [3,4]]})";
+
+  // NULL
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({NullJson(), NullString(), Bool(true)},
+                                         NullJson())});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {NullJson(), String("$.a"), Bool(true)}, NullJson())});
+  tests.push_back({"json_set", QueryParamsWithResult({ParseJson(json_string),
+                                                      NullString(), Bool(true)},
+                                                     NullJson())});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$.a"),
+                                          Bool(true), NullString(), Int64(10)},
+                                         NullJson())});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.a"), Bool(true),
+                        NullString(), Int64(10), NullString(), Bool(false)},
+                       NullJson())});
+
+  // Invalid JSONPath
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult({ParseJson(json_string), String("$a"), Int64(10)},
+                             NullJson(), OUT_OF_RANGE)});
+
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$.a"),
+                                          Int64(10), String("a.b"), Int64(20)},
+                                         NullJson(), OUT_OF_RANGE)});
+
+  // Type mismatch
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$[1]"), Bool(true)},
+                       ParseJson(json_string))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.f.a"), Bool(true)},
+                       ParseJson(json_string))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.d.e[0]"), Bool(true)},
+                       ParseJson(json_string))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.d.e.a"), Bool(true)},
+                       ParseJson(json_string))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({ParseJson(json_string),
+                                          String("$.d.e.a.b"), Bool(true)},
+                                         ParseJson(json_string))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({ParseJson(json_string),
+                                          String("$.d.e.a[1]"), Bool(true)},
+                                         ParseJson(json_string))});
+
+  // Entire JSON
+  tests.push_back({"json_set", QueryParamsWithResult({ParseJson(json_string),
+                                                      String("$"), Bool(true)},
+                                                     ParseJson("true"))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$"),
+                                          Bool(true), String("$"), Int64(10)},
+                                         ParseJson("10"))});
+  // Replace scalar values
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.a"), Int64(-10)},
+                       ParseJson(R"({"a":-10, "b":{}, "c":[], "d":{"e":1},
+                                     "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.d.e"), Int64(-10)},
+                       ParseJson(R"({"a":null, "b":{}, "c":[], "d":{"e":-10},
+                                     "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.f[0]"), Int64(-10)},
+                       ParseJson(R"({"a":null, "b":{}, "c":[], "d":{"e":1},
+                                     "f":[-10, [], {}, [3, 4]]})"))});
+  // Replace object
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.b"), NullInt64()},
+                       ParseJson(R"({"a":null, "b":null, "c":[], "d":{"e":1},
+                                     "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult({ParseJson(json_string), String("$.d"), Int64(5)},
+                             ParseJson(R"({"a":null, "b":{}, "c":[], "d":5,
+                                     "f":["foo", [], {}, [3, 4]]})"))});
+
+  // Replace array
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult({ParseJson(json_string), String("$.c"), Int64(5)},
+                             ParseJson(R"({"a":null, "b":{}, "c":5, "d":{"e":1},
+                                     "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.f[3]"), Int64(5)},
+                       ParseJson(R"({"a":null, "b":{}, "c":[], "d":{"e":1},
+                                     "f":["foo", [], {}, 5]})"))});
+
+  // Recursive creation starting from object
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.e"), Int64(5)},
+                       ParseJson(R"({"a":null, "b":{}, "c":[], "d":{"e":1},
+                                     "e": 5, "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.e[0]"), Int64(5)},
+           ParseJson(R"({"a":null, "b":{}, "c":[], "d":{"e":1}, "e":[5],
+                         "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.e.a"), Int64(5)},
+           ParseJson(R"({"a":null, "b":{}, "c":[], "d":{"e":1}, "e":{"a":5},
+                         "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.b.e"), Int64(5)},
+                       ParseJson(R"({"a":null, "b":{"e":5}, "c":[], "d":{"e":1},
+                                     "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.b.a[1]"), Int64(5)},
+           ParseJson(R"({"a":null, "b":{"a":[null,5]}, "c":[], "d":{"e":1},
+                         "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.d.a"), Int64(5)},
+           ParseJson(R"({"a":null, "b":{}, "c":[], "d":{"a":5, "e":1},
+                         "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.d.a[1].e"), Int64(5)},
+           ParseJson(
+               R"({"a":null, "b":{}, "c":[], "d":{"a":[null, {"e":5}] ,"e":1},
+                   "f":["foo", [], {}, [3, 4]]})"))});
+
+  // Recursive creation starting from array
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.c[2]"), Int64(5)},
+           ParseJson(R"({"a":null, "b":{}, "c":[null, null, 5], "d":{"e":1},
+                         "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.c[1].b"), Int64(5)},
+           ParseJson(R"({"a":null, "b":{}, "c":[null, {"b":5}], "d":{"e":1},
+                         "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.c[1][1]"), Int64(5)},
+           ParseJson(R"({"a":null, "b":{}, "c":[null, [null, 5]], "d":{"e":1},
+                         "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.f[1][0].a"), Int64(5)},
+           ParseJson(R"({"a":null, "b":{}, "c":[], "d":{"e":1},
+                         "f":["foo", [{"a":5}], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.f[5]"), Int64(5)},
+                       ParseJson(R"({"a":null, "b":{}, "c":[], "d":{"e":1},
+                                     "f":["foo", [], {}, [3,4], null, 5]})"))});
+
+  // Recursive creation starting from null
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.a[0]"), Bool(true)},
+                       ParseJson(R"({"a":[true], "b":{}, "c":[], "d":{"e":1},
+                                     "f":["foo", [], {}, [3,4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.a.b"), Bool(true)},
+           ParseJson(R"({"a":{"b":true}, "b":{}, "c":[], "d":{"e":1},
+                         "f":["foo", [], {}, [3,4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.a[1].b"), Int64(10)},
+           ParseJson(R"({"a":[null, {"b": 10}], "b":{}, "c":[], "d":{"e":1},
+                         "f":["foo", [], {}, [3,4]]})"))});
+
+  // Multiple updates
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult({ParseJson(json_string), String("$.a"), Int64(5),
+                              String("$.c.a"), String("foo")},
+                             ParseJson(R"({"a":5, "b":{}, "c":[], "d":{"e":1},
+                                           "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.b.a"), Int64(5), String("$.b.a"),
+            Bool(true)},
+           ParseJson(R"({"a":null, "b":{"a":true}, "c":[], "d":{"e":1},
+                         "f":["foo", [], {}, [3, 4]]})"))});
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.c[2].a"),
+            StringArray({"foo", "bar"}), String("$.c[2].a[0]"), Bool(false),
+            String("$.c[0]"), Int64(5), String("$.c[1].d"), Int64(-1)},
+           ParseJson(
+               R"({"a":null, "b":{}, "c":[5, {"d":-1}, {"a": [false, "bar"]}],
+                   "d":{"e":1}, "f":["foo", [], {}, [3, 4]]})"))});
+
+  // Strict number parsing disabled
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson("[10, null]"), String("$[1]"),
+            BigNumericValue::FromStringStrict("123.123456981723189237198273")
+                .value()},
+           Json(JSONValue::ParseJSONString(R"([10, 123.1234569817232])")
+                    .value()))
+           .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)});
+
+  // Strict number parsing enabled
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson("[10, null]"), String("$[1]"),
+            BigNumericValue::FromStringStrict("123.123456981723189237198273")
+                .value()},
+           NullJson(), OUT_OF_RANGE)
+           .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)
+           .AddRequiredFeature(FEATURE_JSON_STRICT_NUMBER_PARSING)});
+
+  // Failing conversion is prioritized over path mismatch.
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[1].a"),
+            BigNumericValue::FromStringStrict("123.123456981723189237198273")
+                .value()},
+           NullJson(), OUT_OF_RANGE)
+           .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)
+           .AddRequiredFeature(FEATURE_JSON_STRICT_NUMBER_PARSING)});
+
+  // Exceeding max array size.
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string),
+                        String(absl::Substitute("$$.a[$0]", kJSONMaxArraySize)),
+                        String("foo")},
+                       NullJson(), OUT_OF_RANGE)});
+
+  return tests;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls() {
+  std::vector<FunctionTestCall> tests;
+  constexpr absl::string_view kInitialSimpleObjectValue =
+      R"({"a":null, "b":1, "c":[null, true], "d":{}, "e":[null], "f":[]})";
+  // NULL
+  tests.push_back(
+      {"json_strip_nulls", QueryParamsWithResult({NullJson()}, NullJson())});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleObjectValue), NullString()}, NullJson())});
+  tests.push_back({"json_strip_nulls",
+                   QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
+                                          String("$.a"), NullBool()},
+                                         NullJson())
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
+                              String("$.a"), Bool(true), NullBool()},
+                             NullJson())
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Invalid JSONPath
+  tests.push_back({"json_strip_nulls",
+                   QueryParamsWithResult(
+                       {ParseJson(kInitialSimpleObjectValue), String("$a")},
+                       NullJson(), OUT_OF_RANGE)});
+  // Valid cases.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleObjectValue), String("$"), Bool(false),
+            Bool(false)},
+           ParseJson(
+               R"({"b":1, "c":[null, true], "d":{}, "e":[null], "f":[]})"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleObjectValue), String("$"), Bool(true),
+            Bool(false)},
+           ParseJson(R"({"b":1, "c":[true], "d":{}, "e":[], "f":[]})"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleObjectValue), String("$"), Bool(false),
+            Bool(true)},
+           ParseJson(R"({"b":1, "c":[null, true], "e":[null], "f":[]})"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back({"json_strip_nulls",
+                   QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
+                                          String("$"), Bool(true), Bool(true)},
+                                         ParseJson(R"({"b":1, "c":[true]})"))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
+  constexpr absl::string_view kInitialComplexObjectValue =
+      R"({"a": {"b":null, "c":null, "d":[[null], null]}, "e":null})";
+  // No change. Type mismatch.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexObjectValue), String("$.a[0]")},
+           ParseJson(kInitialComplexObjectValue))});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexObjectValue), String("$.a.d.e")},
+           ParseJson(kInitialComplexObjectValue))});
+  // Path suffix "[2]" is larger than existing array.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexObjectValue), String("$.a.d[2]")},
+           ParseJson(kInitialComplexObjectValue))});
+  // Removes all JSON 'null'.
+  tests.push_back({"json_strip_nulls",
+                   QueryParamsWithResult({ParseJson(kInitialComplexObjectValue),
+                                          String("$"), Bool(true), Bool(true)},
+                                         ParseJson("null"))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // No change. Subpath points to a nested ARRAY.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult({ParseJson(kInitialComplexObjectValue),
+                              String("$.a.d"), Bool(false), Bool(true)},
+                             ParseJson(kInitialComplexObjectValue))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Subpath is nested ARRAY and removes JSON 'null's.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexObjectValue), String("$.a.d"), Bool(true),
+            Bool(false)},
+           ParseJson(R"({"a": {"b":null, "c":null, "d":[[]]}, "e":null})"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Subpath is nested ARRAY replaced by JSON 'null'.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult({ParseJson(kInitialComplexObjectValue),
+                              String("$.a"), Bool(true), Bool(true)},
+                             ParseJson(R"({"a":null, "e":null})"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
+  // Valid Cases.
+  constexpr absl::string_view kInitialSimpleArrayValue =
+      R"(["a", null, 1.1, [], [null], [1, null], {}, {"a":null},
+         {"b":1, "c":null}])";
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleArrayValue), String("$"), Bool(false),
+            Bool(false)},
+           ParseJson(R"(["a", null, 1.1, [], [null], [1, null], {}, {},
+                      {"b":1}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back({"json_strip_nulls",
+                   QueryParamsWithResult(
+                       {ParseJson(kInitialSimpleArrayValue), String("$"),
+                        Bool(true), Bool(false)},
+                       ParseJson(R"(["a", 1.1, [], [], [1], {}, {}, {"b":1}])"))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Because parent of empty OBJECTs is an ARRAY, empty OBJECTs are not
+  // removed.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleArrayValue), String("$"), Bool(false),
+            Bool(true)},
+           ParseJson(
+               R"(["a", null, 1.1, [], [null], [1, null], {}, {}, {"b":1}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult({ParseJson(kInitialSimpleArrayValue), String("$"),
+                              Bool(true), Bool(true)},
+                             ParseJson(R"(["a", 1.1, [1], {"b":1}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Subpath points to an array that is replaced with JSON 'null'.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleArrayValue), String("$[4]"), Bool(true),
+            Bool(true)},
+           ParseJson(R"(["a", null, 1.1, [], null, [1, null], {}, {"a":null},
+              {"b":1, "c":null}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Subpath points to an OBJECT that is replaced with JSON 'null'.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleArrayValue), String("$[7]"), Bool(true),
+            Bool(true)},
+           ParseJson(R"(["a", null, 1.1, [], [null], [1, null], {}, null,
+              {"b":1, "c":null}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
+  constexpr absl::string_view kInitialComplexArrayValue =
+      R"([null, {"b":null, "c":null, "d":[[null], null]}, [null, null],
+      []])";
+  // Removes all JSON 'null'.
+  tests.push_back({"json_strip_nulls",
+                   QueryParamsWithResult({ParseJson(kInitialComplexArrayValue),
+                                          String("$"), Bool(true), Bool(true)},
+                                         ParseJson("null"))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Cleanup nested arrays to JSON 'null'.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult({ParseJson(kInitialComplexArrayValue),
+                              String("$[1]"), Bool(true), Bool(true)},
+                             ParseJson("[null, null, [null, null],[]]"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Cleanup nested arrays to JSON 'null' but no array cleanup.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexArrayValue), String("$[1]"), Bool(false),
+            Bool(true)},
+           ParseJson(R"([null, {"d":[[null], null]}, [null, null], []])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // No change. Subpath points to a nested ARRAY.
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult({ParseJson(kInitialComplexArrayValue),
+                              String("$[1].d"), Bool(false), Bool(true)},
+                             ParseJson(kInitialComplexArrayValue))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
+  return tests;
+}
 }  // namespace zetasql

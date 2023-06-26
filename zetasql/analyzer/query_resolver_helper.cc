@@ -28,23 +28,21 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/analyzer/analytic_function_resolver.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -59,7 +57,7 @@ namespace {
 
 // Converts a list of ResolvedComputedColumn to a list ResolvedColumnRef.
 std::vector<std::unique_ptr<const ResolvedColumnRef>> MakeResolvedColumnRefs(
-    absl::Span<const ResolvedComputedColumn*> column_list) {
+    absl::Span<const ResolvedComputedColumn* const> column_list) {
   absl::flat_hash_set<ResolvedColumn> distinct_column_set;
   std::vector<std::unique_ptr<const ResolvedColumnRef>> column_ref_list;
   for (const ResolvedComputedColumn* computed_column : column_list) {
@@ -72,6 +70,78 @@ std::vector<std::unique_ptr<const ResolvedColumnRef>> MakeResolvedColumnRefs(
     }
   }
   return column_ref_list;
+}
+
+// Releases rollup list to rollup_column_list and grouping_set_list, this is the
+// legacy way to represent rollup list in ResolvedAggregateScan. The method will
+// called only when FEATURE_V_1_4_GROUPING_SETS isn't enabled, and it will be
+// deprecated soon using the new representation of rollup, see more in
+// (broken link).
+absl::Status ReleaseLegacyRollupColumnList(
+    std::vector<GroupingSetInfo>& grouping_set_info_list,
+    std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>*
+        grouping_set_list,
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>* rollup_column_list) {
+  // Extract the rollup column list from the grouping_set_info_list.
+  std::vector<const ResolvedComputedColumn*> rollup_columns;
+  for (const GroupingSetInfo& grouping_set : grouping_set_info_list) {
+    ZETASQL_RET_CHECK(grouping_set.kind == GroupingSetKind::kRollup);
+    for (const ResolvedComputedColumnList& column_list :
+         grouping_set.grouping_set_item_list) {
+      ZETASQL_RET_CHECK_EQ(column_list.size(), 1)
+          << "There should be exactly one column in the column_list";
+      rollup_columns.push_back(column_list.front());
+    }
+  }
+
+  if (rollup_columns.empty()) {
+    return absl::InvalidArgumentError("rollup column list is empty");
+  }
+  // group_by_info_.rollup_column_list stores the rollup columns. Grouping
+  // sets are computed from the prefixes of
+  // group_by_info_.rollup_column_list, and references to the same column
+  // are deduplicated within a particular grouping set.
+  //
+  // For example, suppose that group_by_info_.rollup_column_list contains
+  // columns b, a, c, a. This function will return:
+  //
+  // rollup_list: b, a, c, a.
+  // grouping_set_list: {b, a, c}, {b, a, c}, {b, a}, {b}, {}.
+
+  // Unowned pointers.
+  std::vector<const ResolvedColumnRef*> current_grouping_set;
+  std::set<ResolvedColumn> distinct_rollup_columns;
+
+  // Add the empty grouping set.
+  grouping_set_list->push_back(MakeResolvedGroupingSet());
+
+  for (const ResolvedComputedColumn* rollup_column : rollup_columns) {
+    auto rollup_column_ref = MakeResolvedColumnRef(
+        rollup_column->column().type(), rollup_column->column(),
+        /*is_correlated=*/false);
+    // Don't duplicate columns in the grouping sets.
+    if (zetasql_base::InsertIfNotPresent(&distinct_rollup_columns,
+                                rollup_column_ref->column())) {
+      current_grouping_set.push_back(rollup_column_ref.get());
+    }
+    rollup_column_list->push_back(std::move(rollup_column_ref));
+    std::vector<std::unique_ptr<const ResolvedColumnRef>> grouping_set_columns;
+    grouping_set_columns.reserve(current_grouping_set.size());
+    for (const ResolvedColumnRef* grouping_column : current_grouping_set) {
+      grouping_set_columns.push_back(MakeResolvedColumnRef(
+          grouping_column->column().type(), grouping_column->column(),
+          /*is_correlated=*/false));
+    }
+    grouping_set_list->push_back(
+        MakeResolvedGroupingSet(std::move(grouping_set_columns)));
+  }
+  // Order of the rows resulting from ROLLUP are not guaranteed, but engines
+  // will generally want to compute aggregates from more to less granular
+  // levels of subtotals, e.g. (a, b, c), (a, b), (a), and then ().
+  std::reverse(grouping_set_list->begin(), grouping_set_list->end());
+
+  grouping_set_info_list.clear();
+  return absl::OkStatus();
 }
 
 }  // namespace
@@ -339,39 +409,23 @@ absl::Status QueryResolutionInfo::AddGroupingColumnToExprMap(
 }
 
 absl::Status QueryResolutionInfo::ReleaseGroupingSetsAndRollupList(
-    std::vector<std::unique_ptr<const ResolvedGroupingSet>>* grouping_set_list,
-    std::vector<std::unique_ptr<const ResolvedColumnRef>>* rollup_column_list) {
+    std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>*
+        grouping_set_list,
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>* rollup_column_list,
+    const LanguageOptions& language_options) {
   if (group_by_info_.grouping_set_list.empty()) {
     return absl::OkStatus();
   }
 
-  // Extract the rollup column list from the grouping_set_list.
-  // This is a temporary change to make the existing ROLLUP work with
-  // grouping_set_list, later the whole ReleaseGroupingSetsAndRollupList method
-  // will be rewritten to add grouping sets and cube to resolved ast.
-  std::vector<const ResolvedComputedColumn*> rollup_columns;
+  // Release the rollup column list to the legacy resolved ast representation
+  // when grouping sets feature isn't enabled.
+  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_4_GROUPING_SETS)) {
+    return ReleaseLegacyRollupColumnList(group_by_info_.grouping_set_list,
+                                         grouping_set_list, rollup_column_list);
+  }
+
   for (const GroupingSetInfo& grouping_set : group_by_info_.grouping_set_list) {
-    // TODO: Extract other grouping set kind as well.
-    // The validation in the resolver guarantees that the query will be a ROLLUP
-    // query or a GROUPING SETS query with only grouping sets (no ROLLUP or CUBE
-    // inside).
-    ZETASQL_RET_CHECK(grouping_set.kind == GroupingSetKind::kRollup ||
-              grouping_set.kind == GroupingSetKind::kGroupingSet);
-    if (grouping_set.kind == GroupingSetKind::kRollup) {
-      for (const ResolvedComputedColumnList& column_list :
-           grouping_set.grouping_set_item_list) {
-        ZETASQL_RET_CHECK_GT(column_list.size(), 0)
-            << "There should be at least one column in the column_list";
-        if (column_list.size() == 1) {
-          rollup_columns.push_back(column_list.front());
-        } else {
-          // This only happens when FEATURE_V_1_4_GROUPING_SETS is enabled which
-          // is an unexpected state for now.
-          return absl::UnimplementedError(
-              "Column list is not supported in ROLLUP");
-        }
-      }
-    } else if (grouping_set.kind == GroupingSetKind::kGroupingSet) {
+    if (grouping_set.kind == GroupingSetKind::kGroupingSet) {
       std::vector<const ResolvedComputedColumn*> grouping_set_columns;
       for (const ResolvedComputedColumnList& column_list :
            grouping_set.grouping_set_item_list) {
@@ -385,56 +439,29 @@ absl::Status QueryResolutionInfo::ReleaseGroupingSetsAndRollupList(
       }
       grouping_set_list->push_back(MakeResolvedGroupingSet(
           MakeResolvedColumnRefs(absl::MakeSpan(grouping_set_columns))));
+    } else {
+      std::vector<std::unique_ptr<const ResolvedGroupingSetMultiColumn>>
+          multi_columns;
+      for (const ResolvedComputedColumnList& column_list :
+           grouping_set.grouping_set_item_list) {
+        std::vector<std::unique_ptr<const ResolvedColumnRef>> column_ref_list =
+            MakeResolvedColumnRefs(absl::MakeSpan(column_list));
+        ZETASQL_RET_CHECK_GT(column_ref_list.size(), 0)
+            << "At least one column in the rollup or cube's column list";
+        multi_columns.push_back(
+            MakeResolvedGroupingSetMultiColumn(std::move(column_ref_list)));
+      }
+      ZETASQL_RET_CHECK_GT(multi_columns.size(), 0)
+          << "rollup or cube column list can not be empty";
+      if (grouping_set.kind == GroupingSetKind::kRollup) {
+        grouping_set_list->push_back(
+            MakeResolvedRollup(std::move(multi_columns)));
+      } else {
+        grouping_set_list->push_back(
+            MakeResolvedCube(std::move(multi_columns)));
+      }
     }
   }
-
-  // TODO: Move this part to the rewriter per (broken link)
-  if (!rollup_columns.empty()) {
-    // group_by_info_.rollup_column_list stores the rollup columns. Grouping
-    // sets are computed from the prefixes of
-    // group_by_info_.rollup_column_list, and references to the same column
-    // are deduplicated within a particular grouping set.
-    //
-    // For example, suppose that group_by_info_.rollup_column_list contains
-    // columns b, a, c, a. This function will return:
-    //
-    // rollup_list: b, a, c, a.
-    // grouping_set_list: {b, a, c}, {b, a, c}, {b, a}, {b}, {}.
-
-    // Unowned pointers.
-    std::vector<const ResolvedColumnRef*> current_grouping_set;
-    std::set<ResolvedColumn> distinct_rollup_columns;
-
-    // Add the empty grouping set.
-    grouping_set_list->push_back(MakeResolvedGroupingSet());
-
-    for (const ResolvedComputedColumn* rollup_column : rollup_columns) {
-      auto rollup_column_ref = MakeResolvedColumnRef(
-          rollup_column->column().type(), rollup_column->column(),
-          /*is_correlated=*/false);
-      // Don't duplicate columns in the grouping sets.
-      if (zetasql_base::InsertIfNotPresent(&distinct_rollup_columns,
-                                  rollup_column_ref->column())) {
-        current_grouping_set.push_back(rollup_column_ref.get());
-      }
-      rollup_column_list->push_back(std::move(rollup_column_ref));
-      std::vector<std::unique_ptr<const ResolvedColumnRef>>
-          grouping_set_columns;
-      grouping_set_columns.reserve(current_grouping_set.size());
-      for (const ResolvedColumnRef* grouping_column : current_grouping_set) {
-        grouping_set_columns.push_back(MakeResolvedColumnRef(
-            grouping_column->column().type(), grouping_column->column(),
-            /*is_correlated=*/false));
-      }
-      grouping_set_list->push_back(
-          MakeResolvedGroupingSet(std::move(grouping_set_columns)));
-    }
-    // Order of the rows resulting from ROLLUP are not guaranteed, but engines
-    // will generally want to compute aggregates from more to less granular
-    // levels of subtotals, e.g. (a, b, c), (a, b), (a), and then ().
-    std::reverse(grouping_set_list->begin(), grouping_set_list->end());
-  }
-
   group_by_info_.grouping_set_list.clear();
   return absl::OkStatus();
 }

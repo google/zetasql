@@ -1898,7 +1898,7 @@ QueryStatement [0-104] [SELECT * FROM...IN (1, 2))]
               SetOperationMetadataList [37-49] [UNION ALL]
                 SetOperationMetadata [37-49] [UNION ALL]
                   SetOperationType [40-45] [UNION]
-                  ASTSetOperationAllOrDistinct [46-49] [ALL]
+                  SetOperationAllOrDistinct [46-49] [ALL]
               Select [18-37] [SELECT a, b FROM t1]
                 SelectList [25-29] [a, b]
                   SelectColumn [25-26] [a]
@@ -2043,4 +2043,3 @@ FROM
       )
       ON (a = c)
   ) PIVOT(SUM(x) FOR y IN (1, 2))
-==

@@ -439,7 +439,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "No matching signature for function "
-      "(ARRAY_FILTER|ARRAY_TRANSFORM|ARRAY_INCLUDES) .*"));
+      "(ARRAY_FILTER|ARRAY_TRANSFORM|ARRAY_INCLUDES|ARRAY_FIND|ARRAY_FIND_ALL|"
+      "ARRAY_OFFSET|ARRAY_OFFSETS) .*"));
 
   // HLL sketch format errors
   //
@@ -513,6 +514,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kUnimplemented,
       "(ResolvedFunctionCallBase::collation_list not accessed and has "
+      "non-default value)"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "(ResolvedWindowPartitioning::collation_list not accessed and has "
       "non-default value)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
@@ -606,8 +611,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "separator)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid `wide_number_mode` specified"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Invalid input to JSON_(REMOVE|SET)"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kOutOfRange, "Invalid input to JSON_REMOVE"));
+      absl::StatusCode::kOutOfRange, "Invalid input to JSON_STRIP_NULLS"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

@@ -263,6 +263,8 @@ enum class FunctionKind {
   kJsonArray,
   kJsonObject,
   kJsonRemove,
+  kJsonSet,
+  kJsonStripNulls,
   // Proto functions
   kFromProto,
   kToProto,

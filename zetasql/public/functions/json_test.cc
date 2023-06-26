@@ -3536,6 +3536,8 @@ TEST(JsonInsertArrayTest, NoOp) {
   // Last token is not an array index
   test_fn("$.a");
   // Path doesn't exist
+  test_fn("$[1][1].a");
+  // Path doesn't exist
   test_fn("$.a[0]");
   // Path doesn't exist
   test_fn("$[2].c[0]");
@@ -3546,6 +3548,8 @@ TEST(JsonInsertArrayTest, NoOp) {
   // With strict JSONPath, .0 is a member access and cannot be an array
   // index.
   test_fn("$.a.0");
+  // Doesn't recursively create array on null.
+  test_fn("$[1][2][0]");
 }
 
 TEST(JsonInsertArrayTest, ValidInserts) {
@@ -3570,8 +3574,11 @@ TEST(JsonInsertArrayTest, ValidInserts) {
   test_fn("$[0]", Value::Int64(1), false,
           R"([1,"foo",null,{"a":true,"b":[1.1,false,[]]},10])");
   // Inserts past the array size.
-  test_fn("$[10]", Value::Int64(1), false,
+  test_fn("$[4]", Value::Int64(1), false,
           R"(["foo",null,{"a":true,"b":[1.1,false,[]]},10,1])");
+  // Inserts past the array size.
+  test_fn("$[7]", Value::Int64(1), false,
+          R"(["foo",null,{"a":true,"b":[1.1,false,[]]},10,null,null,null,1])");
   // Inserts into nested array.
   test_fn("$[2].b[1]", Value::String("bar"), false,
           R"(["foo",null,{"a":true,"b":[1.1,"bar",false,[]]},10])");
@@ -3584,7 +3591,7 @@ TEST(JsonInsertArrayTest, ValidInserts) {
           R"(["foo",null,{"a":true,"b":[1.1,false,["bar"]]},10])");
   // Inserts into nested array, past the array size.
   test_fn("$[2].b[2][2]", Value::String("bar"), false,
-          R"(["foo",null,{"a":true,"b":[1.1,false,["bar"]]},10])");
+          R"(["foo",null,{"a":true,"b":[1.1,false,[null,null,"bar"]]},10])");
   // Inserts an array as a single element.
   test_fn("$[2].b[1]", values::StringArray({"a", "b"}), false,
           R"(["foo",null,{"a":true,"b":[1.1,["a","b"],false,[]]},10])");
@@ -3592,8 +3599,66 @@ TEST(JsonInsertArrayTest, ValidInserts) {
   test_fn("$[2].b[1]", values::StringArray({"a", "b"}), true,
           R"(["foo",null,{"a":true,"b":[1.1,"a","b",false,[]]},10])");
   // Inserts an array as multiple elements past the array size.
-  test_fn("$[2].b[10]", values::StringArray({"a", "b"}), true,
-          R"(["foo",null,{"a":true,"b":[1.1,false,[],"a","b"]},10])");
+  test_fn("$[2].b[5]", values::StringArray({"a", "b"}), true,
+          R"(["foo",null,{"a":true,"b":[1.1,false,[],null,null,"a","b"]},10])");
+  // Inserts into top level array.
+  test_fn("$[1]", Value::String("a"), true,
+          R"(["foo","a",null,{"a":true,"b":[1.1,false,[]]},10])");
+  // Inserts into null.
+  test_fn("$[1][0]", Value::String("a"), true,
+          R"(["foo",["a"],{"a":true,"b":[1.1,false,[]]},10])");
+  // Inserts into null and expands array.
+  test_fn("$[1][2]", Value::String("a"), true,
+          R"(["foo",[null,null,"a"],{"a":true,"b":[1.1,false,[]]},10])");
+  // Inserts 0 element into null. Creates an array.
+  test_fn("$[1][2]", values::StringArray(std::vector<std::string>()), true,
+          R"(["foo",[null,null,null],{"a":true,"b":[1.1,false,[]]},10])");
+  // Inserts multiple elements into null.
+  test_fn("$[1][0]", values::Int64Array({1, 5}), true,
+          R"(["foo",[1,5],{"a":true,"b":[1.1,false,[]]},10])");
+  // Inserts multiple elements into null.
+  test_fn("$[1][2]", values::Int64Array({1, 5}), true,
+          R"(["foo",[null,null,1,5],{"a":true,"b":[1.1,false,[]]},10])");
+}
+
+TEST(JsonInsertArrayTest, FailedConversionComesFirst) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true}, 10])";
+
+  Value big_value = values::BigNumeric(
+      BigNumericValue::FromString("1.111111111111111111").value());
+
+  {
+    // An error is returned even if the path doesn't exist.
+    auto path_iter = ParseJSONPath("$.a");
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+
+    ASSERT_THAT(JsonInsertArrayElement(ref, *path_iter, big_value, options,
+                                       /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+  {
+    // Insertion in null would have created an array but failed conversion comes
+    // first.
+    auto path_iter = ParseJSONPath("$[1][1]");
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+
+    ASSERT_THAT(JsonInsertArrayElement(ref, *path_iter, big_value, options,
+                                       /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
 }
 
 TEST(JsonInsertArrayTest, CanonicalizeZero) {
@@ -3659,6 +3724,40 @@ TEST(JsonInsertArrayTest, StrictNumberParsing) {
   }
 }
 
+TEST(JsonInsertArrayTest, MaxArraySizeExceeded) {
+  constexpr absl::string_view kInitialValue = R"({"a": null, "b": [10]})";
+
+  {
+    auto path_iter =
+        ParseJSONPath(absl::Substitute("$$.a[$0]", kJSONMaxArraySize));
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    EXPECT_THAT(JsonInsertArrayElement(ref, *path_iter, Value::String("foo"),
+                                       LanguageOptions(),
+                                       /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Exceeded maximum array size")));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+
+  {
+    auto path_iter =
+        ParseJSONPath(absl::Substitute("$$.b[$0]", kJSONMaxArraySize));
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    EXPECT_THAT(JsonInsertArrayElement(ref, *path_iter, Value::String("foo"),
+                                       LanguageOptions(),
+                                       /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Exceeded maximum array size")));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+}
+
 TEST(JsonAppendArrayTest, NoOp) {
   constexpr absl::string_view kInitialValue =
       R"(["foo", null, {"a": true, "b": [1.1, false, []]}, 10])";
@@ -3677,6 +3776,8 @@ TEST(JsonAppendArrayTest, NoOp) {
   // Path doesn't exist
   test_fn("$.a");
   // Path doesn't exist
+  test_fn("$[1][1].a");
+  // Path doesn't exist
   test_fn("$[2].c");
   // Path doesn't exist
   test_fn("$[4]");
@@ -3687,6 +3788,8 @@ TEST(JsonAppendArrayTest, NoOp) {
   // With strict JSONPath); .2 is a member access and cannot be an array
   // index.
   test_fn("$[2].b.2");
+  // Doesn't recursively create array on null.
+  test_fn("$[1][1]");
 }
 
 TEST(JsonAppendArrayTest, ValidInserts) {
@@ -3722,6 +3825,15 @@ TEST(JsonAppendArrayTest, ValidInserts) {
   // Appends an array as multiple elements.
   test_fn("$[2].b", values::StringArray({"a", "b"}), true,
           R"(["foo",null,{"a":true,"b":[1.1,false,[],"a","b"]},10])");
+  // Appends into null.
+  test_fn("$[1]", Value::Int64(1), false,
+          R"(["foo",[1],{"a":true,"b":[1.1,false,[]]},10])");
+  // Appends 0 element into null. Creates an array.
+  test_fn("$[1]", values::Int64Array({}), true,
+          R"(["foo",[],{"a":true,"b":[1.1,false,[]]},10])");
+  // Appends multiple elements into null.
+  test_fn("$[1]", values::Int64Array({1, 2}), true,
+          R"(["foo",[1,2],{"a":true,"b":[1.1,false,[]]},10])");
 }
 
 TEST(JsonAppendArrayTest, CanonicalizeZero) {
@@ -3785,6 +3897,62 @@ TEST(JsonAppendArrayTest, StrictNumberParsing) {
                            R"(["foo",null,{"a":true},10,1.111111111111111111])")
                            ->GetConstRef()));
   }
+}
+
+TEST(JsonAppendArrayTest, FailedConversionComesFirst) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true}, 10])";
+
+  Value big_value = values::BigNumeric(
+      BigNumericValue::FromString("1.111111111111111111").value());
+
+  {
+    // An error is returned even if the path doesn't exist.
+    auto path_iter = ParseJSONPath("$.a[1]");
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+
+    ASSERT_THAT(JsonAppendArrayElement(ref, *path_iter, big_value, options,
+                                       /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+  {
+    // Insertion in null would have created an array but failed conversion comes
+    // first.
+    auto path_iter = ParseJSONPath("$[1]");
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+
+    ASSERT_THAT(JsonAppendArrayElement(ref, *path_iter, big_value, options,
+                                       /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+}
+
+TEST(JsonAppendArrayTest, MaxArraySizeExceeded) {
+  constexpr absl::string_view kInitialValue = R"({"a": null, "b": [10]})";
+
+  JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+  JSONValueRef ref = value.GetRef();
+  ref.GetMember("b").GetArrayElement(kJSONMaxArraySize - 1);
+  auto path_iter = ParseJSONPath("$.b");
+
+  EXPECT_THAT(JsonAppendArrayElement(ref, *path_iter, Value::String("foo"),
+                                     LanguageOptions(),
+                                     /*canonicalize_zero=*/true),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Exceeded maximum array size")));
+  EXPECT_EQ(ref.GetMember("b").GetArraySize(), kJSONMaxArraySize);
 }
 
 TEST(JsonSetTest, NoOpTopLevelObject) {
@@ -3952,19 +4120,6 @@ TEST(JsonSetTest, ValidTopLevelEmptyArray) {
   // Recursive creation of nested arrays and objects.
   test_fn(/*path=*/"$[2][1].a",
           /*expected_output=*/R"([null, null, [null, {"a":999}]])");
-
-  std::vector<std::tuple<absl::string_view, absl::string_view>>
-      inputs_and_outputs = {
-          // Empty path.
-          {"$", "999"},
-          // Set element into first position.
-          {"$[0]", "[999]"},
-          // Set past the end of the array.
-          {"$[2]", "[null, null, 999]"},
-          // Recursive creation of nested arrays.
-          {"$[2][1]", "[null, null, [null, 999]]"},
-          // Recursive creation of nested arrays and objects.
-          {"$[2][1].a", R"([null, null, [null, {"a":999}]])"}};
 }
 
 TEST(JsonSetTest, ComplexTests) {
@@ -4100,6 +4255,246 @@ TEST(JsonSetTest, StrictNumberParsing) {
                                 R"(["foo", null, 1.111111111111111111, 10])")
                                 ->GetConstRef()));
   }
+}
+
+TEST(JsonSetTest, FailedConversionComesFirst) {
+  constexpr absl::string_view kInitialValue =
+      R"(["foo", null, {"a": true}, 10])";
+
+  Value big_value = values::BigNumeric(
+      BigNumericValue::FromString("1.111111111111111111").value());
+
+  {
+    // An error is returned even if the path doesn't exist.
+    auto path_iter = ParseJSONPath("$.a[1]");
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+
+    ASSERT_THAT(JsonSet(ref, *path_iter, big_value, options,
+                        /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+  {
+    // Auto-creation only happens when the conversion succeeds.
+    auto path_iter = ParseJSONPath("$[2].b[0]");
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    LanguageOptions options;
+    options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
+
+    ASSERT_THAT(JsonAppendArrayElement(ref, *path_iter, big_value, options,
+                                       /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+}
+
+TEST(JsonSetTest, MaxArraySizeExceeded) {
+  constexpr absl::string_view kInitialValue = R"({"a": [10]})";
+
+  {
+    auto path_iter =
+        ParseJSONPath(absl::Substitute("$$.a[$0]", kJSONMaxArraySize));
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    EXPECT_THAT(
+        JsonSet(ref, *path_iter, Value::String("foo"), LanguageOptions(),
+                /*canonicalize_zero=*/true),
+        StatusIs(absl::StatusCode::kOutOfRange,
+                 HasSubstr("Exceeded maximum array size")));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+  {
+    auto path_iter =
+        ParseJSONPath(absl::Substitute("$$.b[$0]", kJSONMaxArraySize));
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+
+    EXPECT_THAT(
+        JsonSet(ref, *path_iter, Value::String("foo"), LanguageOptions(),
+                /*canonicalize_zero=*/true),
+        StatusIs(absl::StatusCode::kOutOfRange,
+                 HasSubstr("Exceeded maximum array size")));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  }
+}
+
+TEST(JsonStripNullsTest, NoopPathNonexistent) {
+  constexpr absl::string_view kInitialValue =
+      R"({"a":1, "b":[null, {"c":null}], "d":{"e":[null], "f":[null]}})";
+
+  auto test_fn = [&kInitialValue](absl::string_view path) {
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonStripNulls(ref, *path_iterator,
+                             /*include_arrays=*/true,
+                             /*remove_empty=*/true));
+    ZETASQL_ASSERT_OK(JsonStripNulls(ref, *path_iterator, /*include_arrays=*/true,
+                             /*remove_empty=*/true));
+    EXPECT_THAT(
+        ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
+  };
+
+  // Path suffix ".b" doesn't exist.
+  test_fn("$.a.b");
+  // Path suffix "[2]" is larger than existing array.
+  test_fn("$.b[2]");
+  // Type mismatch. Path prefix "$.b" is an array but expected object.
+  test_fn("$.b.c");
+  // Type mismatch. Path prefix "$.d" is an object but expected array.
+  test_fn("$.d[1]");
+  // Object "$.d" doesn't contain key "$.z".
+  test_fn("$.d.z");
+}
+
+TEST(JsonStripNullsTest, SimpleObject) {
+  constexpr absl::string_view kInitialValue =
+      R"({"a":null, "b":1, "c":[null, true], "d":{}, "e":[null], "f":[]})";
+
+  auto test_fn = [&kInitialValue](absl::string_view path, bool include_arrays,
+                                  bool remove_empty,
+                                  absl::string_view expected_output) {
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonStripNulls(ref, *path_iterator,
+                             /*include_arrays=*/include_arrays,
+                             /*remove_empty=*/remove_empty));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  test_fn("$", /*include_arrays=*/false, /*remove_empty=*/false,
+          R"({"b":1, "c":[null, true], "d":{}, "e":[null], "f":[]})");
+  test_fn("$", /*include_arrays=*/true, /*remove_empty=*/false,
+          R"({"b":1, "c":[true], "d":{}, "e":[], "f":[]})");
+  test_fn("$", /*include_arrays=*/false, /*remove_empty=*/true,
+          R"({"b":1, "c":[null, true], "e":[null], "f":[]})");
+  test_fn("$", /*include_arrays=*/true, /*remove_empty=*/true,
+          R"({"b":1, "c":[true]})");
+  // Subpath points to a simple type. Does nothing.
+  test_fn("$.a", /*include_arrays=*/true, /*remove_empty=*/true, kInitialValue);
+  test_fn("$.c", /*include_arrays=*/true, /*remove_empty=*/true,
+          R"({"a":null, "b":1, "c":[true], "d":{}, "e":[null],
+               "f":[]})");
+}
+
+TEST(JsonStripNullsTest, SimpleArray) {
+  constexpr absl::string_view kInitialValue =
+      R"(["a", null, 1.1, [], [null], [1, null], {}, {"a":null},
+         {"b":1, "c":null}])";
+
+  auto test_fn = [&kInitialValue](absl::string_view path, bool include_arrays,
+                                  bool remove_empty,
+                                  absl::string_view expected_output) {
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonStripNulls(ref, *path_iterator,
+                             /*include_arrays=*/include_arrays,
+                             /*remove_empty=*/remove_empty));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  test_fn("$", /*include_arrays=*/false, /*remove_empty=*/false,
+          R"(["a", null, 1.1, [], [null], [1, null], {}, {},
+                      {"b":1}])");
+  test_fn("$", /*include_arrays=*/true, /*remove_empty=*/false,
+          R"(["a", 1.1, [], [], [1], {}, {}, {"b":1}])");
+  // Because parent of empty OBJECTs is an ARRAY, empty OBJECTs are not
+  // removed.
+  test_fn("$", /*include_arrays=*/false, /*remove_empty=*/true,
+          R"(["a", null, 1.1, [], [null], [1, null], {}, {}, {"b":1}])");
+  test_fn("$", /*include_arrays=*/true, /*remove_empty=*/true,
+          R"(["a", 1.1, [1], {"b":1}])");
+  // Subpath points to an array that is replaced with JSON 'null'.
+  test_fn("$[4]", /*include_arrays=*/true, /*remove_empty=*/true,
+          R"(["a", null, 1.1, [], null, [1, null], {}, {"a":null},
+              {"b":1, "c":null}])");
+  // Subpath points to an OBJECT that is replaced with JSON 'null'.
+  test_fn("$[7]", /*include_arrays=*/true, /*remove_empty=*/true,
+          R"(["a", null, 1.1, [], [null], [1, null], {}, null,
+              {"b":1, "c":null}])");
+}
+
+TEST(JsonStripNullsTest, AllNullsOrEmptyObject) {
+  constexpr absl::string_view kInitialValue =
+      R"({"a": {"b":null, "c":null, "d":[[null], null]}, "e":null})";
+
+  auto test_fn = [&kInitialValue](absl::string_view path, bool include_arrays,
+                                  bool remove_empty,
+                                  absl::string_view expected_output) {
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonStripNulls(ref, *path_iterator,
+                             /*include_arrays=*/include_arrays,
+                             /*remove_empty=*/remove_empty));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  test_fn("$", /*include_arrays=*/true, /*remove_empty=*/true, "null");
+  // No change. Subpath already JSON 'null'.
+  test_fn("$.e", /*include_arrays=*/true, /*remove_empty=*/true, kInitialValue);
+  // No change. Subpath points to a nested ARRAY.
+  test_fn("$.a.d", /*include_arrays=*/false, /*remove_empty=*/true,
+          kInitialValue);
+  // Subpath is nested ARRAY and removes JSON 'null's.
+  test_fn("$.a.d", /*include_arrays=*/true, /*remove_empty=*/false,
+          R"({"a": {"b":null, "c":null, "d":[[]]}, "e":null})");
+  // Subpath is nested ARRAY replaced by JSON 'null'.
+  test_fn("$.a.d", /*include_arrays=*/true, /*remove_empty=*/true,
+          R"({"a": {"b":null, "c":null, "d":null}, "e":null})");
+  // Subpath is OBJECT replaced by JSON 'null'.
+  test_fn("$.a", /*include_arrays=*/true, /*remove_empty=*/true,
+          R"({"a":null, "e":null})");
+}
+
+TEST(JsonStripNullsTest, AllNullsOrEmptyArray) {
+  constexpr absl::string_view kInitialValue =
+      R"([null, {"b":null, "c":null, "d":[[null], null]}, [null, null],
+      []])";
+
+  auto test_fn = [&kInitialValue](absl::string_view path, bool include_arrays,
+                                  bool remove_empty,
+                                  absl::string_view expected_output) {
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    ZETASQL_ASSERT_OK(JsonStripNulls(ref, *path_iterator,
+                             /*include_arrays=*/include_arrays,
+                             /*remove_empty=*/remove_empty));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  test_fn("$", /*include_arrays=*/true, /*remove_empty=*/true, "null");
+  // Cleanup nested arrays to JSON 'null'.
+  test_fn("$[1]", /*include_arrays=*/true, /*remove_empty=*/true,
+          "[null, null, [null, null],[]]");
+  // Cleanup nested arrays to JSON 'null' but no array cleanup.
+  test_fn("$[1]", /*include_arrays=*/false, /*remove_empty=*/true,
+          R"([null, {"d":[[null], null]}, [null, null], []])");
+  // No change. Subpath points to a nested ARRAY.
+  test_fn("$[1].d", /*include_arrays=*/false, /*remove_empty=*/true,
+          kInitialValue);
 }
 
 }  // namespace

@@ -30,8 +30,10 @@
 
 #include "zetasql/analyzer/expr_matching_helpers.h"
 #include "zetasql/analyzer/name_scope.h"
+#include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -96,6 +98,18 @@ struct GroupingSetInfo {
   std::vector<ResolvedComputedColumnList> grouping_set_item_list;
   // The kind of current grouping set, it can be a kGroupingSet, kRollup, or
   // kCube.
+  GroupingSetKind kind;
+};
+
+// A struct to preserve the column ids in the grouping set.
+struct GroupingSetIds {
+  // The list of column ids of the grouping set, with the same preserved struct
+  // of the current grouping set.
+  // The outer vector represents the list of grouping set item, and the inner
+  // vector represents the list of columns in the multi-column of the current
+  // grouping set.
+  std::vector<std::vector<int>> ids;
+  // The kind of grouping set, it can be a kGroupingSet, kRollup, or kCube.
   GroupingSetKind kind;
 };
 
@@ -441,10 +455,10 @@ class QueryResolutionInfo {
   // Returns the grouping sets and list of rollup columns for queries that use
   // GROUP BY ROLLUP.  This clears columns previously added via AddGroupingSet.
   absl::Status ReleaseGroupingSetsAndRollupList(
-      std::vector<std::unique_ptr<const ResolvedGroupingSet>>*
+      std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>*
           grouping_set_list,
-      std::vector<std::unique_ptr<const ResolvedColumnRef>>*
-          rollup_column_list);
+      std::vector<std::unique_ptr<const ResolvedColumnRef>>* rollup_column_list,
+      const LanguageOptions& language_options);
 
   // Resets all state related to group by and aggregation context.  This
   // is invoked before processing DISTINCT, since DISTINCT processing

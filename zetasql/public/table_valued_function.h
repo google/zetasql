@@ -198,7 +198,8 @@ class TableValuedFunction {
   // that are deprecated or have unsupported types, so this returns user facing
   // text for all signatures.
   virtual std::string GetSupportedSignaturesUserFacingText(
-      const LanguageOptions& language_options) const;
+      const LanguageOptions& language_options,
+      bool print_template_and_name_details) const;
 
   virtual std::string DebugString() const;
 
@@ -344,7 +345,8 @@ class TableValuedFunction {
   // affecting the resulting Type names (i.e., DOUBLE vs. FLOAT8).
   std::string GetSignatureUserFacingText(
       const FunctionSignature& signature,
-      const LanguageOptions& language_options) const;
+      const LanguageOptions& language_options,
+      bool print_template_and_name_details) const;
 
   // This is the name of this TVF.
   const std::vector<std::string> function_name_path_;

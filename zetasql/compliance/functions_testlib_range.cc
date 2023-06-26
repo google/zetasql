@@ -47,8 +47,9 @@ using zetasql::Value;
 namespace {
 
 bool HasDatetimeElementType(Value range) {
-  return range.type()->AsRange()->element_type()->kind() ==
-         TypeKind::TYPE_DATETIME;
+  return range.type()->IsRangeType() &&
+         range.type()->AsRange()->element_type()->kind() ==
+             TypeKind::TYPE_DATETIME;
 }
 
 void CommonInitialCheck(const Value& t1, const Value& t2, const Value& t3,
@@ -110,7 +111,7 @@ std::vector<FunctionTestCall> EqualityTests(const Value& t1, const Value& t2,
       {"RangeEquals",
        {Range(unbounded, t2), Range(unbounded, t3)},
        Bool(false)},
-      // Same ranges with unobunded end
+      // Same ranges with unbounded end
       {"RangeEquals", {Range(t1, unbounded), Range(t1, unbounded)}, Bool(true)},
       // Different ranges, same start date, one with unbounded end
       {"RangeEquals", {Range(t1, unbounded), Range(t1, t2)}, Bool(false)},
@@ -847,11 +848,13 @@ FunctionTestCall GenerateRangeArrayTest(
       {Value::MakeArray(MakeArrayType(range_type), expected_result).value()}};
 
   QueryParamsWithResult::FeatureSet feature_set;
+  feature_set.insert({FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE});
   if (scale == functions::kNanoseconds) {
-    feature_set = {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE,
-                   FEATURE_TIMESTAMP_NANOS};
-  } else {
-    feature_set = {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE};
+    feature_set.insert(FEATURE_TIMESTAMP_NANOS);
+  }
+  const Type* element_type = range_type->AsRange()->element_type();
+  if (element_type->IsDatetime()) {
+    feature_set.insert(FEATURE_V_1_2_CIVIL_TIME);
   }
   call.params = call.params.WrapWithFeatureSet(feature_set);
   return call;
@@ -872,12 +875,15 @@ FunctionTestCall GenerateRangeArrayErrorTest(
       {range, Value::Interval(step), Value::Bool(last_partial_range)},
       Value::Null(MakeArrayType(range_type)),
       absl::OutOfRangeError(expected_error)};
+
   QueryParamsWithResult::FeatureSet feature_set;
+  feature_set.insert({FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE});
   if (scale == functions::kNanoseconds) {
-    feature_set = {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE,
-                   FEATURE_TIMESTAMP_NANOS};
-  } else {
-    feature_set = {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE};
+    feature_set.insert(FEATURE_TIMESTAMP_NANOS);
+  }
+  const Type* element_type = range_type->AsRange()->element_type();
+  if (element_type->IsDatetime()) {
+    feature_set.insert(FEATURE_V_1_2_CIVIL_TIME);
   }
   call.params = call.params.WrapWithFeatureSet(feature_set);
   return call;
@@ -1400,61 +1406,6 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateTimestampRangeArray() {
           "-0:0:1",  // Negative MICROSECOND part
           /*last_partial_range=*/false, "step cannot be negative"),
   };
-}
-
-std::vector<FunctionTestCall>
-GetFunctionTestsGenerateTimestampRangeArrayExtras() {
-  static constexpr absl::string_view kFnName = "generate_range_array";
-
-  std::vector<FunctionTestCall> test_cases;
-  // Generate NULL arguments test cases.
-  const Value range =
-      RangeFromStr("[2021-04-24 16:35:01, 2023-01-18 01:12:14)",
-                   types::TimestampRangeType(), functions::kMicroseconds);
-  const Value step = Value::Interval(IntervalValue::FromDays(360).value());
-  const Value null_range_array =
-      Value::Null(MakeArrayType(types::TimestampRangeType()));
-  for (const Value& arg1 : {range, Value::Null(range.type())}) {
-    for (const Value& arg2 : {step, Value::Null(step.type())}) {
-      if (arg1.is_null() || arg2.is_null()) {
-        // 2 arguments overload.
-        test_cases.push_back({kFnName, {arg1, arg2}, null_range_array});
-      }
-      for (const Value& arg3 :
-           {Value::Bool(false), Value::Bool(true), Value::NullBool()}) {
-        if (arg1.is_null() || arg2.is_null() || arg3.is_null())
-          // 3 arguments overload.
-          test_cases.push_back({kFnName, {arg1, arg2, arg3}, null_range_array});
-      }
-    }
-  }
-
-  // Generate NULL RANGE start/end test cases.
-  for (const Value& range_start :
-       {TimestampFromStr("2021-04-24 16:35:01"), Value::NullTimestamp()}) {
-    for (const Value& range_end :
-         {TimestampFromStr("2023-01-18 01:12:14"), Value::NullTimestamp()}) {
-      if (range_start.is_null() || range_end.is_null()) {
-        Value range = Value::MakeRange(range_start, range_end).value();
-        // 2 arguments overload.
-        test_cases.push_back({kFnName,
-                              {range, step},
-                              null_range_array,
-                              absl::StatusCode::kOutOfRange});
-        // 3 arguments overload.
-        test_cases.push_back({kFnName,
-                              {range, step, Value::Bool(false)},
-                              null_range_array,
-                              absl::StatusCode::kOutOfRange});
-      }
-    }
-  }
-
-  for (FunctionTestCall& test_case : test_cases) {
-    test_case.params.AddRequiredFeatures(
-        {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE});
-  }
-  return test_cases;
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsGenerateDateRangeArray() {
@@ -2361,26 +2312,6 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateDatetimeRangeArray() {
           /*last_partial_range=*/false,
           "step should either have the Y-M part or the D (H:M:S[.F]) part"),
       GenerateDatetimeRangeArrayErrorTest(
-          "[2023-02-24 08:20:37, 2025-03-10 15:31:28)",
-          // 1 year 1 month 3 days and 17:47:53.123456789
-          "1-1 3 17:47:53.123456789",
-          /*last_partial_range=*/false,
-          "step should either have the Y-M part or the D (H:M:S[.F]) part",
-          functions::kNanoseconds),
-      GenerateDatetimeRangeArrayErrorTest(
-          "[2023-02-24 08:20:37, 2025-03-10 15:31:28)",
-          // 1 year 1 month 3 days and 17:47:53.123456789
-          "1-1 3 17:47:53.123456789",
-          /*last_partial_range=*/true,
-          "step should either have the Y-M part or the D (H:M:S[.F]) part",
-          functions::kNanoseconds),
-      GenerateDatetimeRangeArrayErrorTest(
-          "[2023-02-24 08:20:37, 2023-06-10 15:31:28)",
-          "0-1 0 1:0:0.123456789",  // 1 month and 1:0:0.123456789
-          /*last_partial_range=*/false,
-          "step should either have the Y-M part or the D (H:M:S[.F]) part",
-          functions::kNanoseconds),
-      GenerateDatetimeRangeArrayErrorTest(
           "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
           "0:0:1.000000001",  // Non-zero NANOSECOND part
           /*last_partial_range=*/false,
@@ -2398,12 +2329,171 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateDatetimeRangeArray() {
           "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
           "-0:0:1",  // Negative MICROSECOND part
           /*last_partial_range=*/false, "step cannot be negative"),
-      GenerateDatetimeRangeArrayErrorTest(
-          "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
-          "-0:0:0.000000001",  // Negative NANOSECOND part
-          /*last_partial_range=*/false, "step cannot be negative",
-          functions::kNanoseconds),
   };
+}
+
+std::vector<FunctionTestCall>
+GetFunctionTestsGenerateTimestampRangeArrayExtras() {
+  static constexpr absl::string_view kFnName = "generate_range_array";
+
+  std::vector<FunctionTestCall> test_cases;
+  // Generate NULL arguments test cases.
+  const Value range =
+      RangeFromStr("[2021-04-24 16:35:01, 2023-01-18 01:12:14)",
+                   types::TimestampRangeType(), functions::kMicroseconds);
+  const Value step = Value::Interval(IntervalValue::FromDays(360).value());
+  const Value null_range_array =
+      Value::Null(MakeArrayType(types::TimestampRangeType()));
+  for (const Value& arg1 : {range, Value::Null(range.type())}) {
+    for (const Value& arg2 : {step, Value::Null(step.type())}) {
+      if (arg1.is_null() || arg2.is_null()) {
+        // 2 arguments overload.
+        test_cases.push_back({kFnName, {arg1, arg2}, null_range_array});
+      }
+      for (const Value& arg3 :
+           {Value::Bool(false), Value::Bool(true), Value::NullBool()}) {
+        if (arg1.is_null() || arg2.is_null() || arg3.is_null())
+          // 3 arguments overload.
+          test_cases.push_back({kFnName, {arg1, arg2, arg3}, null_range_array});
+      }
+    }
+  }
+
+  // Generate NULL RANGE start/end test cases.
+  for (const Value& range_start :
+       {TimestampFromStr("2021-04-24 16:35:01"), Value::NullTimestamp()}) {
+    for (const Value& range_end :
+         {TimestampFromStr("2023-01-18 01:12:14"), Value::NullTimestamp()}) {
+      if (range_start.is_null() || range_end.is_null()) {
+        Value range = Value::MakeRange(range_start, range_end).value();
+        // 2 arguments overload.
+        test_cases.push_back({kFnName,
+                              {range, step},
+                              null_range_array,
+                              absl::StatusCode::kOutOfRange});
+        // 3 arguments overload.
+        test_cases.push_back({kFnName,
+                              {range, step, Value::Bool(false)},
+                              null_range_array,
+                              absl::StatusCode::kOutOfRange});
+      }
+    }
+  }
+
+  for (FunctionTestCall& test_case : test_cases) {
+    test_case.params.AddRequiredFeatures(
+        {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE});
+  }
+  return test_cases;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsGenerateDateRangeArrayExtras() {
+  static constexpr absl::string_view kFnName = "generate_range_array";
+
+  std::vector<FunctionTestCall> test_cases;
+  // Generate NULL arguments test cases.
+  const Value range =
+      RangeFromStr("[2021-04-24, 2023-01-18)", types::DateRangeType(),
+                   functions::kMicroseconds);
+  const Value step = Value::Interval(IntervalValue::FromDays(360).value());
+  const Value null_range_array =
+      Value::Null(MakeArrayType(types::DateRangeType()));
+  for (const Value& arg1 : {range, Value::Null(range.type())}) {
+    for (const Value& arg2 : {step, Value::Null(step.type())}) {
+      if (arg1.is_null() || arg2.is_null()) {
+        // 2 arguments overload.
+        test_cases.push_back({kFnName, {arg1, arg2}, null_range_array});
+      }
+      for (const Value& arg3 :
+           {Value::Bool(false), Value::Bool(true), Value::NullBool()}) {
+        if (arg1.is_null() || arg2.is_null() || arg3.is_null())
+          // 3 arguments overload.
+          test_cases.push_back({kFnName, {arg1, arg2, arg3}, null_range_array});
+      }
+    }
+  }
+
+  // Generate NULL RANGE start/end test cases.
+  for (const Value& range_start :
+       {DateFromStr("2021-04-24"), Value::NullDate()}) {
+    for (const Value& range_end :
+         {DateFromStr("2023-01-18"), Value::NullDate()}) {
+      if (range_start.is_null() || range_end.is_null()) {
+        Value range = Value::MakeRange(range_start, range_end).value();
+        // 2 arguments overload.
+        test_cases.push_back({kFnName,
+                              {range, step},
+                              null_range_array,
+                              absl::StatusCode::kOutOfRange});
+        // 3 arguments overload.
+        test_cases.push_back({kFnName,
+                              {range, step, Value::Bool(false)},
+                              null_range_array,
+                              absl::StatusCode::kOutOfRange});
+      }
+    }
+  }
+
+  for (FunctionTestCall& test_case : test_cases) {
+    test_case.params.AddRequiredFeatures(
+        {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE});
+  }
+  return test_cases;
+}
+
+std::vector<FunctionTestCall>
+GetFunctionTestsGenerateDatetimeRangeArrayExtras() {
+  static constexpr absl::string_view kFnName = "generate_range_array";
+
+  std::vector<FunctionTestCall> test_cases;
+  // Generate NULL arguments test cases.
+  const Value range =
+      RangeFromStr("[2021-04-24 16:35:01, 2023-01-18 01:12:14)",
+                   types::DatetimeRangeType(), functions::kMicroseconds);
+  const Value step = Value::Interval(IntervalValue::FromDays(360).value());
+  const Value null_range_array =
+      Value::Null(MakeArrayType(types::DatetimeRangeType()));
+  for (const Value& arg1 : {range, Value::Null(range.type())}) {
+    for (const Value& arg2 : {step, Value::Null(step.type())}) {
+      if (arg1.is_null() || arg2.is_null()) {
+        // 2 arguments overload.
+        test_cases.push_back({kFnName, {arg1, arg2}, null_range_array});
+      }
+      for (const Value& arg3 :
+           {Value::Bool(false), Value::Bool(true), Value::NullBool()}) {
+        if (arg1.is_null() || arg2.is_null() || arg3.is_null())
+          // 3 arguments overload.
+          test_cases.push_back({kFnName, {arg1, arg2, arg3}, null_range_array});
+      }
+    }
+  }
+
+  // Generate NULL RANGE start/end test cases.
+  for (const Value& range_start :
+       {DatetimeFromStr("2021-04-24 16:35:01"), Value::NullDatetime()}) {
+    for (const Value& range_end :
+         {DatetimeFromStr("2023-01-18 01:12:14"), Value::NullDatetime()}) {
+      if (range_start.is_null() || range_end.is_null()) {
+        Value range = Value::MakeRange(range_start, range_end).value();
+        // 2 arguments overload.
+        test_cases.push_back({kFnName,
+                              {range, step},
+                              null_range_array,
+                              absl::StatusCode::kOutOfRange});
+        // 3 arguments overload.
+        test_cases.push_back({kFnName,
+                              {range, step, Value::Bool(false)},
+                              null_range_array,
+                              absl::StatusCode::kOutOfRange});
+      }
+    }
+  }
+
+  for (FunctionTestCall& test_case : test_cases) {
+    test_case.params.AddRequiredFeatures(
+        {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE, FEATURE_V_1_2_CIVIL_TIME});
+  }
+  return test_cases;
 }
 
 }  // namespace zetasql

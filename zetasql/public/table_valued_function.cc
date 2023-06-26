@@ -84,23 +84,29 @@ const FunctionSignature* TableValuedFunction::GetSignature(int64_t idx) const {
 }
 
 std::string TableValuedFunction::GetSupportedSignaturesUserFacingText(
-    const LanguageOptions& language_options) const {
+    const LanguageOptions& language_options,
+    bool print_template_and_name_details) const {
   std::string supported_signatures;
   for (const FunctionSignature& signature : signatures()) {
-    absl::StrAppend(&supported_signatures,
-                    (!supported_signatures.empty() ? "; " : ""),
-                    GetSignatureUserFacingText(signature, language_options));
+    absl::StrAppend(
+        &supported_signatures, (!supported_signatures.empty() ? "; " : ""),
+        GetSignatureUserFacingText(signature, language_options,
+                                   print_template_and_name_details));
   }
   return supported_signatures;
 }
 
 std::string TableValuedFunction::GetSignatureUserFacingText(
-    const FunctionSignature& signature,
-    const LanguageOptions& language_options) const {
+    const FunctionSignature& signature, const LanguageOptions& language_options,
+    bool print_template_and_name_details) const {
   std::vector<std::string> argument_texts;
   for (const FunctionArgumentType& argument : signature.arguments()) {
     std::string arg_type_string =
         argument.UserFacingName(language_options.product_mode());
+    if (print_template_and_name_details && argument.has_argument_name()) {
+      arg_type_string =
+          absl::StrCat(argument.argument_name(), " => ", arg_type_string);
+    }
     // If the argument is a relation argument to a table-valued function and the
     // function signature specifies a required input schema, append the types of
     // the required columns to the user-facing signature string.
@@ -149,17 +155,33 @@ std::string TableValuedFunction::GetTVFSignatureErrorMessage(
     const std::vector<InputArgumentType>& input_arg_types, int signature_idx,
     const SignatureMatchResult& signature_match_result,
     const LanguageOptions& language_options) const {
+  // Merge of tvf_mismatch_message and mismatch_message should be considered
+  // when show_function_signature_mismatch_details is enabled by default.
   if (!signature_match_result.tvf_mismatch_message().empty()) {
     // TODO: Update this error message when we support more than one
     // TVF signature.
     return absl::StrCat(signature_match_result.tvf_mismatch_message(), " of ",
-                        GetSupportedSignaturesUserFacingText(language_options));
+                        GetSupportedSignaturesUserFacingText(
+                            language_options,
+                            /*print_template_and_name_details=*/false));
+  } else if (!signature_match_result.mismatch_message().empty()) {
+    return absl::StrCat(
+        Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
+            tvf_name_string, input_arg_types, language_options.product_mode(),
+            {}, /*argument_types_on_new_line=*/true),
+        "\n  Signature: ",
+        GetSupportedSignaturesUserFacingText(
+            language_options,
+            /*print_template_and_name_details=*/true),
+        "\n    ", signature_match_result.mismatch_message());
   } else {
     return absl::StrCat(
         Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
             tvf_name_string, input_arg_types, language_options.product_mode()),
         ". Supported signature", (NumSignatures() > 1 ? "s" : ""), ": ",
-        GetSupportedSignaturesUserFacingText(language_options));
+        GetSupportedSignaturesUserFacingText(
+            language_options,
+            /*print_template_and_name_details=*/false));
   }
 }
 

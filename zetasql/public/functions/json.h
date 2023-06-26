@@ -414,8 +414,8 @@ absl::StatusOr<JSONValue> JsonObject(absl::Span<const absl::string_view> keys,
                                      JsonObjectBuilder& builder);
 
 // Removes the object member or the array element pointed to by `path_iterator`
-// and returns true. If `path_iterator` is an inexistant path, the function does
-// nothing and returns false.
+// and returns true. If `path_iterator` is an nonexistent path, the function
+// does nothing and returns false.
 //
 // Returns an error if the `path_iterator` is '$'.
 absl::StatusOr<bool> JsonRemove(
@@ -423,7 +423,16 @@ absl::StatusOr<bool> JsonRemove(
 
 // Insert `value` into `input` at location pointed to by `path_iterator`.
 // `path_iterator` must point to an array index. If the array index is larger
-// than the size of the array, `value` is appended to the end of the array.
+// than the size of the array, the array is expanded and filled with JSON nulls,
+// and `value` is inserted at the correct `index`.
+//
+// If the final array pointed to by `path_iterator` is a JSON null, then an
+// array is created, expanded with JSON nulls, and `value` is inserted at the
+// correct index. The array is created even if no element is inserted. Example:
+//
+// JsonInsertArrayElement(JSON 'null', Iter('$[2]'), [], ...,
+//                        /*insert_each_element=*/true)
+// -> JSON '[null, null, null]'
 //
 // If `path_iterator` doesn`t point to an array index, or if the path doesn`t
 // exist, the function does nothing.
@@ -431,6 +440,7 @@ absl::StatusOr<bool> JsonRemove(
 // If `insert_each_element` is true and `value` is an array, then each element
 // of the array is inserted in the same order as their position in the `value`
 // array. If false, then `value` is converted to a JSON array and inserted.
+//
 // Examples:
 // - JsonInsertArrayElement(JSON '[1, "foo"]', Iter('$[1]'), [10, 20], ...,
 //                          true)
@@ -440,6 +450,8 @@ absl::StatusOr<bool> JsonRemove(
 //   -> JSON '[1, [10, 20], "foo"]'
 //
 // Returns an error if the conversion of `value` to a JSON value fails.
+//
+// `input` is not modified if the insertion fails for any reason.
 //
 // If `canonicalize_zero` is true, the sign on a signed zero is removed when
 // converting a numeric type to JSON.
@@ -451,10 +463,18 @@ absl::Status JsonInsertArrayElement(
     bool canonicalize_zero, bool insert_each_element = true);
 
 // Appends `value` into the array in `input` pointed to by `path_iterator`.
-// `path_iterator` must point to an array.
+// `path_iterator` must point to an array or JSON null.
 //
-// If `path_iterator` doesn`t point to an array, or if the path doesn`t exist,
-// the function does nothing.
+// If `path_iterator` points to a JSON null, an array is created and `value` is
+// added as first element(s). The array is created even if no element is
+// appended. Example:
+//
+// JsonAppendArrayElement(JSON 'null', Iter('$'), [], ...,
+//                        /*append_each_element=*/true)
+// -> JSON '[]'
+//
+// If `path_iterator` doesn`t point to an array or JSON null, or if the path
+// doesn`t exist, the function does nothing.
 //
 // If `append_each_element` is true and `value` is an array, then each element
 // of the array is appended at in the same order as their position in the
@@ -466,6 +486,8 @@ absl::Status JsonInsertArrayElement(
 //   -> JSON '[1, "foo", [10, 20]]'
 //
 // Returns an error if the conversion of `value` to a JSON value fails.
+//
+// `input` is not modified if the insertion fails for any reason.
 //
 // If `canonicalize_zero` is true, the sign on a signed zero is removed when
 // converting a numeric type to JSON.
@@ -516,6 +538,8 @@ absl::Status JsonAppendArrayElement(
 //
 // Returns an error if conversion of `value` to a JSON value fails.
 //
+// `input` is not modified if the mutation fails for any reason.
+//
 // If `canonicalize_zero` is true, the sign on a signed zero is removed when
 // converting a numeric type to JSON.
 // TODO : remove canonicalize_zero flag when all
@@ -525,6 +549,77 @@ absl::Status JsonSet(JSONValueRef input,
                      const Value& value,
                      const LanguageOptions& language_options,
                      bool canonicalize_zero);
+
+// Cleans up `input` by removing JSON 'null' and optionally empty containers
+// from the JSON subtree pointed to by `path_iterator`.  If `path_iterator`
+// points to a nonexistent path does nothing.
+//
+// Parameters:
+// - `include_arrays`: If set to true, removes JSON 'null' from both ARRAYs.
+//    and OBJECTS. Else, only removes JSON 'null' from OBJECTS.
+// - `remove_empty`: If set to true, removes empty containers, else ignores.
+//
+// Parameter value combinations and behaviors:
+// - Parameter Values: `include_arrays` = false, `remove_empty` = false
+//   Behavior: Removes nulls from OBJECTs. Empty containers remain.
+//
+// - Parameter Values: `include_arrays` = true, `remove_empty` = false
+//   Behavior: Removes nulls from OBJECTs and ARRAYs. Empty containers remain.
+//
+// - Parameter Values: `include_arrays` = false, `remove_empty` = true
+//   Behavior: Removes nulls from OBJECTs. Recursively remove empty OBJECTS if
+//   the parent is OBJECT. If the parent is an ARRAY the empty object remains.
+//
+// - Parameter Values: `include_arrays` = true, `remove_empty` = true
+//   Behavior: Removes nulls from OBJECTs and ARRAYs.  Recursively removes empty
+//   OBJECTS and ARRAYs.
+//
+// Examples
+// JSON json_doc = JSON '{"a":null, "b":1, "c":[null, null], "d":{"e":null}}'
+//
+// Example 1:
+// JsonStripNulls(json_doc, "$", false, false);
+// Result: JSON '{"b":1, "c":[null, null], "d":{}}'
+// Reasoning: Removes all {key,value} pairs that have JSON 'null' value from
+// OBJECTS. ARRAYs and empty containers are ignored.
+//
+// Example 2:
+// JsonStripNulls(json_doc, "$", true, false);
+// Result: JSON '{"b":1, "c":[], "d":{}}'
+// Reasoning: Removes all {key,value} pairs that have JSON 'null' value from
+// OBJECTS and ARRAYs. Empty containers are ignored.
+//
+// Example 3:
+// JsonStripNulls(json_doc, "$", false, true);
+// Result: JSON '{"b":1, "c":[null, null]}'
+// Reasoning: Removes all {key,value} pairs that have JSON 'null' value from
+// OBJECTS and removes empty OBJECT structures. ARRAYS are ignored.
+//
+// Example 4:
+// JsonStripNulls(json_doc, "$", true, true);
+// Result: JSON '{"b":1}'
+// Reasoning: Removes all {key,value} pairs that have JSON 'null' values from
+// both OBJECTS and ARRAYS and removes all empty containers.
+//
+// JSON json_doc = JSON '[null, {"a":null}, [null]]'
+//
+// Example 5:
+// JsonStripNulls(json_doc, "$", false, true);
+// Result: JSON '[null, null, [null]]'
+// Reasoning: Removes '{"a":null}' and replaces with NULL. Empty OBJECT is not
+// removed and instead replaced by NULL because parent is ARRAY.
+//
+// Example 6:
+// JsonStripNulls(json_doc, "$", true, true);
+// Result: JSON 'null'
+// Reasoning: After NULLs are removed only empty containers remain and removed.
+//
+// See (broken link) for additional examples.
+//
+// Returns non-ok status if there's an internal error during execution.
+absl::Status JsonStripNulls(
+    JSONValueRef input, json_internal::StrictJSONPathIterator& path_iterator,
+    bool include_arrays, bool remove_empty);
 
 }  // namespace functions
 }  // namespace zetasql

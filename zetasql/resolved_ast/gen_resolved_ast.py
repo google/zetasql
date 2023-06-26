@@ -5170,6 +5170,15 @@ value.
       Window partitioning specification for an analytic function call.
 
       PARTITION BY keys in <partition_by_list>.
+
+      <collation_list> is either empty to indicate that all the elements in
+      <partition_by_list> have the default collation, or <collation_list> has
+      the same number of elements as <partition_by_list>.  Each element is the
+      collation for the element in <partition_by_list> with the same index, or
+      can be empty to indicate default collation or when the type is not
+      collatable. <collation_list> is only set when
+      FEATURE_V_1_3_COLLATION_SUPPORT is enabled.
+      See (broken link).
               """,
       fields=[
           Field(
@@ -5183,8 +5192,19 @@ value.
               tag_id=3,
               ignorable=IGNORABLE,
               is_constructor_arg=False,
-              vector=True)
-      ])
+              vector=True,
+          ),
+          Field(
+              'collation_list',
+              SCALAR_RESOLVED_COLLATION,
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+              java_to_string_method='toStringCommaSeparated',
+              is_constructor_arg=False,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedWindowOrdering',

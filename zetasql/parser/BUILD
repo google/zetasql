@@ -45,11 +45,31 @@ py_binary(
 )
 
 genrule(
-    name = "gen_headers",
+    name = "gen_parse_tree_h",
     srcs = [
         "parse_tree_generated.h.template",
     ],
     outs = ["parse_tree_generated.h"],
+    cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
+    tools = [":gen_parse_tree"],
+)
+
+genrule(
+    name = "gen_parse_tree_cc",
+    srcs = [
+        "parse_tree_generated.cc.template",
+    ],
+    outs = ["parse_tree_generated.cc"],
+    cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
+    tools = [":gen_parse_tree"],
+)
+
+genrule(
+    name = "gen_ast_node_kind_h",
+    srcs = [
+        "ast_node_kind.h.template",
+    ],
+    outs = ["ast_node_kind.h"],
     cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
     tools = [":gen_parse_tree"],
 )
@@ -374,6 +394,7 @@ cc_library(
         "parse_tree.cc",
         "parse_tree_accept_methods.inc",
         "parse_tree_errors.cc",
+        "parse_tree_generated.cc",
     ],
     hdrs = [
         "ast_node.h",

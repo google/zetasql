@@ -455,7 +455,7 @@ CreateModelStatement(is_temp) [0-96] [create temp...cross join t4]
       SetOperationMetadataList [55-65] [union all]
         SetOperationMetadata [55-65] [union all]
           SetOperationType [56-61] [union]
-          ASTSetOperationAllOrDistinct [62-65] [all]
+          SetOperationAllOrDistinct [62-65] [all]
       Select [39-55] [select 1 from t2]
         SelectList [46-47] [1]
           SelectColumn [46-47] [1]
@@ -1536,4 +1536,3 @@ a2 AS (
   FROM
     aa2
 ))
-==

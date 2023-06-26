@@ -10,6 +10,7 @@
 # an explicit alias. The result schema is hardcoded to return two columns of
 # type bool and bytes (rather than passing through the schema of the input
 # relation).
+[default also_show_signature_mismatch_details]
 [default language_features=TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES]
 select * from tvf_one_relation_arg_with_fixed_output(
     (select cast(42 as bool) as bool_column))
@@ -6593,6 +6594,14 @@ select column_bytes from tvf_one_relation_arg_repeating_int64_args(
 ERROR: No matching signature for tvf_one_relation_arg_repeating_int64_args for argument types: TABLE<$col1 INT64, $col2 INT64>, STRING. Supported signature: TVF_ONE_RELATION_ARG_REPEATING_INT64_ARGS(TABLE, [INT64, ...]) [at 1:26]
 select column_bytes from tvf_one_relation_arg_repeating_int64_args(
                          ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_one_relation_arg_repeating_int64_args
+  Argument types: TABLE<$col1 INT64, $col2 INT64>, STRING
+  Signature: TVF_ONE_RELATION_ARG_REPEATING_INT64_ARGS(TABLE, [INT64, ...])
+    Argument 2: Unable to coerce type STRING to expected type INT64 [at 1:26]
+select column_bytes from tvf_one_relation_arg_repeating_int64_args(
+                         ^
 ==
 
 # A TVF accepts one scalar argument and one relation argument, but the query
@@ -6622,6 +6631,14 @@ select column_bytes from tvf_one_relation_arg_repeating_any_one_type_args(
     (select 1, 2), 3, "abc")
 --
 ERROR: No matching signature for tvf_one_relation_arg_repeating_any_one_type_args for argument types: TABLE<$col1 INT64, $col2 INT64>, INT64, STRING. Supported signature: TVF_ONE_RELATION_ARG_REPEATING_ANY_ONE_TYPE_ARGS(TABLE, [ANY, ...]) [at 1:26]
+select column_bytes from tvf_one_relation_arg_repeating_any_one_type_args(
+                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_one_relation_arg_repeating_any_one_type_args
+  Argument types: TABLE<$col1 INT64, $col2 INT64>, INT64, STRING
+  Signature: TVF_ONE_RELATION_ARG_REPEATING_ANY_ONE_TYPE_ARGS(TABLE, [ANY, ...])
+    Unable to find common supertype for templated argument <T1> [at 1:26]
 select column_bytes from tvf_one_relation_arg_repeating_any_one_type_args(
                          ^
 ==
@@ -7182,6 +7199,24 @@ select x + 42
 No matching signature for operator + for argument types: STRING, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
 select x + 42
        ^
+--
+Signature Mismatch Details:
+ERROR: Invalid table-valued function tvf_templated_scalar_arg_plus_integer [at 1:15]
+select * from tvf_templated_scalar_arg_plus_integer('abc');
+              ^
+Analysis of table-valued function tvf_templated_scalar_arg_plus_integer failed [at 1:8]
+select x + 42
+       ^
+No matching signature for operator +
+  Argument types: STRING, INT64
+  Signature: INT64 + INT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument 1: Unable to coerce type STRING to expected type DOUBLE [at 1:8]
+select x + 42
+       ^
 ==
 
 # Call a TVF with a valid templated SQL body that performs concatenation on a
@@ -7196,6 +7231,22 @@ Analysis of table-valued function tvf_templated_scalar_arg_concat_string failed 
 select concat(x, 'abc') as y
        ^
 No matching signature for function CONCAT for argument types: INT64, STRING. Supported signatures: CONCAT(STRING, [STRING, ...]); CONCAT(BYTES, [BYTES, ...]) [at 1:8]
+select concat(x, 'abc') as y
+       ^
+--
+Signature Mismatch Details:
+ERROR: Invalid table-valued function tvf_templated_scalar_arg_concat_string [at 1:15]
+select * from tvf_templated_scalar_arg_concat_string(42);
+              ^
+Analysis of table-valued function tvf_templated_scalar_arg_concat_string failed [at 1:8]
+select concat(x, 'abc') as y
+       ^
+No matching signature for function CONCAT
+  Argument types: INT64, STRING
+  Signature: CONCAT(STRING, [STRING, ...])
+    Argument 1: Unable to coerce type INT64 to expected type STRING
+  Signature: CONCAT(BYTES, [BYTES, ...])
+    Argument 1: Unable to coerce type INT64 to expected type BYTES [at 1:8]
 select concat(x, 'abc') as y
        ^
 ==
@@ -7243,6 +7294,14 @@ Syntax error: Unexpected end of statement [at 1:1]
 select * from tvf_templated_select_int64_arg('aaa');
 --
 ERROR: No matching signature for tvf_templated_select_int64_arg for argument types: STRING. Supported signature: TVF_TEMPLATED_SELECT_INT64_ARG(INT64) [at 1:15]
+select * from tvf_templated_select_int64_arg('aaa');
+              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_templated_select_int64_arg
+  Argument types: STRING
+  Signature: TVF_TEMPLATED_SELECT_INT64_ARG(INT64)
+    Argument 1: Unable to coerce type STRING to expected type INT64 [at 1:15]
 select * from tvf_templated_select_int64_arg('aaa');
               ^
 ==
@@ -7372,6 +7431,14 @@ select * from tvf_optional_table_optional_scalar_named_table(foobar=>(select 1))
 ERROR: No matching signature for tvf_optional_table_optional_scalar_named_table for argument types: NULL, NULL, TABLE<$col1 INT64>. Supported signature: TVF_OPTIONAL_TABLE_OPTIONAL_SCALAR_NAMED_TABLE([TABLE], [ANY], [TABLE]) [at 1:15]
 select * from tvf_optional_table_optional_scalar_named_table(foobar=>(select 1))
               ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_optional_table_optional_scalar_named_table
+  Argument types: NULL, NULL, TABLE<$col1 INT64>
+  Signature: TVF_OPTIONAL_TABLE_OPTIONAL_SCALAR_NAMED_TABLE([TABLE], [ANY], [foobar => TABLE])
+    Argument 1: expected TABLE, found NULL [at 1:15]
+select * from tvf_optional_table_optional_scalar_named_table(foobar=>(select 1))
+              ^
 ==
 
 # Test with multiple named optional tables.
@@ -7384,6 +7451,14 @@ select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
 ERROR: No matching signature for tvf_optional_scalar_named_tables for argument types: NULL, TABLE<$col1 INT64>, NULL. Supported signature: TVF_OPTIONAL_SCALAR_NAMED_TABLES([ANY], [TABLE], [TABLE]) [at 1:15]
 select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
               ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_optional_scalar_named_tables
+  Argument types: NULL, TABLE<$col1 INT64>, NULL
+  Signature: TVF_OPTIONAL_SCALAR_NAMED_TABLES([ANY], [foobar => TABLE], [barfoo => TABLE])
+    Argument 3: expected TABLE, found NULL [at 1:15]
+select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
+              ^
 ==
 
 # Test with named table after named struct.
@@ -7391,6 +7466,14 @@ select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
 select * from tvf_named_struct_named_table(barfoo=>(select 1))
 --
 ERROR: No matching signature for tvf_named_struct_named_table for argument types: NULL, TABLE<$col1 INT64>. Supported signature: TVF_NAMED_STRUCT_NAMED_TABLE([STRUCT], [TABLE]) [at 1:15]
+select * from tvf_named_struct_named_table(barfoo=>(select 1))
+              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_named_struct_named_table
+  Argument types: NULL, TABLE<$col1 INT64>
+  Signature: TVF_NAMED_STRUCT_NAMED_TABLE([foobar => STRUCT], [barfoo => TABLE])
+    Unable to determine type for untyped null for argument kind <struct> [at 1:15]
 select * from tvf_named_struct_named_table(barfoo=>(select 1))
               ^
 ==
@@ -7402,6 +7485,14 @@ select * from tvf_named_struct_named_table(barfoo=>(select 1))
 select * from tvf_named_proto_named_table(barfoo=>(select 1))
 --
 ERROR: No matching signature for tvf_named_proto_named_table for argument types: NULL, TABLE<$col1 INT64>. Supported signature: TVF_NAMED_PROTO_NAMED_TABLE([PROTO], [TABLE]) [at 1:15]
+select * from tvf_named_proto_named_table(barfoo=>(select 1))
+              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_named_proto_named_table
+  Argument types: NULL, TABLE<$col1 INT64>
+  Signature: TVF_NAMED_PROTO_NAMED_TABLE([foobar => PROTO], [barfoo => TABLE])
+    Unable to determine type for untyped null for argument kind <proto> [at 1:15]
 select * from tvf_named_proto_named_table(barfoo=>(select 1))
               ^
 ==
@@ -7418,6 +7509,14 @@ select * from tvf_named_proto_named_table(barfoo=>(select 1))
 select * from tvf_optional_table_default_mandatory_string()
 --
 ERROR: No matching signature for tvf_optional_table_default_mandatory_string for argument types: NULL, STRING. Supported signature: TVF_OPTIONAL_TABLE_DEFAULT_MANDATORY_STRING([TABLE], [STRING]) [at 1:15]
+select * from tvf_optional_table_default_mandatory_string()
+              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_optional_table_default_mandatory_string
+  Argument types: NULL, STRING
+  Signature: TVF_OPTIONAL_TABLE_DEFAULT_MANDATORY_STRING([TABLE], [foobar => STRING])
+    Argument 1: expected TABLE, found NULL [at 1:15]
 select * from tvf_optional_table_default_mandatory_string()
               ^
 ==
@@ -7438,6 +7537,14 @@ select * from tvf_required_named_optional_required_tables((select '1'),
 ERROR: No matching signature for tvf_required_named_optional_required_tables for argument types: TABLE<$col1 STRING>, TABLE<$col1 STRING>, TABLE<$col1 STRING>, NULL. Supported signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, TABLE, [TABLE], [TABLE]) [at 1:15]
 select * from tvf_required_named_optional_required_tables((select '1'),
               ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_required_named_optional_required_tables
+  Argument types: TABLE<$col1 STRING>, TABLE<$col1 STRING>, TABLE<$col1 STRING>, NULL
+  Signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, table2 => TABLE, [table3 => TABLE], [table4 => TABLE])
+    Argument 4: expected TABLE, found NULL [at 1:15]
+select * from tvf_required_named_optional_required_tables((select '1'),
+              ^
 ==
 
 # Test with a required, mandatory, optional and named tables.
@@ -7453,5 +7560,13 @@ select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table2=>(select '2'))
 --
 ERROR: No matching signature for tvf_required_named_optional_required_tables for argument types: TABLE<$col1 STRING>, TABLE<$col1 STRING>, NULL, NULL. Supported signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, TABLE, [TABLE], [TABLE]) [at 1:15]
+select * from tvf_required_named_optional_required_tables((select '1'),
+              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_required_named_optional_required_tables
+  Argument types: TABLE<$col1 STRING>, TABLE<$col1 STRING>, NULL, NULL
+  Signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, table2 => TABLE, [table3 => TABLE], [table4 => TABLE])
+    Argument 3: expected TABLE, found NULL [at 1:15]
 select * from tvf_required_named_optional_required_tables((select '1'),
               ^

@@ -1943,6 +1943,75 @@ FROM items;
 
 [string-link-to-trim]: #trim
 
+### `NORMALIZE`
+
+```sql
+NORMALIZE(value[, normalization_mode])
+```
+
+**Description**
+
+Takes a string value and returns it as a normalized string. If you do not
+provide a normalization mode, `NFC` is used.
+
+[Normalization][string-link-to-normalization-wikipedia] is used to ensure that
+two strings are equivalent. Normalization is often used in situations in which
+two strings render the same on the screen but have different Unicode code
+points.
+
+`NORMALIZE` supports four optional normalization modes:
+
+| Value   | Name                                           | Description|
+|---------|------------------------------------------------|------------|
+| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
+| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
+| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
+| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT a, b, a = b as normalized
+FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
+
+/*---+---+------------*
+ | a | b | normalized |
+ +---+---+------------+
+ | ê | ê | true       |
+ *---+---+------------*/
+```
+The following example normalizes different space characters.
+
+```sql
+WITH EquivalentNames AS (
+  SELECT name
+  FROM UNNEST([
+      'Jane\u2004Doe',
+      'John\u2004Smith',
+      'Jane\u2005Doe',
+      'Jane\u2006Doe',
+      'John Smith']) AS name
+)
+SELECT
+  NORMALIZE(name, NFKC) AS normalized_name,
+  COUNT(*) AS name_count
+FROM EquivalentNames
+GROUP BY 1;
+
+/*-----------------+------------*
+ | normalized_name | name_count |
+ +-----------------+------------+
+ | John Smith      | 2          |
+ | Jane Doe        | 3          |
+ *-----------------+------------*/
+```
+
+[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
+
 ### `NORMALIZE_AND_CASEFOLD`
 
 ```sql
@@ -2018,75 +2087,6 @@ FROM Strings;
 [string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
 
 [string-link-to-normalize]: #normalize
-
-### `NORMALIZE`
-
-```sql
-NORMALIZE(value[, normalization_mode])
-```
-
-**Description**
-
-Takes a string value and returns it as a normalized string. If you do not
-provide a normalization mode, `NFC` is used.
-
-[Normalization][string-link-to-normalization-wikipedia] is used to ensure that
-two strings are equivalent. Normalization is often used in situations in which
-two strings render the same on the screen but have different Unicode code
-points.
-
-`NORMALIZE` supports four optional normalization modes:
-
-| Value   | Name                                           | Description|
-|---------|------------------------------------------------|------------|
-| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
-| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
-| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
-| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-```sql
-SELECT a, b, a = b as normalized
-FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
-
-/*---+---+------------*
- | a | b | normalized |
- +---+---+------------+
- | ê | ê | true       |
- *---+---+------------*/
-```
-The following example normalizes different space characters.
-
-```sql
-WITH EquivalentNames AS (
-  SELECT name
-  FROM UNNEST([
-      'Jane\u2004Doe',
-      'John\u2004Smith',
-      'Jane\u2005Doe',
-      'Jane\u2006Doe',
-      'John Smith']) AS name
-)
-SELECT
-  NORMALIZE(name, NFKC) AS normalized_name,
-  COUNT(*) AS name_count
-FROM EquivalentNames
-GROUP BY 1;
-
-/*-----------------+------------*
- | normalized_name | name_count |
- +-----------------+------------+
- | John Smith      | 2          |
- | Jane Doe        | 3          |
- *-----------------+------------*/
-```
-
-[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
 
 ### `OCTET_LENGTH`
 
@@ -2167,55 +2167,6 @@ FROM
  | !b@bar.org     | false               | true                |
  | c@buz.net      | false               | false               |
  *----------------+---------------------+---------------------*/
-```
-
-[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
-
-### `REGEXP_EXTRACT_ALL`
-
-```sql
-REGEXP_EXTRACT_ALL(value, regexp)
-```
-
-**Description**
-
-Returns an array of all substrings of `value` that match the
-[re2 regular expression][string-link-to-re2], `regexp`. Returns an empty array
-if there is no match.
-
-If the regular expression contains a capturing group (`(...)`), and there is a
-match for that capturing group, that match is added to the results. If there
-are multiple matches for a capturing group, the last match is added to the
-results.
-
-The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
-example, using this function to extract `ana` from `banana` returns only one
-substring, not two.
-
-Returns an error if:
-
-+ The regular expression is invalid
-+ The regular expression has more than one capturing group
-
-**Return type**
-
-`ARRAY<STRING>` or `ARRAY<BYTES>`
-
-**Examples**
-
-```sql
-WITH code_markdown AS
-  (SELECT 'Try `function(x)` or `function(y)`' as code)
-
-SELECT
-  REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
-FROM code_markdown;
-
-/*----------------------------*
- | example                    |
- +----------------------------+
- | [function(x), function(y)] |
- *----------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -2309,6 +2260,55 @@ SELECT value, regex, REGEXP_EXTRACT(value, regex) AS result FROM characters;
  | xyztb | (.)+b   | t        |
  | ab    | (z)?b   | NULL     |
  *-------+---------+----------*/
+```
+
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
+### `REGEXP_EXTRACT_ALL`
+
+```sql
+REGEXP_EXTRACT_ALL(value, regexp)
+```
+
+**Description**
+
+Returns an array of all substrings of `value` that match the
+[re2 regular expression][string-link-to-re2], `regexp`. Returns an empty array
+if there is no match.
+
+If the regular expression contains a capturing group (`(...)`), and there is a
+match for that capturing group, that match is added to the results. If there
+are multiple matches for a capturing group, the last match is added to the
+results.
+
+The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
+example, using this function to extract `ana` from `banana` returns only one
+substring, not two.
+
+Returns an error if:
+
++ The regular expression is invalid
++ The regular expression has more than one capturing group
+
+**Return type**
+
+`ARRAY<STRING>` or `ARRAY<BYTES>`
+
+**Examples**
+
+```sql
+WITH code_markdown AS
+  (SELECT 'Try `function(x)` or `function(y)`' as code)
+
+SELECT
+  REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
+FROM code_markdown;
+
+/*----------------------------*
+ | example                    |
+ +----------------------------+
+ | [function(x), function(y)] |
+ *----------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax

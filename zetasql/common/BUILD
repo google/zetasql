@@ -237,21 +237,6 @@ cc_library(
 )
 
 cc_library(
-    name = "thread_stack_test_utils",
-    testonly = True,
-    srcs = ["thread_stack_test_utils.cc"],
-    hdrs = ["thread_stack_test_utils.h"],
-    deps = [
-        ":thread_stack",
-        "//util/tuple/components:dump_vars",
-        "//zetasql/base:ret_check",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest",
-    ],
-)
-
-cc_library(
     name = "proto_helper",
     srcs = ["proto_helper.cc"],
     hdrs = ["proto_helper.h"],

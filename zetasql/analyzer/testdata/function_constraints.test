@@ -20,6 +20,7 @@
 # different result (e.g., a case failing in C++ because of argument constraints
 # would pass in Java.). So disabling Java mode here.
 [default no_java]
+[default also_show_signature_mismatch_details]
 [default language_features=NAMED_ARGUMENTS]
 SELECT
   fn_named_opt_args_nonnull_nonnegative_constraints("o1", 1, 3.14)
@@ -86,6 +87,14 @@ SELECT
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS for argument types: STRING. Supported signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([STRING], [INT64], [DOUBLE]) [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints("o1")
   ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
+  Argument types: STRING
+  Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([STRING], [INT64], [DOUBLE])
+    Argument constraints are not satisfied [at 2:3]
+  fn_named_opt_args_nonnull_nonnegative_constraints("o1")
+  ^
 ==
 
 # Same as above. NULLs are being injected for 'o2_int64' and 'o3_double'.
@@ -96,6 +105,14 @@ SELECT
   fn_named_opt_args_nonnull_nonnegative_constraints(o1_string => "o1")
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS for argument types: o1_string => STRING. Supported signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE]) [at 2:3]
+  fn_named_opt_args_nonnull_nonnegative_constraints(o1_string => "o1")
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
+  Argument types: o1_string => STRING
+  Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE])
+    Argument constraints are not satisfied [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o1_string => "o1")
   ^
 ==
@@ -110,6 +127,14 @@ SELECT
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS for argument types: o2_int64 => INT64, o1_string => STRING. Supported signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE]) [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o2_int64 => 1, o1_string ...
   ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
+  Argument types: o2_int64 => INT64, o1_string => STRING
+  Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE])
+    Argument constraints are not satisfied [at 2:3]
+  fn_named_opt_args_nonnull_nonnegative_constraints(o2_int64 => 1, o1_string ...
+  ^
 ==
 
 # Same as above. NULL is being injected for 'o3_double'.
@@ -120,6 +145,14 @@ SELECT
   fn_named_opt_args_nonnull_nonnegative_constraints(o2_int64 => 1, o1_string => "o1")
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS for argument types: o2_int64 => INT64, o1_string => STRING. Supported signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE]) [at 2:3]
+  fn_named_opt_args_nonnull_nonnegative_constraints(o2_int64 => 1, o1_string ...
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
+  Argument types: o2_int64 => INT64, o1_string => STRING
+  Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE])
+    Argument constraints are not satisfied [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o2_int64 => 1, o1_string ...
   ^
 ==
@@ -134,6 +167,14 @@ SELECT
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS for argument types: STRING, o3_double => DOUBLE. Supported signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE]) [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints("o1", o3_double => 3.14)
   ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
+  Argument types: STRING, o3_double => DOUBLE
+  Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE])
+    Argument constraints are not satisfied [at 2:3]
+  fn_named_opt_args_nonnull_nonnegative_constraints("o1", o3_double => 3.14)
+  ^
 ==
 
 # Same as above. NULLs are being injected for 'o1_string' and 'o2_int64'.
@@ -146,6 +187,14 @@ SELECT
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS for argument types: o3_double => DOUBLE. Supported signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE]) [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o3_double => 3.14)
   ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
+  Argument types: o3_double => DOUBLE
+  Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE])
+    Argument constraints are not satisfied [at 2:3]
+  fn_named_opt_args_nonnull_nonnegative_constraints(o3_double => 3.14)
+  ^
 ==
 
 # Same as above. NULL is being injected for 'o1_string'.
@@ -156,6 +205,14 @@ SELECT
   fn_named_opt_args_nonnull_nonnegative_constraints(o3_double => 3.14, o2_int64 => 1)
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS for argument types: o3_double => DOUBLE, o2_int64 => INT64. Supported signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE]) [at 2:3]
+  fn_named_opt_args_nonnull_nonnegative_constraints(o3_double => 3.14, o2_int...
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
+  Argument types: o3_double => DOUBLE, o2_int64 => INT64
+  Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([o1_string => STRING], [o2_int64 => INT64], [o3_double => DOUBLE])
+    Argument constraints are not satisfied [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o3_double => 3.14, o2_int...
   ^
 ==
@@ -213,6 +270,14 @@ SELECT
   fn_unnamed_opt_args_nonnull_nonnegative_constraints("o1", NULL)
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_UNNAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS for argument types: STRING, NULL. Supported signature: FN_UNNAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([STRING], [INT64], [DOUBLE]) [at 2:3]
+  fn_unnamed_opt_args_nonnull_nonnegative_constraints("o1", NULL)
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_UNNAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
+  Argument types: STRING, NULL
+  Signature: FN_UNNAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([STRING], [INT64], [DOUBLE])
+    Argument constraints are not satisfied [at 2:3]
   fn_unnamed_opt_args_nonnull_nonnegative_constraints("o1", NULL)
   ^
 ==

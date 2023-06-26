@@ -565,3 +565,79 @@ ARRAY<STRUCT<JSON>>[{[{"a":[10]},null]}]
 SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]', "$[1]", "$[0].b", "$[0].a[0]", "$[4].b", "$[1].d", "$[1].c")
 --
 ARRAY<STRUCT<JSON>>[{[{"a":[]},{"b":20}]}]
+==
+[name=json_set_no_update]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_SET(JSON '{"a": 10}')
+--
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...]) [at 1:8]
+SELECT JSON_SET(JSON '{"a": 10}')
+       ^
+==
+[name=json_set_no_value]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_SET(JSON '{"a": 10}', "$.a")
+--
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...]) [at 1:8]
+SELECT JSON_SET(JSON '{"a": 10}', "$.a")
+       ^
+==
+[name=json_set_no_second_value]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_SET(JSON '{"a": 10}', "$.a", 20, "$.b")
+--
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...]) [at 1:8]
+SELECT JSON_SET(JSON '{"a": 10}', "$.a", 20, "$.b")
+       ^
+==
+[name=json_set_one_value]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_SET(JSON '{"a": 10}', "$.b.c", "foo")
+--
+ARRAY<STRUCT<JSON>>[{{"a":10,"b":{"c":"foo"}}}]
+==
+[name=json_set_multiple_values]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_SET(JSON '{"a": 10}', "$.b.c[2]", "foo", "$[1]", 20, "$.b.c[0]", STRUCT(1 AS a, "foo" AS b))
+--
+ARRAY<STRUCT<JSON>>[{{"a":10,"b":{"c":[{"a":1,"b":"foo"},null,"foo"]}}}]
+==
+[name=json_strip_nulls_include_arrays_error]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
+SELECT JSON_STRIP_NULLS(JSON '{"a": 10}', false, false)
+--
+ERROR: generic::invalid_argument: Positional argument is invalid because this function restricts that this argument is referred to by name "include_arrays" only [at 1:50]
+SELECT JSON_STRIP_NULLS(JSON '{"a": 10}', false, false)
+                                                 ^
+==
+[name=json_strip_nulls_named_value_error]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,NAMED_ARGUMENTS]
+SELECT JSON_STRIP_NULLS(JSON '{"a": 10}', "$", include_arrays=>true, false)
+--
+ERROR: generic::invalid_argument: Call to function ZetaSQL:json_strip_nulls must not specify positional arguments after named arguments; named arguments must be specified last in the argument list [at 1:48]
+SELECT JSON_STRIP_NULLS(JSON '{"a": 10}', "$", include_arrays=>true, false)
+                                               ^
+==
+[name=json_strip_nulls_only_include_arrays]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,NAMED_ARGUMENTS]
+SELECT JSON_STRIP_NULLS(JSON '{"a": [null], "b":null, "c":{}}', include_arrays=>false)
+--
+ARRAY<STRUCT<JSON>>[{{"a":[null],"c":{}}}]
+==
+[name=json_strip_nulls_only_remove_empty]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,NAMED_ARGUMENTS]
+SELECT JSON_STRIP_NULLS(JSON '{"a": [null], "b":{}}', remove_empty=>true)
+--
+ARRAY<STRUCT<JSON>>[{null}]
+==
+[name=json_strip_nulls_all_named_arguments]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,NAMED_ARGUMENTS]
+SELECT JSON_STRIP_NULLS(JSON '{"a": [null], "b":{}}', include_arrays=>false, remove_empty=>true)
+--
+ARRAY<STRUCT<JSON>>[{{"a":[null]}}]
+==
+[name=json_strip_nulls_all_arguments]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,NAMED_ARGUMENTS]
+SELECT JSON_STRIP_NULLS(JSON '{"a": [null, [], {}], "b":{}}', "$.a", include_arrays=>true, remove_empty=>false)
+--
+ARRAY<STRUCT<JSON>>[{{"a":[[],{}],"b":{}}}]

@@ -60,10 +60,6 @@ class AnalyzerOptions;
 
 using ::zetasql::functions::DateTimestampPartToSQL;
 
-using FunctionIdToNameMap =
-    absl::flat_hash_map<FunctionSignatureId, std::string>;
-using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
-
 // If string literal is compared against bytes, then we want the error message
 // to be more specific and helpful.
 static constexpr absl::string_view kErrorMessageCompareStringLiteralToBytes =

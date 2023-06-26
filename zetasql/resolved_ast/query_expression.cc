@@ -18,15 +18,13 @@
 
 #include <map>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
+#include "zetasql/analyzer/query_resolver_helper.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -177,6 +175,7 @@ std::string QueryExpression::GetSQLQuery() const {
         &sql, " GROUP ",
         group_by_hints_.empty() ? "" : absl::StrCat(group_by_hints_, " "),
         "BY ");
+    // Legacy ROLLUP
     if (!rollup_column_id_list_.empty()) {
       absl::StrAppend(
           &sql, "ROLLUP(",
@@ -187,29 +186,72 @@ std::string QueryExpression::GetSQLQuery() const {
                         }),
           ")");
     } else if (!grouping_set_id_list_.empty()) {
-      std::vector<std::string> grouping_set_strs;
-      for (const std::vector<int>& grouping_set_ids : grouping_set_id_list_) {
-        std::string grouping_set_str = "";
-        if (grouping_set_ids.empty()) {
-          grouping_set_str = "()";
+      // There are rollup, cube, or grouping sets in the group by clause.
+      // a lambda expression to output a column list
+      auto append_column_list = [this](std::string* output,
+                                       const std::vector<int>& column_id_list) {
+        if (column_id_list.empty()) {
+          absl::StrAppend(output, "()");
+          return;
         }
-        if (grouping_set_ids.size() > 1) {
-          absl::StrAppend(&grouping_set_str, "(");
+        if (column_id_list.size() > 1) {
+          absl::StrAppend(output, "(");
         }
         absl::StrAppend(
-            &grouping_set_str,
-            absl::StrJoin(grouping_set_ids, ", ",
+            output,
+            absl::StrJoin(column_id_list, ", ",
                           [this](std::string* out, int column_id) {
                             absl::StrAppend(
                                 out, zetasql_base::FindOrDie(group_by_list_, column_id));
                           }));
-        if (grouping_set_ids.size() > 1) {
+        if (column_id_list.size() > 1) {
+          absl::StrAppend(output, ")");
+        }
+      };
+      std::vector<std::string> grouping_set_strs;
+      for (const GroupingSetIds& grouping_set_ids : grouping_set_id_list_) {
+        std::string grouping_set_str = "";
+        if (grouping_set_ids.kind == GroupingSetKind::kGroupingSet) {
+          std::vector<int> column_id_list;
+          for (const std::vector<int>& multi_column : grouping_set_ids.ids) {
+            ZETASQL_DCHECK_EQ(multi_column.size(), 1);
+            column_id_list.push_back(multi_column.front());
+          }
+          append_column_list(&grouping_set_str, column_id_list);
+        } else if (grouping_set_ids.kind == GroupingSetKind::kRollup ||
+                   grouping_set_ids.kind == GroupingSetKind::kCube) {
+          absl::StrAppend(&grouping_set_str,
+                          grouping_set_ids.kind == GroupingSetKind::kRollup
+                              ? "ROLLUP"
+                              : "CUBE",
+                          "(");
+          std::vector<std::string> multi_column_strs;
+          ZETASQL_DCHECK_GT(grouping_set_ids.ids.size(), 0);
+          for (const std::vector<int>& multi_column : grouping_set_ids.ids) {
+            ZETASQL_DCHECK_GT(multi_column.size(), 0);
+            std::string multi_column_str = "";
+            append_column_list(&multi_column_str, multi_column);
+            multi_column_strs.push_back(multi_column_str);
+          }
+          absl::StrAppend(&grouping_set_str,
+                          absl::StrJoin(multi_column_strs, ", "));
           absl::StrAppend(&grouping_set_str, ")");
         }
         grouping_set_strs.push_back(grouping_set_str);
       }
-      absl::StrAppend(&sql, " GROUPING SETS(",
-                      absl::StrJoin(grouping_set_strs, ", "), ")");
+      // Wrap grouping sets strings to GROUPING SETS only when
+      // 1. Multiple grouping sets, e.g. GROUPING SETS(x, ROLLUP(y)), OR
+      // 2. A grouping set, but its kind is kGroupingSet, e.g. GROUPING SETS(x)
+      // Otherwise for simplicity, we generate a top-level ROLLUP or CUBE
+      // instead of wrapping it to GROUPING SETS. E.g. We generate ROLLUP(x, y)
+      // rather than GROUPING SETS(ROLLUP(x, y)) where there is only a rollup.
+      if (grouping_set_strs.size() > 1 ||
+          grouping_set_id_list_.front().kind == GroupingSetKind::kGroupingSet) {
+        absl::StrAppend(&sql, " GROUPING SETS(",
+                        absl::StrJoin(grouping_set_strs, ", "), ")");
+      } else {
+        absl::StrAppend(&sql, " ", grouping_set_strs.front());
+      }
     } else {
       // We assume while iterating the group_by_list_, the entries will be
       // sorted by the column id.
@@ -320,7 +362,7 @@ bool QueryExpression::TrySetSetOpScanList(
 bool QueryExpression::TrySetGroupByClause(
     const std::map<int, std::string>& group_by_list,
     const std::string& group_by_hints,
-    const std::vector<std::vector<int>>& grouping_set_id_list,
+    const std::vector<GroupingSetIds>& grouping_set_id_list,
     const std::vector<int>& rollup_column_id_list) {
   if (!CanSetGroupByClause()) {
     return false;

@@ -563,11 +563,11 @@ absl::Status Resolver::AddAggregateScan(
   }
 
   std::vector<std::unique_ptr<const ResolvedColumnRef>> rollup_column_list;
-  std::vector<std::unique_ptr<const ResolvedGroupingSet>> grouping_set_list;
+  std::vector<std::unique_ptr<const ResolvedGroupingSetBase>> grouping_set_list;
 
   // Retrieve the grouping sets and rollup list for the aggregate scan, if any.
   ZETASQL_RETURN_IF_ERROR(query_resolution_info->ReleaseGroupingSetsAndRollupList(
-      &grouping_set_list, &rollup_column_list));
+      &grouping_set_list, &rollup_column_list, language()));
 
   ZETASQL_RET_CHECK(!column_list.empty());
   std::unique_ptr<ResolvedAggregateScan> aggregate_scan =
@@ -3436,26 +3436,22 @@ absl::Status Resolver::ResolveGroupByExprs(
       ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
           cube->expressions(), from_clause_scope, GroupingSetKind::kCube,
           query_resolution_info));
-      return MakeSqlErrorAt(cube) << "GROUP BY CUBE is not implemented";
     } else if (grouping_item->grouping_set_list() != nullptr) {
       // GROUP BY GROUPING SETS
       const ASTGroupingSetList* grouping_set_list =
           grouping_item->grouping_set_list();
       ZETASQL_RETURN_IF_ERROR(ValidateGroupingSetList(
           grouping_set_list, language(), group_by->grouping_items().size()));
-      bool has_rollup_or_cube = false;
       for (const ASTGroupingSet* grouping_set :
            grouping_set_list->grouping_sets()) {
         ZETASQL_RET_CHECK(grouping_set != nullptr);
         if (grouping_set->rollup() != nullptr) {
           // ROLLUP in GROUP BY GROUPING SETS()
-          has_rollup_or_cube = true;
           ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
               grouping_set->rollup()->expressions(), from_clause_scope,
-              GroupingSetKind::kCube, query_resolution_info));
+              GroupingSetKind::kRollup, query_resolution_info));
         } else if (grouping_set->cube() != nullptr) {
           // CUBE in GROUP BY GROUPING SETS()
-          has_rollup_or_cube = true;
           ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
               grouping_set->cube()->expressions(), from_clause_scope,
               GroupingSetKind::kCube, query_resolution_info));
@@ -3483,10 +3479,6 @@ absl::Status Resolver::ResolveGroupByExprs(
               grouping_set_item_expr_list, from_clause_scope,
               GroupingSetKind::kGroupingSet, query_resolution_info));
         }
-      }
-      if (has_rollup_or_cube) {
-        return MakeSqlErrorAt(grouping_set_list)
-               << "ROLLUP or CUBE in GROUP BY GROUPING SETS is not implemented";
       }
     } else {
       // GROUP BY expressions
@@ -4273,7 +4265,56 @@ Resolver::SetOperationResolver::GetSetOperationOutputColumnsCorresponding(
       return matched_column_list;
     }
     case ASTSetOperation::LEFT: {
-      return absl::UnimplementedError("LEFT mode is not implemented");
+      // The output columns are identical to the columns in the first scan.
+      // Subsequent scans need at least one common column name with the first
+      // scan, otherwise an SQL error occurs. Columns from these scans not found
+      // in the first scan are excluded.
+      //
+      // For example, consider the following statement:
+      //
+      // ```SQL
+      // SELECT 1 AS A, 2 AS B
+      // FULL UNION ALL CORRESPONDING
+      // SELECT 3 AS B, 4 AS A, 5 AS D
+      // ```
+      //
+      // The output columns will be [A, B]. The column D of the second scan is
+      // dropped, and the order of A and B follows the order in the first scan.
+      absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
+          first_query_column_names;
+      for (const NamedColumn& named_column :
+           resolved_inputs.front().name_list->columns()) {
+        ZETASQL_RET_CHECK(first_query_column_names.insert(named_column.name()).second);
+      }
+      for (int query_idx = 1; query_idx < resolved_inputs.size(); ++query_idx) {
+        bool has_common = false;
+        for (const NamedColumn& named_column :
+             resolved_inputs[query_idx].name_list->columns()) {
+          if (first_query_column_names.contains(named_column.name())) {
+            has_common = true;
+            break;
+          }
+        }
+        if (!has_common) {
+          const ASTNode* op_type = set_operation_->metadata()
+                                       ->set_operation_metadata_list(0)
+                                       ->op_type();
+          return MakeSqlErrorAtLocalNode(op_type)
+                 << "Query " << (query_idx + 1)
+                 << " of the set operation with LEFT mode does not share "
+                 << "common columns with the first query";
+        }
+      }
+      // Output columns are the same as the ones in the first query.
+      std::vector<ColumnMetadata> column_metadata_list;
+      column_metadata_list.reserve(
+          resolved_inputs.front().name_list->columns().size());
+      for (const NamedColumn& column :
+           resolved_inputs.front().name_list->columns()) {
+        column_metadata_list.emplace_back(column.name(),
+                                          column.column().type());
+      }
+      return column_metadata_list;
     }
     case ASTSetOperation::FULL: {
       // The output columns is a union of all input scan columns ensuring no
@@ -5305,11 +5346,9 @@ absl::Status Resolver::SetOperationResolver::ValidateCorresponding() const {
         break;
       case ASTSetOperation::CORRESPONDING:
         if (metadata->column_propagation_mode() != nullptr &&
-            (metadata->column_propagation_mode()->value() ==
-                 ASTSetOperation::LEFT ||
-             metadata->column_propagation_mode()->value() ==
-                 ASTSetOperation::STRICT)) {
-          // TODO: Add support for LEFT/STRICT.
+            metadata->column_propagation_mode()->value() ==
+                ASTSetOperation::STRICT) {
+          // TODO: Add support for STRICT.
           return MakeSqlErrorAt(metadata->column_propagation_mode())
                  << ColumnPropagationModeToString(
                         metadata->column_propagation_mode()->value())
@@ -8193,6 +8232,8 @@ absl::StatusOr<int> Resolver::MatchTVFSignature(
           ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
               function_signature, index_mapping, &input_arg_types));
 
+  signature_match_result->set_allow_mismatch_message(
+      analyzer_options_.show_function_signature_mismatch_details());
   // Check if the TVF arguments match its signature. If not, return an error.
   ZETASQL_ASSIGN_OR_RETURN(const bool matches,
                    function_resolver.SignatureMatches(

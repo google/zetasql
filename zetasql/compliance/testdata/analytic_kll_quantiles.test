@@ -36,27 +36,24 @@ FROM UNNEST([CAST(NULL AS BYTES)]) x;
 ==
 
 [name=analytic_kll_quantiles_merge_int64_basic]
-[labels=Special:NoReference]
 SELECT KLL_QUANTILES.MERGE_INT64(x, 2) OVER () AS kll_quantiles_merge_int64
 FROM UNNEST([CAST(NULL AS BYTES)]) x;
 --
-<update the test output>
+ARRAY<STRUCT<kll_quantiles_merge_int64 ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 ==
 
 [name=analytic_kll_quantiles_merge_uint64_basic]
-[labels=Special:NoReference]
 SELECT KLL_QUANTILES.MERGE_UINT64(x, 2) OVER () AS kll_quantiles_merge_uint64
 FROM UNNEST([CAST(NULL AS BYTES)]) x;
 --
-<update the test output>
+ARRAY<STRUCT<kll_quantiles_merge_uint64 ARRAY<>>>[{ARRAY<UINT64>(NULL)}]
 ==
 
 [name=analytic_kll_quantiles_merge_double_basic]
-[labels=Special:NoReference]
 SELECT KLL_QUANTILES.MERGE_DOUBLE(x, 2) OVER () AS kll_quantiles_merge_double
 FROM UNNEST([CAST(NULL AS BYTES)]) x;
 --
-<update the test output>
+ARRAY<STRUCT<kll_quantiles_merge_double ARRAY<>>>[{ARRAY<DOUBLE>(NULL)}]
 ==
 
 [name=analytic_kll_quantiles_merge_point_int64_basic]

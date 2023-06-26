@@ -40,21 +40,18 @@
 #include <algorithm>
 #include <cstdint>
 #include <deque>
-#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
+#include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/common/thread_stack.h"
-#include "zetasql/public/analyzer.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
@@ -64,39 +61,31 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
-#include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/procedure.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
-#include "zetasql/base/case.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -246,6 +235,96 @@ void MarkCollationFieldsAccessed(const ResolvedColumnAnnotations* annotations) {
       MarkCollationFieldsAccessed(child_annotations);
     }
   }
+}
+
+// Helper function to convert list of ResolvedGroupingSet (AST Nodes) to list of
+// GroupingSetIds (column ids).
+absl::Status ConvertGroupSetIdList(
+    const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+        grouping_set_list,
+    const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+        rollup_column_list,
+    std::vector<int>& rollup_column_id_list,
+    std::vector<GroupingSetIds>& grouping_set_ids_list) {
+  // We don't use the grouping set list in the unparsed SQL, since at the time
+  // of this writing, we can't parse GROUPING SETS directly. The expectation is
+  // that if there are grouping sets, there should be one for each prefix of the
+  // rollup list, which includes the empty set.
+  if (!grouping_set_list.empty() || !rollup_column_list.empty()) {
+    // The check only works when only ROLLUP exists in the query
+    if (!rollup_column_list.empty()) {
+      ZETASQL_RET_CHECK_EQ(grouping_set_list.size(), rollup_column_list.size() + 1);
+    }
+    for (const auto& column_ref : rollup_column_list) {
+      rollup_column_id_list.push_back(column_ref->column().column_id());
+    }
+    for (const auto& grouping_set_base : grouping_set_list) {
+      GroupingSetIds grouping_set_ids;
+      if (grouping_set_base->Is<ResolvedGroupingSet>()) {
+        grouping_set_ids.kind = GroupingSetKind::kGroupingSet;
+        const ResolvedGroupingSet* grouping_set =
+            grouping_set_base->GetAs<ResolvedGroupingSet>();
+        // When it's an empty grouping set, then default GroupingSetIds will be
+        // put into the grouping_set_ids_list.
+        for (const auto& group_by_column :
+             grouping_set->group_by_column_list()) {
+          grouping_set_ids.ids.push_back(
+              {group_by_column->column().column_id()});
+        }
+      } else if (grouping_set_base->Is<ResolvedRollup>() ||
+                 grouping_set_base->Is<ResolvedCube>()) {
+        grouping_set_ids.kind = grouping_set_base->Is<ResolvedRollup>()
+                                    ? GroupingSetKind::kRollup
+                                    : GroupingSetKind::kCube;
+        const auto& multi_column_list =
+            grouping_set_base->Is<ResolvedRollup>()
+                ? grouping_set_base->GetAs<ResolvedRollup>()
+                      ->rollup_column_list()
+                : grouping_set_base->GetAs<ResolvedCube>()->cube_column_list();
+        for (const auto& multi_column : multi_column_list) {
+          std::vector<int> ids;
+          for (const auto& column_ref : multi_column->column_list()) {
+            ids.push_back(column_ref->column().column_id());
+          }
+          // There must be at least one element in the rollup or cube
+          ZETASQL_RET_CHECK_GT(ids.size(), 0);
+          grouping_set_ids.ids.push_back(ids);
+        }
+      }
+      grouping_set_ids_list.push_back(grouping_set_ids);
+    }
+  }
+  return absl::OkStatus();
+}
+
+// Helper function to create a map of the grouping_column id, to the group_by
+// column ref it points to. In the ProcessAggregateScanBase, this will map the
+// grouping_column_id to the correct ResolvedColumnRef that the group_by
+// column references. This is necessary to rebuild the SQL for GROUPING
+// function calls, which have their arguments stored in the ResolvedAST as
+// a ColumnRef of a group_by computed column.
+absl::flat_hash_map<int, int> CreateGroupingColumnIdMap(
+    const std::vector<std::unique_ptr<const ResolvedGroupingCall>>&
+        grouping_call_list) {
+  absl::flat_hash_map<int, int> grouping_column_id_map;
+  if (!grouping_call_list.empty()) {
+    // Mark grouping_call_list fields as accessed.
+    for (const auto& grouping_call : grouping_call_list) {
+      grouping_call->group_by_column();
+    }
+    for (const auto& computed_col : grouping_call_list) {
+      std::vector<const ResolvedNode*> column_ref_nodes;
+      computed_col->GetChildNodes(&column_ref_nodes);
+      for (const auto& column_ref : column_ref_nodes) {
+        int column_ref_id =
+            column_ref->GetAs<ResolvedColumnRef>()->column().column_id();
+        zetasql_base::InsertOrDie(&grouping_column_id_map,
+                         computed_col->output_column().column_id(),
+                         column_ref_id);
+      }
+    }
+  }
+  return grouping_column_id_map;
 }
 }  // namespace
 
@@ -907,6 +986,9 @@ absl::Status SQLBuilder::VisitResolvedWindowPartitioning(
     ZETASQL_RETURN_IF_ERROR(AppendHintsIfPresent(node->hint_list(), &sql));
   }
   absl::StrAppend(&sql, " BY ", absl::StrJoin(partition_by_list_sql, ", "));
+
+  // Mark field accessed. <collation_list> doesn't have its own SQL clause.
+  node->collation_list();
 
   PushQueryFragment(node, sql);
   return absl::OkStatus();
@@ -3317,7 +3399,7 @@ absl::Status SQLBuilder::VisitResolvedOrderByScan(
 
 absl::Status SQLBuilder::ProcessAggregateScanBase(
     const ResolvedAggregateScanBase* node,
-    const std::vector<std::vector<int>>& grouping_set_id_list,
+    const std::vector<GroupingSetIds>& grouping_set_ids_list,
     const std::vector<int>& rollup_column_id_list,
     absl::flat_hash_map<int, int> grouping_column_id_map,
     QueryExpression* query_expression) {
@@ -3363,7 +3445,7 @@ absl::Status SQLBuilder::ProcessAggregateScanBase(
   ZETASQL_RETURN_IF_ERROR(AppendHintsIfPresent(node->hint_list(), &group_by_hints));
 
   ZETASQL_RET_CHECK(query_expression->TrySetGroupByClause(group_by_list, group_by_hints,
-                                                  grouping_set_id_list,
+                                                  grouping_set_ids_list,
                                                   rollup_column_id_list));
   ZETASQL_RETURN_IF_ERROR(AddSelectListIfNeeded(node->column_list(), query_expression));
   return absl::OkStatus();
@@ -3376,64 +3458,18 @@ absl::Status SQLBuilder::VisitResolvedAggregateScan(
   std::unique_ptr<QueryExpression> query_expression(
       input_result->query_expression.release());
 
-  // We don't use the grouping set list in the unparsed SQL, since at the time
-  // of this writing, we can't parse GROUPING SETS directly. The expectation is
-  // that if there are grouping sets, there should be one for each prefix of the
-  // rollup list, which includes the empty set.
   std::vector<int> rollup_column_id_list;
-  std::vector<std::vector<int>> grouping_set_id_list;
-  if (!node->grouping_set_list().empty() ||
-      !node->rollup_column_list().empty()) {
-    // The check only works when only ROLLUP exists in the query
-    if (!node->rollup_column_list().empty()) {
-      ZETASQL_RET_CHECK_EQ(node->grouping_set_list_size(),
-                   node->rollup_column_list_size() + 1);
-    }
-    for (const auto& column_ref : node->rollup_column_list()) {
-      rollup_column_id_list.push_back(column_ref->column().column_id());
-    }
-    // Mark grouping_set fields as accessed.
-    for (const auto& grouping_set_base : node->grouping_set_list()) {
-      std::vector<int> grouping_set_ids;
-      ZETASQL_RET_CHECK(grouping_set_base->Is<ResolvedGroupingSet>());
-      const ResolvedGroupingSet* grouping_set =
-          grouping_set_base->GetAs<ResolvedGroupingSet>();
-      for (const auto& group_by_column : grouping_set->group_by_column_list()) {
-        grouping_set_ids.push_back(group_by_column->column().column_id());
-      }
-      grouping_set_id_list.push_back(grouping_set_ids);
-    }
-  }
+  std::vector<GroupingSetIds> grouping_set_ids_list;
+  ZETASQL_RETURN_IF_ERROR(ConvertGroupSetIdList(
+      node->grouping_set_list(), node->rollup_column_list(),
+      rollup_column_id_list, grouping_set_ids_list));
 
-  // Create a map of the grouping_column id, to the group_by column ref it
-  // points to. In the ProcessAggregateScanBase, this will map the
-  // grouping_column_id to the correct ResolvedColumnRef that the group_by
-  // column references. This is necessary to rebuild the SQL for GROUPING
-  // function calls, which have their arguments stored in the ResolvedAST as
-  // a ColumnRef of a group_by computed column.
-  absl::flat_hash_map<int, int> grouping_column_id_map;
-  if (!node->grouping_call_list().empty()) {
-    // Mark grouping_call_list fields as accessed.
-    for (const auto& grouping_call : node->grouping_call_list()) {
-      grouping_call->group_by_column();
-    }
-    for (const auto& computed_col : node->grouping_call_list()) {
-      std::vector<const ResolvedNode*> column_ref_nodes;
-      computed_col->GetChildNodes(&column_ref_nodes);
-      for (const auto& column_ref : column_ref_nodes) {
-        int column_ref_id =
-            column_ref->GetAs<ResolvedColumnRef>()->column().column_id();
-        zetasql_base::InsertOrDie(&grouping_column_id_map,
-                         computed_col->output_column().column_id(),
-                         column_ref_id);
-      }
-    }
-  }
+  absl::flat_hash_map<int, int> grouping_column_id_map =
+      CreateGroupingColumnIdMap(node->grouping_call_list());
 
   ZETASQL_RETURN_IF_ERROR(ProcessAggregateScanBase(
-      node, grouping_set_id_list, rollup_column_id_list, grouping_column_id_map,
-      query_expression.get()));
-
+      node, grouping_set_ids_list, rollup_column_id_list,
+      grouping_column_id_map, query_expression.get()));
   PushSQLForQueryExpression(node, query_expression.release());
   return absl::OkStatus();
 }
@@ -3445,7 +3481,7 @@ absl::Status SQLBuilder::VisitResolvedAnonymizedAggregateScan(
   std::unique_ptr<QueryExpression> query_expression(
       input_result->query_expression.release());
 
-  ZETASQL_RETURN_IF_ERROR(ProcessAggregateScanBase(node, /*grouping_set_id_list=*/{},
+  ZETASQL_RETURN_IF_ERROR(ProcessAggregateScanBase(node, /*grouping_set_ids_list=*/{},
                                            /*rollup_column_id_list=*/{},
                                            /*grouping_column_id_map=*/{},
                                            query_expression.get()));
@@ -3477,7 +3513,7 @@ absl::Status SQLBuilder::VisitResolvedDifferentialPrivacyAggregateScan(
   std::unique_ptr<QueryExpression> query_expression(
       input_result->query_expression.release());
 
-  ZETASQL_RETURN_IF_ERROR(ProcessAggregateScanBase(node, /*grouping_set_id_list=*/{},
+  ZETASQL_RETURN_IF_ERROR(ProcessAggregateScanBase(node, /*grouping_set_ids_list=*/{},
                                            /*rollup_column_id_list=*/{},
                                            /*grouping_column_id_map=*/{},
                                            query_expression.get()));
@@ -3509,7 +3545,7 @@ absl::Status SQLBuilder::VisitResolvedAggregationThresholdAggregateScan(
   std::unique_ptr<QueryExpression> query_expression(
       input_result->query_expression.release());
 
-  ZETASQL_RETURN_IF_ERROR(ProcessAggregateScanBase(node, /*grouping_set_id_list=*/{},
+  ZETASQL_RETURN_IF_ERROR(ProcessAggregateScanBase(node, /*grouping_set_ids_list=*/{},
                                            /*rollup_column_id_list=*/{},
                                            /*grouping_column_id_map=*/{},
                                            query_expression.get()));

@@ -39,6 +39,11 @@ namespace zetasql {
 class JSONValueConstRef;
 class JSONValueRef;
 
+// Max array size. This is a soft limit only enforced on InsertArrayElement(s),
+// as a user can accidentally enter a large value. This limit is not enforced on
+// parsing, or AppendArrayElement(s) as an accident is much less likely.
+inline constexpr size_t kJSONMaxArraySize = 1000000;
+
 // Options for parsing an input JSON-formatted string.
 struct JSONParsingOptions {
   enum class WideNumberMode {
@@ -318,29 +323,33 @@ class JSONValueRef : public JSONValueConstRef {
   // ZETASQL_LOG(FATAL).
   std::vector<JSONValueRef> GetArrayElements();
   // If the JSON value being referenced is an array, inserts 'json_value' at
-  // 'index'. If 'index' is greater than the size of the array, appends the
-  // value at the end of the array.
+  // 'index'. If 'index' is greater than the size of the array, expands the
+  // array with JSON nulls then inserts the value at the end of the array.
   //
-  // Returns an error if the JSON value is not an array.
+  // Returns an error if the JSON value is not an array or if the insertion
+  // would result in a oversized JSON array (max size: kJSONMaxArraySize).
   absl::Status InsertArrayElement(JSONValue json_value, size_t index);
   // If the JSON value being referenced is an array, inserts 'json_values' at
-  // 'index'. If 'index' is greater than the size of the array, appends the
-  // values at the end of the array. The values are inserted in the same order
-  // as their order in the vector.
+  // 'index'. If 'index' is greater than the size of the array, expands the
+  // array with JSON nulls then inserts the values at the end of the array. The
+  // values are inserted in the same order as their order in the vector.
   //
-  // Returns an error if the JSON value is not an array.
+  // Returns an error if the JSON value is not an array or if the insertion
+  // would result in a oversized JSON array (max size: kJSONMaxArraySize).
   absl::Status InsertArrayElements(std::vector<JSONValue> json_values,
                                    size_t index);
   // If the JSON value being referenced is an array, adds 'json_value' at the
   // end of the array.
   //
-  // Returns an error if the JSON value is not an array.
+  // Returns an error if the JSON value is not an array or if the insertion
+  // would result in a oversized JSON array (max size: kJSONMaxArraySize).
   absl::Status AppendArrayElement(JSONValue json_value);
   // If the JSON value being referenced is an array, adds 'json_value' at the
   // end of the array. The values are appended in the same order as their order
   // in the vector.
   //
-  // Returns an error if the JSON value is not an array.
+  // Returns an error if the JSON value is not an array or if the insertion
+  // would result in a oversized JSON array (max size: kJSONMaxArraySize).
   absl::Status AppendArrayElements(std::vector<JSONValue> json_values);
   // If the JSON value being referenced is an array, removes the element at
   // 'index' and returns true. If 'index' is not a valid value, does nothing and
@@ -348,6 +357,33 @@ class JSONValueRef : public JSONValueConstRef {
   //
   // Returns an error if the JSON value is not an array.
   absl::StatusOr<bool> RemoveArrayElement(int64_t index);
+
+  enum class RemoveEmptyOptions {
+    // No-op.
+    kNone = 0,
+    // Remove only empty OBJECTs.
+    kObject = 1,
+    // Remove only empty ARRAYs.
+    kArray = 2,
+    // Remove empty OBJECTs and ARRAYs.
+    kObjectAndArray = 3
+  };
+
+  // If the JSON value being referenced is an OBJECT, cleanup value by
+  // removing JSON 'null' and optionally remove empty child containers based
+  // on `remove_empty_options`. Only cleans up top level children and is
+  // non-recursive.
+  //
+  // Returns an error if the JSON value is not an OBJECT.
+  absl::Status CleanupJsonObject(RemoveEmptyOptions remove_empty_options);
+
+  // If the JSON value being referenced is an ARRAY, cleanup value by
+  // removing JSON 'null' and optionally remove empty child containers based
+  // on `remove_empty_options`. Only cleans up top level children and is
+  // non-recursive.
+  //
+  // Returns an error if the JSON value is not an ARRAY.
+  absl::Status CleanupJsonArray(RemoveEmptyOptions remove_empty_options);
 
  private:
   explicit JSONValueRef(JSONValue::Impl* impl);

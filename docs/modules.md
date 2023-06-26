@@ -20,8 +20,7 @@ Modules have the following key characteristics:
 
 ZetaSQL limits the duration and side effects of module objects to the
 invoking *session*. In the context of ZetaSQL modules, a session is a
-set of related statements and objects that form a [unit of work][unit-of-work]
-{: .external}.
+set of related statements and objects that form a [unit of work][unit-of-work]{: .external}.
 
 ## Create a module
 

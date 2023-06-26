@@ -259,14 +259,14 @@ public class AnnotationMap {
   }
 
   /**
-   * Returns the debug string of this {@link AnntationMap} with the given {@code annotationSpecId}.
+   * Returns the debug string of this {@link AnnotationMap} with the given {@code annotationSpecId}.
    */
   public String debugString(int annotationSpecId) {
     return debugStringInternal(Optional.of(annotationSpecId));
   }
 
   /**
-   * Returns the debug string of this {@link AnntationMap} with the optional {@code
+   * Returns the debug string of this {@link AnnotationMap} with the optional {@code
    * annotationSpecId}.
    */
   protected String debugStringInternal(Optional<Integer> annotationSpecId) {

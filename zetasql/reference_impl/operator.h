@@ -3689,7 +3689,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
 
   // Maps a ResolvedColumn modified by 'stmt()' to its corresponding UpdateNode.
   using UpdateMap =
-      absl::node_hash_map<ResolvedColumn, std::unique_ptr<UpdateNode>,
+      absl::flat_hash_map<ResolvedColumn, std::unique_ptr<UpdateNode>,
                           ResolvedColumnHasher>;
 
   // 'primary_key_type' may be NULL if the table doesn't have a primary key or

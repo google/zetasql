@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/analyzer/query_resolver_helper.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -77,7 +78,7 @@ class QueryExpression {
   bool TrySetGroupByClause(
       const std::map<int, std::string>& group_by_list,
       const std::string& group_by_hints,
-      const std::vector<std::vector<int>>& grouping_set_id_list,
+      const std::vector<GroupingSetIds>& grouping_set_id_list,
       const std::vector<int>& rollup_column_id_list);
   bool TrySetOrderByClause(const std::vector<std::string>& order_by_list,
                            const std::string& order_by_hints);
@@ -221,8 +222,8 @@ class QueryExpression {
   // string representations of these columns. Will be non-empty only if the
   // query used ROLLUP.
   std::vector<int> rollup_column_id_list_;
-  // Column IDs of group by keys in the GROUPING SET list.
-  std::vector<std::vector<int>> grouping_set_id_list_;
+  // Column IDs of group by keys in the GROUPING SETS list.
+  std::vector<GroupingSetIds> grouping_set_id_list_;
 
   std::string group_by_hints_;
 

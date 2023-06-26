@@ -589,6 +589,9 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kJsonArray, "json_array", "JsonArray");
     RegisterFunction(FunctionKind::kJsonObject, "json_object", "JsonObject");
     RegisterFunction(FunctionKind::kJsonRemove, "json_remove", "JsonRemove");
+    RegisterFunction(FunctionKind::kJsonSet, "json_set", "JsonSet");
+    RegisterFunction(FunctionKind::kJsonStripNulls, "json_strip_nulls",
+                     "JsonStripNulls");
     RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   }();
   [this]() {
@@ -1993,6 +1996,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kJsonArray:
     case FunctionKind::kJsonObject:
     case FunctionKind::kJsonRemove:
+    case FunctionKind::kJsonSet:
+    case FunctionKind::kJsonStripNulls:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kStartsWithWithCollation:
     case FunctionKind::kEndsWithWithCollation:

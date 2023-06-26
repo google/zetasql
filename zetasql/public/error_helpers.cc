@@ -116,28 +116,30 @@ std::string FormatErrorSource(const ErrorSource& error_source,
 
 std::string FormatError(const absl::Status& status) {
   if (status.code() != absl::StatusCode::kInvalidArgument) {
-    return internal::StatusToString(status);
+    absl::Status stripped_status = status;
+    stripped_status.ErasePayload(kErrorMessageModeUrl);
+    return internal::StatusToString(stripped_status);
   }
 
   std::string message = std::string(status.message());
   if (internal::HasPayload(status)) {
     std::string payload_string;
     std::string location_string;
-    if (internal::HasPayloadWithType<ErrorLocation>(status)) {
+    absl::Status stripped_status = status;
+
+    if (internal::HasPayloadWithType<ErrorLocation>(stripped_status)) {
       // Perform special formatting for location data.
-      ErrorLocation location = internal::GetPayload<ErrorLocation>(status);
+      ErrorLocation location =
+          internal::GetPayload<ErrorLocation>(stripped_status);
 
       location_string = absl::StrCat(
           " ", FormatErrorLocation(location, /*input_text=*/"",
                                    ErrorMessageMode::ERROR_MESSAGE_ONE_LINE));
 
-      absl::Status stripped_status = status;
-
       internal::ErasePayloadTyped<ErrorLocation>(&stripped_status);
-      payload_string = internal::PayloadToString(stripped_status);
-    } else {
-      payload_string = internal::PayloadToString(status);
     }
+    stripped_status.ErasePayload(kErrorMessageModeUrl);
+    payload_string = internal::PayloadToString(stripped_status);
 
     // Error messages with a caret look strange if the payload immediately
     // follows the caret, so put it on separate line in that case, being careful

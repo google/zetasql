@@ -47,10 +47,12 @@ using ::zetasql::JSONParsingOptions;
 using ::zetasql::JSONValue;
 using ::zetasql::JSONValueConstRef;
 using ::zetasql::JSONValueRef;
+using ::zetasql::kJSONMaxArraySize;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
+using RemoveEmptyOptions = ::JSONValueRef::RemoveEmptyOptions;
 using WideNumberMode = ::zetasql::JSONParsingOptions::WideNumberMode;
 
 constexpr char kJSONStr[] = R"(
@@ -555,7 +557,7 @@ TEST_P(JSONParserTest, ParseDuplicateKeys) {
       "a":{"b":2}
     }
   )",
-  R"({"a":{"a":1}})");
+                                   R"({"a":{"a":1}})");
   input_to_expected_output.emplace(R"(
     {
       "f":1,
@@ -564,8 +566,9 @@ TEST_P(JSONParserTest, ParseDuplicateKeys) {
       "f":[{"d":{"a":1}}]
     }
   )",
-  R"({"f":1,"g":1})");
-  input_to_expected_output.emplace(R"(
+                                   R"({"f":1,"g":1})");
+  input_to_expected_output.emplace(
+      R"(
     {
       "a":[{"a":1,"b":3,"a":4,"b":1}],
       "a":{"a":1, "b":[1, 2, 3]},
@@ -574,7 +577,7 @@ TEST_P(JSONParserTest, ParseDuplicateKeys) {
       "f":[1,2,3]
     }
   )",
-  R"({"a":[{"a":1,"b":3}],"b":1,"f":[{"d":{"a":1}}]})");
+      R"({"a":[{"a":1,"b":3}],"b":1,"f":[{"d":{"a":1}}]})");
   input_to_expected_output.emplace(R"(
     {
       "f":1,
@@ -583,8 +586,9 @@ TEST_P(JSONParserTest, ParseDuplicateKeys) {
       "f":[{"a":{"a":1, "a":[{"a":1}]}}, 2]
     }
   )",
-  R"({"f":1,"g":1})");
-  input_to_expected_output.emplace(R"(
+                                   R"({"f":1,"g":1})");
+  input_to_expected_output.emplace(
+      R"(
     {
       "a":
       [{
@@ -620,10 +624,12 @@ TEST_P(JSONParserTest, ParseDuplicateKeys) {
       "a":1
     }
   )",
-  absl::StrCat(R"({"a":[{"a":1,"c":{"a":1,"b":1,"c":["b","d","e"]}}],)",
-               R"("b":{"a":1,"b":[1,2,3],"c":[]},"c":[{"a":1},{"a":1,"b":2},)",
-               R"({"c":{}}]})"));
-  input_to_expected_output.emplace(R"(
+      absl::StrCat(
+          R"({"a":[{"a":1,"c":{"a":1,"b":1,"c":["b","d","e"]}}],)",
+          R"("b":{"a":1,"b":[1,2,3],"c":[]},"c":[{"a":1},{"a":1,"b":2},)",
+          R"({"c":{}}]})"));
+  input_to_expected_output.emplace(
+      R"(
     {
       "a":1,
       "b":
@@ -671,10 +677,10 @@ TEST_P(JSONParserTest, ParseDuplicateKeys) {
       }]
     }
   )",
-  absl::StrCat(R"({"a":1,"b":[{"d":{"a":1}}],)",
-               R"("c":[{"a":1},{"a":1,"b":2},)",
-               R"({"c":{}}]})"));
-  input_to_expected_output.emplace(R"(
+      absl::StrCat(R"({"a":1,"b":[{"d":{"a":1}}],)",
+                   R"("c":[{"a":1},{"a":1,"b":2},)", R"({"c":{}}]})"));
+  input_to_expected_output.emplace(
+      R"(
     {
       "a":0,
       "a":1,
@@ -703,10 +709,10 @@ TEST_P(JSONParserTest, ParseDuplicateKeys) {
       "g":[{"a":17},{"b":18,"a":19,"b":20},{"c":21,"d":22,"b":23,"c":24}]
     }
   )",
-  absl::StrCat(R"({"a":0,"b":2,"c":3,"d":{"a":{"a":[{"a":4}]},"b":7,)",
-  R"("c":10},"e":16,"f":[{"a":17},{"a":19,"b":18},{"b":)",
-  R"(23,"c":21,"d":22}],"g":[{"a":17},{"a":19,"b":18},)",
-  R"({"b":23,"c":21,"d":22}]})"));
+      absl::StrCat(R"({"a":0,"b":2,"c":3,"d":{"a":{"a":[{"a":4}]},"b":7,)",
+                   R"("c":10},"e":16,"f":[{"a":17},{"a":19,"b":18},{"b":)",
+                   R"(23,"c":21,"d":22}],"g":[{"a":17},{"a":19,"b":18},)",
+                   R"({"b":23,"c":21,"d":22}]})"));
 
   for (const auto& pair : input_to_expected_output) {
     JSONValue json = JSONValue::ParseJSONString(pair.first, GetParam()).value();
@@ -1402,10 +1408,11 @@ TEST(JSONValueTest, InsertArrayElement) {
     JSONValueRef ref = value.GetRef();
     EXPECT_EQ(ref.GetArraySize(), 4);
 
-    ZETASQL_ASSERT_OK(ref.InsertArrayElement(JSONValue(int64_t{10}), 10));
-    EXPECT_EQ(ref.GetArraySize(), 5);
+    ZETASQL_ASSERT_OK(ref.InsertArrayElement(JSONValue(int64_t{10}), 6));
+    EXPECT_EQ(ref.GetArraySize(), 7);
     JSONValue expected =
-        JSONValue::ParseJSONString("[1, \"foo\", null, {}, 10]").value();
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, null, null, 10]")
+            .value();
     EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
   }
 }
@@ -1431,7 +1438,7 @@ TEST(JSONValueTest, InsertArrayElements) {
 
   constexpr absl::string_view kInitialValue = "[1, \"foo\", null, {}]";
   {
-    // Insert 0 element.
+    // Insert 0 element at existing index.
     JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
     JSONValueRef ref = value.GetRef();
     EXPECT_EQ(ref.GetArraySize(), 4);
@@ -1440,6 +1447,33 @@ TEST(JSONValueTest, InsertArrayElements) {
     EXPECT_EQ(ref.GetArraySize(), 4);
     EXPECT_TRUE(ref.NormalizedEquals(
         JSONValue::ParseJSONString(kInitialValue).value().GetConstRef()));
+  }
+
+  {
+    // Insert 0 element past the end of the array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements({}, 4));
+    EXPECT_EQ(ref.GetArraySize(), 5);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, null]").value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+
+  {
+    // Insert 0 element past the end of the array.
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = value.GetRef();
+    EXPECT_EQ(ref.GetArraySize(), 4);
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements({}, 6));
+    EXPECT_EQ(ref.GetArraySize(), 7);
+    JSONValue expected =
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, null, null, null]")
+            .value();
+    EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
   }
 
   {
@@ -1506,12 +1540,145 @@ TEST(JSONValueTest, InsertArrayElements) {
     values_to_insert.emplace_back(int64_t{10});
     values_to_insert.emplace_back(std::string{"bar"});
 
-    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert), 10));
-    EXPECT_EQ(ref.GetArraySize(), 6);
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert), 5));
+    EXPECT_EQ(ref.GetArraySize(), 7);
     JSONValue expected =
-        JSONValue::ParseJSONString("[1, \"foo\", null, {}, 10, \"bar\"]")
+        JSONValue::ParseJSONString("[1, \"foo\", null, {}, null, 10, \"bar\"]")
             .value();
     EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+}
+
+TEST(JSONValueTest, InsertArrayElementLargeIndex) {
+  {
+    // Auto-create and fills array up to kJSONMaxArraySize elements.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    ZETASQL_ASSERT_OK(
+        ref.InsertArrayElement(JSONValue(int64_t{100}), kJSONMaxArraySize - 1));
+    EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+    ASSERT_TRUE(ref.GetArrayElement(kJSONMaxArraySize - 1).IsInt64());
+    EXPECT_EQ(ref.GetArrayElement(kJSONMaxArraySize - 1).GetInt64(), 100);
+  }
+
+  {
+    // Auto-create and fills array up to kJSONMaxArraySize + 1 elements. Fails.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    EXPECT_THAT(
+        ref.InsertArrayElement(JSONValue(int64_t{100}), kJSONMaxArraySize),
+        StatusIs(absl::StatusCode::kOutOfRange,
+                 HasSubstr("Exceeded maximum array size")));
+    EXPECT_EQ(ref.GetArraySize(), 0);
+  }
+
+  {
+    // Array size will exceed kJSONMaxArraySize after insertion. Fails.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.GetArrayElement(kJSONMaxArraySize - 1);
+    ASSERT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+
+    EXPECT_THAT(ref.InsertArrayElement(JSONValue(int64_t{100}), 5),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Exceeded maximum array size")));
+    EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+  }
+}
+
+TEST(JSONValueTest, InsertArrayElementsLargeIndex) {
+  {
+    // Auto-create and fills array up to kJSONMaxArraySize elements.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert),
+                                      kJSONMaxArraySize - 2));
+    EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+  }
+
+  {
+    // Auto-create and fills array up to kJSONMaxArraySize + 1 elements. Fails.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    EXPECT_THAT(ref.InsertArrayElements(std::move(values_to_insert),
+                                        kJSONMaxArraySize - 1),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Exceeded maximum array size")));
+    EXPECT_EQ(ref.GetArraySize(), 0);
+  }
+
+  {
+    // Auto-create and fills array up to kJSONMaxArraySize + 1 elements. Fails.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.SetToEmptyArray();
+
+    std::vector<JSONValue> values_to_insert;
+
+    EXPECT_THAT(
+        ref.InsertArrayElements(std::move(values_to_insert), kJSONMaxArraySize),
+        StatusIs(absl::StatusCode::kOutOfRange,
+                 HasSubstr("Exceeded maximum array size")));
+    EXPECT_EQ(ref.GetArraySize(), 0);
+  }
+
+  {
+    // Array already at max size. Inserts 0 elements is fine.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.GetArrayElement(kJSONMaxArraySize - 1);
+    ASSERT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+
+    std::vector<JSONValue> values_to_insert;
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert), 1));
+    EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+  }
+
+  {
+    // Array already > max size. Inserts 0 elements is fine.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.GetArrayElement(kJSONMaxArraySize);
+    ASSERT_EQ(ref.GetArraySize(), kJSONMaxArraySize + 1);
+
+    std::vector<JSONValue> values_to_insert;
+
+    ZETASQL_ASSERT_OK(ref.InsertArrayElements(std::move(values_to_insert), 1));
+    EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize + 1);
+  }
+
+  {
+    // Insertion will exceed max array size. Fails.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.GetArrayElement(kJSONMaxArraySize - 2);
+    ASSERT_EQ(ref.GetArraySize(), kJSONMaxArraySize - 1);
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    EXPECT_THAT(ref.InsertArrayElements(std::move(values_to_insert), 1),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Exceeded maximum array size")));
+    EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize - 1);
   }
 }
 
@@ -1627,6 +1794,63 @@ TEST(JSONValueTest, AppendArrayElements) {
         JSONValue::ParseJSONString("[1, \"foo\", null, {}, true, 10, \"bar\"]")
             .value();
     EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
+  }
+}
+
+TEST(JSONValueTest, AppendArrayElementLargeIndex) {
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.GetArrayElement(kJSONMaxArraySize - 1);
+  ASSERT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+
+  EXPECT_THAT(ref.AppendArrayElement(JSONValue(int64_t{100})),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Exceeded maximum array size")));
+  EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+}
+
+TEST(JSONValueTest, AppendArrayElementsLargeIndex) {
+  {
+    // Array at max size. Appending 0 element is fine.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.GetArrayElement(kJSONMaxArraySize - 1);
+    ASSERT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+
+    std::vector<JSONValue> values_to_insert;
+
+    ZETASQL_ASSERT_OK(ref.AppendArrayElements(std::move(values_to_insert)));
+    EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize);
+  }
+
+  {
+    // Array will exceed max size after appending. Fails.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.GetArrayElement(kJSONMaxArraySize - 2);
+    ASSERT_EQ(ref.GetArraySize(), kJSONMaxArraySize - 1);
+
+    std::vector<JSONValue> values_to_insert;
+    values_to_insert.emplace_back(int64_t{10});
+    values_to_insert.emplace_back(std::string{"bar"});
+
+    EXPECT_THAT(ref.AppendArrayElements(std::move(values_to_insert)),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Exceeded maximum array size")));
+    EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize - 1);
+  }
+
+  {
+    // Array size already > max size. Appending 0 element is fine.
+    JSONValue value;
+    JSONValueRef ref = value.GetRef();
+    ref.GetArrayElement(kJSONMaxArraySize);
+    ASSERT_EQ(ref.GetArraySize(), kJSONMaxArraySize + 1);
+
+    std::vector<JSONValue> values_to_insert;
+
+    ZETASQL_EXPECT_OK(ref.AppendArrayElements(std::move(values_to_insert)));
+    EXPECT_EQ(ref.GetArraySize(), kJSONMaxArraySize + 1);
   }
 }
 
@@ -1854,6 +2078,74 @@ TEST(JSONValueTest, RemoveMember) {
     EXPECT_EQ(ref.GetMembers().size(), 0);
     EXPECT_TRUE(ref.NormalizedEquals(expected.GetConstRef()));
   }
+}
+
+TEST(JsonValueTest, ErrorCleanupJsonObject) {
+  // Verify non-OBJECT types throw an error as input.
+  std::vector<absl::string_view> json_strings = {R"("foo")", "1.1", "1", "true",
+                                                 "[]"};
+  for (absl::string_view json : json_strings) {
+    JSONValue value = JSONValue::ParseJSONString(json).value();
+    EXPECT_THAT(
+        value.GetRef().CleanupJsonObject(RemoveEmptyOptions::kObjectAndArray),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("JSON value is not an object.")));
+  }
+}
+
+TEST(JsonValueTest, ErrorCleanupJsonArray) {
+  // Verify non-ARRAY types throw an error as input.
+  std::vector<absl::string_view> json_strings = {R"("foo")", "1.1", "1", "true",
+                                                 "{}"};
+  for (absl::string_view json : json_strings) {
+    JSONValue value = JSONValue::ParseJSONString(json).value();
+    EXPECT_THAT(
+        value.GetRef().CleanupJsonArray(RemoveEmptyOptions::kObjectAndArray),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("JSON value is not an array.")));
+  }
+}
+
+TEST(JsonValueTest, CleanupObject) {
+  constexpr absl::string_view kInitialValue =
+      R"({"a":null, "b":[null], "c":[], "d":1, "e":{"f":null}, "g":{}})";
+
+  auto test_fn = [&kInitialValue](JSONValueRef::RemoveEmptyOptions option,
+                                  absl::string_view expected_result) {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    ZETASQL_ASSERT_OK(value.GetRef().CleanupJsonObject(option));
+    EXPECT_TRUE(value.GetRef().NormalizedEquals(
+        JSONValue::ParseJSONString(expected_result)->GetConstRef()));
+  };
+
+  test_fn(JSONValueRef::RemoveEmptyOptions::kNone,
+          R"({"b":[null], "c":[], "d":1, "e":{"f":null}, "g":{}})");
+  test_fn(JSONValueRef::RemoveEmptyOptions::kObject,
+          R"({"b":[null], "c":[], "d":1, "e":{"f":null}})");
+  test_fn(JSONValueRef::RemoveEmptyOptions::kArray,
+          R"({"b":[null], "d":1, "e":{"f":null}, "g":{}})");
+  test_fn(JSONValueRef::RemoveEmptyOptions::kObjectAndArray,
+          R"({"b":[null], "d":1, "e":{"f":null}})");
+}
+
+TEST(JsonValueTest, CleanupArray) {
+  constexpr absl::string_view kInitialValue =
+      R"([1, null, [], [1], {}, [null], {"a":[null]}])";
+
+  auto test_fn = [&kInitialValue](JSONValueRef::RemoveEmptyOptions option,
+                                  absl::string_view expected_result) {
+    JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
+    ZETASQL_ASSERT_OK(value.GetRef().CleanupJsonArray(option));
+    EXPECT_TRUE(value.GetRef().NormalizedEquals(
+        JSONValue::ParseJSONString(expected_result)->GetConstRef()));
+  };
+
+  test_fn(RemoveEmptyOptions::kNone,
+          R"([1, [], [1], {}, [null], {"a":[null]}])");
+  test_fn(RemoveEmptyOptions::kObject, R"([1, [], [1], [null], {"a":[null]}])");
+  test_fn(RemoveEmptyOptions::kArray, R"([1, [1], {}, [null], {"a":[null]}])");
+  test_fn(RemoveEmptyOptions::kObjectAndArray,
+          R"([1, [1], [null], {"a":[null]}])");
 }
 
 // TODO: Add more tests.

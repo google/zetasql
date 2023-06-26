@@ -1444,6 +1444,26 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJson, 1) {
                          convert_json_fn_expr);
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonStripNulls, 1) {
+  SetNamePrefix("JsonStripNulls");
+
+  auto strip_nulls_json_fn_expr = [](const FunctionTestCall& f) {
+    auto size = f.params.params().size();
+    if (size == 1) {
+      return "json_strip_nulls(@p0)";
+    } else if (size == 2) {
+      return "json_strip_nulls(@p0, @p1)";
+    } else if (size == 3) {
+      return "json_strip_nulls(@p0, @p1, include_arrays=>@p2)";
+    }
+    return "json_strip_nulls(@p0, @p1, include_arrays=>@p2, remove_empty=>@p3)";
+  };
+
+  RunFunctionTestsCustom(Shard(EnableJsonMutatorFunctionsForTest(
+                             GetFunctionTestsJsonStripNulls())),
+                         strip_nulls_json_fn_expr);
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxBool, 1) {
   SetNamePrefix("ConvertJsonLaxBool");
   RunFunctionCalls(Shard(EnableJsonLaxValueExtractionFunctionsForTest(
@@ -1494,6 +1514,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonRemove, 1) {
   SetNamePrefix("JsonRemove");
   RunFunctionCalls(
       Shard(EnableJsonMutatorFunctionsForTest(GetFunctionTestsJsonRemove())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonSet, 1) {
+  SetNamePrefix("JsonSet");
+  RunFunctionCalls(
+      Shard(EnableJsonMutatorFunctionsForTest(GetFunctionTestsJsonSet())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
@@ -2387,6 +2413,14 @@ SHARDED_TEST_F(ComplianceCodebasedTests, GenerateRangeArray, 1) {
   RunFunctionTestsCustom(
       Shard(GetFunctionTestsGenerateTimestampRangeArrayExtras()),
       sql_string_fn);
+  RunFunctionTestsCustom(Shard(GetFunctionTestsGenerateDateRangeArray()),
+                         sql_string_fn);
+  RunFunctionTestsCustom(Shard(GetFunctionTestsGenerateDateRangeArrayExtras()),
+                         sql_string_fn);
+  RunFunctionTestsCustom(Shard(GetFunctionTestsGenerateDatetimeRangeArray()),
+                         sql_string_fn);
+  RunFunctionTestsCustom(
+      Shard(GetFunctionTestsGenerateDatetimeRangeArrayExtras()), sql_string_fn);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalUnaryMinus, 1) {
@@ -2572,7 +2606,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
 
   // Options to TestProtoFieldImpl.  Because COLLECT_TEST() converts TEST_*()
   // macros to lambda functions, and the lambda functions capture 'options' by
-  // value, changes of options inside a TEST_*() are confined within the lamdba
+  // value, changes of options inside a TEST_*() are confined within the lambda
   // function.
   TestProtoFieldOptions options;
 

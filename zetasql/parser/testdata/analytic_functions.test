@@ -1325,7 +1325,7 @@ QueryStatement [0-79]
       SetOperationMetadataList [15-25]
         SetOperationMetadata [15-25]
           SetOperationType [16-21]
-          ASTSetOperationAllOrDistinct [22-25]
+          SetOperationAllOrDistinct [22-25]
       Select [0-15]
         SelectList [7-8]
           SelectColumn [7-8]
@@ -1927,4 +1927,3 @@ ALTERNATION GROUP: respect
 ERROR: Syntax error: Expected ")" but got keyword RESPECT [at 1:23]
 select f(a, b limit 1 respect nulls) over () from T
                       ^
-==

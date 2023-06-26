@@ -155,7 +155,7 @@ QueryStatement [0-83] [(SELECT 1...10 OFFSET 2]
       SetOperationMetadataList [27-37] [UNION ALL]
         SetOperationMetadata [27-37] [UNION ALL]
           SetOperationType [28-33] [UNION]
-          ASTSetOperationAllOrDistinct [34-37] [ALL]
+          SetOperationAllOrDistinct [34-37] [ALL]
       Query [1-26] [SELECT 1 LIMIT 1 OFFSET 1]
         Select [1-9] [SELECT 1]
           SelectList [8-9] [1]
@@ -326,7 +326,7 @@ QueryStatement [0-69] [select a from...2 OFFSET 1]
       SetOperationMetadataList [15-25] [union all]
         SetOperationMetadata [15-25] [union all]
           SetOperationType [16-21] [union]
-          ASTSetOperationAllOrDistinct [22-25] [all]
+          SetOperationAllOrDistinct [22-25] [all]
       Select [0-15] [select a from t]
         SelectList [7-8] [a]
           SelectColumn [7-8] [a]
@@ -488,4 +488,3 @@ QueryStatement [0-21] [SELECT 1 LIMIT @param]
 SELECT
   1
 LIMIT @param
-==

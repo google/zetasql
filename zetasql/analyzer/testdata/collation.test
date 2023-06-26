@@ -3400,6 +3400,182 @@ QueryStmt
                         +-WindowFrameExpr(boundary_type=CURRENT ROW)
 ==
 
+# Partition by for analytic function
+select afn_agg()
+       over (partition by string_ci, string_binary)
+from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#6 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#6]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, $analytic.$analytic1#6]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+            |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+            |   +-collation_list=[und:ci,binary]
+            +-analytic_function_list=
+              +-$analytic1#6 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+# Partition by and order by for analytic function
+select afn_agg()
+       over (partition by string_ci, string_binary
+             order by string_ci, string_binary)
+from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#6 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#6]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, $analytic.$analytic1#6]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+            |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+            |   +-collation_list=[und:ci,binary]
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |     | +-column_ref=
+            |     | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+            |     | +-collation=und:ci
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+            |       +-collation=binary
+            +-analytic_function_list=
+              +-$analytic1#6 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=RANGE)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=CURRENT ROW)
+==
+
+# Collation in partition key and sort key in analytic does not get propogated to
+# the function result.
+select min(collate(string_ci, ''))
+       over (partition by string_ci, string_binary
+             order by string_ci, string_binary)
+from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#6 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#6]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, $analytic.$analytic1#6]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+            |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+            |   +-collation_list=[und:ci,binary]
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |     | +-column_ref=
+            |     | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+            |     | +-collation=und:ci
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+            |       +-collation=binary
+            +-analytic_function_list=
+              +-$analytic1#6 :=
+                +-AnalyticFunctionCall(ZetaSQL:min(STRING) -> STRING)
+                  +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+                    +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+                    +-Literal(type=STRING, value="", preserve_in_literal_remover=TRUE)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=RANGE)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=CURRENT ROW)
+==
+
+# Partition by and order by for analytic function, partition keys and order
+# keys have different collation
+select afn_agg()
+       over (partition by string_ci
+             order by string_binary)
+from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#6 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#6]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, $analytic.$analytic1#6]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+            |   +-collation_list=[und:ci]
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+            |       +-collation=binary
+            +-analytic_function_list=
+              +-$analytic1#6 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=RANGE)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=CURRENT ROW)
+==
+
 # COLLATE clause should override collation from the order by expression
 select afn_agg()
          over (order by string_ci COLLATE 'und:ci:ai',

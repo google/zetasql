@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
+#include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/public/analyzer.h"  // For QueryParametersMap
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function_signature.h"
@@ -38,12 +39,10 @@
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
-#include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -653,7 +652,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Helper function for adding SQL for aggregate and group by lists.
   absl::Status ProcessAggregateScanBase(
       const ResolvedAggregateScanBase* node,
-      const std::vector<std::vector<int>>& grouping_set_id_list,
+      const std::vector<GroupingSetIds>& grouping_set_ids_list,
       const std::vector<int>& rollup_column_id_list,
       absl::flat_hash_map<int /*grouping_column_id*/,
                           int /*grouping_argument_group_by_column_id*/>

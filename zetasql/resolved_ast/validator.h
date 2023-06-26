@@ -32,6 +32,7 @@
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -623,6 +624,14 @@ class Validator {
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       absl::string_view expression_name);
+
+  absl::Status ValidateGroupingSetList(
+      const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+          grouping_set_list,
+      const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+          rollup_column_list,
+      const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
+          group_by_list);
 
   // Checks that <expr> contains only ColumnRefs, GetProtoField, GetStructField
   // and GetJsonField expressions. Sets 'ref' to point to the leaf

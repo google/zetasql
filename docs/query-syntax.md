@@ -1276,9 +1276,9 @@ can be solved with [stratified sampling][stratified-sampling].
 <span class="var">condition_join_operator</span>:
   {
     <a href="#inner_join">[INNER] JOIN</a>
-    | <a href="#full_outer_join">FULL [OUTER] JOIN</a>
-    | <a href="#left_outer_join">LEFT [OUTER] JOIN</a>
-    | <a href="#right_outer_join">RIGHT [OUTER] JOIN</a>
+    | <a href="#full_join">FULL [OUTER] JOIN</a>
+    | <a href="#left_join">LEFT [OUTER] JOIN</a>
+    | <a href="#right_join">RIGHT [OUTER] JOIN</a>
   }
 
 <a href="#join_conditions"><span class="var">join_condition</span></a>:

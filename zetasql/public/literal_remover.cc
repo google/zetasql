@@ -259,8 +259,8 @@ absl::Status ReplaceLiteralsByParameters(
     // Collect all <literals> that appearing in LIMIT, OFFSET clauses that have
     // parse locations.
     std::vector<const ResolvedNode*> limit_offset_nodes;
-    stmt->GetDescendantsWithKinds({RESOLVED_LIMIT_OFFSET_SCAN},
-                                  &limit_offset_nodes);
+    stmt->GetDescendantsSatisfying(&ResolvedNode::Is<ResolvedLimitOffsetScan>,
+                                   &limit_offset_nodes);
     ZETASQL_RETURN_IF_ERROR(AddLimitOffsetLiteralsToIgnoringSet(limit_offset_nodes,
                                                         ignore_literals));
   }

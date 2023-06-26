@@ -304,8 +304,7 @@ enum LanguageFeature {
   FEATURE_FOREIGN_KEYS = 27;
 
   // Enables BETWEEN function signatures for UINT64/INT64 comparisons.
-  FEATURE_BETWEEN_UINT64_INT64 = 28
-      [(language_feature_options).in_development = true];
+  FEATURE_BETWEEN_UINT64_INT64 = 28;
 
   // Enables check constraint (see (broken link)).
   FEATURE_CHECK_CONSTRAINT = 29;
@@ -412,6 +411,8 @@ enum LanguageFeature {
 
   // Enables JSON mutator functions:
   // - JSON_REMOVE(JSON, STRING [, STRING ...])
+  // - JSON_SET(JSON, STRING, ANY [, STRING, ANY ...])
+  // - JSON_STRIP_NULLS(JSON [, STRING] [, BOOL] [, BOOL])
   // See (broken link) for details.
   FEATURE_JSON_MUTATOR_FUNCTIONS = 98;
 
@@ -974,12 +975,7 @@ enum LanguageFeature {
   // Enable builtin array find functions, including ARRAY_OFFSET(S), ARRAY_FIND,
   // and ARRAY_FIND_ALL. These functions have both non-lambda and lambda
   // signatures.
-  // This language feature guard is added temporarily to unblock related
-  // functions development from enum development as well as collation
-  // propagation in lambda resolution.
-  // This feature will be removed.
-  FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS = 14006
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS = 14006;
 
   // Enable SAFE mode for function calls with lambda arguments,
   // e.g. SAFE.ARRAY_TRANSFORM(array_input, e -> 1 /e )

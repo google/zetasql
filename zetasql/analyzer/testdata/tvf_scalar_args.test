@@ -7,6 +7,7 @@
 ################################################################################
 #
 # Empty argument list.
+[default also_show_signature_mismatch_details]
 [default language_features=TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES]
 select 1 from tvf_no_args()
 --
@@ -2636,12 +2637,28 @@ select column_bool from tvf_exactly_1_bool_arg("invalid")
 ERROR: No matching signature for tvf_exactly_1_bool_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_BOOL_ARG(BOOL) [at 1:25]
 select column_bool from tvf_exactly_1_bool_arg("invalid")
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_1_bool_arg
+  Argument types: STRING
+  Signature: TVF_EXACTLY_1_BOOL_ARG(BOOL)
+    Argument 1: Unable to coerce type STRING to expected type BOOL [at 1:25]
+select column_bool from tvf_exactly_1_bool_arg("invalid")
+                        ^
 ==
 
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_bytes_arg(42)
 --
 ERROR: No matching signature for tvf_exactly_1_bytes_arg for argument types: INT64. Supported signature: TVF_EXACTLY_1_BYTES_ARG(BYTES) [at 1:25]
+select column_bool from tvf_exactly_1_bytes_arg(42)
+                        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_1_bytes_arg
+  Argument types: INT64
+  Signature: TVF_EXACTLY_1_BYTES_ARG(BYTES)
+    Argument 1: Unable to coerce type INT64 to expected type BYTES [at 1:25]
 select column_bool from tvf_exactly_1_bytes_arg(42)
                         ^
 ==
@@ -2652,12 +2669,28 @@ select column_bool from tvf_exactly_1_double_arg("invalid")
 ERROR: No matching signature for tvf_exactly_1_double_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_DOUBLE_ARG(DOUBLE) [at 1:25]
 select column_bool from tvf_exactly_1_double_arg("invalid")
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_1_double_arg
+  Argument types: STRING
+  Signature: TVF_EXACTLY_1_DOUBLE_ARG(DOUBLE)
+    Argument 1: Unable to coerce type STRING to expected type DOUBLE [at 1:25]
+select column_bool from tvf_exactly_1_double_arg("invalid")
+                        ^
 ==
 
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_float_arg("invalid")
 --
 ERROR: No matching signature for tvf_exactly_1_float_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_FLOAT_ARG(FLOAT) [at 1:25]
+select column_bool from tvf_exactly_1_float_arg("invalid")
+                        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_1_float_arg
+  Argument types: STRING
+  Signature: TVF_EXACTLY_1_FLOAT_ARG(FLOAT)
+    Argument 1: Unable to coerce type STRING to expected type FLOAT [at 1:25]
 select column_bool from tvf_exactly_1_float_arg("invalid")
                         ^
 ==
@@ -2668,12 +2701,28 @@ select column_bool from tvf_exactly_1_int32_arg("invalid")
 ERROR: No matching signature for tvf_exactly_1_int32_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_INT32_ARG(INT32) [at 1:25]
 select column_bool from tvf_exactly_1_int32_arg("invalid")
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_1_int32_arg
+  Argument types: STRING
+  Signature: TVF_EXACTLY_1_INT32_ARG(INT32)
+    Argument 1: Unable to coerce type STRING to expected type INT32 [at 1:25]
+select column_bool from tvf_exactly_1_int32_arg("invalid")
+                        ^
 ==
 
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_int64_arg("invalid")
 --
 ERROR: No matching signature for tvf_exactly_1_int64_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_INT64_ARG(INT64) [at 1:25]
+select column_bool from tvf_exactly_1_int64_arg("invalid")
+                        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_1_int64_arg
+  Argument types: STRING
+  Signature: TVF_EXACTLY_1_INT64_ARG(INT64)
+    Argument 1: Unable to coerce type STRING to expected type INT64 [at 1:25]
 select column_bool from tvf_exactly_1_int64_arg("invalid")
                         ^
 ==
@@ -2684,12 +2733,28 @@ select column_bool from tvf_exactly_1_uint32_arg("invalid")
 ERROR: No matching signature for tvf_exactly_1_uint32_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_UINT32_ARG(UINT32) [at 1:25]
 select column_bool from tvf_exactly_1_uint32_arg("invalid")
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_1_uint32_arg
+  Argument types: STRING
+  Signature: TVF_EXACTLY_1_UINT32_ARG(UINT32)
+    Argument 1: Unable to coerce type STRING to expected type UINT32 [at 1:25]
+select column_bool from tvf_exactly_1_uint32_arg("invalid")
+                        ^
 ==
 
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_uint64_arg("invalid")
 --
 ERROR: No matching signature for tvf_exactly_1_uint64_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_UINT64_ARG(UINT64) [at 1:25]
+select column_bool from tvf_exactly_1_uint64_arg("invalid")
+                        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_1_uint64_arg
+  Argument types: STRING
+  Signature: TVF_EXACTLY_1_UINT64_ARG(UINT64)
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:25]
 select column_bool from tvf_exactly_1_uint64_arg("invalid")
                         ^
 ==
@@ -2740,12 +2805,28 @@ select column_bool from tvf_exactly_one_arg_proto_any(42)
 ERROR: No matching signature for tvf_exactly_one_arg_proto_any for argument types: INT64. Supported signature: TVF_EXACTLY_ONE_ARG_PROTO_ANY(PROTO) [at 1:25]
 select column_bool from tvf_exactly_one_arg_proto_any(42)
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_one_arg_proto_any
+  Argument types: INT64
+  Signature: TVF_EXACTLY_ONE_ARG_PROTO_ANY(PROTO)
+    Argument 1: expected PROTO but found INT64 [at 1:25]
+select column_bool from tvf_exactly_one_arg_proto_any(42)
+                        ^
 ==
 
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_struct_any(42)
 --
 ERROR: No matching signature for tvf_exactly_one_arg_struct_any for argument types: INT64. Supported signature: TVF_EXACTLY_ONE_ARG_STRUCT_ANY(STRUCT) [at 1:25]
+select column_bool from tvf_exactly_one_arg_struct_any(42)
+                        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_one_arg_struct_any
+  Argument types: INT64
+  Signature: TVF_EXACTLY_ONE_ARG_STRUCT_ANY(STRUCT)
+    Argument 1: expected STRUCT but found INT64 [at 1:25]
 select column_bool from tvf_exactly_one_arg_struct_any(42)
                         ^
 ==
@@ -2756,6 +2837,14 @@ select column_bool from tvf_exactly_one_arg_enum_any(42)
 ERROR: No matching signature for tvf_exactly_one_arg_enum_any for argument types: INT64. Supported signature: TVF_EXACTLY_ONE_ARG_ENUM_ANY(ENUM) [at 1:25]
 select column_bool from tvf_exactly_one_arg_enum_any(42)
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_one_arg_enum_any
+  Argument types: INT64
+  Signature: TVF_EXACTLY_ONE_ARG_ENUM_ANY(ENUM)
+    Argument 1: expected ENUM but found INT64 [at 1:25]
+select column_bool from tvf_exactly_one_arg_enum_any(42)
+                        ^
 ==
 
 # The TVF accepts a repeating final int64 argument.
@@ -2764,12 +2853,28 @@ select column_bool from tvf_repeating_int64_args("a", "b", "c")
 ERROR: No matching signature for tvf_repeating_int64_args for argument types: STRING, STRING, STRING. Supported signature: TVF_REPEATING_INT64_ARGS([INT64, ...]) [at 1:25]
 select column_bool from tvf_repeating_int64_args("a", "b", "c")
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_repeating_int64_args
+  Argument types: STRING, STRING, STRING
+  Signature: TVF_REPEATING_INT64_ARGS([INT64, ...])
+    Argument 1: Unable to coerce type STRING to expected type INT64 [at 1:25]
+select column_bool from tvf_repeating_int64_args("a", "b", "c")
+                        ^
 ==
 
 # The TVF accepts a templated repeating final argument.
 select column_bool from tvf_repeating_any_one_type_args(1, "a")
 --
 ERROR: No matching signature for tvf_repeating_any_one_type_args for argument types: INT64, STRING. Supported signature: TVF_REPEATING_ANY_ONE_TYPE_ARGS([ANY, ...]) [at 1:25]
+select column_bool from tvf_repeating_any_one_type_args(1, "a")
+                        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_repeating_any_one_type_args
+  Argument types: INT64, STRING
+  Signature: TVF_REPEATING_ANY_ONE_TYPE_ARGS([ANY, ...])
+    Unable to find common supertype for templated argument <T1> [at 1:25]
 select column_bool from tvf_repeating_any_one_type_args(1, "a")
                         ^
 ==
@@ -2812,6 +2917,14 @@ select * from tvf_exactly_3_int64_args((select 1 from tvf_no_args()),
                                 current_timestamp())
 --
 ERROR: No matching signature for tvf_exactly_3_int64_args for argument types: INT64, DATE, TIMESTAMP. Supported signature: TVF_EXACTLY_3_INT64_ARGS(INT64, INT64, INT64) [at 1:15]
+select * from tvf_exactly_3_int64_args((select 1 from tvf_no_args()),
+              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_3_int64_args
+  Argument types: INT64, DATE, TIMESTAMP
+  Signature: TVF_EXACTLY_3_INT64_ARGS(INT64, INT64, INT64)
+    Argument 2: Unable to coerce type DATE to expected type INT64 [at 1:15]
 select * from tvf_exactly_3_int64_args((select 1 from tvf_no_args()),
               ^
 ==

@@ -13,7 +13,7 @@ Script [0-44] [BEGIN EXCEPTION...raise; END;]
       ExceptionHandlerList [6-39] [EXCEPTION...THEN raise;]
         ExceptionHandler [16-39] [WHEN ERROR THEN raise;]
           StatementList [32-39] [raise;]
-            Raise [32-37] [raise]
+            RaiseStatement [32-37] [raise]
 --
 BEGIN
 EXCEPTION
@@ -30,7 +30,7 @@ Script [0-44] [BEGIN EXCEPTION...RAISE; END;]
       ExceptionHandlerList [6-39] [EXCEPTION...THEN RAISE;]
         ExceptionHandler [16-39] [WHEN ERROR THEN RAISE;]
           StatementList [32-39] [RAISE;]
-            Raise [32-37] [RAISE]
+            RaiseStatement [32-37] [RAISE]
 --
 BEGIN
 EXCEPTION
@@ -46,7 +46,7 @@ ALTERNATION GROUP: ;
 --
 Script [0-7] [RAISE;]
   StatementList [0-7] [RAISE;]
-    Raise [0-5] [RAISE]
+    RaiseStatement [0-5] [RAISE]
 --
 RAISE ;
 --
@@ -54,7 +54,7 @@ ALTERNATION GROUP: <empty>
 --
 Script [0-5] [RAISE]
   StatementList [0-5] [RAISE]
-    Raise [0-5] [RAISE]
+    RaiseStatement [0-5] [RAISE]
 --
 RAISE ;
 ==
@@ -70,7 +70,7 @@ Script [0-44] [BEGIN EXCEPTION...END; RAISE;]
       ExceptionHandlerList [6-31] [EXCEPTION WHEN ERROR THEN]
         ExceptionHandler [16-31] [WHEN ERROR THEN]
           StatementList [31-31] []
-    Raise [37-42] [RAISE]
+    RaiseStatement [37-42] [RAISE]
 --
 BEGIN
 EXCEPTION
@@ -100,8 +100,8 @@ Script [0-98] [BEGIN EXCEPTION...RAISE; END;]
               ExceptionHandlerList [40-79] [EXCEPTION...RAISE;]
                 ExceptionHandler [50-79] [WHEN ERROR THEN     RAISE;]
                   StatementList [70-79] [RAISE;]
-                    Raise [70-75] [RAISE]
-            Raise [86-91] [RAISE]
+                    RaiseStatement [70-75] [RAISE]
+            RaiseStatement [86-91] [RAISE]
 --
 BEGIN
 EXCEPTION
@@ -122,7 +122,7 @@ ALTERNATION GROUP: raise,using,message,;
 --
 Script [0-30] [raise using message = 'test';]
   StatementList [0-30] [raise using message = 'test';]
-    Raise [0-28] [raise using message = 'test']
+    RaiseStatement [0-28] [raise using message = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -131,7 +131,7 @@ ALTERNATION GROUP: raise,using,message,
 --
 Script [0-28] [raise using message = 'test']
   StatementList [0-28] [raise using message = 'test']
-    Raise [0-28] [raise using message = 'test']
+    RaiseStatement [0-28] [raise using message = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -140,7 +140,7 @@ ALTERNATION GROUP: raise,using,MESSAGE,;
 --
 Script [0-30] [raise using MESSAGE = 'test';]
   StatementList [0-30] [raise using MESSAGE = 'test';]
-    Raise [0-28] [raise using MESSAGE = 'test']
+    RaiseStatement [0-28] [raise using MESSAGE = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -149,7 +149,7 @@ ALTERNATION GROUP: raise,using,MESSAGE,
 --
 Script [0-28] [raise using MESSAGE = 'test']
   StatementList [0-28] [raise using MESSAGE = 'test']
-    Raise [0-28] [raise using MESSAGE = 'test']
+    RaiseStatement [0-28] [raise using MESSAGE = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -158,7 +158,7 @@ ALTERNATION GROUP: raise,USING,message,;
 --
 Script [0-30] [raise USING message = 'test';]
   StatementList [0-30] [raise USING message = 'test';]
-    Raise [0-28] [raise USING message = 'test']
+    RaiseStatement [0-28] [raise USING message = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -167,7 +167,7 @@ ALTERNATION GROUP: raise,USING,message,
 --
 Script [0-28] [raise USING message = 'test']
   StatementList [0-28] [raise USING message = 'test']
-    Raise [0-28] [raise USING message = 'test']
+    RaiseStatement [0-28] [raise USING message = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -176,7 +176,7 @@ ALTERNATION GROUP: raise,USING,MESSAGE,;
 --
 Script [0-30] [raise USING MESSAGE = 'test';]
   StatementList [0-30] [raise USING MESSAGE = 'test';]
-    Raise [0-28] [raise USING MESSAGE = 'test']
+    RaiseStatement [0-28] [raise USING MESSAGE = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -185,7 +185,7 @@ ALTERNATION GROUP: raise,USING,MESSAGE,
 --
 Script [0-28] [raise USING MESSAGE = 'test']
   StatementList [0-28] [raise USING MESSAGE = 'test']
-    Raise [0-28] [raise USING MESSAGE = 'test']
+    RaiseStatement [0-28] [raise USING MESSAGE = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -194,7 +194,7 @@ ALTERNATION GROUP: RAISE,using,message,;
 --
 Script [0-30] [RAISE using message = 'test';]
   StatementList [0-30] [RAISE using message = 'test';]
-    Raise [0-28] [RAISE using message = 'test']
+    RaiseStatement [0-28] [RAISE using message = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -203,7 +203,7 @@ ALTERNATION GROUP: RAISE,using,message,
 --
 Script [0-28] [RAISE using message = 'test']
   StatementList [0-28] [RAISE using message = 'test']
-    Raise [0-28] [RAISE using message = 'test']
+    RaiseStatement [0-28] [RAISE using message = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -212,7 +212,7 @@ ALTERNATION GROUP: RAISE,using,MESSAGE,;
 --
 Script [0-30] [RAISE using MESSAGE = 'test';]
   StatementList [0-30] [RAISE using MESSAGE = 'test';]
-    Raise [0-28] [RAISE using MESSAGE = 'test']
+    RaiseStatement [0-28] [RAISE using MESSAGE = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -221,7 +221,7 @@ ALTERNATION GROUP: RAISE,using,MESSAGE,
 --
 Script [0-28] [RAISE using MESSAGE = 'test']
   StatementList [0-28] [RAISE using MESSAGE = 'test']
-    Raise [0-28] [RAISE using MESSAGE = 'test']
+    RaiseStatement [0-28] [RAISE using MESSAGE = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -230,7 +230,7 @@ ALTERNATION GROUP: RAISE,USING,message,;
 --
 Script [0-30] [RAISE USING message = 'test';]
   StatementList [0-30] [RAISE USING message = 'test';]
-    Raise [0-28] [RAISE USING message = 'test']
+    RaiseStatement [0-28] [RAISE USING message = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -239,7 +239,7 @@ ALTERNATION GROUP: RAISE,USING,message,
 --
 Script [0-28] [RAISE USING message = 'test']
   StatementList [0-28] [RAISE USING message = 'test']
-    Raise [0-28] [RAISE USING message = 'test']
+    RaiseStatement [0-28] [RAISE USING message = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -248,7 +248,7 @@ ALTERNATION GROUP: RAISE,USING,MESSAGE,;
 --
 Script [0-30] [RAISE USING MESSAGE = 'test';]
   StatementList [0-30] [RAISE USING MESSAGE = 'test';]
-    Raise [0-28] [RAISE USING MESSAGE = 'test']
+    RaiseStatement [0-28] [RAISE USING MESSAGE = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -257,7 +257,7 @@ ALTERNATION GROUP: RAISE,USING,MESSAGE,
 --
 Script [0-28] [RAISE USING MESSAGE = 'test']
   StatementList [0-28] [RAISE USING MESSAGE = 'test']
-    Raise [0-28] [RAISE USING MESSAGE = 'test']
+    RaiseStatement [0-28] [RAISE USING MESSAGE = 'test']
       StringLiteral('test') [22-28] ['test']
 --
 RAISE USING MESSAGE = 'test' ;
@@ -268,7 +268,7 @@ raise using message = CONCAT('test', '_', 'foo');
 --
 Script [0-50] [raise using...', 'foo');]
   StatementList [0-50] [raise using...', 'foo');]
-    Raise [0-48] [raise using..._', 'foo')]
+    RaiseStatement [0-48] [raise using..._', 'foo')]
       FunctionCall [22-48] [CONCAT('test', '_', 'foo')]
         PathExpression [22-28] [CONCAT]
           Identifier(CONCAT) [22-28] [CONCAT]
@@ -286,7 +286,7 @@ ALTERNATION GROUP: a
 --
 Script [0-25] [raise using message = a;]
   StatementList [0-25] [raise using message = a;]
-    Raise [0-23] [raise using message = a]
+    RaiseStatement [0-23] [raise using message = a]
       PathExpression [22-23] [a]
         Identifier(a) [22-23] [a]
 --
@@ -296,7 +296,7 @@ ALTERNATION GROUP: @a
 --
 Script [0-26] [raise using message = @a;]
   StatementList [0-26] [raise using message = @a;]
-    Raise [0-24] [raise using message = @a]
+    RaiseStatement [0-24] [raise using message = @a]
       ParameterExpr [22-24] [@a]
         Identifier(a) [23-24] [a]
 --
@@ -306,7 +306,7 @@ ALTERNATION GROUP: @@a
 --
 Script [0-27] [raise using message = @@a;]
   StatementList [0-27] [raise using message = @@a;]
-    Raise [0-25] [raise using message = @@a]
+    RaiseStatement [0-25] [raise using message = @@a]
       SystemVariableExpr [22-25] [@@a]
         PathExpression [24-25] [a]
           Identifier(a) [24-25] [a]
@@ -327,7 +327,7 @@ Script [0-63] [IF x < 0 THEN...'; END IF;]
           Identifier(x) [3-4] [x]
         IntLiteral(0) [7-8] [0]
       StatementList [16-55] [RAISE using...negative';]
-        Raise [16-53] [RAISE using...negative']
+        RaiseStatement [16-53] [RAISE using...negative']
           StringLiteral('x is negative') [38-53] ['x is negative']
 --
 IF x < 0 THEN

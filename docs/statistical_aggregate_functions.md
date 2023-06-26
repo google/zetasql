@@ -47,6 +47,15 @@ To learn about the syntax for aggregate function calls, see
 </tr>
 
 <tr>
+  <td><a href="#stddev"><code>STDDEV</code></a>
+
+</td>
+  <td>
+    An alias of the <code>STDDEV_SAMP</code> function.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#stddev_pop"><code>STDDEV_POP</code></a>
 
 </td>
@@ -61,15 +70,6 @@ To learn about the syntax for aggregate function calls, see
 </td>
   <td>
     Returns the sample (unbiased) standard deviation of the values.
-  </td>
-</tr>
-
-<tr>
-  <td><a href="#stddev"><code>STDDEV</code></a>
-
-</td>
-  <td>
-    An alias of the <code>STDDEV_SAMP</code> function.
   </td>
 </tr>
 
@@ -554,6 +554,33 @@ FROM
 
 [stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
+### `STDDEV`
+
+```sql
+STDDEV(
+  [ DISTINCT ]
+  expression
+  [ HAVING { MAX | MIN } expression2 ]
+)
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
+```
+
+**Description**
+
+An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
+
+[stat-agg-link-to-stddev-samp]: #stddev_samp
+
 ### `STDDEV_POP`
 
 ```sql
@@ -789,33 +816,6 @@ SELECT STDDEV_SAMP(x) AS results FROM UNNEST([10, 14, CAST('Infinity' as DOUBLE)
  | NaN     |
  *---------*/
 ```
-
-### `STDDEV`
-
-```sql
-STDDEV(
-  [ DISTINCT ]
-  expression
-  [ HAVING { MAX | MIN } expression2 ]
-)
-[ OVER over_clause ]
-
-over_clause:
-  { named_window | ( [ window_specification ] ) }
-
-window_specification:
-  [ named_window ]
-  [ PARTITION BY partition_expression [, ...] ]
-  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
-  [ window_frame_clause ]
-
-```
-
-**Description**
-
-An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
-
-[stat-agg-link-to-stddev-samp]: #stddev_samp
 
 ### `VAR_POP`
 

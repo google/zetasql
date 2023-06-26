@@ -115,7 +115,7 @@ TestTable
 select 0 from TestTable FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL @test_param_int32 DAY)
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Parameters are not supported [at 1:89]
+ERROR: Parameters are not supported [at 1:89]
 ...AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL @test_param_int32 DAY)
                                                    ^
 Extracted table names:
@@ -130,7 +130,7 @@ ERROR: Parameters are not supported [at 1:89]
 select 0 from TestTable FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Parameters are not supported [at 1:89]
+ERROR: Parameters are not supported [at 1:89]
 ...AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)
                                                    ^
 Extracted table names:
@@ -161,7 +161,7 @@ TestTable
 select 0 from TestTable FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Positional parameters are not supported [at 1:89]
+ERROR: Positional parameters are not supported [at 1:89]
 ...AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL ? DAY)
                                                    ^
 Extracted table names:
@@ -176,7 +176,7 @@ ERROR: Positional parameters are not supported [at 1:89]
 select 0 from TestTable FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL @look_back_days DAY)
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Parameters are not supported [at 1:89]
+ERROR: Parameters are not supported [at 1:89]
 ...AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL @look_back_days DAY)
                                                    ^
 Extracted table names:
@@ -208,7 +208,7 @@ TestTable
 select 0 from TestTable FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL @test_param_int32 DAY)
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Named parameters are not supported [at 1:89]
+ERROR: Named parameters are not supported [at 1:89]
 ...AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL @test_param_int32 DAY)
                                                    ^
 Extracted table names:
@@ -549,11 +549,11 @@ select arr, (select count(*) from arr)
 select 1 from select select
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Syntax error: Unexpected keyword SELECT [at 1:15]
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:15]
 select 1 from select select
               ^
 Extracted table names:
-ERROR: generic::invalid_argument: Syntax error: Unexpected keyword SELECT [at 1:15]
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:15]
 select 1 from select select
               ^
 ERROR: Syntax error: Unexpected keyword SELECT [at 1:15]
@@ -630,31 +630,25 @@ select 0 from TestTable 4 SYSTEM TIME AS OF CURRENT_TIMESTAMP
 ALTERNATION GROUP: multi_line_with_caret
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
+ERROR: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
 select 0 from TestTable 4 SYSTEM TIME AS OF CURRENT_TIMESTAMP
                         ^
 Extracted table names:
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
+ERROR: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
 select 0 from TestTable 4 SYSTEM TIME AS OF CURRENT_TIMESTAMP
                         ^
 ERROR: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
 select 0 from TestTable 4 SYSTEM TIME AS OF CURRENT_TIMESTAMP
                         ^
 --
-ALTERNATION GROUP: one_line
+ALTERNATION GROUPS:
+    one_line
+    with_payload
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
-Extracted table names:
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
 ERROR: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
---
-ALTERNATION GROUP: with_payload
---
-Table resolution time:
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got integer literal "4" [zetasql.ErrorLocation] { line: 1 column: 25 }
 Extracted table names:
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got integer literal "4" [zetasql.ErrorLocation] { line: 1 column: 25 }
+ERROR: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
 ERROR: Syntax error: Expected end of input but got integer literal "4" [at 1:25]
 ==
 
@@ -664,7 +658,7 @@ select 0 from TestTable FOR SYSTEM_TIME AS OF UNKNOWN_FUNCTION()
 ALTERNATION GROUP: multi_line_with_caret
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Function not found: UNKNOWN_FUNCTION [at 1:47]
+ERROR: Function not found: UNKNOWN_FUNCTION [at 1:47]
 select 0 from TestTable FOR SYSTEM_TIME AS OF UNKNOWN_FUNCTION()
                                               ^
 Extracted table names:
@@ -674,19 +668,12 @@ ERROR: Function not found: UNKNOWN_FUNCTION [at 1:47]
 select 0 from TestTable FOR SYSTEM_TIME AS OF UNKNOWN_FUNCTION()
                                               ^
 --
-ALTERNATION GROUP: one_line
+ALTERNATION GROUPS:
+    one_line
+    with_payload
 --
 Table resolution time:
-ERROR: generic::invalid_argument: Function not found: UNKNOWN_FUNCTION [at 1:47]
-Extracted table names:
-TestTable
-
 ERROR: Function not found: UNKNOWN_FUNCTION [at 1:47]
---
-ALTERNATION GROUP: with_payload
---
-Table resolution time:
-ERROR: generic::invalid_argument: Function not found: UNKNOWN_FUNCTION [zetasql.ErrorLocation] { line: 1 column: 47 }
 Extracted table names:
 TestTable
 
@@ -712,7 +699,7 @@ select 0 from TestTable FOR SYSTEM_TIME AS OF 12345
 select 0 from TestTable FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP
 --
 Table resolution time:
-ERROR: generic::invalid_argument: FOR SYSTEM_TIME AS OF is not supported [at 1:25]
+ERROR: FOR SYSTEM_TIME AS OF is not supported [at 1:25]
 select 0 from TestTable FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP
                         ^
 Extracted table names:

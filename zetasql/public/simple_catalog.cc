@@ -791,13 +791,13 @@ void SimpleCatalog::AddZetaSQLFunctions(
 
 absl::Status SimpleCatalog::AddZetaSQLFunctionsAndTypesImpl(
     const ZetaSQLBuiltinFunctionOptions& options, bool add_types) {
-  std::map<std::string, std::unique_ptr<Function>> function_map;
+  absl::flat_hash_map<std::string, std::unique_ptr<Function>> function_map;
   // We have to call type_factory() while not holding mutex_.
   TypeFactory* type_factory = this->type_factory();
   absl::flat_hash_map<std::string, const Type*> type_map;
 
-  ZETASQL_RETURN_IF_ERROR(GetZetaSQLFunctionsAndTypes(type_factory, options,
-                                                &function_map, &type_map));
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionsAndTypes(options, *type_factory,
+                                              function_map, type_map));
   for (auto& function_pair : function_map) {
     const std::vector<std::string>& path =
         function_pair.second->FunctionNamePath();

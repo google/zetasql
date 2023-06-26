@@ -104,7 +104,7 @@ BEGIN ISOLATION
 
 SET TRANSACTION READ ONLY
 --
-SetTransaction [0-25] [SET TRANSACTION READ ONLY]
+SetTransactionStatement [0-25] [SET TRANSACTION READ ONLY]
   TransactionModeList [16-25] [READ ONLY]
     TransactionReadWriteMode [16-25] [READ ONLY]
 --
@@ -113,7 +113,7 @@ SET TRANSACTION READ ONLY
 
 SET TRANSACTION READ WRITE, ISOLATION LEVEL foo
 --
-SetTransaction [0-47] [SET TRANSACTION...LEVEL foo]
+SetTransactionStatement [0-47] [SET TRANSACTION...LEVEL foo]
   TransactionModeList [16-47] [READ WRITE...LEVEL foo]
     TransactionReadWriteMode [16-26] [READ WRITE]
     TransactionIsolationLevel [28-47] [ISOLATION LEVEL foo]

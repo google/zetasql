@@ -5,7 +5,7 @@ END LOOP
 --
 Script [0-13] [LOOP END LOOP]
   StatementList [0-13] [LOOP END LOOP]
-    While [0-13] [LOOP END LOOP]
+    WhileStatement [0-13] [LOOP END LOOP]
       StatementList [4-4] []
 --
 LOOP
@@ -18,7 +18,7 @@ END LOOP
 --
 Script [0-25] [LOOP   SELECT 5; END LOOP]
   StatementList [0-25] [LOOP   SELECT 5; END LOOP]
-    While [0-25] [LOOP   SELECT 5; END LOOP]
+    WhileStatement [0-25] [LOOP   SELECT 5; END LOOP]
       StatementList [7-17] [SELECT 5;]
         QueryStatement [7-15] [SELECT 5]
           Query [7-15] [SELECT 5]
@@ -41,7 +41,7 @@ END LOOP;
 --
 Script [0-39] [LOOP   SELECT...END LOOP;]
   StatementList [0-39] [LOOP   SELECT...END LOOP;]
-    While [0-37] [LOOP   SELECT...; END LOOP]
+    WhileStatement [0-37] [LOOP   SELECT...; END LOOP]
       StatementList [7-29] [SELECT 8;   SELECT 9;]
         QueryStatement [7-15] [SELECT 8]
           Query [7-15] [SELECT 8]
@@ -75,7 +75,7 @@ END LOOP;
 --
 Script [0-60] [LOOP   SELECT...END LOOP;]
   StatementList [0-60] [LOOP   SELECT...END LOOP;]
-    While [0-58] [LOOP   SELECT...; END LOOP]
+    WhileStatement [0-58] [LOOP   SELECT...; END LOOP]
       StatementList [7-50] [SELECT 5;...END LOOP;]
         QueryStatement [7-15] [SELECT 5]
           Query [7-15] [SELECT 5]
@@ -83,7 +83,7 @@ Script [0-60] [LOOP   SELECT...END LOOP;]
               SelectList [14-15] [5]
                 SelectColumn [14-15] [5]
                   IntLiteral(5) [14-15] [5]
-        While [19-48] [LOOP     SELECT 6;   END LOOP]
+        WhileStatement [19-48] [LOOP     SELECT 6;   END LOOP]
           StatementList [28-40] [SELECT 6;]
             QueryStatement [28-36] [SELECT 6]
               Query [28-36] [SELECT 6]
@@ -108,11 +108,11 @@ WHILE LOOP DO LOOP END LOOP; END WHILE
 --
 Script [0-38] [WHILE LOOP...END WHILE]
   StatementList [0-38] [WHILE LOOP...END WHILE]
-    While [0-38] [WHILE LOOP...END WHILE]
+    WhileStatement [0-38] [WHILE LOOP...END WHILE]
       PathExpression [6-10] [LOOP]
         Identifier(LOOP) [6-10] [LOOP]
       StatementList [14-29] [LOOP END LOOP;]
-        While [14-27] [LOOP END LOOP]
+        WhileStatement [14-27] [LOOP END LOOP]
           StatementList [18-18] []
 --
 WHILE LOOP DO
@@ -125,13 +125,13 @@ LOOP WHILE LOOP DO LOOP END LOOP; END WHILE; END LOOP
 --
 Script [0-53] [LOOP WHILE...; END LOOP]
   StatementList [0-53] [LOOP WHILE...; END LOOP]
-    While [0-53] [LOOP WHILE...; END LOOP]
+    WhileStatement [0-53] [LOOP WHILE...; END LOOP]
       StatementList [5-45] [WHILE LOOP...END WHILE;]
-        While [5-43] [WHILE LOOP...END WHILE]
+        WhileStatement [5-43] [WHILE LOOP...END WHILE]
           PathExpression [11-15] [LOOP]
             Identifier(LOOP) [11-15] [LOOP]
           StatementList [19-34] [LOOP END LOOP;]
-            While [19-32] [LOOP END LOOP]
+            WhileStatement [19-32] [LOOP END LOOP]
               StatementList [23-23] []
 --
 LOOP
@@ -146,7 +146,7 @@ WHILE WHILE DO END WHILE;
 --
 Script [0-26] [WHILE WHILE DO END WHILE;]
   StatementList [0-26] [WHILE WHILE DO END WHILE;]
-    While [0-24] [WHILE WHILE DO END WHILE]
+    WhileStatement [0-24] [WHILE WHILE DO END WHILE]
       PathExpression [6-11] [WHILE]
         Identifier(WHILE) [6-11] [WHILE]
       StatementList [14-14] []
@@ -159,7 +159,7 @@ WHILE DO DO END WHILE;
 --
 Script [0-23] [WHILE DO DO END WHILE;]
   StatementList [0-23] [WHILE DO DO END WHILE;]
-    While [0-21] [WHILE DO DO END WHILE]
+    WhileStatement [0-21] [WHILE DO DO END WHILE]
       PathExpression [6-8] [DO]
         Identifier(DO) [6-8] [DO]
       StatementList [11-11] []
@@ -208,7 +208,7 @@ END WHILE
 --
 Script [0-23] [WHILE TRUE DO END WHILE]
   StatementList [0-23] [WHILE TRUE DO END WHILE]
-    While [0-23] [WHILE TRUE DO END WHILE]
+    WhileStatement [0-23] [WHILE TRUE DO END WHILE]
       BooleanLiteral(TRUE) [6-10] [TRUE]
       StatementList [13-13] []
 --
@@ -223,7 +223,7 @@ END WHILE
 --
 Script [0-47] [WHILE TRUE...END WHILE]
   StatementList [0-47] [WHILE TRUE...END WHILE]
-    While [0-47] [WHILE TRUE...END WHILE]
+    WhileStatement [0-47] [WHILE TRUE...END WHILE]
       BooleanLiteral(TRUE) [6-10] [TRUE]
       StatementList [16-38] [SELECT 5;   SELECT 6;]
         QueryStatement [16-24] [SELECT 5]
@@ -262,21 +262,21 @@ END LOOP;
 --
 Script [0-129] [LOOP   WHILE...END LOOP;]
   StatementList [0-129] [LOOP   WHILE...END LOOP;]
-    While [0-127] [LOOP   WHILE...; END LOOP]
+    WhileStatement [0-127] [LOOP   WHILE...; END LOOP]
       StatementList [7-119] [WHILE x >=...END WHILE;]
-        While [7-117] [WHILE x >=...END WHILE]
+        WhileStatement [7-117] [WHILE x >=...END WHILE]
           BinaryExpression(>=) [13-19] [x >= 3]
             PathExpression [13-14] [x]
               Identifier(x) [13-14] [x]
             IntLiteral(3) [18-19] [3]
           StatementList [27-108] [WHILE y >=...END WHILE;]
-            While [27-104] [WHILE y >=...END WHILE]
+            WhileStatement [27-104] [WHILE y >=...END WHILE]
               BinaryExpression(>=) [33-39] [y >= 4]
                 PathExpression [33-34] [y]
                   Identifier(y) [33-34] [y]
                 IntLiteral(4) [38-39] [4]
               StatementList [49-95] [LOOP...END LOOP;]
-                While [49-89] [LOOP...END LOOP]
+                WhileStatement [49-89] [LOOP...END LOOP]
                   StatementList [62-81] [SELECT x, y;]
                     QueryStatement [62-73] [SELECT x, y]
                       Query [62-73] [SELECT x, y]
@@ -310,13 +310,13 @@ END WHILE;
 --
 Script [0-45] [WHILE x =...END WHILE;]
   StatementList [0-45] [WHILE x =...END WHILE;]
-    While [0-43] [WHILE x =...END WHILE]
+    WhileStatement [0-43] [WHILE x =...END WHILE]
       BinaryExpression(=) [6-11] [x = 3]
         PathExpression [6-7] [x]
           Identifier(x) [6-7] [x]
         IntLiteral(3) [10-11] [3]
       StatementList [17-34] [LOOP   END LOOP;]
-        While [17-32] [LOOP   END LOOP]
+        WhileStatement [17-32] [LOOP   END LOOP]
           StatementList [21-21] []
 --
 WHILE x = 3 DO
@@ -334,15 +334,15 @@ END LOOP;
 --
 Script [0-68] [LOOP   WHILE...END LOOP;]
   StatementList [0-68] [LOOP   WHILE...END LOOP;]
-    While [0-66] [LOOP   WHILE...; END LOOP]
+    WhileStatement [0-66] [LOOP   WHILE...; END LOOP]
       StatementList [7-58] [WHILE x =...END WHILE;]
-        While [7-56] [WHILE x =...END WHILE]
+        WhileStatement [7-56] [WHILE x =...END WHILE]
           BinaryExpression(=) [13-18] [x = 3]
             PathExpression [13-14] [x]
               Identifier(x) [13-14] [x]
             IntLiteral(3) [17-18] [3]
           StatementList [26-47] [LOOP     END LOOP;]
-            While [26-43] [LOOP     END LOOP]
+            WhileStatement [26-43] [LOOP     END LOOP]
               StatementList [30-30] []
 --
 LOOP
@@ -422,9 +422,9 @@ END REPEAT
 --
 Script [0-28] [REPEAT UNTIL TRUE END REPEAT]
   StatementList [0-28] [REPEAT UNTIL TRUE END REPEAT]
-    Repeat [0-28] [REPEAT UNTIL TRUE END REPEAT]
+    RepeatStatement [0-28] [REPEAT UNTIL TRUE END REPEAT]
       StatementList [6-6] []
-      Until [7-17] [UNTIL TRUE]
+      UntilClause [7-17] [UNTIL TRUE]
         BooleanLiteral(TRUE) [13-17] [TRUE]
 --
 REPEAT
@@ -440,7 +440,7 @@ END REPEAT
 --
 Script [0-52] [REPEAT   SELECT...END REPEAT]
   StatementList [0-52] [REPEAT   SELECT...END REPEAT]
-    Repeat [0-52] [REPEAT   SELECT...END REPEAT]
+    RepeatStatement [0-52] [REPEAT   SELECT...END REPEAT]
       StatementList [9-31] [SELECT 3;   SELECT 5;]
         QueryStatement [9-17] [SELECT 3]
           Query [9-17] [SELECT 3]
@@ -454,7 +454,7 @@ Script [0-52] [REPEAT   SELECT...END REPEAT]
               SelectList [28-29] [5]
                 SelectColumn [28-29] [5]
                   IntLiteral(5) [28-29] [5]
-      Until [31-41] [UNTIL TRUE]
+      UntilClause [31-41] [UNTIL TRUE]
         BooleanLiteral(TRUE) [37-41] [TRUE]
 --
 REPEAT
@@ -478,9 +478,9 @@ END REPEAT;
 --
 Script [0-82] [REPEAT   REPEAT...END REPEAT;]
   StatementList [0-82] [REPEAT   REPEAT...END REPEAT;]
-    Repeat [0-80] [REPEAT   REPEAT...END REPEAT]
+    RepeatStatement [0-80] [REPEAT   REPEAT...END REPEAT]
       StatementList [9-59] [REPEAT...END REPEAT;]
-        Repeat [9-57] [REPEAT...END REPEAT]
+        RepeatStatement [9-57] [REPEAT...END REPEAT]
           StatementList [20-32] [SELECT x;]
             QueryStatement [20-28] [SELECT x]
               Query [20-28] [SELECT x]
@@ -489,12 +489,12 @@ Script [0-82] [REPEAT   REPEAT...END REPEAT;]
                     SelectColumn [27-28] [x]
                       PathExpression [27-28] [x]
                         Identifier(x) [27-28] [x]
-          Until [32-44] [UNTIL x <= 3]
+          UntilClause [32-44] [UNTIL x <= 3]
             BinaryExpression(<=) [38-44] [x <= 3]
               PathExpression [38-39] [x]
                 Identifier(x) [38-39] [x]
               IntLiteral(3) [43-44] [3]
-      Until [59-69] [UNTIL TRUE]
+      UntilClause [59-69] [UNTIL TRUE]
         BooleanLiteral(TRUE) [65-69] [TRUE]
 --
 REPEAT
@@ -518,9 +518,9 @@ END LOOP;
 --
 Script [0-80] [LOOP   REPEAT...END LOOP;]
   StatementList [0-80] [LOOP   REPEAT...END LOOP;]
-    While [0-78] [LOOP   REPEAT...; END LOOP]
+    WhileStatement [0-78] [LOOP   REPEAT...; END LOOP]
       StatementList [7-70] [REPEAT...END REPEAT;]
-        Repeat [7-68] [REPEAT...END REPEAT]
+        RepeatStatement [7-68] [REPEAT...END REPEAT]
           StatementList [18-44] [SELECT 5;     SELECT 6;]
             QueryStatement [18-26] [SELECT 5]
               Query [18-26] [SELECT 5]
@@ -534,7 +534,7 @@ Script [0-80] [LOOP   REPEAT...END LOOP;]
                   SelectList [39-40] [6]
                     SelectColumn [39-40] [6]
                       IntLiteral(6) [39-40] [6]
-          Until [44-55] [UNTIL FALSE]
+          UntilClause [44-55] [UNTIL FALSE]
             BooleanLiteral(FALSE) [50-55] [FALSE]
 --
 LOOP
@@ -561,11 +561,11 @@ END REPEAT;
 --
 Script [0-101] [REPEAT   LOOP...END REPEAT;]
   StatementList [0-101] [REPEAT   LOOP...END REPEAT;]
-    Repeat [0-99] [REPEAT   LOOP...END REPEAT]
+    RepeatStatement [0-99] [REPEAT   LOOP...END REPEAT]
       StatementList [9-77] [LOOP     WHILE...END LOOP;]
-        While [9-75] [LOOP     WHILE...END LOOP]
+        WhileStatement [9-75] [LOOP     WHILE...END LOOP]
           StatementList [18-67] [WHILE x <=...END WHILE;]
-            While [18-63] [WHILE x <=...END WHILE]
+            WhileStatement [18-63] [WHILE x <=...END WHILE]
               BinaryExpression(<=) [24-30] [x <= 3]
                 PathExpression [24-25] [x]
                   Identifier(x) [24-25] [x]
@@ -578,7 +578,7 @@ Script [0-101] [REPEAT   LOOP...END REPEAT;]
                         SelectColumn [47-48] [x]
                           PathExpression [47-48] [x]
                             Identifier(x) [47-48] [x]
-      Until [77-88] [UNTIL FALSE]
+      UntilClause [77-88] [UNTIL FALSE]
         BooleanLiteral(FALSE) [83-88] [FALSE]
 --
 REPEAT
@@ -624,7 +624,7 @@ repeat select x; select y; until false end repeat;
 --
 Script [0-51] [repeat select...end repeat;]
   StatementList [0-51] [repeat select...end repeat;]
-    Repeat [0-49] [repeat select...end repeat]
+    RepeatStatement [0-49] [repeat select...end repeat]
       StatementList [7-27] [select x; select y;]
         QueryStatement [7-15] [select x]
           Query [7-15] [select x]
@@ -640,7 +640,7 @@ Script [0-51] [repeat select...end repeat;]
                 SelectColumn [24-25] [y]
                   PathExpression [24-25] [y]
                     Identifier(y) [24-25] [y]
-      Until [27-38] [until false]
+      UntilClause [27-38] [until false]
         BooleanLiteral(false) [33-38] [false]
 --
 REPEAT
@@ -1158,7 +1158,7 @@ END LOOP;
 --
 Script [0-70] [LOOP   FOR...END LOOP;]
   StatementList [0-70] [LOOP   FOR...END LOOP;]
-    While [0-68] [LOOP   FOR...; END LOOP]
+    WhileStatement [0-68] [LOOP   FOR...; END LOOP]
       StatementList [7-60] [FOR y IN (...END FOR;]
         ForInStatement [7-58] [FOR y IN (...END FOR]
           Identifier(y) [11-12] [y]
@@ -1205,7 +1205,7 @@ END WHILE;
 --
 Script [0-128] [WHILE TRUE...END WHILE;]
   StatementList [0-128] [WHILE TRUE...END WHILE;]
-    While [0-126] [WHILE TRUE...END WHILE]
+    WhileStatement [0-126] [WHILE TRUE...END WHILE]
       BooleanLiteral(TRUE) [6-10] [TRUE]
       StatementList [16-117] [FOR y IN (...END FOR;]
         ForInStatement [16-115] [FOR y IN (...END FOR]
@@ -1218,7 +1218,7 @@ Script [0-128] [WHILE TRUE...END WHILE;]
                 SelectColumn [36-37] [2]
                   IntLiteral(2) [36-37] [2]
           StatementList [48-108] [REPEAT...END REPEAT;]
-            Repeat [48-104] [REPEAT...END REPEAT]
+            RepeatStatement [48-104] [REPEAT...END REPEAT]
               StatementList [61-78] [SELECT 3, 4;]
                 QueryStatement [61-72] [SELECT 3, 4]
                   Query [61-72] [SELECT 3, 4]
@@ -1228,7 +1228,7 @@ Script [0-128] [WHILE TRUE...END WHILE;]
                           IntLiteral(3) [68-69] [3]
                         SelectColumn [71-72] [4]
                           IntLiteral(4) [71-72] [4]
-              Until [78-89] [UNTIL FALSE]
+              UntilClause [78-89] [UNTIL FALSE]
                 BooleanLiteral(FALSE) [84-89] [FALSE]
 --
 WHILE TRUE DO

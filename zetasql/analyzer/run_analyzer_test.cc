@@ -221,7 +221,7 @@ static std::string FormatTableResolutionTimeInfoMap(
     const absl::Status& status,
     const TableResolutionTimeInfoMap& table_resolution_time_info_map) {
   if (!status.ok()) {
-    return absl::StrCat("ERROR: ", internal::StatusToString(status));
+    return absl::StrCat("ERROR: ", FormatError(status));
   }
   std::string result;
   for (const auto& entry : table_resolution_time_info_map) {
@@ -1322,7 +1322,7 @@ class AnalyzerTestRunner {
       std::string table_names_string = "Extracted table names:\n";
       if (!extract_status.ok()) {
         absl::StrAppend(&table_names_string,
-                        "ERROR: ", internal::StatusToString(extract_status));
+                        "ERROR: ", FormatError(extract_status));
       } else {
         for (const std::vector<std::string>& path : table_names) {
           absl::StrAppend(&table_names_string, IdentifierPathToString(path),

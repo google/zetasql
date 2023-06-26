@@ -292,7 +292,7 @@ END LOOP;
 --
 Script [0-124] [LOOP INSERT...END LOOP;]
   StatementList [0-124] [LOOP INSERT...END LOOP;]
-    While [0-122] [LOOP INSERT...; END LOOP]
+    WhileStatement [0-122] [LOOP INSERT...; END LOOP]
       StatementList [5-114] [INSERT OR...), (3, 4);]
         InsertStatement(insert_mode=REPLACE) [5-112] [INSERT OR...2), (3, 4)]
           PathExpression [28-48] [table_collated_types]
@@ -324,7 +324,7 @@ END REPEAT;
 --
 Script [0-140] [REPEAT INSERT...END REPEAT;]
   StatementList [0-140] [REPEAT INSERT...END REPEAT;]
-    Repeat [0-138] [REPEAT INSERT...END REPEAT]
+    RepeatStatement [0-138] [REPEAT INSERT...END REPEAT]
       StatementList [7-116] [INSERT OR...), (3, 4);]
         InsertStatement(insert_mode=REPLACE) [7-114] [INSERT OR...2), (3, 4)]
           PathExpression [30-50] [table_collated_types]
@@ -339,7 +339,7 @@ Script [0-140] [REPEAT INSERT...END REPEAT;]
             InsertValuesRow [108-114] [(3, 4)]
               IntLiteral(3) [109-110] [3]
               IntLiteral(4) [112-113] [4]
-      Until [116-127] [UNTIL FALSE]
+      UntilClause [116-127] [UNTIL FALSE]
         BooleanLiteral(FALSE) [122-127] [FALSE]
 --
 REPEAT
@@ -358,7 +358,7 @@ END WHILE;
 --
 Script [0-134] [WHILE TRUE...END WHILE;]
   StatementList [0-134] [WHILE TRUE...END WHILE;]
-    While [0-132] [WHILE TRUE...END WHILE]
+    WhileStatement [0-132] [WHILE TRUE...END WHILE]
       BooleanLiteral(TRUE) [6-10] [TRUE]
       StatementList [14-123] [INSERT OR...), (3, 4);]
         InsertStatement(insert_mode=REPLACE) [14-121] [INSERT OR...2), (3, 4)]
