@@ -1238,3 +1238,20 @@ recursive_catalog.recursive_catalog.bad.type.name
 ERROR: Type not found: recursive_catalog.recursive_catalog.bad.type.name [at 1:1]
 recursive_catalog.recursive_catalog.bad.type.name
 ^
+
+==
+
+FUNCTION<()->INT64>
+--
+
+ERROR: FUNCTION type not supported [at 1:1]
+FUNCTION<()->INT64>
+^
+==
+
+STRUCT<x FUNCTION<()->INT64>>
+--
+
+ERROR: FUNCTION type not supported [at 1:10]
+STRUCT<x FUNCTION<()->INT64>>
+         ^

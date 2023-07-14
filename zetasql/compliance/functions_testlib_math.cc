@@ -2056,14 +2056,14 @@ std::vector<FunctionTestCall> GetFunctionTestsPi(bool include_safe_calls) {
   std::vector<FunctionTestCall> all_tests;
 
   FunctionTestCall double_test = {"pi", /*arguments=*/{}, M_PI};
-  double_test.params.AddRequiredFeature(FEATURE_PI_FUNCTIONS);
+  double_test.params.AddRequiredFeature(FEATURE_V_1_4_PI_FUNCTIONS);
   all_tests.emplace_back(double_test);
 
   FunctionTestCall numeric_test = {
       "pi_numeric", /*arguments=*/{},
       NumericValue::FromString("3.141592654").value()};
   numeric_test.params.AddRequiredFeatures(
-      {FEATURE_NUMERIC_TYPE, FEATURE_PI_FUNCTIONS});
+      {FEATURE_NUMERIC_TYPE, FEATURE_V_1_4_PI_FUNCTIONS});
   all_tests.emplace_back(numeric_test);
 
   FunctionTestCall bignumeric_test{
@@ -2072,19 +2072,19 @@ std::vector<FunctionTestCall> GetFunctionTestsPi(bool include_safe_calls) {
       BigNumericValue::FromString("3.14159265358979323846264338327950288420")
           .value()};
   bignumeric_test.params.AddRequiredFeatures(
-      {FEATURE_BIGNUMERIC_TYPE, FEATURE_PI_FUNCTIONS});
+      {FEATURE_BIGNUMERIC_TYPE, FEATURE_V_1_4_PI_FUNCTIONS});
   all_tests.emplace_back(bignumeric_test);
 
   // Safe versions of the above tests
   FunctionTestCall safe_double_test = {"safe.pi", /*arguments=*/{}, M_PI};
   safe_double_test.params.AddRequiredFeatures(
-      {FEATURE_PI_FUNCTIONS, FEATURE_V_1_2_SAFE_FUNCTION_CALL});
+      {FEATURE_V_1_4_PI_FUNCTIONS, FEATURE_V_1_2_SAFE_FUNCTION_CALL});
 
   FunctionTestCall safe_numeric_test = {
       "safe.pi_numeric", /*arguments=*/{},
       NumericValue::FromString("3.141592654").value()};
   safe_numeric_test.params.AddRequiredFeatures(
-      {FEATURE_NUMERIC_TYPE, FEATURE_PI_FUNCTIONS,
+      {FEATURE_NUMERIC_TYPE, FEATURE_V_1_4_PI_FUNCTIONS,
        FEATURE_V_1_2_SAFE_FUNCTION_CALL});
 
   FunctionTestCall safe_bignumeric_test{
@@ -2093,7 +2093,7 @@ std::vector<FunctionTestCall> GetFunctionTestsPi(bool include_safe_calls) {
       BigNumericValue::FromString("3.14159265358979323846264338327950288420")
           .value()};
   safe_bignumeric_test.params.AddRequiredFeatures(
-      {FEATURE_BIGNUMERIC_TYPE, FEATURE_PI_FUNCTIONS,
+      {FEATURE_BIGNUMERIC_TYPE, FEATURE_V_1_4_PI_FUNCTIONS,
        FEATURE_V_1_2_SAFE_FUNCTION_CALL});
 
   if (include_safe_calls) {

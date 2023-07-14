@@ -2468,3 +2468,10 @@ ARRAY<STRUCT<bool_val BOOL, c INT64, cb INT64, cntif INT64>>[unknown order:
 select count(x), countif(x > 0) from (select x from (select 1 x) where x < 0);
 --
 ARRAY<STRUCT<INT64, INT64>>[{0, 0}]
+==
+
+[name=group_by_empty_columns]
+[required_features=V_1_4_GROUPING_SETS]
+SELECT COUNT(primary_key), SUM(distinct_1) FROM TableDistincts GROUP BY ();
+--
+ARRAY<STRUCT<INT64, INT64>>[{16, 16}]

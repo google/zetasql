@@ -37,6 +37,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/signature_match_result.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/array_type.h"
@@ -93,7 +94,8 @@ class FunctionSignatureMatcher {
       const ResolveLambdaCallback* resolve_lambda_callback,
       std::unique_ptr<FunctionSignature>* concrete_result_signature,
       SignatureMatchResult* signature_match_result,
-      std::vector<FunctionArgumentOverride>* arg_overrides = nullptr) const;
+      std::vector<ArgIndexEntry>* arg_index_mapping,
+      std::vector<FunctionArgumentOverride>* arg_overrides) const;
 
  private:
   // Shorthands to make message generation statements short.
@@ -204,7 +206,8 @@ class FunctionSignatureMatcher {
   absl::StatusOr<FunctionArgumentTypeList> GetConcreteArguments(
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature, int repetitions, int optionals,
-      const ArgKindToResolvedTypeMap& templated_argument_map) const;
+      const ArgKindToResolvedTypeMap& templated_argument_map,
+      std::vector<ArgIndexEntry>* arg_index_mapping) const;
 
   // Returns if input argument types match the signature argument types, and
   // updates related templated argument type information.
@@ -233,7 +236,7 @@ class FunctionSignatureMatcher {
   //   It can be set to nullptr if no lambda argument is expected.
   // * The resolved lambdas, if any, are put into <arg_overrides> if the
   //   signature matches. <arg_overrides> is undefined otherwise.
-  bool CheckArgumentTypesAndCollectTemplatedArguments(
+  absl::StatusOr<bool> CheckArgumentTypesAndCollectTemplatedArguments(
       const std::vector<const ASTNode*>& arg_ast_nodes,
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature, int repetitions,
@@ -456,9 +459,13 @@ absl::StatusOr<FunctionArgumentTypeList>
 FunctionSignatureMatcher::GetConcreteArguments(
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature, int repetitions, int optionals,
-    const ArgKindToResolvedTypeMap& templated_argument_map) const {
+    const ArgKindToResolvedTypeMap& templated_argument_map,
+    std::vector<ArgIndexEntry>* arg_index_mapping) const {
   if (signature.NumOptionalArguments() == 0 &&
       signature.NumRepeatedArguments() == 0) {
+    ZETASQL_RET_CHECK(arg_index_mapping == nullptr ||
+              input_arguments.size() == arg_index_mapping->size());
+
     // Fast path for functions without optional or repeated arguments
     // to resolve.
     FunctionArgumentTypeList resolved_argument_list;
@@ -481,6 +488,9 @@ FunctionSignatureMatcher::GetConcreteArguments(
         ZETASQL_RET_CHECK(matches);
         resolved_argument_list.push_back(*argument_type);
       }
+      if (arg_index_mapping != nullptr) {
+        (*arg_index_mapping)[i].concrete_signature_arg_index = i;
+      }
     }
     return resolved_argument_list;
   }
@@ -498,8 +508,12 @@ FunctionSignatureMatcher::GetConcreteArguments(
   int first_repeated_index = signature.FirstRepeatedArgumentIndex();
   int last_repeated_index = signature.LastRepeatedArgumentIndex();
   int input_position = 0;
-  for (int i = 0; i < signature.arguments().size(); ++i) {
-    const FunctionArgumentType& signature_argument = signature.argument(i);
+  // Note: this isn't a simple loop. In the case of repeated arguments
+  // we may repeat values of 'sig_arg_index' multiple times.
+  for (int sig_arg_index = 0; sig_arg_index < signature.arguments().size();
+       ++sig_arg_index) {
+    const FunctionArgumentType& signature_argument =
+        signature.argument(sig_arg_index);
     int num_occurrences = 1;
     if (signature_argument.repeated()) {
       num_occurrences =
@@ -511,8 +525,8 @@ FunctionSignatureMatcher::GetConcreteArguments(
       optionals -= num_occurrences;
     }
 
-    // Sanity check about the default signature_argument value.
     if (num_occurrences > 0) {
+      // Sanity check about the default signature_argument value.
       ZETASQL_RET_CHECK_LT(input_position, input_arguments.size());
       const InputArgumentType& input_arg = input_arguments[input_position];
       if (input_arg.is_default_argument_value()) {
@@ -521,8 +535,23 @@ FunctionSignatureMatcher::GetConcreteArguments(
             << signature_argument.DebugString() << "; "
             << input_arg.DebugString();
       }
-    }
 
+      // Note, num_occurrences for repeated arbitrary is always 1 here because
+      // each argument can have a different type.
+
+      if (arg_index_mapping != nullptr) {
+        ZETASQL_RET_CHECK_LT(input_position, arg_index_mapping->size());
+        // In most cases, the concrete_signature_arg_index will match the
+        // sig_arg_index. But with ARBITRARY REPEATED we 'expand' the
+        // concrete signature to be 1:1 with input arguments.
+        int concrete_signature_arg_index =
+            has_repeated_arbitrary
+                ? static_cast<int>(resolved_argument_list.size())
+                : sig_arg_index;
+        (*arg_index_mapping)[input_position].concrete_signature_arg_index =
+            concrete_signature_arg_index;
+      }
+    }
     if (signature_argument.kind() == ARG_TYPE_ARBITRARY) {
       // Make a copy of the arg type options, so that we can clear the default
       // signature_argument value to avoid conflicting with the concrete type
@@ -555,14 +584,14 @@ FunctionSignatureMatcher::GetConcreteArguments(
       resolved_argument_list.push_back(*argument_type);
     }
 
-    if (i == last_repeated_index) {
+    if (sig_arg_index == last_repeated_index) {
       // This is the end of the block of repeated arguments.
       // Decrease "repetitions" by the num_occurrences we've just output,
       // And, if necessary, go back to the first repeated signature_argument
       // again.
       repetitions -= num_occurrences;
       if (repetitions > 0) {
-        i = first_repeated_index - 1;
+        sig_arg_index = first_repeated_index - 1;
       }
     }
     input_position += num_occurrences;
@@ -570,13 +599,22 @@ FunctionSignatureMatcher::GetConcreteArguments(
   ZETASQL_RET_CHECK_EQ(0, optionals);
   return resolved_argument_list;
 }
+}  // namespace
 
-// Assumes availability of local variable `signature_match_result` and
-// `arg_idx`.
-#define SET_MISMATCH_ERROR_WITH_INDEX(msg)                  \
-  if (signature_match_result->allow_mismatch_message()) {   \
-    signature_match_result->set_mismatch_message(           \
-        absl::StrCat("Argument ", arg_idx + 1, ": ", msg)); \
+// Assumes availability of local variable `signature_match_result`,
+// `arg_idx` and `signature_argument`.
+#define SET_MISMATCH_ERROR_WITH_INDEX(msg)                                     \
+  if (signature_match_result->allow_mismatch_message()) {                      \
+    if (signature_argument.has_argument_name() && arg_ast_node != nullptr &&   \
+        arg_ast_node->Is<ASTNamedArgument>()) {                                \
+      signature_match_result->set_mismatch_message(absl::StrCat(               \
+          "Named argument ",                                                   \
+          ToAlwaysQuotedIdentifierLiteral(signature_argument.argument_name()), \
+          ": ", msg));                                                         \
+    } else {                                                                   \
+      signature_match_result->set_mismatch_message(                            \
+          absl::StrCat("Argument ", arg_idx + 1, ": ", msg));                  \
+    }                                                                          \
   }
 
 // Assumes availability of local variable `signature_match_result`.
@@ -598,11 +636,13 @@ bool SignatureArgumentCountMatches(
     // Fast path: exactly the required arguments passed, return early.
     return true;
   }
+  auto optional_s = [](int num) { return num == 1 ? "" : "s"; };
   if (signature_num_required > input_arguments_size) {
     // Fast path: fewer required arguments provided, return early.
-    SET_MISMATCH_ERROR(
-        absl::StrFormat("Signature requires %d arguments, found %d arguments",
-                        signature_num_required, input_arguments_size));
+    SET_MISMATCH_ERROR(absl::StrFormat(
+        "Signature requires at least %d argument%s, found %d argument%s",
+        signature_num_required, optional_s(signature_num_required),
+        input_arguments_size, optional_s(input_arguments_size)));
     return false;
   }
 
@@ -621,28 +661,31 @@ bool SignatureArgumentCountMatches(
     }
   }
 
+  if (num_repeated == 0 &&
+      input_arguments_size > signature.arguments().size()) {
+    const int sig_arguments_size =
+        static_cast<int>(signature.arguments().size());
+    SET_MISMATCH_ERROR(absl::StrCat(
+        "Signature accepts at most ", sig_arguments_size, " argument",
+        optional_s(sig_arguments_size), ", found ", input_arguments_size,
+        " argument", optional_s(input_arguments_size)));
+    return false;
+  }
+
   const int opts = input_arguments_size - signature_num_required -
                    *repetitions * num_repeated;
   if (opts < 0 || opts > num_optional) {
     // We do not have enough optionals to match the arguments size, and
     // repeating the repeated block again would require too many arguments.
-    SET_MISMATCH_ERROR("Wrong number of arguments");
+    SET_MISMATCH_ERROR(
+        absl::StrCat(opts, " optional argument", optional_s(opts),
+                     " provided while signature has at most ", num_optional,
+                     " optional argument", optional_s(num_optional)));
     return false;
   }
 
   *optionals = opts;
   return true;
-}
-
-}  // namespace
-
-bool SignatureArgumentCountMatches(const FunctionSignature& signature,
-                                   int input_arguments_size, int* repetitions,
-                                   int* optionals) {
-  SignatureMatchResult unused_signature_match_result;
-  return SignatureArgumentCountMatches(signature, input_arguments_size,
-                                       repetitions, optionals,
-                                       &unused_signature_match_result);
 }
 
 namespace {
@@ -817,7 +860,8 @@ bool FunctionSignatureMatcher::
   return true;
 }
 
-bool FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
+absl::StatusOr<bool>
+FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
     const std::vector<const ASTNode*>& arg_ast_nodes,
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature, int repetitions,
@@ -830,9 +874,16 @@ bool FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
   int signature_arg_idx = 0;
   int repetition_idx = 0;
   for (int arg_idx = 0; arg_idx < input_arguments.size(); ++arg_idx) {
-    const InputArgumentType& input_argument = input_arguments[arg_idx];
+    if (repetitions == 0 && signature_arg_idx == repeated_idx_start) {
+      // There are zero repetitions, skip past all repeated args in the
+      // signature.
+      signature_arg_idx = repeated_idx_end + 1;
+      ZETASQL_RET_CHECK_LT(signature_arg_idx, signature.arguments().size());
+    }
     const FunctionArgumentType& signature_argument =
         signature.argument(signature_arg_idx);
+
+    const InputArgumentType& input_argument = input_arguments[arg_idx];
     const ASTNode* arg_ast = nullptr;
     if (arg_idx < arg_ast_nodes.size()) {
       arg_ast = arg_ast_nodes[arg_idx];
@@ -841,8 +892,9 @@ bool FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
             arg_idx, arg_ast, input_argument, signature_argument,
             resolve_lambda_callback, templated_argument_map,
             signature_match_result, arg_overrides)) {
-      ZETASQL_DCHECK(!signature_match_result->allow_mismatch_message() ||
-             !signature_match_result->mismatch_message().empty())
+      ZETASQL_RET_CHECK(!signature_match_result->allow_mismatch_message() ||
+                !signature_match_result->mismatch_message().empty() ||
+                !signature_match_result->tvf_mismatch_message().empty())
           << "Mismatch error message should have been set.";
       return false;
     }
@@ -1452,6 +1504,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
     const ResolveLambdaCallback* resolve_lambda_callback,
     std::unique_ptr<FunctionSignature>* concrete_result_signature,
     SignatureMatchResult* signature_match_result,
+    std::vector<ArgIndexEntry>* arg_index_mapping,
     std::vector<FunctionArgumentOverride>* arg_overrides) const {
   ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
       "Out of stack space due to deeply nested query expression "
@@ -1491,13 +1544,17 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   SignatureMatchResult local_signature_match_result;
   local_signature_match_result.set_allow_mismatch_message(
       signature_match_result->allow_mismatch_message());
-  if (!CheckArgumentTypesAndCollectTemplatedArguments(
-          arg_ast_nodes, input_arguments, signature, repetitions,
-          resolve_lambda_callback, &templated_argument_map,
-          &local_signature_match_result, arg_overrides)) {
+  ZETASQL_ASSIGN_OR_RETURN(bool match,
+                   CheckArgumentTypesAndCollectTemplatedArguments(
+                       arg_ast_nodes, input_arguments, signature, repetitions,
+                       resolve_lambda_callback, &templated_argument_map,
+                       &local_signature_match_result, arg_overrides));
+
+  if (!match) {
     signature_match_result->UpdateFromResult(local_signature_match_result);
     ZETASQL_RET_CHECK(!signature_match_result->allow_mismatch_message() ||
-              !signature_match_result->mismatch_message().empty());
+              !signature_match_result->mismatch_message().empty() ||
+              !signature_match_result->tvf_mismatch_message().empty());
     return false;
   }
 
@@ -1567,13 +1624,13 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
       return false;
     }
   }
+
   ZETASQL_ASSIGN_OR_RETURN(
       FunctionArgumentTypeList arg_list,
       GetConcreteArguments(input_arguments, signature, repetitions, optionals,
-                           resolved_templated_arguments));
+                           resolved_templated_arguments, arg_index_mapping));
   *concrete_result_signature = std::make_unique<FunctionSignature>(
       *result_type, arg_list, signature.context_id(), signature.options());
-
   // We have a matching concrete signature, so update <signature_match_result>
   // for all arguments as compared to this signature.
   for (int idx = 0; idx < input_arguments.size(); ++idx) {
@@ -1638,12 +1695,14 @@ absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const ResolveLambdaCallback* resolve_lambda_callback,
     std::unique_ptr<FunctionSignature>* concrete_result_signature,
     SignatureMatchResult* signature_match_result,
+    std::vector<ArgIndexEntry>* arg_index_mapping,
     std::vector<FunctionArgumentOverride>* arg_overrides) {
   FunctionSignatureMatcher signature_matcher(
       language_options, coercer, allow_argument_coercion, type_factory);
   return signature_matcher.SignatureMatches(
       arg_ast_nodes, input_arguments, signature, resolve_lambda_callback,
-      concrete_result_signature, signature_match_result, arg_overrides);
+      concrete_result_signature, signature_match_result, arg_index_mapping,
+      arg_overrides);
 }
 
 }  // namespace zetasql

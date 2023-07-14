@@ -116,11 +116,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -175,11 +170,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -234,11 +224,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [language_features=ANONYMIZATION,NUMERIC_TYPE]
@@ -296,11 +281,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [language_features=ANONYMIZATION,NUMERIC_TYPE]
@@ -356,11 +336,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[numeric#12, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[11, 10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -457,11 +432,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#30)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, string#5, uid#17], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 4, 10])
-}
 ==
 
 # TODO: support engine defined anon_* functions
@@ -1034,11 +1004,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # WITH ANONYMIZATION syntax can only be used with grouping/aggregation
@@ -1165,11 +1130,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#22)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, string#5, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 4, 10])
-}
 ==
 
 # Valid anonymization with only GROUP BY
@@ -1225,11 +1185,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, string#5, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 4, 10])
-}
 ==
 
 # Non-trivial computed column
@@ -1299,11 +1254,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # Non-trivial computed column
@@ -1381,11 +1331,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#23)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 10])
-}
 ==
 
 # Nested projection without $uid column
@@ -1578,11 +1523,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#19)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # Reject nested aggregation functions
@@ -1671,11 +1611,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Reject nested aggregation scans that don't group by $uid
@@ -1922,11 +1857,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#22)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Reject mutated group by $uid column in nested aggregation
@@ -2192,11 +2122,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#41)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Outer scan can use join, aggregation, etc. with no issues
@@ -2284,11 +2209,6 @@ QueryStmt
         |     +-TableScan(table=SimpleTypes)
         +-aggregate_list=
           +-$agg1#32 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#33], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
-}
 ==
 
 # Reject parameter privacy_budget_weight
@@ -2372,11 +2292,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#24)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
-}
 ==
 
 # Reject DISTINCT
@@ -2465,11 +2380,6 @@ QueryStmt
             |     +-Literal(type=INT64, value=1)
             +-k_threshold_expr=
               +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # Anonymize node saves hint list
@@ -2534,11 +2444,6 @@ QueryStmt
             |     +-Literal(type=INT64, value=1)
             +-k_threshold_expr=
               +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#18)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
-}
 ==
 
 # Computed column arguments are respected
@@ -2604,11 +2509,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 10])
-}
 ==
 
 # Output computed columns are respected
@@ -2681,11 +2581,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#23)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # Support ArrayScan
@@ -2755,11 +2650,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#14)
-
-[TableScan Groups]
-{
-  TableScan(column_list=ArrayWithAnonymizationUid.[int64_array#1, uid#7], table=ArrayWithAnonymizationUid, column_index_list=[0, 2], alias="t")
-}
 ==
 
 # Support ArrayScan with join_expr
@@ -2827,11 +2717,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#12)
-
-[TableScan Groups]
-{
-  TableScan(column_list=ArrayWithAnonymizationUid.[int64_array#1, uid#6], table=ArrayWithAnonymizationUid, column_index_list=[0, 2], alias="t")
-}
 ==
 
 # Reject AnalyticScan
@@ -2965,11 +2850,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=71-102, column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Support SampleScan
@@ -3057,11 +2937,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=71-102, column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Support SampleScan
@@ -3147,11 +3022,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=71-102, column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Support SampleScan
@@ -3258,11 +3128,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#19)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=86-117, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Support SampleScan
@@ -3356,11 +3221,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#23)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=79-110, column_list=[SimpleTypesWithAnonymizationUid.uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # For per-user aggregation we inject ANON_SUM(1 CLAMPED BETWEEN 0 AND 1).
@@ -3423,11 +3283,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -3501,11 +3356,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#26)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -3615,14 +3465,6 @@ QueryStmt
         |       +-k_threshold_expr=
         |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#41)
         +-output_column_list=[$aggregate.anon_count#26]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#28], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-},
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#35], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: DISTINCT
 --
@@ -3724,14 +3566,6 @@ QueryStmt
         |       +-k_threshold_expr=
         |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#41)
         +-output_column_list=[$aggregate.anon_count#26]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#28], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-},
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#35], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -3841,14 +3675,6 @@ QueryStmt
         |       +-k_threshold_expr=
         |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#41)
         +-output_column_list=[$aggregate.anon_count#26]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#28], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-},
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#35], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: DISTINCT
 --
@@ -3950,14 +3776,6 @@ QueryStmt
         |       +-k_threshold_expr=
         |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#41)
         +-output_column_list=[$aggregate.anon_count#26]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#28], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-},
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#35], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -4067,14 +3885,6 @@ QueryStmt
         |       +-k_threshold_expr=
         |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#41)
         +-output_column_list=[$aggregate.anon_count#26]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#28], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-},
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#35], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: DISTINCT
 --
@@ -4176,14 +3986,6 @@ QueryStmt
         |       +-k_threshold_expr=
         |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#41)
         +-output_column_list=[$aggregate.anon_count#26]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#28], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-},
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#35], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Anonymization in the WITH clause
@@ -4258,11 +4060,6 @@ QueryStmt
         +-column_list=[t.anon_count#14]
         +-input_scan=
           +-WithRefScan(column_list=[t.anon_count#14], with_query_name="t")
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -4336,11 +4133,6 @@ QueryStmt
         |           +-k_threshold_expr=
         |             +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
         +-element_column=$array.$unnest1#14
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -4425,11 +4217,6 @@ QueryStmt
                     |     +-Literal(type=INT64, value=1)
                     +-k_threshold_expr=
                       +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -4518,11 +4305,6 @@ QueryStmt
                     |     +-Literal(type=INT64, value=1)
                     +-k_threshold_expr=
                       +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Anonymized query against a PROTO value table that does not explicitly
@@ -4586,11 +4368,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#10)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[$table_scan.$value#3], table=KitchenSinkWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a PROTO value table that explicitly references
@@ -4688,11 +4465,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a PROTO value table that explicitly references
@@ -4790,11 +4562,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a PROTO value table that explicitly projects userid
@@ -4875,11 +4642,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#10)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a PROTO value table that explicitly aggregates userid
@@ -4971,11 +4733,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a PROTO value table qualifies userid column errors.
@@ -5070,11 +4827,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#10)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[$table_scan.$value#3], table=TestStructWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a STRUCT value table that explicitly references
@@ -5155,11 +4907,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a STRUCT value table that explicitly references
@@ -5254,11 +5001,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a STRUCT value table that explicitly projects userid
@@ -5337,11 +5079,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#10)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a STRUCT value table that explicitly aggregates userid
@@ -5431,11 +5168,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # Anonymized query against a STRUCT value table qualifies userid column errors.
@@ -5710,14 +5442,6 @@ QueryStmt
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$groupby.uid#14)
             +-ColumnRef(type=INT64, column=$groupby.uid#28)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-},
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#16, uid#25], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -5773,11 +5497,6 @@ SubqueryExpr
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # doubly nested struct uid
@@ -5847,11 +5566,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#12)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[$table_scan.$value#3], table=TestWithDoublyNestedStructUidValueTable, column_index_list=[0])
-}
 ==
 
 # nested proto uid
@@ -5924,11 +5638,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#12)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[$table_scan.$value#3], table=TestWithProtoUidValueTable, column_index_list=[0])
-}
 ==
 
 # nested proto uid of wrong type.
@@ -6105,12 +5814,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#15)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[TestWithDoublyNestedStructUidValueTable.value#1], table=TestWithDoublyNestedStructUidValueTable, column_index_list=[0], alias="t1")
-  TableScan(column_list=[TestWithDoublyNestedStructUidValueTable.value#2], table=TestWithDoublyNestedStructUidValueTable, column_index_list=[0], alias="t2")
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -6183,11 +5886,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -6269,11 +5967,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -6364,11 +6057,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -6445,11 +6133,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -6522,11 +6205,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -6617,11 +6295,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -6703,11 +6376,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -6796,11 +6464,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -6897,11 +6560,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -7006,11 +6664,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
-}
 ==
 
 # We can't run the unparser because the rewrite generates ORDER BY in an
@@ -7115,11 +6768,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
-}
 ==
 
 [language_features=ANONYMIZATION,NUMERIC_TYPE,GROUP_BY_ROLLUP]
@@ -7130,6 +6778,28 @@ SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
 --
 ERROR: GROUP BY ROLLUP is not supported in anonymization queries [at 3:14]
     GROUP BY ROLLUP(int64, double);
+             ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_4_GROUPING_SETS]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
+    FROM SimpleTypesWithAnonymizationUid
+    GROUP BY CUBE(int64, double);
+--
+ERROR: GROUP BY CUBE is not supported in anonymization queries [at 3:14]
+    GROUP BY CUBE(int64, double);
+             ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_4_GROUPING_SETS]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
+    FROM SimpleTypesWithAnonymizationUid
+    GROUP BY GROUPING SETS(int64, double);
+--
+ERROR: GROUP BY GROUPING SETS is not supported in anonymization queries [at 3:14]
+    GROUP BY GROUPING SETS(int64, double);
              ^
 ==
 
@@ -7275,11 +6945,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [language_features=ANONYMIZATION,JSON_TYPE]
@@ -7335,11 +7000,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [language_features=ANONYMIZATION,JSON_TYPE]
@@ -7399,11 +7059,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [language_features=ANONYMIZATION]
@@ -7463,11 +7118,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
-}
 ==
 
 [language_features=ANONYMIZATION,JSON_TYPE]
@@ -7525,11 +7175,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [language_features=ANONYMIZATION]
@@ -7589,11 +7234,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
-}
 ==
 
 [language_features=ANONYMIZATION]
@@ -7649,11 +7289,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [language_features=ANONYMIZATION,JSON_TYPE]
@@ -7709,11 +7344,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [language_features=ANONYMIZATION,JSON_TYPE]
@@ -7773,11 +7403,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 [language_features=ANONYMIZATION]
@@ -7837,11 +7462,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
-}
 ==
 
 [language_features=ANONYMIZATION]
@@ -7893,11 +7513,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION,JSON_TYPE]
@@ -7949,11 +7564,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION,JSON_TYPE]
@@ -8010,11 +7620,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION]
@@ -8071,11 +7676,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -8268,11 +7868,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
-}
 ==
 
 # Specify custom WITH ANONYMIZATION option
@@ -8331,11 +7926,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
         +-anonymization_option_list=
           +-custom_option := Literal(type=STRING, value="option_value")
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [no_run_unparser]
@@ -8394,11 +7984,6 @@ QueryStmt
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
-}
-
 ==
 
 # SELECT WITH custom identifier should return an error
@@ -8426,3 +8011,660 @@ select with anonymization count(*);
 ERROR: Unexpected keyword WITH [at 1:8]
 select with anonymization count(*);
        ^
+==
+
+# Regresssion: b/282900415, expression Subqueries in select list
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+SELECT WITH ANONYMIZATION
+  int32,
+  (SELECT a FROM UNNEST([STRUCT(1 AS a), STRUCT(2)]) AS e),
+  ANON_SUM(int64)
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY 1, 2
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.int32#16 AS int32 [INT32]
+| +-$groupby.$col2#17 AS `$col2` [INT64]
+| +-$aggregate.$agg1#15 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-163
+    +-column_list=[$groupby.int32#16, $groupby.$col2#17, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.int32#16, $groupby.$col2#17, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(parse_location=118-149, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-int32#16 := ColumnRef(parse_location=28-33, type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        | +-$col2#17 :=
+        |   +-SubqueryExpr
+        |     +-parse_location=38-92
+        |     +-type=INT64
+        |     +-subquery_type=SCALAR
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-parse_location=38-92
+        |         +-column_list=[$expr_subquery.a#14]
+        |         +-expr_list=
+        |         | +-a#14 :=
+        |         |   +-GetStructField
+        |         |     +-parse_location=45-46
+        |         |     +-type=INT64
+        |         |     +-expr=
+        |         |     | +-ColumnRef(type=STRUCT<a INT64>, column=$array.e#13)
+        |         |     +-field_idx=0
+        |         +-input_scan=
+        |           +-ArrayScan
+        |             +-column_list=[$array.e#13]
+        |             +-array_expr=
+        |             | +-Literal(parse_location=59-86, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
+        |             +-element_column=$array.e#13
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+              +-parse_location=97-105
+              +-ColumnRef(parse_location=106-111, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+[REPLACED_LITERALS]
+SELECT WITH ANONYMIZATION
+  int32,
+  (SELECT a FROM UNNEST(@_p0_ARRAY) AS e),
+  ANON_SUM(int64)
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY 1, 2
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.int32#16 AS int32 [INT32]
+| +-$groupby.$col2#17 AS `$col2` [INT64]
+| +-$aggregate.$agg1#15 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-163
+    +-column_list=[$groupby.int32#16, $groupby.$col2#17, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.int32#16, $groupby.$col2#17, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#20, $groupby.int32_partial#21, $groupby.$col2_partial#22, $group_by.$uid#23]
+        |   +-input_scan=
+        |   | +-TableScan(parse_location=118-149, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uid#18], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 10])
+        |   +-group_by_list=
+        |   | +-int32_partial#21 := ColumnRef(parse_location=28-33, type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        |   | +-$col2_partial#22 :=
+        |   | | +-SubqueryExpr
+        |   | |   +-parse_location=38-92
+        |   | |   +-type=INT64
+        |   | |   +-subquery_type=SCALAR
+        |   | |   +-subquery=
+        |   | |     +-ProjectScan
+        |   | |       +-parse_location=38-92
+        |   | |       +-column_list=[$expr_subquery.a#14]
+        |   | |       +-expr_list=
+        |   | |       | +-a#14 :=
+        |   | |       |   +-GetStructField
+        |   | |       |     +-parse_location=45-46
+        |   | |       |     +-type=INT64
+        |   | |       |     +-expr=
+        |   | |       |     | +-ColumnRef(type=STRUCT<a INT64>, column=$array.e#13)
+        |   | |       |     +-field_idx=0
+        |   | |       +-input_scan=
+        |   | |         +-ArrayScan
+        |   | |           +-column_list=[$array.e#13]
+        |   | |           +-array_expr=
+        |   | |           | +-Literal(parse_location=59-86, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
+        |   | |           +-element_column=$array.e#13
+        |   | +-$uid#23 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#18)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#20 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(parse_location=106-111, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-group_by_list=
+        | +-int32#16 := ColumnRef(type=INT32, column=$groupby.int32_partial#21)
+        | +-$col2#17 := ColumnRef(type=INT64, column=$groupby.$col2_partial#22)
+        +-aggregate_list=
+        | +-$agg1#15 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#20)
+        | +-$k_threshold_col#26 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#26)
+==
+
+# Regresssion: b/282900415, expression Subqueries in group by list
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+SELECT WITH ANONYMIZATION
+  int32,
+  (SELECT a FROM UNNEST([STRUCT(1 AS a), STRUCT(2)]) AS e) as x,
+  ANON_SUM(int64)
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY 1, (SELECT a FROM UNNEST([STRUCT(1 AS a), STRUCT(2)]) AS e)
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.int32#16 AS int32 [INT32]
+| +-$query.x#22 AS x [INT64]
+| +-$aggregate.$agg1#15 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-223
+    +-column_list=[$groupby.int32#16, $query.x#22, $aggregate.$agg1#15]
+    +-expr_list=
+    | +-x#22 :=
+    |   +-SubqueryExpr
+    |     +-parse_location=38-92
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-parse_location=38-92
+    |         +-column_list=[$expr_subquery.a#21]
+    |         +-expr_list=
+    |         | +-a#21 :=
+    |         |   +-GetStructField
+    |         |     +-parse_location=45-46
+    |         |     +-type=INT64
+    |         |     +-expr=
+    |         |     | +-ColumnRef(type=STRUCT<a INT64>, column=$array.e#20)
+    |         |     +-field_idx=0
+    |         +-input_scan=
+    |           +-ArrayScan
+    |             +-column_list=[$array.e#20]
+    |             +-array_expr=
+    |             | +-Literal(parse_location=59-86, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
+    |             +-element_column=$array.e#20
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.int32#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(parse_location=123-154, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-int32#16 := ColumnRef(parse_location=28-33, type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        | +-$groupbycol2#19 :=
+        |   +-SubqueryExpr
+        |     +-parse_location=168-222
+        |     +-type=INT64
+        |     +-subquery_type=SCALAR
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-parse_location=168-222
+        |         +-column_list=[$expr_subquery.a#18]
+        |         +-expr_list=
+        |         | +-a#18 :=
+        |         |   +-GetStructField
+        |         |     +-parse_location=175-176
+        |         |     +-type=INT64
+        |         |     +-expr=
+        |         |     | +-ColumnRef(type=STRUCT<a INT64>, column=$array.e#17)
+        |         |     +-field_idx=0
+        |         +-input_scan=
+        |           +-ArrayScan
+        |             +-column_list=[$array.e#17]
+        |             +-array_expr=
+        |             | +-Literal(parse_location=189-216, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
+        |             +-element_column=$array.e#17
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+              +-parse_location=102-110
+              +-ColumnRef(parse_location=111-116, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+[REPLACED_LITERALS]
+SELECT WITH ANONYMIZATION
+  int32,
+  (SELECT a FROM UNNEST(@_p0_ARRAY) AS e) as x,
+  ANON_SUM(int64)
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY 1, (SELECT a FROM UNNEST(@_p1_ARRAY) AS e)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.int32#16 AS int32 [INT32]
+| +-$query.x#22 AS x [INT64]
+| +-$aggregate.$agg1#15 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-223
+    +-column_list=[$groupby.int32#16, $query.x#22, $aggregate.$agg1#15]
+    +-expr_list=
+    | +-x#22 :=
+    |   +-SubqueryExpr
+    |     +-parse_location=38-92
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-parse_location=38-92
+    |         +-column_list=[$expr_subquery.a#21]
+    |         +-expr_list=
+    |         | +-a#21 :=
+    |         |   +-GetStructField
+    |         |     +-parse_location=45-46
+    |         |     +-type=INT64
+    |         |     +-expr=
+    |         |     | +-ColumnRef(type=STRUCT<a INT64>, column=$array.e#20)
+    |         |     +-field_idx=0
+    |         +-input_scan=
+    |           +-ArrayScan
+    |             +-column_list=[$array.e#20]
+    |             +-array_expr=
+    |             | +-Literal(parse_location=59-86, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
+    |             +-element_column=$array.e#20
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.int32#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#25, $groupby.int32_partial#26, $groupby.$groupbycol2_partial#27, $group_by.$uid#28]
+        |   +-input_scan=
+        |   | +-TableScan(parse_location=123-154, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 10])
+        |   +-group_by_list=
+        |   | +-int32_partial#26 := ColumnRef(parse_location=28-33, type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        |   | +-$groupbycol2_partial#27 :=
+        |   | | +-SubqueryExpr
+        |   | |   +-parse_location=168-222
+        |   | |   +-type=INT64
+        |   | |   +-subquery_type=SCALAR
+        |   | |   +-subquery=
+        |   | |     +-ProjectScan
+        |   | |       +-parse_location=168-222
+        |   | |       +-column_list=[$expr_subquery.a#18]
+        |   | |       +-expr_list=
+        |   | |       | +-a#18 :=
+        |   | |       |   +-GetStructField
+        |   | |       |     +-parse_location=175-176
+        |   | |       |     +-type=INT64
+        |   | |       |     +-expr=
+        |   | |       |     | +-ColumnRef(type=STRUCT<a INT64>, column=$array.e#17)
+        |   | |       |     +-field_idx=0
+        |   | |       +-input_scan=
+        |   | |         +-ArrayScan
+        |   | |           +-column_list=[$array.e#17]
+        |   | |           +-array_expr=
+        |   | |           | +-Literal(parse_location=189-216, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
+        |   | |           +-element_column=$array.e#17
+        |   | +-$uid#28 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#25 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(parse_location=111-116, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-group_by_list=
+        | +-int32#16 := ColumnRef(type=INT32, column=$groupby.int32_partial#26)
+        | +-$groupbycol2#19 := ColumnRef(type=INT64, column=$groupby.$groupbycol2_partial#27)
+        +-aggregate_list=
+        | +-$agg1#15 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#25)
+        | +-$k_threshold_col#31 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#31)
+==
+
+# Regresssion: b/282900415, non-subquery select expr in select list
+# Disable array_filter rewrite due to b/290669074
+[language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[enabled_ast_rewrites=NONE,+ANONYMIZATION]
+SELECT WITH ANONYMIZATION
+  int32,
+  ARRAY_TO_STRING(ARRAY_FILTER(['a', 'b', 'c'], e -> e = 'x'), ','),
+  ANON_SUM(int64)
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY 1, 2
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.int32#15 AS int32 [INT32]
+| +-$groupby.$col2#16 AS `$col2` [STRING]
+| +-$aggregate.$agg1#14 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.int32#15, $groupby.$col2#16, $aggregate.$agg1#14]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.int32#15, $groupby.$col2#16, $aggregate.$agg1#14]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-int32#15 := ColumnRef(type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        | +-$col2#16 :=
+        |   +-FunctionCall(ZetaSQL:array_to_string(ARRAY<STRING>, STRING, optional(0) STRING) -> STRING)
+        |     +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, FUNCTION<STRING->BOOL> condition) -> ARRAY<STRING>)
+        |     | +-FunctionArgument
+        |     | | +-expr=
+        |     | |   +-Literal(type=ARRAY<STRING>, value=["a", "b", "c"])
+        |     | +-FunctionArgument
+        |     |   +-inline_lambda=
+        |     |     +-InlineLambda
+        |     |       +-argument_list=[$lambda_arg.e#13]
+        |     |       +-body=
+        |     |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |     |           +-ColumnRef(type=STRING, column=$lambda_arg.e#13)
+        |     |           +-Literal(type=STRING, value="x")
+        |     +-Literal(type=STRING, value=",")
+        +-aggregate_list=
+          +-$agg1#14 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.int32#15 AS int32 [INT32]
+| +-$groupby.$col2#16 AS `$col2` [STRING]
+| +-$aggregate.$agg1#14 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.int32#15, $groupby.$col2#16, $aggregate.$agg1#14]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.int32#15, $groupby.$col2#16, $aggregate.$agg1#14]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#19, $groupby.int32_partial#20, $groupby.$col2_partial#21, $group_by.$uid#22]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uid#17], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 10])
+        |   +-group_by_list=
+        |   | +-int32_partial#20 := ColumnRef(type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        |   | +-$col2_partial#21 :=
+        |   | | +-FunctionCall(ZetaSQL:array_to_string(ARRAY<STRING>, STRING, optional(0) STRING) -> STRING)
+        |   | |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, FUNCTION<STRING->BOOL> condition) -> ARRAY<STRING>)
+        |   | |   | +-FunctionArgument
+        |   | |   | | +-expr=
+        |   | |   | |   +-Literal(type=ARRAY<STRING>, value=["a", "b", "c"])
+        |   | |   | +-FunctionArgument
+        |   | |   |   +-inline_lambda=
+        |   | |   |     +-InlineLambda
+        |   | |   |       +-argument_list=[$lambda_arg.e#13]
+        |   | |   |       +-body=
+        |   | |   |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   | |   |           +-ColumnRef(type=STRING, column=$lambda_arg.e#13)
+        |   | |   |           +-Literal(type=STRING, value="x")
+        |   | |   +-Literal(type=STRING, value=",")
+        |   | +-$uid#22 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#17)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#19 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-group_by_list=
+        | +-int32#15 := ColumnRef(type=INT32, column=$groupby.int32_partial#20)
+        | +-$col2#16 := ColumnRef(type=STRING, column=$groupby.$col2_partial#21)
+        +-aggregate_list=
+        | +-$agg1#14 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#19)
+        | +-$k_threshold_col#25 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
+==
+
+# Regresssion: b/282900415, non-subquery, not selected, select expr in select list
+# Disable array_filter rewrite due to b/290669074
+[language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[enabled_ast_rewrites=NONE,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+SELECT WITH ANONYMIZATION
+  s,
+  ARRAY_FILTER(SPLIT(s), e -> e = 'x'),
+  ANON_SUM(int64)
+FROM (SELECT *, 'a,b,c' as s
+      FROM SimpleTypesWithAnonymizationUid)
+GROUP BY 1
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.s#16 AS s [STRING]
+| +-$query.$col2#18 AS `$col2` [ARRAY<STRING>]
+| +-$aggregate.$agg1#15 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-172
+    +-column_list=[$groupby.s#16, $query.$col2#18, $aggregate.$agg1#15]
+    +-expr_list=
+    | +-$col2#18 :=
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, FUNCTION<STRING->BOOL> condition) -> ARRAY<STRING>)
+    |     +-parse_location=33-45
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:split(STRING, optional(0) STRING) -> ARRAY<STRING>)
+    |     |     +-parse_location=46-51
+    |     |     +-ColumnRef(parse_location=52-53, type=STRING, column=$groupby.s#16)
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#17]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |               +-ColumnRef(parse_location=61-62, type=STRING, column=$lambda_arg.e#17)
+    |               +-Literal(parse_location=65-68, type=STRING, value="x")
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.s#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-parse_location=95-160
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#1, SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.uint32#3, SimpleTypesWithAnonymizationUid.uint64#4, SimpleTypesWithAnonymizationUid.string#5, SimpleTypesWithAnonymizationUid.bytes#6, SimpleTypesWithAnonymizationUid.bool#7, SimpleTypesWithAnonymizationUid.float#8, SimpleTypesWithAnonymizationUid.double#9, SimpleTypesWithAnonymizationUid.date#10, SimpleTypesWithAnonymizationUid.uid#11, SimpleTypesWithAnonymizationUid.numeric#12, $subquery1.s#13]
+        |   +-expr_list=
+        |   | +-s#13 := Literal(parse_location=105-112, type=STRING, value="a,b,c")
+        |   +-input_scan=
+        |     +-TableScan(parse_location=129-160, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        +-group_by_list=
+        | +-s#16 := ColumnRef(parse_location=28-29, type=STRING, column=$subquery1.s#13)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+              +-parse_location=73-81
+              +-ColumnRef(parse_location=82-87, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+[REPLACED_LITERALS]
+SELECT WITH ANONYMIZATION
+  s,
+  ARRAY_FILTER(SPLIT(s), e -> e = @_p0_STRING),
+  ANON_SUM(int64)
+FROM (SELECT *, @_p1_STRING as s
+      FROM SimpleTypesWithAnonymizationUid)
+GROUP BY 1
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.s#16 AS s [STRING]
+| +-$query.$col2#18 AS `$col2` [ARRAY<STRING>]
+| +-$aggregate.$agg1#15 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-172
+    +-column_list=[$groupby.s#16, $query.$col2#18, $aggregate.$agg1#15]
+    +-expr_list=
+    | +-$col2#18 :=
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, FUNCTION<STRING->BOOL> condition) -> ARRAY<STRING>)
+    |     +-parse_location=33-45
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:split(STRING, optional(0) STRING) -> ARRAY<STRING>)
+    |     |     +-parse_location=46-51
+    |     |     +-ColumnRef(parse_location=52-53, type=STRING, column=$groupby.s#16)
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#17]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |               +-ColumnRef(parse_location=61-62, type=STRING, column=$lambda_arg.e#17)
+    |               +-Literal(parse_location=65-68, type=STRING, value="x")
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.s#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#20, $groupby.s_partial#21, $group_by.$uid#22]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-parse_location=95-160
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#1, SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.uint32#3, SimpleTypesWithAnonymizationUid.uint64#4, SimpleTypesWithAnonymizationUid.string#5, SimpleTypesWithAnonymizationUid.bytes#6, SimpleTypesWithAnonymizationUid.bool#7, SimpleTypesWithAnonymizationUid.float#8, SimpleTypesWithAnonymizationUid.double#9, SimpleTypesWithAnonymizationUid.date#10, SimpleTypesWithAnonymizationUid.uid#11, SimpleTypesWithAnonymizationUid.numeric#12, $subquery1.s#13]
+        |   |   +-expr_list=
+        |   |   | +-s#13 := Literal(parse_location=105-112, type=STRING, value="a,b,c")
+        |   |   +-input_scan=
+        |   |     +-TableScan(parse_location=129-160, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        |   +-group_by_list=
+        |   | +-s_partial#21 := ColumnRef(parse_location=28-29, type=STRING, column=$subquery1.s#13)
+        |   | +-$uid#22 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#20 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(parse_location=82-87, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-group_by_list=
+        | +-s#16 := ColumnRef(type=STRING, column=$groupby.s_partial#21)
+        +-aggregate_list=
+        | +-$agg1#15 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#20)
+        | +-$k_threshold_col#25 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
+==
+
+# Regresssion: b/282900415, expression Subqueries not in group by list
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+SELECT WITH ANONYMIZATION
+  int32,
+  (SELECT a FROM UNNEST([STRUCT(1 AS a), STRUCT(2)]) AS e),
+  ANON_SUM(int64)
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY 1
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.int32#16 AS int32 [INT32]
+| +-$query.$col2#19 AS `$col2` [INT64]
+| +-$aggregate.$agg1#15 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-160
+    +-column_list=[$groupby.int32#16, $query.$col2#19, $aggregate.$agg1#15]
+    +-expr_list=
+    | +-$col2#19 :=
+    |   +-SubqueryExpr
+    |     +-parse_location=38-92
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-parse_location=38-92
+    |         +-column_list=[$expr_subquery.a#18]
+    |         +-expr_list=
+    |         | +-a#18 :=
+    |         |   +-GetStructField
+    |         |     +-parse_location=45-46
+    |         |     +-type=INT64
+    |         |     +-expr=
+    |         |     | +-ColumnRef(type=STRUCT<a INT64>, column=$array.e#17)
+    |         |     +-field_idx=0
+    |         +-input_scan=
+    |           +-ArrayScan
+    |             +-column_list=[$array.e#17]
+    |             +-array_expr=
+    |             | +-Literal(parse_location=59-86, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
+    |             +-element_column=$array.e#17
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.int32#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(parse_location=118-149, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-int32#16 := ColumnRef(parse_location=28-33, type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+              +-parse_location=97-105
+              +-ColumnRef(parse_location=106-111, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+[REPLACED_LITERALS]
+SELECT WITH ANONYMIZATION
+  int32,
+  (SELECT a FROM UNNEST(@_p0_ARRAY) AS e),
+  ANON_SUM(int64)
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY 1
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.int32#16 AS int32 [INT32]
+| +-$query.$col2#19 AS `$col2` [INT64]
+| +-$aggregate.$agg1#15 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-160
+    +-column_list=[$groupby.int32#16, $query.$col2#19, $aggregate.$agg1#15]
+    +-expr_list=
+    | +-$col2#19 :=
+    |   +-SubqueryExpr
+    |     +-parse_location=38-92
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-parse_location=38-92
+    |         +-column_list=[$expr_subquery.a#18]
+    |         +-expr_list=
+    |         | +-a#18 :=
+    |         |   +-GetStructField
+    |         |     +-parse_location=45-46
+    |         |     +-type=INT64
+    |         |     +-expr=
+    |         |     | +-ColumnRef(type=STRUCT<a INT64>, column=$array.e#17)
+    |         |     +-field_idx=0
+    |         +-input_scan=
+    |           +-ArrayScan
+    |             +-column_list=[$array.e#17]
+    |             +-array_expr=
+    |             | +-Literal(parse_location=59-86, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
+    |             +-element_column=$array.e#17
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.int32#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#22, $groupby.int32_partial#23, $group_by.$uid#24]
+        |   +-input_scan=
+        |   | +-TableScan(parse_location=118-149, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uid#20], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 10])
+        |   +-group_by_list=
+        |   | +-int32_partial#23 := ColumnRef(parse_location=28-33, type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        |   | +-$uid#24 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#20)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#22 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(parse_location=106-111, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-group_by_list=
+        | +-int32#16 := ColumnRef(type=INT32, column=$groupby.int32_partial#23)
+        +-aggregate_list=
+        | +-$agg1#15 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#22)
+        | +-$k_threshold_col#27 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#27)

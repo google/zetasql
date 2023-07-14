@@ -30,7 +30,6 @@
 
 #include "zetasql/analyzer/expr_matching_helpers.h"
 #include "zetasql/analyzer/name_scope.h"
-#include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
@@ -496,17 +495,10 @@ class QueryResolutionInfo {
            group_by_info_.has_aggregation;
   }
 
-  // TODO: Replace this method to HasGroupByGroupingSets, the
-  // deprecation will affect the error message and should be done separately.
-  // Returns whether or not the query includes a GROUP BY ROLLUP.
-  bool HasGroupByRollup() const {
-    for (const GroupingSetInfo& grouping_set :
-         group_by_info_.grouping_set_list) {
-      if (grouping_set.kind == GroupingSetKind::kRollup) {
-        return true;
-      }
-    }
-    return false;
+  // Returns whether or not the query includes a GROUP BY ROLLUP, GROUP BY CUBE,
+  // or GROUP BY GROUPING SETS.
+  bool HasGroupByGroupingSets() const {
+    return !group_by_info_.grouping_set_list.empty();
   }
 
   // Returns whether or not the query includes analytic functions.

@@ -40,6 +40,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -1148,8 +1149,7 @@ static absl::StatusOr<bool> IsRawFieldExtraction(
   // value of this node is not null.
   return !type_with_annotations->Equals(node->type()) ||
          (node->type()->IsSimpleType() &&
-          node->expr()->type()->AsProto()->descriptor()->file()->syntax() !=
-              google::protobuf::FileDescriptor::SYNTAX_PROTO3 &&
+          node->field_descriptor()->has_presence() &&
           !ProtoType::GetUseDefaultsExtension(node->field_descriptor()) &&
           node->default_value().is_valid() && !node->default_value().is_null());
 }
@@ -1576,10 +1576,12 @@ absl::Status SQLBuilder::AppendColumnSchema(
       absl::StrAppend(text, ">");
     } else {
       if (annotations != nullptr && !annotations->type_parameters().IsEmpty()) {
-        ZETASQL_ASSIGN_OR_RETURN(std::string typename_with_parameters,
-                         type->TypeNameWithParameters(
-                             annotations->type_parameters(),
-                             options_.language_options.product_mode()));
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::string typename_with_parameters,
+            type->TypeNameWithModifiers(
+                TypeModifiers::MakeTypeModifiers(annotations->type_parameters(),
+                                                 zetasql::Collation()),
+                options_.language_options.product_mode()));
         absl::StrAppend(text, typename_with_parameters);
       } else {
         absl::StrAppend(
@@ -3545,10 +3547,18 @@ absl::Status SQLBuilder::VisitResolvedAggregationThresholdAggregateScan(
   std::unique_ptr<QueryExpression> query_expression(
       input_result->query_expression.release());
 
-  ZETASQL_RETURN_IF_ERROR(ProcessAggregateScanBase(node, /*grouping_set_ids_list=*/{},
-                                           /*rollup_column_id_list=*/{},
-                                           /*grouping_column_id_map=*/{},
-                                           query_expression.get()));
+  std::vector<int> rollup_column_id_list;
+  std::vector<GroupingSetIds> grouping_set_ids_list;
+  ZETASQL_RETURN_IF_ERROR(ConvertGroupSetIdList(
+      node->grouping_set_list(), node->rollup_column_list(),
+      rollup_column_id_list, grouping_set_ids_list));
+
+  absl::flat_hash_map<int, int> grouping_column_id_map =
+      CreateGroupingColumnIdMap(node->grouping_call_list());
+
+  ZETASQL_RETURN_IF_ERROR(ProcessAggregateScanBase(
+      node, grouping_set_ids_list, rollup_column_id_list,
+      grouping_column_id_map, query_expression.get()));
 
   // We handle the WITH AGGREGATION_THRESHOLD clause *after* processing the
   // AggregateScan, because the AggregateScan might introduce a new

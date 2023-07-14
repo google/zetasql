@@ -57,6 +57,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_FIRST_AND_LAST_N);
       features.insert(FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL);
       features.insert(FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS);
+      features.insert(FEATURE_V_1_4_PI_FUNCTIONS);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are

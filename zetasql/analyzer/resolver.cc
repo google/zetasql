@@ -1345,6 +1345,9 @@ absl::Status Resolver::ResolveType(
       return absl::OkStatus();
     }
 
+    case AST_FUNCTION_TYPE: {
+      return MakeSqlErrorAt(type) << "FUNCTION type not supported";
+    }
     default:
       break;
   }

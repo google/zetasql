@@ -231,6 +231,7 @@ absl::StatusOr<std::unique_ptr<AnnotationMap>> Collation::ToAnnotationMap(
   std::unique_ptr<AnnotationMap> annotation_map = AnnotationMap::Create(type);
   ZETASQL_RETURN_IF_ERROR(
       SetCollationAnnotationsOfEmptyAnnotationMap(*this, *annotation_map));
+  annotation_map->Normalize();
   return std::move(annotation_map);
 }
 

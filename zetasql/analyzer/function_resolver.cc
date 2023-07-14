@@ -225,6 +225,7 @@ absl::StatusOr<bool> FunctionResolver::SignatureMatches(
     const NameScope* name_scope,
     std::unique_ptr<FunctionSignature>* result_signature,
     SignatureMatchResult* signature_match_result,
+    std::vector<ArgIndexEntry>* arg_index_mapping,
     std::vector<FunctionArgumentOverride>* arg_overrides) const {
   ResolveLambdaCallback lambda_resolve_callback =
       [resolver = this->resolver_, name_scope](
@@ -241,7 +242,7 @@ absl::StatusOr<bool> FunctionResolver::SignatureMatches(
       resolver_->language(), coercer(), arg_ast_nodes, input_arguments,
       signature, allow_argument_coercion, type_factory_,
       &lambda_resolve_callback, result_signature, signature_match_result,
-      arg_overrides);
+      arg_index_mapping, arg_overrides);
 }
 
 // Get the parse location from a ResolvedNode, if it has one stored in it.
@@ -318,14 +319,15 @@ absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
   return absl::OkStatus();
 }
 
-absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
+absl::StatusOr<std::string>
+FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     absl::string_view function_name, const FunctionSignature& signature,
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
     const std::vector<NamedArgumentInfo>& named_arguments,
     int num_repeated_args_repetitions,
     bool always_include_omitted_named_arguments_in_index_mapping,
-    std::vector<FunctionResolver::ArgIndexPair>* index_mapping) const {
+    std::vector<ArgIndexEntry>* index_mapping) const {
   // Make sure the language feature is enabled.
   if (!named_arguments.empty() &&
       !resolver_->language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
@@ -382,19 +384,37 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     }
     // Make sure the provided argument name exists in the function signature.
     if (!argument_names_from_signature_options.contains(provided_arg_name)) {
-      return named_argument.MakeSQLError()
-             << "Named argument " << provided_arg_name
-             << " not found in signature for call to function "
-             << function_name;
+      if (resolver_->analyzer_options()
+              .show_function_signature_mismatch_details()) {
+        return absl::StrCat("Named argument ",
+                            ToAlwaysQuotedIdentifierLiteral(provided_arg_name),
+                            " does not exist in signature");
+      } else {
+        return named_argument.MakeSQLError()
+               << "Named argument "
+               << ToAlwaysQuotedIdentifierLiteral(provided_arg_name)
+               << " not found in signature for call to function "
+               << function_name;
+      }
     }
     // Make sure the argument name is allowed in function calls.
     const FunctionArgumentTypeOptions* argument_options =
         argument_names_from_signature_options[provided_arg_name];
     ZETASQL_RET_CHECK(argument_options != nullptr);
     if (argument_options->named_argument_kind() == kPositionalOnly) {
-      return named_argument.MakeSQLError()
-             << "Argument " << provided_arg_name << " must by supplied by "
-             << "position, not by name, for call to function " << function_name;
+      if (resolver_->analyzer_options()
+              .show_function_signature_mismatch_details()) {
+        return absl::StrCat("Argument ",
+                            ToAlwaysQuotedIdentifierLiteral(provided_arg_name),
+                            " must by supplied by position, not by name");
+      } else {
+        return named_argument.MakeSQLError()
+               << "Argument "
+               << ToAlwaysQuotedIdentifierLiteral(provided_arg_name)
+               << " must by supplied by "
+               << "position, not by name, for call to function "
+               << function_name;
+      }
     }
     // Keep track of the first and last named argument index.
     first_named_arg_index_in_call =
@@ -422,13 +442,14 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
   int first_repeated = signature.FirstRepeatedArgumentIndex();
   int last_repeated = signature.LastRepeatedArgumentIndex();
 
-  for (int i = 0; i < signature.arguments().size(); ++i) {
-    const FunctionArgumentType& arg_type = signature.arguments()[i];
+  for (int sig_index = 0; sig_index < signature.arguments().size();
+       ++sig_index) {
+    const FunctionArgumentType& arg_type = signature.arguments()[sig_index];
     const std::string& signature_arg_name =
         arg_type.options().has_argument_name()
             ? arg_type.options().argument_name()
             : "";
-    const int* index =
+    const int* named_argument_call_index =
         signature_arg_name.empty()
             ? nullptr
             : zetasql_base::FindOrNull(argument_names_to_indexes, signature_arg_name);
@@ -440,74 +461,110 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       // Make sure that the function signature does not specify an optional name
       // for this positional argument that also appears later as a named
       // argument in the function call.
-      if (!signature_arg_name.empty() && index != nullptr) {
-        return MakeSqlErrorAt(arg_locations.at(*index))
-               << "Named argument " << signature_arg_name << " is invalid "
-               << "because this call to function " << function_name
-               << " also includes a positional argument corresponding to the "
-               << "same name in the function signature";
+      if (!signature_arg_name.empty() && named_argument_call_index != nullptr) {
+        if (resolver_->analyzer_options()
+                .show_function_signature_mismatch_details()) {
+          return absl::StrCat(
+              "Named argument ",
+              ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
+              " duplicates positional argument ", call_arg_index + 1,
+              ", which also provides ",
+              ToAlwaysQuotedIdentifierLiteral(signature_arg_name));
+        } else {
+          return MakeSqlErrorAt(arg_locations.at(*named_argument_call_index))
+                 << "Named argument "
+                 << ToAlwaysQuotedIdentifierLiteral(signature_arg_name)
+                 << " duplicates positional argument " << call_arg_index + 1
+                 << ", which also provides "
+                 << ToAlwaysQuotedIdentifierLiteral(signature_arg_name);
+        }
       }
       // Make sure that the function signature does not specify an argument
       // name positionally when the options require that it must be named.
       if (!signature_arg_name.empty() &&
           arg_type.options().named_argument_kind() == kNamedOnly) {
-        return MakeSqlErrorAt(arg_locations.at(call_arg_index))
-               << "Positional argument is invalid because this function "
-               << "restricts that this argument is referred to by name \""
-               << signature_arg_name << "\" only";
+        if (resolver_->analyzer_options()
+                .show_function_signature_mismatch_details()) {
+          return absl::StrCat(
+              "Positional argument at ", call_arg_index + 1,
+              " is invalid because argument ",
+              ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
+              " can only be referred to by name");
+        } else {
+          return MakeSqlErrorAt(arg_locations.at(call_arg_index))
+                 << "Positional argument is invalid because this function "
+                 << "restricts that this argument is referred to by name \""
+                 << signature_arg_name << "\" only";
+        }
       }
 
       // Skip the repeated part if we run into it but the repetition is zero.
-      if (num_repeated_args_repetitions == 0 && i >= first_repeated &&
-          i <= last_repeated) {
-        i = last_repeated;
+      if (num_repeated_args_repetitions == 0 && sig_index >= first_repeated &&
+          sig_index <= last_repeated) {
+        sig_index = last_repeated;
         continue;
       }
 
       if (call_arg_index < num_provided_args) {
-        index_mapping->push_back(
-            {.signature_arg_index = i, .call_arg_index = call_arg_index++});
-      } else if (i <= last_arg_index_with_default ||
+        index_mapping->push_back({.signature_arg_index = sig_index,
+                                  .call_arg_index = call_arg_index++});
+      } else if (sig_index <= last_arg_index_with_default ||
                  (always_include_omitted_named_arguments_in_index_mapping &&
-                  i <= last_named_arg_index)) {
+                  sig_index <= last_named_arg_index)) {
         // If the current argument was omitted but it or an argument after it
         // has a default value in function signature, then add an entry to the
         // index_mapping.
         index_mapping->push_back(
-            {.signature_arg_index = i, .call_arg_index = -1});
+            {.signature_arg_index = sig_index, .call_arg_index = -1});
       }
 
-      if (i == last_repeated) {
+      if (sig_index == last_repeated) {
         --num_repeated_args_repetitions;
         if (num_repeated_args_repetitions > 0) {
-          i = first_repeated - 1;
+          sig_index = first_repeated - 1;
         }
       }
 
       continue;
     }
-
     // Lookup the required argument name from the map of provided named
     // arguments. If not found, return an error reporting the missing required
     // argument name.
-    if (index == nullptr) {
+    if (named_argument_call_index == nullptr) {
+      if (num_repeated_args_repetitions != 0 && arg_type.repeated()) {
+        return MakeSqlErrorAt(ast_location)
+               << "Call to function " << function_name
+               << " is missing repeated arguments.";
+      }
       if (arg_type.required()) {
-        return !signature_arg_name.empty()
-                   ? MakeSqlErrorAt(ast_location)
-                         << "Call to function " << function_name
-                         << " does not include the required named argument '"
-                         << signature_arg_name << "'"
-                   : MakeSqlErrorAt(ast_location)
-                         << "Call to function " << function_name << " does not "
-                         << "include required positional argument number "
-                         << (i + 1);
+        if (resolver_->analyzer_options()
+                .show_function_signature_mismatch_details()) {
+          return !signature_arg_name.empty()
+                     ? absl::StrCat(
+                           "Required named argument ",
+                           ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
+                           " is not provided")
+                     : absl::StrCat("Required positional argument number ",
+                                    (sig_index + 1), " is not provided");
+        } else {
+          return !signature_arg_name.empty()
+                     ? MakeSqlErrorAt(ast_location)
+                           << "Call to function " << function_name
+                           << " does not include the required named argument '"
+                           << signature_arg_name << "'"
+                     : MakeSqlErrorAt(ast_location)
+                           << "Call to function " << function_name
+                           << " does not include required positional argument "
+                           << "number " << (sig_index + 1);
+        }
       }
 
       if (arg_type.optional() &&
           (always_include_omitted_named_arguments_in_index_mapping ||
-           !named_arguments.empty() || i <= last_arg_index_with_default)) {
+           !named_arguments.empty() ||
+           sig_index <= last_arg_index_with_default)) {
         index_mapping->push_back(
-            {.signature_arg_index = i, .call_arg_index = -1});
+            {.signature_arg_index = sig_index, .call_arg_index = -1});
       }
       continue;
     }
@@ -518,25 +575,25 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
         << "argument " << signature_arg_name << " referring to a repeated "
         << "argument type, which is not supported";
 
-    ZETASQL_RET_CHECK_LT(*index, num_provided_args);
+    ZETASQL_RET_CHECK_LT(*named_argument_call_index, num_provided_args);
 
-    index_mapping->push_back(
-        {.signature_arg_index = i, .call_arg_index = *index});
+    index_mapping->push_back({.signature_arg_index = sig_index,
+                              .call_arg_index = *named_argument_call_index});
   }
-  return absl::OkStatus();
+  return "";
 }
 
 // static
 absl::Status FunctionResolver::
     ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
         const FunctionSignature& signature,
-        absl::Span<const ArgIndexPair> index_mapping,
+        absl::Span<const ArgIndexEntry> index_mapping,
         std::vector<InputArgumentType>* input_argument_types) {
   std::vector<InputArgumentType> orig_input_argument_types =
       std::move(*input_argument_types);
   input_argument_types->clear();
 
-  for (const ArgIndexPair& p : index_mapping) {
+  for (const ArgIndexEntry& p : index_mapping) {
     if (p.call_arg_index >= 0) {
       input_argument_types->emplace_back(
           std::move(orig_input_argument_types[p.call_arg_index]));
@@ -586,7 +643,7 @@ MakeResolvedLiteralForInjectedArgument(const InputArgumentType& input_arg_type,
 // static
 absl::Status FunctionResolver::ReorderArgumentExpressionsPerIndexMapping(
     absl::string_view function_name, const FunctionSignature& signature,
-    absl::Span<const ArgIndexPair> index_mapping, const ASTNode* ast_location,
+    absl::Span<const ArgIndexEntry> index_mapping, const ASTNode* ast_location,
     const std::vector<InputArgumentType>& input_argument_types,
     std::vector<const ASTNode*>* arg_locations,
     std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_args,
@@ -610,7 +667,7 @@ absl::Status FunctionResolver::ReorderArgumentExpressionsPerIndexMapping(
   }
 
   for (int i = 0; i < index_mapping.size(); ++i) {
-    const ArgIndexPair& aip = index_mapping[i];
+    const ArgIndexEntry& aip = index_mapping[i];
     if (aip.call_arg_index >= 0) {
       if (arg_locations != nullptr) {
         arg_locations->emplace_back(orig_arg_locations[aip.call_arg_index]);
@@ -624,9 +681,9 @@ absl::Status FunctionResolver::ReorderArgumentExpressionsPerIndexMapping(
             std::move(orig_resolved_tvf_args[aip.call_arg_index]));
       }
     } else {
-      ZETASQL_RET_CHECK_LE(0, aip.signature_arg_index);
+      ZETASQL_RET_CHECK_LE(0, aip.concrete_signature_arg_index);
       const FunctionArgumentType& arg_type =
-          signature.arguments()[aip.signature_arg_index];
+          signature.arguments()[aip.concrete_signature_arg_index];
       const InputArgumentType& input_arg_type = input_argument_types[i];
 
       ZETASQL_RET_CHECK(arg_type.optional());
@@ -779,7 +836,7 @@ FunctionResolver::FindMatchingSignature(
     const NameScope* name_scope,
     std::vector<InputArgumentType>* input_arguments,
     std::vector<FunctionArgumentOverride>* arg_overrides,
-    std::vector<ArgIndexPair>* arg_index_mapping,
+    std::vector<ArgIndexEntry>* arg_index_mapping_out,
     std::vector<std::string>* mismatch_errors) const {
   std::unique_ptr<FunctionSignature> best_result_signature;
   SignatureMatchResult best_result;
@@ -811,9 +868,13 @@ FunctionResolver::FindMatchingSignature(
       }
       continue;
     }
+    SignatureMatchResult signature_match_result;
+    signature_match_result.set_allow_mismatch_message(mismatch_errors !=
+                                                      nullptr);
     if (!SignatureArgumentCountMatches(signature, num_provided_args,
-                                       &repetitions, &optionals)) {
-      if (num_signatures == 1) {
+                                       &repetitions, &optionals,
+                                       &signature_match_result)) {
+      if (num_signatures == 1 && mismatch_errors == nullptr) {
         // TODO: Given that we support optional arguments with
         // defaults, an error message that says the 'number of function
         // arguments does not match' is not very informative. It may be better
@@ -830,53 +891,66 @@ FunctionResolver::FindMatchingSignature(
         return MakeSqlErrorAt(ast_location) << error_message;
       }
       if (mismatch_errors != nullptr) {
-        mismatch_errors->push_back(
-            absl::StrCat("Number of arguments does not match"));
+        ZETASQL_RET_CHECK(!signature_match_result.mismatch_message().empty());
+        mismatch_errors->push_back(signature_match_result.mismatch_message());
       }
       continue;
     }
 
-    std::vector<ArgIndexPair> index_mapping;
-    absl::Status status = GetFunctionArgumentIndexMappingPerSignature(
-        function->FullName(), signature, ast_location, arg_locations_in,
-        named_arguments, repetitions,
-        /*always_include_omitted_named_arguments_in_index_mapping=*/true,
-        &index_mapping);
-    if (!status.ok()) {
-      // If <status> was not ok then the given signature is not a match.
-      // If there are additional signatures then we will proceed to the next
-      // one. Otherwise, we return <status> which has more detailed information
-      // about why the signature did not match (rather than return a more
-      // generic error later).
-      if (num_signatures == 1) {
-        return status;
-      } else {
-        if (mismatch_errors != nullptr) {
-          mismatch_errors->push_back(std::string(status.message()));
+    std::vector<ArgIndexEntry> arg_index_mapping;
+    absl::StatusOr<std::string> mismatch_message_or =
+        GetFunctionArgumentIndexMappingPerSignature(
+            function->FullName(), signature, ast_location, arg_locations_in,
+            named_arguments, repetitions,
+            /*always_include_omitted_named_arguments_in_index_mapping=*/true,
+            &arg_index_mapping);
+    // NOTE: Some errors means the call will match no signature providing the
+    // same named argument twice) while others means this signature mismatches
+    // (for example providing unknown argument name for a signature). This is
+    // better handled below when show_function_signature_mismatch_details is
+    // enabled.
+    if (!resolver_->analyzer_options()
+             .show_function_signature_mismatch_details()) {
+      if (!mismatch_message_or.ok()) {
+        // If <status> was not ok then the given signature is not a match.
+        // If there are additional signatures then we will proceed to the next
+        // one. Otherwise, we return <status> which has more detailed
+        // information about why the signature did not match (rather than return
+        // a more generic error later).
+        if (num_signatures == 1) {
+          return mismatch_message_or.status();
+        } else {
+          continue;
         }
+      }
+    } else {
+      // Error means the call can never match any signature.
+      if (!mismatch_message_or.ok()) {
+        return mismatch_message_or.status();
+      }
+      // Record the mismatch message when it's set.
+      if (!mismatch_message_or.value().empty()) {
+        mismatch_errors->push_back(mismatch_message_or.value());
         continue;
       }
     }
 
     std::vector<InputArgumentType> input_arguments_copy =
         original_input_arguments;
-    if (!index_mapping.empty()) {
+    if (!arg_index_mapping.empty()) {
       ZETASQL_RETURN_IF_ERROR(
           ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
-              signature, index_mapping, &input_arguments_copy));
+              signature, arg_index_mapping, &input_arguments_copy));
     }
 
     std::unique_ptr<FunctionSignature> result_concrete_signature;
-    SignatureMatchResult signature_match_result;
-    signature_match_result.set_allow_mismatch_message(mismatch_errors !=
-                                                      nullptr);
     std::vector<FunctionArgumentOverride> sig_arg_overrides;
     ZETASQL_ASSIGN_OR_RETURN(
         const bool is_match,
         SignatureMatches(arg_locations_in, input_arguments_copy, signature,
                          function->ArgumentsAreCoercible(), name_scope,
                          &result_concrete_signature, &signature_match_result,
-                         &sig_arg_overrides));
+                         &arg_index_mapping, &sig_arg_overrides));
     if (!is_match) {
       if (mismatch_errors != nullptr) {
         mismatch_errors->push_back(signature_match_result.mismatch_message());
@@ -941,7 +1015,7 @@ FunctionResolver::FindMatchingSignature(
           seen_matched_signature_with_lambda || !sig_arg_overrides.empty();
       best_result_arg_overrides = std::move(sig_arg_overrides);
       *input_arguments = std::move(input_arguments_copy);
-      *arg_index_mapping = std::move(index_mapping);
+      *arg_index_mapping_out = std::move(arg_index_mapping);
     } else {
       ZETASQL_VLOG(4) << "Found duplicate signature matches for function: "
               << function->DebugString() << "\nGiven input arguments: "
@@ -1549,7 +1623,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
 
   std::unique_ptr<const FunctionSignature> result_signature;
   std::vector<FunctionArgumentOverride> arg_overrides;
-  std::vector<ArgIndexPair> arg_reorder_index_mapping;
+  std::vector<ArgIndexEntry> arg_reorder_index_mapping;
   bool show_mismatch_details =
       resolver_->analyzer_options().show_function_signature_mismatch_details();
   auto mismatch_errors = show_mismatch_details

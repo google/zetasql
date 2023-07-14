@@ -54,11 +54,6 @@ InsertStmt
 |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#32)
 +-query_output_column_list=[$aggregate.anon_count#25]
 +-column_access_list=WRITE
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#26], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 INSERT INTO SimpleTypesWithAnonymizationUid (int64)
@@ -115,11 +110,6 @@ InsertStmt
 |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#32)
 +-query_output_column_list=[$aggregate.anon_count#25]
 +-column_access_list=WRITE
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#26], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 UPDATE SimpleTypesWithAnonymizationUid
@@ -242,14 +232,6 @@ UpdateStmt
                     |     +-Literal(type=INT64, value=1)
                     +-k_threshold_expr=
                       +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#52)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#39], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-},
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#46], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 DELETE FROM SimpleTypesWithAnonymizationUid
@@ -314,11 +296,6 @@ DeleteStmt
               |     +-Literal(type=INT64, value=1)
               +-k_threshold_expr=
                 +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#32)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#26], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Anonymization in the USING clause of MERGE
@@ -447,14 +424,6 @@ MergeStmt
                         |     +-Literal(type=INT64, value=1)
                         +-k_threshold_expr=
                           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#52)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#39], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-},
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#46], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Count (*) counting unique users.
@@ -516,9 +485,3 @@ InsertStmt
 |         +-ColumnRef(type=INT64, column=$aggregate.anon_count#25)
 +-query_output_column_list=[$aggregate.anon_count#25]
 +-column_access_list=WRITE
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#26], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
-==

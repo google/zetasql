@@ -89,6 +89,7 @@ TEST(CollationTest, Creation) {
         bool equals_collation_annotation,
         collation.EqualsCollationAnnotation(to_annotation_map.get()));
     EXPECT_TRUE(equals_collation_annotation);
+    EXPECT_TRUE(to_annotation_map->IsNormalized());
   }
   {
     std::unique_ptr<AnnotationMap> annotation_map =
@@ -117,6 +118,7 @@ TEST(CollationTest, Creation) {
         bool equals_collation_annotation,
         collation.EqualsCollationAnnotation(to_annotation_map.get()));
     EXPECT_TRUE(equals_collation_annotation);
+    EXPECT_TRUE(to_annotation_map->IsNormalized());
   }
   {
     // Test empty nested annotation map.
@@ -145,6 +147,7 @@ TEST(CollationTest, Creation) {
         bool equals_collation_annotation,
         collation.EqualsCollationAnnotation(to_annotation_map.get()));
     EXPECT_TRUE(equals_collation_annotation);
+    EXPECT_TRUE(to_annotation_map->IsNormalized());
   }
   {
     // Test struct with the first field having collation.
@@ -184,6 +187,7 @@ TEST(CollationTest, Creation) {
         bool equals_collation_annotation,
         collation.EqualsCollationAnnotation(to_annotation_map.get()));
     EXPECT_TRUE(equals_collation_annotation);
+    EXPECT_TRUE(to_annotation_map->IsNormalized());
   }
 
   {
@@ -232,6 +236,7 @@ TEST(CollationTest, Creation) {
         bool equals_collation_annotation,
         collation.EqualsCollationAnnotation(to_annotation_map.get()));
     EXPECT_TRUE(equals_collation_annotation);
+    EXPECT_TRUE(to_annotation_map->IsNormalized());
   }
   {
     // Test creating collation with empty child list.

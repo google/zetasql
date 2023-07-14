@@ -9,7 +9,7 @@
 # Simple function name.
 # TODO: Enable Java support.
 [default no_java]
-[default language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES]
+[default language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY]
 [default no_run_deserializer]
 [default test_extract_table_names]
 create table function myfunc (  )
@@ -2652,11 +2652,9 @@ CreateTableFunctionStmt(name_path=f, argument_name_list=[t], signature=(ANY TYPE
 # This is tvf_templated_select_int64_arg_with_name_ambiguity in the sample
 # catalog. It illustrates the effect of letting scalar argument names hide
 # column names on the resolution of non-template TVF definitions.
-[language_features={{CREATE_TABLE_FUNCTION|CREATE_TABLE_FUNCTION,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES}}]
+[language_features=CREATE_TABLE_FUNCTION]
 CREATE TABLE FUNCTION f(x INT64)
 AS SELECT x FROM (SELECT -99 AS x)
---
-ALTERNATION GROUP: CREATE_TABLE_FUNCTION
 --
 CreateTableFunctionStmt
 +-name_path=f
@@ -2676,29 +2674,6 @@ CreateTableFunctionStmt
 |         +-SingleRowScan
 +-output_column_list=
   +-$subquery1.x#1 AS x [INT64]
---
-ALTERNATION GROUP: CREATE_TABLE_FUNCTION,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES
---
-CreateTableFunctionStmt
-+-name_path=f
-+-argument_name_list=[x]
-+-signature=(INT64 x) -> TABLE<x INT64>
-+-language="SQL"
-+-code="SELECT x FROM (SELECT -99 AS x)"
-+-query=
-| +-ProjectScan
-|   +-column_list=[$query.x#2]
-|   +-expr_list=
-|   | +-x#2 := ArgumentRef(type=INT64, name="x")
-|   +-input_scan=
-|     +-ProjectScan
-|       +-column_list=[$subquery1.x#1]
-|       +-expr_list=
-|       | +-x#1 := Literal(type=INT64, value=-99)
-|       +-input_scan=
-|         +-SingleRowScan
-+-output_column_list=
-  +-$query.x#2 AS x [INT64]
 
 ==
 
@@ -2706,7 +2681,7 @@ CreateTableFunctionStmt
 # the catalog or a table argument. The name resolves to the argument.
 # TODO: Fix the table name extraction for this case.
 [no_test_extract_table_names]
-[language_features={{TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION|TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES}}]
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
 CREATE TABLE FUNCTION foo_tvf(KeyValue TABLE<Key INT64, Value INT64>) AS
 SELECT count(*) AS count_star
 FROM KeyValue;
@@ -2732,18 +2707,14 @@ CreateTableFunctionStmt
 ==
 
 # This is very similar to the above except that instead of scanning KeyValue
-# directly it provides TABLE KeyValue as an argument to another TVF. With the
-# feature FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES enabled, this resolves to
-# the relation argument and is consistent with the case above, otehrwise it
-# resolves to the catalog.
+# directly it provides TABLE KeyValue as an argument to another TVF. This
+# should resolve to the catalog table, not the input resolves to the catalog.
 # TODO: Fix the table name extraction for this case.
 [no_test_extract_table_names]
-[language_features={{TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION|TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES}}]
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
 CREATE TABLE FUNCTION foo_tvf(KeyValue TABLE<Key INT64, Value INT64>) AS
 SELECT count(*) AS count_star
 FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue);
---
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION
 --
 CreateTableFunctionStmt
 +-name_path=foo_tvf
@@ -2765,34 +2736,6 @@ CreateTableFunctionStmt
 |       |     +-FunctionArgument
 |       |       +-scan=
 |       |       | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-|       |       +-argument_column_list=KeyValue.[Key#1, Value#2]
-|       +-aggregate_list=
-|         +-count_star#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
-+-output_column_list=
-  +-$aggregate.count_star#5 AS count_star [INT64]
---
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES
---
-CreateTableFunctionStmt
-+-name_path=foo_tvf
-+-argument_name_list=[KeyValue]
-+-signature=(TABLE<Key INT64, Value INT64> KeyValue) -> TABLE<count_star INT64>
-+-language="SQL"
-+-code="SELECT count(*) AS count_star\nFROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue)"
-+-query=
-| +-ProjectScan
-|   +-column_list=[$aggregate.count_star#5]
-|   +-input_scan=
-|     +-AggregateScan
-|       +-column_list=[$aggregate.count_star#5]
-|       +-input_scan=
-|       | +-TVFScan
-|       |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-|       |   +-signature=(TABLE<Key INT64, Value INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-|       |   +-argument_list=
-|       |     +-FunctionArgument
-|       |       +-scan=
-|       |       | +-RelationArgumentScan(column_list=KeyValue.[Key#1, Value#2], name="KeyValue")
 |       |       +-argument_column_list=KeyValue.[Key#1, Value#2]
 |       +-aggregate_list=
 |         +-count_star#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)

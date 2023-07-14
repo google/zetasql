@@ -23,7 +23,6 @@
 #include <memory>
 #include <set>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -31,6 +30,7 @@
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"
@@ -39,6 +39,8 @@
 #include "absl/base/attributes.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {
@@ -287,6 +289,14 @@ class AnalyzerOptions {
   void set_language(const LanguageOptions& options) {
     data_->language_options = options;
   }
+
+  // Gets the rewrite options, which will be referenced by individual resolved
+  // ast rewriters.
+  const RewriteOptions& get_rewrite_options() const {
+    return data_->rewrite_options;
+  }
+
+  RewriteOptions* mutable_rewrite_options() { return &data_->rewrite_options; }
 
   // Allows updating the set of enabled AST rewrites.
   // By default rewrites in DefaultResolvedASTRewrites() are enabled.
@@ -951,6 +961,9 @@ class AnalyzerOptions {
 
     FieldsAccessedMode fields_accessed_mode =
         FieldsAccessedMode::LEGACY_FIELDS_ACCESSED_MODE;
+
+    // These options determine the behaviors of rewrites.
+    RewriteOptions rewrite_options;
   };
   std::unique_ptr<Data> data_;
 

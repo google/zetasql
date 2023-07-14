@@ -1,3 +1,5 @@
+[default also_show_signature_mismatch_details]
+
 select approx_count_distinct(key), approx_quantiles(key, 100) from KeyValue
 --
 QueryStmt
@@ -423,6 +425,14 @@ select approx_quantiles(key, @test_param_string) from KeyValue
 ERROR: No matching signature for aggregate function APPROX_QUANTILES for argument types: INT64, STRING. Supported signature: APPROX_QUANTILES(ANY, INT64) [at 1:8]
 select approx_quantiles(key, @test_param_string) from KeyValue
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function APPROX_QUANTILES
+  Argument types: INT64, STRING
+  Signature: APPROX_QUANTILES(T1, INT64)
+    Argument 2: Unable to coerce type STRING to expected type INT64 [at 1:8]
+select approx_quantiles(key, @test_param_string) from KeyValue
+       ^
 ==
 
 select approx_quantiles() from KeyValue
@@ -430,11 +440,26 @@ select approx_quantiles() from KeyValue
 ERROR: Number of arguments does not match for aggregate function APPROX_QUANTILES. Supported signature: APPROX_QUANTILES(ANY, INT64) [at 1:8]
 select approx_quantiles() from KeyValue
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function APPROX_QUANTILES with no arguments
+  Signature: APPROX_QUANTILES(T1, INT64)
+    Signature requires at least 2 arguments, found 0 arguments [at 1:8]
+select approx_quantiles() from KeyValue
+       ^
 ==
 
 select approx_quantiles(key) from KeyValue
 --
 ERROR: Number of arguments does not match for aggregate function APPROX_QUANTILES. Supported signature: APPROX_QUANTILES(ANY, INT64) [at 1:8]
+select approx_quantiles(key) from KeyValue
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function APPROX_QUANTILES
+  Argument types: INT64
+  Signature: APPROX_QUANTILES(T1, INT64)
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
 select approx_quantiles(key) from KeyValue
        ^
 ==
@@ -512,6 +537,14 @@ select approx_top_count(string, 'abc') from SimpleTypes
 ERROR: No matching signature for aggregate function APPROX_TOP_COUNT for argument types: STRING, STRING. Supported signature: APPROX_TOP_COUNT(ANY, INT64) [at 1:8]
 select approx_top_count(string, 'abc') from SimpleTypes
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function APPROX_TOP_COUNT
+  Argument types: STRING, STRING
+  Signature: APPROX_TOP_COUNT(T1, INT64)
+    Argument 2: Unable to coerce type STRING to expected type INT64 [at 1:8]
+select approx_top_count(string, 'abc') from SimpleTypes
+       ^
 ==
 
 select approx_top_count(string) from SimpleTypes
@@ -519,11 +552,26 @@ select approx_top_count(string) from SimpleTypes
 ERROR: Number of arguments does not match for aggregate function APPROX_TOP_COUNT. Supported signature: APPROX_TOP_COUNT(ANY, INT64) [at 1:8]
 select approx_top_count(string) from SimpleTypes
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function APPROX_TOP_COUNT
+  Argument types: STRING
+  Signature: APPROX_TOP_COUNT(T1, INT64)
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
+select approx_top_count(string) from SimpleTypes
+       ^
 ==
 
 select approx_top_count() from SimpleTypes
 --
 ERROR: Number of arguments does not match for aggregate function APPROX_TOP_COUNT. Supported signature: APPROX_TOP_COUNT(ANY, INT64) [at 1:8]
+select approx_top_count() from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function APPROX_TOP_COUNT with no arguments
+  Signature: APPROX_TOP_COUNT(T1, INT64)
+    Signature requires at least 2 arguments, found 0 arguments [at 1:8]
 select approx_top_count() from SimpleTypes
        ^
 ==
@@ -531,6 +579,14 @@ select approx_top_count() from SimpleTypes
 select approx_top_count(string, 10, 11) from SimpleTypes
 --
 ERROR: Number of arguments does not match for aggregate function APPROX_TOP_COUNT. Supported signature: APPROX_TOP_COUNT(ANY, INT64) [at 1:8]
+select approx_top_count(string, 10, 11) from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function APPROX_TOP_COUNT
+  Argument types: STRING, INT64, INT64
+  Signature: APPROX_TOP_COUNT(T1, INT64)
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
 select approx_top_count(string, 10, 11) from SimpleTypes
        ^
 ==
@@ -999,6 +1055,18 @@ select approx_top_sum(key, 'abc', 10) from TestTable
 ERROR: No matching signature for aggregate function APPROX_TOP_SUM for argument types: INT32, STRING, INT64. Supported signatures: APPROX_TOP_SUM(ANY, INT64, INT64); APPROX_TOP_SUM(ANY, UINT64, INT64); APPROX_TOP_SUM(ANY, DOUBLE, INT64) [at 1:8]
 select approx_top_sum(key, 'abc', 10) from TestTable
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function APPROX_TOP_SUM
+  Argument types: INT32, STRING, INT64
+  Signature: APPROX_TOP_SUM(T1, INT64, INT64)
+    Argument 2: Unable to coerce type STRING to expected type INT64
+  Signature: APPROX_TOP_SUM(T1, UINT64, INT64)
+    Argument 2: Unable to coerce type STRING to expected type UINT64
+  Signature: APPROX_TOP_SUM(T1, DOUBLE, INT64)
+    Argument 2: Unable to coerce type STRING to expected type DOUBLE [at 1:8]
+select approx_top_sum(key, 'abc', 10) from TestTable
+       ^
 ==
 
 select approx_top_sum(key, cast(5 as int32), 10) from TestTable
@@ -1330,6 +1398,20 @@ select hll_count.init(@test_param_proto) from SimpleTypes
 ERROR: No matching signature for aggregate function HLL_COUNT.INIT for argument types: zetasql_test__.KitchenSinkPB. Supported signatures: HLL_COUNT.INIT(INT64, [INT64]); HLL_COUNT.INIT(UINT64, [INT64]); HLL_COUNT.INIT(STRING, [INT64]); HLL_COUNT.INIT(BYTES, [INT64]) [at 1:8]
 select hll_count.init(@test_param_proto) from SimpleTypes
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function HLL_COUNT.INIT
+  Argument types: zetasql_test__.KitchenSinkPB
+  Signature: HLL_COUNT.INIT(INT64, [INT64])
+    Argument 1: Unable to coerce type zetasql_test__.KitchenSinkPB to expected type INT64
+  Signature: HLL_COUNT.INIT(UINT64, [INT64])
+    Argument 1: Unable to coerce type zetasql_test__.KitchenSinkPB to expected type UINT64
+  Signature: HLL_COUNT.INIT(STRING, [INT64])
+    Argument 1: Unable to coerce type zetasql_test__.KitchenSinkPB to expected type STRING
+  Signature: HLL_COUNT.INIT(BYTES, [INT64])
+    Argument 1: Unable to coerce type zetasql_test__.KitchenSinkPB to expected type BYTES [at 1:8]
+select hll_count.init(@test_param_proto) from SimpleTypes
+       ^
 ==
 
 select hll_count.merge_partial(@test_param_bytes) from SimpleTypes
@@ -1472,6 +1554,20 @@ select d3a_count.init(TRUE, @test_param_int64, @test_param_int64) from SimpleTyp
 ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: BOOL, INT64, INT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
 select d3a_count.init(TRUE, @test_param_int64, @test_param_int64) from Simple...
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT
+  Argument types: BOOL, INT64, INT64
+  Signature: D3A_COUNT.INIT(INT64, INT64, [INT64])
+    Argument 1: Unable to coerce type BOOL to expected type INT64
+  Signature: D3A_COUNT.INIT(UINT64, INT64, [INT64])
+    Argument 1: Unable to coerce type BOOL to expected type UINT64
+  Signature: D3A_COUNT.INIT(STRING, INT64, [INT64])
+    Argument 1: Unable to coerce type BOOL to expected type STRING
+  Signature: D3A_COUNT.INIT(BYTES, INT64, [INT64])
+    Argument 1: Unable to coerce type BOOL to expected type BYTES [at 1:8]
+select d3a_count.init(TRUE, @test_param_int64, @test_param_int64) from Simple...
+       ^
 ==
 
 select d3a_count.init(NULL, @test_param_int64, @test_param_int64) from SimpleTypes
@@ -1540,6 +1636,20 @@ QueryStmt
 select d3a_count.init(@test_param_int64, "ABC", @test_param_int64) from SimpleTypes
 --
 ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: INT64, STRING, INT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
+select d3a_count.init(@test_param_int64, "ABC", @test_param_int64) from Simpl...
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT
+  Argument types: INT64, STRING, INT64
+  Signature: D3A_COUNT.INIT(INT64, INT64, [INT64])
+    Argument 2: Unable to coerce type STRING to expected type INT64
+  Signature: D3A_COUNT.INIT(UINT64, INT64, [INT64])
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: D3A_COUNT.INIT(STRING, INT64, [INT64])
+    Argument 1: Unable to coerce type INT64 to expected type STRING
+  Signature: D3A_COUNT.INIT(BYTES, INT64, [INT64])
+    Argument 1: Unable to coerce type INT64 to expected type BYTES [at 1:8]
 select d3a_count.init(@test_param_int64, "ABC", @test_param_int64) from Simpl...
        ^
 ==
@@ -1640,6 +1750,20 @@ select d3a_count.init(@test_param_uint64, @test_param_uint64) from SimpleTypes
 ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: UINT64, UINT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
 select d3a_count.init(@test_param_uint64, @test_param_uint64) from SimpleTypes
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT
+  Argument types: UINT64, UINT64
+  Signature: D3A_COUNT.INIT(INT64, INT64, [INT64])
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: D3A_COUNT.INIT(UINT64, INT64, [INT64])
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: D3A_COUNT.INIT(STRING, INT64, [INT64])
+    Argument 1: Unable to coerce type UINT64 to expected type STRING
+  Signature: D3A_COUNT.INIT(BYTES, INT64, [INT64])
+    Argument 1: Unable to coerce type UINT64 to expected type BYTES [at 1:8]
+select d3a_count.init(@test_param_uint64, @test_param_uint64) from SimpleTypes
+       ^
 ==
 
 select d3a_count.init(@test_param_uint64, @test_param_int64) from SimpleTypes
@@ -1730,6 +1854,20 @@ QueryStmt
 select d3a_count.init(@test_param_proto, @test_param_int64) from SimpleTypes
 --
 ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: zetasql_test__.KitchenSinkPB, INT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
+select d3a_count.init(@test_param_proto, @test_param_int64) from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT
+  Argument types: zetasql_test__.KitchenSinkPB, INT64
+  Signature: D3A_COUNT.INIT(INT64, INT64, [INT64])
+    Argument 1: Unable to coerce type zetasql_test__.KitchenSinkPB to expected type INT64
+  Signature: D3A_COUNT.INIT(UINT64, INT64, [INT64])
+    Argument 1: Unable to coerce type zetasql_test__.KitchenSinkPB to expected type UINT64
+  Signature: D3A_COUNT.INIT(STRING, INT64, [INT64])
+    Argument 1: Unable to coerce type zetasql_test__.KitchenSinkPB to expected type STRING
+  Signature: D3A_COUNT.INIT(BYTES, INT64, [INT64])
+    Argument 1: Unable to coerce type zetasql_test__.KitchenSinkPB to expected type BYTES [at 1:8]
 select d3a_count.init(@test_param_proto, @test_param_int64) from SimpleTypes
        ^
 ==
@@ -1968,6 +2106,14 @@ select kll_quantiles.init_int64(@test_param_bytes) from SimpleTypes
 ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_INT64 for argument types: BYTES. Supported signature: KLL_QUANTILES.INIT_INT64(INT64, [INT64]) [at 1:8]
 select kll_quantiles.init_int64(@test_param_bytes) from SimpleTypes
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_INT64
+  Argument types: BYTES
+  Signature: KLL_QUANTILES.INIT_INT64(INT64, [INT64])
+    Argument 1: Unable to coerce type BYTES to expected type INT64 [at 1:8]
+select kll_quantiles.init_int64(@test_param_bytes) from SimpleTypes
+       ^
 ==
 
 select kll_quantiles.merge_partial(@test_param_bytes) from SimpleTypes
@@ -2052,6 +2198,14 @@ QueryStmt
 select kll_quantiles.merge_int64(@test_param_bytes) from SimpleTypes
 --
 ERROR: Number of arguments does not match for aggregate function KLL_QUANTILES.MERGE_INT64. Supported signature: KLL_QUANTILES.MERGE_INT64(BYTES, INT64) [at 1:8]
+select kll_quantiles.merge_int64(@test_param_bytes) from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function KLL_QUANTILES.MERGE_INT64
+  Argument types: BYTES
+  Signature: KLL_QUANTILES.MERGE_INT64(BYTES, INT64)
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
 select kll_quantiles.merge_int64(@test_param_bytes) from SimpleTypes
        ^
 ==
@@ -2462,11 +2616,27 @@ ERROR: Number of arguments does not match for aggregate function KLL_QUANTILES.I
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
+  Argument types: UINT64, INT64, INT64
+  Signature: KLL_QUANTILES.INIT_UINT64(UINT64, [INT64])
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
+select kll_quantiles.init_uint64(@test_param_uint64, 100,
+       ^
+--
 ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "weight" only [at 2:34]
                                  IF(@test_param_uint64 > 5, 2, 1))
                                  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
+  Argument types: UINT64, INT64, INT64
+  Signature: KLL_QUANTILES.INIT_UINT64(UINT64, [INT64], [weight => INT64])
+    Positional argument at 3 is invalid because argument `weight` can only be referred to by name [at 1:8]
+select kll_quantiles.init_uint64(@test_param_uint64, 100,
+       ^
 ==
 
 [language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS}}]
@@ -2479,6 +2649,14 @@ ALTERNATION GROUPS:
     NAMED_ARGUMENTS
 --
 ERROR: Number of arguments does not match for aggregate function KLL_QUANTILES.INIT_UINT64. Supported signature: KLL_QUANTILES.INIT_UINT64(UINT64, [INT64]) [at 1:8]
+select kll_quantiles.init_uint64(@test_param_uint64, 100,
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
+  Argument types: UINT64, INT64, weight => INT64
+  Signature: KLL_QUANTILES.INIT_UINT64(UINT64, [INT64])
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
        ^
 --
@@ -2522,9 +2700,17 @@ ERROR: Named arguments are not supported [at 2:34]
 --
 ALTERNATION GROUP: NAMED_ARGUMENTS
 --
-ERROR: Named argument weight not found in signature for call to function ZetaSQL:kll_quantiles.init_uint64 [at 2:34]
+ERROR: Named argument `weight` not found in signature for call to function ZetaSQL:kll_quantiles.init_uint64 [at 2:34]
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
                                  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
+  Argument types: UINT64, weight => INT64
+  Signature: KLL_QUANTILES.INIT_UINT64(UINT64, [INT64])
+    Named argument `weight` does not exist in signature [at 1:8]
+select kll_quantiles.init_uint64(@test_param_uint64,
+       ^
 --
 ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --

@@ -65,6 +65,13 @@ class TupleComparator {
   bool IsUniquelyOrdered(absl::Span<const TupleData* const> tuples,
                          absl::Span<const int> slot_idxs_for_values) const;
 
+  // Returns true if any of the comparisons between individual values required
+  // to determine `IsUniquelyOrdered` involve comparing arrays with uncertain
+  // orders (if order_kind = kIgnoresOrder). Requires that IsUniquelyOrdered
+  // is already true.
+  bool InvolvesUncertainArrayComparisons(
+      absl::Span<const TupleData* const> tuples) const;
+
   const std::vector<const KeyArg*>& keys() const { return keys_; }
 
  private:

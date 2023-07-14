@@ -411,3 +411,28 @@ cc_library(
         "//zetasql/resolved_ast:rewrite_utils",
     ],
 )
+
+cc_library(
+    name = "grouping_set_rewriter",
+    srcs = ["grouping_set_rewriter.cc"],
+    hdrs = ["grouping_set_rewriter.h"],
+    deps = [
+        "//zetasql/base:check",
+        "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output_properties",
+        "//zetasql/public:catalog",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:rewriter_interface",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_ast_builder",
+        "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)

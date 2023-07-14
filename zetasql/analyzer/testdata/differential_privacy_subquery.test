@@ -354,11 +354,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#38)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#32], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Specify WITH DIFFERENTIAL_PRIVACY with an EXISTS subquery, and there is no 'uid' in
@@ -438,11 +433,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#22)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # One query pattern encountered by an F1 user is (see b/180509852 for more
@@ -616,11 +606,6 @@ QueryStmt
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$aggregate.weight#6)
         +-is_descending=TRUE
-
-[TableScan Groups]
-{
-  TableScan(column_list=ArrayWithAnonymizationUid.[int64_array#1, uid#3], table=ArrayWithAnonymizationUid, column_index_list=[0, 2], alias="t")
-}
 ==
 
 # Specify WITH DIFFERENTIAL_PRIVACY with an EXISTS subquery, and there is no 'uid'
@@ -947,11 +932,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#56)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=68-99, column_list=[SimpleTypesWithAnonymizationUid.uid#50], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Nested expression subqueries. uid -> uid -> uid
@@ -1123,11 +1103,6 @@ QueryStmt
                     |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
                     +-group_selection_threshold_expr=
                       +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#38)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=102-133, column_list=SimpleTypesWithAnonymizationUid.[int64#20, uid#32], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # Differential privacy node in an expression subquery of another differential
@@ -1355,8 +1330,3 @@ QueryStmt
             |         +-group_selection_threshold_expr=
             |           +-ColumnRef(type=INT64, column=$aggregate.count1#25)
             +-Literal(type=INT64, value=0)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#27], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}

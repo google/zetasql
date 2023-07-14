@@ -20,9 +20,9 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/common/options_utils.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/testing/test_case_options_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/struct_type.h"
@@ -30,7 +30,6 @@
 #include "absl/strings/str_split.h"
 #include "absl/types/span.h"
 #include "file_based_test_driver/test_case_options.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -69,7 +68,7 @@ const char* const kProductMode = "product_mode";
 const char* const kUseHintsAllowlist = "use_hints_allowlist";
 const char* const kRunInJava = "java";
 const char* const kSupportedStatementKinds = "supported_statement_kinds";
-const char* const kUseCatalog = "use_catalog";
+const char* const kUseDatabase = "use_database";
 const char* const kRunDeserializer = "run_deserializer";
 const char* const kEnableLiteralReplacement = "enable_literal_replacement";
 const char* const kErrorMessageMode = "error_message_mode";
@@ -87,7 +86,7 @@ const char* const kPreserveUnnecessaryCast = "preserve_unnecessary_cast";
 const char* const kEnableSampleAnnotation = "enable_sample_annotation";
 const char* const kAdditionalAllowedAnonymizationOptions =
     "additional_allowed_anonymization_options";
-const char* const kSuppressBuiltinFunctions = "suppress_builtin_functions";
+const char* const kSuppressFunctions = "suppress_functions";
 const char* const kOptionNamesToIgnoreInLiteralReplacement =
     "option_names_to_ignore_in_literal_replacement";
 const char* const kScrubLimitOffsetInLiteralReplacement =
@@ -98,6 +97,7 @@ const char* const kAlsoShowSignatureMismatchDetails =
 const char* const kIdStringAllowUnicodeCharacters =
     "zetasql_idstring_allow_unicode_characters";
 const char* const kDisallowDuplicateOptions = "disallow_duplicate_options";
+const char* const kRewriteOptions = "rewrite_options";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -136,7 +136,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kUseHintsAllowlist, false);
   test_case_options->RegisterBool(kRunInJava, true);
   test_case_options->RegisterString(kSupportedStatementKinds, "");
-  test_case_options->RegisterString(kUseCatalog, "SampleCatalog");
+  test_case_options->RegisterString(kUseDatabase, "SampleCatalog");
   test_case_options->RegisterBool(kRunDeserializer, true);
   test_case_options->RegisterBool(kEnableLiteralReplacement, true);
   test_case_options->RegisterString(kErrorMessageMode, "");
@@ -149,7 +149,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kPrivilegeRestrictionTableNotScanned, false);
   test_case_options->RegisterBool(kPreserveUnnecessaryCast, false);
   test_case_options->RegisterString(kAdditionalAllowedAnonymizationOptions, "");
-  test_case_options->RegisterString(kSuppressBuiltinFunctions, "");
+  test_case_options->RegisterString(kSuppressFunctions, "");
   test_case_options->RegisterString(kOptionNamesToIgnoreInLiteralReplacement,
                                     "");
   test_case_options->RegisterBool(kScrubLimitOffsetInLiteralReplacement, true);
@@ -157,6 +157,8 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kAlsoShowSignatureMismatchDetails, false);
   test_case_options->RegisterBool(kIdStringAllowUnicodeCharacters, false);
   test_case_options->RegisterBool(kDisallowDuplicateOptions, false);
+  test_case_options->RegisterString(
+      kRewriteOptions, RewriteOptions::default_instance().DebugString());
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(

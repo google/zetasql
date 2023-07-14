@@ -55,7 +55,7 @@ statement.
       <td>&nbsp;</td>
       <td>Array subscript operator</td>
       <td><code>ARRAY</code></td>
-      <td>Array position. Must be used with <coce>OFFSET</code> or <code>ORDINAL</code>&mdash;see
+      <td>Array position. Must be used with <code>OFFSET</code> or <code>ORDINAL</code>&mdash;see
       <a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md">Array Functions</a>
 
 .</td>
@@ -2469,7 +2469,7 @@ The concatenation operator combines multiple values into one.
 <tr>
   <td><code>BYTES || BYTES [ || ... ]</code></td>
   <td><code>BYTES</code></td>
-  <td><code>STRING</code></td>
+  <td><code>BYTES</code></td>
 </tr>
 <tr>
   <td><code>ARRAY&#60;T&#62; || ARRAY&#60;T&#62; [ || ... ]</code></td>

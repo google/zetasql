@@ -20,10 +20,13 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/function.h"
 #include "zetasql/public/parse_resume_location.h"
+#include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -64,17 +67,19 @@ class ResolvedExpr;
 // signatures (differing number and/or names of arguments).
 class SQLFunctionInterface : public Function {
  public:
-  SQLFunctionInterface(
-      const std::string& name, const std::string& group, Mode mode,
-      const std::vector<FunctionSignature>& function_signatures,
-      const FunctionOptions& function_options)
-      : Function(name, group, mode, function_signatures, function_options) {}
-  SQLFunctionInterface(
-      const std::vector<std::string>& name_path, const std::string& group,
-      Mode mode, const std::vector<FunctionSignature>& function_signatures,
-      const FunctionOptions& function_options)
-      : Function(name_path, group, mode, function_signatures,
-                 function_options) {}
+  SQLFunctionInterface(absl::string_view name, absl::string_view group,
+                       Mode mode,
+                       std::vector<FunctionSignature> function_signatures,
+                       FunctionOptions function_options)
+      : Function(name, group, mode, std::move(function_signatures),
+                 std::move(function_options)) {}
+
+  SQLFunctionInterface(std::vector<std::string> name_path,
+                       absl::string_view group, Mode mode,
+                       std::vector<FunctionSignature> function_signatures,
+                       FunctionOptions function_options)
+      : Function(std::move(name_path), group, mode,
+                 std::move(function_signatures), std::move(function_options)) {}
   SQLFunctionInterface(const SQLFunctionInterface&) = delete;
   SQLFunctionInterface& operator=(const SQLFunctionInterface&) = delete;
   SQLFunctionInterface(SQLFunctionInterface&&) = delete;
@@ -122,23 +127,32 @@ class SQLFunction : public SQLFunctionInterface {
   // <aggregate_expression_list>, which must outlive this class.
   //
   // Optional field <parse_resume_location> identifies the start of the
-  // CREATE statement associated with this SQLFunction, if applicable.  Must
-  // only be set if there is a single FunctionSignature.
-  //
-  // TODO: Consider refactoring SQLFunction,
-  // SQLTableFunction, and SQLConstantWithValue so that they take ownership
-  // of <function_expression> and <aggregate_expression_list>.  This may help
-  // avoid potential memory corruption and/or crash bugs.
-  static absl::Status Create(
-      const std::string& name, Mode mode,
-      const std::vector<FunctionSignature>& function_signatures,
-      const FunctionOptions& function_options,
+  // CREATE statement associated with this SQLFunction, if applicable.
+  static absl::StatusOr<std::unique_ptr<SQLFunction>> Create(
+      std::vector<std::string> name_path, Mode mode,
+      FunctionSignature function_signature, FunctionOptions function_options,
       const ResolvedExpr* function_expression,
-      const std::vector<std::string>& argument_names,
+      std::vector<std::string> argument_names,
+      const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
+          aggregate_expression_list = nullptr,
+      std::optional<ParseResumeLocation> parse_resume_location = std::nullopt);
+
+  //
+  // This class is structurally flawed, in that it provides an interface
+  // supporting multiple signatures, but also takes arguments that shouldn't
+  // logically be sharable between signatures (basically everything except)
+  // `function_options`. This also applies to the public interface.
+  ABSL_DEPRECATED("Use StatusOr version above")
+  static absl::Status Create(
+      absl::string_view name, Mode mode,
+      std::vector<FunctionSignature> function_signatures,
+      FunctionOptions function_options, const ResolvedExpr* function_expression,
+      std::vector<std::string> argument_names,
       const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
           aggregate_expression_list,
       std::optional<ParseResumeLocation> parse_resume_location,
       std::unique_ptr<SQLFunction>* sql_function);
+
   const ResolvedExpr* FunctionExpression() const override {
     return function_expression_;
   }
@@ -162,18 +176,18 @@ class SQLFunction : public SQLFunctionInterface {
 
  private:
   // Constructor for valid functions.
-  SQLFunction(const std::string& name, Mode mode,
-              const std::vector<FunctionSignature>& function_signatures,
-              const FunctionOptions& function_options,
+  SQLFunction(std::vector<std::string> name_path, Mode mode,
+              std::vector<FunctionSignature> function_signatures,
+              FunctionOptions function_options,
               const ResolvedExpr* function_expression,
-              const std::vector<std::string>& argument_names,
+              std::vector<std::string> argument_names,
               std::optional<ParseResumeLocation> parse_resume_location,
               const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
                   aggregate_expression_list);
 
   const ResolvedExpr* function_expression_ = nullptr;  // Not owned.
   const std::vector<std::string> argument_names_;
-  std::optional<ParseResumeLocation> parse_resume_location_;
+  const std::optional<ParseResumeLocation> parse_resume_location_;
   const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
       aggregate_expression_list_ = nullptr;            // Not owned.
 };

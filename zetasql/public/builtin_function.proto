@@ -54,7 +54,7 @@ enum FunctionSignatureId {
   // 2200-2231 Anonymization functions        (NextId: 2232)
   // 2300-2499 Numeric & more math functions  (NextId: 2345)
   // 2500-2599 Array and proto map functions  (NextId: 2552)
-  // 2600-2699 More misc functions.           (NextId: 2620)
+  // 2600-2699 More misc functions.           (NextId: 2622)
   // 2700-2799 Aggregate functions II         (NextId: 2746)
   // 2800-2899 Differential Privacy functions (NextId: 2832)
   // 2900-2999 Range functions                (NextId: 2919)
@@ -1254,6 +1254,10 @@ enum FunctionSignatureId {
       2618;  // json_set(json, string, any[, string, any, ...]) -> json
   FN_JSON_STRIP_NULLS =
       2619;  // json_strip_nulls(json[, string][, bool][, bool]) -> json
+  FN_JSON_ARRAY_INSERT =
+      2620;  // json_array_insert(json, string, any[, string, any, ...][, bool])
+  FN_JSON_ARRAY_APPEND =
+      2621;  // json_array_append(json, string, any[, string, any, ...][, bool])
 
   // Range functions
   FN_RANGE = 2605;                     // RANGE(T start, T end) -> range

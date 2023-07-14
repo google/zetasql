@@ -603,6 +603,14 @@ ERROR: No matching signature for tvf_two_models_with_fixed_output for argument t
 SELECT * FROM tvf_two_models_with_fixed_output(model OneDoubleModel)
               ^
 
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_two_models_with_fixed_output
+  Argument types: MODEL
+  Signature: TVF_TWO_MODELS_WITH_FIXED_OUTPUT(MODEL, MODEL)
+    Signature requires at least 2 arguments, found 1 argument [at 1:15]
+SELECT * FROM tvf_two_models_with_fixed_output(model OneDoubleModel)
+              ^
 ==
 
 # Passing model to a TVF that does not accept a model.
@@ -710,6 +718,6 @@ Signature Mismatch Details:
 ERROR: No matching signature for tvf_optional_scalar_named_model_named_table
   Argument types: DOUBLE, NULL, TABLE<$col1 INT64>
   Signature: TVF_OPTIONAL_SCALAR_NAMED_MODEL_NAMED_TABLE([ANY], [foobar => MODEL], [barfoo => TABLE])
-    Argument 2: expected MODEL, found NULL [at 1:15]
+    Named argument `foobar`: expected MODEL, found NULL [at 1:15]
 select * from tvf_optional_scalar_named_model_named_table(1.0,
               ^

@@ -680,14 +680,6 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
       ZETASQL_RETURN_IF_ERROR(validator.ValidateResolvedStatement(
           anonymized_output.node->GetAs<ResolvedStatement>()));
     }
-    AnalyzerOutputProperties analyzer_output_properties_with_map(
-        analyzer_output.analyzer_output_properties());
-    analyzer_output_properties_with_map
-        .resolved_table_scan_to_anonymized_aggregate_scan_map =
-        anonymized_output.table_scan_to_anon_aggr_scan_map;
-    analyzer_output_properties_with_map
-        .resolved_table_scan_to_dp_aggregate_scan_map =
-        anonymized_output.table_scan_to_dp_aggr_scan_map;
 
     // We have a rewritten AST, so create a new AnalyzerOutput with the
     // rewritten AST.  The new AnalyzerOutput uses the (shared) IdStringPool and
@@ -697,7 +689,7 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
         analyzer_output.id_string_pool(), analyzer_output.arena(),
         absl::WrapUnique(
             anonymized_output.node.release()->GetAs<ResolvedStatement>()),
-        analyzer_output_properties_with_map,
+        analyzer_output.analyzer_output_properties(),
         /*parser_output=*/nullptr, analyzer_output.deprecation_warnings(),
         analyzer_output.undeclared_parameters(),
         analyzer_output.undeclared_positional_parameters(),

@@ -47,6 +47,7 @@
 #include "zetasql/compliance/known_error.pb.h"
 #include "zetasql/compliance/legal_runtime_errors.h"
 #include "zetasql/compliance/sql_test_filebased_options.h"
+#include "zetasql/compliance/test_database_catalog.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/public/analyzer_options.h"
@@ -333,11 +334,18 @@ class Stats {
     test_case->set_test_query(std::string(sql));
     test_case->mutable_test_location()->set_file(std::string(file));
     test_case->mutable_test_location()->set_line(line);
+    static constexpr int kMaxParameterLiteralSize = 1000;
+    std::string trunc_msg = "[TRUNCATED]";
     for (auto& [param_name, param_value] : params) {
       ComplianceTestCaseLabels::Param* param = test_case->add_param();
       param->set_param_name(param_name);
-      param->set_param_value_literal(
-          param_value.GetSQLLiteral(PRODUCT_EXTERNAL));
+      std::string param_value_literal =
+          param_value.GetSQLLiteral(PRODUCT_EXTERNAL);
+      if (param_value_literal.size() > kMaxParameterLiteralSize) {
+        param_value_literal.resize(kMaxParameterLiteralSize - trunc_msg.size());
+        param_value_literal.append(trunc_msg);
+      }
+      param->set_param_value_literal(param_value_literal);
     }
     test_case->set_test_error_mode(actual_error_mode);
     for (const std::string& label : label_set) {
@@ -2415,10 +2423,8 @@ std::string SQLTestBase::ToString(
     ZETASQL_CHECK(!value.is_null());
     ZETASQL_CHECK(value.is_valid());
     result_string = InternalValue::FormatInternal(
-        value, {.indent = 0,
-                .force_type = true,
-                .include_array_ordereness = absl::GetFlag(
-                    FLAGS_zetasql_compliance_print_array_orderedness)});
+        value,
+        absl::GetFlag(FLAGS_zetasql_compliance_print_array_orderedness));
   } else {
     result_string =
         ScriptResultToString(std::get<ScriptResult>(status.value()));

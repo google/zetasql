@@ -24,6 +24,8 @@
 #include <vector>
 
 #include "zetasql/base/enum_utils.h"
+#include "zetasql/common/timer_util.h"
+#include "zetasql/public/proto/logging.pb.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
@@ -159,6 +161,16 @@ AnalyzerLogEntry AnalyzerRuntimeInfo::log_entry() const {
   AnalyzerLogEntry entry;
   *entry.mutable_overall_execution_stats() =
       overall_timed_value().ToExecutionStatsProto();
+  auto add_timing = [&](AnalyzerLogEntry::LoggedOperationCategory op,
+                        const internal::TimedValue& time) {
+    auto& stage = *entry.add_execution_stats_by_op();
+    stage.set_key(op);
+    *stage.mutable_value() = time.ToExecutionStatsProto();
+  };
+  add_timing(AnalyzerLogEntry::PARSER,
+             parser_runtime_info().parser_timed_value());
+  add_timing(AnalyzerLogEntry::RESOLVER, resolver_timed_value());
+
   entry.set_num_lexical_tokens(parser_runtime_info().num_lexical_tokens());
   return entry;
 }

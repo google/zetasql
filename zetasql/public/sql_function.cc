@@ -19,9 +19,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "zetasql/public/error_helpers.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/ret_check.h"
 
@@ -37,27 +37,49 @@ namespace zetasql {
 const char SQLFunction::kSQLFunctionGroup[] = "Lazy_resolution_function";
 
 SQLFunction::SQLFunction(
-    const std::string& name, Mode mode,
-    const std::vector<FunctionSignature>& function_signatures,
-    const FunctionOptions& function_options,
-    const ResolvedExpr* function_expression,
-    const std::vector<std::string>& argument_names,
+    std::vector<std::string> name_path, Mode mode,
+    std::vector<FunctionSignature> function_signatures,
+    FunctionOptions function_options, const ResolvedExpr* function_expression,
+    std::vector<std::string> argument_names,
     std::optional<ParseResumeLocation> parse_resume_location,
     const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
         aggregate_expression_list)
-    : SQLFunctionInterface(name, kSQLFunctionGroup, mode, function_signatures,
-                           function_options),
-      function_expression_(function_expression),
-      argument_names_(argument_names),
+    : SQLFunctionInterface(std::move(name_path), kSQLFunctionGroup, mode,
+                           std::move(function_signatures),
+                           std::move(function_options)),
+      function_expression_(std::move(function_expression)),
+      argument_names_(std::move(argument_names)),
       parse_resume_location_(parse_resume_location),
       aggregate_expression_list_(aggregate_expression_list) {}
 
-absl::Status SQLFunction::Create(
-    const std::string& name, Mode mode,
-    const std::vector<FunctionSignature>& function_signatures,
-    const FunctionOptions& function_options,
+absl::StatusOr<std::unique_ptr<SQLFunction>> SQLFunction::Create(
+    std::vector<std::string> name_path, Mode mode,
+    FunctionSignature function_signature, FunctionOptions function_options,
     const ResolvedExpr* function_expression,
-    const std::vector<std::string>& argument_names,
+    std::vector<std::string> argument_names,
+    const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
+        aggregate_expression_list,
+    std::optional<ParseResumeLocation> parse_resume_location) {
+  ZETASQL_RET_CHECK(function_expression != nullptr);
+  if (mode == FunctionEnums::AGGREGATE) {
+    ZETASQL_RET_CHECK(aggregate_expression_list != nullptr);
+  }
+  std::vector<FunctionSignature> signatures;
+  signatures.reserve(1);
+  signatures.emplace_back(std::move(function_signature));
+
+  return absl::WrapUnique(
+      new SQLFunction(std::move(name_path), mode, std::move(signatures),
+                      std::move(function_options), function_expression,
+                      std::move(argument_names), parse_resume_location,
+                      aggregate_expression_list));
+}
+
+absl::Status SQLFunction::Create(
+    absl::string_view name, Mode mode,
+    std::vector<FunctionSignature> function_signatures,
+    FunctionOptions function_options, const ResolvedExpr* function_expression,
+    std::vector<std::string> argument_names,
     const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
         aggregate_expression_list,
     std::optional<ParseResumeLocation> parse_resume_location,
@@ -74,9 +96,11 @@ absl::Status SQLFunction::Create(
   if (mode == FunctionEnums::AGGREGATE) {
     ZETASQL_RET_CHECK(aggregate_expression_list != nullptr);
   }
-  sql_function->reset(new SQLFunction(
-      name, mode, function_signatures, function_options, function_expression,
-      argument_names, parse_resume_location, aggregate_expression_list));
+  sql_function->reset(
+      new SQLFunction({std::string(name)}, mode, std::move(function_signatures),
+                      std::move(function_options), function_expression,
+                      std::move(argument_names), parse_resume_location,
+                      aggregate_expression_list));
   return absl::OkStatus();
 }
 

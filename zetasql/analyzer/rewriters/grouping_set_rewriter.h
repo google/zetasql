@@ -14,14 +14,16 @@
 // limitations under the License.
 //
 
-// This is a forwarding file.
-syntax = "proto2";
+#ifndef ZETASQL_ANALYZER_REWRITERS_GROUPING_SET_REWRITER_H_
+#define ZETASQL_ANALYZER_REWRITERS_GROUPING_SET_REWRITER_H_
 
-package zetasql.storage;
+#include "zetasql/public/rewriter_interface.h"
 
-import "zetasql/public/proto/type_annotation.proto";
+namespace zetasql {
 
-option java_package = "com.google.zetasql";
+// Gets a pointer to the rewriter for grouping set rewriter.
+const Rewriter* GetGroupingSetRewriter();
 
-// To avoid conflicts with type_annotation.proto
-option objc_class_prefix = "ZETASQL";
+}  // namespace zetasql
+
+#endif  // ZETASQL_ANALYZER_REWRITERS_GROUPING_SET_REWRITER_H_

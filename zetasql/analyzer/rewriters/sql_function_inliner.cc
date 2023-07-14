@@ -143,9 +143,8 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
     return ResolvedASTDeepCopyVisitor::VisitResolvedWithEntry(node);
   }
 
-  template <typename T>
-  absl::Status CopySubqueryOrLambdaWithNewArgument(
-      const T* node, std::function<absl::Status()> copy_visit) {
+  absl::Status VisitResolvedSubqueryExpr(
+      const ResolvedSubqueryExpr* node) override {
     std::optional<ArgColumnSet> arg_columns_referenced = ArgColumnSet{};
     {
       // This cleanup implements a scoped swap. Its like zetasql_base::VarSetter but also
@@ -155,9 +154,9 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
         arg_columns_referenced.swap(args_referenced_in_subquery_);
       };
       arg_columns_referenced.swap(args_referenced_in_subquery_);
-      ZETASQL_RETURN_IF_ERROR(copy_visit());
+      ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedSubqueryExpr(node));
     }
-    T* copy = GetUnownedTopOfStack<T>();
+    ResolvedSubqueryExpr* copy = GetUnownedTopOfStack<ResolvedSubqueryExpr>();
     for (auto& arg_column : arg_columns_referenced.value()) {
       copy->add_parameter_list(MakeResolvedColumnRef(
           arg_column.type(), arg_column, IsCopyingSubqueryInFunctionBody()));
@@ -167,30 +166,33 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
         args_referenced_in_subquery_.value().insert(arg_column);
       }
     }
-    // Sort the parameter list because the analyzer tests are sensitive to this
-    // order, and will otherwise be flaky. The absl::flat_hash_map that we use
-    // to populate this list on line 116 above does not have a stable iteration
-    // order.
-    // TODO: Consider changing the debug string for this field so that
-    //    it is not sensitive to the order items are added to the list.
-    using Item = std::unique_ptr<const ResolvedColumnRef>;
-    auto& param_list = const_cast<std::vector<Item>&>(copy->parameter_list());
-    std::sort(
-        param_list.begin(), param_list.end(),
-        [](const Item& a, const Item& b) { return a->column() < b->column(); });
     return absl::OkStatus();
-  }
-
-  absl::Status VisitResolvedSubqueryExpr(
-      const ResolvedSubqueryExpr* node) override {
-    return CopySubqueryOrLambdaWithNewArgument(
-        node, [this, node]() { return CopyVisitResolvedSubqueryExpr(node); });
   }
 
   absl::Status VisitResolvedInlineLambda(
       const ResolvedInlineLambda* node) override {
-    return CopySubqueryOrLambdaWithNewArgument(
-        node, [this, node]() { return CopyVisitResolvedInlineLambda(node); });
+    std::optional<ArgColumnSet> arg_columns_referenced = ArgColumnSet{};
+    {
+      // This cleanup implements a scoped swap. Its like zetasql_base::VarSetter but also
+      // swaps the temporary object state back into the local variable so it may
+      // be used like as an output variable too.
+      absl::Cleanup cleanup = [this, &arg_columns_referenced]() {
+        arg_columns_referenced.swap(args_referenced_in_subquery_);
+      };
+      arg_columns_referenced.swap(args_referenced_in_subquery_);
+      ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedInlineLambda(node));
+    }
+    ResolvedInlineLambda* copy = GetUnownedTopOfStack<ResolvedInlineLambda>();
+    for (auto& arg_column : arg_columns_referenced.value()) {
+      copy->add_parameter_list(MakeResolvedColumnRef(
+          arg_column.type(), arg_column, IsCopyingSubqueryInFunctionBody()));
+      // If we are nested inside subqueries, then any arguments referenced in
+      // this subquery are automatically referenced in the containing subquery.
+      if (IsCopyingSubqueryInFunctionBody()) {
+        args_referenced_in_subquery_.value().insert(arg_column);
+      }
+    }
+    return absl::OkStatus();
   }
 
   absl::Status VisitResolvedRelationArgumentScan(
@@ -211,8 +213,9 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
   // to include the argument columns in its correlated parameter list.
   // 'args_referenced_in_subquery_' keeps track of which argument columns are
   // referenced in the current subquery being copied so that parameter lists
-  // can be properly constructed.
-  using ArgColumnSet = absl::flat_hash_set<ResolvedColumn>;
+  // can be properly constructed. We use a btree set here since it determines an
+  // order for the eventual parameter list vector.
+  using ArgColumnSet = absl::btree_set<ResolvedColumn>;
   std::optional<ArgColumnSet> args_referenced_in_subquery_;
 
   // Track if copying is under a WITH entry (which must be a with on subquery).
@@ -628,7 +631,28 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
       : column_factory_(column_factory) {}
 
  private:
-  absl::StatusOr<bool> IsInlinable(const ResolvedAggregateFunctionCall* call) {
+  // The data-structures representing concrete and template SQL functions are
+  // different. This struct lets us gather the common bits so that inlining
+  // logic can be more agnostic to whether the function was concrete or a
+  // template.
+  struct AggregateFnDetails {
+    const ResolvedAggregateFunctionCall* call;
+    const ResolvedExpr* expr;
+    const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
+        aggregate_expression_list;
+    ResolvedColumn computed_column;
+    // Aggregates that are internal to the function body, once copied, have
+    // new column id. This map is used to replace references to those column
+    // ids in the post-aggregate expression.
+    ColumnReplacementMap internal_aggregate_remapping;
+  };
+
+  // Check to see if the function is a SQL-defined aggregate and return details
+  // required for inlining if so. Otherwise return std::nullopt to indicate the
+  // function is not SQL-defined. An error will be returned in case the function
+  // is SQL-defined but has a shape not supported by the inliner.
+  absl::StatusOr<std::optional<AggregateFnDetails>> IsInlineable(
+      const ResolvedAggregateFunctionCall* call) {
     const ParseLocationRange* error_location =
         call->GetParseLocationRangeOrNULL();
     const Function* function = call->function();
@@ -677,27 +701,129 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
              << function->SQLName();
     }
     if (function->Is<SQLFunctionInterface>()) {
+      // TODO: Support aggregated arguments
+      // TODO: Support non-aggregated arguments
+      if (call->signature().arguments().empty()) {
+        auto* fn = function->GetAs<SQLFunctionInterface>();
+        return AggregateFnDetails{
+            .call = call,
+            .expr = fn->FunctionExpression(),
+            .aggregate_expression_list = *fn->aggregate_expression_list(),
+        };
+      }
       return absl::UnimplementedError(
           "Inlining concrete UDAs is not yet implemented");
     }
     if (function->Is<TemplatedSQLFunction>()) {
+      // TODO: Support templates
       return absl::UnimplementedError(
           "Inlining templated UDAs is not yet implemented");
     }
-    return false;
+    return std::nullopt;
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
   PostVisitResolvedAggregateScan(
       std::unique_ptr<const ResolvedAggregateScan> node) override {
+    absl::flat_hash_map<const ResolvedAggregateFunctionCall*,
+                        AggregateFnDetails>
+        calls_to_inline;
     for (const auto& col : node->aggregate_list()) {
       ZETASQL_RET_CHECK(col->expr()->Is<ResolvedAggregateFunctionCall>());
       const ResolvedAggregateFunctionCall* aggr_function_call =
           col->expr()->GetAs<ResolvedAggregateFunctionCall>();
-      ZETASQL_ASSIGN_OR_RETURN(bool is_inlinable, IsInlinable(aggr_function_call));
-      ZETASQL_RET_CHECK(!is_inlinable);
+      ZETASQL_ASSIGN_OR_RETURN(std::optional<AggregateFnDetails> details,
+                       IsInlineable(aggr_function_call));
+      if (details.has_value()) {
+        calls_to_inline.emplace(aggr_function_call, *details);
+      }
     }
-    return node;
+    if (calls_to_inline.empty()) {
+      return node;
+    }
+    ResolvedAggregateScanBuilder aggr_builder = ToBuilder(std::move(node));
+
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>> old_aggregates =
+        aggr_builder.release_aggregate_list();
+
+    // SQL-defined aggregates have any aggregations internal to the function
+    // body already factored out. Those aggregations will be promoted into the
+    // new copy of the AggregateScan. Those are processed in this loop,
+    // collecting the processed aggregations in `new_aggregates` and also the
+    // columns they are written into in `new_aggr_col_list`. These lists will
+    // later be used to build the new AggregateScan.
+
+    // The aggregations included in the aggregate scan post-rewrite.
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>> new_aggregates;
+    // The column list produced by thew new aggregate scan post-rewrite.
+    std::vector<ResolvedColumn> new_aggr_col_list;
+
+    // The new aggregate scan after inlinine will no longer have calls to the
+    // SQL-defined aggregate functions. This section is building the new
+    // list of aggregates for the new aggregate scan, as well as collecting
+    // expressions for the post-aggregate project scan that will host the
+    // expression from the SQL-defined aggregate that modifies or combines the
+    // results of any aggregations called internally.
+
+    // Expressions computed by a new project scan after aggregation.
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+        post_aggregate_exprs;
+    // Columns that were part of the aggregate scan pre-rewrite that are not
+    // included in the aggregate scan column list post-rewrite.
+    absl::flat_hash_set<ResolvedColumn> columns_to_remove_from_aggr;
+    for (auto& aggr : old_aggregates) {
+      ZETASQL_RET_CHECK(aggr->expr()->Is<ResolvedAggregateFunctionCall>());
+      const ResolvedAggregateFunctionCall* aggr_function_call =
+          aggr->expr()->GetAs<ResolvedAggregateFunctionCall>();
+
+      if (!calls_to_inline.contains(aggr_function_call)) {
+        new_aggregates.emplace_back(std::move(aggr));
+        continue;
+      }
+      AggregateFnDetails& details = calls_to_inline.at(aggr_function_call);
+      details.computed_column = aggr->column();
+      columns_to_remove_from_aggr.insert(aggr->column());
+
+      ColumnReplacementMap no_replacements;
+      for (auto& aggr_computed_col : details.aggregate_expression_list) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            auto new_aggr_computed_col,
+            CopyResolvedASTAndRemapColumns(*aggr_computed_col, column_factory_,
+                                           no_replacements));
+        details.internal_aggregate_remapping.emplace(
+            aggr_computed_col->column(), new_aggr_computed_col->column());
+        new_aggr_col_list.push_back(new_aggr_computed_col->column());
+        new_aggregates.push_back(std::move(new_aggr_computed_col));
+      }
+      ZETASQL_ASSIGN_OR_RETURN(
+          auto post_aggregate_expr,
+          CopyResolvedASTAndRemapColumns(*details.expr, column_factory_,
+                                         details.internal_aggregate_remapping));
+      ZETASQL_ASSIGN_OR_RETURN(auto post_aggregate_computed_col,
+                       ResolvedComputedColumnBuilder()
+                           .set_column(aggr->column())
+                           .set_expr(std::move(post_aggregate_expr))
+                           .Build());
+      post_aggregate_exprs.emplace_back(std::move(post_aggregate_computed_col));
+    }
+
+    // The post-aggregation Project will have the same column list as the input
+    // aggregate scan. The new aggregate scan will not have columns associated
+    // with re-written function calls.
+    std::vector<ResolvedColumn> post_aggregate_column_list =
+        aggr_builder.column_list();
+    for (const auto& old_aggr_col : aggr_builder.column_list()) {
+      if (!columns_to_remove_from_aggr.contains(old_aggr_col)) {
+        new_aggr_col_list.push_back(old_aggr_col);
+      }
+    }
+    return ResolvedProjectScanBuilder()
+        .set_input_scan(std::move(aggr_builder)
+                            .set_aggregate_list(std::move(new_aggregates))
+                            .set_column_list(std::move(new_aggr_col_list)))
+        .set_expr_list(std::move(post_aggregate_exprs))
+        .set_column_list(std::move(post_aggregate_column_list))
+        .Build();
   }
 
  private:

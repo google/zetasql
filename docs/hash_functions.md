@@ -6,6 +6,70 @@
 
 ZetaSQL supports the following hash functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#farm_fingerprint"><code>FARM_FINGERPRINT</code></a>
+
+</td>
+  <td>
+    Computes the fingerprint of a <code>STRING</code> or
+    <code>BYTES</code> value, using the FarmHash Fingerprint64 algorithm.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#md5"><code>MD5</code></a>
+
+</td>
+  <td>
+    Computes the hash of a <code>STRING</code> or
+    <code>BYTES</code> value, using the MD5 algorithm.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sha1"><code>SHA1</code></a>
+
+</td>
+  <td>
+    Computes the hash of a <code>STRING</code> or
+    <code>BYTES</code> value, using the SHA-1 algorithm.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sha256"><code>SHA256</code></a>
+
+</td>
+  <td>
+    Computes the hash of a <code>STRING</code> or
+    <code>BYTES</code> value, using the SHA-256 algorithm.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sha512"><code>SHA512</code></a>
+
+</td>
+  <td>
+    Computes the hash of a <code>STRING</code> or
+    <code>BYTES</code> value, using the SHA-512 algorithm.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `FARM_FINGERPRINT`
 
 ```
@@ -46,37 +110,6 @@ FROM example;
 ```
 
 [hash-link-to-farmhash-github]: https://github.com/google/farmhash
-
-### `FINGERPRINT` (DEPRECATED) 
-<a id="fingerprint"></a>
-
-```
-FINGERPRINT(input)
-```
-
-**Description**
-
-Computes the fingerprint of the `STRING`
-or `BYTES` input using Fingerprint.
-
-This function is deprecated. For better hash quality, use another fingerprint
-hashing function.
-
-**Return type**
-
-UINT64
-
-**Examples**
-
-```sql
-SELECT FINGERPRINT("Hello World") as fingerprint;
-
-/*----------------------*
- | fingerprint          |
- +----------------------+
- | 4584092443788135411  |
- *----------------------*/
-```
 
 ### `MD5`
 

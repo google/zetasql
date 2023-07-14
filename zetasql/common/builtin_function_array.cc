@@ -698,7 +698,10 @@ absl::Status GetArrayFindFunctions(
         FN_ARRAY_OFFSET_LAMBDA,
         SetDefinitionForInlining(kArrayOffsetLambdaSql)
             .set_uses_operation_collation()}},
-      /*function_options=*/{}, /*types_to_insert=*/{array_find_mode_type}));
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
+      /*types_to_insert=*/{array_find_mode_type}));
 
   constexpr absl::string_view kArrayOffsetsSql = R"sql(
       IF(input_array IS NULL OR target_element IS NULL,
@@ -730,7 +733,10 @@ absl::Status GetArrayFindFunctions(
                    {input_array_arg_for_lambda_sig, lambda_arg},
                    FN_ARRAY_OFFSETS_LAMBDA,
                    SetDefinitionForInlining(kArrayOffsetsLambdaSql)
-                       .set_uses_operation_collation()}});
+                       .set_uses_operation_collation()}},
+                 FunctionOptions().set_supports_safe_error_mode(
+                     options.language_options.LanguageFeatureEnabled(
+                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   constexpr absl::string_view kArrayFindSql = R"sql(
       IF(
@@ -797,7 +803,10 @@ absl::Status GetArrayFindFunctions(
         FN_ARRAY_FIND_LAMBDA,
         SetDefinitionForInlining(kArrayFindLambdaSql)
             .set_uses_operation_collation()}},
-      /*function_options=*/{}, /*types_to_insert=*/{array_find_mode_type}));
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
+      /*types_to_insert=*/{array_find_mode_type}));
 
   constexpr absl::string_view kArrayFindAllSql = R"sql(
       IF(input_array IS NULL OR target_element IS NULL,
@@ -832,7 +841,10 @@ absl::Status GetArrayFindFunctions(
         {input_array_arg_for_lambda_sig, lambda_arg},
         FN_ARRAY_FIND_ALL_LAMBDA,
         SetDefinitionForInlining(kArrayFindAllLambdaSql)
-            .set_uses_operation_collation()}});
+            .set_uses_operation_collation()}},
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   return absl::OkStatus();
 }

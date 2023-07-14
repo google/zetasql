@@ -220,6 +220,8 @@ class FunctionResolver {
   // <arg_overrides>. See
   // <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how lambda is
   // resolved.
+  // <arg_index_mapping> if non-null will be updated with the
+  // the concrete signatures.
   // Returns non-OK status only for internal errors, like ZETASQL_RET_CHECK failures.
   // E.g., the ones in FunctionSignatureMatcher::GetConcreteArguments.
   absl::StatusOr<bool> SignatureMatches(
@@ -229,6 +231,7 @@ class FunctionResolver {
       const NameScope* name_scope,
       std::unique_ptr<FunctionSignature>* result_signature,
       SignatureMatchResult* signature_match_result,
+      std::vector<ArgIndexEntry>* arg_index_mapping,
       std::vector<FunctionArgumentOverride>* arg_overrides) const;
 
   // Perform post-processing checks on CREATE AGGREGATE FUNCTION statements at
@@ -242,25 +245,14 @@ class FunctionResolver {
       const ExprResolutionInfo* expr_info,
       QueryResolutionInfo* query_info);
 
-  // The element type of the output of the
-  // GetFunctionArgumentIndexMappingPerSignature function below. It represents
-  // a mapping from a function argument in the signature to the argument
-  // provided to the function call.
-  struct ArgIndexPair {
-    // The argument index into the function signature.
-    // The value always falls into the valid range (i.e., >= 0 && <
-    // function_signature.arguments().size()).
-    int signature_arg_index;
-    // The argument index to the function call.
-    // The value either falls into the valid range (i.e., >= 0 && <
-    // arg_locations.size()) or is -1 if the argument at <signature_arg_index>
-    // in the signature is not provided in the current call.
-    int call_arg_index;
-  };
-
   // Iterates through <arg_locations> and <named_arguments> and compares them
   // against <signature> to match the order of the arguments in the signature,
   // or returns an error if the signature does not match.
+  //
+  // If `show_function_signature_mismatch_details` option is enabled, returns
+  // mismatch message for the provided signature and returns error if the
+  // call cannot possibly match any signature. If nothing wrong happens,
+  // empty mismatch message is returned.
   //
   // <num_repeated_args_repetitions> should be the number of repetitions of
   // the repeated arguments. It is determined by the
@@ -283,14 +275,14 @@ class FunctionResolver {
   // have no default values will also be omitted in the output <index_mapping>.
   // Otherwise, their corresponding entries are included in <index_mapping>
   // with <call_arg_index> as -1.
-  absl::Status GetFunctionArgumentIndexMappingPerSignature(
+  absl::StatusOr<std::string> GetFunctionArgumentIndexMappingPerSignature(
       absl::string_view function_name, const FunctionSignature& signature,
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
       const std::vector<NamedArgumentInfo>& named_arguments,
       int num_repeated_args_repetitions,
       bool always_include_omitted_named_arguments_in_index_mapping,
-      std::vector<ArgIndexPair>* index_mapping) const;
+      std::vector<ArgIndexEntry>* index_mapping) const;
 
   // Reorders the given <input_argument_types> with respect to the given
   // <index_mapping> which is the output of
@@ -319,7 +311,7 @@ class FunctionResolver {
   static absl::Status
   ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
       const FunctionSignature& signature,
-      absl::Span<const ArgIndexPair> index_mapping,
+      absl::Span<const ArgIndexEntry> index_mapping,
       std::vector<InputArgumentType>* input_argument_types);
 
   // Reorders the given input argument representations <arg_locations>,
@@ -341,7 +333,8 @@ class FunctionResolver {
   // available in <input_argument_types>.
   static absl::Status ReorderArgumentExpressionsPerIndexMapping(
       absl::string_view function_name, const FunctionSignature& signature,
-      absl::Span<const ArgIndexPair> index_mapping, const ASTNode* ast_location,
+      absl::Span<const ArgIndexEntry> index_mapping,
+      const ASTNode* ast_location,
       const std::vector<InputArgumentType>& input_argument_types,
       std::vector<const ASTNode*>* arg_locations,
       std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_args,
@@ -386,7 +379,7 @@ class FunctionResolver {
       const NameScope* name_scope,
       std::vector<InputArgumentType>* input_arguments,
       std::vector<FunctionArgumentOverride>* arg_overrides,
-      std::vector<ArgIndexPair>* arg_index_mapping,
+      std::vector<ArgIndexEntry>* arg_index_mapping,
       std::vector<std::string>* mismatch_errors) const;
 
   // Returns user-facing text with a list of signatures along with the reason

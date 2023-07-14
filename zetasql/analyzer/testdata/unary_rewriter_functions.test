@@ -57,7 +57,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[suppress_builtin_functions={{|NULLIFERROR|IFERROR}}]
+[suppress_functions={{|NULLIFERROR|IFERROR}}]
 SELECT SAFE.ARRAY_FIRST([])
 --
 ALTERNATION GROUP: <empty>

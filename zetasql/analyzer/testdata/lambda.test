@@ -895,9 +895,17 @@ SELECT fn_fp_named_then_lambda(format_string => "123", (e) -> e);
 
 SELECT fn_fp_named_then_lambda((e) -> e, format_string => "123");
 --
-ERROR: Named argument format_string is invalid because this call to function sample_functions:fn_fp_named_then_lambda also includes a positional argument corresponding to the same name in the function signature [at 1:42]
+ERROR: Named argument `format_string` duplicates positional argument 1, which also provides `format_string` [at 1:42]
 SELECT fn_fp_named_then_lambda((e) -> e, format_string => "123");
                                          ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_NAMED_THEN_LAMBDA
+  Argument types: LAMBDA, format_string => STRING
+  Signature: FN_FP_NAMED_THEN_LAMBDA([format_string=>]STRING, FUNCTION<INT64->T1>)
+    Named argument `format_string` duplicates positional argument 1, which also provides `format_string` [at 1:8]
+SELECT fn_fp_named_then_lambda((e) -> e, format_string => "123");
+       ^
 ==
 
 SELECT fn_fp_lambda_then_named((e) -> e, "123");
@@ -1011,18 +1019,74 @@ QueryStmt
 
 SELECT fn_fp_repeated_arg_then_lambda((e) -> e);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_REPEATED_ARG_THEN_LAMBDA for argument types: LAMBDA. Supported signature: FN_FP_REPEATED_ARG_THEN_LAMBDA([INT64, ...], FUNCTION<INT64->ANY>) [at 1:8]
-SELECT fn_fp_repeated_arg_then_lambda((e) -> e);
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_REPEATED_ARG_THEN_LAMBDA
-  Argument types: LAMBDA
-  Signature: FN_FP_REPEATED_ARG_THEN_LAMBDA([INT64, ...], FUNCTION<INT64->T1>)
-    Argument 1: expected INT64, found LAMBDA [at 1:8]
-SELECT fn_fp_repeated_arg_then_lambda((e) -> e);
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(sample_functions:fn_fp_repeated_arg_then_lambda(repeated(0) INT64, FUNCTION<INT64->INT64>) -> INT64)
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#1]
+    |           +-body=
+    |             +-ColumnRef(type=INT64, column=$lambda_arg.e#1)
+    +-input_scan=
+      +-SingleRowScan
 ==
+
+# test that the signatures are properly printed.
+SELECT fn_fp_repeated_arg_then_lambda_string("1", "2", (e) -> e);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(sample_functions:fn_fp_repeated_arg_then_lambda_string(repeated(2) STRING, FUNCTION<STRING->STRING>) -> STRING)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="1")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="2")
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#1]
+    |           +-body=
+    |             +-ColumnRef(type=STRING, column=$lambda_arg.e#1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT fn_fp_repeated_arg_then_lambda_string((e) -> e);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(sample_functions:fn_fp_repeated_arg_then_lambda_string(repeated(0) STRING, FUNCTION<STRING->STRING>) -> STRING)
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#1]
+    |           +-body=
+    |             +-ColumnRef(type=STRING, column=$lambda_arg.e#1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
 
 SELECT ARRAY_FILTER([1,2,3], e -> e>0);
 --

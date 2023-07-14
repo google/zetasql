@@ -50,11 +50,6 @@ CreateModelStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 CREATE TABLE foo_table AS
@@ -111,11 +106,6 @@ CreateTableAsSelectStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [no_java]
@@ -175,11 +165,6 @@ CreateTableFunctionStmt
 |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 +-output_column_list=
   +-$aggregate.anon_count#13 AS anon_count [INT64]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Create a TVF that takes a (templated and non-templated) table argument that
@@ -299,11 +284,6 @@ CreateTableFunctionStmt
 |         +-k_threshold := ArgumentRef(type=INT64, name="k")
 +-output_column_list=
   +-$aggregate.anon_count#13 AS anon_count [INT64]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Combination of the last 2 tests - pass in a TABLE argument and the epsilon
@@ -509,11 +489,6 @@ CreateMaterializedViewStmt
 +-sql="SELECT anon_count(*) AS anon_count\nFROM SimpleTypesWithAnonymizationUid"
 +-column_definition_list=
   +-ColumnDefinition(name="anon_count", type=INT64, column=foo_materialized_view.anon_count#14)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 CREATE VIEW foo_view AS
@@ -572,11 +547,6 @@ CreateViewStmt
 +-sql="SELECT anon_count(*) AS anon_count\nFROM SimpleTypesWithAnonymizationUid"
 +-column_definition_list=
   +-ColumnDefinition(name="anon_count", type=INT64, column=foo_view.anon_count#14)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 EXPORT DATA options (format=sstable, filename='/tmp/foo') AS
@@ -633,11 +603,6 @@ ExportDataStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,ANONYMIZATION_THRESHOLDING]
@@ -698,8 +663,3 @@ CreateTableAsSelectStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.anon_count#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}

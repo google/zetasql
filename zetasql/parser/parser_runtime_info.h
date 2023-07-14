@@ -25,18 +25,24 @@
 #include <vector>
 
 #include "zetasql/common/timer_util.h"
+#include "absl/base/macros.h"
 
 namespace zetasql {
 
 class ParserRuntimeInfo {
  public:
+  ABSL_DEPRECATED("Inline me!")
   absl::Duration parser_elapsed_duration() const {
-    return parser_timed_value_.elapsed_duration();
+    return parser_timed_value().elapsed_duration();
   }
   internal::TimedValue& parser_timed_value() { return parser_timed_value_; }
+  const internal::TimedValue& parser_timed_value() const {
+    return parser_timed_value_;
+  }
 
   void AccumulateAll(const ParserRuntimeInfo& rhs) {
     parser_timed_value_.Accumulate(rhs.parser_timed_value_);
+
     num_lexical_tokens_ += rhs.num_lexical_tokens_;
   }
 
@@ -45,6 +51,7 @@ class ParserRuntimeInfo {
   int64_t num_lexical_tokens() const { return num_lexical_tokens_; }
 
  private:
+
   internal::TimedValue parser_timed_value_;
   int64_t num_lexical_tokens_ = 0;
 };

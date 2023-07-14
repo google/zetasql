@@ -871,12 +871,18 @@ std::string FunctionArgumentType::UserFacingNameWithCardinality(
     bool print_template_details) const {
   std::string arg_type_string =
       UserFacingName(product_mode, print_template_details);
+  const auto named_argument_kind = options().named_argument_kind();
   if (options().has_argument_name() &&
-      ((options().named_argument_kind() == kNamedOnly &&
+      ((named_argument_kind == kNamedOnly &&
         print_style == NamePrintingStyle::kIfNamedOnly) ||
-       (options().named_argument_kind() != kPositionalOnly &&
+       (named_argument_kind != kPositionalOnly &&
         print_style == NamePrintingStyle::kIfNotPositionalOnly))) {
-    arg_type_string = absl::StrCat(argument_name(), " => ", arg_type_string);
+    if (named_argument_kind == FunctionEnums::POSITIONAL_OR_NAMED) {
+      arg_type_string =
+          absl::StrCat("[", argument_name(), "=>]", arg_type_string);
+    } else {
+      arg_type_string = absl::StrCat(argument_name(), " => ", arg_type_string);
+    }
   }
   if (optional()) {
     return absl::StrCat("[", arg_type_string, "]");

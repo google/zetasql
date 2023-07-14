@@ -277,7 +277,7 @@ TEST(NonDeterministicEvaluationContextTest, ArraySumAvgUnsignedIntTypeTest) {
 }
 
 TEST(NonDeterministicEvaluationContextTest,
-     ArrayOffsetDistinguishableTiesStringTest) {
+     ArrayOffsetDistinguishableStringTest) {
   // Array input with collated STRING type element introduces indeterminism for
   // ARRAY_OFFSET(array<T>, T [, mode]) -> INT64
   // but not for
@@ -305,18 +305,54 @@ TEST(NonDeterministicEvaluationContextTest,
 
   ArrayFindFunctions offset_fn(FunctionKind::kArrayOffset, factory.get_int64(),
                                std::move(collator_list_offset));
-  EvaluationContext context_offset{/*options=*/{}};
-  EXPECT_TRUE(context_offset.IsDeterministicOutput());
-  ZETASQL_EXPECT_OK(offset_fn
-                .Eval(/*params=*/{},
-                      /*args=*/
-                      {InternalValue::Array(
-                           input_type, {Value::String("a"), Value::String("A")},
-                           InternalValue::kIgnoresOrder),
-                       Value::String("a"), array_find_mode_first},
-                      &context_offset)
-                .status());
-  EXPECT_FALSE(context_offset.IsDeterministicOutput());
+  {
+    EvaluationContext context_offset{/*options=*/{}};
+    EXPECT_TRUE(context_offset.IsDeterministicOutput());
+    ZETASQL_EXPECT_OK(
+        offset_fn
+            .Eval(/*params=*/{},
+                  /*args=*/
+                  {InternalValue::Array(
+                       input_type, {Value::String("a"), Value::String("A")},
+                       InternalValue::kIgnoresOrder),
+                   Value::String("a"), array_find_mode_first},
+                  &context_offset)
+            .status());
+    EXPECT_FALSE(context_offset.IsDeterministicOutput());
+  }
+
+  // If no matching element is found, the result is deterministic.
+  {
+    EvaluationContext context_offset{/*options=*/{}};
+    EXPECT_TRUE(context_offset.IsDeterministicOutput());
+    ZETASQL_EXPECT_OK(
+        offset_fn
+            .Eval(/*params=*/{},
+                  /*args=*/
+                  {InternalValue::Array(
+                       input_type, {Value::String("a"), Value::String("A")},
+                       InternalValue::kIgnoresOrder),
+                   Value::String("b"), array_find_mode_first},
+                  &context_offset)
+            .status());
+    EXPECT_TRUE(context_offset.IsDeterministicOutput());
+  }
+
+  // If input array has length smaller or equal to 1, the result is
+  // deterministic.
+  {
+    EvaluationContext context_offset{/*options=*/{}};
+    EXPECT_TRUE(context_offset.IsDeterministicOutput());
+    ZETASQL_EXPECT_OK(offset_fn
+                  .Eval(/*params=*/{},
+                        /*args=*/
+                        {InternalValue::Array(input_type, {Value::String("a")},
+                                              InternalValue::kIgnoresOrder),
+                         Value::String("A"), array_find_mode_first},
+                        &context_offset)
+                  .status());
+    EXPECT_TRUE(context_offset.IsDeterministicOutput());
+  }
 
   // ARRAY_OFFSETS
   ZETASQL_ASSERT_OK_AND_ASSIGN(CollatorList collator_list_offsets,
@@ -324,22 +360,58 @@ TEST(NonDeterministicEvaluationContextTest,
 
   ArrayFindFunctions offsets_fn(FunctionKind::kArrayOffsets, int64_array_type,
                                 std::move(collator_list_offsets));
-  EvaluationContext context_offsets{/*options=*/{}};
-  EXPECT_TRUE(context_offsets.IsDeterministicOutput());
-  ZETASQL_EXPECT_OK(offsets_fn
-                .Eval(/*params=*/{},
-                      /*args=*/
-                      {InternalValue::Array(
-                           input_type, {Value::String("a"), Value::String("A")},
-                           InternalValue::kIgnoresOrder),
-                       Value::String("a")},
-                      &context_offsets)
-                .status());
-  EXPECT_TRUE(context_offsets.IsDeterministicOutput());
+  {
+    EvaluationContext context_offsets{/*options=*/{}};
+    EXPECT_TRUE(context_offsets.IsDeterministicOutput());
+    ZETASQL_EXPECT_OK(
+        offsets_fn
+            .Eval(/*params=*/{},
+                  /*args=*/
+                  {InternalValue::Array(
+                       input_type, {Value::String("a"), Value::String("A")},
+                       InternalValue::kIgnoresOrder),
+                   Value::String("a")},
+                  &context_offsets)
+            .status());
+    EXPECT_FALSE(context_offsets.IsDeterministicOutput());
+  }
+
+  // However, if no matching element is found, the result is deterministic.
+  {
+    EvaluationContext context_offsets{/*options=*/{}};
+    EXPECT_TRUE(context_offsets.IsDeterministicOutput());
+    ZETASQL_EXPECT_OK(
+        offsets_fn
+            .Eval(/*params=*/{},
+                  /*args=*/
+                  {InternalValue::Array(
+                       input_type, {Value::String("a"), Value::String("A")},
+                       InternalValue::kIgnoresOrder),
+                   Value::String("b")},
+                  &context_offsets)
+            .status());
+    EXPECT_TRUE(context_offsets.IsDeterministicOutput());
+  }
+
+  // If input array has length smaller or equal to 1, the result is
+  // deterministic.
+  {
+    EvaluationContext context_offsets{/*options=*/{}};
+    EXPECT_TRUE(context_offsets.IsDeterministicOutput());
+    ZETASQL_EXPECT_OK(offsets_fn
+                  .Eval(/*params=*/{},
+                        /*args=*/
+                        {InternalValue::Array(input_type, {Value::String("a")},
+                                              InternalValue::kIgnoresOrder),
+                         Value::String("A")},
+                        &context_offsets)
+                  .status());
+    EXPECT_TRUE(context_offsets.IsDeterministicOutput());
+  }
 }
 
 TEST(NonDeterministicEvaluationContextTest,
-     ArrayOffsetFindDistinguishableTiesStringTest) {
+     ArrayFindDistinguishableTiesStringTest) {
   // Array input with collated STRING type element introduces indeterminism for
   // ARRAY_FIND(array<T>, T [, mode]) -> T.
   // Only when the number of ties is larger than 1, will the indeterministic
@@ -358,41 +430,72 @@ TEST(NonDeterministicEvaluationContextTest,
       ResolvedCollation::MakeScalar("unicode:ci")};
   const Value array_find_mode_first =
       Value::Enum(types::ArrayFindModeEnumType(), 1);
-
-  // ARRAY_FIND with one found element
   ZETASQL_ASSERT_OK_AND_ASSIGN(CollatorList collator_list,
                        MakeCollatorList(collation_list));
+  ArrayFindFunctions find_fn_with_collation(
+      FunctionKind::kArrayFind, factory.get_string(), std::move(collator_list));
 
-  ArrayFindFunctions find_fn(FunctionKind::kArrayFind, factory.get_string(),
-                             std::move(collator_list));
-  EvaluationContext context1{/*options=*/{}};
-  EXPECT_TRUE(context1.IsDeterministicOutput());
-  ZETASQL_EXPECT_OK(find_fn
-                .Eval(/*params=*/{},
-                      /*args=*/
-                      {InternalValue::Array(
-                           input_type, {Value::String("b"), Value::String("A")},
-                           InternalValue::kIgnoresOrder),
-                       Value::String("a"), array_find_mode_first},
-                      &context1)
-                .status());
-  EXPECT_TRUE(context1.IsDeterministicOutput());
+  // ARRAY_FIND with one found element
+  {
+    EvaluationContext context1{/*options=*/{}};
+    EXPECT_TRUE(context1.IsDeterministicOutput());
+    ZETASQL_EXPECT_OK(
+        find_fn_with_collation
+            .Eval(/*params=*/{},
+                  /*args=*/
+                  {InternalValue::Array(
+                       input_type, {Value::String("b"), Value::String("A")},
+                       InternalValue::kIgnoresOrder),
+                   Value::String("a"), array_find_mode_first},
+                  &context1)
+            .status());
+    EXPECT_TRUE(context1.IsDeterministicOutput());
+  }
 
   // ARRAY_FIND with two found elements that are distinguishable ties
-  EvaluationContext context2{/*options=*/{}};
-  EXPECT_TRUE(context2.IsDeterministicOutput());
-  ZETASQL_EXPECT_OK(
-      find_fn
-          .Eval(/*params=*/{},
-                /*args=*/
-                {InternalValue::Array(input_type,
-                                      {Value::String("b"), Value::String("a"),
-                                       Value::String("A")},
-                                      InternalValue::kIgnoresOrder),
-                 Value::String("a"), array_find_mode_first},
-                &context2)
-          .status());
-  EXPECT_FALSE(context2.IsDeterministicOutput());
+  {
+    EvaluationContext context2{/*options=*/{}};
+    EXPECT_TRUE(context2.IsDeterministicOutput());
+    ZETASQL_EXPECT_OK(
+        find_fn_with_collation
+            .Eval(/*params=*/{},
+                  /*args=*/
+                  {InternalValue::Array(input_type,
+                                        {Value::String("b"), Value::String("a"),
+                                         Value::String("A")},
+                                        InternalValue::kIgnoresOrder),
+                   Value::String("a"), array_find_mode_first},
+                  &context2)
+            .status());
+    EXPECT_FALSE(context2.IsDeterministicOutput());
+  }
+
+  // ARRAY_FIND with lambda argument on case sensitive inputs.
+  {
+    std::unique_ptr<ConstExpr> lambda_body =
+        ConstExpr::Create(Value::Bool(true)).value();
+    std::vector<VariableId> lambda_arg_vars = {VariableId("e")};
+    std::unique_ptr<InlineLambdaExpr> lambda_algebra =
+        InlineLambdaExpr::Create(lambda_arg_vars, std::move(lambda_body));
+
+    ArrayFindFunctions find_fn_with_lambda(
+        FunctionKind::kArrayFind, factory.get_string(),
+        /*collator_list=*/{}, lambda_algebra.get());
+    EvaluationContext context{/*options=*/{}};
+    EXPECT_TRUE(context.IsDeterministicOutput());
+    ZETASQL_EXPECT_OK(
+        find_fn_with_lambda
+            .Eval(/*params=*/{},
+                  /*args=*/
+                  {InternalValue::Array(input_type,
+                                        {Value::String("b"), Value::String("a"),
+                                         Value::String("A")},
+                                        InternalValue::kIgnoresOrder),
+                   array_find_mode_first},
+                  &context)
+            .status());
+    EXPECT_FALSE(context.IsDeterministicOutput());
+  }
 }
 
 }  // namespace zetasql

@@ -2020,7 +2020,7 @@ QueryStmt
 ==
 
 [language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_3_INLINE_LAMBDA_ARGUMENT{{|,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS}}]
-[suppress_builtin_functions={{|NULLIFERROR|IFERROR}}]
+[suppress_functions={{|NULLIFERROR|IFERROR}}]
 SELECT SAFE.ARRAY_FILTER([1,2,3], e -> e>0);
 --
 ALTERNATION GROUPS:

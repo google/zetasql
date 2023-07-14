@@ -1326,6 +1326,15 @@ FROM
   T
 ==
 
+# WITH REPORT function argument
+# b/290310062
+select anon_count(if(expr, 0, 1) WITH REPORT(format="PROTO")) as a from T;
+--
+ERROR: Syntax error: Expected GROUP_ROWS but got keyword REPORT [at 1:39]
+select anon_count(if(expr, 0, 1) WITH REPORT(format="PROTO")) as a from T;
+                                      ^
+==
+
 # WITH REPORT with/without FORMAT with leading identifier or star argument and
 # optionally multiple arguments.
 select anon_count({{*|expr}} {{|clamped between 1 and 2}}

@@ -252,6 +252,16 @@ class JsonStripNullsFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
+class JsonArrayInsertAppendFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit JsonArrayInsertAppendFunction(FunctionKind kind)
+      : SimpleBuiltinScalarFunction(kind, types::JsonType()) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
 // Helper function for the string version of JSON_QUERY, JSON_VALUE,
 // JSON_EXTRACT and JSON_EXTRACT_SCALAR.
 absl::StatusOr<Value> JsonExtractString(
@@ -850,6 +860,88 @@ absl::StatusOr<Value> JsonRemoveFunction::Eval(
   return Value::Json(std::move(result));
 }
 
+// JSON_ARRAY_{INSERT,APPEND}(JSON input, STRING path, ANY value
+//                            [, STRING path, ANY value...]
+//                            , BOOL {insert,append}_each_element=>true)
+absl::StatusOr<Value> JsonArrayInsertAppendFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  if (kind() != FunctionKind::kJsonArrayInsert &&
+      kind() != FunctionKind::kJsonArrayAppend) {
+    return zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
+  }
+
+  ZETASQL_RET_CHECK_GE(args.size(), 4);
+  // The number of arguments is 4 + 2*n
+  // TODO: ZETASQL_RET_CHECK for incorrect args size instead of error.
+  // ZETASQL_RET_CHECK((args.size() - 4) % 2 == 0);
+  if ((args.size() - 4) % 2 == 1) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Incorrect number of args for "
+           << (kind() == FunctionKind::kJsonArrayInsert ? "JSON_ARRAY_INSERT"
+                                                        : "JSON_ARRAY_APPEND")
+           << ": paths and values must come in pairs";
+  }
+  if (args[0].is_null() || args.back().is_null()) {
+    return Value::NullJson();
+  }
+
+  int64_t num_value_pairs = (args.size() - 2) / 2;
+
+  for (int i = 0; i < num_value_pairs; ++i) {
+    // If any JSONPath is NULL, return NULL.
+    if (args[2 * i + 1].is_null()) {
+      return Value::NullJson();
+    }
+  }
+
+  for (int i = 0; i < num_value_pairs; ++i) {
+    ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2 * i + 2], context));
+  }
+  const LanguageOptions& language_options = context->GetLanguageOptions();
+
+  ZETASQL_ASSIGN_OR_RETURN(JSONValue result,
+                   GetJSONValueCopy(args[0], language_options));
+  JSONValueRef ref = result.GetRef();
+
+  ZETASQL_RET_CHECK(args.back().type()->IsBool());
+  const bool insert_each_element = args.back().bool_value();
+
+  // Function name in error message.
+  absl::string_view function_name;
+  if (kind() == FunctionKind::kJsonArrayInsert) {
+    function_name = "JSON_ARRAY_INSERT";
+  } else {
+    function_name = "JSON_ARRAY_APPEND";
+  }
+
+  for (int i = 0; i < num_value_pairs; ++i) {
+    ZETASQL_RET_CHECK(args[2 * i + 1].type()->IsString());
+    ZETASQL_ASSIGN_OR_RETURN(auto path_iterator,
+                     BuildStrictJSONPathIterator(args[2 * i + 1].string_value(),
+                                                 function_name));
+    absl::Status status;
+    if (kind() == FunctionKind::kJsonArrayInsert) {
+      status = functions::JsonInsertArrayElement(
+          ref, *path_iterator, args[2 * i + 2], language_options,
+          /*canonicalize_zero=*/true, insert_each_element);
+    } else {
+      status = functions::JsonAppendArrayElement(
+          ref, *path_iterator, args[2 * i + 2], language_options,
+          /*canonicalize_zero=*/true, insert_each_element);
+    }
+    if (!status.ok()) {
+      return MakeEvalError() << "Invalid input to " << function_name << ": "
+                             << status.message();
+    }
+  }
+
+  for (const Value& arg : args) {
+    MaybeSetNonDeterministicContext(arg, context);
+  }
+  return Value::Json(std::move(result));
+}
+
 absl::StatusOr<Value> JsonSetFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
@@ -1002,6 +1094,16 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kJsonStripNulls},
       [](FunctionKind kind, const zetasql::Type* output_type) {
         return new JsonStripNullsFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kJsonArrayInsert},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new JsonArrayInsertAppendFunction(kind);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kJsonArrayAppend},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new JsonArrayInsertAppendFunction(kind);
       });
 }
 

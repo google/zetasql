@@ -47,9 +47,9 @@ http_archive(
 # gRPC Java
 http_archive(
     name = "io_grpc_grpc_java",
-    url = "https://github.com/grpc/grpc-java/archive/v1.43.2.tar.gz",
-    strip_prefix = "grpc-java-1.43.2",
-    sha256 = "6c39c5feecda4f1ccafe88d8928d9a0f2a686d9a9a9c03888a2e5ac92f7ee34a",
+    url = "https://github.com/grpc/grpc-java/archive/v1.56.0.tar.gz",
+    strip_prefix = "grpc-java-1.56.0",
+    sha256 = "4af5ecbaed16455fcda9fdab36e131696f5092858dd130f026069fcf11817a21",
 )
 
 load("@rules_jvm_external//:repositories.bzl", "rules_jvm_external_deps")

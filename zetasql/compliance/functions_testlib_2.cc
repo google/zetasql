@@ -3468,6 +3468,8 @@ static std::vector<QueryParamsWithResult> GetArrayFindFunctionsTestCases(
     for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
       if (is_safe) {
         test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+        test_cases[i].AddRequiredFeature(
+            FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS);
       }
       test_cases[i]
           .AddRequiredFeatures(v.required_features)

@@ -891,3 +891,43 @@ CreateProcedureStatement(EXTERNAL SECURITY INVOKER) [0-75] [CREATE PROCEDURE...U
 --
 CREATE PROCEDURE procedure_name()
 EXTERNAL SECURITY INVOKER LANGUAGE PYTHON
+==
+
+# Function type argument will fail in the analyzer.
+CREATE PROCEDURE procedure_name(
+  param_a FUNCTION<INT64 -> INT64>)
+BEGIN
+  SELECT 1;
+END;
+--
+CreateProcedureStatement [0-90] [CREATE PROCEDURE...LECT 1; END]
+  PathExpression [17-31] [procedure_name]
+    Identifier(procedure_name) [17-31] [procedure_name]
+  FunctionParameters [31-68] [(   param_a...-> INT64>)]
+    FunctionParameter [32-67] [param_a FUNCTION...-> INT64>]
+      Identifier(param_a) [35-42] [param_a]
+      FunctionType [43-67] [FUNCTION<INT64 -> INT64>]
+        FunctionTypeArgList [52-57] [INT64]
+          SimpleType [52-57] [INT64]
+            PathExpression [52-57] [INT64]
+              Identifier(INT64) [52-57] [INT64]
+        SimpleType [61-66] [INT64]
+          PathExpression [61-66] [INT64]
+            Identifier(INT64) [61-66] [INT64]
+  Script [69-90] [BEGIN   SELECT 1; END]
+    StatementList [69-90] [BEGIN   SELECT 1; END]
+      BeginEndBlock [69-90] [BEGIN   SELECT 1; END]
+        StatementList [77-87] [SELECT 1;]
+          QueryStatement [77-85] [SELECT 1]
+            Query [77-85] [SELECT 1]
+              Select [77-85] [SELECT 1]
+                SelectList [84-85] [1]
+                  SelectColumn [84-85] [1]
+                    IntLiteral(1) [84-85] [1]
+--
+CREATE PROCEDURE procedure_name(param_a FUNCTION<(INT64) -> INT64 >)
+BEGIN
+  SELECT
+    1
+  ;
+END

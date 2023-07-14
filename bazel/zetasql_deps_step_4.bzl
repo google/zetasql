@@ -18,12 +18,7 @@
 
 # This must be loaded _after_ com_github_grpc_grpc, so we move it to this file
 
-# Needed by (at least) com_github_grpc_grpc
-load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
-
-# Needed by (at least) com_github_grpc_grpc
-load("@build_bazel_apple_support//lib:repositories.bzl", "apple_support_dependencies")
+load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 
 def zetasql_deps_step_4():
-    apple_rules_dependencies()
-    apple_support_dependencies()
+    grpc_extra_deps()

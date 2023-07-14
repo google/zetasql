@@ -1495,23 +1495,12 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
 
   // The catalog object that <path_expr> resolves to, if any. Can be any of the
   // following, which will be tried in this order below:
-  // (0) Function argument
-  //     Only if FEATURE_FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES is on.
-  //     Arguments are only set when resolving CREATE [TABLE] FUNCTION
-  //     statements or resolving function templates once arguments are known.
   // (1) Name target;
   // (2) Expression column (for standalone expression evaluation only);
   // (3) Function argument
-  //     Instead of (0) FEATURE_FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES is off.
   // (4) Named constant.
   std::unique_ptr<const ResolvedExpr> resolved_expr;
 
-  // (0) Check for a function argument before looking at local names.
-  if (language().LanguageFeatureEnabled(
-          FEATURE_FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES)) {
-    ZETASQL_RETURN_IF_ERROR(MaybeResolvePathExpressionAsFunctionArgumentRef(
-        first_name, path_parse_location, &resolved_expr, &num_names_consumed));
-  }
 
   // (1) Try to find a name target that matches <path_expr>.
   CorrelatedColumnsSetList correlated_columns_sets;
@@ -1677,9 +1666,7 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
     }
   }
 
-  if (num_names_consumed == 0 &&
-      !language().LanguageFeatureEnabled(
-          FEATURE_FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES)) {
+  if (num_names_consumed == 0) {
     // (3) We still haven't found a matching name. See if we can find it in
     // function arguments (for CREATE FUNCTION statements only).
     ZETASQL_RETURN_IF_ERROR(MaybeResolvePathExpressionAsFunctionArgumentRef(
@@ -4895,6 +4882,18 @@ absl::Status Resolver::AddColumnToGroupingListFirstPass(
       expr_resolution_info, kGroupingId, agg_function_call->annotated_type());
   *resolved_column_out = std::make_unique<ResolvedColumn>(grouping_column);
 
+  // Check if we have group by columns resolved already, if we do, we are
+  // resolving the grouping function call for QUALIFY, ORDER BY, or HAVING,
+  // which means we can auto call the secondPass function and add the GROUPING
+  // function call to the grouping call list.
+  if (!expr_resolution_info->query_resolution_info
+           ->group_by_columns_to_compute()
+           .empty()) {
+    return AddColumnToGroupingListSecondPass(
+        ast_function, agg_function_call.get(), expr_resolution_info,
+        resolved_column_out);
+  }
+
   ZETASQL_RETURN_IF_ERROR(
       expr_resolution_info->query_resolution_info->AddGroupingColumnToExprMap(
           ast_function, MakeResolvedComputedColumn(
@@ -7547,12 +7546,7 @@ absl::Status Resolver::ResolveProtoDefaultIfNull(
 
   if (!ProtoType::GetUseDefaultsExtension(
           resolved_field_access->field_descriptor()) &&
-      (resolved_field_access->expr()
-               ->type()
-               ->AsProto()
-               ->descriptor()
-               ->file()
-               ->syntax() != google::protobuf::FileDescriptor::SYNTAX_PROTO3 ||
+      (resolved_field_access->field_descriptor()->has_presence() ||
        !language().LanguageFeatureEnabled(
            FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS))) {
     return MakeSqlErrorAt(ast_location)

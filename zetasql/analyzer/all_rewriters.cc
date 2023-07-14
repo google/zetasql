@@ -23,6 +23,7 @@
 #include "zetasql/analyzer/rewriters/builtin_function_inliner.h"
 #include "zetasql/analyzer/rewriters/flatten_rewriter.h"
 #include "zetasql/analyzer/rewriters/set_operation_corresponding_rewriter.h"
+#include "zetasql/analyzer/rewriters/grouping_set_rewriter.h"
 #include "zetasql/analyzer/rewriters/like_any_all_rewriter.h"
 #include "zetasql/analyzer/rewriters/map_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/nulliferror_function_rewriter.h"
@@ -81,6 +82,9 @@ void RegisterBuiltinRewriters() {
 
     r.Register(ResolvedASTRewrite::REWRITE_SET_OPERATION_CORRESPONDING,
                GetSetOperationCorrespondingRewriter());
+
+    r.Register(ResolvedASTRewrite::REWRITE_GROUPING_SET,
+               GetGroupingSetRewriter());
 
     // This rewriter should typically be the last in the rewrite sequence
     // because it cleans up after several other rewriters add ResolvedWithExprs.

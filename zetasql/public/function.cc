@@ -460,17 +460,33 @@ std::string Function::DebugString(bool verbose) const {
 std::string Function::GetSQL(std::vector<std::string> inputs,
                              const FunctionSignature* signature) const {
   if (signature != nullptr) {
+    int arg_index = 0;
     // If the argument is mandatory-named, we have to use that name.
-    for (int i = 0; i < signature->arguments().size(); ++i) {
-      if (i >= inputs.size() || signature->argument(i).repeated()) {
+    for (int i = 0;
+         i < signature->arguments().size() && arg_index < inputs.size(); ++i) {
+      const FunctionArgumentType& arg = signature->argument(i);
+      if (!arg.repeated()) {
+        if (arg.options().named_argument_kind() == kNamedOnly) {
+          ZETASQL_DCHECK(!arg.argument_name().empty());
+          inputs[arg_index] =
+              absl::StrCat(signature->argument(i).argument_name(), " => ",
+                           inputs[arg_index]);
+        }
+        ++arg_index;
+        continue;
+      }
+      if (!signature->IsConcrete()) {
+        // In order to properly match the inputs to arguments positions
+        // we must have a concrete signature, otherwise we don't know
+        // how many occurrences we have and we might get 'lost'. So, in this
+        // case, we just give up and hope for the best.
         break;
       }
-      if (signature->argument(i).options().named_argument_kind() ==
-          kNamedOnly) {
-        ZETASQL_DCHECK(!signature->argument(i).argument_name().empty());
-        inputs[i] = absl::StrCat(signature->argument(i).argument_name(), " => ",
-                                 inputs[i]);
-      }
+      // Note, the actual pattern is ..., A, B, A, B, A, B
+      // But since we don't actually care about the repeated arguments
+      // and they must all have matching num_occurrences, we can simplify
+      // the logic by just pretending is ..., A, A, A, B, B, B
+      arg_index += arg.num_occurrences();
     }
   }
   if (GetSQLCallback() != nullptr) {

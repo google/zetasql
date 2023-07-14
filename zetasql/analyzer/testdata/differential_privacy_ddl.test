@@ -52,11 +52,6 @@ CreateModelStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 CREATE TABLE foo_table AS
@@ -115,11 +110,6 @@ CreateTableAsSelectStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#21)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [no_java]
@@ -181,11 +171,6 @@ CreateTableFunctionStmt
 |         +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
 +-output_column_list=
   +-$aggregate.count#13 AS count [INT64]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Create a TVF that takes a (templated and non-templated) table argument that
@@ -310,11 +295,6 @@ CreateTableFunctionStmt
 |         +-delta := ArgumentRef(type=DOUBLE, name="d")
 +-output_column_list=
   +-$aggregate.count#13 AS count [INT64]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Combination of the last 2 tests - pass in a TABLE argument and the epsilon
@@ -528,11 +508,6 @@ CreateMaterializedViewStmt
 +-sql="SELECT WITH DIFFERENTIAL_PRIVACY count(*) AS count\nFROM SimpleTypesWithAnonymizationUid"
 +-column_definition_list=
   +-ColumnDefinition(name="count", type=INT64, column=foo_materialized_view.count#14)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 CREATE VIEW foo_view AS
@@ -593,11 +568,6 @@ CreateViewStmt
 +-sql="SELECT WITH DIFFERENTIAL_PRIVACY count(*) AS count\nFROM SimpleTypesWithAnonymizationUid"
 +-column_definition_list=
   +-ColumnDefinition(name="count", type=INT64, column=foo_view.count#14)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 EXPORT DATA options (format=sstable, filename='/tmp/foo') AS
@@ -656,11 +626,6 @@ ExportDataStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,DIFFERENTIAL_PRIVACY_THRESHOLDING]
@@ -719,8 +684,3 @@ CreateTableAsSelectStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.dp_count#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}

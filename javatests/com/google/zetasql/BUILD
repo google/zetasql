@@ -56,6 +56,7 @@ java_library(
         "//zetasql/public/proto:type_annotation_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",  # buildcleaner: keep
         "//zetasql/testdata:bad_test_schema_java_proto",
+        "//zetasql/testdata:test_proto3_java_proto",
         "//zetasql/testdata:test_schema_java_proto",
         "@maven//:io_grpc_grpc_core",
         "@maven//:joda_time_joda_time",

@@ -592,6 +592,10 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kJsonSet, "json_set", "JsonSet");
     RegisterFunction(FunctionKind::kJsonStripNulls, "json_strip_nulls",
                      "JsonStripNulls");
+    RegisterFunction(FunctionKind::kJsonArrayInsert, "json_array_insert",
+                     "JsonArrayInsert");
+    RegisterFunction(FunctionKind::kJsonArrayAppend, "json_array_append",
+                     "JsonArrayAppend");
     RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   }();
   [this]() {
@@ -1998,6 +2002,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kJsonRemove:
     case FunctionKind::kJsonSet:
     case FunctionKind::kJsonStripNulls:
+    case FunctionKind::kJsonArrayInsert:
+    case FunctionKind::kJsonArrayAppend:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kStartsWithWithCollation:
     case FunctionKind::kEndsWithWithCollation:
@@ -3156,6 +3162,35 @@ static bool IsDistinctFrom(const Value& x, const Value& y) {
   return !x.Equals(y);
 }
 
+static bool IsUncertianArrayEquality(const Value& x, const Value& y) {
+  bool involves_undefined_order =
+      InternalValue::ContainsArrayWithUncertainOrder(x) ||
+      InternalValue::ContainsArrayWithUncertainOrder(y);
+  if (!involves_undefined_order) {
+    return false;
+  }
+  // Don't try to do anything too smart with the nested values. Things get very
+  // complex and expensive very fast, and complexity and expense is not great
+  // in an operator as fundamental as equals, even in the reference
+  // implementation.
+  const Type* type = x.type();
+  bool is_nested_type =
+      type->IsStruct() ||
+      (type->IsArray() && type->AsArray()->element_type()->IsStruct());
+  if (is_nested_type) {
+    return true;
+  }
+  if (!type->IsArray() || x.is_null() || y.is_null()) {
+    return false;
+  }
+  // For simple array types, we can be certain of equality operations when
+  // arrays are different lengths, and this is cheap to test.
+  return x.num_elements() == y.num_elements();
+  // Possibly if we want to narrow this case further in the future, we could
+  // scan the elements of 'x' looking for cases where an equal element is not
+  // present in 'y'. In that case we could be certain the arrays are not equal.
+}
+
 bool ComparisonFunction::Eval(absl::Span<const TupleData* const> params,
                               absl::Span<const Value> args,
                               EvaluationContext* context, Value* result,
@@ -3171,16 +3206,37 @@ bool ComparisonFunction::Eval(absl::Span<const TupleData* const> params,
     return false;
   }
 
-  if (kind() == FunctionKind::kEqual) {
-    *result = x.SqlEquals(y);
-    if (!result->is_valid()) {
-      *status = ::zetasql_base::UnimplementedErrorBuilder()
-                << "Unsupported comparison function: " << debug_name()
-                << " with inputs " << TypeKind_Name(x.type_kind()) << " and "
-                << TypeKind_Name(y.type_kind());
-      return false;
+  if (kind() == FunctionKind::kEqual || kind() == FunctionKind::kIsDistinct ||
+      kind() == FunctionKind::kIsNotDistinct) {
+    if (kind() == FunctionKind::kEqual) {
+      *result = x.SqlEquals(y);
+      if (!result->is_valid()) {
+        *status = ::zetasql_base::UnimplementedErrorBuilder()
+                  << "Unsupported comparison function: " << debug_name()
+                  << " with inputs " << TypeKind_Name(x.type_kind()) << " and "
+                  << TypeKind_Name(y.type_kind());
+        return false;
+      }
+    } else if (kind() == FunctionKind::kIsDistinct) {
+      *result = Value::Bool(IsDistinctFrom(x, y));
+    } else if (kind() == FunctionKind::kIsNotDistinct) {
+      *result = Value::Bool(!IsDistinctFrom(x, y));
+    }
+    if (context->IsDeterministicOutput() && IsUncertianArrayEquality(x, y)) {
+      context->SetNonDeterministicOutput();
     }
     return true;
+  }
+
+  if (context->IsDeterministicOutput() &&
+      (InternalValue::ContainsArrayWithUncertainOrder(x) ||
+       InternalValue::ContainsArrayWithUncertainOrder(y))) {
+    // For inequality, a prefix of the arrays could determine the result, and we
+    // don't know which elements are the prefix. We could do better in the
+    // future if we need to narrow this by checking if the 'least' value in 'x'
+    // is greater than the 'greatest' value in 'y'. In that case there is no
+    // possible way to order each array so that x is less than or equal to y.
+    context->SetNonDeterministicOutput();
   }
 
   if (kind() == FunctionKind::kLess) {
@@ -3192,14 +3248,6 @@ bool ComparisonFunction::Eval(absl::Span<const TupleData* const> params,
                 << TypeKind_Name(y.type_kind());
       return false;
     }
-    return true;
-  }
-
-  if (kind() == FunctionKind::kIsDistinct) {
-    *result = Value::Bool(IsDistinctFrom(x, y));
-    return true;
-  } else if (kind() == FunctionKind::kIsNotDistinct) {
-    *result = Value::Bool(!IsDistinctFrom(x, y));
     return true;
   }
 
@@ -4603,15 +4651,10 @@ absl::StatusOr<Value> ArrayFindFunctions::Eval(
   }
 
   auto order_kind = InternalValue::GetOrderKind(input_array);
-  int array_length = input_array.num_elements();
-  if (kind() == FunctionKind::kArrayOffset && array_length > 1 &&
-      order_kind == InternalValue::kIgnoresOrder) {
-    context->SetNonDeterministicOutput();
-  }
-
+  int input_array_length = input_array.num_elements();
   std::vector<Value> found_offsets;
   std::vector<Value> found_values;
-  for (int i = 0; i < array_length; ++i) {
+  for (int i = 0; i < input_array_length; ++i) {
     bool found = false;
     if (using_lambda_arg) {
       ZETASQL_ASSIGN_OR_RETURN(found, SatisfiesCondition(input_array.element(i),
@@ -4635,8 +4678,19 @@ absl::StatusOr<Value> ArrayFindFunctions::Eval(
                : Value::EmptyArray(output_type()->AsArray());
   }
 
+  if ((kind() == FunctionKind::kArrayOffset ||
+       kind() == FunctionKind::kArrayOffsets) &&
+      input_array_length > 1 && order_kind == InternalValue::kIgnoresOrder) {
+    context->SetNonDeterministicOutput();
+  }
+
   bool are_ties_distinguishable = IsTypeWithDistinguishableTies(
       input_array.type()->AsArray()->element_type(), collator_list_);
+  if (kind() == FunctionKind::kArrayFind &&
+      order_kind == InternalValue::kIgnoresOrder && found_offsets.size() > 1 &&
+      (are_ties_distinguishable || using_lambda_arg)) {
+    context->SetNonDeterministicOutput();
+  }
   if (IsFindSingletonFunction(kind())) {
     // If find mode equals to 1, get the "FIRST" found element, otherwise get
     // the "LAST" found element.
@@ -4646,10 +4700,6 @@ absl::StatusOr<Value> ArrayFindFunctions::Eval(
       return mode == 1 ? found_offsets.front() : found_offsets.back();
     }
     // ARRAY_FIND
-    if (order_kind == InternalValue::kIgnoresOrder &&
-        found_offsets.size() > 1 && are_ties_distinguishable) {
-      context->SetNonDeterministicOutput();
-    }
     return mode == 1 ? found_values.front() : found_values.back();
   }
   // ARRAY_OFFSETS

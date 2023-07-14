@@ -20,26 +20,23 @@ analytic functions.
 This codebase is being open sourced in multiple phases:
 
 1. Parser and Analyzer **Complete**
-   - Initial release includes only a subset of tests
 2. Reference Implementation **In Progress**
    - Base capability **Complete**
    - Function library **In Progress**
 3. Compliance Tests **Complete**
    - includes framework for validating compliance of arbitrary engines
 4. Misc tooling
-   - Improved Formatter **In Progress**
+   - Improved Formatter **Complete**
 
 Multiplatform support is planned for the following platforms:
 
  - Linux (Ubuntu 20.04 is our reference platform, but others may work).
+   - gcc-9+ is required, recent versions of clang may work.
  - MacOS (Experimental)
  - Windows (version TDB)
 
-Until all this code is released, we cannot provide any guarantees of API
-stability and cannot accept contributions. We will also be releasing more
-documentation over time, particular related to developing engines with this
-framework. Documentation on the [language](docs/) itself is fairly
-complete.
+We do not provide any guarantees of API stability and *cannot accept
+contributions*.
 
 
 ## Flags
@@ -51,8 +48,8 @@ debugging purposes only and may change, stop working or be removed at any time.
 ## How to Build
 
 ZetaSQL uses [bazel](https://bazel.build) for building and dependency
-resolution. After installing bazel (we maintain support for 1.0,
-but other versions may work), simply run:
+resolution. After installing bazel (check .bazelversion for the specific version
+of bazel we test with, but other versions may work), simply run:
 
 ```bazel build ...```
 
@@ -60,7 +57,7 @@ but other versions may work), simply run:
 See the (WORKSPACE) file, as it is a little unusual.
 
 ### With docker
- TODO: Add docker build script.
+ TODO: Add docker build instructions.
 
 ## Example Usage
 A very basic command line tool is available to run simple queries with the

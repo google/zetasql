@@ -2463,18 +2463,42 @@ ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
 [required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
-  SUM(double_val)
-FROM TestTableWithUid;
+  ANON_SUM(double_val)
+FROM TestTableWithUid
+  CROSS JOIN
+    UNNEST([1,2,3]) AS x;
 --
 ARRAY<STRUCT<DOUBLE>>[{11}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Count star aggregation with max_rows_contributed.
 [name=anonymization_max_rows_contributed_count_star]
 [required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
 [labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
-  COUNT(*)
-FROM TestTableWithUid;
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=2)
+  ANON_COUNT(*)
+FROM TestTableWithUid
+  CROSS JOIN
+    UNNEST([1,2,3]) AS x;
 --
-ARRAY<STRUCT<INT64>>[{10}]
+ARRAY<STRUCT<INT64>>[{20}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# Count aggregation with max_rows_contributed.
+[name=anonymization_max_rows_contributed_count]
+[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=2)
+  ANON_COUNT(int64_val)
+FROM TestTableWithUid
+  CROSS JOIN
+    UNNEST([1,2,3]) AS x;
+--
+ARRAY<STRUCT<INT64>>[{16}]
+
+NOTE: Reference implementation reports non-determinism.
+==

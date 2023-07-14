@@ -419,16 +419,6 @@ class Type {
   // messages.
   virtual std::string TypeName(ProductMode mode) const = 0;
 
-  ABSL_DEPRECATED("Use TypeNameWithModifiers function.")
-  // TODO: Refactor and remove the deprecated function in a quick
-  // follow up.
-  // Same as above, but if <type_params> is not empty, then the type parameter
-  // values are included with the SQL name for this type. The output is
-  // reparseable as part of a query. If <type_params> is an invalid input for
-  // the given Type, then an error status will be returned.
-  virtual absl::StatusOr<std::string> TypeNameWithParameters(
-      const TypeParameters& type_params, ProductMode mode) const;
-
   // Same as above, but if <type_modifiers> contains non-empty modifiers, then
   // these modifiers are included with the SQL name for this type. The output is
   // reparseable as part of a query. If <type_modifiers> contains modifiers that
@@ -636,6 +626,15 @@ class Type {
     ProductMode product_mode = ProductMode::PRODUCT_EXTERNAL;
     Mode mode = Mode::kDebug;
     bool verbose = false;  // Used with debug mode only.
+
+    bool force_type_at_top_level = false;
+    bool include_array_ordereness = false;
+    int indent = 0;
+
+    FormatValueContentOptions IncreaseIndent();
+
+    // Number of columns per indentation.
+    static const int kIndentStep = 2;
   };
 
   // List of DebugStringImpl outputs. Used to serve as a stack in

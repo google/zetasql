@@ -5,7 +5,7 @@
 
 # Star expansion on anonymous / duplicated column names cannot be unparsed.
 # Java does not support SpecialCatalog.
-[default use_catalog=SpecialCatalog]
+[default use_database=SpecialCatalog]
 [default no_run_unparser]
 [default no_java]
 

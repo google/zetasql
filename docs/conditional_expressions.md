@@ -310,6 +310,60 @@ SELECT NULLIF(10, 0) as result
  *--------*/
 ```
 
+### `NULLIFZERO`
+
+```sql
+NULLIFZERO(expr)
+```
+
+**Description**
+
+Returns `NULL` if the value of `expr` is `0`. Otherwise, returns `expr`. `expr`
+must be a zeroable type.
+
+**Return Data Type**
+
+Type of `expr`.
+
+**Example**
+
+```sql
+SELECT NULLIFZERO(0) AS result
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `ZEROIFNULL`
+
+```sql
+NULLIFZERO(expr)
+```
+
+**Description**
+
+Returns `0` if the value of `expr` is `NULL`. Otherwise, returns `expr`. `expr`
+must be a zeroable type.
+
+**Return Data Type**
+
+Type of `expr`.
+
+**Example**
+
+```sql
+SELECT ZEROIFNULL(NULL) AS result
+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
+```
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes

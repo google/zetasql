@@ -19,12 +19,15 @@ package com.google.zetasql;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
+import com.google.zetasql.ZetaSQLOptions.GroupingSetRewriteOptions;
 import com.google.zetasql.ZetaSQLOptions.ParameterMode;
 import com.google.zetasql.ZetaSQLOptions.ParseLocationRecordType;
 import com.google.zetasql.ZetaSQLOptions.ResolvedASTRewrite;
+import com.google.zetasql.ZetaSQLOptions.RewriteOptions;
 import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
@@ -217,7 +220,7 @@ public class AnalyzerOptionsTest {
     } catch (IllegalStateException expected) {
     }
   }
-  
+
   @Test
   public void testSetDdlPseudoColumns() {
     FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
@@ -225,7 +228,7 @@ public class AnalyzerOptionsTest {
     assertThat(options.getDdlPseudoColumns()).isEmpty();
     options.addDdlPseudoColumn("foo", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
     options.addDdlPseudoColumn("bar", TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
-    
+
     assertThat(options.getDdlPseudoColumns()).hasSize(2);
     assertThat(options.getDdlPseudoColumns().get("foo").getKind()).isEqualTo(TypeKind.TYPE_INT32);
     assertThat(options.getDdlPseudoColumns().get("bar").getKind()).isEqualTo(TypeKind.TYPE_INT64);
@@ -351,12 +354,32 @@ public class AnalyzerOptionsTest {
   }
 
   @Test
+  public void testSetRewriteOptions() {
+    AnalyzerOptions options = new AnalyzerOptions();
+    RewriteOptions rewriteOptions =
+        RewriteOptions.newBuilder()
+            .setGroupingSetRewriteOptions(
+                GroupingSetRewriteOptions.newBuilder()
+                    .setMaxGroupingSets(1)
+                    .setMaxColumnsInGroupingSet(1)
+                    .build())
+            .build();
+    options.setRewriteOptions(rewriteOptions);
+    FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
+
+    assertThat(options.getRewriteOptions()).isEqualTo(rewriteOptions);
+    AnalyzerOptionsProto proto = options.serialize(builder);
+    assertThat(proto.getRewriteOptions()).isEqualTo(rewriteOptions);
+    checkDeserialize(proto, builder.getDescriptorPools());
+  }
+
+  @Test
   public void testClassAndProtoSize() {
     assertWithMessage(
             "The number of fields of AnalyzerOptionsProto has changed, please also update the "
                 + "serialization code accordingly.")
         .that(AnalyzerOptionsProto.getDescriptor().getFields())
-        .hasSize(23);
+        .hasSize(24);
     assertWithMessage(
             "The number of fields in AnalyzerOptions class has changed, please also update the "
                 + "proto and serialization code accordingly.")

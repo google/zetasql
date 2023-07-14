@@ -57,6 +57,7 @@
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/ambiguous_has.pb.h"
+#include "zetasql/testdata/referenced_schema.pb.h"
 #include "zetasql/testdata/sample_annotation.h"
 #include "zetasql/testdata/test_proto3.pb.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -72,6 +73,116 @@
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {
+
+namespace {
+
+// A fluent builder for building FunctionArgumentType instances
+class ArgBuilder {
+ public:
+  explicit ArgBuilder() = default;
+  ArgBuilder&& Type(const Type* type) && {
+    kind_ = ARG_TYPE_FIXED;
+    type_ = type;
+    return std::move(*this);
+  }
+  // Convenience wrappers for some common Type choices.
+  // This should _not_ be exhaustive, prefer Type(...) over adding multitudes
+  // of these wrappers
+  ArgBuilder&& String() && {
+    return std::move(*this).Type(types::StringType());
+  }
+  ArgBuilder&& Int64() && { return std::move(*this).Type(types::Int64Type()); }
+  ArgBuilder&& Bool() && { return std::move(*this).Type(types::BoolType()); }
+  ArgBuilder&& T1() && {
+    kind_ = ARG_TYPE_ANY_1;
+    return std::move(*this);
+  }
+  ArgBuilder&& T2() && {
+    kind_ = ARG_TYPE_ANY_2;
+    return std::move(*this);
+  }
+  ArgBuilder&& Any() && {
+    kind_ = ARG_TYPE_ARBITRARY;
+    return std::move(*this);
+  }
+  ArgBuilder&& Repeated() && {
+    options_.set_cardinality(FunctionEnums::REPEATED);
+    return std::move(*this);
+  }
+  ArgBuilder&& Optional() && {
+    options_.set_cardinality(FunctionEnums::OPTIONAL);
+    return std::move(*this);
+  }
+  // Implies optional.
+  ArgBuilder&& Default(Value value) && {
+    options_.set_default(value);
+    options_.set_cardinality(FunctionEnums::OPTIONAL);
+    return std::move(*this);
+  }
+  ArgBuilder&& Name(absl::string_view name) && {
+    options_.set_argument_name(name, zetasql::kPositionalOrNamed);
+    return std::move(*this);
+  }
+  ArgBuilder&& NameOnly(absl::string_view name) && {
+    options_.set_argument_name(name, zetasql::kNamedOnly);
+    return std::move(*this);
+  }
+
+  FunctionArgumentType Build() && {
+    ZETASQL_CHECK(kind_.has_value());
+    if (type_ != nullptr) {
+      ZETASQL_CHECK(kind_ = ARG_TYPE_FIXED);
+      return FunctionArgumentType(type_, options_);
+    } else {
+      return FunctionArgumentType(*kind_, options_);
+    }
+  }
+
+ private:
+  FunctionArgumentTypeOptions options_;
+  std::optional<SignatureArgumentKind> kind_;
+  const ::zetasql::Type* type_ = nullptr;
+};
+
+// A fluent class for constructing FuntionSignature objects.
+class SignatureBuilder {
+ public:
+  explicit SignatureBuilder(
+      zetasql_base::SourceLocation loc = zetasql_base::SourceLocation::current())
+      : loc_(loc) {}
+
+  SignatureBuilder&& AddArg(FunctionArgumentType t) && {
+    args_.push_back(std::move(t));
+    return std::move(*this);
+  }
+  SignatureBuilder&& AddArg(ArgBuilder&& t) && {
+    return std::move(*this).AddArg(std::move(t).Build());
+  }
+
+  // By default, result type is string (many tests don't care about the return
+  // type).
+  SignatureBuilder&& Returns(FunctionArgumentType t) && {
+    ret_type_ = std::move(t);
+    return std::move(*this);
+  }
+  SignatureBuilder&& Returns(ArgBuilder&& t) && {
+    return std::move(*this).Returns(std::move(t).Build());
+  }
+
+  // Sets context_id to line number, which can speed up debugging.
+  FunctionSignature Build() && {
+    return FunctionSignature(ret_type_, std::move(args_),
+                             /*context_id=*/loc_.line());
+  }
+
+ private:
+  FunctionArgumentTypeList args_;
+  // Default to return string.
+  FunctionArgumentType ret_type_ = {types::StringType()};
+  zetasql_base::SourceLocation loc_;
+};
+
+}  // namespace
 
 SampleCatalog::SampleCatalog()
     : internal_type_factory_(new TypeFactory),
@@ -1722,6 +1833,22 @@ void SampleCatalog::LoadExtendedSubscriptFunctions() {
        /*context_id=*/-1});
 }
 
+const Function* SampleCatalog::AddFunction(
+    absl::string_view name, Function::Mode mode,
+    std::vector<FunctionSignature> function_signatures,
+    FunctionOptions function_options) {
+  for (const FunctionSignature& sig : function_signatures) {
+    ZETASQL_CHECK_OK(sig.IsValid(PRODUCT_INTERNAL));
+    ZETASQL_CHECK_OK(sig.IsValid(PRODUCT_EXTERNAL));
+  }
+  auto function = std::make_unique<Function>(name, "sample_functions", mode,
+                                             std::move(function_signatures),
+                                             std::move(function_options));
+  const Function* function_ptr = function.get();
+  catalog_->AddOwnedFunction(std::move(function));
+  return function_ptr;
+}
+
 void SampleCatalog::LoadFunctions() {
   // Add a function to illustrate how repeated/optional arguments are resolved.
   Function* function = new Function("test_function", "sample_functions",
@@ -1909,6 +2036,115 @@ void SampleCatalog::LoadFunctions() {
       FunctionOptions());
   catalog_->AddOwnedFunction(function);
   ZETASQL_CHECK_OK(function->signatures()[0].IsValid(ProductMode::PRODUCT_EXTERNAL));
+
+  AddFunction("fn_repeated_with_optional_named_only", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().String())
+                   .AddArg(ArgBuilder().Repeated().String())
+                   .AddArg(ArgBuilder().Optional().String().NameOnly("o1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_diff_args_optional_named_only", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().String())
+                   .AddArg(ArgBuilder().Repeated().Int64())
+                   .AddArg(ArgBuilder().Optional().Bool().NameOnly("o1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_arbitrary_with_optional_named_only",
+              Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().Any())
+                   .AddArg(ArgBuilder().Repeated().Any())
+                   .AddArg(ArgBuilder().Optional().Any().Name("o1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_with_optional_named_or_positional", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().String())
+                   .AddArg(ArgBuilder().Repeated().String())
+                   .AddArg(ArgBuilder().Optional().String().Name("o1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_diff_args_optional_named_or_positional",
+              Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().String())
+                   .AddArg(ArgBuilder().Repeated().Int64())
+                   .AddArg(ArgBuilder().Optional().Bool().Name("o1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_arbitrary_with_optional_named_or_positional",
+              Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().Any())
+                   .AddArg(ArgBuilder().Repeated().Any())
+                   .AddArg(ArgBuilder().Optional().Any().Name("o1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_with_required_named", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().String())
+                   .AddArg(ArgBuilder().Repeated().String())
+                   .AddArg(ArgBuilder().String().NameOnly("r1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_diff_args_required_named", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().String())
+                   .AddArg(ArgBuilder().Repeated().Int64())
+                   .AddArg(ArgBuilder().Bool().NameOnly("r1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_arbitrary_with_required_named", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().Any())
+                   .AddArg(ArgBuilder().Repeated().Any())
+                   .AddArg(ArgBuilder().Any().NameOnly("r1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_t1_t2_with_optional_named_t1", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().T1())
+                   .AddArg(ArgBuilder().Repeated().T2())
+                   .AddArg(ArgBuilder().Optional().T1().NameOnly("o1"))
+                   .Build()});
+
+  AddFunction("fn_repeated_t1_arbitrary_with_optional_named_t1",
+              Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().T1())
+                   .AddArg(ArgBuilder().Repeated().Any())
+                   .AddArg(ArgBuilder().Optional().T1().NameOnly("o1"))
+                   .Build()});
+
+  AddFunction(
+      "fn_optional_any", Function::SCALAR,
+      {SignatureBuilder().AddArg(ArgBuilder().Optional().Any()).Build()});
+
+  AddFunction(
+      "fn_repeated_any", Function::SCALAR,
+      {SignatureBuilder().AddArg(ArgBuilder().Repeated().Any()).Build()});
+
+  AddFunction(
+      "fn_optional_t1", Function::SCALAR,
+      {SignatureBuilder().AddArg(ArgBuilder().Optional().T1()).Build()});
+
+  AddFunction("fn_optional_t1_ret_t1", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Optional().T1())
+                   .Returns(ArgBuilder().T1())
+                   .Build()});
+
+  AddFunction(
+      "fn_repeated_t1", Function::SCALAR,
+      {SignatureBuilder().AddArg(ArgBuilder().Repeated().T1()).Build()});
+
+  AddFunction("fn_repeated_t1_ret_t1", Function::SCALAR,
+              {SignatureBuilder()
+                   .AddArg(ArgBuilder().Repeated().T1())
+                   .Returns(ArgBuilder().T1())
+                   .Build()});
 
   // Adds an aggregate function that takes no argument but supports order by.
   function = new Function(
@@ -5902,6 +6138,7 @@ void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
 
 void SampleCatalog::LoadContrivedLambdaArgFunctions() {
   const Type* int64_type = types_->get_int64();
+  const Type* string_type = types_->get_string();
   const Type* bool_type = types_->get_bool();
 
   // Demonstrate having to get common super type for two different concrete type
@@ -6005,6 +6242,27 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
   ZETASQL_CHECK_EQ("(repeated INT64, FUNCTION<INT64-><T1>>) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
+
+  AddFunction(
+      "fn_fp_repeated_arg_then_lambda_string", Function::SCALAR,
+      {SignatureBuilder()
+           .AddArg(ArgBuilder().Repeated().String())
+           .AddArg(FunctionArgumentType::Lambda({string_type}, ARG_TYPE_ANY_1))
+           .Returns(ArgBuilder().T1())
+           .Build()});
+  /*
+  // Signature with lambda and repeated arguments before lambda.
+  function = std::make_unique<Function>("fn_fp_repeated_arg_then_lambda_string",
+                                        "sample_functions", Function::SCALAR);
+  const auto repeated_string_arg = FunctionArgumentType(
+      types_->get_string(), FunctionArgumentType::REPEATED);
+
+  function->AddSignature(
+      {ARG_TYPE_ANY_1,
+       {repeated_string_arg,
+        FunctionArgumentType::Lambda({string_type}, ARG_TYPE_ANY_1)}});
+  catalog_->AddOwnedFunction(function.release());
+  */
 }
 
 void SampleCatalog::AddSqlDefinedFunction(
@@ -6026,11 +6284,11 @@ void SampleCatalog::AddSqlDefinedFunction(
       catalog_->type_factory(), signature.result_type().type(),
       &analyzer_output));
   std::unique_ptr<SQLFunction> function;
-  ZETASQL_CHECK_OK(SQLFunction::Create(
-      std::string(name), FunctionEnums::SCALAR, {signature},
-      /*function_options=*/{}, analyzer_output->resolved_expr(), argument_names,
-      /*aggregate_expression_list=*/{}, /*parse_resume_location=*/{},
-      &function));
+  ZETASQL_CHECK_OK(SQLFunction::Create(name, FunctionEnums::SCALAR, {signature},
+                               /*function_options=*/{},
+                               analyzer_output->resolved_expr(), argument_names,
+                               /*aggregate_expression_list=*/{},
+                               /*parse_resume_location=*/{}, &function));
   catalog_->AddOwnedFunction(function.release());
   sql_object_artifacts_.emplace_back(std::move(analyzer_output));
 }
@@ -6177,6 +6435,16 @@ void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
 
   AddSqlDefinedFunctionFromCreate(
       R"sql( CREATE AGGREGATE FUNCTION NotAggregate() AS (1 + 1);)sql",
+      language_options);
+
+  // This function provides some open-box testing of the inliner in that it
+  // enables a test to ensure columns internal to the function body are properly
+  // re-mapped and don't result in column id collisions in the rewritten
+  // query if the function is called twice.
+  AddSqlDefinedFunctionFromCreate(
+      R"sql( CREATE AGGREGATE FUNCTION NotAggregateInternalColumn() AS (
+          (SELECT a + a FROM (SELECT 1 AS a))
+      );)sql",
       language_options);
 
   AddSqlDefinedFunctionFromCreate(
@@ -6373,6 +6641,10 @@ void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
       )sql",
       language_options, /*inline_sql_functions=*/false,
       aggregate_calling_clauses_enabled);
+}
+
+void SampleCatalog::ForceLinkProtoTypes() {
+  google::protobuf::LinkMessageReflection<zetasql_test__::TestReferencedPB>();
 }
 
 }  // namespace zetasql

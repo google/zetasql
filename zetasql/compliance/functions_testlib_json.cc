@@ -1568,6 +1568,673 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonRemove() {
   return tests;
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
+  std::vector<FunctionTestCall> tests;
+  // One argument to JSON_ARRAY_INSERT. Test cases from TO_JSON to make sure
+  // JSON_ARRAY_INSERT applies TO_JSON semantics to arguments.
+  for (FunctionTestCall& test : GetFunctionTestsToJson()) {
+    if (test.params.num_params() == 2) {
+      if (test.params.param(1).is_null() || test.params.param(1).bool_value()) {
+        // No stringify mode in JSON_ARRAY_INSERT.
+        continue;
+      }
+    }
+
+    auto features_set = test.params.required_features();
+    features_set.insert(FEATURE_NAMED_ARGUMENTS);
+
+    absl::string_view json_string = R"({"a": [1, "foo"]})";
+    Value input = ParseJson(json_string);
+    absl::string_view json_path = "$.a[1]";
+
+    if (test.params.status().ok()) {
+      zetasql::JSONValue json_result =
+          zetasql::JSONValue::ParseJSONString(json_string).value();
+      ZETASQL_CHECK_OK(json_result.GetRef().GetMember("a").InsertArrayElement(
+          JSONValue::CopyFrom(test.params.result().json_value()), 1));
+      Value result = Json(std::move(json_result));
+      tests.push_back(
+          {"json_array_insert",
+           QueryParamsWithResult({std::move(input), String(json_path),
+                                  std::move(test.params.param(0)), Bool(false)},
+                                 result)
+               .AddRequiredFeatures(features_set)});
+    } else {
+      tests.push_back(
+          {"json_array_insert",
+           QueryParamsWithResult({std::move(input), String(json_path),
+                                  std::move(test.params.param(0)), Bool(false)},
+                                 NullJson(), test.params.status())
+               .AddRequiredFeatures(features_set)});
+    }
+  }
+
+  // NULL cases
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({NullJson(), String("$[0]"), Int64(1)},
+                                         NullJson())});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson("[1]"), NullString(), Int64(1)},
+                             NullJson())});
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson("[1]"), String("$[0]"),
+                                          Int64(1), NullString(), Int64(2)},
+                                         NullJson())});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson("[1]"), String("$[0]"), Int64(1),
+                              NullString(), Int64(2), Bool(true)},
+                             NullJson())
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson("[1]"), String("$[0]"), Int64(1),
+                              String("$[0]"), Int64(2), NullBool()},
+                             NullJson())
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
+  absl::string_view json_string =
+      R"([[1, 2, 3], true, {"a": [1.1,[["foo"]]]}])";
+  // 1 insertion
+  // Negative indexing is not supported.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[0][-1]"), Bool(false)},
+                                         NullJson(), OUT_OF_RANGE)});
+  // Negative indexing is not supported.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[-1][0]"), Bool(false)},
+                                         NullJson(), OUT_OF_RANGE)});
+  // Path doesn't exist
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$.b[0]"), String("bar")},
+                                         ParseJson(json_string))});
+  // Path doesn't exist
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[2].b[0]"), String("bar")},
+                                         ParseJson(json_string))});
+  // Path doesn't point to an array
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[2][0][0]"), String("bar")},
+                                         ParseJson(json_string))});
+  // Path doesn't point to an array
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[0][1][2]"), String("bar")},
+                                         ParseJson(json_string))});
+  // Path doesn't point to an array
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[2][0]"), String("bar")},
+                                         ParseJson(json_string))});
+  // Path doesn't point to an array
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[1][0]"), String("bar")},
+                                         ParseJson(json_string))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"), Int64(-1)},
+           ParseJson(R"([-1, [1, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[1]"), String("bar")},
+           ParseJson(R"([[1, 2, 3], "bar", true, {"a": [1.1, [["foo"]]]}])"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0][2]"), Bool(false)},
+           ParseJson(R"([[1, 2, false, 3], true, {"a": [1.1, [["foo"]]]}])"))});
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult(
+                       {ParseJson(json_string), String("$[0][5]"), Bool(false)},
+                       ParseJson(R"([[1, 2, 3, null, null, false], true,
+                         {"a": [1.1, [["foo"]]]}])"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a[1]"), NullJson()},
+           ParseJson(R"([[1, 2, 3], true, {"a": [1.1, null, [["foo"]]]}])"))});
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[2].a[1][2]"), Int64(10)},
+                                         ParseJson(R"([[1, 2, 3], true,
+                         {"a": [1.1, [["foo"], null, 10]]}])"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a[1][0][0]"), Int64(10)},
+           ParseJson(R"([[1, 2, 3], true, {"a": [1.1, [[10, "foo"]]]}])"))});
+
+  // Insertion into null
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult(
+                       {ParseJson(R"({"a": null, "b": [null]})"),
+                        String("$.a[2]"), Int64(10)},
+                       ParseJson(R"({"a": [null, null, 10], "b": [null]})"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(R"({"a": null, "b": [null]})"), String("$.a[2]"),
+            Int64Array({})},
+           ParseJson(R"({"a": [null, null, null], "b": [null]})"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson(R"({"a": null, "b": [null]})"),
+                              String("$.a[1]"), Int64Array({}), Bool(false)},
+                             ParseJson(R"({"a": [null, []], "b": [null]})"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult(
+                       {ParseJson(R"({"a": null, "b": [null]})"),
+                        String("$.b[2]"), Int64Array({})},
+                       ParseJson(R"({"a": null, "b": [null, null, null]})"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson(R"({"a": null, "b": [null]})"),
+                              String("$.b[2][0]"), Int64(10)},
+                             ParseJson(R"({"a": null, "b": [null]})"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson(R"({"a": null, "b": [null]})"),
+                              String("$.b[0][0]"), Int64(10)},
+                             ParseJson(R"({"a": null, "b": [[10]]})"))});
+
+  // Insertion of arrays
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0][1]"), Int64Array({10, 20})},
+           ParseJson(
+               R"([[1, 10, 20, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0][1]"), Int64Array({10, 20}),
+            Bool(true)},
+           ParseJson(R"([[1, 10, 20, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0][1]"), Int64Array({10, 20}),
+            Bool(false)},
+           ParseJson(R"([[1, [10, 20], 2, 3], true, {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a[1]"),
+            values::Array(StringArrayType(), {String("foo"), NullString()}),
+            Bool(true)},
+           ParseJson(
+               R"([[1, 2, 3], true, {"a": [1.1, "foo", null, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a[1]"),
+            values::Array(StringArrayType(), {String("foo"), NullString()}),
+            Bool(false)},
+           ParseJson(
+               R"([[1, 2, 3], true, {"a": [1.1, ["foo", null], [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0][0]"),
+            BigNumericValue::FromStringStrict("123.123456981723189237198273")
+                .value()},
+           ParseJson(R"([[123.1234569817232, 1, 2, 3], true,
+                         {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)});
+  // Strict number parsing
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0][0]"),
+            BigNumericValue::FromStringStrict("123.123456981723189237198273")
+                .value()},
+           NullJson(), OUT_OF_RANGE)
+           .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)
+           .AddRequiredFeature(FEATURE_JSON_STRICT_NUMBER_PARSING)});
+
+  // 2+ Insertions
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"), Int64(10), String("$[0]"),
+            Bool(true)},
+           ParseJson(
+               R"([true, 10, [1, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))});
+  // After the first insertion, the object moved to $[3], so the second
+  // path doesn't exist and is a no-op.
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"), Int64(10),
+            String("$[2].a[0]"), Bool(true)},
+           ParseJson(R"([10, [1, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))});
+  // The second path points to an array created by the first path.
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[1]"), StringArray({"a", "b"}),
+            String("$[1][1]"), Bool(true), Bool(false)},
+           ParseJson(R"([[1, 2, 3], ["a", true, "b"], true,
+                         {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson(json_string), String("$[2].a[1][0]"),
+                              String("a"), String("$[0][4]"), Bool(true),
+                              String("$[2].a[1][1][0]"), NullInt64()},
+                             ParseJson(R"([[1, 2, 3, null, true], true,
+                                     {"a": [1.1, ["a", [null, "foo"]]]}])"))});
+  // Max array size
+  {
+    // Array is already larger than max size. Fails if an element is added.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize);
+    tests.push_back({"json_array_insert",
+                     QueryParamsWithResult({Json(std::move(input_json)),
+                                            String("$.a[1]"), Int64(10)},
+                                           NullJson(), OUT_OF_RANGE)});
+  }
+  {
+    // Array is already larger than max size. Fails if an element is added.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize);
+    tests.push_back(
+        {"json_array_insert",
+         QueryParamsWithResult({Json(std::move(input_json)), String("$.a[1]"),
+                                Int64Array({10, 20})},
+                               NullJson(), OUT_OF_RANGE)});
+  }
+  {
+    // Array is already larger than max size. Ok if no element is added.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize);
+    JSONValue expected_result = JSONValue::CopyFrom(input_json.GetConstRef());
+    tests.push_back({"json_array_insert",
+                     QueryParamsWithResult({Json(std::move(input_json)),
+                                            String("$.a[0]"), Int64Array({})},
+                                           Json(std::move(expected_result)))});
+  }
+  {
+    // Array is at max size. Adding an element fails.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize - 1);
+    tests.push_back({"json_array_insert",
+                     QueryParamsWithResult({Json(std::move(input_json)),
+                                            String("$.a[10]"), Int64(10)},
+                                           NullJson(), OUT_OF_RANGE)});
+  }
+  {
+    // Array is at max size - 1. Adding 2 elements fails.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize - 2);
+    tests.push_back(
+        {"json_array_insert",
+         QueryParamsWithResult({Json(std::move(input_json)), String("$.a[1]"),
+                                Int64Array({10, 20})},
+                               NullJson(), OUT_OF_RANGE)});
+  }
+  {
+    // Insertion past array size and fills with null. Array is at max size.
+    // Succeeds.
+    JSONValue expected_result;
+    JSONValueRef ref = expected_result.GetRef();
+    ref.GetMember("a").GetArrayElement(0).SetInt64(10);
+    ref.GetMember("a").GetArrayElement(kJSONMaxArraySize - 1).SetString("foo");
+
+    tests.push_back(
+        {"json_array_insert",
+         QueryParamsWithResult(
+             {ParseJson(R"({"a": [10]})"),
+              String(absl::Substitute("$$.a[$0]", kJSONMaxArraySize - 1)),
+              String("foo")},
+             Json(std::move(expected_result)))});
+  }
+  {
+    // Insertion past array size and fills with null. Array is oversized. Fails.
+    tests.push_back({"json_array_insert",
+                     QueryParamsWithResult({ParseJson(R"({"a": [10]})"),
+                                            String(absl::Substitute(
+                                                "$$.a[$0]", kJSONMaxArraySize)),
+                                            Int64(10)},
+                                           NullJson(), OUT_OF_RANGE)});
+  }
+  {
+    // Insertion past array size and fills with null. Array is at max size.
+    // Succeeds.
+    JSONValue expected_result;
+    JSONValueRef ref = expected_result.GetRef();
+    ref.GetMember("a").GetArrayElement(0).SetInt64(10);
+    ref.GetMember("a").GetArrayElement(kJSONMaxArraySize - 1);
+
+    tests.push_back(
+        {"json_array_insert",
+         QueryParamsWithResult(
+             {ParseJson(R"({"a": [10]})"),
+              String(absl::Substitute("$$.a[$0]", kJSONMaxArraySize - 1)),
+              Int64Array({})},
+             Json(std::move(expected_result)))});
+  }
+
+  return tests;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
+  std::vector<FunctionTestCall> tests;
+  // One argument to JSON_ARRAY_APPEND. Test cases from TO_JSON to make sure
+  // JSON_ARRAY_APPEND applies TO_JSON semantics to arguments.
+  for (FunctionTestCall& test : GetFunctionTestsToJson()) {
+    if (test.params.num_params() == 2) {
+      if (test.params.param(1).is_null() || test.params.param(1).bool_value()) {
+        // No stringify mode in JSON_ARRAY_APPEND.
+        continue;
+      }
+    }
+
+    auto features_set = test.params.required_features();
+    features_set.insert(FEATURE_NAMED_ARGUMENTS);
+
+    absl::string_view json_string = R"({"a": [1, "foo"]})";
+    Value input = ParseJson(json_string);
+    absl::string_view json_path = "$.a";
+
+    if (test.params.status().ok()) {
+      JSONValue json_result = JSONValue::ParseJSONString(json_string).value();
+      ZETASQL_CHECK_OK(json_result.GetRef().GetMember("a").AppendArrayElement(
+          JSONValue::CopyFrom(test.params.result().json_value())));
+      Value result = Json(std::move(json_result));
+      tests.push_back(
+          {"json_array_append",
+           QueryParamsWithResult({std::move(input), String(json_path),
+                                  std::move(test.params.param(0)), Bool(false)},
+                                 result)
+               .AddRequiredFeatures(features_set)});
+    } else {
+      tests.push_back(
+          {"json_array_append",
+           QueryParamsWithResult({std::move(input), String(json_path),
+                                  std::move(test.params.param(0)), Bool(false)},
+                                 NullJson(), test.params.status())
+               .AddRequiredFeatures(features_set)});
+    }
+  }
+
+  // NULL cases
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({NullJson(), String("$"), Int64(1)}, NullJson())});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({ParseJson("[1]"), NullString(), Int64(1)},
+                             NullJson())});
+
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult({ParseJson("[1]"), String("$"),
+                                          Int64(1), NullString(), Int64(2)},
+                                         NullJson())});
+
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({ParseJson("[1]"), String("$"), Int64(1),
+                              NullString(), Int64(2), Bool(true)},
+                             NullJson())
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({ParseJson("[1]"), String("$"), Int64(1),
+                              String("$"), Int64(2), NullBool()},
+                             NullJson())
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
+  absl::string_view json_string =
+      R"([[1, 2, 3], true, {"a": [1.1,[["foo"]]]}])";
+  // 1 append
+  // Negative indexing is not supported.
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult(
+                       {ParseJson(json_string), String("$[-1]"), Bool(false)},
+                       NullJson(), OUT_OF_RANGE)});
+  // Path doesn't exist
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.b"), String("bar")},
+                       ParseJson(json_string))});
+  // Path doesn't exist
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[2].b"), String("bar")},
+                                         ParseJson(json_string))});
+  // Path doesn't exist
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[0][1][2]"), String("bar")},
+                                         ParseJson(json_string))});
+  // Path doesn't point to an array
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult(
+                       {ParseJson(json_string), String("$[2]"), String("bar")},
+                       ParseJson(json_string))});
+  // Path doesn't point to an array
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult(
+                       {ParseJson(json_string), String("$[1]"), String("bar")},
+                       ParseJson(json_string))});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$"), Int64(-1)},
+           ParseJson(R"([[1, 2, 3], true, {"a": [1.1, [["foo"]]]}, -1])"))});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"), Bool(false)},
+           ParseJson(R"([[1, 2, 3, false], true, {"a": [1.1, [["foo"]]]}])"))});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a"), NullJson()},
+           ParseJson(R"([[1, 2, 3], true, {"a": [1.1, [["foo"]], null]}])"))});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a[1]"), Int64(10)},
+           ParseJson(R"([[1, 2, 3], true, {"a": [1.1, [["foo"], 10]]}])"))});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a[1][0]"), Int64(10)},
+           ParseJson(R"([[1, 2, 3], true, {"a": [1.1, [["foo", 10]]]}])"))});
+
+  // Insertion into null
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(R"({"a": null, "b": [null]})"), String("$.a"), Int64(10)},
+           ParseJson(R"({"a": [10], "b": [null]})"))});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({ParseJson(R"({"a": null, "b": [null]})"),
+                              String("$.a"), Int64Array({})},
+                             ParseJson(R"({"a": [], "b": [null]})"))});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({ParseJson(R"({"a": null, "b": [null]})"),
+                              String("$.a"), Int64Array({}), Bool(false)},
+                             ParseJson(R"({"a": [[]], "b": [null]})"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({ParseJson(R"({"a": null, "b": [null]})"),
+                              String("$.b[0]"), Int64(10)},
+                             ParseJson(R"({"a": null, "b": [[10]]})"))});
+
+  // Insertion of arrays
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"), Int64Array({10, 20})},
+           ParseJson(
+               R"([[1, 2, 3, 10, 20], true, {"a": [1.1, [["foo"]]]}])"))});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"), Int64Array({10, 20}),
+            Bool(true)},
+           ParseJson(R"([[1, 2, 3, 10, 20], true, {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"), Int64Array({10, 20}),
+            Bool(false)},
+           ParseJson(R"([[1, 2, 3, [10, 20]], true, {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a"),
+            values::Array(StringArrayType(), {String("foo"), NullString()}),
+            Bool(true)},
+           ParseJson(
+               R"([[1, 2, 3], true, {"a": [1.1, [["foo"]], "foo", null]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a"),
+            values::Array(StringArrayType(), {String("foo"), NullString()}),
+            Bool(false)},
+           ParseJson(
+               R"([[1, 2, 3], true, {"a": [1.1, [["foo"]], ["foo", null]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"),
+            BigNumericValue::FromStringStrict("123.123456981723189237198273")
+                .value()},
+           ParseJson(R"([[1, 2, 3, 123.1234569817232], true,
+                         {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)});
+  // Strict number parsing
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"),
+            BigNumericValue::FromStringStrict("123.123456981723189237198273")
+                .value()},
+           NullJson(), OUT_OF_RANGE)
+           .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)
+           .AddRequiredFeature(FEATURE_JSON_STRICT_NUMBER_PARSING)});
+
+  // 2+ Insertions
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult({ParseJson(json_string), String("$"),
+                                          Int64(10), String("$"), Bool(true)},
+                                         ParseJson(R"([[1, 2, 3], true,
+                         {"a": [1.1, [["foo"]]]}, 10, true])"))});
+  // The second path points to an array created by the first path.
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$"), StringArray({"a", "b"}),
+            String("$[3]"), Bool(true), Bool(false)},
+           ParseJson(R"([[1, 2, 3], true,
+                         {"a": [1.1, [["foo"]]]}, ["a", "b", true]])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[2].a[1]"), String("a"),
+            String("$[0]"), Bool(true), String("$[2].a[1][0]"), NullInt64()},
+           ParseJson(R"([[1, 2, 3, true], true,
+                                     {"a": [1.1, [["foo", null], "a"]]}])"))});
+
+  // Max array size
+  {
+    // Array is already larger than max size. Fails if an element is added.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize);
+    tests.push_back({"json_array_append",
+                     QueryParamsWithResult({Json(std::move(input_json)),
+                                            String("$.a"), Int64(10)},
+                                           NullJson(), OUT_OF_RANGE)});
+  }
+  {
+    // Array is already larger than max size. Fails if an element is added.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize);
+    tests.push_back(
+        {"json_array_append",
+         QueryParamsWithResult(
+             {Json(std::move(input_json)), String("$.a"), Int64Array({10, 20})},
+             NullJson(), OUT_OF_RANGE)});
+  }
+  {
+    // Array is already larger than max size. Ok if no element is added.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize);
+    JSONValue expected_result = JSONValue::CopyFrom(input_json.GetConstRef());
+    tests.push_back({"json_array_append",
+                     QueryParamsWithResult({Json(std::move(input_json)),
+                                            String("$.a"), Int64Array({})},
+                                           Json(std::move(expected_result)))});
+  }
+  {
+    // Array is at max size. Adding an element fails.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize - 1);
+    tests.push_back({"json_array_append",
+                     QueryParamsWithResult({Json(std::move(input_json)),
+                                            String("$.a"), Int64(10)},
+                                           NullJson(), OUT_OF_RANGE)});
+  }
+  {
+    // Array is at max size - 2. Adding 2 elements succeeds.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize - 3);
+    JSONValue expected_result = JSONValue::CopyFrom(input_json.GetConstRef());
+    expected_result.GetRef()
+        .GetMember("a")
+        .GetArrayElement(kJSONMaxArraySize - 2)
+        .SetInt64(10);
+    expected_result.GetRef()
+        .GetMember("a")
+        .GetArrayElement(kJSONMaxArraySize - 1)
+        .SetInt64(20);
+    tests.push_back(
+        {"json_array_append",
+         QueryParamsWithResult(
+             {Json(std::move(input_json)), String("$.a"), Int64Array({10, 20})},
+             Json(std::move(expected_result)))});
+  }
+  {
+    // Array is at max size - 1. Adding 2 elements fails.
+    JSONValue input_json = JSONValue::ParseJSONString(R"({"a": [10]})").value();
+    input_json.GetRef().GetMember("a").GetArrayElement(kJSONMaxArraySize - 2);
+    tests.push_back(
+        {"json_array_append",
+         QueryParamsWithResult(
+             {Json(std::move(input_json)), String("$.a"), Int64Array({10, 20})},
+             NullJson(), OUT_OF_RANGE)});
+  }
+
+  return tests;
+}
+
 std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
   std::vector<FunctionTestCall> tests;
   // Test cases from TO_JSON to make sure JSON_SET applies TO_JSON semantics

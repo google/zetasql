@@ -72,7 +72,7 @@ class SimpleCatalog : public EnumerableCatalog {
   // SimpleCatalog and used to allocate any Types needed for the Catalog.
   // If <type_factory> is NULL, an owned TypeFactory will be constructed
   // internally when needed.
-  explicit SimpleCatalog(const std::string& name,
+  explicit SimpleCatalog(absl::string_view name,
                          TypeFactory* type_factory = nullptr);
   SimpleCatalog(const SimpleCatalog&) = delete;
   SimpleCatalog& operator=(const SimpleCatalog&) = delete;
@@ -233,8 +233,10 @@ class SimpleCatalog : public EnumerableCatalog {
                         std::unique_ptr<const Function> function);
   void AddOwnedFunction(std::unique_ptr<const Function> function)
       ABSL_LOCKS_EXCLUDED(mutex_);
+  // Return true if and takes ownership if actually inserted.
   bool AddOwnedFunctionIfNotPresent(const std::string& name,
                                     std::unique_ptr<Function>* function);
+  // Return true if and takes ownership if actually inserted.
   bool AddOwnedFunctionIfNotPresent(std::unique_ptr<Function>* function);
   void AddOwnedFunction(const std::string& name, const Function* function);
   void AddOwnedFunction(const Function* function) ABSL_LOCKS_EXCLUDED(mutex_);

@@ -1184,7 +1184,7 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
   EXPECT_EQ(8, sizeof(AnalyzerOptions))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(23, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(24, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

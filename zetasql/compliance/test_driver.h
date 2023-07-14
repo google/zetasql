@@ -440,8 +440,7 @@ class TestDriver {
    public:
     explicit ProtoSourceTree(absl::string_view base_dir)
         : base_dir_(base_dir) {}
-      google::protobuf::io::ZeroCopyInputStream* Open(
-          const std::string& filename) override {
+    google::protobuf::io::ZeroCopyInputStream* Open(absl::string_view filename) override {
       std::string contents;
       if (internal::GetContents(zetasql_base::JoinPath(base_dir_, filename), &contents)
               .ok()) {
@@ -462,8 +461,8 @@ class TestDriver {
    public:
     explicit ProtoErrorCollector(std::vector<std::string>* errors)
         : errors_(errors) {}
-    void AddError(const std::string& file, int line, int col,
-                  const std::string& detail) override {
+    void RecordError(absl::string_view file, int line, int col,
+                     absl::string_view detail) override {
       if (line > 0) {
         errors_->push_back(absl::StrCat(file, ":", line, ": ", detail));
       } else {
@@ -489,5 +488,8 @@ class TestDriver {
 TestDriver* GetComplianceTestDriver();
 
 }  // namespace zetasql
+
+// TODO: Remove when geography crashes are resolved.
+ABSL_DECLARE_FLAG(bool, zetasql_test___driver_enable_geography);
 
 #endif  // ZETASQL_COMPLIANCE_TEST_DRIVER_H_

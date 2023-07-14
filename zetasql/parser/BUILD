@@ -297,6 +297,7 @@ cc_library(
         "flex_tokenizer.h",
         "join_processor.h",
         "location.hh",
+        "parser_internal.h",
         "parser_runtime_info.h",
         "statement_properties.h",
     ],

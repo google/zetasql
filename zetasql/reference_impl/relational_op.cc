@@ -1141,6 +1141,10 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
     const std::vector<const TupleData*> output_ptrs = outputs->GetTuplePtrs();
     is_uniquely_ordered =
         comparator->IsUniquelyOrdered(output_ptrs, slots_for_values);
+    if (is_uniquely_ordered &&
+        comparator->InvolvesUncertainArrayComparisons(output_ptrs)) {
+      is_uniquely_ordered = false;
+    }
   }
   // We are done with 'top_n_outputs'. Deallocate it and crash if we ever
   // try to access it again.

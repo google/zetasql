@@ -437,7 +437,7 @@ ALTER TABLE KeyValue ADD COLUMN foo INT64 DEFAULT (select 1);
 ==
 
 # Add column with default value which contains lambda function.
-[language_features=V_1_3_COLUMN_DEFAULT_VALUE,V_1_3_INLINE_LAMBDA_ARGUMENT,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES]
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE,V_1_3_INLINE_LAMBDA_ARGUMENT]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN e ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], e -> e = 'a');
 --

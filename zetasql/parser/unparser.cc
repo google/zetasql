@@ -149,7 +149,7 @@ bool Formatter::LastTokenIsSeparator() {
   // These are keywords emitted in uppercase in Unparser, so don't need to make
   // them case insensitive.
   static const std::set<std::string>& kWordSperarator =
-      *new std::set<std::string>({"AND", "OR", "ON", "IN"});
+      *new std::set<std::string>({"AND", "OR", "ON", "IN", "BY"});
   static const std::set<char>& kNonWordSperarator =
       *new std::set<char>({',', '<', '>', '-', '+', '=', '*', '/', '%'});
   if (buffer_.empty()) return false;
@@ -1726,19 +1726,22 @@ void Unparser::visitASTGroupingSetList(const ASTGroupingSetList* node,
 }
 
 void Unparser::visitASTGroupingItem(const ASTGroupingItem* node, void* data) {
-  ZETASQL_DCHECK_EQ((node->expression() != nullptr) + (node->rollup() != nullptr) +
+  ZETASQL_DCHECK_LE((node->expression() != nullptr) + (node->rollup() != nullptr) +
                 (node->cube() != nullptr) +
                 (node->grouping_set_list() != nullptr),
             1)
-      << "Exact one of expression, rollup, cube, and grouping_set_list exist";
+      << "At most one of expression, rollup, cube, and grouping_set_list exist";
   if (node->expression() != nullptr) {
     node->expression()->Accept(this, data);
   } else if (node->rollup() != nullptr) {
     node->rollup()->Accept(this, data);
   } else if (node->cube() != nullptr) {
     node->cube()->Accept(this, data);
-  } else {
+  } else if (node->grouping_set_list() != nullptr) {
     node->grouping_set_list()->Accept(this, data);
+  } else {
+    // This is an empty grouping item ()
+    print("()");
   }
 }
 
@@ -2571,6 +2574,27 @@ void Unparser::visitASTStructType(const ASTStructType* node, void* data) {
 
 void Unparser::visitASTStructField(const ASTStructField* node, void* data) {
   UnparseChildrenWithSeparator(node, data, "");
+}
+
+void Unparser::visitASTFunctionType(const ASTFunctionType* node, void* data) {
+  print("FUNCTION<(");
+  node->arg_list()->Accept(this, data);
+  print(") ->");
+  node->return_type()->Accept(this, data);
+  print(">");
+
+  if (node->type_parameters() != nullptr) {
+    node->type_parameters()->Accept(this, data);
+  }
+
+  if (node->collate() != nullptr) {
+    node->collate()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTFunctionTypeArgList(const ASTFunctionTypeArgList* node,
+                                           void* data) {
+  UnparseVectorWithSeparator(node->args(), data, ",");
 }
 
 void Unparser::visitASTSimpleColumnSchema(const ASTSimpleColumnSchema* node,

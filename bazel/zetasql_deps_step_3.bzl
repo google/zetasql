@@ -22,11 +22,11 @@ load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
 def zetasql_deps_step_3():
+    protobuf_deps()
+    grpc_deps()
     switched_rules_by_language(
         name = "com_google_googleapis_imports",
         java = True,
         cc = True,
     )
     google_common_workspace_rules()
-    protobuf_deps()
-    grpc_deps()

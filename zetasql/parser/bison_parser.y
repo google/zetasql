@@ -36,147 +36,14 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_format.h"
 #include "absl/status/status.h"
+#include "zetasql/parser/parser_internal.h"
+
+using namespace zetasql::parser_internal;
 
 #define YYINITDEPTH 50
 #ifndef YYDEBUG
 #define YYDEBUG 0
 #endif
-
-// Shorthand to call parser->CreateASTNode<>(). The "node_type" must be a
-// AST... class from the zetasql namespace. The "..." are the arguments to
-// BisonParser::CreateASTNode<>().
-#define MAKE_NODE(node_type, ...) \
-    parser->CreateASTNode<zetasql::node_type>(__VA_ARGS__);
-
-enum class NotKeywordPresence {
-  kPresent,
-  kAbsent
-};
-
-enum class AllOrDistinctKeyword {
-  kAll,
-  kDistinct,
-  kNone,
-};
-
-enum class PrecedingOrFollowingKeyword {
-  kPreceding,
-  kFollowing
-};
-
-enum class ShiftOperator {
-  kLeft,
-  kRight
-};
-
-enum class TableOrTableFunctionKeywords {
-  kTableKeyword,
-  kTableAndFunctionKeywords
-};
-
-enum class ImportType {
-  kModule,
-  kProto,
-};
-
-// This node is used for temporarily aggregating together components of an
-// identifier that are separated by various characters, such as slash ("/"),
-// dash ("-"), and colon (":") to enable supporting table paths of the form:
-// /span/nonprod-test:db.Table without any escaping.  This node exists
-// temporarily to hold intermediate values, and will not be part of the final
-// parse tree.
-class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
- public:
-  static constexpr zetasql::ASTNodeKind kConcreteNodeKind =
-      zetasql::AST_FAKE;
-
-  SeparatedIdentifierTmpNode() : ASTNode(kConcreteNodeKind) {}
-  void Accept(zetasql::ParseTreeVisitor* visitor, void* data) const override {
-    ZETASQL_LOG(FATAL) << "SeparatedIdentifierTmpNode does not support Accept";
-  }
-  absl::StatusOr<zetasql::VisitResult> Accept(
-      zetasql::NonRecursiveParseTreeVisitor* visitor) const override {
-    ZETASQL_LOG(FATAL) << "SeparatedIdentifierTmpNode does not support Accept";
-  }
-  // This is used to represent an unquoted full identifier path that may contain
-  // slashes ("/"), dashes ('-'), and colons (":"). This requires special
-  // handling because of the ambiguity in the lexer between an identifier and a
-  // number. For example:
-  // /span/nonprod-5:db-3.Table
-  // The lexer takes this to be
-  // /,span,/,nonprod,-,5,:,db,-,3.,Table
-  // Where tokens like 3. are treated as a FLOATING_POINT_LITERAL, so the
-  // natural path separator "." is lost. For more information on this, see the
-  // 'slashed_identifier' rule.
-
-  // We represent this as a list of one or more 'PathParts' which are
-  // implicitly separated by a dot ('.'). Each may be composed of one or more
-  // 'IdParts' which is a list of the tokens that compose a single component of
-  // the path (a single identifier) including any slashes, dashes, and/or
-  // colons.
-  // Thus, the example string above would be represented as the following:
-  // {{"/", "span", "/", "nonprod", "-", "5", ":", "db", "-", "3"}, {"Table"}}
-
-  // In order to save memory, these all contain string_view entries (backed by
-  // the parser's copy of the input sql).
-  // This also uses inlined vectors, because we rarely expect more than a few
-  // entries at either level.
-  // Note, in the event the size is large, this will allocate directly to the
-  // heap, rather than into the arena.
-  using IdParts = std::vector<absl::string_view>;
-  using PathParts = std::vector<IdParts>;
-
-  void set_path_parts(PathParts path_parts) {
-    path_parts_ = std::move(path_parts);
-  }
-
-  PathParts&& release_path_parts() {
-    return std::move(path_parts_);
-  }
-  absl::Status InitFields() final {
-    {
-      FieldLoader fl(this);  // Triggers check that there were no children.
-      return fl.Finalize();
-    }
-  }
-
-  // Returns a vector of identifier ASTNodes from `raw_parts`.
-  // `raw_parts` represents a path as a list of lists. Each sublist contains the
-  // raw components of an identifier. To form an ASTPathExpression, we
-  // concatenate the components of each sublist together to form a single
-  // identifier and return a list of these identifiers, which can be used to
-  // build an ASTPathExpression.
-  static absl::StatusOr<std::vector<zetasql::ASTNode*>> BuildPathParts(
-    const zetasql_bison_parser::location& bison_location,
-    PathParts raw_parts, zetasql::parser::BisonParser* parser) {
-    if(raw_parts.empty()) {
-      return absl::InvalidArgumentError(
-        "Internal error: Empty slashed path expression");
-    }
-    std::vector<zetasql::ASTNode*> parts;
-    for (int i = 0; i < raw_parts.size(); ++i) {
-      SeparatedIdentifierTmpNode::IdParts& raw_id_parts = raw_parts[i];
-      if (raw_id_parts.empty()) {
-        return absl::InvalidArgumentError(
-          "Internal error: Empty dashed identifier part");
-      }
-      // Trim trailing "." which is leftover from lexing float literals
-      // like a/1.b -> {"a", "/", "1.", "b"}
-      for (int j = 0; j < raw_id_parts.size(); ++j) {
-        absl::string_view& dash_part = raw_id_parts[j];
-        if (absl::EndsWith(dash_part, ".")) {
-          dash_part.remove_suffix(1);
-        }
-      }
-      parts.push_back(parser->MakeIdentifier(bison_location,
-                                             absl::StrJoin(raw_id_parts, "")));
-    }
-    return parts;
-  }
-
- private:
-  PathParts path_parts_;
-};
 
 }
 
@@ -606,121 +473,6 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 ABSL_FLAG(bool, zetasql_bison_parserdebug, true, "Print traces for the ZetaSQL parser.");
 #endif
 // NOYACC-END
-
-inline int zetasql_bison_parserlex(
-    zetasql_bison_parser::BisonParserImpl::semantic_type* yylval,
-    zetasql_bison_parser::location* yylloc,
-    zetasql::parser::ZetaSqlFlexTokenizer* tokenizer) {
-  ZETASQL_DCHECK(tokenizer != nullptr);
-  return tokenizer->GetNextTokenFlex(yylloc);
-}
-
-// Generates a parse error with message 'msg' (which must be a string
-// expression) at bison location 'location', and aborts the parser.
-#define YYERROR_AND_ABORT_AT(location, msg) \
-    do { \
-      error(location, (msg)); \
-      YYABORT; \
-    } while (0)
-
-// Generates a parse error of the form "Unexpected X", where X is a description
-// of the current token, at bison location 'location', and aborts the parser.
-#define YYERROR_UNEXPECTED_AND_ABORT_AT(location) \
-    do { \
-      error(location, ""); \
-      YYABORT; \
-    } while (0)
-
-#define CHECK_LABEL_SUPPORT(node, location) \
-    if (node != nullptr \
-        && (!parser->language_options().LanguageFeatureEnabled( \
-                zetasql::FEATURE_V_1_3_SCRIPT_LABEL))) { \
-      YYERROR_AND_ABORT_AT(location, "Script labels are not supported"); \
-    }
-
-#define CHECK_END_LABEL_VALID( \
-  label_node, label_location, end_label_node, end_label_location) \
-    if (end_label_node != nullptr \
-        && !end_label_node->GetAsIdString().CaseEquals( \
-              label_node->GetAsIdString())) { \
-      YYERROR_AND_ABORT_AT(end_label_location, \
-          absl::StrCat("Mismatched end label; expected ", \
-              label_node->GetAsStringView(), ", got ", \
-              end_label_node->GetAsStringView())); \
-    } \
-
-// Generates a parse error if there are spaces between location <left> and
-// location <right>.
-// For example, this is used when we composite multiple existing tokens to
-// match a complex symbol without reserving it as a new token.
-#define YYERROR_AND_ABORT_AT_WHITESPACE(left, right)                         \
-  if (parser->HasWhitespace(left, right)) {                                  \
-    YYERROR_AND_ABORT_AT(                                                    \
-        left, absl::StrCat("Syntax error: Unexpected whitespace between \"", \
-                           parser->GetInputText(left), "\" and \"",          \
-                           parser->GetInputText(right), "\""));              \
-  }
-
-// Adds 'children' to 'node' and then returns 'node'.
-template <typename ASTNodeType>
-ASTNodeType* WithExtraChildren(
-    ASTNodeType* node,
-    absl::Span<zetasql::ASTNode* const> children) {
-  for (zetasql::ASTNode* child : children) {
-    if (child != nullptr) {
-      node->AddChild(child);
-    }
-  }
-  return node;
-}
-
-// Returns the first location in 'locations' that is not empty. If none of the
-// locations are nonempty, returns the first location.
-static zetasql_bison_parser::location FirstNonEmptyLocation(
-    absl::Span<const zetasql_bison_parser::location> locations) {
-  for (const zetasql_bison_parser::location& location : locations) {
-    if (location.begin.column != location.end.column) {
-      return location;
-    }
-  }
-  return locations[0];
-}
-
-static zetasql_bison_parser::location NonEmptyRangeLocation(
-    absl::Span<const zetasql_bison_parser::location> locations) {
-  std::optional<zetasql_bison_parser::location> range;
-  for (const zetasql_bison_parser::location& location : locations) {
-    if (location.begin.column != location.end.column) {
-      if (!range.has_value()) {
-        range = location;
-      } else {
-        if (location.begin.column < range->begin.column) {
-          range->begin = location.begin;
-        }
-        if (location.end.column > range->end.column) {
-          range->end = location.end;
-        }
-
-      }
-    }
-  }
-  if (range.has_value()) {
-    return *range;
-  }
-  return locations[0];
-}
-static bool IsUnparenthesizedNotExpression(zetasql::ASTNode* node) {
-  using zetasql::ASTUnaryExpression;
-  const ASTUnaryExpression* expr =
-      node->GetAsOrNull<ASTUnaryExpression>();
-  return expr != nullptr && !expr->parenthesized() &&
-         expr->op() == ASTUnaryExpression::NOT;
-}
-
-using zetasql::ASTInsertStatement;
-using zetasql::ASTCreateFunctionStmtBase;
-using zetasql::ASTDropStatement;
-
 }
 
 // KEYWORDS
@@ -1493,6 +1245,8 @@ using zetasql::ASTDropStatement;
 %type <node> struct_field
 %type <node> struct_type
 %type <node> struct_type_prefix
+%type <node> function_type_prefix
+%type <node> function_type
 %type <node> table_clause
 %type <node> table_column_definition
 %type <node> table_column_schema
@@ -2725,17 +2479,17 @@ opt_function_returns:
     ;
 
 opt_determinism_level:
-    "DETERMINISTIC" {$$ = ASTCreateFunctionStmtBase::DETERMINISTIC;}
+    "DETERMINISTIC" {$$ = zetasql::ASTCreateFunctionStmtBase::DETERMINISTIC;}
     | "NOT" "DETERMINISTIC"
-      {$$ = ASTCreateFunctionStmtBase::NOT_DETERMINISTIC;}
+      {$$ = zetasql::ASTCreateFunctionStmtBase::NOT_DETERMINISTIC;}
     | "IMMUTABLE"
-      {$$ = ASTCreateFunctionStmtBase::IMMUTABLE;}
+      {$$ = zetasql::ASTCreateFunctionStmtBase::IMMUTABLE;}
     | "STABLE"
-      {$$ = ASTCreateFunctionStmtBase::STABLE;}
+      {$$ = zetasql::ASTCreateFunctionStmtBase::STABLE;}
     | "VOLATILE"
-      {$$ = ASTCreateFunctionStmtBase::VOLATILE;}
+      {$$ = zetasql::ASTCreateFunctionStmtBase::VOLATILE;}
     | %empty
-      {$$ = ASTCreateFunctionStmtBase::DETERMINISM_UNSPECIFIED;}
+      {$$ = zetasql::ASTCreateFunctionStmtBase::DETERMINISM_UNSPECIFIED;}
     ;
 
 
@@ -5900,7 +5654,12 @@ grouping_set_list:
       ;
 
 grouping_item:
-    expression
+    "(" ")"
+      {
+        auto* grouping_item = MAKE_NODE(ASTGroupingItem, @$, {});
+        $$ = parser->WithEndLocation(grouping_item, @$);
+      }
+    | expression
       {
         $$ = MAKE_NODE(ASTGroupingItem, @$, {$1});
       }
@@ -7530,8 +7289,38 @@ range_type:
       }
     ;
 
+function_type_prefix:
+    "FUNCTION" "<" "(" type
+      {
+        $$ = MAKE_NODE(ASTFunctionTypeArgList, @$, {$type});
+      }
+    | function_type_prefix[prev] "," type
+      {
+        $$ = WithExtraChildren($prev, {$type});
+      }
+    ;
+
+function_type:
+    "FUNCTION" "<" "("[open_paren] ")"[close_paren] "->" type[return_type] ">"
+      {
+        auto empty_arg_list =
+            MAKE_NODE(ASTFunctionTypeArgList, @open_paren, @close_paren, {});
+        $$ = MAKE_NODE(ASTFunctionType, @$, {empty_arg_list, $return_type});
+      }
+    | "FUNCTION" "<" type[arg_type] "->" type[return_type] ">"
+      {
+        auto arg_list =
+            MAKE_NODE(ASTFunctionTypeArgList, @arg_type, {$arg_type});
+        $$ = MAKE_NODE(ASTFunctionType, @$, {arg_list, $return_type});
+      }
+    | function_type_prefix[arg_list] ")" "->" type[return_type] ">"
+      {
+        $$ = MAKE_NODE(ASTFunctionType, @$, {$arg_list, $return_type});
+      }
+    ;
+
 raw_type:
-    array_type | struct_type | type_name | range_type;
+    array_type | struct_type | type_name | range_type | function_type;
 
 type_parameter:
       integer_literal
@@ -8948,7 +8737,7 @@ opt_returning_clause:
     ;
 
 // Returns the JavaCC token code for IGNORE, REPLACE or UPDATE.
-// This is what ASTInsertStatement::set_insert_mode expects.
+// This is what zetasql::ASTInsertStatement::set_insert_mode expects.
 // This does NOT recognize just "REPLACE" or "UPDATE" because that causes
 // ambiguity: these keywords are also usable as identifers, so "INSERT REPLACE"
 // could be insertion into a table named "replace" or it could be INSERT
@@ -8976,24 +8765,24 @@ insert_statement_prefix:
       {
         zetasql::ASTInsertStatement* insert = $1;
         if (insert->parse_progress() >=
-            ASTInsertStatement::kSeenOrIgnoreReplaceUpdate) {
+            zetasql::ASTInsertStatement::kSeenOrIgnoreReplaceUpdate) {
           YYERROR_UNEXPECTED_AND_ABORT_AT(@2);
         }
         insert->set_insert_mode($2);
         insert->set_parse_progress(
-            ASTInsertStatement::kSeenOrIgnoreReplaceUpdate);
+            zetasql::ASTInsertStatement::kSeenOrIgnoreReplaceUpdate);
         $$ = insert;
       }
    | insert_statement_prefix "INTO" maybe_dashed_generalized_path_expression
      opt_hint
       {
         zetasql::ASTInsertStatement* insert = $1;
-        if (insert->parse_progress() >= ASTInsertStatement::kSeenTargetPath) {
+        if (insert->parse_progress() >= zetasql::ASTInsertStatement::kSeenTargetPath) {
           YYERROR_AND_ABORT_AT(
               @2, "Syntax error: Unexpected INSERT target name");
         }
         insert->set_parse_progress(
-            ASTInsertStatement::kSeenTargetPath);
+            zetasql::ASTInsertStatement::kSeenTargetPath);
         $$ = WithExtraChildren(insert, {$3, $4});
       }
     | insert_statement_prefix generalized_path_expression opt_hint
@@ -9003,7 +8792,7 @@ insert_statement_prefix:
         // OR IGNORE/REPLACE/UPDATE before.
         bool is_or_replace_update = false;
         if (insert->parse_progress() <
-            ASTInsertStatement::kSeenOrIgnoreReplaceUpdate) {
+            zetasql::ASTInsertStatement::kSeenOrIgnoreReplaceUpdate) {
           absl::string_view path_expression_text = parser->GetInputText(@2);
           if (zetasql_base::CaseEqual(path_expression_text, "REPLACE")) {
             insert->set_insert_mode(
@@ -9017,32 +8806,32 @@ insert_statement_prefix:
         }
         if (is_or_replace_update) {
           insert->set_parse_progress(
-              ASTInsertStatement::kSeenOrIgnoreReplaceUpdate);
+              zetasql::ASTInsertStatement::kSeenOrIgnoreReplaceUpdate);
           $$ = insert;
         } else {
-          if (insert->parse_progress() == ASTInsertStatement::kSeenTargetPath) {
+          if (insert->parse_progress() == zetasql::ASTInsertStatement::kSeenTargetPath) {
             YYERROR_AND_ABORT_AT(
                  @2, "Syntax error: INSERT target cannot have an alias");
           }
-          if (insert->parse_progress() > ASTInsertStatement::kSeenTargetPath) {
+          if (insert->parse_progress() > zetasql::ASTInsertStatement::kSeenTargetPath) {
             YYERROR_AND_ABORT_AT(
                  @2, "Syntax error: Unexpected INSERT target name");
           }
           insert->set_parse_progress(
-              ASTInsertStatement::kSeenTargetPath);
+              zetasql::ASTInsertStatement::kSeenTargetPath);
           $$ = WithExtraChildren(insert, {$2, $3});
         }
       }
     | insert_statement_prefix column_list
       {
         zetasql::ASTInsertStatement* insert = $1;
-        if (insert->parse_progress() >= ASTInsertStatement::kSeenColumnList) {
+        if (insert->parse_progress() >= zetasql::ASTInsertStatement::kSeenColumnList) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected column list");
         }
-        if (insert->parse_progress() < ASTInsertStatement::kSeenTargetPath) {
+        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenTargetPath) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Expecting INSERT target name");
         }
-        insert->set_parse_progress(ASTInsertStatement::kSeenColumnList);
+        insert->set_parse_progress(zetasql::ASTInsertStatement::kSeenColumnList);
         $$ = WithExtraChildren(insert, {$2});
       }
     // This has a shift/reduce conflict with the "path_expression" rule above.
@@ -9060,7 +8849,7 @@ insert_statement_prefix:
         zetasql::ASTInsertValuesRowList* row_list =
           parser->WithStartLocation($3, @2);
 
-        if (insert->parse_progress() < ASTInsertStatement::kSeenTargetPath) {
+        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenTargetPath) {
           // We haven't seen a target path yet. That means the "VALUES" should
           // be reinterpreted as a target path, and the insert_values_list as a
           // column list! We convert the already-parsed values list into the
@@ -9115,17 +8904,17 @@ insert_statement_prefix:
           }
           insert->AddChild(column_list);
           insert->set_parse_progress(
-              ASTInsertStatement::kSeenColumnList);
+              zetasql::ASTInsertStatement::kSeenColumnList);
         } else if (insert->parse_progress() >=
-                   ASTInsertStatement::kSeenValuesList) {
+                   zetasql::ASTInsertStatement::kSeenValuesList) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected VALUES list");
         } else if (insert->parse_progress() <
-                   ASTInsertStatement::kSeenTargetPath) {
+                   zetasql::ASTInsertStatement::kSeenTargetPath) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Expecting INSERT target name");
         } else {
           $$ = parser->WithEndLocation(WithExtraChildren(insert, {row_list}), @$);
           insert->set_parse_progress(
-              ASTInsertStatement::kSeenValuesList);
+              zetasql::ASTInsertStatement::kSeenValuesList);
         }
       }
     ;
@@ -9150,7 +8939,7 @@ insert_statement_prefix:
 // The solution used here is to allow arbitrary combinations of the optional and
 // mandatory components at the grammar level, and to keep track of the
 // components that have been seen in the parse_progress() of the
-// ASTInsertStatement that is being constructed. The validation is done in the
+// zetasql::ASTInsertStatement that is being constructed. The validation is done in the
 // parsing rules. All of this happens in insert_statement_prefix.
 //
 // Because "VALUES" is a non-reserved keyword, the "VALUES" rule in
@@ -9188,11 +8977,11 @@ insert_statement:
     insert_statement_prefix opt_assert_rows_modified opt_returning_clause
       {
         zetasql::ASTInsertStatement* insert = $1;
-        if (insert->parse_progress() < ASTInsertStatement::kSeenTargetPath) {
+        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenTargetPath) {
           YYERROR_AND_ABORT_AT(@2,
                                "Syntax error: Expecting INSERT target name");
         }
-        if (insert->parse_progress() < ASTInsertStatement::kSeenValuesList) {
+        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenValuesList) {
           YYERROR_AND_ABORT_AT(@2,
                                "Syntax error: Expecting VALUES list or query");
         }
@@ -9201,11 +8990,11 @@ insert_statement:
     | insert_statement_prefix query opt_assert_rows_modified opt_returning_clause
       {
         zetasql::ASTInsertStatement* insert = $1;
-        if (insert->parse_progress() < ASTInsertStatement::kSeenTargetPath) {
+        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenTargetPath) {
           YYERROR_AND_ABORT_AT(
                @2, "Syntax error: Expecting INSERT target name");
         }
-        if (insert->parse_progress() >= ASTInsertStatement::kSeenValuesList) {
+        if (insert->parse_progress() >= zetasql::ASTInsertStatement::kSeenValuesList) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected query");
         }
         $$ = parser->WithEndLocation(
@@ -9716,7 +9505,7 @@ drop_statement:
                                "supported, use DROP FUNCTION");
         }
         if ($2 != zetasql::SchemaObjectKind::kSchema) {
-          if ($6 != ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED) {
+          if ($6 != zetasql::ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED) {
             YYERROR_AND_ABORT_AT(
               @6, absl::StrCat(
               "Syntax error: '",

@@ -75,7 +75,7 @@ class TimedValue {
     stack_peak_used_bytes_ = end.stack_stats_.ThreadStackPeakUsedBytes();
   }
 
-  ExecutionStats ToExecutionStatsProto() {
+  ExecutionStats ToExecutionStatsProto() const {
     ExecutionStats ret;
     DurationToProto(cpu_time_, ret.mutable_cpu_time());
     DurationToProto(wall_time_, ret.mutable_wall_time());
@@ -122,16 +122,22 @@ class ScopedTimer {
  public:
   explicit ScopedTimer(TimedValue* timed_value)
       : timed_value_(timed_value), timer_(MakeTimerStarted()) {
+    ZETASQL_DCHECK(timed_value_ != nullptr);
     original_stack_usage_ =
         GetCurrentThreadStackStats().ResetPeakStackUsedBytes();
   }
   ScopedTimer() = delete;
   ScopedTimer(const ScopedTimer&) = delete;
 
-  ~ScopedTimer() {
-    timed_value_->Accumulate(timer_);
-    GetCurrentThreadStackStats().MergeStackEstimatedUsage(
-        original_stack_usage_);
+  ~ScopedTimer() { EndTiming(); }
+
+  void EndTiming() {
+    if (timed_value_ != nullptr) {
+      timed_value_->Accumulate(timer_);
+      GetCurrentThreadStackStats().MergeStackEstimatedUsage(
+          original_stack_usage_);
+    }
+    timed_value_ = nullptr;
   }
 
  private:

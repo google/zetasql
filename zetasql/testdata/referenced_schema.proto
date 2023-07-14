@@ -18,6 +18,9 @@ syntax = "proto2";
 
 package zetasql_test__;
 
+option java_package = "com.google.zetasqltest";
+option java_outer_classname = "ReferencedSchemaProto";
+
 enum TestReferencedEnum {
   REFERENCED_ENUM_0 = 0;
   REFERENCED_ENUM_1 = 1;

@@ -183,6 +183,669 @@ behavior:
   </tbody>
 </table>
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#st_accum"><code>ST_ACCUM</code></a>
+
+</td>
+  <td>
+    Aggregates <code>GEOGRAPHY</code> values into an array of
+    <code>GEOGRAPHY</code> elements.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_angle"><code>ST_ANGLE</code></a>
+
+</td>
+  <td>
+    Takes three point <code>GEOGRAPHY</code> values, which represent two
+    intersecting lines, and returns the angle between these lines.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_area"><code>ST_AREA</code></a>
+
+</td>
+  <td>
+    Gets the area covered by the polygons in a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_asbinary"><code>ST_ASBINARY</code></a>
+
+</td>
+  <td>
+    Converts a <code>GEOGRAPHY</code> value to a
+    <code>BYTES</code> WKB geography value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_asgeojson"><code>ST_ASGEOJSON</code></a>
+
+</td>
+  <td>
+    Converts a <code>GEOGRAPHY</code> value to a <code>STRING</code>
+    GeoJSON geography value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_askml"><code>ST_ASKML</code></a>
+
+</td>
+  <td>
+    Converts a <code>GEOGRAPHY</code> value to a <code>STRING</code>
+    KML geometry value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_astext"><code>ST_ASTEXT</code></a>
+
+</td>
+  <td>
+    Converts a <code>GEOGRAPHY</code> value to a
+    <code>STRING</code> WKT geography value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_azimuth"><code>ST_AZIMUTH</code></a>
+
+</td>
+  <td>
+    Gets the azimuth of a line segment formed by two
+    point <code>GEOGRAPHY</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_boundary"><code>ST_BOUNDARY</code></a>
+
+</td>
+  <td>
+    Gets the union of component boundaries in a
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a>
+
+</td>
+  <td>
+    Gets the bounding box for a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_buffer"><code>ST_BUFFER</code></a>
+
+</td>
+  <td>
+    Gets the buffer around a <code>GEOGRAPHY</code> value, using a specific
+    number of segments.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_bufferwithtolerance"><code>ST_BUFFERWITHTOLERANCE</code></a>
+
+</td>
+  <td>
+    Gets the buffer around a <code>GEOGRAPHY</code> value, using tolerance.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_centroid"><code>ST_CENTROID</code></a>
+
+</td>
+  <td>
+    Gets the centroid of a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_closestpoint"><code>ST_CLOSESTPOINT</code></a>
+
+</td>
+  <td>
+    Gets the point on a <code>GEOGRAPHY</code> value which is closest to any
+    point in a second <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_clusterdbscan"><code>ST_CLUSTERDBSCAN</code></a>
+
+</td>
+  <td>
+    Performs DBSCAN clustering on a group of <code>GEOGRAPHY</code> values and
+    produces a 0-based cluster number for this row.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_contains"><code>ST_CONTAINS</code></a>
+
+</td>
+  <td>
+    Checks if one <code>GEOGRAPHY</code> value contains another
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_convexhull"><code>ST_CONVEXHULL</code></a>
+
+</td>
+  <td>
+    Returns the convex hull for a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_coveredby"><code>ST_COVEREDBY</code></a>
+
+</td>
+  <td>
+    Checks if all points of a <code>GEOGRAPHY</code> value are on the boundary
+    or interior of another <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_covers"><code>ST_COVERS</code></a>
+
+</td>
+  <td>
+    Checks if all points of a <code>GEOGRAPHY</code> value are on the boundary
+    or interior of another <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_difference"><code>ST_DIFFERENCE</code></a>
+
+</td>
+  <td>
+    Gets the point set difference between two <code>GEOGRAPHY</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_dimension"><code>ST_DIMENSION</code></a>
+
+</td>
+  <td>
+    Gets the dimension of the highest-dimensional element in a
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_disjoint"><code>ST_DISJOINT</code></a>
+
+</td>
+  <td>
+    Checks if two <code>GEOGRAPHY</code> values are disjoint (do not intersect).
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_distance"><code>ST_DISTANCE</code></a>
+
+</td>
+  <td>
+    Gets the shortest distance in meters between two <code>GEOGRAPHY</code>
+    values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_dump"><code>ST_DUMP</code></a>
+
+</td>
+  <td>
+    Returns an array of simple <code>GEOGRAPHY</code> components in a
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_dumppoints"><code>ST_DUMPPOINTS</code></a>
+
+</td>
+  <td>
+    Produces an array of <code>GEOGRAPHY</code> points with all points, line
+    vertices, and polygon vertices in a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_dwithin"><code>ST_DWITHIN</code></a>
+
+</td>
+  <td>
+    Checks if any points in two <code>GEOGRAPHY</code> values are within a given
+    distance.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_endpoint"><code>ST_ENDPOINT</code></a>
+
+</td>
+  <td>
+    Gets the last point of a linestring <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_equals"><code>ST_EQUALS</code></a>
+
+</td>
+  <td>
+    Checks to see if two <code>GEOGRAPHY</code> values represent the same
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_extent"><code>ST_EXTENT</code></a>
+
+</td>
+  <td>
+    Gets the bounding box for a group of <code>GEOGRAPHY</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_exteriorring"><code>ST_EXTERIORRING</code></a>
+
+</td>
+  <td>
+    Returns a linestring <code>GEOGRAPHY</code> value that corresponds to the
+    outermost ring of a polygon <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_geogfrom"><code>ST_GEOGFROM</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> or <code>BYTES</code> value
+    into a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_geogfromgeojson"><code>ST_GEOGFROMGEOJSON</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> GeoJSON geometry value into a
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_geogfromkml"><code>ST_GEOGFROMKML</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> KML geometry value into a
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_geogfromtext"><code>ST_GEOGFROMTEXT</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> WKT geometry value into a
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_geogfromwkb"><code>ST_GEOGFROMWKB</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code> or hexadecimal-text <code>STRING</code> WKT
+    geometry value into a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_geogpoint"><code>ST_GEOGPOINT</code></a>
+
+</td>
+  <td>
+    Creates a point <code>GEOGRAPHY</code> value for a given longitude and
+    latitude.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_geogpointfromgeohash"><code>ST_GEOGPOINTFROMGEOHASH</code></a>
+
+</td>
+  <td>
+    Gets a point <code>GEOGRAPHY</code> value that is in the middle of a
+    bounding box defined in a <code>STRING</code> GeoHash value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_geohash"><code>ST_GEOHASH</code></a>
+
+</td>
+  <td>
+    Converts a point <code>GEOGRAPHY</code> value to a <code>STRING</code>
+    GeoHash value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_geometrytype"><code>ST_GEOMETRYTYPE</code></a>
+
+</td>
+  <td>
+    Gets the Open Geospatial Consortium (OGC) geometry type for a
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_interiorrings"><code>ST_INTERIORRINGS</code></a>
+
+</td>
+  <td>
+    Gets the interior rings of a polygon <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_intersection"><code>ST_INTERSECTION</code></a>
+
+</td>
+  <td>
+    Gets the point set intersection of two <code>GEOGRAPHY</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_intersects"><code>ST_INTERSECTS</code></a>
+
+</td>
+  <td>
+    Checks to see if at least one point appears in two <code>GEOGRAPHY</code>
+    values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_intersectsbox"><code>ST_INTERSECTSBOX</code></a>
+
+</td>
+  <td>
+    Checks if a <code>GEOGRAPHY</code> value intersects a rectangle.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_isclosed"><code>ST_ISCLOSED</code></a>
+
+</td>
+  <td>
+    Checks if all components in a <code>GEOGRAPHY</code> value are closed.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_iscollection"><code>ST_ISCOLLECTION</code></a>
+
+</td>
+  <td>
+    Checks if the total number of points, linestrings, and polygons is
+    greater than one in a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_isempty"><code>ST_ISEMPTY</code></a>
+
+</td>
+  <td>
+    Checks if a <code>GEOGRAPHY</code> value is empty.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_isring"><code>ST_ISRING</code></a>
+
+</td>
+  <td>
+    Checks if a <code>GEOGRAPHY</code> value is a closed, simple
+    linestring.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_length"><code>ST_LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the total length of lines in a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_linelocatepoint"><code>ST_LINELOCATEPOINT</code></a>
+
+</td>
+  <td>
+    Gets a section of a linestring <code>GEOGRAPHY</code> value between the
+    start point and a point <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_makeline"><code>ST_MAKELINE</code></a>
+
+</td>
+  <td>
+    Creates a linestring <code>GEOGRAPHY</code> value by concatenating the point
+    and linestring vertices of <code>GEOGRAPHY</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_makepolygon"><code>ST_MAKEPOLYGON</code></a>
+
+</td>
+  <td>
+    Constructs a polygon <code>GEOGRAPHY</code> value by combining
+    a polygon shell with polygon holes.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_makepolygonoriented"><code>ST_MAKEPOLYGONORIENTED</code></a>
+
+</td>
+  <td>
+    Constructs a polygon <code>GEOGRAPHY</code> value, using an array of
+    linestring <code>GEOGRAPHY</code> values. The vertex ordering of each
+    linestring determines the orientation of each polygon ring.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_maxdistance"><code>ST_MAXDISTANCE</code></a>
+
+</td>
+  <td>
+    Gets the longest distance between two non-empty
+    <code>GEOGRAPHY</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_npoints"><code>ST_NPOINTS</code></a>
+
+</td>
+  <td>
+    An alias of <code>ST_NUMPOINTS</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_numgeometries"><code>ST_NUMGEOMETRIES</code></a>
+
+</td>
+  <td>
+    Gets the number of geometries in a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_numpoints"><code>ST_NUMPOINTS</code></a>
+
+</td>
+  <td>
+    Gets the number of vertices in the a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_perimeter"><code>ST_PERIMETER</code></a>
+
+</td>
+  <td>
+    Gets the length of the boundary of the polygons in a
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_pointn"><code>ST_POINTN</code></a>
+
+</td>
+  <td>
+    Gets the point at a specific index of a linestring <code>GEOGRAPHY</code>
+    value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_simplify"><code>ST_SIMPLIFY</code></a>
+
+</td>
+  <td>
+    Converts a <code>GEOGRAPHY</code> value into a simplified
+    <code>GEOGRAPHY</code> value, using tolerance.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_snaptogrid"><code>ST_SNAPTOGRID</code></a>
+
+</td>
+  <td>
+    Produces a <code>GEOGRAPHY</code> value, where each vertex has
+    been snapped to a longitude/latitude grid.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_startpoint"><code>ST_STARTPOINT</code></a>
+
+</td>
+  <td>
+    Gets the first point of a linestring <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_touches"><code>ST_TOUCHES</code></a>
+
+</td>
+  <td>
+    Checks if two <code>GEOGRAPHY</code> values intersect and their interiors
+    have no elements in common.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_union"><code>ST_UNION</code></a>
+
+</td>
+  <td>
+    Gets the point set union of multiple <code>GEOGRAPHY</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_union_agg"><code>ST_UNION_AGG</code></a>
+
+</td>
+  <td>
+    Aggregates over <code>GEOGRAPHY</code> values and gets their
+    point set union.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_within"><code>ST_WITHIN</code></a>
+
+</td>
+  <td>
+    Checks if one <code>GEOGRAPHY</code> value contains another
+    <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_x"><code>ST_X</code></a>
+
+</td>
+  <td>
+    Gets the longitude from a point <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_y"><code>ST_Y</code></a>
+
+</td>
+  <td>
+    Gets the latitude from a point <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `ST_ACCUM`
 
 ```sql
@@ -602,7 +1265,7 @@ SELECT
 ST_BUFFERWITHTOLERANCE(
     geography,
     buffer_radius,
-    tolerance_meters => tolernace
+    tolerance_meters => tolerance
     [, use_spheroid => boolean_expression]
     [, endcap => endcap_style]
     [, side => line_side])
@@ -1855,7 +2518,7 @@ ST_GEOMETRYTYPE(geography_expression)
 **Description**
 
 Returns the [Open Geospatial Consortium][ogc-link] (OGC) geometry type that
-describes the input `GEOGRAPHY` as a `STRING`. The OGC geometry type matches the
+describes the input `GEOGRAPHY`. The OGC geometry type matches the
 types that are used in [WKT][wkt-link] and [GeoJSON][geojson-link] formats and
 printed for [ST_ASTEXT][st-astext] and [ST_ASGEOJSON][st-asgeojson].
 `ST_GEOMETRYTYPE` returns the OGC geometry type with the "ST_" prefix.
@@ -2316,7 +2979,7 @@ LineString `GEOGRAPHY`
 ### `ST_MAKEPOLYGON`
 
 ```sql
-ST_MAKEPOLYGON(geography_expression[, array_of_geography])
+ST_MAKEPOLYGON(polygon_shell[, array_of_polygon_holes])
 ```
 
 **Description**
@@ -2795,6 +3458,21 @@ See [`ST_UNION_AGG`][st-union-agg] for the aggregate version of `ST_UNION`.
 
 `GEOGRAPHY`
 
+**Example**
+
+```sql
+SELECT ST_UNION(
+  ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -122.19 47.69)'),
+  ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -100.19 47.69)')
+) AS results
+
+/*---------------------------------------------------------*
+ | results                                                 |
+ +---------------------------------------------------------+
+ | LINESTRING(-100.19 47.69, -122.12 47.67, -122.19 47.69) |
+ *---------------------------------------------------------*/
+```
+
 [st-union-agg]: #st_union_agg
 
 ### `ST_UNION_AGG`
@@ -2815,6 +3493,22 @@ See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
 **Return type**
 
 `GEOGRAPHY`
+
+**Example**
+
+```sql
+SELECT ST_UNION_AGG(items) AS results
+FROM UNNEST([
+  ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -122.19 47.69)'),
+  ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -100.19 47.69)'),
+  ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -122.19 47.69)')]) as items;
+
+/*---------------------------------------------------------*
+ | results                                                 |
+ +---------------------------------------------------------+
+ | LINESTRING(-100.19 47.69, -122.12 47.67, -122.19 47.69) |
+ *---------------------------------------------------------*/
+```
 
 [st-union]: #st_union
 
@@ -2841,7 +3535,7 @@ as [`ST_CONTAINS`][st-contains]`(b, a)`. Note the opposite order of arguments.
 ### `ST_X`
 
 ```sql
-ST_X(geography_expression)
+ST_X(point_geography_expression)
 ```
 
 **Description**
@@ -2883,7 +3577,7 @@ FROM points;
 ### `ST_Y`
 
 ```sql
-ST_Y(geography_expression)
+ST_Y(point_geography_expression)
 ```
 
 **Description**

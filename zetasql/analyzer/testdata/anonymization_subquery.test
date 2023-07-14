@@ -343,11 +343,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#38)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#32], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Specify WITH ANONYMIZATION with an EXISTS subquery, and there is no 'uid' in
@@ -425,11 +420,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#22)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # One query pattern encountered by an F1 user is (see b/180509852 for more
@@ -612,11 +602,6 @@ QueryStmt
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$aggregate.weight#6)
         +-is_descending=TRUE
-
-[TableScan Groups]
-{
-  TableScan(column_list=ArrayWithAnonymizationUid.[int64_array#1, uid#3], table=ArrayWithAnonymizationUid, column_index_list=[0, 2], alias="t")
-}
 ==
 
 # Specify WITH ANONYMIZATION with an EXISTS subquery, and there is no 'uid'
@@ -931,11 +916,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#56)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=66-97, column_list=[SimpleTypesWithAnonymizationUid.uid#50], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Nested expression subqueries. uid -> uid -> uid
@@ -1103,11 +1083,6 @@ QueryStmt
                     |     +-Literal(type=INT64, value=1)
                     +-k_threshold_expr=
                       +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#38)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=100-131, column_list=SimpleTypesWithAnonymizationUid.[int64#20, uid#32], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
 # Anonymization node in an expression subquery of another anonymization node
@@ -1328,8 +1303,3 @@ QueryStmt
             |         +-k_threshold_expr=
             |           +-ColumnRef(type=INT64, column=$aggregate.count1#25)
             +-Literal(type=INT64, value=0)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#27], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}

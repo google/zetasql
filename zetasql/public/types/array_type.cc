@@ -436,8 +436,8 @@ bool ArrayType::EqualElementMultiSet(
             absl::Substitute("Multiset element $0 of $1 is missing in $2\n",
                              FormatValueContentContainerElement(
                                  element, element_type(), format_options),
-                             FormatValueContent(x, format_options),
-                             FormatValueContent(y, format_options)));
+                             FormatValueContent(y, format_options),
+                             FormatValueContent(x, format_options)));
       }
     }
     ZETASQL_DCHECK(!reason->empty());
@@ -539,9 +539,15 @@ std::string ArrayType::GetFormatPrefix(
         }
       }
       prefix.push_back('[');
-      if (!container_ref->preserves_order()) {
-        prefix.append("unordered: ");
+      if (options.include_array_ordereness &&
+          container_ref->value()->num_elements() > 1) {
+        if (container_ref->preserves_order()) {
+          absl::StrAppend(&prefix, "known order: ");
+        } else {
+          absl::StrAppend(&prefix, "unknown order: ");
+        }
       }
+
       break;
     }
     case Type::FormatValueContentOptions::Mode::kSQLLiteral: {

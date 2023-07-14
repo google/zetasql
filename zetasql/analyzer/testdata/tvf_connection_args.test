@@ -160,6 +160,14 @@ ERROR: No matching signature for tvf_two_connections_with_fixed_output for argum
 SELECT * FROM tvf_two_connections_with_fixed_output(connection connection1)
               ^
 
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_two_connections_with_fixed_output
+  Argument types: CONNECTION
+  Signature: TVF_TWO_CONNECTIONS_WITH_FIXED_OUTPUT(CONNECTION, CONNECTION)
+    Signature requires at least 2 arguments, found 1 argument [at 1:15]
+SELECT * FROM tvf_two_connections_with_fixed_output(connection connection1)
+              ^
 ==
 
 # Passing connection to a TVF that does not accept a connection.

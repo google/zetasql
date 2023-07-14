@@ -5679,6 +5679,7 @@ absl::Status Resolver::ResolveCallStatement(
           arg_locations, input_arg_types, signature,
           /* allow_argument_coercion=*/true, /*name_scope=*/nullptr,
           &result_signature, &signature_match_result,
+          /*arg_index_mapping=*/nullptr,
           /*arg_overrides=*/nullptr));
   if (!is_match) {
     return MakeSqlErrorAt(ast_call->procedure_name())

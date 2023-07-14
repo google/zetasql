@@ -422,6 +422,11 @@ absl::Status AnalyzerOptions::Deserialize(
     result->data_->parse_location_record_type =
         proto.parse_location_record_type();
   }
+
+  if (proto.has_rewrite_options()) {
+    result->data_->rewrite_options = proto.rewrite_options();
+  }
+
   return absl::OkStatus();
 }
 
@@ -505,6 +510,9 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   for (ResolvedASTRewrite rewrite : data_->enabled_rewrites) {
     proto->add_enabled_rewrites(rewrite);
   }
+
+  *proto->mutable_rewrite_options() = data_->rewrite_options;
+
   return absl::OkStatus();
 }
 

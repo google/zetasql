@@ -8,6 +8,7 @@
 # function_default_argument.test, tvf_relation_args.test file and this file can
 # be updated at the same time.
 [default no_java]
+[default also_show_signature_mismatch_details]
 [default language_features=NAMED_ARGUMENTS,TABLE_VALUED_FUNCTIONS]
 select fn_named_args(format_string => "%x", date_string => "12/25/08")
 --
@@ -148,7 +149,17 @@ QueryStmt
 select fn_three_named_args_two_signatures(
     "%X", "12/25/08",  invalid_arg_name => "12/25/08");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, STRING, invalid_arg_name => STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, format_string => STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, date_string => STRING) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, STRING, invalid_arg_name => STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [format_string=>]STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [date_string=>]STRING) [at 1:8]
+select fn_three_named_args_two_signatures(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES
+  Argument types: STRING, STRING, invalid_arg_name => STRING
+  Signature: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [format_string=>]STRING)
+    Named argument `invalid_arg_name` does not exist in signature
+  Signature: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [date_string=>]STRING)
+    Named argument `invalid_arg_name` does not exist in signature [at 1:8]
 select fn_three_named_args_two_signatures(
        ^
 ==
@@ -158,7 +169,17 @@ select fn_three_named_args_two_signatures(
 select fn_three_named_args_two_signatures(
     "%X", format_string => "%X");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, format_string => STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, format_string => STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, date_string => STRING) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, format_string => STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [format_string=>]STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [date_string=>]STRING) [at 1:8]
+select fn_three_named_args_two_signatures(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES
+  Argument types: STRING, format_string => STRING
+  Signature: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [format_string=>]STRING)
+    Signature requires at least 3 arguments, found 2 arguments
+  Signature: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [date_string=>]STRING)
+    Signature requires at least 3 arguments, found 2 arguments [at 1:8]
 select fn_three_named_args_two_signatures(
        ^
 ==
@@ -415,6 +436,14 @@ select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
 ERROR: No matching signature for tvf_named_optional_any_relation_arg_optional_scalar_arg for argument types: NULL, STRING. Supported signature: TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG([TABLE], [STRING]) [at 1:15]
 select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
               ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_named_optional_any_relation_arg_optional_scalar_arg
+  Argument types: NULL, STRING
+  Signature: TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG([any_relation_arg => TABLE], [format_string => STRING])
+    Named argument `any_relation_arg`: expected TABLE, found NULL [at 1:15]
+select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
+              ^
 ==
 
 # Valid TVF call with the relation named argument provided and the STRING
@@ -621,6 +650,14 @@ select fn_named_args_error_if_positional(
 ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "format_string" only [at 2:5]
     "%X",
     ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL
+  Argument types: STRING, date_string => STRING
+  Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING)
+    Positional argument at 1 is invalid because argument `format_string` can only be referred to by name [at 1:8]
+select fn_named_args_error_if_positional(
+       ^
 ==
 
 # Invalid function call with named arguments. The function call includes a
@@ -645,6 +682,14 @@ select fn_named_args_error_if_positional(
 ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "format_string" only [at 2:5]
     "%X", "12/25/08");
     ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL
+  Argument types: STRING, STRING
+  Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING)
+    Positional argument at 1 is invalid because argument `format_string` can only be referred to by name [at 1:8]
+select fn_named_args_error_if_positional(
+       ^
 ==
 
 # Invalid function call with named arguments. The resolver returns an error if
@@ -653,9 +698,17 @@ select fn_named_args_error_if_positional(
    "12/25/08",
    format_string=> "%X");
 --
-ERROR: Named argument format_string is invalid because this call to function sample_functions:fn_named_args_error_if_positional also includes a positional argument corresponding to the same name in the function signature [at 3:4]
+ERROR: Named argument `format_string` duplicates positional argument 1, which also provides `format_string` [at 3:4]
    format_string=> "%X");
    ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL
+  Argument types: STRING, format_string => STRING
+  Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING)
+    Named argument `format_string` duplicates positional argument 1, which also provides `format_string` [at 1:8]
+select fn_named_args_error_if_positional(
+       ^
 ==
 
 # Invalid function call with named arguments. The resolver returns an error if
@@ -667,6 +720,14 @@ select fn_named_args_error_if_positional_first_arg(
 ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "format_string" only [at 2:5]
     "%X",
     ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL_FIRST_ARG
+  Argument types: STRING, date_string => STRING
+  Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL_FIRST_ARG(format_string => STRING, [date_string=>]STRING)
+    Positional argument at 1 is invalid because argument `format_string` can only be referred to by name [at 1:8]
+select fn_named_args_error_if_positional_first_arg(
+       ^
 ==
 
 # Invalid function call with named arguments. The resolver returns an error if
@@ -678,6 +739,14 @@ select fn_named_args_error_if_positional_second_arg(
 ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "date_string" only [at 3:5]
     "12/25/08");
     ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL_SECOND_ARG
+  Argument types: STRING, STRING
+  Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL_SECOND_ARG(STRING, date_string => STRING)
+    Positional argument at 2 is invalid because argument `date_string` can only be referred to by name [at 1:8]
+select fn_named_args_error_if_positional_second_arg(
+       ^
 ==
 
 # Invalid function call with mandatory-named arguments. The error includes
@@ -689,6 +758,14 @@ select fn_named_args_error_if_positional(
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL for argument types: format_string => INT64, date_string => STRING. Supported signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING) [at 1:8]
 select fn_named_args_error_if_positional(
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL
+  Argument types: format_string => INT64, date_string => STRING
+  Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING)
+    Named argument `format_string`: Unable to coerce type INT64 to expected type STRING [at 1:8]
+select fn_named_args_error_if_positional(
+       ^
 ==
 
 # Invalid function call with mandatory-named arguments, second of which is
@@ -698,6 +775,14 @@ select fn_named_optional_args_error_if_positional(
     date_string => "12/25/08");
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL for argument types: format_string => INT64, date_string => STRING. Supported signature: FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, [date_string => STRING]) [at 1:8]
+select fn_named_optional_args_error_if_positional(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL
+  Argument types: format_string => INT64, date_string => STRING
+  Signature: FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, [date_string => STRING])
+    Named argument `format_string`: Unable to coerce type INT64 to expected type STRING [at 1:8]
 select fn_named_optional_args_error_if_positional(
        ^
 ==
@@ -850,9 +935,17 @@ ERROR: Argument 'arg' to SAMPLE_FUNCTIONS:FN_OPTIONAL_NAMED_OPTIONAL_NOT_NULL_AR
 # function signature with the same name as one of the provided named arguments.
 select fn_named_args("%x", format_string => "%x")
 --
-ERROR: Named argument format_string is invalid because this call to function sample_functions:fn_named_args also includes a positional argument corresponding to the same name in the function signature [at 1:28]
+ERROR: Named argument `format_string` duplicates positional argument 1, which also provides `format_string` [at 1:28]
 select fn_named_args("%x", format_string => "%x")
                            ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
+  Argument types: STRING, format_string => STRING
+  Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
+    Named argument `format_string` duplicates positional argument 1, which also provides `format_string` [at 1:8]
+select fn_named_args("%x", format_string => "%x")
+       ^
 ==
 
 # Invalid function call with a mix of positional and named arguments, where one
@@ -861,6 +954,14 @@ select fn_named_args("%x", format_string => "%x")
 select fn_named_args("%x", format_string => "%x", date_string => "12/25/08")
 --
 ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
+select fn_named_args("%x", format_string => "%x", date_string => "12/25/08")
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
+  Argument types: STRING, format_string => STRING, date_string => STRING
+  Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
 select fn_named_args("%x", format_string => "%x", date_string => "12/25/08")
        ^
 ==
@@ -902,6 +1003,14 @@ select * from tvf_named_required_scalar_args(
 ERROR: No matching signature for tvf_named_required_scalar_args for argument types: STRING. Supported signature: TVF_NAMED_REQUIRED_SCALAR_ARGS(STRING, STRING) [at 1:15]
 select * from tvf_named_required_scalar_args(
               ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_named_required_scalar_args
+  Argument types: STRING
+  Signature: TVF_NAMED_REQUIRED_SCALAR_ARGS(format_string => STRING, date_string => STRING)
+    Signature requires at least 2 arguments, found 1 argument [at 1:15]
+select * from tvf_named_required_scalar_args(
+              ^
 ==
 
 # Invalid TVF call with two scalar named arguments: an extra argument name is
@@ -932,6 +1041,14 @@ from tvf_named_optional_scalar_args("abc", "def", format_string => "hgi")
 ERROR: No matching signature for tvf_named_optional_scalar_args for argument types: STRING, STRING, STRING. Supported signature: TVF_NAMED_OPTIONAL_SCALAR_ARGS([STRING], [STRING]) [at 2:6]
 from tvf_named_optional_scalar_args("abc", "def", format_string => "hgi")
      ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_named_optional_scalar_args
+  Argument types: STRING, STRING, STRING
+  Signature: TVF_NAMED_OPTIONAL_SCALAR_ARGS([format_string => STRING], [date_string => STRING])
+    Signature accepts at most 2 arguments, found 3 arguments [at 2:6]
+from tvf_named_optional_scalar_args("abc", "def", format_string => "hgi")
+     ^
 ==
 
 # Invalid TVF call with a mix of positional and named arguments, where one
@@ -943,6 +1060,14 @@ from tvf_named_optional_scalar_args("abc", "def", date_string => "hgi")
 ERROR: No matching signature for tvf_named_optional_scalar_args for argument types: STRING, STRING, STRING. Supported signature: TVF_NAMED_OPTIONAL_SCALAR_ARGS([STRING], [STRING]) [at 2:6]
 from tvf_named_optional_scalar_args("abc", "def", date_string => "hgi")
      ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_named_optional_scalar_args
+  Argument types: STRING, STRING, STRING
+  Signature: TVF_NAMED_OPTIONAL_SCALAR_ARGS([format_string => STRING], [date_string => STRING])
+    Signature accepts at most 2 arguments, found 3 arguments [at 2:6]
+from tvf_named_optional_scalar_args("abc", "def", date_string => "hgi")
+     ^
 ==
 
 # Invalid TVF call with a mix of positional and named arguments, where one
@@ -952,6 +1077,14 @@ select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
     (select 2 as y), any_relation_arg => (select 1 as x), format_string => 42)
 --
 ERROR: No matching signature for tvf_named_optional_any_relation_arg_optional_scalar_arg for argument types: TABLE<y INT64>, TABLE<x INT64>, INT64. Supported signature: TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG([TABLE], [STRING]) [at 1:15]
+select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
+              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_named_optional_any_relation_arg_optional_scalar_arg
+  Argument types: TABLE<y INT64>, TABLE<x INT64>, INT64
+  Signature: TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG([any_relation_arg => TABLE], [format_string => STRING])
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:15]
 select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
               ^
 ==
@@ -973,6 +1106,14 @@ select fn_named_args(
 ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
 select fn_named_args(
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
+  Argument types: format_string => STRING, date_string => STRING, date_string => STRING
+  Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
+select fn_named_args(
+       ^
 ==
 
 # Invalid function call with a provided argument name not found in the function
@@ -980,6 +1121,14 @@ select fn_named_args(
 select fn_named_args(bad_name => "12/25/08")
 --
 ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
+select fn_named_args(bad_name => "12/25/08")
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
+  Argument types: bad_name => STRING
+  Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
 select fn_named_args(bad_name => "12/25/08")
        ^
 ==
@@ -992,6 +1141,14 @@ select fn_named_args(
 ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
 select fn_named_args(
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
+  Argument types: format_string => STRING, date_string => STRING, bad_name => STRING
+  Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
+select fn_named_args(
+       ^
 ==
 
 # Invalid function call with a provided argument name not found in the function
@@ -999,9 +1156,17 @@ select fn_named_args(
 select fn_named_args(
     format_string => "%X", bad_name => "12/25/08")
 --
-ERROR: Named argument bad_name not found in signature for call to function sample_functions:fn_named_args [at 2:28]
+ERROR: Named argument `bad_name` not found in signature for call to function sample_functions:fn_named_args [at 2:28]
     format_string => "%X", bad_name => "12/25/08")
                            ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
+  Argument types: format_string => STRING, bad_name => STRING
+  Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
+    Named argument `bad_name` does not exist in signature [at 1:8]
+select fn_named_args(
+       ^
 ==
 
 # Invalid function call with a positional argument following a named argument.
@@ -1018,12 +1183,28 @@ select fn_named_args(format_string => "%x", "12/25/08", date_string => "%X")
 ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
 select fn_named_args(format_string => "%x", "12/25/08", date_string => "%X")
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
+  Argument types: format_string => STRING, STRING, date_string => STRING
+  Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
+select fn_named_args(format_string => "%x", "12/25/08", date_string => "%X")
+       ^
 ==
 
 # Invalid function call missing a required argument.
 select fn_named_args(format_string => "%x")
 --
 ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
+select fn_named_args(format_string => "%x")
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
+  Argument types: format_string => STRING
+  Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
 select fn_named_args(format_string => "%x")
        ^
 ==
@@ -1126,6 +1307,16 @@ select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES for argument types: STRING, STRING, date_string => STRING. Supported signatures: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING]); FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING]) [at 1:8]
 select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES
+  Argument types: STRING, STRING, date_string => STRING
+  Signature: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING])
+    Signature accepts at most 2 arguments, found 3 arguments
+  Signature: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING])
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
+select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
+       ^
 ==
 
 # Invalid call to a function that provides two similar signatures, one with
@@ -1133,6 +1324,16 @@ select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
 select fn_regular_and_named_signatures("foo", unknown_arg => "baz")
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES for argument types: STRING, unknown_arg => STRING. Supported signatures: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING]); FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING]) [at 1:8]
+select fn_regular_and_named_signatures("foo", unknown_arg => "baz")
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES
+  Argument types: STRING, unknown_arg => STRING
+  Signature: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING])
+    Named argument `unknown_arg` does not exist in signature
+  Signature: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING])
+    Named argument `unknown_arg` does not exist in signature [at 1:8]
 select fn_regular_and_named_signatures("foo", unknown_arg => "baz")
        ^
 ==
@@ -1369,6 +1570,668 @@ SELECT fn_rep_opt("a0", "r0", "r1", "r2", o0 => "o0", o1 => "o1");
 ERROR: Call to function sample_functions:fn_rep_opt does not include the required named argument 'a1' [at 1:8]
 SELECT fn_rep_opt("a0", "r0", "r1", "r2", o0 => "o0", o1 => "o1");
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REP_OPT
+  Argument types: STRING, STRING, STRING, STRING, o0 => STRING, o1 => STRING
+  Signature: FN_REP_OPT([a0=>]STRING, [[r0=>]STRING, ...], [[r1=>]STRING, ...], [[r2=>]STRING, ...], [a1=>]STRING, [[o0=>]STRING], [[o1=>]STRING])
+    Required named argument `a1` is not provided [at 1:8]
+SELECT fn_rep_opt("a0", "r0", "r1", "r2", o0 => "o0", o1 => "o1");
+       ^
+==
+
+# Named-or-positional argument after a repeated. All with different arg types.
+SELECT fn_repeated_with_optional_named_only("r0", o1=>"o1");
+--
+
+ERROR: Call to function sample_functions:fn_repeated_with_optional_named_only is missing repeated arguments. [at 1:8]
+SELECT fn_repeated_with_optional_named_only("r0", o1=>"o1");
+       ^
+==
+
+# Named-only argument after repeated
+SELECT
+  # no rep, no named
+  fn_repeated_with_optional_named_only(),
+  # no rep, with named
+  fn_repeated_with_optional_named_only(o1=>"o1"),
+  # one rep, no named
+  fn_repeated_with_optional_named_only("r0", "r1"),
+  # one rep, with named
+  fn_repeated_with_optional_named_only("r0", "r1", o1=>"o1"),
+  # two rep, no named
+  fn_repeated_with_optional_named_only("r0-1", "r1-1", "r0-2", "r1-2"),
+  # two rep, with named
+  fn_repeated_with_optional_named_only("r0-1", "r1-1", "r0-2", "r1-2", o1=>"o1");
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
+| +-$query.$col4#4 AS `$col4` [STRING]
+| +-$query.$col5#5 AS `$col5` [STRING]
+| +-$query.$col6#6 AS `$col6` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_only(repeated(0) STRING, repeated(0) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value=NULL)
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_only(repeated(0) STRING, repeated(0) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col3#3 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_only(repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=STRING, value="r1")
+    | |   +-Literal(type=STRING, value=NULL)
+    | +-$col4#4 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_only(repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=STRING, value="r1")
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col5#5 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_only(repeated(2) STRING, repeated(2) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0-1")
+    | |   +-Literal(type=STRING, value="r1-1")
+    | |   +-Literal(type=STRING, value="r0-2")
+    | |   +-Literal(type=STRING, value="r1-2")
+    | |   +-Literal(type=STRING, value=NULL)
+    | +-$col6#6 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_with_optional_named_only(repeated(2) STRING, repeated(2) STRING, optional(1) STRING o1) -> STRING)
+    |     +-Literal(type=STRING, value="r0-1")
+    |     +-Literal(type=STRING, value="r1-1")
+    |     +-Literal(type=STRING, value="r0-2")
+    |     +-Literal(type=STRING, value="r1-2")
+    |     +-Literal(type=STRING, value="o1")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Named-or-positional argument after a repeated. All with different arg types.
+# This _should_ be an error the named arg is the wrong type (should be bool)
+SELECT fn_repeated_diff_args_optional_named_only("r0", o1=>1);
+--
+
+
+ERROR: Call to function sample_functions:fn_repeated_diff_args_optional_named_only is missing repeated arguments. [at 1:8]
+SELECT fn_repeated_diff_args_optional_named_only("r0", o1=>1);
+       ^
+==
+
+# Named-or-positional argument after a repeated. All with different arg types.
+# This is properly an error: missing repeated argument.
+SELECT fn_repeated_diff_args_optional_named_only("r0", o1=>true);
+--
+
+
+ERROR: Call to function sample_functions:fn_repeated_diff_args_optional_named_only is missing repeated arguments. [at 1:8]
+SELECT fn_repeated_diff_args_optional_named_only("r0", o1=>true);
+       ^
+==
+
+# Named-or-positional argument after a repeated. All with different arg types.
+SELECT
+  # no rep, no named
+  fn_repeated_diff_args_optional_named_only(),
+  # no rep, with named
+  fn_repeated_diff_args_optional_named_only(o1=>true),
+  # one rep, no named
+  fn_repeated_diff_args_optional_named_only("r0", 1),
+  # one rep, with named
+  fn_repeated_diff_args_optional_named_only("r0", 1, o1=>true),
+  # two rep, no named
+  fn_repeated_diff_args_optional_named_only("r0-1", 1, "r0-2", 1),
+  # two rep, with named
+  fn_repeated_diff_args_optional_named_only("r0-1", 1, "r0-2", 1, o1=>true);
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
+| +-$query.$col4#4 AS `$col4` [STRING]
+| +-$query.$col5#5 AS `$col5` [STRING]
+| +-$query.$col6#6 AS `$col6` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_only(repeated(0) STRING, repeated(0) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=BOOL, value=NULL)
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_only(repeated(0) STRING, repeated(0) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col3#3 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_only(repeated(1) STRING, repeated(1) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=BOOL, value=NULL)
+    | +-$col4#4 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_only(repeated(1) STRING, repeated(1) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col5#5 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_only(repeated(2) STRING, repeated(2) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0-1")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=STRING, value="r0-2")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=BOOL, value=NULL)
+    | +-$col6#6 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_only(repeated(2) STRING, repeated(2) INT64, optional(1) BOOL o1) -> STRING)
+    |     +-Literal(type=STRING, value="r0-1")
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=STRING, value="r0-2")
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=BOOL, value=true)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Named-only argument after repeated ANY
+# Each call has one with heterogeneous types, and one with all string.
+SELECT
+  # no rep, no named
+  fn_repeated_arbitrary_with_optional_named_only(),
+  # no rep, with named
+  fn_repeated_arbitrary_with_optional_named_only(o1=>"o1"),
+  # one rep, no named
+  fn_repeated_arbitrary_with_optional_named_only(1, 2.0),
+  fn_repeated_arbitrary_with_optional_named_only("1", "2.0"),
+  # one rep, with named
+  fn_repeated_arbitrary_with_optional_named_only(1, 2.0, o1=>true),
+  fn_repeated_arbitrary_with_optional_named_only("1", "2.0", o1=>"o1"),
+  # two rep, no named
+  fn_repeated_arbitrary_with_optional_named_only(1, 2.0, "1-2", 21),
+  fn_repeated_arbitrary_with_optional_named_only("1", "2.0", "1-2", "21"),
+  # two rep, with named
+  fn_repeated_arbitrary_with_optional_named_only(1, 2.0, "1-2", 21, o1=>true),
+  fn_repeated_arbitrary_with_optional_named_only("1", "2.0", "1-2", "21", o1=>"o1");
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
+| +-$query.$col4#4 AS `$col4` [STRING]
+| +-$query.$col5#5 AS `$col5` [STRING]
+| +-$query.$col6#6 AS `$col6` [STRING]
+| +-$query.$col7#7 AS `$col7` [STRING]
+| +-$query.$col8#8 AS `$col8` [STRING]
+| +-$query.$col9#9 AS `$col9` [STRING]
+| +-$query.$col10#10 AS `$col10` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7, $col8#8, $col9#9, $col10#10]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated ANY TYPE, repeated ANY TYPE, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated ANY TYPE, repeated ANY TYPE, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col3#3 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated(1) INT64, repeated(1) DOUBLE, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col4#4 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated(1) STRING, repeated(1) STRING, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="2.0")
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col5#5 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated(1) INT64, repeated(1) DOUBLE, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col6#6 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="2.0")
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col7#7 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated(1) INT64, repeated(1) DOUBLE, repeated(1) STRING, repeated(1) INT64, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=STRING, value="1-2")
+    | |   +-Literal(type=INT64, value=21)
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col8#8 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="2.0")
+    | |   +-Literal(type=STRING, value="1-2")
+    | |   +-Literal(type=STRING, value="21")
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col9#9 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated(1) INT64, repeated(1) DOUBLE, repeated(1) STRING, repeated(1) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=STRING, value="1-2")
+    | |   +-Literal(type=INT64, value=21)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col10#10 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_only(repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    |     +-Literal(type=STRING, value="1")
+    |     +-Literal(type=STRING, value="2.0")
+    |     +-Literal(type=STRING, value="1-2")
+    |     +-Literal(type=STRING, value="21")
+    |     +-Literal(type=STRING, value="o1")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Named-only argument after repeated
+SELECT
+  # no rep, no named
+  fn_repeated_with_optional_named_or_positional(),
+  # no rep, with named
+  fn_repeated_with_optional_named_or_positional(o1=>"o1"),
+  # one rep, no named
+  fn_repeated_with_optional_named_or_positional("r0", "r1"),
+  # one rep, with named
+  fn_repeated_with_optional_named_or_positional("r0", "r1", o1=>"o1"),
+  # two rep, no named
+  fn_repeated_with_optional_named_or_positional("r0-1", "r1-1", "r0-2", "r1-2"),
+  # two rep, with named
+  fn_repeated_with_optional_named_or_positional("r0-1", "r1-1", "r0-2", "r1-2", o1=>"o1");
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
+| +-$query.$col4#4 AS `$col4` [STRING]
+| +-$query.$col5#5 AS `$col5` [STRING]
+| +-$query.$col6#6 AS `$col6` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_or_positional(repeated(0) STRING, repeated(0) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value=NULL)
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_or_positional(repeated(0) STRING, repeated(0) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col3#3 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_or_positional(repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=STRING, value="r1")
+    | |   +-Literal(type=STRING, value=NULL)
+    | +-$col4#4 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_or_positional(repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=STRING, value="r1")
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col5#5 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_optional_named_or_positional(repeated(2) STRING, repeated(2) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0-1")
+    | |   +-Literal(type=STRING, value="r1-1")
+    | |   +-Literal(type=STRING, value="r0-2")
+    | |   +-Literal(type=STRING, value="r1-2")
+    | |   +-Literal(type=STRING, value=NULL)
+    | +-$col6#6 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_with_optional_named_or_positional(repeated(2) STRING, repeated(2) STRING, optional(1) STRING o1) -> STRING)
+    |     +-Literal(type=STRING, value="r0-1")
+    |     +-Literal(type=STRING, value="r1-1")
+    |     +-Literal(type=STRING, value="r0-2")
+    |     +-Literal(type=STRING, value="r1-2")
+    |     +-Literal(type=STRING, value="o1")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Named-or-positional argument after a repeated. All with different arg types.
+SELECT
+  # no rep, no named
+  fn_repeated_diff_args_optional_named_or_positional(),
+  # no rep, with named
+  fn_repeated_diff_args_optional_named_or_positional(true),
+  fn_repeated_diff_args_optional_named_or_positional(o1=>true),
+  # one rep, no named
+  fn_repeated_diff_args_optional_named_or_positional("r0", 1),
+  # one rep, with named
+  fn_repeated_diff_args_optional_named_or_positional("r0", 1, true),
+  fn_repeated_diff_args_optional_named_or_positional("r0", 1, o1=>true),
+  # two rep, no named
+  fn_repeated_diff_args_optional_named_or_positional("r0-1", 1, "r0-2", 1),
+  # two rep, with named
+  fn_repeated_diff_args_optional_named_or_positional("r0-1", 1, "r0-2", 1, true),
+  fn_repeated_diff_args_optional_named_or_positional("r0-1", 1, "r0-2", 1, o1=>true);
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
+| +-$query.$col4#4 AS `$col4` [STRING]
+| +-$query.$col5#5 AS `$col5` [STRING]
+| +-$query.$col6#6 AS `$col6` [STRING]
+| +-$query.$col7#7 AS `$col7` [STRING]
+| +-$query.$col8#8 AS `$col8` [STRING]
+| +-$query.$col9#9 AS `$col9` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7, $col8#8, $col9#9]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_or_positional(repeated(0) STRING, repeated(0) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=BOOL, value=NULL)
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_or_positional(repeated(0) STRING, repeated(0) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col3#3 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_or_positional(repeated(0) STRING, repeated(0) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col4#4 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_or_positional(repeated(1) STRING, repeated(1) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=BOOL, value=NULL)
+    | +-$col5#5 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_or_positional(repeated(1) STRING, repeated(1) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col6#6 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_or_positional(repeated(1) STRING, repeated(1) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col7#7 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_or_positional(repeated(2) STRING, repeated(2) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0-1")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=STRING, value="r0-2")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=BOOL, value=NULL)
+    | +-$col8#8 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_or_positional(repeated(2) STRING, repeated(2) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0-1")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=STRING, value="r0-2")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col9#9 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_diff_args_optional_named_or_positional(repeated(2) STRING, repeated(2) INT64, optional(1) BOOL o1) -> STRING)
+    |     +-Literal(type=STRING, value="r0-1")
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=STRING, value="r0-2")
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=BOOL, value=true)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Named-only argument after repeated ANY
+# Each call has one with heterogeneous types, and one with all string.
+SELECT
+  # no rep, no named
+  fn_repeated_arbitrary_with_optional_named_or_positional(),
+  # no rep, with named
+  fn_repeated_arbitrary_with_optional_named_or_positional("o1"),
+  fn_repeated_arbitrary_with_optional_named_or_positional(o1=>"o1"),
+  # one rep, no named
+  fn_repeated_arbitrary_with_optional_named_or_positional(1, 2.0),
+  fn_repeated_arbitrary_with_optional_named_or_positional("1", "2.0"),
+  # one rep, with named
+  fn_repeated_arbitrary_with_optional_named_or_positional(1, 2.0, true),
+  fn_repeated_arbitrary_with_optional_named_or_positional(1, 2.0, o1=>true),
+  fn_repeated_arbitrary_with_optional_named_or_positional("1", "2.0", "o1"),
+  fn_repeated_arbitrary_with_optional_named_or_positional("1", "2.0", o1=>"o1"),
+  # two rep, no named
+  fn_repeated_arbitrary_with_optional_named_or_positional(1, 2.0, "1-2", 21),
+  fn_repeated_arbitrary_with_optional_named_or_positional("1", "2.0", "1-2", "21"),
+  # two rep, with named
+  fn_repeated_arbitrary_with_optional_named_or_positional(1, 2.0, "1-2", 21, true),
+  fn_repeated_arbitrary_with_optional_named_or_positional(1, 2.0, "1-2", 21, o1=>true),
+  fn_repeated_arbitrary_with_optional_named_or_positional("1", "2.0", "1-2", "21", "o1"),
+  fn_repeated_arbitrary_with_optional_named_or_positional("1", "2.0", "1-2", "21", o1=>"o1");
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
+| +-$query.$col4#4 AS `$col4` [STRING]
+| +-$query.$col5#5 AS `$col5` [STRING]
+| +-$query.$col6#6 AS `$col6` [STRING]
+| +-$query.$col7#7 AS `$col7` [STRING]
+| +-$query.$col8#8 AS `$col8` [STRING]
+| +-$query.$col9#9 AS `$col9` [STRING]
+| +-$query.$col10#10 AS `$col10` [STRING]
+| +-$query.$col11#11 AS `$col11` [STRING]
+| +-$query.$col12#12 AS `$col12` [STRING]
+| +-$query.$col13#13 AS `$col13` [STRING]
+| +-$query.$col14#14 AS `$col14` [STRING]
+| +-$query.$col15#15 AS `$col15` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7, $col8#8, $col9#9, $col10#10, $col11#11, $col12#12, $col13#13, $col14#14, $col15#15]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated ANY TYPE, repeated ANY TYPE, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated ANY TYPE, repeated ANY TYPE, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col3#3 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated ANY TYPE, repeated ANY TYPE, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col4#4 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) INT64, repeated(1) DOUBLE, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col5#5 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) STRING, repeated(1) STRING, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="2.0")
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col6#6 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) INT64, repeated(1) DOUBLE, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col7#7 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) INT64, repeated(1) DOUBLE, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col8#8 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="2.0")
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col9#9 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="2.0")
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col10#10 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) INT64, repeated(1) DOUBLE, repeated(1) STRING, repeated(1) INT64, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=STRING, value="1-2")
+    | |   +-Literal(type=INT64, value=21)
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col11#11 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="2.0")
+    | |   +-Literal(type=STRING, value="1-2")
+    | |   +-Literal(type=STRING, value="21")
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col12#12 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) INT64, repeated(1) DOUBLE, repeated(1) STRING, repeated(1) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=STRING, value="1-2")
+    | |   +-Literal(type=INT64, value=21)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col13#13 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) INT64, repeated(1) DOUBLE, repeated(1) STRING, repeated(1) INT64, optional(1) BOOL o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=STRING, value="1-2")
+    | |   +-Literal(type=INT64, value=21)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col14#14 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="2.0")
+    | |   +-Literal(type=STRING, value="1-2")
+    | |   +-Literal(type=STRING, value="21")
+    | |   +-Literal(type=STRING, value="o1")
+    | +-$col15#15 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_optional_named_or_positional(repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, optional(1) STRING o1) -> STRING)
+    |     +-Literal(type=STRING, value="1")
+    |     +-Literal(type=STRING, value="2.0")
+    |     +-Literal(type=STRING, value="1-2")
+    |     +-Literal(type=STRING, value="21")
+    |     +-Literal(type=STRING, value="o1")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Named-only argument after repeated
+SELECT
+  # no rep, with named
+  fn_repeated_with_required_named(r1=>"r1"),
+  # one rep, with named
+  fn_repeated_with_required_named("0", "1", r1=>"r1"),
+  # two rep, with named
+  fn_repeated_with_required_named("0-1", "1-1", "0-2", "1-2", r1=>"r1");
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_required_named(repeated(0) STRING, repeated(0) STRING, STRING r1) -> STRING)
+    | |   +-Literal(type=STRING, value="r1")
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_with_required_named(repeated(1) STRING, repeated(1) STRING, STRING r1) -> STRING)
+    | |   +-Literal(type=STRING, value="0")
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="r1")
+    | +-$col3#3 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_with_required_named(repeated(2) STRING, repeated(2) STRING, STRING r1) -> STRING)
+    |     +-Literal(type=STRING, value="0-1")
+    |     +-Literal(type=STRING, value="1-1")
+    |     +-Literal(type=STRING, value="0-2")
+    |     +-Literal(type=STRING, value="1-2")
+    |     +-Literal(type=STRING, value="r1")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Required named only argument after a repeated. All with different arg types.
+SELECT
+  # no rep, with named
+  fn_repeated_diff_args_required_named(r1=>true),
+  # one rep, with named
+  fn_repeated_diff_args_required_named("r0", 1, r1=>true),
+  # two rep, with named
+  fn_repeated_diff_args_required_named("r0-1", 1, "r0-2", 1, r1=>true);
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_required_named(repeated(0) STRING, repeated(0) INT64, BOOL r1) -> STRING)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_diff_args_required_named(repeated(1) STRING, repeated(1) INT64, BOOL r1) -> STRING)
+    | |   +-Literal(type=STRING, value="r0")
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col3#3 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_diff_args_required_named(repeated(2) STRING, repeated(2) INT64, BOOL r1) -> STRING)
+    |     +-Literal(type=STRING, value="r0-1")
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=STRING, value="r0-2")
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=BOOL, value=true)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Named-only argument after repeated ANY
+# Each call has one with heterogeneous types, and one with all string.
+SELECT
+  # no rep, with named
+  fn_repeated_arbitrary_with_required_named(r1=>"r1"),
+  # one rep, with named
+  fn_repeated_arbitrary_with_required_named(1, 2.0, r1=>true),
+  fn_repeated_arbitrary_with_required_named("1", "2.0", r1=>"r1"),
+  # two rep, with named
+  fn_repeated_arbitrary_with_required_named(1, 2.0, "1-2", 21, r1=>true),
+  fn_repeated_arbitrary_with_required_named("1", "2.0", "1-2", "21", r1=>"r1");
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
+| +-$query.$col4#4 AS `$col4` [STRING]
+| +-$query.$col5#5 AS `$col5` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_required_named(repeated ANY TYPE, repeated ANY TYPE, STRING r1) -> STRING)
+    | |   +-Literal(type=STRING, value="r1")
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_required_named(repeated(1) INT64, repeated(1) DOUBLE, BOOL r1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col3#3 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_required_named(repeated(1) STRING, repeated(1) STRING, STRING r1) -> STRING)
+    | |   +-Literal(type=STRING, value="1")
+    | |   +-Literal(type=STRING, value="2.0")
+    | |   +-Literal(type=STRING, value="r1")
+    | +-$col4#4 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_required_named(repeated(1) INT64, repeated(1) DOUBLE, repeated(1) STRING, repeated(1) INT64, BOOL r1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | |   +-Literal(type=STRING, value="1-2")
+    | |   +-Literal(type=INT64, value=21)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col5#5 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_arbitrary_with_required_named(repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, repeated(1) STRING, STRING r1) -> STRING)
+    |     +-Literal(type=STRING, value="1")
+    |     +-Literal(type=STRING, value="2.0")
+    |     +-Literal(type=STRING, value="1-2")
+    |     +-Literal(type=STRING, value="21")
+    |     +-Literal(type=STRING, value="r1")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Valid function calls with the signature like:
@@ -1421,6 +2284,206 @@ QueryStmt
     |     +-Literal(type=STRING, value="ghi")
     +-input_scan=
       +-SingleRowScan
+==
+
+SELECT
+  # 1 rep
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2"),
+  # two rep, with named
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>1),
+  # two rep, no named
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4"),
+  # two rep, with named
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>4);
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
+| +-$query.$col4#4 AS `$col4` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_t1_t2_with_optional_named_t1(repeated(1) INT64, repeated(1) STRING, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=STRING, value="2")
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col2#2 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_t1_t2_with_optional_named_t1(repeated(1) INT64, repeated(1) STRING, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=STRING, value="2")
+    | |   +-Literal(type=INT64, value=1)
+    | +-$col3#3 :=
+    | | +-FunctionCall(sample_functions:fn_repeated_t1_t2_with_optional_named_t1(repeated(2) INT64, repeated(2) STRING, optional(1) INT64 o1) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=STRING, value="2")
+    | |   +-Literal(type=INT64, value=3)
+    | |   +-Literal(type=STRING, value="4")
+    | |   +-Literal(type=INT64, value=NULL)
+    | +-$col4#4 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_t1_t2_with_optional_named_t1(repeated(2) INT64, repeated(2) STRING, optional(1) INT64 o1) -> STRING)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=STRING, value="2")
+    |     +-Literal(type=INT64, value=3)
+    |     +-Literal(type=STRING, value="4")
+    |     +-Literal(type=INT64, value=4)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Should any of these be an error? Cannot determine input types.
+# b/288479313
+select fn_optional_any(),
+       fn_repeated_any(),
+       fn_optional_t1(),
+       fn_repeated_t1()
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
+| +-$query.$col4#4 AS `$col4` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(sample_functions:fn_optional_any(optional ANY TYPE) -> STRING)
+    | +-$col2#2 := FunctionCall(sample_functions:fn_repeated_any(repeated ANY TYPE) -> STRING)
+    | +-$col3#3 := FunctionCall(sample_functions:fn_optional_t1(optional <T1>) -> STRING)
+    | +-$col4#4 := FunctionCall(sample_functions:fn_repeated_t1(repeated <T1>) -> STRING)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+select fn_optional_t1_ret_t1();
+--
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_OPTIONAL_T1_RET_T1 with no arguments. Supported signature: FN_OPTIONAL_T1_RET_T1([ANY]) [at 1:8]
+select fn_optional_t1_ret_t1();
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_OPTIONAL_T1_RET_T1 with no arguments
+  Signature: FN_OPTIONAL_T1_RET_T1([T1])
+    Unable to determine type for function return type of kind T1 [at 1:8]
+select fn_optional_t1_ret_t1();
+       ^
+==
+
+select fn_repeated_t1_ret_t1();
+--
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_RET_T1 with no arguments. Supported signature: FN_REPEATED_T1_RET_T1([ANY, ...]) [at 1:8]
+select fn_repeated_t1_ret_t1();
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_RET_T1 with no arguments
+  Signature: FN_REPEATED_T1_RET_T1([T1, ...])
+    Unable to determine type for function return type of kind T1 [at 1:8]
+select fn_repeated_t1_ret_t1();
+       ^
+==
+
+# This should be an error? cannot determine type of optional?
+SELECT
+  # no rep, no named
+  fn_repeated_t1_t2_with_optional_named_t1();
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_t1_t2_with_optional_named_t1(repeated(0) INT64, repeated <T2>, optional(1) INT64 o1) -> STRING)
+    |     +-Literal(type=INT64, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# This should be an error? cannot determine type of optional?
+SELECT
+  # no rep, no named
+  fn_repeated_t1_t2_with_optional_named_t1();
+
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_repeated_t1_t2_with_optional_named_t1(repeated(0) INT64, repeated <T2>, optional(1) INT64 o1) -> STRING)
+    |     +-Literal(type=INT64, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Should be an error, type mismatch on optional
+SELECT
+  # no rep, no named
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>true);
+--
+
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, o1 => BOOL. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([ANY, ...], [ANY, ...], [o1 => ANY]) [at 3:3]
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>true);
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
+  Argument types: INT64, STRING, o1 => BOOL
+  Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([T1, ...], [T2, ...], [o1 => T1])
+    Unable to find common supertype for templated argument <T1> [at 3:3]
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>true);
+  ^
+==
+
+# Should be an error, type mismatch on optional
+SELECT
+  # no rep, no named
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>true);
+--
+
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, INT64, STRING, o1 => BOOL. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([ANY, ...], [ANY, ...], [o1 => ANY]) [at 3:3]
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>true);
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
+  Argument types: INT64, STRING, INT64, STRING, o1 => BOOL
+  Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([T1, ...], [T2, ...], [o1 => T1])
+    Unable to find common supertype for templated argument <T1> [at 3:3]
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>true);
+  ^
+==
+
+# Should be an error, type mismatch on 2nd rep
+SELECT
+  # no rep, no named
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", true, "3", o1=>1);
+--
+
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, BOOL, STRING, o1 => INT64. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([ANY, ...], [ANY, ...], [o1 => ANY]) [at 3:3]
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", true, "3", o1=>1);
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
+  Argument types: INT64, STRING, BOOL, STRING, o1 => INT64
+  Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([T1, ...], [T2, ...], [o1 => T1])
+    Unable to find common supertype for templated argument <T1> [at 3:3]
+  fn_repeated_t1_t2_with_optional_named_t1(1, "2", true, "3", o1=>1);
+  ^
 ==
 
 # Valid function calls with the signature like:

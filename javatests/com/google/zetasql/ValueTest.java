@@ -34,6 +34,7 @@ import com.google.protobuf.Timestamp;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import com.google.zetasql.ZetaSQLValue.ValueProto;
+import com.google.zetasqltest.TestProto3Proto.TestProto3Enum;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -1915,10 +1916,14 @@ public class ValueTest {
     } catch (IllegalArgumentException expected) {
     }
 
+    assertThat(Value.createEnumValue(openEnum, 10000).getEnumValue()).isEqualTo(10000);
+
     checkSerializeAndDeserialize(typeInt32, anotherInt32);
     checkSerializeAndDeserialize(typeInt32);
     checkSerializeAndDeserialize(typeDouble);
     checkSerializeAndDeserialize(anotherInt32);
+    checkSerializeAndDeserialize(Value.createEnumValue(openEnum, 1));
+    checkSerializeAndDeserialize(Value.createEnumValue(openEnum, 7));
 
     assertThat(typeInt32.toInt64()).isEqualTo(1L);
     assertThat(typeDouble.toInt64()).isEqualTo(7L);
@@ -2601,5 +2606,6 @@ public class ValueTest {
 
   private static TypeFactory testFactory = TypeFactory.nonUniqueNames();
   private static EnumType typeKindEnum = testFactory.createEnumType(TypeKind.class);
+  private static EnumType openEnum = testFactory.createEnumType(TestProto3Enum.class);
   private static ProtoType typeProto = testFactory.createProtoType(TypeProto.class);
 }

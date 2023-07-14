@@ -1,6 +1,5 @@
 
-[default language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT,CREATE_TABLE_FIELD_ANNOTATIONS,PARAMETERIZED_TYPES,NUMERIC_TYPE,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_3_ARRAY_ORDERING,TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES,CREATE_TABLE_FUNCTION,V_1_4_COLLATION_IN_EXPLICIT_CAST,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
-
+[default language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT,CREATE_TABLE_FIELD_ANNOTATIONS,PARAMETERIZED_TYPES,NUMERIC_TYPE,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_3_ARRAY_ORDERING,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,V_1_4_COLLATION_IN_EXPLICIT_CAST,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN,V_1_4_GROUPING_SETS,GROUP_BY_ROLLUP,V_1_4_GROUPING_BUILTIN]
 # Cast string with collation to string type.
 select cast(string_ci AS STRING),
 from CollatedTable
@@ -9672,3 +9671,273 @@ InsertStmt
 |         +-SingleRowScan
 +-query_output_column_list=[$insert_cast.$col1#8<_,{Collation:"binary"},[{Collation:"binary"}]>]
 +-column_access_list=WRITE
+==
+
+[enabled_ast_rewrites=DEFAULTS,+GROUPING_SET]
+SELECT COUNT(*), string_ci, string_binary, GROUPING(string_ci)
+FROM CollatedTable
+GROUP BY GROUPING SETS(UPPER(string_ci), (string_ci, string_binary), ROLLUP(string_ci), CUBE(LOWER(string_binary), string_ci))
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
+| +-$groupby.string_ci#8{Collation:"und:ci"} AS string_ci [STRING]
+| +-$groupby.string_binary#9{Collation:"binary"} AS string_binary [STRING]
+| +-$grouping_call.$grouping_call1#11 AS `$col4` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#5, $groupby.string_ci#8{Collation:"und:ci"}, $groupby.string_binary#9{Collation:"binary"}, $grouping_call.$grouping_call1#11]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.string_ci#8{Collation:"und:ci"}, $groupby.string_binary#9{Collation:"binary"}, $aggregate.$agg1#5, $grouping_call.$grouping_call1#11]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-$groupbycol1#7 :=
+        | | +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+        | |   +-type_annotation_map={Collation:"und:ci"}
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        | +-string_ci#8 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        | +-$groupbycol4#10 :=
+        |   +-FunctionCall(ZetaSQL:lower(STRING) -> STRING)
+        |     +-type_annotation_map={Collation:"binary"}
+        |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        +-collation_list=[und:ci,und:ci,binary,binary]
+        +-aggregate_list=
+        | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol1#7{Collation:"und:ci"})
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+        | +-Rollup
+        | | +-rollup_column_list=
+        | |   +-GroupingSetMultiColumn
+        | |     +-column_list=
+        | |       +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | +-Cube
+        |   +-cube_column_list=
+        |     +-GroupingSetMultiColumn
+        |     | +-column_list=
+        |     |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol4#10{Collation:"binary"})
+        |     +-GroupingSetMultiColumn
+        |       +-column_list=
+        |         +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#8{Collation:"und:ci"})
+            +-output_column=$grouping_call.$grouping_call1#11
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
+| +-$groupby.string_ci#8{Collation:"und:ci"} AS string_ci [STRING]
+| +-$groupby.string_binary#9{Collation:"binary"} AS string_binary [STRING]
+| +-$grouping_call.$grouping_call1#11 AS `$col4` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#5, $groupby.string_ci#8{Collation:"und:ci"}, $groupby.string_binary#9{Collation:"binary"}, $grouping_call.$grouping_call1#11]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.string_ci#8{Collation:"und:ci"}, $groupby.string_binary#9{Collation:"binary"}, $aggregate.$agg1#5, $grouping_call.$grouping_call1#11]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-$groupbycol1#7 :=
+        | | +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+        | |   +-type_annotation_map={Collation:"und:ci"}
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        | +-string_ci#8 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        | +-$groupbycol4#10 :=
+        |   +-FunctionCall(ZetaSQL:lower(STRING) -> STRING)
+        |     +-type_annotation_map={Collation:"binary"}
+        |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        +-collation_list=[und:ci,und:ci,binary,binary]
+        +-aggregate_list=
+        | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol1#7{Collation:"und:ci"})
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | +-GroupingSet
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol4#10{Collation:"binary"})
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol4#10{Collation:"binary"})
+        | +-GroupingSet
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#8{Collation:"und:ci"})
+            +-output_column=$grouping_call.$grouping_call1#11
+==
+
+# Disable GROUPING_SETS, in which case rollup won't go through rewriters, this is the current code path.
+[language_features=V_1_3_COLLATION_SUPPORT,GROUP_BY_ROLLUP,V_1_3_ANNOTATION_FRAMEWORK]
+SELECT COUNT(*), string_ci, string_binary
+FROM CollatedTable
+GROUP BY ROLLUP(string_ci, string_binary, UPPER(string_ci))
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
+| +-$groupby.string_ci#6{Collation:"und:ci"} AS string_ci [STRING]
+| +-$groupby.string_binary#7{Collation:"binary"} AS string_binary [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#5, $groupby.string_ci#6{Collation:"und:ci"}, $groupby.string_binary#7{Collation:"binary"}]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.string_ci#6{Collation:"und:ci"}, $groupby.string_binary#7{Collation:"binary"}, $aggregate.$agg1#5]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-string_ci#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        | +-string_binary#7 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        | +-$groupbycol3#8 :=
+        |   +-FunctionCall(ZetaSQL:upper(STRING) -> STRING)
+        |     +-type_annotation_map={Collation:"und:ci"}
+        |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        +-collation_list=[und:ci,binary,und:ci]
+        +-aggregate_list=
+        | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#6{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_binary#7{Collation:"binary"})
+        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol3#8{Collation:"und:ci"})
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#6{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_binary#7{Collation:"binary"})
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#6{Collation:"und:ci"})
+        | +-GroupingSet
+        +-rollup_column_list=
+          +-ColumnRef(type=STRING, column=$groupby.string_ci#6{Collation:"und:ci"})
+          +-ColumnRef(type=STRING, column=$groupby.string_binary#7{Collation:"binary"})
+          +-ColumnRef(type=STRING, column=$groupby.$groupbycol3#8{Collation:"und:ci"})
+==
+
+# grouping sets with collated struct and array type
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+GROUPING_SET]
+SELECT COUNT(*), struct_with_string_ci, array_with_string_ci
+FROM CollatedTable
+GROUP BY GROUPING SETS(
+  struct_with_string_ci,
+  ROLLUP(struct_with_string_ci, string_ci),
+  CUBE(array_with_string_ci, string_binary)
+)
+--
+
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
+| +-$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
+| +-$groupby.array_with_string_ci#8[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#5, $groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8[{Collation:"und:ci"}]]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8[{Collation:"und:ci"}], $aggregate.$agg1#5]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
+        +-group_by_list=
+        | +-struct_with_string_ci#6 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
+        | +-string_ci#7 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+        | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        +-collation_list=[[_,und:ci],und:ci,[und:ci],binary]
+        +-aggregate_list=
+        | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-grouping_set_list=
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          +-Rollup
+          | +-rollup_column_list=
+          |   +-GroupingSetMultiColumn
+          |   | +-column_list=
+          |   |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          |   +-GroupingSetMultiColumn
+          |     +-column_list=
+          |       +-ColumnRef(type=STRING, column=$groupby.string_ci#7{Collation:"und:ci"})
+          +-Cube
+            +-cube_column_list=
+              +-GroupingSetMultiColumn
+              | +-column_list=
+              |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8[{Collation:"und:ci"}])
+              +-GroupingSetMultiColumn
+                +-column_list=
+                  +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#5 AS `$col1` [INT64]
+| +-$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
+| +-$groupby.array_with_string_ci#8[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#5, $groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8[{Collation:"und:ci"}]]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8[{Collation:"und:ci"}], $aggregate.$agg1#5]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
+        +-group_by_list=
+        | +-struct_with_string_ci#6 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
+        | +-string_ci#7 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+        | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        +-collation_list=[[_,und:ci],und:ci,[und:ci],binary]
+        +-aggregate_list=
+        | +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-grouping_set_list=
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          |   +-ColumnRef(type=STRING, column=$groupby.string_ci#7{Collation:"und:ci"})
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          +-GroupingSet
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8[{Collation:"und:ci"}])
+          |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8[{Collation:"und:ci"}])
+          +-GroupingSet

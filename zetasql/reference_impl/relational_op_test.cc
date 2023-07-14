@@ -3446,7 +3446,7 @@ TEST_F(CreateIteratorTest, TableScanAsArray) {
                                     &scramble_context));
   EXPECT_EQ(iter->DebugString(),
             "ReorderingTupleIterator(ArrayScanTupleIterator("
-            "[unordered: {a:1, b:2}, {a:3, b:4}]))");
+            "[{a:1, b:2}, {a:3, b:4}]))");
   EXPECT_FALSE(iter->PreservesOrder());
   ZETASQL_ASSERT_OK_AND_ASSIGN(data, ReadFromTupleIterator(iter.get()));
   ASSERT_EQ(data.size(), 2);

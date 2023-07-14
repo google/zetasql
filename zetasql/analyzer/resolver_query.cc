@@ -109,6 +109,7 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
@@ -236,6 +237,37 @@ absl::Status ValidateGroupingSetList(
     }
   }
   return absl::OkStatus();
+}
+
+absl::Status CreateUnsupportedGroupingSetsError(
+    const QueryResolutionInfo* query_resolution_info, const ASTSelect* select,
+    absl::string_view clause_name) {
+  if (!query_resolution_info->HasGroupByGroupingSets()) {
+    return absl::OkStatus();
+  }
+
+  ZETASQL_RET_CHECK(select != nullptr);
+  ZETASQL_RET_CHECK(select->group_by() != nullptr);
+  ZETASQL_RET_CHECK(!select->group_by()->grouping_items().empty());
+  const ASTGroupingItem* grouping_item =
+      select->group_by()->grouping_items()[0];
+
+  std::string grouping_caluse_name;
+  if (grouping_item->rollup() != nullptr) {
+    grouping_caluse_name = "ROLLUP";
+  } else if (grouping_item->cube() != nullptr) {
+    grouping_caluse_name = "CUBE";
+  } else if (grouping_item->grouping_set_list() != nullptr) {
+    grouping_caluse_name = "GROUPING SETS";
+  } else {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Expect a node with grouping set, node: %s",
+                        grouping_item->DebugString()));
+  }
+
+  return MakeSqlErrorAt(grouping_item)
+         << absl::StrFormat("GROUP BY %s is not supported in %s",
+                            grouping_caluse_name, clause_name);
 }
 
 }  // namespace
@@ -609,9 +641,9 @@ absl::Status Resolver::AddAggregateScan(
 absl::Status Resolver::AddAnonymizedAggregateScan(
     const ASTSelect* select, QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedScan>* current_scan) {
-  if (query_resolution_info->HasGroupByRollup()) {
-    return MakeSqlErrorAt(select->group_by()->grouping_items(0)->rollup())
-           << "GROUP BY ROLLUP is not supported in anonymization queries";
+  if (query_resolution_info->HasGroupByGroupingSets()) {
+    ZETASQL_RETURN_IF_ERROR(CreateUnsupportedGroupingSetsError(
+        query_resolution_info, select, "anonymization queries"));
   }
   ZETASQL_RET_CHECK(query_resolution_info->select_with_mode() ==
                 SelectWithMode::ANONYMIZATION ||
@@ -642,6 +674,8 @@ absl::Status Resolver::AddAnonymizedAggregateScan(
           column_list, std::move(*current_scan),
           query_resolution_info->release_group_by_columns_to_compute(),
           query_resolution_info->release_aggregate_columns_to_compute(),
+          /*grouping_set_list=*/{}, /*rollup_column_list=*/{},
+          /*grouping_call_list=*/{},
           /*k_threshold_expr=*/nullptr,
           std::move(resolved_anonymization_options));
       // We might have aggregation without GROUP BY.
@@ -656,6 +690,8 @@ absl::Status Resolver::AddAnonymizedAggregateScan(
           column_list, std::move(*current_scan),
           query_resolution_info->release_group_by_columns_to_compute(),
           query_resolution_info->release_aggregate_columns_to_compute(),
+          /*grouping_set_list=*/{}, /*rollup_column_list=*/{},
+          /*grouping_call_list=*/{},
           /*group_selection_threshold_expr=*/nullptr,
           std::move(resolved_anonymization_options));
       // We might have aggregation without GROUP BY.
@@ -678,11 +714,6 @@ absl::StatusOr<std::unique_ptr<const ResolvedScan>>
 Resolver::AddAggregationThresholdAggregateScan(
     const ASTSelect* select, QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedScan> input_scan) {
-  if (query_resolution_info->HasGroupByRollup()) {
-    return MakeSqlErrorAt(select->group_by()->grouping_items(0)->rollup())
-           << "GROUP BY ROLLUP is not supported in aggregation threshold "
-              "queries";
-  }
   ZETASQL_RET_CHECK(query_resolution_info->select_with_mode() ==
             SelectWithMode::AGGREGATION_THRESHOLD);
   ResolvedColumnList column_list;
@@ -694,6 +725,14 @@ Resolver::AddAggregationThresholdAggregateScan(
        query_resolution_info->aggregate_columns_to_compute()) {
     column_list.push_back(aggregate_column->column());
   }
+
+  std::vector<std::unique_ptr<const ResolvedColumnRef>> rollup_column_list;
+  std::vector<std::unique_ptr<const ResolvedGroupingSetBase>> grouping_set_list;
+
+  // Retrieve the grouping sets and rollup list for the aggregate scan, if any.
+  ZETASQL_RETURN_IF_ERROR(query_resolution_info->ReleaseGroupingSetsAndRollupList(
+      &grouping_set_list, &rollup_column_list, language()));
+
   ZETASQL_RET_CHECK(!column_list.empty());
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
   if (select->select_with() != nullptr &&
@@ -707,7 +746,8 @@ Resolver::AddAggregationThresholdAggregateScan(
           column_list, std::move(input_scan),
           query_resolution_info->release_group_by_columns_to_compute(),
           query_resolution_info->release_aggregate_columns_to_compute(),
-          std::move(resolved_options));
+          std::move(grouping_set_list), std::move(rollup_column_list),
+          /*grouping_call_list=*/{}, std::move(resolved_options));
   // When GROUP BY shows up in aggregation, aggregation threshold aggregate scan
   // respects the specified hints.
   if (select->group_by() != nullptr) {
@@ -3416,9 +3456,11 @@ absl::Status Resolver::ResolveGroupByExprs(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RETURN_IF_ERROR(ValidateGroupByAll(group_by));
 
+  bool has_rollup_or_cube = false;
   for (const ASTGroupingItem* grouping_item : group_by->grouping_items()) {
     if (grouping_item->rollup() != nullptr) {
       // GROUP BY ROLLUP
+      has_rollup_or_cube = true;
       const ASTRollup* rollup = grouping_item->rollup();
       ZETASQL_RETURN_IF_ERROR(ValidateRollup(rollup, language(),
                                      group_by->grouping_items().size()));
@@ -3430,6 +3472,7 @@ absl::Status Resolver::ResolveGroupByExprs(
       break;
     } else if (grouping_item->cube() != nullptr) {
       // GROUP BY CUBE
+      has_rollup_or_cube = true;
       const ASTCube* cube = grouping_item->cube();
       ZETASQL_RETURN_IF_ERROR(
           ValidateCube(cube, language(), group_by->grouping_items().size()));
@@ -3447,11 +3490,13 @@ absl::Status Resolver::ResolveGroupByExprs(
         ZETASQL_RET_CHECK(grouping_set != nullptr);
         if (grouping_set->rollup() != nullptr) {
           // ROLLUP in GROUP BY GROUPING SETS()
+          has_rollup_or_cube = true;
           ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
               grouping_set->rollup()->expressions(), from_clause_scope,
               GroupingSetKind::kRollup, query_resolution_info));
         } else if (grouping_set->cube() != nullptr) {
           // CUBE in GROUP BY GROUPING SETS()
+          has_rollup_or_cube = true;
           ZETASQL_RETURN_IF_ERROR(ResolveGroupingSetExpressions(
               grouping_set->cube()->expressions(), from_clause_scope,
               GroupingSetKind::kCube, query_resolution_info));
@@ -3480,13 +3525,28 @@ absl::Status Resolver::ResolveGroupByExprs(
               GroupingSetKind::kGroupingSet, query_resolution_info));
         }
       }
-    } else {
+    } else if (grouping_item->expression() != nullptr) {
       // GROUP BY expressions
-      ZETASQL_RET_CHECK(grouping_item->expression() != nullptr);
       ZETASQL_RETURN_IF_ERROR(ResolveGroupingItemExpression(
           grouping_item->expression(), from_clause_scope,
           /*from_grouping_set=*/false, query_resolution_info));
+    } else {
+      // This is GROUP BY ()
+      // We only allow GROUP BY () being used without other grouping items.
+      if (language().LanguageFeatureEnabled(FEATURE_V_1_4_GROUPING_SETS)) {
+        if (group_by->grouping_items().size() > 1) {
+          return MakeSqlErrorAt(grouping_item)
+                 << "GROUP BY () is allowed when there are no other grouping "
+                    "items";
+        }
+      } else {
+        return MakeSqlErrorAt(grouping_item) << "GROUP BY () is not supported";
+      }
     }
+  }
+  if (has_rollup_or_cube &&
+      language().LanguageFeatureEnabled(FEATURE_V_1_4_GROUPING_SETS)) {
+    analyzer_output_properties_.MarkRelevant(REWRITE_GROUPING_SET);
   }
   return absl::OkStatus();
 }
@@ -8211,36 +8271,48 @@ absl::StatusOr<int> Resolver::MatchTVFSignature(
     input_arg_types.push_back(std::move(input_arg_type_or_status).value());
   }
 
-  if (!SignatureArgumentCountMatches(function_signature,
-                                     static_cast<int>(arg_locations->size()),
-                                     &repetitions, &optionals)) {
+  signature_match_result->set_allow_mismatch_message(
+      analyzer_options_.show_function_signature_mismatch_details());
+
+  if (!SignatureArgumentCountMatches(
+          function_signature, static_cast<int>(arg_locations->size()),
+          &repetitions, &optionals, signature_match_result)) {
     return GenerateTVFNotMatchError(ast_tvf, *signature_match_result,
                                     *tvf_catalog_entry, tvf_name_string,
                                     input_arg_types, signature_idx);
   }
 
-  std::vector<FunctionResolver::ArgIndexPair> index_mapping;
+  std::vector<ArgIndexEntry> arg_index_mapping;
   // TVFs can only have one signature for now, so either this call
   // returns an error, or the arguments match the signature.
-  ZETASQL_RETURN_IF_ERROR(function_resolver.GetFunctionArgumentIndexMappingPerSignature(
-      tvf_name_string, function_signature, ast_tvf, *arg_locations,
-      named_arguments, repetitions,
-      /*always_include_omitted_named_arguments_in_index_mapping=*/false,
-      &index_mapping));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::string mismatch_message,
+      function_resolver.GetFunctionArgumentIndexMappingPerSignature(
+          tvf_name_string, function_signature, ast_tvf, *arg_locations,
+          named_arguments, repetitions,
+          /*always_include_omitted_named_arguments_in_index_mapping=*/false,
+          &arg_index_mapping));
+  if (!mismatch_message.empty()) {
+    if (signature_match_result->allow_mismatch_message()) {
+      signature_match_result->set_mismatch_message(mismatch_message);
+    }
+    return GenerateTVFNotMatchError(ast_tvf, *signature_match_result,
+                                    *tvf_catalog_entry, tvf_name_string,
+                                    input_arg_types, signature_idx);
+  }
   ZETASQL_RETURN_IF_ERROR(
       FunctionResolver::
           ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
-              function_signature, index_mapping, &input_arg_types));
+              function_signature, arg_index_mapping, &input_arg_types));
 
-  signature_match_result->set_allow_mismatch_message(
-      analyzer_options_.show_function_signature_mismatch_details());
   // Check if the TVF arguments match its signature. If not, return an error.
-  ZETASQL_ASSIGN_OR_RETURN(const bool matches,
-                   function_resolver.SignatureMatches(
-                       *arg_locations, input_arg_types, function_signature,
-                       /*allow_argument_coercion=*/true, /*name_scope=*/nullptr,
-                       result_signature, signature_match_result,
-                       /*arg_overrides=*/nullptr));
+  ZETASQL_ASSIGN_OR_RETURN(
+      const bool matches,
+      function_resolver.SignatureMatches(
+          *arg_locations, input_arg_types, function_signature,
+          /*allow_argument_coercion=*/true, /*name_scope=*/nullptr,
+          result_signature, signature_match_result, &arg_index_mapping,
+          /*arg_overrides=*/nullptr));
 
   if (!matches) {
     return GenerateTVFNotMatchError(ast_tvf, *signature_match_result,
@@ -8249,7 +8321,7 @@ absl::StatusOr<int> Resolver::MatchTVFSignature(
   }
 
   ZETASQL_RETURN_IF_ERROR(FunctionResolver::ReorderArgumentExpressionsPerIndexMapping(
-      tvf_name_string, function_signature, index_mapping, ast_tvf,
+      tvf_name_string, function_signature, arg_index_mapping, ast_tvf,
       input_arg_types, arg_locations, /*resolved_args=*/nullptr,
       resolved_tvf_args));
 
@@ -8437,11 +8509,9 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
                  function_argument_info_ != nullptr &&
                  function_argument_info_->FindTableArg(
                      table_path->first_name()->GetAsIdString()) != nullptr &&
-                 (language().LanguageFeatureEnabled(
-                      FEATURE_FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES) ||
-                  catalog_->FindTable(table_path->ToIdentifierVector(), &table,
-                                      analyzer_options_.find_options())
-                          .code() == absl::StatusCode::kNotFound)) {
+                 catalog_->FindTable(table_path->ToIdentifierVector(), &table,
+                                     analyzer_options_.find_options())
+                         .code() == absl::StatusCode::kNotFound) {
         std::unique_ptr<const ResolvedScan> scan;
         std::shared_ptr<const NameList> name_list;
         ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsFunctionTableArgument(

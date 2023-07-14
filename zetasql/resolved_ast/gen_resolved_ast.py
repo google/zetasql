@@ -2681,41 +2681,15 @@ value.
       The output <column_list> contains only columns produced from
       <group_by_list> and <aggregate_list>.  No other columns are visible after
       aggregation.
-              """,
-      fields=[
-          Field('input_scan', 'ResolvedScan', tag_id=2),
-          Field(
-              'group_by_list',
-              'ResolvedComputedColumn',
-              tag_id=3,
-              vector=True),
-          Field(
-              'collation_list',
-              SCALAR_RESOLVED_COLLATION,
-              tag_id=5,
-              ignorable=IGNORABLE_DEFAULT,
-              vector=True,
-              java_to_string_method='toStringCommaSeparated',
-              is_constructor_arg=False),
-          Field(
-              'aggregate_list',
-              'ResolvedComputedColumn',
-              tag_id=4,
-              vector=True)
-      ])
 
-  gen.AddNode(
-      name='ResolvedAggregateScan',
-      tag_id=25,
-      parent='ResolvedAggregateScanBase',
-      comment="""
-      Apply aggregation to rows produced from input_scan, and output aggregated
-      rows.
+      If <grouping_set_list> is empty, output rows grouped by the full
+      <group_by_list>.
 
-      For each item in <grouping_set_list>, output additional rows computing the
+      If <grouping_set_list> is non-empty, then
+      for each item in <grouping_set_list>, output rows computing the
       same <aggregate_list> over the input rows using a particular grouping set.
       Each item in <grouping_set_list> is either a ResolvedGroupingSet,
-      ResolvedRollup, or ResolvedCube before the grouping set rewritter expands
+      ResolvedRollup, or ResolvedCube before the grouping set rewriter expands
       the grouping set list. After rewriting, it will only contain
       ResolvedGroupingSet that are expanded from grouping set, rollup and cube.
 
@@ -2737,29 +2711,58 @@ value.
       is associated with a unique GROUPING function call in the SELECT list.
               """,
       fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field(
+              'group_by_list', 'ResolvedComputedColumn', tag_id=3, vector=True
+          ),
+          Field(
+              'collation_list',
+              SCALAR_RESOLVED_COLLATION,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+              java_to_string_method='toStringCommaSeparated',
+              is_constructor_arg=False,
+          ),
+          Field(
+              'aggregate_list', 'ResolvedComputedColumn', tag_id=4, vector=True
+          ),
           Field(
               'grouping_set_list',
               'ResolvedGroupingSetBase',
-              tag_id=5,
+              tag_id=6,
               vector=True,
               ignorable=IGNORABLE_DEFAULT,
           ),
           Field(
               'rollup_column_list',
               'ResolvedColumnRef',
-              tag_id=6,
+              tag_id=7,
               vector=True,
               ignorable=IGNORABLE_DEFAULT,
           ),
           Field(
               'grouping_call_list',
               'ResolvedGroupingCall',
-              tag_id=7,
+              tag_id=8,
               vector=True,
               ignorable=IGNORABLE_DEFAULT,
               is_optional_constructor_arg=True,
-          ),
+          )
       ],
+  )
+
+  gen.AddNode(
+      name='ResolvedAggregateScan',
+      tag_id=25,
+      parent='ResolvedAggregateScanBase',
+      comment="""
+      Apply aggregation to rows produced from input_scan, and output aggregated
+      rows.
+              """,
+      # ResolvedAggregateScan just needs the fields from the base class
+      # `ResolvedAggregationScanBase`.
+      fields=[],
   )
   gen.AddNode(
       name='ResolvedAnonymizedAggregateScan',

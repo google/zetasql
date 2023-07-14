@@ -1,5 +1,3 @@
-[default language_features=FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES]
-
 create function myfunc ( ) ;
 --
 ERROR: Function must specify LANGUAGE or have a SQL body in parentheses [at 1:1]
@@ -476,10 +474,7 @@ CreateFunctionStmt
 
 # A function body with a scalar subquery that has a local alias that conflicts
 # with an argument name.
-[language_features={{|FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES}}]
 create function AddFunc(x int64, y int64) as ((SELECT x + y from (SELECT 1 x)));
---
-ALTERNATION GROUP: <empty>
 --
 CreateFunctionStmt
 +-name_path=AddFunc
@@ -507,47 +502,13 @@ CreateFunctionStmt
             | +-x#1 := Literal(type=INT64, value=1)
             +-input_scan=
               +-SingleRowScan
---
-ALTERNATION GROUP: FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES
---
-CreateFunctionStmt
-+-name_path=AddFunc
-+-return_type=INT64
-+-argument_name_list=[x, y]
-+-signature=(INT64 x, INT64 y) -> INT64
-+-language="SQL"
-+-code="(SELECT x + y from (SELECT 1 x))"
-+-function_expression=
-  +-SubqueryExpr
-    +-type=INT64
-    +-subquery_type=SCALAR
-    +-subquery=
-      +-ProjectScan
-        +-column_list=[$expr_subquery.$col1#2]
-        +-expr_list=
-        | +-$col1#2 :=
-        |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-        |     +-ArgumentRef(type=INT64, name="x")
-        |     +-ArgumentRef(type=INT64, name="y")
-        +-input_scan=
-          +-ProjectScan
-            +-column_list=[$subquery1.x#1]
-            +-expr_list=
-            | +-x#1 := Literal(type=INT64, value=1)
-            +-input_scan=
-              +-SingleRowScan
 ==
 
 # A function where the SELECT list path expression could resolve to a qualifed
 # struct field (for an argument struct) or a qualified column name (for a table
-# scanned in the FROM clause). The FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES
-# language feature changes resolution from the column case to the struct field
-# case when enabled.
-[language_features={{|FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES}}]
+# scanned in the FROM clause).
 create function AddFunc(x STRUCT<y INT64>)
 as ((SELECT x.y from (SELECT 1 AS y) AS x))
---
-ALTERNATION GROUP: <empty>
 --
 CreateFunctionStmt
 +-name_path=AddFunc
@@ -563,37 +524,6 @@ CreateFunctionStmt
     +-subquery=
       +-ProjectScan
         +-column_list=[x.y#1]
-        +-input_scan=
-          +-ProjectScan
-            +-column_list=[x.y#1]
-            +-expr_list=
-            | +-y#1 := Literal(type=INT64, value=1)
-            +-input_scan=
-              +-SingleRowScan
---
-ALTERNATION GROUP: FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES
---
-CreateFunctionStmt
-+-name_path=AddFunc
-+-return_type=INT64
-+-argument_name_list=[x]
-+-signature=(STRUCT<y INT64> x) -> INT64
-+-language="SQL"
-+-code="(SELECT x.y from (SELECT 1 AS y) AS x)"
-+-function_expression=
-  +-SubqueryExpr
-    +-type=INT64
-    +-subquery_type=SCALAR
-    +-subquery=
-      +-ProjectScan
-        +-column_list=[$expr_subquery.y#2]
-        +-expr_list=
-        | +-y#2 :=
-        |   +-GetStructField
-        |     +-type=INT64
-        |     +-expr=
-        |     | +-ArgumentRef(type=STRUCT<y INT64>, name="x")
-        |     +-field_idx=0
         +-input_scan=
           +-ProjectScan
             +-column_list=[x.y#1]

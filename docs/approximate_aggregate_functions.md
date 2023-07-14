@@ -130,9 +130,10 @@ APPROX_QUANTILES(
 **Description**
 
 Returns the approximate boundaries for a group of `expression` values, where
-`number` represents the number of quantiles to create. This function returns
-an array of `number` + 1 elements, where the first element is the approximate
-minimum and the last element is the approximate maximum.
+`number` represents the number of quantiles to create. This function returns an
+array of `number` + 1 elements, sorted in ascending order, where the
+first element is the approximate minimum and the last element is the approximate
+maximum.
 
 Returns `NULL` if there are zero input rows or `expression` evaluates to
 `NULL` for all rows.

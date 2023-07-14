@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 404
+NEXT_NODE_TAG_ID = 406
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -1768,6 +1768,54 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTFunctionTypeArgList',
+      tag_id=404,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'args',
+              'ASTType',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTFunctionType',
+      tag_id=405,
+      parent='ASTType',
+      fields=[
+          Field(
+              'arg_list',
+              'ASTFunctionTypeArgList',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'return_type',
+              'ASTType',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'type_parameters',
+              'ASTTypeParameterList',
+              tag_id=4,
+              getter_is_override=True,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+          Field(
+              'collate',
+              'ASTCollate',
+              tag_id=5,
+              getter_is_override=True,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTCastExpression',
       tag_id=42,
       parent='ASTExpression',
@@ -1777,21 +1825,18 @@ def main(argv):
               'expr',
               'ASTExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'type',
               'ASTType',
               tag_id=3,
-              field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'format',
-              'ASTFormatClause',
-              tag_id=4),
-          Field(
-              'is_safe_cast',
-              SCALAR_BOOL,
-              tag_id=5),
-      ])
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('format', 'ASTFormatClause', tag_id=4),
+          Field('is_safe_cast', SCALAR_BOOL, tag_id=5),
+      ],
+  )
 
   gen.AddNode(
       name='ASTSelectAs',

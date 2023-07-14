@@ -24,6 +24,7 @@
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"

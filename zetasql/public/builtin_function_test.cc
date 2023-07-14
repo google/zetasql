@@ -345,12 +345,12 @@ TEST(SimpleBuiltinFunctionTests, ExcludedBuiltinFunctionTests) {
   std::vector<std::string> all_functions_not_in_functions;
 
   for (const auto& function : all_functions) {
-    if (!zetasql_base::ContainsKey(functions, function.first)) {
+    if (!functions.contains(function.first)) {
       all_functions_not_in_functions.push_back(function.first);
     }
   }
   for (const auto& function : functions) {
-    if (!zetasql_base::ContainsKey(all_functions, function.first)) {
+    if (!all_functions.contains(function.first)) {
       functions_not_in_all_functions.push_back(function.first);
     }
   }
@@ -521,8 +521,8 @@ TEST(SimpleBuiltinFunctionTests, LanguageOptions) {
   // With default LanguageOptions, we won't get analytic functions.
   ZETASQL_EXPECT_OK(
       GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
-  EXPECT_TRUE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_COUNT)));
-  EXPECT_FALSE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_RANK)));
+  EXPECT_TRUE(functions.contains(FunctionSignatureIdToName(FN_COUNT)));
+  EXPECT_FALSE(functions.contains(FunctionSignatureIdToName(FN_RANK)));
 
   options.language_options.EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
   options.language_options.EnableMaximumLanguageFeatures();
@@ -531,8 +531,8 @@ TEST(SimpleBuiltinFunctionTests, LanguageOptions) {
   types.clear();
   ZETASQL_EXPECT_OK(
       GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
-  EXPECT_TRUE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_COUNT)));
-  EXPECT_TRUE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_RANK)));
+  EXPECT_TRUE(functions.contains(FunctionSignatureIdToName(FN_COUNT)));
+  EXPECT_TRUE(functions.contains(FunctionSignatureIdToName(FN_RANK)));
 
   // Now test combination of LanguageOptions, inclusions and exclusions.
   // Without enabling FEATURE_ANALYTIC_FUNCTIONS, we don't get FN_RANK, even
@@ -547,11 +547,10 @@ TEST(SimpleBuiltinFunctionTests, LanguageOptions) {
   types.clear();
   ZETASQL_EXPECT_OK(
       GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
-  EXPECT_TRUE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_MAX)));
-  EXPECT_FALSE(
-      zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_COUNT)));
-  EXPECT_FALSE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_RANK)));
-  EXPECT_FALSE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_LEAD)));
+  EXPECT_TRUE(functions.contains(FunctionSignatureIdToName(FN_MAX)));
+  EXPECT_FALSE(functions.contains(FunctionSignatureIdToName(FN_COUNT)));
+  EXPECT_FALSE(functions.contains(FunctionSignatureIdToName(FN_RANK)));
+  EXPECT_FALSE(functions.contains(FunctionSignatureIdToName(FN_LEAD)));
 
   // When we enable FEATURE_ANALYTIC_FUNCTIONS, inclusion lists apply to
   // analytic functions.
@@ -561,11 +560,10 @@ TEST(SimpleBuiltinFunctionTests, LanguageOptions) {
   types.clear();
   ZETASQL_EXPECT_OK(
       GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
-  EXPECT_TRUE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_MAX)));
-  EXPECT_FALSE(
-      zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_COUNT)));
-  EXPECT_TRUE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_RANK)));
-  EXPECT_FALSE(zetasql_base::ContainsKey(functions, FunctionSignatureIdToName(FN_LEAD)));
+  EXPECT_TRUE(functions.contains(FunctionSignatureIdToName(FN_MAX)));
+  EXPECT_FALSE(functions.contains(FunctionSignatureIdToName(FN_COUNT)));
+  EXPECT_TRUE(functions.contains(FunctionSignatureIdToName(FN_RANK)));
+  EXPECT_FALSE(functions.contains(FunctionSignatureIdToName(FN_LEAD)));
 }
 
 TEST(SimpleBuiltinFunctionTests, NumericFunctions) {

@@ -321,7 +321,7 @@ absl::Status EnumType::DeserializeValueContent(const ValueProto& value_proto,
   const google::protobuf::EnumValueDescriptor* value_descriptor =
       enum_descriptor()->FindValueByNumber(value_proto.enum_value());
 
-  if (!IsValidEnumValue(value_descriptor)) {
+  if (!EnumAllowsUnnamedValues() && !IsValidEnumValue(value_descriptor)) {
     return absl::Status(absl::StatusCode::kOutOfRange,
                         absl::StrCat("Invalid value for ", DebugString(), ": ",
                                      value_proto.enum_value()));

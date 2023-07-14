@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
@@ -92,6 +93,15 @@ class SampleCatalog {
   void LoadViews(const LanguageOptions& language_options);
   void LoadNestedCatalogs();
   void AddFunctionWithArgumentType(std::string type_name, const Type* arg_type);
+
+  // Creates and adds the Function to the catalog.
+  // This performs some basic validation.
+  // The group used is 'sample_functions'.
+  const Function* AddFunction(
+      absl::string_view name, Function::Mode mode,
+      std::vector<FunctionSignature> function_signatures,
+      FunctionOptions function_options = {});
+
   void LoadFunctionsWithStructArgs();
   void LoadFunctions();
   void LoadExtendedSubscriptFunctions();
@@ -154,6 +164,16 @@ class SampleCatalog {
       std::optional<FunctionOptions> function_options = std::nullopt);
 
   void LoadSqlFunctions(const LanguageOptions& language_options);
+
+  // This can be used force linking of a proto for the generated_pool.
+  // This may be required if a proto is referenced in file-based tests
+  // (such as analyzer test), but not otherwise directly linked.
+  // We don't force linking the entire test_schema since we may need
+  // to test this partial-linkage in other contexts (and it's expensive).
+  // Note, this function isn't actually called. But it _does_ need to be
+  // defined in the class to ensure it can't be pruned.
+  // This is a all weird linker magic.
+  void ForceLinkProtoTypes();
 
   const ProtoType* GetProtoType(const google::protobuf::Descriptor* descriptor);
   const EnumType* GetEnumType(const google::protobuf::EnumDescriptor* descriptor);

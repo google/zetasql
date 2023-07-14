@@ -42,6 +42,49 @@
 
 namespace zetasql {
 
+static absl::StatusOr<std::unique_ptr<Function>>
+MakeFunctionFromCreateFunctionImpl(
+    const ResolvedCreateFunctionStmt& create_function_stmt,
+    std::optional<FunctionOptions> function_options,
+    bool legacy_joined_name_path = false) {
+  FunctionOptions options;
+  if (function_options.has_value()) {
+    options = *function_options;
+  } else {
+    // Use-defined functions often use CamelCase. Upper casing that makes it
+    // unreadable.
+    options.set_uses_upper_case_sql_name(false);
+  }
+  FunctionEnums::Mode function_mode = create_function_stmt.is_aggregate()
+                                          ? FunctionEnums::AGGREGATE
+                                          : FunctionEnums::SCALAR;
+  std::unique_ptr<Function> function;
+  std::vector<std::string> name_path = create_function_stmt.name_path();
+  if (legacy_joined_name_path) {
+    name_path = {absl::StrJoin(create_function_stmt.name_path(), ".")};
+  }
+  if (create_function_stmt.function_expression() != nullptr) {
+    std::unique_ptr<SQLFunction> sql_function;
+    ZETASQL_ASSIGN_OR_RETURN(function,
+                     SQLFunction::Create(
+                         std::move(name_path), function_mode,
+                         create_function_stmt.signature(), std::move(options),
+                         create_function_stmt.function_expression(),
+                         create_function_stmt.argument_name_list(),
+                         &create_function_stmt.aggregate_expression_list(),
+                         /*parse_resume_location=*/std::nullopt));
+  } else {
+    function = std::make_unique<TemplatedSQLFunction>(
+        create_function_stmt.name_path(), create_function_stmt.signature(),
+        create_function_stmt.argument_name_list(),
+        ParseResumeLocation::FromStringView(create_function_stmt.code()),
+        function_mode, options);
+  }
+
+  function->set_sql_security(create_function_stmt.sql_security());
+  return function;
+}
+
 absl::Status AddFunctionFromCreateFunction(
     absl::string_view create_sql_stmt, const AnalyzerOptions& analyzer_options,
     bool allow_persistent_function,
@@ -61,41 +104,21 @@ absl::Status AddFunctionFromCreateFunction(
     ZETASQL_RET_CHECK_EQ(resolved_create->create_scope(),
                  ResolvedCreateStatementEnums::CREATE_TEMP);
   }
-  FunctionOptions options;
-  if (function_options.has_value()) {
-    options = *function_options;
-  } else {
-    // Use-defined functions often use CamelCase. Upper casing that makes it
-    // unreadable.
-    options.set_uses_upper_case_sql_name(false);
-  }
-  FunctionEnums::Mode function_mode = resolved_create->is_aggregate()
-                                          ? FunctionEnums::AGGREGATE
-                                          : FunctionEnums::SCALAR;
-  std::unique_ptr<Function> function;
-  if (resolved_create->function_expression() != nullptr) {
-    std::unique_ptr<SQLFunction> sql_function;
-    ZETASQL_RETURN_IF_ERROR(
-        SQLFunction::Create(absl::StrJoin(resolved_create->name_path(), "."),
-                            function_mode, {resolved_create->signature()},
-                            options, resolved_create->function_expression(),
-                            resolved_create->argument_name_list(),
-                            &resolved_create->aggregate_expression_list(),
-                            /*parse_resume_location=*/{}, &sql_function));
-    function = std::move(sql_function);
-  } else {
-    function = std::make_unique<TemplatedSQLFunction>(
-        resolved_create->name_path(), resolved_create->signature(),
-        resolved_create->argument_name_list(),
-        ParseResumeLocation::FromStringView(resolved_create->code()),
-        function_mode, options);
-  }
-
-  function->set_sql_security(resolved_create->sql_security());
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<Function> function,
+      MakeFunctionFromCreateFunctionImpl(*resolved_create, function_options,
+                                         /*legacy_joined_name_path=*/true));
 
   ZETASQL_RET_CHECK(catalog.AddOwnedFunctionIfNotPresent(&function))
       << absl::StrJoin(resolved_create->name_path(), ".");
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<Function>> MakeFunctionFromCreateFunction(
+    const ResolvedCreateFunctionStmt& create_function_stmt,
+    std::optional<FunctionOptions> function_options) {
+  return MakeFunctionFromCreateFunctionImpl(create_function_stmt,
+                                            std::move(function_options));
 }
 
 absl::Status AddViewFromCreateView(

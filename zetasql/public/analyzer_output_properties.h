@@ -18,9 +18,7 @@
 #define ZETASQL_PUBLIC_ANALYZER_OUTPUT_PROPERTIES_H_
 
 #include "zetasql/public/options.pb.h"
-#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/container/btree_set.h"
-#include "absl/container/flat_hash_map.h"
 
 namespace zetasql {
 
@@ -37,16 +35,6 @@ class AnalyzerOutputProperties {
       "Client code should consider this struct internal. "
       "It doesn't mean what you think it means.")
   bool has_anonymization = false;  // NOLINT
-  // A map from ResolvedTableScan to ResolvedAnonymizedAggregateScan.
-  // TODO: Encapsulate this appropriately.
-  absl::flat_hash_map<const ResolvedTableScan*,
-                      const ResolvedAnonymizedAggregateScan*>
-      resolved_table_scan_to_anonymized_aggregate_scan_map;  // NOLINT
-  // A map from ResolvedTableScan to ResolvedAnonymizedAggregateScan.
-  // TODO: Encapsulate this appropriately.
-  absl::flat_hash_map<const ResolvedTableScan*,
-                      const ResolvedDifferentialPrivacyAggregateScan*>
-      resolved_table_scan_to_dp_aggregate_scan_map;  // NOLINT
 
   // Marks the given `rewrite` as being applicable to the resolved AST.
   void MarkRelevant(ResolvedASTRewrite rewrite) {

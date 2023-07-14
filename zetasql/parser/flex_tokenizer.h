@@ -20,9 +20,8 @@
 #include <cstdint>
 #include <istream>
 #include <memory>
-#include <sstream>
 #include <stack>
-#include <string>
+#include <vector>
 
 // Some contortions to avoid duplicate inclusion of FlexLexer.h in the
 // generated flex_tokenizer.flex.cc.

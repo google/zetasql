@@ -1581,3 +1581,408 @@ RETURNS BOOL AS (
     ELSE ERROR("Unsupported bucket type")
   END
 )
+
+==
+
+# Function type arguments - empty input type
+create function my_func (x FUNCTION<()->{{INT64|STRUCT<INT64>}}>) as
+  (x());
+--
+ALTERNATION GROUP: INT64
+--
+CreateFunctionStatement [0-58] [create function...as   (x())]
+  FunctionDeclaration [16-47] [my_func (x...)->INT64>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-47] [(x FUNCTION<()->INT64>)]
+      FunctionParameter [25-46] [x FUNCTION<()->INT64>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-46] [FUNCTION<()->INT64>]
+          FunctionTypeArgList [36-38] [()]
+          SimpleType [40-45] [INT64]
+            PathExpression [40-45] [INT64]
+              Identifier(INT64) [40-45] [INT64]
+  SqlFunctionBody [53-58] [(x())]
+    FunctionCall [54-57] [x()]
+      PathExpression [54-55] [x]
+        Identifier(x) [54-55] [x]
+--
+CREATE FUNCTION my_func(x FUNCTION<() -> INT64 >)
+AS (
+  x()
+)
+--
+ALTERNATION GROUP: STRUCT<INT64>
+--
+CreateFunctionStatement [0-66] [create function...as   (x())]
+  FunctionDeclaration [16-55] [my_func (x...STRUCT<INT64>>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-55] [(x FUNCTION...STRUCT<INT64>>)]
+      FunctionParameter [25-54] [x FUNCTION<()->STRUCT<INT64>>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-54] [FUNCTION<()->STRUCT<INT64>>]
+          FunctionTypeArgList [36-38] [()]
+          StructType [40-53] [STRUCT<INT64>]
+            StructField [47-52] [INT64]
+              SimpleType [47-52] [INT64]
+                PathExpression [47-52] [INT64]
+                  Identifier(INT64) [47-52] [INT64]
+  SqlFunctionBody [61-66] [(x())]
+    FunctionCall [62-65] [x()]
+      PathExpression [62-63] [x]
+        Identifier(x) [62-63] [x]
+--
+CREATE FUNCTION my_func(x FUNCTION<() -> STRUCT< INT64 > >)
+AS (
+  x()
+)
+==
+
+# Function type arguments - single input - no parens
+create function my_func (x FUNCTION<{{INT64|STRUCT<INT64>}}->INT64>) as
+  (x(1));
+--
+ALTERNATION GROUP: INT64
+--
+CreateFunctionStatement [0-62] [create function...as   (x(1))]
+  FunctionDeclaration [16-50] [my_func (x...INT64->INT64>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-50] [(x FUNCTION<INT64->INT64>)]
+      FunctionParameter [25-49] [x FUNCTION<INT64->INT64>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-49] [FUNCTION<INT64->INT64>]
+          FunctionTypeArgList [36-41] [INT64]
+            SimpleType [36-41] [INT64]
+              PathExpression [36-41] [INT64]
+                Identifier(INT64) [36-41] [INT64]
+          SimpleType [43-48] [INT64]
+            PathExpression [43-48] [INT64]
+              Identifier(INT64) [43-48] [INT64]
+  SqlFunctionBody [56-62] [(x(1))]
+    FunctionCall [57-61] [x(1)]
+      PathExpression [57-58] [x]
+        Identifier(x) [57-58] [x]
+      IntLiteral(1) [59-60] [1]
+--
+CREATE FUNCTION my_func(x FUNCTION<(INT64) -> INT64 >)
+AS (
+  x(1)
+)
+--
+ALTERNATION GROUP: STRUCT<INT64>
+--
+CreateFunctionStatement [0-70] [create function...as   (x(1))]
+  FunctionDeclaration [16-58] [my_func (x...>->INT64>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-58] [(x FUNCTION...>->INT64>)]
+      FunctionParameter [25-57] [x FUNCTION...INT64>->INT64>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-57] [FUNCTION<STRUCT<INT64>->INT64>]
+          FunctionTypeArgList [36-49] [STRUCT<INT64>]
+            StructType [36-49] [STRUCT<INT64>]
+              StructField [43-48] [INT64]
+                SimpleType [43-48] [INT64]
+                  PathExpression [43-48] [INT64]
+                    Identifier(INT64) [43-48] [INT64]
+          SimpleType [51-56] [INT64]
+            PathExpression [51-56] [INT64]
+              Identifier(INT64) [51-56] [INT64]
+  SqlFunctionBody [64-70] [(x(1))]
+    FunctionCall [65-69] [x(1)]
+      PathExpression [65-66] [x]
+        Identifier(x) [65-66] [x]
+      IntLiteral(1) [67-68] [1]
+--
+CREATE FUNCTION my_func(x FUNCTION<(STRUCT< INT64 >) -> INT64 >)
+AS (
+  x(1)
+)
+==
+
+# Function type arguments - single input - with parens
+create function my_func (x FUNCTION<({{INT64|STRUCT<INT64>}})->INT64>) as
+  (x(1));
+--
+ALTERNATION GROUP: INT64
+--
+CreateFunctionStatement [0-64] [create function...as   (x(1))]
+  FunctionDeclaration [16-52] [my_func (x...)->INT64>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-52] [(x FUNCTION<(INT64)->INT64>)]
+      FunctionParameter [25-51] [x FUNCTION<(INT64)->INT64>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-51] [FUNCTION<(INT64)->INT64>]
+          FunctionTypeArgList [27-42] [FUNCTION<(INT64]
+            SimpleType [37-42] [INT64]
+              PathExpression [37-42] [INT64]
+                Identifier(INT64) [37-42] [INT64]
+          SimpleType [45-50] [INT64]
+            PathExpression [45-50] [INT64]
+              Identifier(INT64) [45-50] [INT64]
+  SqlFunctionBody [58-64] [(x(1))]
+    FunctionCall [59-63] [x(1)]
+      PathExpression [59-60] [x]
+        Identifier(x) [59-60] [x]
+      IntLiteral(1) [61-62] [1]
+--
+CREATE FUNCTION my_func(x FUNCTION<(INT64) -> INT64 >)
+AS (
+  x(1)
+)
+--
+ALTERNATION GROUP: STRUCT<INT64>
+--
+CreateFunctionStatement [0-72] [create function...as   (x(1))]
+  FunctionDeclaration [16-60] [my_func (x...)->INT64>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-60] [(x FUNCTION...)->INT64>)]
+      FunctionParameter [25-59] [x FUNCTION...>)->INT64>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-59] [FUNCTION<(...>)->INT64>]
+          FunctionTypeArgList [27-50] [FUNCTION<(STRUCT<INT64>]
+            StructType [37-50] [STRUCT<INT64>]
+              StructField [44-49] [INT64]
+                SimpleType [44-49] [INT64]
+                  PathExpression [44-49] [INT64]
+                    Identifier(INT64) [44-49] [INT64]
+          SimpleType [53-58] [INT64]
+            PathExpression [53-58] [INT64]
+              Identifier(INT64) [53-58] [INT64]
+  SqlFunctionBody [66-72] [(x(1))]
+    FunctionCall [67-71] [x(1)]
+      PathExpression [67-68] [x]
+        Identifier(x) [67-68] [x]
+      IntLiteral(1) [69-70] [1]
+--
+CREATE FUNCTION my_func(x FUNCTION<(STRUCT< INT64 >) -> INT64 >)
+AS (
+  x(1)
+)
+==
+
+# Function type arguments - multi-inputs - with parens
+create function my_func (x FUNCTION<({{INT64|STRUCT<INT64>}}, {{INT64|STRUCT<INT64>}})->INT64>) as
+  (x(1, 2));
+--
+ALTERNATION GROUP: INT64,INT64
+--
+CreateFunctionStatement [0-74] [create function...(x(1, 2))]
+  FunctionDeclaration [16-59] [my_func (x...)->INT64>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-59] [(x FUNCTION...)->INT64>)]
+      FunctionParameter [25-58] [x FUNCTION...INT64)->INT64>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-58] [FUNCTION<(...INT64)->INT64>]
+          FunctionTypeArgList [27-49] [FUNCTION<(INT64, INT64]
+            SimpleType [37-42] [INT64]
+              PathExpression [37-42] [INT64]
+                Identifier(INT64) [37-42] [INT64]
+            SimpleType [44-49] [INT64]
+              PathExpression [44-49] [INT64]
+                Identifier(INT64) [44-49] [INT64]
+          SimpleType [52-57] [INT64]
+            PathExpression [52-57] [INT64]
+              Identifier(INT64) [52-57] [INT64]
+  SqlFunctionBody [65-74] [(x(1, 2))]
+    FunctionCall [66-73] [x(1, 2)]
+      PathExpression [66-67] [x]
+        Identifier(x) [66-67] [x]
+      IntLiteral(1) [68-69] [1]
+      IntLiteral(2) [71-72] [2]
+--
+CREATE FUNCTION my_func(x FUNCTION<(INT64, INT64) -> INT64 >)
+AS (
+  x(1, 2)
+)
+--
+ALTERNATION GROUP: INT64,STRUCT<INT64>
+--
+CreateFunctionStatement [0-82] [create function...(x(1, 2))]
+  FunctionDeclaration [16-67] [my_func (x...)->INT64>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-67] [(x FUNCTION...)->INT64>)]
+      FunctionParameter [25-66] [x FUNCTION...>)->INT64>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-66] [FUNCTION<(...>)->INT64>]
+          FunctionTypeArgList [27-57] [FUNCTION<(INT64, STRUCT<INT64>]
+            SimpleType [37-42] [INT64]
+              PathExpression [37-42] [INT64]
+                Identifier(INT64) [37-42] [INT64]
+            StructType [44-57] [STRUCT<INT64>]
+              StructField [51-56] [INT64]
+                SimpleType [51-56] [INT64]
+                  PathExpression [51-56] [INT64]
+                    Identifier(INT64) [51-56] [INT64]
+          SimpleType [60-65] [INT64]
+            PathExpression [60-65] [INT64]
+              Identifier(INT64) [60-65] [INT64]
+  SqlFunctionBody [73-82] [(x(1, 2))]
+    FunctionCall [74-81] [x(1, 2)]
+      PathExpression [74-75] [x]
+        Identifier(x) [74-75] [x]
+      IntLiteral(1) [76-77] [1]
+      IntLiteral(2) [79-80] [2]
+--
+CREATE FUNCTION my_func(x FUNCTION<(INT64, STRUCT< INT64 >) -> INT64 >)
+AS (
+  x(1, 2)
+)
+--
+ALTERNATION GROUP: STRUCT<INT64>,INT64
+--
+CreateFunctionStatement [0-82] [create function...(x(1, 2))]
+  FunctionDeclaration [16-67] [my_func (x...)->INT64>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-67] [(x FUNCTION...)->INT64>)]
+      FunctionParameter [25-66] [x FUNCTION...INT64)->INT64>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-66] [FUNCTION<(...INT64)->INT64>]
+          FunctionTypeArgList [27-57] [FUNCTION<(STRUCT<INT64>, INT64]
+            StructType [37-50] [STRUCT<INT64>]
+              StructField [44-49] [INT64]
+                SimpleType [44-49] [INT64]
+                  PathExpression [44-49] [INT64]
+                    Identifier(INT64) [44-49] [INT64]
+            SimpleType [52-57] [INT64]
+              PathExpression [52-57] [INT64]
+                Identifier(INT64) [52-57] [INT64]
+          SimpleType [60-65] [INT64]
+            PathExpression [60-65] [INT64]
+              Identifier(INT64) [60-65] [INT64]
+  SqlFunctionBody [73-82] [(x(1, 2))]
+    FunctionCall [74-81] [x(1, 2)]
+      PathExpression [74-75] [x]
+        Identifier(x) [74-75] [x]
+      IntLiteral(1) [76-77] [1]
+      IntLiteral(2) [79-80] [2]
+--
+CREATE FUNCTION my_func(x FUNCTION<(STRUCT< INT64 >, INT64) -> INT64 >)
+AS (
+  x(1, 2)
+)
+--
+ALTERNATION GROUP: STRUCT<INT64>,STRUCT<INT64>
+--
+CreateFunctionStatement [0-90] [create function...(x(1, 2))]
+  FunctionDeclaration [16-75] [my_func (x...)->INT64>)]
+    PathExpression [16-23] [my_func]
+      Identifier(my_func) [16-23] [my_func]
+    FunctionParameters [24-75] [(x FUNCTION...)->INT64>)]
+      FunctionParameter [25-74] [x FUNCTION...>)->INT64>]
+        Identifier(x) [25-26] [x]
+        FunctionType [27-74] [FUNCTION<(...>)->INT64>]
+          FunctionTypeArgList [27-65] [FUNCTION<(...STRUCT<INT64>]
+            StructType [37-50] [STRUCT<INT64>]
+              StructField [44-49] [INT64]
+                SimpleType [44-49] [INT64]
+                  PathExpression [44-49] [INT64]
+                    Identifier(INT64) [44-49] [INT64]
+            StructType [52-65] [STRUCT<INT64>]
+              StructField [59-64] [INT64]
+                SimpleType [59-64] [INT64]
+                  PathExpression [59-64] [INT64]
+                    Identifier(INT64) [59-64] [INT64]
+          SimpleType [68-73] [INT64]
+            PathExpression [68-73] [INT64]
+              Identifier(INT64) [68-73] [INT64]
+  SqlFunctionBody [81-90] [(x(1, 2))]
+    FunctionCall [82-89] [x(1, 2)]
+      PathExpression [82-83] [x]
+        Identifier(x) [82-83] [x]
+      IntLiteral(1) [84-85] [1]
+      IntLiteral(2) [87-88] [2]
+--
+CREATE FUNCTION my_func(x FUNCTION<(STRUCT< INT64 >, STRUCT< INT64 >) -> INT64 >)
+AS (
+  x(1, 2)
+)
+==
+
+# Function as a function name, and an argument name
+create function function (function FUNCTION<()->INT64>) as
+  (function());
+--
+CreateFunctionStatement [0-73] [create function...function())]
+  FunctionDeclaration [16-55] [function (...)->INT64>)]
+    PathExpression [16-24] [function]
+      Identifier(`function`) [16-24] [function]
+    FunctionParameters [25-55] [(function FUNCTION<()->INT64>)]
+      FunctionParameter [26-54] [function FUNCTION<()->INT64>]
+        Identifier(`function`) [26-34] [function]
+        FunctionType [35-54] [FUNCTION<()->INT64>]
+          FunctionTypeArgList [44-46] [()]
+          SimpleType [48-53] [INT64]
+            PathExpression [48-53] [INT64]
+              Identifier(INT64) [48-53] [INT64]
+  SqlFunctionBody [61-73] [(function())]
+    FunctionCall [62-72] [function()]
+      PathExpression [62-70] [function]
+        Identifier(`function`) [62-70] [function]
+--
+CREATE FUNCTION `function`(`function` FUNCTION<() -> INT64 >)
+AS (
+  `function`()
+)
+
+==
+
+# Type parameter, this is not allowed, will be enforce in resolver
+create function func (x FUNCTION<()->INT64>(0)) as
+  (1);
+--
+CreateFunctionStatement [0-56] [create function...) as   (1)]
+  FunctionDeclaration [16-47] [func (x FUNCTION...INT64>(0))]
+    PathExpression [16-20] [func]
+      Identifier(func) [16-20] [func]
+    FunctionParameters [21-47] [(x FUNCTION<()->INT64>(0))]
+      FunctionParameter [22-46] [x FUNCTION<()->INT64>(0)]
+        Identifier(x) [22-23] [x]
+        FunctionType [24-46] [FUNCTION<()->INT64>(0)]
+          FunctionTypeArgList [33-35] [()]
+          SimpleType [37-42] [INT64]
+            PathExpression [37-42] [INT64]
+              Identifier(INT64) [37-42] [INT64]
+          TypeParameterList [43-45] [(0]
+            IntLiteral(0) [44-45] [0]
+  SqlFunctionBody [53-56] [(1)]
+    IntLiteral(1) [54-55] [1]
+--
+CREATE FUNCTION func(x FUNCTION<() -> INT64 > (0))
+AS (
+  1
+)
+==
+
+# collation on the function argument, this is not allowed, will be enforce in resolver
+create function func (x FUNCTION<()->INT64> collate 'und:ci') as
+  (1);
+--
+CreateFunctionStatement [0-70] [create function...) as   (1)]
+  FunctionDeclaration [16-61] [func (x FUNCTION...'und:ci')]
+    PathExpression [16-20] [func]
+      Identifier(func) [16-20] [func]
+    FunctionParameters [21-61] [(x FUNCTION...'und:ci')]
+      FunctionParameter [22-60] [x FUNCTION...collate 'und:ci']
+        Identifier(x) [22-23] [x]
+        FunctionType [24-60] [FUNCTION<(...collate 'und:ci']
+          FunctionTypeArgList [33-35] [()]
+          SimpleType [37-42] [INT64]
+            PathExpression [37-42] [INT64]
+              Identifier(INT64) [37-42] [INT64]
+          Collate [44-60] [collate 'und:ci']
+            StringLiteral('und:ci') [52-60] ['und:ci']
+  SqlFunctionBody [67-70] [(1)]
+    IntLiteral(1) [68-69] [1]
+--
+CREATE FUNCTION func(x FUNCTION<() -> INT64 > COLLATE 'und:ci')
+AS (
+  1
+)

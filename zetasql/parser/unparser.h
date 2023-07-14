@@ -466,6 +466,11 @@ class Unparser : public ParseTreeVisitor {
   void visitASTArrayType(const ASTArrayType* node, void* data) override;
   void visitASTStructType(const ASTStructType* node, void* data) override;
   void visitASTStructField(const ASTStructField* node, void* data) override;
+  void visitASTFunctionType(const ASTFunctionType* node, void* data) override;
+
+  void visitASTFunctionTypeArgList(const ASTFunctionTypeArgList* node,
+                                   void* data) override;
+
   void visitASTSimpleColumnSchema(const ASTSimpleColumnSchema* node,
                                   void* data) override;
   void visitASTArrayColumnSchema(const ASTArrayColumnSchema* node,

@@ -2139,8 +2139,9 @@ std::string ScriptExecutorImpl::VariablesDebugString() const {
     if (it != GetCurrentVariableTypeParameters().end() &&
         !it->second.IsEmpty()) {
       type_name = variable.second.type()
-                      ->TypeNameWithParameters(it->second,
-                                               LanguageOptions().product_mode())
+                      ->TypeNameWithModifiers(TypeModifiers::MakeTypeModifiers(
+                                                  it->second, Collation()),
+                                              LanguageOptions().product_mode())
                       .value();
     } else {
       type_name = variable.second.type()->DebugString();

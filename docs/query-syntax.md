@@ -13,13 +13,16 @@ ZetaSQL.
 The ZetaSQL documentation commonly uses the following
 syntax notation rules:
 
-+ Red square brackets
-  <code><b><span style="color:Tomato;">[ ]</span></b></code>: Required and
-  part of the syntax.
 + Square brackets `[ ]`: Optional clause.
 + Curly braces with vertical bars `{ a | b | c }`: Logical `OR`. Select one
   option.
 + Ellipsis `...`: Preceding item can repeat.
++ Red square brackets
+  <code><b><span style="color:Tomato;">[ ]</span></b></code>: Required and
+  part of the syntax.
++ Red curly braces
+  <code><b><span style="color:Tomato;">{ }</span></b></code>: Required and
+  part of the syntax.
 
 ## SQL syntax
 
@@ -41,7 +44,7 @@ syntax notation rules:
     <a href="#select_list"><span class="var">select_list</span></a>
   [ <a href="#from_clause">FROM</a> <a href="#from_clause"><span class="var">from_clause</span></a>[, ...] ]
   [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
-  [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
+  [ <a href="#group_by_clause">GROUP</a> BY <span class="var">group_by_specification</span> ]
   [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
   [ <a href="#qualify_clause">QUALIFY</a> <span class="var">bool_expression</span> ]
   [ <a href="#window_clause">WINDOW</a> <a href="#window_clause"><span class="var">window_clause</span></a> ]
@@ -2128,89 +2131,178 @@ WHERE Roster.SchoolID = TeamMascot.SchoolID;
 <a id="group_by_clause"></a>
 
 <pre>
-GROUP BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) }
+GROUP BY <span class="var">group_by_specification</span>
+
+<span class="var">group_by_specification</span>:
+  {
+    <span class="var">column_list</span>
+    | <span class="var">rollup_list</span>
+  }
+
+<span class="var">column_list</span>:
+  { <span class="var">value</span> | <span class="var">column_ordinal</span> }[, ...]
+
+<span class="var">rollup_list</span>:
+  ROLLUP ( <span class="var">column_list</span> )
 </pre>
 
-The `GROUP BY` clause groups together rows in a table with non-distinct values
-for the `expression` in the `GROUP BY` clause. For multiple rows in the
-source table with non-distinct values for `expression`, the
-`GROUP BY` clause produces a single combined row. `GROUP BY` is commonly used
-when aggregate functions are present in the `SELECT` list, or to eliminate
-redundancy in the output. The data type of `expression` must be
-[groupable][data-type-properties].
+The `GROUP BY` clause groups together rows in a table that share common values
+for certain columns. For a group of rows in the source table with
+non-distinct values, the `GROUP BY` clause aggregates them into a single
+combined row. This clause is commonly used when aggregate functions are
+present in the `SELECT` list, or to eliminate redundancy in the output.
 
-Example:
+**Definitions**
+
++ `column_list`: Group rows in a table that share common values
+  for certain columns. To learn more, see [`GROUP BY` values][group-by-values].
++ `rollup_list`: Group results by prefixes, using this list of
+  non-distinct values.
+  To learn more, see [`GROUP BY ROLLUP` list][group-by-rollup-list].
++ `value`: A general expression that represents a non-distinct value.
+  The data type of `value` must be [groupable][data-type-properties].
++ `column_ordinal`: An `INT64` value that represents the ordinal assigned to an
+  expression in the `SELECT` list. For example, `1` refers to the first value
+  in the `SELECT` list, `2` the second, and so forth. The data type of the
+  expression must be [groupable][data-type-properties].
+
+### `GROUP BY` value list 
+<a id="group_by_values"></a>
+
+The `GROUP BY` clause groups together rows in a table with non-distinct values
+in the `GROUP BY` clause. For example:
 
 ```sql
-SELECT SUM(PointsScored), LastName
+WITH PlayerStats AS (
+  SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 'Jie', 0 UNION ALL
+  SELECT 'Coolidge', 'Kiran', 1 UNION ALL
+  SELECT 'Adams', 'Noam', 4 UNION ALL
+  SELECT 'Buchanan', 'Jie', 13)
+SELECT SUM(PointsScored) AS total_points, LastName
 FROM PlayerStats
 GROUP BY LastName;
+
+/*--------------+----------+
+ | total_points | LastName |
+ +--------------+----------+
+ | 7            | Adams    |
+ | 13           | Buchanan |
+ | 1            | Coolidge |
+ +--------------+----------*/
 ```
 
 The `GROUP BY` clause can refer to expression names in the `SELECT` list. The
 `GROUP BY` clause also allows ordinal references to expressions in the `SELECT`
-list using integer values. `1` refers to the first expression in the
-`SELECT` list, `2` the second, and so forth. The expression list can combine
-ordinals and expression names.
-
-Example:
+list, using integer values. `1` refers to the first value in the
+`SELECT` list, `2` the second, and so forth. The value list can combine
+ordinals and value names. The following queries are equivalent:
 
 ```sql
-SELECT SUM(PointsScored), LastName, FirstName
+WITH PlayerStats AS (
+  SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 'Jie', 0 UNION ALL
+  SELECT 'Coolidge', 'Kiran', 1 UNION ALL
+  SELECT 'Adams', 'Noam', 4 UNION ALL
+  SELECT 'Buchanan', 'Jie', 13)
+SELECT SUM(PointsScored) AS total_points, LastName, FirstName
 FROM PlayerStats
 GROUP BY LastName, FirstName;
+
+/*--------------+----------+-----------+
+ | total_points | LastName | FirstName |
+ +--------------+----------+-----------+
+ | 7            | Adams    | Noam      |
+ | 13           | Buchanan | Jie       |
+ | 1            | Coolidge | Kiran     |
+ +--------------+----------+-----------*/
 ```
 
-The query above is equivalent to:
-
 ```sql
-SELECT SUM(PointsScored), LastName, FirstName
+WITH PlayerStats AS (
+  SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 'Jie', 0 UNION ALL
+  SELECT 'Coolidge', 'Kiran', 1 UNION ALL
+  SELECT 'Adams', 'Noam', 4 UNION ALL
+  SELECT 'Buchanan', 'Jie', 13)
+SELECT SUM(PointsScored) AS total_points, LastName, FirstName
 FROM PlayerStats
-GROUP BY 2, FirstName;
+GROUP BY 2, 3;
+
+/*--------------+----------+-----------+
+ | total_points | LastName | FirstName |
+ +--------------+----------+-----------+
+ | 7            | Adams    | Noam      |
+ | 13           | Buchanan | Jie       |
+ | 1            | Coolidge | Kiran     |
+ +--------------+----------+-----------*/
 ```
 
 `GROUP BY` clauses may also refer to aliases. If a query contains aliases in
 the `SELECT` clause, those aliases override names in the corresponding `FROM`
-clause.
-
-Example:
+clause. For example:
 
 ```sql
-SELECT SUM(PointsScored), LastName as last_name
+WITH PlayerStats AS (
+  SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 'Jie', 0 UNION ALL
+  SELECT 'Coolidge', 'Kiran', 1 UNION ALL
+  SELECT 'Adams', 'Noam', 4 UNION ALL
+  SELECT 'Buchanan', 'Jie', 13)
+SELECT SUM(PointsScored) AS total_points, LastName AS last_name
 FROM PlayerStats
 GROUP BY last_name;
+
+/*--------------+-----------+
+ | total_points | last_name |
+ +--------------+-----------+
+ | 7            | Adams     |
+ | 13           | Buchanan  |
+ | 1            | Coolidge  |
+ +--------------+-----------*/
 ```
 
 `GROUP BY` can group rows by the value of an array.
 `GROUP BY` will group two arrays if they have the same number of elements and
-all corresponding elements are in the same groups, or if both arrays are null.
+all corresponding elements are in the same groups, or if both arrays are `NULL`.
+
+### `GROUP BY ROLLUP` list 
+<a id="group_by_rollup_list"></a>
 
 `GROUP BY ROLLUP` returns the results of `GROUP BY` for
 prefixes of the expressions in the `ROLLUP` list, each of which is known as a
 *grouping set*.  For the `ROLLUP` list `(a, b, c)`, the grouping sets are
 `(a, b, c)`, `(a, b)`, `(a)`, `()`. When evaluating the results of `GROUP BY`
 for a particular grouping set, `GROUP BY ROLLUP` treats expressions that are not
-in the grouping set as having a `NULL` value. A `SELECT` statement like this
-one:
+in the grouping set as having a `NULL` value.
+
+A `SELECT` statement like the following uses the rollup list `(a, b)`. The
+result includes the results of `GROUP BY` for the grouping sets `(a, b)`,
+`(a)`, and `()`, which includes all rows. This allows the computation of
+aggregates for the grouping sets defined by the expressions in the `ROLLUP` list
+and the prefixes of that list. For example:
 
 ```sql
-SELECT a, b, SUM(c) FROM Input GROUP BY ROLLUP(a, b);
+WITH Numbers AS (
+  SELECT 1 AS a, 2 AS b, 3 AS c UNION ALL
+  SELECT 4, 5, 6 UNION ALL
+  SELECT 1, 2, 8)
+SELECT a, b, SUM(c) AS sum_c FROM Numbers GROUP BY ROLLUP(a, b)
+ORDER BY a, b;
+
+/*------+------+-------+
+ | a    | b    | sum_c |
+ +------+------+-------+
+ | NULL | NULL | 17    |
+ | 1    | NULL | 11    |
+ | 1    | 2    | 11    |
+ | 4    | NULL | 6     |
+ | 4    | 5    | 6     |
+ +------+------+-------*/
 ```
 
-uses the rollup list `(a, b)`. The result will include the
-results of `GROUP BY` for the grouping sets `(a, b)`, `(a)`, and `()`, which
-includes all rows. This returns the same rows as:
-
-```sql
-SELECT NULL, NULL, SUM(c) FROM Input               UNION ALL
-SELECT a,    NULL, SUM(c) FROM Input GROUP BY a    UNION ALL
-SELECT a,    b,    SUM(c) FROM Input GROUP BY a, b;
-```
-
-This allows the computation of aggregates for the grouping sets defined by the
-expressions in the `ROLLUP` list and the prefixes of that list.
-
-Example:
+The following query outputs a row for each day in addition to the rolled up
+total across all days, as indicated by a `NULL` day.
 
 ```sql
 WITH Sales AS (
@@ -2226,13 +2318,9 @@ SELECT
   day,
   SUM(price) AS total
 FROM Sales
-GROUP BY ROLLUP(day);
-```
+GROUP BY ROLLUP(day)
+ORDER BY day;
 
-The query above outputs a row for each day in addition to the rolled up total
-across all days, as indicated by a `NULL` day:
-
-```sql
 /*------+-------*
  | day  | total |
  +------+-------+
@@ -2243,7 +2331,15 @@ across all days, as indicated by a `NULL` day:
  *------+-------*/
 ```
 
-Example:
+The following query returns rows grouped by these grouping sets:
+
++ sku and day
++ sku (day is `NULL`)
++ The empty grouping set (day and sku are `NULL`)
+
+The sums for these grouping sets correspond to the total for each
+distinct sku-day combination, the total for each sku across all days, and the
+grand total.
 
 ```sql
 WITH Sales AS (
@@ -2262,19 +2358,7 @@ SELECT
 FROM Sales
 GROUP BY ROLLUP(sku, day)
 ORDER BY sku, day;
-```
 
-The query above returns rows grouped by the following grouping sets:
-
-+ sku and day
-+ sku (day is `NULL`)
-+ The empty grouping set (day and sku are `NULL`)
-
-The sums for these grouping sets correspond to the total for each
-distinct sku-day combination, the total for each sku across all days, and the
-grand total:
-
-```sql
 /*------+------+-------*
  | sku  | day  | total |
  +------+------+-------+
@@ -4769,6 +4853,10 @@ Results:
 
 [explicit-implicit-unnest]: #explicit_implicit_unnest
 
+[group-by-values]: #group_by_values
+
+[group-by-rollup-list]: #group_by_rollup_list
+
 [unpivot-operator]: #unpivot_operator
 
 [tablesample-operator]: #tablesample_operator
@@ -4818,6 +4906,8 @@ Results:
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
 
 [array-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_subscript_operator
+
+[field-access-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#field_access_operator
 
 [proto-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
 

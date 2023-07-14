@@ -31,7 +31,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[suppress_builtin_functions={{|NULLIFERROR|IFERROR}}]
+[suppress_functions={{|NULLIFERROR|IFERROR}}]
 SELECT SAFE.NullaryPi();
 --
 ALTERNATION GROUP: <empty>

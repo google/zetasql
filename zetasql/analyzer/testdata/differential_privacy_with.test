@@ -73,11 +73,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#31)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Reject WithRefScan without UID table
@@ -260,11 +255,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Extraneous with clauses
@@ -377,11 +367,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#61)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Reject recursive with clauses referenced from within the anonymization clause
@@ -590,11 +575,6 @@ QueryStmt
     |   +-input_scan=
     |     +-WithRefScan(column_list=[t1.c#17], with_query_name="t1")
     +-recursive=TRUE
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#18], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Reject recursive with clauses with differential_privacy inside the recursive term
@@ -863,11 +843,6 @@ QueryStmt
         | +-$col1#50 := Literal(type=INT64, value=1)
         +-input_scan=
           +-WithRefScan(column_list=t2.[int32#32, int64#33, uint32#34, uint64#35, string#36, bytes#37, bool#38, float#39, double#40, date#41, timestamp_seconds#42, timestamp_millis#43, timestamp_micros#44, timestamp_nanos#45, timestamp#46, numeric#47, bignumeric#48, json#49], with_query_name="t2")
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#51], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 
@@ -1006,11 +981,6 @@ QueryStmt
             |       +-aggregate_list=
             |         +-$agg1#62 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
             +-output_column_list=[$aggregate.$agg1#62]
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 
@@ -1102,11 +1072,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Join user data with and user data table
@@ -1202,12 +1167,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#35], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="t2")
-}
 ==
 
 # Require join clause for join user data with and user data table
@@ -1350,11 +1309,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#49)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Join non-user data with and user data table
@@ -1446,11 +1400,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#22)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="t2")
-}
 ==
 
 # Join user data with and user data with
@@ -1561,12 +1510,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#55)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Require join clause for join user data with and user data with
@@ -1738,11 +1681,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#33)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Repeated joins of user data withs and non-user data withs
@@ -1879,11 +1817,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#46)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Nested with entires in subqueries outside of WITH DIFFERENTIAL_PRIVACY subquery
@@ -1990,11 +1923,6 @@ QueryStmt
                     |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
                     +-group_selection_threshold_expr=
                       +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 
@@ -2079,11 +2007,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#31)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Nested WithScan inside SELECT WITH DIFFERENTIAL_PRIVACY
@@ -2190,11 +2113,6 @@ QueryStmt
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # SELECT WITH DIFFERENTIAL_PRIVACY inside WITH entry
@@ -2272,11 +2190,6 @@ QueryStmt
         +-column_list=[t1.$col1#14]
         +-input_scan=
           +-WithRefScan(column_list=[t1.$col1#14], with_query_name="t1")
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Extraneous WithScan inside SELECT WITH DIFFERENTIAL_PRIVACY
@@ -2390,12 +2303,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#61)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Extraneous WithScan inside SELECT WITH DIFFERENTIAL_PRIVACY trigger validation
@@ -2616,9 +2523,4 @@ QueryStmt
             |     +-Literal(parse_location=144-150, type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
               +-ColumnRef(type=INT64, column=$aggregate.anon_count#25)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=36-67, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 

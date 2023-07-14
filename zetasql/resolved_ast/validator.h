@@ -625,6 +625,15 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       absl::string_view expression_name);
 
+  // Validates GroupingSet and grouping columns are empty.
+  // This is only for the nodes that don't have grouping sets implemented yet.
+  absl::Status ValidateGroupingSetListAreEmpty(
+      const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+          grouping_set_list,
+      const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+          rollup_column_list);
+
+  // Validates GroupingSet and grouping columns based on grouping conditions.
   absl::Status ValidateGroupingSetList(
       const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
           grouping_set_list,

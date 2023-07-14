@@ -212,7 +212,7 @@ ALTER TABLE KeyValue ALTER COLUMN value SET DEFAULT random_identifier;
 ==
 
 # Default expression references a lambda function with column name as lambda arguments.
-[language_features=V_1_3_COLUMN_DEFAULT_VALUE,V_1_3_INLINE_LAMBDA_ARGUMENT,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES]
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE,V_1_3_INLINE_LAMBDA_ARGUMENT]
 ALTER TABLE KeyValue ALTER COLUMN value SET DEFAULT ARRAY_TO_STRING(ARRAY_FILTER(['a'], value -> value = 'a'), ',');
 --
 AlterTableStmt

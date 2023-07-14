@@ -60,6 +60,8 @@ java_proto_library(
 proto_library(
     name = "test_schema_proto",
     srcs = [
+        "referenced_schema.proto",
+        "referencing_schema.proto",
         "test_schema.proto",
     ],
     features = ["-proto_dynamic_mode_static_link"],

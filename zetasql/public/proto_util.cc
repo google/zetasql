@@ -81,10 +81,8 @@ ProtoFieldDefaultOptions ProtoFieldDefaultOptions::FromFieldAndLanguage(
     const google::protobuf::FieldDescriptor* field,
     const LanguageOptions& language_options) {
   ProtoFieldDefaultOptions options;
-    if (field->containing_type()->file()->syntax() ==
-            google::protobuf::FileDescriptor::SYNTAX_PROTO3 &&
-        language_options.LanguageFeatureEnabled(
-            FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS)) {
+  if (!field->has_presence() && language_options.LanguageFeatureEnabled(
+                                    FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS)) {
     options.ignore_use_default_annotations = true;
   }
   if (field->containing_type()->options().map_entry() &&
@@ -424,9 +422,7 @@ bool WireValueShouldBeHidden(const ProtoFieldInfo& info,
     return false;
   }
 
-  // TODO: Update to use feature.enum when that is available.
-  if (enum_descriptor->file()->syntax() ==
-          google::protobuf::FileDescriptor::SYNTAX_PROTO2 &&
+  if (enum_descriptor->is_closed() &&
       !enum_descriptor->FindValueByNumber(*value)) {
     // Proto2 hides unknown enums, and returns false for has_.
     return true;

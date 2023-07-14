@@ -235,32 +235,24 @@ py_library(
                 strip_prefix = "farmhash-816a4ae622e964763ca0862d9dbd19324a1eaf45",
             )
     if analyzer_deps:
+        # We need to override protobuf's native dep, because they patch the
+        # the repo in an unhelpful way.
+        if not native.existing_rule("upb"):
+            http_archive(
+                name = "upb",
+                urls = ["https://github.com/protocolbuffers/upb/archive/0ea9f73be35e35db242ccc65aa9c87487b792324.tar.gz"],
+                sha256 = "046b5f134523eaad9265a41a2ec0701cc45973841070af2772e3578a9f3bfed0",
+                strip_prefix = "upb-0ea9f73be35e35db242ccc65aa9c87487b792324",
+            )
+
         # Protobuf
         if not native.existing_rule("com_google_protobuf"):
             http_archive(
                 name = "com_google_protobuf",
-                urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.19.3.tar.gz"],
-                sha256 = "390191a0d7884b3e52bb812c440ad1497b9d484241f37bb8e2ccc8c2b72d6c36",
-                strip_prefix = "protobuf-3.19.3",
+                urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v4.23.3.tar.gz"],
+                sha256 = "21fcb4b0df6a8e6279e5843af8c9f2245919cf0d3ec2021c76fccc4fc4bf9aca",
+                strip_prefix = "protobuf-4.23.3",
             )
-
-    # Required by gRPC
-    if not native.existing_rule("build_bazel_rules_apple"):
-        http_archive(
-            name = "build_bazel_rules_apple",
-            urls = ["https://github.com/bazelbuild/rules_apple/archive/0.18.0.tar.gz"],
-            sha256 = "53a8f9590b4026fbcfefd02c868e48683b44a314338d03debfb8e8f6c50d1239",
-            strip_prefix = "rules_apple-0.18.0",
-        )
-
-    # Required by gRPC
-    if not native.existing_rule("build_bazel_apple_support"):
-        http_archive(
-            name = "build_bazel_apple_support",
-            urls = ["https://github.com/bazelbuild/apple_support/archive/0.7.1.tar.gz"],
-            sha256 = "140fa73e1c712900097aabdb846172ffa0a5e9523b87d6c564c13116a6180a62",
-            strip_prefix = "apple_support-0.7.1",
-        )
 
     if testing_deps:
         if not native.existing_rule("com_google_file_based_test_driver"):
@@ -276,9 +268,9 @@ py_library(
         if not native.existing_rule("com_github_grpc_grpc"):
             http_archive(
                 name = "com_github_grpc_grpc",
-                urls = ["https://github.com/grpc/grpc/archive/v1.43.2.tar.gz"],
-                sha256 = "b74ce7d26fe187970d1d8e2c06a5d3391122f7bc1fdce569aff5e435fb8fe780",
-                strip_prefix = "grpc-1.43.2",
+                urls = ["https://github.com/grpc/grpc/archive/v1.56.0.tar.gz"],
+                sha256 = "e034992a0b464042021f6d440f2090acc2422c103a322b0844e3921ccea981dc",
+                strip_prefix = "grpc-1.56.0",
             )
 
     if analyzer_deps:

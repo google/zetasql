@@ -370,11 +370,11 @@ absl::Status BisonParser::Parse(
   std::string error_message;
   ParseLocationPoint error_location;
   bool move_error_location_past_whitespace = false;
-  std::vector<ASTNode*> nodes_requiring_init_fields;
   zetasql_bison_parser::BisonParserImpl bison_parser_impl(
       tokenizer_.get(), this, &output_node, ast_statement_properties,
       &error_message, &error_location, &move_error_location_past_whitespace,
       statement_end_byte_offset);
+
   const int parse_status_code = bison_parser_impl.parse();
   parser_runtime_info_.add_lexical_tokens(tokenizer_->num_lexical_tokens());
   if (parse_status_code == kBisonParseSuccess &&
@@ -399,6 +399,7 @@ absl::Status BisonParser::Parse(
       ZETASQL_RET_CHECK_EQ(output->get(), output_node);
     }
     *other_allocated_ast_nodes = std::move(*allocated_ast_nodes_);
+
     return absl::OkStatus();
   }
   // The tokenizer's error overrides the parser's error.

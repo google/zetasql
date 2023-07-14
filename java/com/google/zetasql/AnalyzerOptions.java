@@ -25,6 +25,7 @@ import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
 import com.google.zetasql.ZetaSQLOptions.ParameterMode;
 import com.google.zetasql.ZetaSQLOptions.ParseLocationRecordType;
 import com.google.zetasql.ZetaSQLOptions.ResolvedASTRewrite;
+import com.google.zetasql.ZetaSQLOptions.RewriteOptions;
 import com.google.zetasql.ZetaSQLOptions.StatementContext;
 import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto;
 import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto.QueryParameterProto;
@@ -368,6 +369,14 @@ public class AnalyzerOptions implements Serializable {
     return builder.getShowFunctionSignatureMismatchDetails();
   }
 
+  public void setRewriteOptions(RewriteOptions rewriteOptions) {
+    builder.setRewriteOptions(rewriteOptions);
+  }
+
+  public RewriteOptions getRewriteOptions() {
+    return builder.getRewriteOptions();
+  }
+
   static AnalyzerOptions deserialize(
       AnalyzerOptionsProto proto, List<? extends DescriptorPool> pools, TypeFactory factory) {
     AnalyzerOptions options = new AnalyzerOptions();
@@ -431,6 +440,10 @@ public class AnalyzerOptions implements Serializable {
     builder.clearEnabledRewrites();
     for (ResolvedASTRewrite rewrite : proto.getEnabledRewritesList()) {
       enableRewrite(rewrite);
+    }
+
+    if (proto.hasRewriteOptions()) {
+      setRewriteOptions(proto.getRewriteOptions());
     }
   }
 

@@ -114,7 +114,8 @@ class Collation {
   uint64_t num_children() const { return child_list_.size(); }
 
   // Returns an annotation map that is compatible with the input <type> and has
-  // collation annotations equal to the Collation object.
+  // collation annotations equal to the Collation object. Note that the returned
+  // AnnotationMap is always normalized.
   absl::StatusOr<std::unique_ptr<AnnotationMap>> ToAnnotationMap(
       const Type* type) const;
 

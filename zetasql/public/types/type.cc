@@ -217,6 +217,15 @@ std::string Type::TypeListToString(TypeListView types, ProductMode mode) {
   return absl::StrJoin(type_strings, ", ");
 }
 
+Type::FormatValueContentOptions
+Type::FormatValueContentOptions::IncreaseIndent() {
+  FormatValueContentOptions ret = *this;
+  ret.indent += kIndentStep;
+  // `force_type` only applies at the topmost level
+  ret.force_type_at_top_level = false;
+  return ret;
+}
+
 int Type::KindSpecificity(TypeKind kind) {
   if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
     return GetTypeKindInfoMap().at(kind).specificity;
@@ -601,12 +610,6 @@ absl::Status Type::ValidateResolvedTypeParameters(
   ZETASQL_RET_CHECK(type_parameters.IsEmpty())
       << "Type " << ShortTypeName(mode) << "does not support type parameters";
   return absl::OkStatus();
-}
-
-absl::StatusOr<std::string> Type::TypeNameWithParameters(
-    const TypeParameters& type_params, ProductMode mode) const {
-  return TypeNameWithModifiers(
-      TypeModifiers::MakeTypeModifiers(type_params, Collation()), mode);
 }
 
 std::string Type::AddCapitalizedTypePrefix(const std::string& input,

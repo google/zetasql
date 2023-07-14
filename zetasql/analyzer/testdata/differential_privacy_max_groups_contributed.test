@@ -77,11 +77,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#22)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10], alias="a")
-}
 ==
 
 # SampleScan to ensure that each user only contributes to 3 groups.
@@ -168,11 +163,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#40)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=3)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#33], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-}
 ==
 
 # Similar to the previous one, but set the Max_groups_contributed to 3 by the
@@ -258,11 +248,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#40)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=3)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#33], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-}
 ==
 
 # Invalid Max_groups_contributed < 1
@@ -491,11 +476,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=NULL)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-}
 --
 ALTERNATION GROUP: <empty>
 --
@@ -557,11 +537,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=3)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-}
 ==
 
 # Count (*) counting unique users.
@@ -635,11 +610,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10], alias="a")
-}
 ==
 
 [language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,ANONYMIZATION_THRESHOLDING]
@@ -732,8 +702,3 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#23)
         +-anonymization_option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10], alias="a")
-}

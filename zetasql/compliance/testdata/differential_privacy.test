@@ -423,23 +423,15 @@ NOTE: Reference implementation reports non-determinism.
 [labels=differential_privacy]
 [required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
 
-SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
-  SUM(double_val, contribution_bounds_per_group => (0, 10))
-FROM TestTableWithUid;
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=2)
+  SUM(double_val)
+FROM TestTableWithUid
+  CROSS JOIN
+    UNNEST([1,2,3]) AS x;
 --
-ARRAY<STRUCT<DOUBLE>>[{13}]
-==
+ARRAY<STRUCT<DOUBLE>>[{22}]
 
-# Count aggregation with max_rows_contributed.
-[name=differential_privacy_max_rows_contributed_count]
-[labels=differential_privacy]
-[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
-
-SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
-  COUNT(*)
-FROM TestTableWithUid;
---
-ARRAY<STRUCT<INT64>>[{10}]
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # The number of rows per user is less than 5 in TestTableWithUid2, so the result

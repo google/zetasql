@@ -114,6 +114,7 @@ ReferenceDriver::ReferenceDriver()
     language_options_.EnableLanguageFeature(
         zetasql::FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
   }
+
   language_options_.SetSupportedStatementKinds(
       Algebrizer::GetSupportedStatementKinds());
   if (absl::GetFlag(FLAGS_force_reference_product_mode_external)) {
@@ -152,6 +153,7 @@ ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
     language_options_.EnableLanguageFeature(
         zetasql::FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
   }
+
   // Optional evaluator features need to be enabled "manually" here since we do
   // not go through the public PreparedExpression/PreparedQuery interface, which
   // normally handles it.
@@ -259,9 +261,10 @@ void ReferenceDriver::SetLanguageOptions(const LanguageOptions& options) {
 
 absl::Status ReferenceDriver::AddSqlUdfs(
     absl::Span<const std::string> create_function_stmts) {
-  // Ensure the language options used allow CREATE FUNCTION
+  // Ensure the language options used allow CREATE FUNCTION in schema setup
   LanguageOptions language = language_options_;
   language.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
+  language.EnableLanguageFeature(FEATURE_CREATE_AGGREGATE_FUNCTION);
   AnalyzerOptions analyzer_options(language);
   analyzer_options.set_default_time_zone(default_time_zone_);
   // Don't pre-rewrite function bodies.

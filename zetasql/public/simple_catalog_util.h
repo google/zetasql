@@ -50,6 +50,14 @@ absl::Status AddFunctionFromCreateFunction(
     std::unique_ptr<const AnalyzerOutput>& analyzer_output,
     SimpleCatalog& catalog);
 
+// Creates a Function object from a ResolvedCreateFunctionStmt.
+// `create_function_stmt` must outlive the returned Function.
+// `function_options` - if provided will be used to construct the Function.
+// `group_name` if provided will be used to set the Function group name.
+absl::StatusOr<std::unique_ptr<Function>> MakeFunctionFromCreateFunction(
+    const ResolvedCreateFunctionStmt& create_function_stmt,
+    std::optional<FunctionOptions> function_options = std::nullopt);
+
 // Adds a `Table` object to `catalog` for the view defined by
 // `create_view_stmt`.
 //

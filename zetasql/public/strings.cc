@@ -837,6 +837,11 @@ absl::Status ParseGeneralizedIdentifier(absl::string_view str, std::string* out,
                              error_offset, true /* allow_reserved_keywords */);
 }
 
+std::string ToAlwaysQuotedIdentifierLiteral(absl::string_view str) {
+  return absl::StrCat("`", CEscapeInternal(str, true /* utf8_safe */, '`'),
+                      "`");
+}
+
 std::string ToIdentifierLiteral(absl::string_view str,
                                 bool quote_reserved_keywords) {
   LanguageOptions language_options;
@@ -846,8 +851,7 @@ std::string ToIdentifierLiteral(absl::string_view str,
                                    !quote_reserved_keywords) &&
                  !parser::NonReservedIdentifierMustBeBackquoted(str)
              ? std::string(str)
-             : absl::StrCat(
-                   "`", CEscapeInternal(str, true /* utf8_safe */, '`'), "`");
+             : ToAlwaysQuotedIdentifierLiteral(str);
 }
 
 std::string ToIdentifierLiteral(IdString str, bool quote_reserved_keywords) {

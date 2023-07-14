@@ -768,11 +768,6 @@ QueryStmt
         |       +-aggregate_list=
         |         +-$agg1#29 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-output_column_list=[$aggregate.$agg1#29]
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#31], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # The rewriter does not support anonymization queries as arguments
@@ -1115,11 +1110,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#30)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#22], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
-}
 ==
 
 # TVF containing user data joined with table containing user data without
@@ -1277,11 +1267,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#22)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
-}
 ==
 
 # TODO: Nested user IDs are not currently supported.

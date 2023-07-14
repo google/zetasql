@@ -337,20 +337,26 @@ bool Chunk::SpaceBetweenTokens(const Token& token_before,
   // Always have space after ':' and before and after '{'
   // e.g.: "field1: { a: 1 }"
   if (token_before.Is(Token::Type::BRACED_CONSTR_COLON) ||
-      (token_before.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+      (token_before.IsOneOf({Token::Type::BRACED_CONSTR_BRACKET,
+                             Token::Type::BRACED_CONSTR_FIRST_BRACKET}) &&
        token_before.GetKeyword() == "{") ||
       (token_after.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
        token_after.GetKeyword() == "{")) {
     return true;
-    // Always have space before '}'. After '}' leave space only when next token
-    // is also a bracket.
-    // e.g.: "repeated: [ { a: 1 }, { a: 2 } ]"
-  } else if (token_after.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+    // Always have space before '}'.
+  } else if (token_after.IsOneOf({Token::Type::BRACED_CONSTR_BRACKET,
+                                  Token::Type::BRACED_CONSTR_LAST_BRACKET}) &&
              token_after.GetKeyword() == "}") {
     return true;
+    // After '}' leave space only when next token is also a bracket, and we are
+    // within a map constructor, otherwise use default rules. e.g.:
+    //   repeated: [ { a: 1 }, { a: 2 } ]
+    // but:
+    //   ARRAY<Foo>[{ a: 1 }, { a: 2 }]
   } else if (token_before.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
              token_before.GetKeyword() == "}") {
-    return IsCloseParenOrBracket(token_after.GetKeyword());
+    return IsCloseParenOrBracket(token_after.GetKeyword()) ||
+           AllowSpaceBefore(token_after.GetKeyword());
   }
 
   static const auto* kRequireSpaceBeforeParenthesis =
@@ -2215,10 +2221,10 @@ void MarkTokensInBracedConstructors(const TokensView& tokens_view) {
       continue;
     }
     // Found braced constructor start.
-    tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+    tokens[t]->SetType(Token::Type::BRACED_CONSTR_FIRST_BRACKET);
     const int end = FindMatchingClosingBracket(tokens, t);
     if (end < tokens.size()) {
-      tokens[end]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+      tokens[end]->SetType(Token::Type::BRACED_CONSTR_LAST_BRACKET);
     }
     while (++t < end) {
       bool found_field_name = false;
@@ -2273,7 +2279,7 @@ void MarkTokensInBracedConstructors(const TokensView& tokens_view) {
             --name_start;
           }
           if (tokens[name_start]->GetKeyword() == "(") {
-            for (int i = name_start + 1; i < t - 1; ++i) {
+            for (int i = name_start + 1; i < t; ++i) {
               tokens[i]->SetType(Token::Type::COMPLEX_TOKEN_CONTINUATION);
             }
           }

@@ -545,7 +545,7 @@ class Value {
   // NOTE: Enum types could only be 4 bytes, so this will always return an
   // invalid value if <value> is out-of-range for int32_t.
   static Value Enum(const EnumType* type, int64_t value,
-                    bool allow_unknown_enum_values = false);
+                    bool allow_unknown_enum_values = true);
   // Creates an enum value of the specified 'type'. 'name' must be a valid name
   // declared in 'type', otherwise created Value is invalid. 'name' is case
   // sensitive.
@@ -815,18 +815,11 @@ class Value {
                                                   const StructType* struct_type,
                                                   std::vector<Value> values);
 
-  struct FormatInternalOptions {
-    int indent = 0;
-    bool force_type = false;
-    bool include_array_ordereness = false;
-
-    FormatInternalOptions IncreaseIndent();
-  };
   // Returns a pretty-printed (e.g. wrapped) string for the value
   // indented a number of spaces according to the 'indent' parameter.
   // 'force_type' causes the top-level value to print its type. By
   // default, only Array values print their types.
-  std::string FormatInternal(FormatInternalOptions options) const;
+  std::string FormatInternal(Type::FormatValueContentOptions options) const;
 
   // Type cannot create a list of Values because it cannot depend on
   // "value" package. Thus for Array/Struct/Range types that need list of
@@ -1034,7 +1027,7 @@ Value Numeric(int64_t v);
 Value BigNumeric(BigNumericValue v);
 Value BigNumeric(int64_t v);
 Value Enum(const EnumType* enum_type, int32_t value,
-           bool allow_unnamed_values = false);
+           bool allow_unnamed_values = true);
 Value Enum(const EnumType* enum_type, absl::string_view name);
 Value Struct(const StructType* type, absl::Span<const Value> values);
 #ifndef SWIG

@@ -1522,6 +1522,56 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonSet, 1) {
       Shard(EnableJsonMutatorFunctionsForTest(GetFunctionTestsJsonSet())));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonArrayInsert, 1) {
+  SetNamePrefix("JsonArrayInsert");
+
+  auto fn_expr = [](const FunctionTestCall& f) {
+    std::string arguments;
+    size_t size = f.params.params().size();
+
+    if (size % 2 == 0) {
+      for (int i = 0; i < f.params.params().size() - 1; ++i) {
+        absl::StrAppend(&arguments, "@p", i, ", ");
+      }
+      absl::StrAppend(&arguments, "insert_each_element=>@p", size - 1);
+    } else {
+      for (int i = 0; i < f.params.params().size(); ++i) {
+        absl::StrAppend(&arguments, "@p", i, ", ");
+      }
+      arguments.resize(arguments.size() - 2);
+    }
+    return absl::Substitute("$0($1)", f.function_name, arguments);
+  };
+  RunFunctionTestsCustom(Shard(EnableJsonMutatorFunctionsForTest(
+                             GetFunctionTestsJsonArrayInsert())),
+                         fn_expr);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonArrayAppend, 1) {
+  SetNamePrefix("JsonArrayAppend");
+
+  auto fn_expr = [](const FunctionTestCall& f) {
+    std::string arguments;
+    size_t size = f.params.params().size();
+
+    if (size % 2 == 0) {
+      for (int i = 0; i < f.params.params().size() - 1; ++i) {
+        absl::StrAppend(&arguments, "@p", i, ", ");
+      }
+      absl::StrAppend(&arguments, "append_each_element=>@p", size - 1);
+    } else {
+      for (int i = 0; i < f.params.params().size(); ++i) {
+        absl::StrAppend(&arguments, "@p", i, ", ");
+      }
+      arguments.resize(arguments.size() - 2);
+    }
+    return absl::Substitute("$0($1)", f.function_name, arguments);
+  };
+  RunFunctionTestsCustom(Shard(EnableJsonMutatorFunctionsForTest(
+                             GetFunctionTestsJsonArrayAppend())),
+                         fn_expr);
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
   SetNamePrefix("Hash");
   RunFunctionCalls(Shard(GetFunctionTestsHash()));

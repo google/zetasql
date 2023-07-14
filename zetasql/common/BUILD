@@ -328,6 +328,9 @@ cc_test(
 
 cc_library(
     name = "internal_value",
+    srcs = [
+        "internal_value.cc",
+    ],
     hdrs = [
         "internal_value.h",
     ],
@@ -337,6 +340,19 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/types",
         "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_test(
+    name = "internal_value_test",
+    srcs = [
+        "internal_value_test.cc",
+    ],
+    deps = [
+        ":internal_value",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_value",
     ],
 )
 

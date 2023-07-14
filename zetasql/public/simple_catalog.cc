@@ -59,7 +59,7 @@
 
 namespace zetasql {
 
-SimpleCatalog::SimpleCatalog(const std::string& name, TypeFactory* type_factory)
+SimpleCatalog::SimpleCatalog(absl::string_view name, TypeFactory* type_factory)
     : name_(name), type_factory_(type_factory) {}
 
 absl::Status SimpleCatalog::GetTable(const std::string& name,

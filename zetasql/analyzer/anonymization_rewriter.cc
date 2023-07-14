@@ -37,6 +37,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/proto/anon_output_with_report.pb.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/analyzer_options.h"
@@ -121,16 +122,24 @@ struct SelectWithModeName {
 //   d. For each aggregate or group by column in the anon node, the column set
 //      in the per-user scan's column list is the appropriate intermediate
 //      column looked up in the column map
-// 4. If max_groups_contributed (aka kappa) is specified, a partitioned-by-$uid
-//    ResolvedSampleScan is inserted to limit the number of groups that a user
-//    can contribute to. While max_groups_contributed is optional, for most
-//    queries with a GROUP BY clause in the ResolvedAnonymizedAggregationScan it
-//    MUST be specified for the resulting query to provide correct epsilon-delta
-//    differential privacy. Setting max_groups_contributed to NULL disables
-//    adding such a ResolvedSampleScan. Leaving max_groups_contributed unset
-//    will use some default contribution bounding. The default contribution
-//    bounding is determined by the rewriter and might change in future.
-//    TODO Document the effects of max_rows_contributed.
+// 4. Bound user contributions. The method of contribution bounding depends on
+//    which of the mutually exclusive parameters max_groups_contributed (aka
+//    kappa) and max_rows_contributed were specified.
+//   - If neither was specified, then the rewriter will use some default
+//     contribution bounding. The default contribution bounding is determined by
+//     the rewriter and might change in future.
+//   - Setting either max_rows_contributed=NULL or max_groups_contributed=NULL
+//     disables cross-group contribution bounding, while still limiting
+//     contributions within a group. For most queries, if you disable
+//     contribution bounding then you WILL NOT get a query that is
+//     differentially private with the requested privacy unit; instead, the
+//     query will effectively have a privacy unit of <$uid, GROUP BY key>.
+//   - Setting max_groups_contributed to a positive value causes the rewriter to
+//     insert a ResolvedSampleScan (partitioned by $uid and the GROUP BY keys)
+//     to limit the number of groups that a user can contribute to.
+//   - Setting max_rows_contributed to a positive value causes the rewriter to
+//     insert a ResolvedSampleScan (partitioned by $uid) to limit the number of
+//     rows that a user can contribute to the dataset.
 // 5. The final cross-user ResolvedAnonymizedAggregateScan is created:
 //   a. The input scan is set to the (possibly sampled) per-user scan
 //   b. The first argument for each ANON_* function call in the anon node is
@@ -160,19 +169,13 @@ struct SelectWithModeName {
 class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   RewriterVisitor(ColumnFactory* allocator, TypeFactory* type_factory,
-                  Resolver* resolver,
-                  RewriteForAnonymizationOutput::TableScanToAnonAggrScanMap&
-                      table_scan_to_anon_aggr_scan_map,
-                  RewriteForAnonymizationOutput::TableScanToDPAggrScanMap&
-                      table_scan_to_dp_aggr_scan_map,
-                  Catalog* catalog, AnalyzerOptions* options)
+                  Resolver* resolver, Catalog* catalog,
+                  AnalyzerOptions* options)
       : allocator_(allocator),
         type_factory_(type_factory),
         resolver_(resolver),
         catalog_(catalog),
-        analyzer_options_(options),
-        table_scan_to_anon_aggr_scan_map_(table_scan_to_anon_aggr_scan_map),
-        table_scan_to_dp_aggr_scan_map_(table_scan_to_dp_aggr_scan_map) {}
+        analyzer_options_(options) {}
 
  private:
   // Chooses one of the uid columns between per_user_visitor_uid_column and
@@ -229,14 +232,11 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
   // Rewrites the node contained in rewritten_per_user_transform, inserting a
   // SampleScan to bound the number of rows that a user can contribute.
-  //
-  // If max_rows_contributed is a nullopt, then this method will use a default
-  // value for max_rows_contributed.
   template <class NodeType>
   absl::StatusOr<std::unique_ptr<NodeType>> BoundRowsContributedToInputScan(
       const NodeType* original_input_scan,
       RewritePerUserTransformResult rewritten_per_user_transform,
-      std::optional<int64_t> max_rows_contributed);
+      int64_t max_rows_contributed);
 
   // Returns a reference to a column containing the count of unique users
   // (accounting for the different report types like JSON or proto). If this is
@@ -266,8 +266,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
       const NodeType* original_input_scan,
       std::vector<std::unique_ptr<ResolvedComputedColumn>>& aggregate_list);
 
-  std::unique_ptr<ResolvedAnonymizedAggregateScan>
-  CreateAggregateScanAndUpdateScanMap(
+  std::unique_ptr<ResolvedAnonymizedAggregateScan> CreateAggregateScan(
       const ResolvedAnonymizedAggregateScan* node,
       std::unique_ptr<ResolvedScan> input_scan,
       std::vector<std::unique_ptr<ResolvedComputedColumn>> outer_group_by_list,
@@ -275,8 +274,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
       std::unique_ptr<ResolvedExpr> group_selection_threshold_expr,
       std::vector<std::unique_ptr<ResolvedOption>> resolved_options);
 
-  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan>
-  CreateAggregateScanAndUpdateScanMap(
+  std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan> CreateAggregateScan(
       const ResolvedDifferentialPrivacyAggregateScan* node,
       std::unique_ptr<ResolvedScan> input_scan,
       std::vector<std::unique_ptr<ResolvedComputedColumn>> outer_group_by_list,
@@ -299,6 +297,12 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
       ResolvedColumn uid_column,
       std::vector<std::unique_ptr<ResolvedOption>>&
           resolved_anonymization_options);
+
+  // Wraps input_scan with a sample scan that bounds the number of rows that a
+  // user can contribute to the dataset.
+  absl::StatusOr<std::unique_ptr<ResolvedScan>> AddCrossContributionSampleScan(
+      std::unique_ptr<ResolvedScan> input_scan, int64_t max_rows_contributed,
+      std::unique_ptr<const ResolvedExpr> uid_column);
 
   absl::Status VisitResolvedAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* node) override {
@@ -325,11 +329,6 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   Resolver* resolver_;                 // unowned
   Catalog* catalog_;                   // unowned
   AnalyzerOptions* analyzer_options_;  // unowned
-  RewriteForAnonymizationOutput::TableScanToAnonAggrScanMap&
-      table_scan_to_anon_aggr_scan_map_;
-  RewriteForAnonymizationOutput::TableScanToDPAggrScanMap&
-      table_scan_to_dp_aggr_scan_map_;
-  std::vector<const ResolvedTableScan*> resolved_table_scans_;  // unowned
   std::vector<std::unique_ptr<WithEntryRewriteState>> with_entries_;
 };
 
@@ -507,6 +506,41 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
   return result;
 }
 
+// Used to validate expression subqueries nested under an anonymizization /
+// differential privacy node. Rejects nested anonymization operations and reads
+// of user data based on (broken link).
+class ExpressionSubqueryRewriterVisitor : public ResolvedASTDeepCopyVisitor {
+  absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override {
+    if (node->table()->SupportsAnonymization()) {
+      return MakeSqlErrorAtNode(*node)
+             << "Reading the table " << node->table()->Name()
+             << " containing user data in expression subqueries is not allowed";
+    }
+    return CopyVisitResolvedTableScan(node);
+  }
+
+  absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
+    if (node->signature()->SupportsAnonymization()) {
+      return MakeSqlErrorAtNode(*node)
+             << "Reading the TVF " << node->tvf()->FullName()
+             << " containing user data in expression subqueries is not allowed";
+    }
+    return CopyVisitResolvedTVFScan(node);
+  }
+
+  absl::Status VisitResolvedAnonymizedAggregateScan(
+      const ResolvedAnonymizedAggregateScan* node) override {
+    return MakeSqlErrorAtNode(*node)
+           << "Nested anonymization query is not implemented yet";
+  }
+
+  absl::Status VisitResolvedProjectScan(
+      const ResolvedProjectScan* node) override {
+    // Necessary to correctly attach parse location to errors generated above.
+    return MaybeAttachParseLocation(CopyVisitResolvedProjectScan(node), *node);
+  }
+};
+
 // Rewrites the aggregate and group by list for the inner per-user aggregate
 // scan. Replaces all function calls with their non-ANON_* versions, and sets
 // the output column for each ComputedColumn to the corresponding intermediate
@@ -597,6 +631,19 @@ class InnerAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         col->expr()->type());
     injected_col_map_->emplace(old_column, injected_column);
     col->set_column(injected_column);
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitResolvedSubqueryExpr(
+      const ResolvedSubqueryExpr* node) override {
+    // Expression subqueries may contain nested scans which might have their own
+    // group by, aggregate, or computed columns. We don't want to rewrite those
+    // columns, only the top level column names. Therefore take a simple copy.
+    ExpressionSubqueryRewriterVisitor copy_visitor;
+    ZETASQL_RETURN_IF_ERROR(node->Accept(&copy_visitor));
+    ZETASQL_ASSIGN_OR_RETURN(auto copy,
+                     copy_visitor.ConsumeRootNode<ResolvedSubqueryExpr>());
+    PushNodeToStack(std::move(copy));
     return absl::OkStatus();
   }
 
@@ -1283,41 +1330,6 @@ constexpr absl::string_view SetOperationTypeToString(
   }
 }
 
-// Used to validate expression subqueries visited by PerUserRewriterVisitor.
-// Rejects nested anonymization operations and reads of user data based on
-// (broken link).
-class ExpressionSubqueryRewriterVisitor : public ResolvedASTDeepCopyVisitor {
-  absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override {
-    if (node->table()->SupportsAnonymization()) {
-      return MakeSqlErrorAtNode(*node)
-             << "Reading the table " << node->table()->Name()
-             << " containing user data in expression subqueries is not allowed";
-    }
-    return CopyVisitResolvedTableScan(node);
-  }
-
-  absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
-    if (node->signature()->SupportsAnonymization()) {
-      return MakeSqlErrorAtNode(*node)
-             << "Reading the TVF " << node->tvf()->FullName()
-             << " containing user data in expression subqueries is not allowed";
-    }
-    return CopyVisitResolvedTVFScan(node);
-  }
-
-  absl::Status VisitResolvedAnonymizedAggregateScan(
-      const ResolvedAnonymizedAggregateScan* node) override {
-    return MakeSqlErrorAtNode(*node)
-           << "Nested anonymization query is not implemented yet";
-  }
-
-  absl::Status VisitResolvedProjectScan(
-      const ResolvedProjectScan* node) override {
-    // Necessary to correctly attach parse location to errors generated above.
-    return MaybeAttachParseLocation(CopyVisitResolvedProjectScan(node), *node);
-  }
-};
-
 // Rewrites the rest of the per-user scan, propagating the AnonymizationInfo()
 // userid (aka $uid column) from the base private table scan to the top node
 // returned.
@@ -1330,13 +1342,11 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   explicit PerUserRewriterVisitor(
       ColumnFactory* allocator, TypeFactory* type_factory, Resolver* resolver,
-      std::vector<const ResolvedTableScan*>& resolved_table_scans,
       std::vector<std::unique_ptr<WithEntryRewriteState>>& with_entries,
       SelectWithModeName select_with_mode_name)
       : allocator_(allocator),
         type_factory_(type_factory),
         resolver_(resolver),
-        resolved_table_scans_(resolved_table_scans),
         with_entries_(with_entries),
         select_with_mode_name_(select_with_mode_name) {}
 
@@ -1495,7 +1505,6 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                                   .value()
                                   .GetUserIdInfo()
                                   .get_column();
-    resolved_table_scans_.push_back(copy);
     if (table_col != nullptr) {
       // The userid column is an actual physical column from the table, so
       // find it and make sure it's part of the table's output column list.
@@ -1839,8 +1848,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
     // Rewrite and copy the left scan.
     PerUserRewriterVisitor left_visitor(allocator_, type_factory_, resolver_,
-                                        resolved_table_scans_, with_entries_,
-                                        select_with_mode_name_);
+                                        with_entries_, select_with_mode_name_);
     ZETASQL_RETURN_IF_ERROR(node->left_scan()->Accept(&left_visitor));
     const ResolvedColumn& left_uid = left_visitor.current_uid_.column;
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> left_scan,
@@ -1849,8 +1857,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
     // Rewrite and copy the right scan.
     PerUserRewriterVisitor right_visitor(allocator_, type_factory_, resolver_,
-                                         resolved_table_scans_, with_entries_,
-                                         select_with_mode_name_);
+                                         with_entries_, select_with_mode_name_);
     ZETASQL_RETURN_IF_ERROR(node->right_scan()->Accept(&right_visitor));
     const ResolvedColumn& right_uid = right_visitor.current_uid_.column;
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> right_scan,
@@ -2117,9 +2124,9 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
     // Rewrite each input item.
     for (const auto& input_item : node->input_item_list()) {
-      PerUserRewriterVisitor input_item_visitor(
-          allocator_, type_factory_, resolver_, resolved_table_scans_,
-          with_entries_, select_with_mode_name_);
+      PerUserRewriterVisitor input_item_visitor(allocator_, type_factory_,
+                                                resolver_, with_entries_,
+                                                select_with_mode_name_);
       ZETASQL_RETURN_IF_ERROR(input_item->Accept(&input_item_visitor));
       UidColumnState uid = input_item_visitor.current_uid_;
       ZETASQL_ASSIGN_OR_RETURN(
@@ -2276,7 +2283,6 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   ColumnFactory* allocator_;                                     // unowned
   TypeFactory* type_factory_;                                    // unowned
   Resolver* resolver_;                                           // unowned
-  std::vector<const ResolvedTableScan*>& resolved_table_scans_;  // unowned
   std::vector<std::unique_ptr<WithEntryRewriteState>>&
       with_entries_;  // unowned
 
@@ -2355,8 +2361,7 @@ RewriterVisitor::RewritePerUserTransform(
     SelectWithModeName select_with_mode_name,
     std::optional<const ResolvedExpr*> options_uid_column) {
   PerUserRewriterVisitor per_user_visitor(allocator_, type_factory_, resolver_,
-                                          resolved_table_scans_, with_entries_,
-                                          select_with_mode_name);
+                                          with_entries_, select_with_mode_name);
   ZETASQL_RETURN_IF_ERROR(node->input_scan()->Accept(&per_user_visitor));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> rewritten_scan,
                    per_user_visitor.ConsumeRootNode<ResolvedScan>());
@@ -2517,7 +2522,7 @@ RewriterVisitor::CreateCountDistinctPrivacyIdsColumn(
 }
 
 std::unique_ptr<ResolvedAnonymizedAggregateScan>
-RewriterVisitor::CreateAggregateScanAndUpdateScanMap(
+RewriterVisitor::CreateAggregateScan(
     const ResolvedAnonymizedAggregateScan* node,
     std::unique_ptr<ResolvedScan> input_scan,
     std::vector<std::unique_ptr<ResolvedComputedColumn>> outer_group_by_list,
@@ -2527,16 +2532,14 @@ RewriterVisitor::CreateAggregateScanAndUpdateScanMap(
   auto result = MakeResolvedAnonymizedAggregateScan(
       node->column_list(), std::move(input_scan),
       std::move(outer_group_by_list), std::move(outer_aggregate_list),
-      std::move(group_selection_threshold_expr), std::move(resolved_options));
-  for (auto resolved_table_scan : resolved_table_scans_) {
-    table_scan_to_anon_aggr_scan_map_.emplace(resolved_table_scan,
-                                              result.get());
-  }
+      /*grouping_set_list=*/{}, /*rollup_column_list=*/{},
+      /*grouping_call_list=*/{}, std::move(group_selection_threshold_expr),
+      std::move(resolved_options));
   return result;
 }
 
 std::unique_ptr<ResolvedDifferentialPrivacyAggregateScan>
-RewriterVisitor::CreateAggregateScanAndUpdateScanMap(
+RewriterVisitor::CreateAggregateScan(
     const ResolvedDifferentialPrivacyAggregateScan* node,
     std::unique_ptr<ResolvedScan> input_scan,
     std::vector<std::unique_ptr<ResolvedComputedColumn>> outer_group_by_list,
@@ -2546,10 +2549,9 @@ RewriterVisitor::CreateAggregateScanAndUpdateScanMap(
   auto result = MakeResolvedDifferentialPrivacyAggregateScan(
       node->column_list(), std::move(input_scan),
       std::move(outer_group_by_list), std::move(outer_aggregate_list),
-      std::move(group_selection_threshold_expr), std::move(resolved_options));
-  for (auto resolved_table_scan : resolved_table_scans_) {
-    table_scan_to_dp_aggr_scan_map_.emplace(resolved_table_scan, result.get());
-  }
+      /*grouping_set_list=*/{}, /*rollup_column_list=*/{},
+      /*grouping_call_list=*/{}, std::move(group_selection_threshold_expr),
+      std::move(resolved_options));
   return result;
 }
 
@@ -2979,66 +2981,139 @@ class BoundRowsAggregateFunctionCallResolver final
       const ResolvedAggregateFunctionCall* function_call_node,
       const ResolvedColumn& containing_column,
       std::vector<std::unique_ptr<ResolvedExpr>> argument_list) const override {
+    ZETASQL_ASSIGN_OR_RETURN(ReplacementFunctionCall replacement_function_call,
+                     GetReplacementAggregateFunctionCall(function_call_node));
     return ResolveOuterAggregateFunctionCallForAnonFunction(
         function_call_node, std::move(argument_list),
-        GetReplacementAggregateFunctionCall(function_call_node), resolver_);
+        std::move(replacement_function_call), resolver_);
   }
 
  private:
-  ReplacementFunctionCall GetReplacementAggregateFunctionCall(
+  // Returns a ResolvedExpr representing the SQL function
+  // `IF(expr IS NULL, 0, 1)`.
+  absl::StatusOr<std::unique_ptr<ResolvedExpr>> BuildIfNullThen0Else1Expr(
+      std::unique_ptr<ResolvedExpr> expr) const {
+    std::vector<std::unique_ptr<const ResolvedExpr>>
+        is_target_null_argument_list;
+    is_target_null_argument_list.emplace_back(std::move(expr));
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<ResolvedExpr> is_target_null_expr,
+        ResolveFunctionCall("$is_null", std::move(is_target_null_argument_list),
+                            /*named_arguments=*/{}, resolver_));
+
+    std::vector<std::unique_ptr<const ResolvedExpr>> result_argument_list;
+    result_argument_list.emplace_back(std::move(is_target_null_expr));
+    result_argument_list.emplace_back(MakeResolvedLiteral(Value::Int64(0)));
+    result_argument_list.emplace_back(MakeResolvedLiteral(Value::Int64(1)));
+    return ResolveFunctionCall("if", std::move(result_argument_list),
+                               /*named_arguments=*/{}, resolver_);
+  }
+
+  absl::StatusOr<ReplacementFunctionCall> GetReplacementAggregateFunctionCall(
       const ResolvedAggregateFunctionCall* node) const {
     switch (node->signature().context_id()) {
+      case FunctionSignatureId::FN_ANON_COUNT: {
+        // When rewriting COUNT -> SUM, we need to preserve the behaviour that
+        // COUNT is counting non-null rows. We rewrite ANON_COUNT(x) to
+        // ANON_SUM(IF(x IS NULL, 0, 1))
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::unique_ptr<ResolvedExpr> original_target,
+            ResolvedASTDeepCopyVisitor::Copy(node->argument_list()[0].get()));
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> new_target,
+                         BuildIfNullThen0Else1Expr(std::move(original_target)));
+        return ReplacementFunctionCall{
+            .name = "anon_sum",
+            .input_expr = std::move(new_target),
+            .named_arguments =
+                std::make_optional<std::vector<NamedArgumentInfo>>({})};
+      }
+      case FunctionSignatureId::FN_ANON_COUNT_WITH_REPORT_PROTO:
+      case FunctionSignatureId::FN_ANON_COUNT_WITH_REPORT_JSON:
+        /* TODOAdd support for ANON_COUNT WITH REPORT and
+         * max_rows_contributed. The reasons we can't support this currently
+         * are:
+         *  - In the easiest case, there'd just be a
+         *   $anon_count_with_report_json primitive that we could use, but this
+         *   primitive doesn't exist. Therefore, we need to rewrite to some
+         *   variant of ANON_SUM.
+         *  - The next thing you might try is to rewrite ANON_COUNT(x) to
+         *   ANON_SUM(1). This doesn't work, because ANON_COUNT only counts
+         *   non-NULL rows while ANON_SUM(1) counts all rows.
+         *  - We can fix this by rewriting ANON_COUNT(x) to ANON_SUM(IF(x is
+         *   NULL, 0, 1)). This works correctly, and is what we do above for
+         *   ANON_COUNT, but there is a bug preventing us from using this with
+         *   reports: b/290310062.
+         * Therefore, we don't support ANON_COUNT + WITH REPORT +
+         * max_rows_contributed for now. */
+        return MakeSqlErrorAtNode(*node)
+               << "Unsupported aggregation: ANON_COUNT WITH REPORT while "
+                  "using max_rows_contributed";
       case FunctionSignatureId::FN_ANON_COUNT_STAR:
-        return {.name = "anon_sum",
-                .input_expr = MakeResolvedLiteral(Value::Int64(1)),
-                .named_arguments =
-                    std::make_optional<std::vector<NamedArgumentInfo>>({})};
+        return ReplacementFunctionCall{
+            .name = "anon_sum",
+            .input_expr = MakeResolvedLiteral(Value::Int64(1)),
+            .named_arguments =
+                std::make_optional<std::vector<NamedArgumentInfo>>({})};
       case FunctionSignatureId::FN_ANON_COUNT_STAR_WITH_REPORT_JSON:
-        return {.name = "$anon_sum_with_report_json",
-                .input_expr = MakeResolvedLiteral(Value::Int64(1)),
-                .named_arguments =
-                    std::make_optional<std::vector<NamedArgumentInfo>>({})};
+        return ReplacementFunctionCall{
+            .name = "$anon_sum_with_report_json",
+            .input_expr = MakeResolvedLiteral(Value::Int64(1)),
+            .named_arguments =
+                std::make_optional<std::vector<NamedArgumentInfo>>({})};
       case FunctionSignatureId::FN_ANON_COUNT_STAR_WITH_REPORT_PROTO:
-        return {.name = "$anon_sum_with_report_proto",
-                .input_expr = MakeResolvedLiteral(Value::Int64(1)),
-                .named_arguments =
-                    std::make_optional<std::vector<NamedArgumentInfo>>({})};
+        return ReplacementFunctionCall{
+            .name = "$anon_sum_with_report_proto",
+            .input_expr = MakeResolvedLiteral(Value::Int64(1)),
+            .named_arguments =
+                std::make_optional<std::vector<NamedArgumentInfo>>({})};
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT:
-        return {.name = "$differential_privacy_count",
-                .named_arguments = {
-                    {NamedArgumentInfo(kContributionBoundsPerGroup, 1, node)}}};
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_JSON:
-      case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_PROTO:
-        return {.name = "$differential_privacy_count",
-                .named_arguments = {
-                    {NamedArgumentInfo(kReportFormat, 1, node),
-                     NamedArgumentInfo(kContributionBoundsPerGroup, 2, node)}}};
+      case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_PROTO: {
+        // TODO Implement COUNT(x) as
+        // `SUM(IF(x IS NULL, 0, 1))` once the contribution_bounds_per_row
+        // optional argument is added to the signature for SUM.
+        return absl::UnimplementedError(
+            "Unimplemented aggregation: COUNT while using "
+            "max_rows_contributed");
+      }
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_STAR:
-        return {.name = "$differential_privacy_sum",
-                .input_expr = MakeResolvedLiteral(Value::Int64(1)),
-                .named_arguments = {
-                    {NamedArgumentInfo(kContributionBoundsPerGroup, 1, node)}}};
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_JSON:
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_PROTO:
-        return {.name = "$differential_privacy_sum",
-                .input_expr = MakeResolvedLiteral(Value::Int64(1)),
-                .named_arguments = {
-                    {NamedArgumentInfo(kReportFormat, 1, node),
-                     NamedArgumentInfo(kContributionBoundsPerGroup, 2, node)}}};
+        // TODO Implement COUNT(*) as `SUM(1)` once the
+        // contribution_bounds_per_row optional argument is added to the
+        // signature for SUM.
+        return absl::UnimplementedError(
+            "Unimplemented aggregation: COUNT(*) while using "
+            "max_rows_contributed");
       default:
-        return {.name = node->function()->Name()};
+        return ReplacementFunctionCall{.name = node->function()->Name()};
     }
   }
 
   Resolver* resolver_;
 };
 
+absl::StatusOr<std::unique_ptr<ResolvedScan>>
+RewriterVisitor::AddCrossContributionSampleScan(
+    std::unique_ptr<ResolvedScan> input_scan, int64_t max_rows_contributed,
+    std::unique_ptr<const ResolvedExpr> uid_column) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
+  partition_by_list.push_back(std::move(uid_column));
+  std::vector<ResolvedColumn> column_list = input_scan->column_list();
+  return MakeResolvedSampleScan(
+      column_list, std::move(input_scan),
+      /*method=*/"RESERVOIR",
+      /*size=*/MakeResolvedLiteral(Value::Int64(max_rows_contributed)),
+      ResolvedSampleScan::ROWS, /*repeatable_argument=*/nullptr,
+      /*weight_column=*/nullptr, std::move(partition_by_list));
+}
+
 template <class NodeType>
 absl::StatusOr<std::unique_ptr<NodeType>>
 RewriterVisitor::BoundRowsContributedToInputScan(
     const NodeType* original_input_scan,
     RewritePerUserTransformResult rewritten_per_user_transform,
-    std::optional<int64_t> max_rows_contributed) {
+    int64_t max_rows_contributed) {
   ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedOption>> options_list,
                    ResolvedASTDeepCopyVisitor::CopyNodeList(
                        GetOptions(original_input_scan)));
@@ -3057,10 +3132,7 @@ RewriterVisitor::BoundRowsContributedToInputScan(
   ZETASQL_ASSIGN_OR_RETURN(
       std::vector<std::unique_ptr<ResolvedComputedColumn>> aggregate_list,
       aggregate_rewriter_visitor.RewriteAggregateColumns(original_input_scan));
-  /**
-   * TODO: Finish implementing BoundRowsContributed:
-   *  - Add a sample scan to bound the number of rows contributed
-   */
+
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedExpr> group_selection_threshold_expr,
       ExtractGroupSelectionThresholdExpr<NodeType>(
@@ -3071,11 +3143,17 @@ RewriterVisitor::BoundRowsContributedToInputScan(
                                                          aggregate_list));
   }
 
-  return CreateAggregateScanAndUpdateScanMap(
-      original_input_scan,
-      std::move(rewritten_per_user_transform.rewritten_scan),
-      std::move(group_by_list), std::move(aggregate_list),
-      std::move(group_selection_threshold_expr), std::move(options_list));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ResolvedScan> rewritten_scan,
+      AddCrossContributionSampleScan(
+          std::move(rewritten_per_user_transform.rewritten_scan),
+          max_rows_contributed,
+          std::move(rewritten_per_user_transform.inner_uid_column)));
+
+  return CreateAggregateScan(
+      original_input_scan, std::move(rewritten_scan), std::move(group_by_list),
+      std::move(aggregate_list), std::move(group_selection_threshold_expr),
+      std::move(options_list));
 }
 
 // Rewrites aggregations when the bound max groups (i.e. bound L0/Linf)
@@ -3136,8 +3214,9 @@ class BoundGroupsAggregateFunctionCallResolver final
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT:
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_STAR:
         replacement.name = "$differential_privacy_sum";
-        replacement.named_arguments = {
-            {NamedArgumentInfo(kContributionBoundsPerGroup, 1, node)}};
+        replacement.named_arguments =
+            std::make_optional<std::vector<NamedArgumentInfo>>(
+                {NamedArgumentInfo(kContributionBoundsPerGroup, 1, node)});
         return replacement;
 
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_JSON:
@@ -3145,9 +3224,10 @@ class BoundGroupsAggregateFunctionCallResolver final
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_JSON:
       case FunctionSignatureId::FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_PROTO:
         replacement.name = "$differential_privacy_sum";
-        replacement.named_arguments = {
-            {NamedArgumentInfo(kReportFormat, 1, node),
-             NamedArgumentInfo(kContributionBoundsPerGroup, 2, node)}};
+        replacement.named_arguments =
+            std::make_optional<std::vector<NamedArgumentInfo>>(
+                {NamedArgumentInfo(kReportFormat, 1, node),
+                 NamedArgumentInfo(kContributionBoundsPerGroup, 2, node)});
         return replacement;
 
       default:
@@ -3240,11 +3320,11 @@ RewriterVisitor::BoundGroupsContributedToInputScan(
             uid_column, resolved_anonymization_options));
   }
 
-  return CreateAggregateScanAndUpdateScanMap(
-      original_input_scan, std::move(rewritten_scan),
-      std::move(outer_group_by_list), std::move(outer_aggregate_list),
-      std::move(group_selection_threshold_expr),
-      std::move(resolved_anonymization_options));
+  return CreateAggregateScan(original_input_scan, std::move(rewritten_scan),
+                             std::move(outer_group_by_list),
+                             std::move(outer_aggregate_list),
+                             std::move(group_selection_threshold_expr),
+                             std::move(resolved_anonymization_options));
 }
 
 template <class NodeType>
@@ -3288,21 +3368,22 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
       BoundingSpec::ForBounds(max_groups_contributed, max_rows_contributed));
   std::unique_ptr<NodeType> result;
   if (bounding_spec.strategy == BOUNDING_MAX_ROWS) {
+    ZETASQL_RET_CHECK(bounding_spec.max_rows_contributed.has_value())
+        << "There is no way to bound max rows without explicitly specifying "
+           "max_rows_contributed, since the default contribution bounding "
+           "strategy is BOUNDING_MAX_GROUPS.";
     ZETASQL_ASSIGN_OR_RETURN(result, BoundRowsContributedToInputScan(
                                  node, std::move(rewrite_per_user_result),
-                                 bounding_spec.max_rows_contributed));
+                                 bounding_spec.max_rows_contributed.value()));
   } else {
     // Note that BoundGroupsContributedToInputScan also handles the case where
     // no bounding is applied.
-    // TODO Verify the preceding comment is still correct once
-    // BoundRowsContributedToInputScan is fully implemented.
     ZETASQL_ASSIGN_OR_RETURN(
         result, BoundGroupsContributedToInputScan(
                     node, std::move(rewrite_per_user_result), bounding_spec));
   }
 
   ZETASQL_RETURN_IF_ERROR(AttachExtraNodeFields(*node, *result));
-  resolved_table_scans_.clear();
   PushNodeToStack(std::move(result));
   return absl::OkStatus();
 }
@@ -3376,11 +3457,8 @@ absl::Status RewriterVisitor::VisitResolvedProjectScan(
 
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteInternal(
     const ResolvedNode& tree, AnalyzerOptions options,
-    ColumnFactory& column_factory, Catalog& catalog, TypeFactory& type_factory,
-    RewriteForAnonymizationOutput::TableScanToAnonAggrScanMap&
-        table_scan_to_anon_aggr_scan_map,
-    RewriteForAnonymizationOutput::TableScanToDPAggrScanMap&
-        table_scan_to_dp_aggr_scan_map) {
+    ColumnFactory& column_factory, Catalog& catalog,
+    TypeFactory& type_factory) {
   options.CreateDefaultArenasIfNotSet();
 
   Resolver resolver(&catalog, &type_factory, &options);
@@ -3397,9 +3475,8 @@ absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteInternal(
   // these errors should only be raised during development in this file.
   resolver.Reset("");
 
-  RewriterVisitor rewriter(&column_factory, &type_factory, &resolver,
-                           table_scan_to_anon_aggr_scan_map,
-                           table_scan_to_dp_aggr_scan_map, &catalog, &options);
+  RewriterVisitor rewriter(&column_factory, &type_factory, &resolver, &catalog,
+                           &options);
   ZETASQL_RETURN_IF_ERROR(tree.Accept(&rewriter));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> node,
                    rewriter.ConsumeRootNode<ResolvedNode>());
@@ -3419,11 +3496,7 @@ class AnonymizationRewriter : public Rewriter {
                                  options.column_id_sequence_number());
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedNode> node,
-        RewriteInternal(
-            input, options, column_factory, catalog, type_factory,
-            output_properties
-                .resolved_table_scan_to_anonymized_aggregate_scan_map,
-            output_properties.resolved_table_scan_to_dp_aggregate_scan_map));
+        RewriteInternal(input, options, column_factory, catalog, type_factory));
     return node;
   }
 
@@ -3434,11 +3507,9 @@ absl::StatusOr<RewriteForAnonymizationOutput> RewriteForAnonymization(
     const ResolvedNode& query, Catalog* catalog, TypeFactory* type_factory,
     const AnalyzerOptions& analyzer_options, ColumnFactory& column_factory) {
   RewriteForAnonymizationOutput result;
-  ZETASQL_ASSIGN_OR_RETURN(
-      result.node,
-      RewriteInternal(query, analyzer_options, column_factory, *catalog,
-                      *type_factory, result.table_scan_to_anon_aggr_scan_map,
-                      result.table_scan_to_dp_aggr_scan_map));
+  ZETASQL_ASSIGN_OR_RETURN(result.node,
+                   RewriteInternal(query, analyzer_options, column_factory,
+                                   *catalog, *type_factory));
   return result;
 }
 

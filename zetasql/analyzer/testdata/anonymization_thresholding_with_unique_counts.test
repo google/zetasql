@@ -58,11 +58,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Count star counting unique users with PROTO result.
@@ -124,11 +119,6 @@ QueryStmt
             |   +-default_value=NULL
             +-field_descriptor=int_value
             +-default_value=NULL
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
@@ -185,11 +175,6 @@ QueryStmt
             +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
               +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
               +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for count star function. It doesn't correspond to
@@ -247,11 +232,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for count star function. It doesn't correspond to
@@ -309,11 +289,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for count star function. It doesn't correspond to
@@ -371,11 +346,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 
 ==
 
@@ -446,11 +416,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
         +-anonymization_option_list=
           +-max_groups_contributed := Literal(type=INT64, value=5)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: max_rows_contributed
 --
@@ -484,7 +449,16 @@ QueryStmt
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        | +-SampleScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#14]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=5)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
         +-aggregate_list=
         | +-$agg1#13 :=
         |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
@@ -495,11 +469,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
         +-anonymization_option_list=
           +-max_rows_contributed := Literal(type=INT64, value=5)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 #########################################
@@ -562,11 +531,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: 123.456e-67
 --
@@ -617,11 +581,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: "1"
 --
@@ -672,11 +631,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: true
 --
@@ -727,11 +681,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: DATE '2022-11-17'
 --
@@ -782,11 +731,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: NUMERIC '0'
 --
@@ -837,11 +781,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: [1, 2, 3]
 --
@@ -892,11 +831,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Count(1) counting unique users with PROTO result.
@@ -961,11 +895,6 @@ QueryStmt
             |   +-default_value=NULL
             +-field_descriptor=int_value
             +-default_value=NULL
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
@@ -1025,11 +954,6 @@ QueryStmt
             +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
               +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
               +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for count function. It doesn't correspond to
@@ -1090,11 +1014,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for count function. It doesn't correspond to
@@ -1155,11 +1074,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for count function. It doesn't correspond to
@@ -1220,11 +1134,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Count of the expressions (equivalent to unqiue users count) might be Ok
@@ -1289,11 +1198,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Count of NULL always equals to 0. It doesn't correspond to
@@ -1354,11 +1258,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 #########################################
@@ -1417,11 +1316,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Count(alias for uid) counting unique users.
@@ -1503,11 +1397,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Count(uid) counting unique users with PROTO result.
@@ -1572,11 +1461,6 @@ QueryStmt
             |   +-default_value=NULL
             +-field_descriptor=int_value
             +-default_value=NULL
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
@@ -1636,11 +1520,6 @@ QueryStmt
             +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
               +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
               +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for count(uid) function (doesn't correspond to
@@ -1701,11 +1580,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#19)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for count(uid) function (doesn't correspond to
@@ -1766,11 +1640,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#19)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for count(uid) function (doesn't correspond to
@@ -1831,11 +1700,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#19)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 #########################################
@@ -1894,11 +1758,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Sum(1) counting unique users with PROTO result.
@@ -1963,11 +1822,6 @@ QueryStmt
             |   +-default_value=NULL
             +-field_descriptor=int_value
             +-default_value=NULL
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
@@ -2027,11 +1881,6 @@ QueryStmt
             +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
               +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
               +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # sum(1) with uint64 type calculating unique users.
@@ -2086,11 +1935,6 @@ QueryStmt
         |     +-Literal(type=UINT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=UINT64, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Sum(1) with uint64 type counting unique users with PROTO result.
@@ -2155,11 +1999,6 @@ QueryStmt
             |   +-default_value=NULL
             +-field_descriptor=int_value
             +-default_value=NULL
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
@@ -2219,11 +2058,6 @@ QueryStmt
             +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
               +-ColumnRef(type=JSON, column=$aggregate.$agg1#13)
               +-Literal(type=STRING, value="$.result.value", has_explicit_type=TRUE)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # sum(1) with NUMERIC type calculating unique users.
@@ -2279,11 +2113,6 @@ QueryStmt
         |     +-Literal(type=NUMERIC, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=NUMERIC, column=$aggregate.$agg1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for sum(1) function. It doesn't correspond to
@@ -2344,11 +2173,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for sum(1) function. It doesn't correspond to
@@ -2409,11 +2233,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Incorrect bounds for sum(1) function. It doesn't correspond to
@@ -2474,11 +2293,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Sum always equals to 0. It doesn't correspond to
@@ -2539,11 +2353,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Sum always equals to 0 after clamping. It doesn't correspond to
@@ -2604,11 +2413,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Sum of NULL don't make sense for counting unique users,
@@ -2668,11 +2472,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Sum of doubles. We are not supporting these functions for k_threshold_expr
@@ -2732,11 +2531,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Sum of doubles with PROTO result. We are not supporting these functions for
@@ -2796,11 +2590,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 [language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
@@ -2862,11 +2651,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Since JSON_VALUE_EXTRACTION_FUNCTIONS isn't enabled we can't replace
@@ -2930,11 +2714,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Sum of the expressions (equivalent to unqiue users count) might be Ok
@@ -2999,11 +2778,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 #########################################
@@ -3075,8 +2849,3 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.count1#13)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}

@@ -18,18 +18,6 @@
 # here to exclude them from compliance tests.
 
 known_errors {
-  # TODO: Implement these functions.
-  mode: ALLOW_UNIMPLEMENTED
-  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_init_double_basic"
-  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_init_int64_basic"
-  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_init_uint64_basic"
-  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_partial_basic"
-  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_double_basic"
-  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_int64_basic"
-  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_uint64_basic"
-}
-
-known_errors {
   # TODO: Implement these functions
   mode: ALLOW_UNIMPLEMENTED
   label: "collation_test:string_agg_with_sort_key_with_collation_binary"

@@ -31,6 +31,7 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
@@ -44,6 +45,32 @@ struct FunctionArgumentOverride {
   // New argument used to override the original argument at index.
   // Currently only lambda or sequence.
   std::unique_ptr<const ResolvedFunctionArgument> argument;
+};
+
+// Contains information about the resolution of a particular argument
+// in a funtion call for a particular signature.
+// This is generally passed as a vector<ArgIndexEntry>, this generally
+// be some normalized list of ~1:1 with actual function call arguments, but
+// may be reordered (in the case of named arguments) or extended in the
+// case of optional arguments.
+struct ArgIndexEntry {
+  // The argument index into the function signature.
+  // The value always falls into the valid range (i.e., >= 0 && <
+  // function_signature.arguments().size()).
+  int signature_arg_index;
+
+  // The argument index to the function call.
+  // The value either falls into the valid range (i.e., >= 0 && <
+  // arg_locations.size()) or is -1 if the argument at <signature_arg_index>
+  // in the signature is not provided in the current call.
+  int call_arg_index;
+
+  // The index in the concrete signature. This will usually be the same
+  // as signature_arg_index, except when a repeated arbitrary is present,
+  // this will cause additional arguments to be in the concrete signature
+  // due to heterogeneous types per argument.
+  // This may be unset during the early stages of signature matching.
+  int concrete_signature_arg_index = -1;
 };
 
 // Type of callback used by the <FunctionSignatureMatches> to resolve lambda.
@@ -66,6 +93,8 @@ using ResolveLambdaCallback = std::function<absl::Status(
 // can be set to nullptr if no lambda argument is expected.
 // The resolved lambda arguments, if any, are put into <arg_overrides> if the
 // signature matches. It's undefined otherwise.
+// <arg_index_mapping> if non-null will be updated setting
+// .concrete_signature_arg_index.
 absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const LanguageOptions& language_options, const Coercer& coercer,
     const std::vector<const ASTNode*>& arg_ast_nodes,
@@ -75,14 +104,34 @@ absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const ResolveLambdaCallback* resolve_lambda_callback,
     std::unique_ptr<FunctionSignature>* concrete_result_signature,
     SignatureMatchResult* signature_match_result,
+    std::vector<ArgIndexEntry>* arg_index_mapping,
     std::vector<FunctionArgumentOverride>* arg_overrides);
+
+ABSL_DEPRECATED("Inline me!")
+inline absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
+    const LanguageOptions& language_options, const Coercer& coercer,
+    const std::vector<const ASTNode*>& arg_ast_nodes,
+    const std::vector<InputArgumentType>& input_arguments,
+    const FunctionSignature& signature, bool allow_argument_coercion,
+    TypeFactory* type_factory,
+    const ResolveLambdaCallback* resolve_lambda_callback,
+    std::unique_ptr<FunctionSignature>* concrete_result_signature,
+    SignatureMatchResult* signature_match_result,
+    std::vector<FunctionArgumentOverride>* arg_overrides) {
+  return FunctionSignatureMatchesWithStatus(
+      language_options, coercer, arg_ast_nodes, input_arguments, signature,
+      allow_argument_coercion, type_factory, resolve_lambda_callback,
+      concrete_result_signature, signature_match_result,
+      /*arg_index_mapping=*/nullptr, arg_overrides);
+}
 
 // Determines if the argument list count matches signature, returning the number
 // of times each repeated argument repeats and the number of optional arguments
 // present if true.
-bool SignatureArgumentCountMatches(const FunctionSignature& signature,
-                                   int input_arguments_size, int* repetitions,
-                                   int* optionals);
+bool SignatureArgumentCountMatches(
+    const FunctionSignature& signature, int input_arguments_size,
+    int* repetitions, int* optionals,
+    SignatureMatchResult* signature_match_result);
 
 }  // namespace zetasql
 

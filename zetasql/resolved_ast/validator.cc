@@ -646,7 +646,15 @@ absl::Status Validator::ValidateOrderByAndLimitClausesOfAggregateFunctionCall(
   return absl::OkStatus();
 }
 
-// Validates GroupingSet and grouping columns based on grouping conditions.
+absl::Status Validator::ValidateGroupingSetListAreEmpty(
+    const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+        grouping_set_list,
+    const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+        rollup_column_list) {
+  VALIDATOR_RET_CHECK(grouping_set_list.empty() && rollup_column_list.empty());
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateGroupingSetList(
     const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
         grouping_set_list,
@@ -669,9 +677,6 @@ absl::Status Validator::ValidateGroupingSetList(
       group_by_columns.insert(group_by_column->column());
     }
 
-    // group_by_columns should be non-empty, and each item in the rollup list or
-    // a grouping set should be a computed column from group_by_columns.
-    VALIDATOR_RET_CHECK(!group_by_columns.empty());
     std::set<ResolvedColumn> rollup_columns;
     for (const auto& column_ref : rollup_column_list) {
       ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(column_ref->column(),
@@ -692,6 +697,7 @@ absl::Status Validator::ValidateGroupingSetList(
       }
     }
 
+    bool has_non_empty_grouping_sets = false;
     for (const auto& grouping_set_base : grouping_set_list) {
       if (grouping_set_base->Is<ResolvedGroupingSet>()) {
         const ResolvedGroupingSet* grouping_set =
@@ -703,6 +709,9 @@ absl::Status Validator::ValidateGroupingSetList(
                                                           group_by_columns));
           VALIDATOR_RET_CHECK(zetasql_base::InsertIfNotPresent(&grouping_set_columns,
                                                       column_ref->column()));
+        }
+        if (!grouping_set->group_by_column_list().empty()) {
+          has_non_empty_grouping_sets = true;
         }
       } else {
         // rollup or cube
@@ -727,6 +736,15 @@ absl::Status Validator::ValidateGroupingSetList(
           }
         }
       }
+    }
+    // Validate the group_by_column being non-empty only when the query has
+    // non-empty grouping sets. A query with a list of empty grouping sets
+    // (a.k.a GROUPING SETS((), (), (), ...)) is valid, and there are no
+    // group by keys in this case.
+    if (has_non_empty_grouping_sets) {
+      // group_by_columns should be non-empty, and each item in the rollup list
+      // or a grouping set should be a computed column from group_by_columns.
+      VALIDATOR_RET_CHECK(!group_by_columns.empty());
     }
   } else {
     // Presence of grouping sets should indicate that there is a rollup list.
@@ -843,13 +861,7 @@ absl::Status Validator::ValidateResolvedGetProtoFieldExpr(
       VALIDATOR_RET_CHECK(!get_proto_field->type()->IsProto());
       VALIDATOR_RET_CHECK(ProtoType::GetUseDefaultsExtension(
                               get_proto_field->field_descriptor()) ||
-                          get_proto_field->expr()
-                                  ->type()
-                                  ->AsProto()
-                                  ->descriptor()
-                                  ->file()
-                                  ->syntax() ==
-                              google::protobuf::FileDescriptor::SYNTAX_PROTO3
+                          !get_proto_field->field_descriptor()->has_presence()
       );
     }
     VALIDATOR_RET_CHECK(get_proto_field->default_value().is_valid());
@@ -1527,6 +1539,11 @@ absl::Status Validator::ValidateResolvedAggregateScanBase(
         computed_column.get(), *input_scan_visible_columns,
         visible_parameters));
   }
+
+  ZETASQL_RETURN_IF_ERROR(ValidateGroupingSetList(scan->grouping_set_list(),
+                                          scan->rollup_column_list(),
+                                          scan->group_by_list()));
+
   return absl::OkStatus();
 }
 
@@ -1544,10 +1561,6 @@ absl::Status Validator::ValidateResolvedAggregateScan(
   for (const auto& group_by_column : scan->group_by_list()) {
     group_by_columns.insert(group_by_column->column());
   }
-
-  ZETASQL_RETURN_IF_ERROR(ValidateGroupingSetList(scan->grouping_set_list(),
-                                          scan->rollup_column_list(),
-                                          scan->group_by_list()));
 
   std::set<ResolvedColumn> visible_columns;
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
@@ -1658,6 +1671,9 @@ absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
                                                    &visible_columns));
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
+  ZETASQL_RETURN_IF_ERROR(ValidateGroupingSetListAreEmpty(scan->grouping_set_list(),
+                                                  scan->rollup_column_list()));
+
   return ValidateOptionsList(
       scan->anonymization_option_list(),
       options_.allowed_hints_and_options.anonymization_options_lower,
@@ -1687,6 +1703,9 @@ absl::Status Validator::ValidateResolvedDifferentialPrivacyAggregateScan(
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->group_by_list(),
                                                    &visible_columns));
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
+
+  ZETASQL_RETURN_IF_ERROR(ValidateGroupingSetListAreEmpty(scan->grouping_set_list(),
+                                                  scan->rollup_column_list()));
 
   return ValidateOptionsList(
       scan->option_list(),

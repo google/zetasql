@@ -1,4 +1,5 @@
-[default language_features=GROUP_BY_ROLLUP]
+[default language_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_BUILTIN]
+[default enabled_ast_rewrites=DEFAULTS,+GROUPING_SET]
 
 [language_features={{|GROUP_BY_ROLLUP}}]
 SELECT SUM(key), value
@@ -45,16 +46,37 @@ SELECT SUM(key), value, GROUPING(value) AS x
 FROM KeyValue
 GROUP BY value;
 --
-ERROR: Function not found: `GROUPING` [at 1:25]
-SELECT SUM(key), value, GROUPING(value) AS x
-                        ^
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
+| +-$groupby.value#5 AS value [STRING]
+| +-$grouping_call.$grouping_call1#6 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3, $groupby.value#5, $grouping_call.$grouping_call1#6]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.value#5, $aggregate.$agg1#3, $grouping_call.$grouping_call1#6]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-aggregate_list=
+        | +-$agg1#3 :=
+        |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#5)
+            +-output_column=$grouping_call.$grouping_call1#6
 ==
 
 SELECT SUM(key), value, GROUPING(CONCAT(value, 'foo')) AS x
 FROM KeyValue
 GROUP BY value;
 --
-ERROR: Function not found: `GROUPING` [at 1:25]
+ERROR: GROUPING must have an argument that exists within the group-by expression list. [at 1:25]
 SELECT SUM(key), value, GROUPING(CONCAT(value, 'foo')) AS x
                         ^
 ==
@@ -63,25 +85,16 @@ SELECT SUM(key), value, GROUPING(value) AS x
 FROM KeyValue
 GROUP BY value, x;
 --
-ERROR: Function not found: `GROUPING` [at 1:25]
-SELECT SUM(key), value, GROUPING(value) AS x
-                        ^
-==
-
-SELECT SUM(key), value, GROUPING(value) AS x
-FROM KeyValue
-GROUP BY ROLLUP(value, x);
---
-ERROR: Function not found: `GROUPING` [at 1:25]
-SELECT SUM(key), value, GROUPING(value) AS x
-                        ^
+ERROR: Column x contains an aggregation function, which is not allowed in GROUP BY [at 3:17]
+GROUP BY value, x;
+                ^
 ==
 
 SELECT value, GROUPING(1)
 FROM KeyValue
 GROUP BY ROLLUP(value);
 --
-ERROR: Function not found: `GROUPING` [at 1:15]
+ERROR: GROUPING must have an argument that exists within the group-by expression list. [at 1:15]
 SELECT value, GROUPING(1)
               ^
 ==
@@ -127,14 +140,54 @@ SELECT
 FROM KeyValue
 GROUP BY ROLLUP(value);
 --
-ERROR: Function not found: `GROUPING` [at 2:6]
-  IF(GROUPING(value) = 0, SUM(key), SUM(key + 1))
-     ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#8 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#8]
+    +-expr_list=
+    | +-$col1#8 :=
+    |   +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+    |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |     | +-ColumnRef(type=INT64, column=$grouping_call.$grouping_call1#7)
+    |     | +-Literal(type=INT64, value=0)
+    |     +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
+    |     +-ColumnRef(type=INT64, column=$aggregate.$agg2#5)
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#4, $aggregate.$agg2#5, $grouping_call.$grouping_call1#7]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-aggregate_list=
+        | +-$agg1#4 :=
+        | | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-$agg2#5 :=
+        |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |       +-Literal(type=INT64, value=1)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+        | +-GroupingSet
+        +-rollup_column_list=
+        | +-ColumnRef(type=STRING, column=$groupby.value#6)
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7
 ==
 
 SELECT
   sum(KitchenSink.int64_val),
-  sum(KitchenSink.double_val)
+  sum(KitchenSink.double_val),
+  GROUPING(KitchenSink.date)
 FROM TestTable
 GROUP BY ROLLUP(key, KitchenSink.date);
 --
@@ -142,17 +195,18 @@ QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#4 AS `$col1` [INT64]
 | +-$aggregate.$agg2#5 AS `$col2` [DOUBLE]
+| +-$grouping_call.$grouping_call1#9 AS `$col3` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#4, $agg2#5]
+    +-column_list=[$aggregate.$agg1#4, $aggregate.$agg2#5, $grouping_call.$grouping_call1#9]
     +-input_scan=
       +-AggregateScan
-        +-column_list=$aggregate.[$agg1#4, $agg2#5]
+        +-column_list=[$groupby.date#8, $aggregate.$agg1#4, $aggregate.$agg2#5, $grouping_call.$grouping_call1#9]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
         +-group_by_list=
-        | +-key#6 := ColumnRef(type=INT32, column=TestTable.key#1)
-        | +-date#7 :=
+        | +-key#7 := ColumnRef(type=INT32, column=TestTable.key#1)
+        | +-date#8 :=
         |   +-GetProtoField
         |     +-type=DATE
         |     +-expr=
@@ -180,49 +234,58 @@ QueryStmt
         +-grouping_set_list=
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=INT32, column=$groupby.key#6)
-        | |   +-ColumnRef(type=DATE, column=$groupby.date#7)
+        | |   +-ColumnRef(type=INT32, column=$groupby.key#7)
+        | |   +-ColumnRef(type=DATE, column=$groupby.date#8)
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=INT32, column=$groupby.key#6)
+        | |   +-ColumnRef(type=INT32, column=$groupby.key#7)
         | +-GroupingSet
         +-rollup_column_list=
-          +-ColumnRef(type=INT32, column=$groupby.key#6)
-          +-ColumnRef(type=DATE, column=$groupby.date#7)
+        | +-ColumnRef(type=INT32, column=$groupby.key#7)
+        | +-ColumnRef(type=DATE, column=$groupby.date#8)
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=DATE, column=$groupby.date#8)
+            +-output_column=$grouping_call.$grouping_call1#9
 ==
 
 SELECT
   key,
   KitchenSink.int64_val,
   KitchenSink.date,
-  sum(KitchenSink.double_val)
+  sum(KitchenSink.double_val),
+  GROUPING(KitchenSink.int64_val),
+  GROUPING(KitchenSink.date),
 FROM TestTable
 GROUP BY ROLLUP(1, 2, 3);
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.key#5 AS key [INT32]
-| +-$groupby.int64_val#6 AS int64_val [INT64]
-| +-$groupby.date#7 AS date [DATE]
+| +-$groupby.key#7 AS key [INT32]
+| +-$groupby.int64_val#8 AS int64_val [INT64]
+| +-$groupby.date#9 AS date [DATE]
 | +-$aggregate.$agg1#4 AS `$col4` [DOUBLE]
+| +-$grouping_call.$grouping_call1#10 AS `$col5` [INT64]
+| +-$grouping_call.$grouping_call2#11 AS `$col6` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$groupby.key#5, $groupby.int64_val#6, $groupby.date#7, $aggregate.$agg1#4]
+    +-column_list=[$groupby.key#7, $groupby.int64_val#8, $groupby.date#9, $aggregate.$agg1#4, $grouping_call.$grouping_call1#10, $grouping_call.$grouping_call2#11]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.key#5, $groupby.int64_val#6, $groupby.date#7, $aggregate.$agg1#4]
+        +-column_list=[$groupby.key#7, $groupby.int64_val#8, $groupby.date#9, $aggregate.$agg1#4, $grouping_call.$grouping_call1#10, $grouping_call.$grouping_call2#11]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
         +-group_by_list=
-        | +-key#5 := ColumnRef(type=INT32, column=TestTable.key#1)
-        | +-int64_val#6 :=
+        | +-key#7 := ColumnRef(type=INT32, column=TestTable.key#1)
+        | +-int64_val#8 :=
         | | +-GetProtoField
         | |   +-type=INT64
         | |   +-expr=
         | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         | |   +-field_descriptor=int64_val
         | |   +-default_value=0
-        | +-date#7 :=
+        | +-date#9 :=
         |   +-GetProtoField
         |     +-type=DATE
         |     +-expr=
@@ -242,21 +305,30 @@ QueryStmt
         +-grouping_set_list=
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=INT32, column=$groupby.key#5)
-        | |   +-ColumnRef(type=INT64, column=$groupby.int64_val#6)
-        | |   +-ColumnRef(type=DATE, column=$groupby.date#7)
+        | |   +-ColumnRef(type=INT32, column=$groupby.key#7)
+        | |   +-ColumnRef(type=INT64, column=$groupby.int64_val#8)
+        | |   +-ColumnRef(type=DATE, column=$groupby.date#9)
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=INT32, column=$groupby.key#5)
-        | |   +-ColumnRef(type=INT64, column=$groupby.int64_val#6)
+        | |   +-ColumnRef(type=INT32, column=$groupby.key#7)
+        | |   +-ColumnRef(type=INT64, column=$groupby.int64_val#8)
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=INT32, column=$groupby.key#5)
+        | |   +-ColumnRef(type=INT32, column=$groupby.key#7)
         | +-GroupingSet
         +-rollup_column_list=
-          +-ColumnRef(type=INT32, column=$groupby.key#5)
-          +-ColumnRef(type=INT64, column=$groupby.int64_val#6)
-          +-ColumnRef(type=DATE, column=$groupby.date#7)
+        | +-ColumnRef(type=INT32, column=$groupby.key#7)
+        | +-ColumnRef(type=INT64, column=$groupby.int64_val#8)
+        | +-ColumnRef(type=DATE, column=$groupby.date#9)
+        +-grouping_call_list=
+          +-GroupingCall
+          | +-group_by_column=
+          | | +-ColumnRef(type=INT64, column=$groupby.int64_val#8)
+          | +-output_column=$grouping_call.$grouping_call1#10
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=DATE, column=$groupby.date#9)
+            +-output_column=$grouping_call.$grouping_call2#11
 ==
 
 SELECT
@@ -1070,113 +1142,200 @@ GROUP BY ROLLUP(STRUCT<INT64, STRUCT<INT64, STRING>>(key, (key, value)), value);
                 ^
 ==
 
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_SETS]
-SELECT SUM(key), value
+[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP((key, value), value);
 --
-
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#3 AS `$col1` [INT64]
-| +-$groupby.value#5 AS value [STRING]
+| +-$grouping_call.$grouping_call1#7 AS `$col2` [INT64]
+| +-$groupby.value#6 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3, $groupby.value#5]
+    +-column_list=[$aggregate.$agg1#3, $grouping_call.$grouping_call1#7, $groupby.value#6]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.value#5, $aggregate.$agg1#3]
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#3, $grouping_call.$grouping_call1#7]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-group_by_list=
-        | +-key#4 := ColumnRef(type=INT64, column=KeyValue.Key#1)
-        | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        | +-key#5 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-aggregate_list=
         | +-$agg1#3 :=
         |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-grouping_set_list=
-          +-Rollup
-            +-rollup_column_list=
-              +-GroupingSetMultiColumn
-              | +-column_list=
-              |   +-ColumnRef(type=INT64, column=$groupby.key#4)
-              |   +-ColumnRef(type=STRING, column=$groupby.value#5)
-              +-GroupingSetMultiColumn
-                +-column_list=
-                  +-ColumnRef(type=STRING, column=$groupby.value#5)
+        | +-Rollup
+        |   +-rollup_column_list=
+        |     +-GroupingSetMultiColumn
+        |     | +-column_list=
+        |     |   +-ColumnRef(type=INT64, column=$groupby.key#5)
+        |     |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+        |     +-GroupingSetMultiColumn
+        |       +-column_list=
+        |         +-ColumnRef(type=STRING, column=$groupby.value#6)
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
+| +-$grouping_call.$grouping_call1#7 AS `$col2` [INT64]
+| +-$groupby.value#6 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3, $grouping_call.$grouping_call1#7, $groupby.value#6]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#3, $grouping_call.$grouping_call1#7]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-key#5 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-aggregate_list=
+        | +-$agg1#3 :=
+        |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.key#5)
+        | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.key#5)
+        | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+        | +-GroupingSet
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7
 ==
 
 # Explicit single-level struct constructor is allowed when V_1_4_GROUPING_SETS is enabled
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_SETS]
-SELECT SUM(key), value
+[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP(STRUCT<INT64, STRING>(key, value), value);
 --
-
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#3 AS `$col1` [INT64]
-| +-$groupby.value#5 AS value [STRING]
+| +-$grouping_call.$grouping_call1#7 AS `$col2` [INT64]
+| +-$groupby.value#6 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3, $groupby.value#5]
+    +-column_list=[$aggregate.$agg1#3, $grouping_call.$grouping_call1#7, $groupby.value#6]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.value#5, $aggregate.$agg1#3]
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#3, $grouping_call.$grouping_call1#7]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-group_by_list=
-        | +-$groupbycol1#4 :=
+        | +-$groupbycol1#5 :=
         | | +-MakeStruct
         | |   +-type=STRUCT<INT64, STRING>
         | |   +-field_list=
         | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         | |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-        | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-aggregate_list=
         | +-$agg1#3 :=
         |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-grouping_set_list=
-          +-Rollup
-            +-rollup_column_list=
-              +-GroupingSetMultiColumn
-              | +-column_list=
-              |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#4)
-              +-GroupingSetMultiColumn
-                +-column_list=
-                  +-ColumnRef(type=STRING, column=$groupby.value#5)
+        | +-Rollup
+        |   +-rollup_column_list=
+        |     +-GroupingSetMultiColumn
+        |     | +-column_list=
+        |     |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#5)
+        |     +-GroupingSetMultiColumn
+        |       +-column_list=
+        |         +-ColumnRef(type=STRING, column=$groupby.value#6)
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
+| +-$grouping_call.$grouping_call1#7 AS `$col2` [INT64]
+| +-$groupby.value#6 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3, $grouping_call.$grouping_call1#7, $groupby.value#6]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#3, $grouping_call.$grouping_call1#7]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-$groupbycol1#5 :=
+        | | +-MakeStruct
+        | |   +-type=STRUCT<INT64, STRING>
+        | |   +-field_list=
+        | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-aggregate_list=
+        | +-$agg1#3 :=
+        |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#5)
+        | +-GroupingSet
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7
 ==
 
-
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT]
-\-- Implict single-level struct constructor is allowed when V_1_4_GROUPING_SETS isn't enabled
-SELECT SUM(key), value
+# Implict single-level struct constructor is allowed when V_1_4_GROUPING_SETS isn't enabled
+[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_BUILTIN]
+SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP((key, value), value);
 --
-
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#3 AS `$col1` [INT64]
-| +-$groupby.value#5 AS value [STRING]
+| +-$grouping_call.$grouping_call1#7 AS `$col2` [INT64]
+| +-$groupby.value#6 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3, $groupby.value#5]
+    +-column_list=[$aggregate.$agg1#3, $grouping_call.$grouping_call1#7, $groupby.value#6]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.value#5, $aggregate.$agg1#3]
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#3, $grouping_call.$grouping_call1#7]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-group_by_list=
-        | +-$groupbycol1#4 :=
+        | +-$groupbycol1#5 :=
         | | +-MakeStruct
         | |   +-type=STRUCT<INT64, STRING>
         | |   +-field_list=
         | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         | |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-        | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-aggregate_list=
         | +-$agg1#3 :=
         |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -1184,45 +1343,49 @@ QueryStmt
         +-grouping_set_list=
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#4)
-        | |   +-ColumnRef(type=STRING, column=$groupby.value#5)
+        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#4)
+        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#5)
         | +-GroupingSet
         +-rollup_column_list=
-          +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#4)
-          +-ColumnRef(type=STRING, column=$groupby.value#5)
+        | +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#5)
+        | +-ColumnRef(type=STRING, column=$groupby.value#6)
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7
 ==
 
-
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT]
-\-- Explicit single-level struct constructor is allowed when V_1_4_GROUPING_SETS isn't enabled
-SELECT SUM(key), value
+# Explicit single-level struct constructor is allowed when V_1_4_GROUPING_SETS isn't enabled
+[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_BUILTIN]
+SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP(STRUCT<INT64, STRING>(key, value), value);
 --
-
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#3 AS `$col1` [INT64]
-| +-$groupby.value#5 AS value [STRING]
+| +-$grouping_call.$grouping_call1#7 AS `$col2` [INT64]
+| +-$groupby.value#6 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3, $groupby.value#5]
+    +-column_list=[$aggregate.$agg1#3, $grouping_call.$grouping_call1#7, $groupby.value#6]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.value#5, $aggregate.$agg1#3]
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#3, $grouping_call.$grouping_call1#7]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-group_by_list=
-        | +-$groupbycol1#4 :=
+        | +-$groupbycol1#5 :=
         | | +-MakeStruct
         | |   +-type=STRUCT<INT64, STRING>
         | |   +-field_list=
         | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         | |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-        | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-aggregate_list=
         | +-$agg1#3 :=
         |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -1230,38 +1393,43 @@ QueryStmt
         +-grouping_set_list=
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#4)
-        | |   +-ColumnRef(type=STRING, column=$groupby.value#5)
+        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#4)
+        | |   +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#5)
         | +-GroupingSet
         +-rollup_column_list=
-          +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#4)
-          +-ColumnRef(type=STRING, column=$groupby.value#5)
+        | +-ColumnRef(type=STRUCT<INT64, STRING>, column=$groupby.$groupbycol1#5)
+        | +-ColumnRef(type=STRING, column=$groupby.value#6)
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7
 ==
 
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT]
-\-- Implicit nested struct constructor is allowed when V_1_2_GROUP_BY_STRUCT is enabled
-SELECT SUM(key), value
+# Implicit nested struct constructor is allowed when V_1_2_GROUP_BY_STRUCT is enabled
+[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_BUILTIN]
+SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP((key, (key, value)), value);
 --
-
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#3 AS `$col1` [INT64]
-| +-$groupby.value#5 AS value [STRING]
+| +-$grouping_call.$grouping_call1#7 AS `$col2` [INT64]
+| +-$groupby.value#6 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3, $groupby.value#5]
+    +-column_list=[$aggregate.$agg1#3, $grouping_call.$grouping_call1#7, $groupby.value#6]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.value#5, $aggregate.$agg1#3]
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#3, $grouping_call.$grouping_call1#7]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-group_by_list=
-        | +-$groupbycol1#4 :=
+        | +-$groupbycol1#5 :=
         | | +-MakeStruct
         | |   +-type=STRUCT<INT64, STRUCT<INT64, STRING>>
         | |   +-field_list=
@@ -1271,7 +1439,7 @@ QueryStmt
         | |       +-field_list=
         | |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         | |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-        | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-aggregate_list=
         | +-$agg1#3 :=
         |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -1279,15 +1447,20 @@ QueryStmt
         +-grouping_set_list=
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#4)
-        | |   +-ColumnRef(type=STRING, column=$groupby.value#5)
+        | |   +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#4)
+        | |   +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#5)
         | +-GroupingSet
         +-rollup_column_list=
-          +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#4)
-          +-ColumnRef(type=STRING, column=$groupby.value#5)
+        | +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#5)
+        | +-ColumnRef(type=STRING, column=$groupby.value#6)
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7
 ==
 
 [language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT]
@@ -1296,7 +1469,6 @@ SELECT SUM(key), value
 FROM KeyValue
 GROUP BY ROLLUP(STRUCT<INT64, STRUCT<INT64, STRING>>(key, (key, value)), value);
 --
-
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#3 AS `$col1` [INT64]
@@ -1339,39 +1511,38 @@ QueryStmt
           +-ColumnRef(type=STRING, column=$groupby.value#5)
 ==
 
+# Implicit nested struct constructor will be disallowed when V_1_4_GROUPING_SETS is enabled
 [language_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_2_GROUP_BY_STRUCT]
-\-- Implicit nested struct constructor will be disallowed when V_1_4_GROUPING_SETS is enabled
 SELECT SUM(key), value
 FROM KeyValue
 GROUP BY ROLLUP((key, (key, value)), value);
 --
-
-ERROR: Nested column list is not allowed in ROLLUP [at 4:23]
+ERROR: Nested column list is not allowed in ROLLUP [at 3:23]
 GROUP BY ROLLUP((key, (key, value)), value);
                       ^
 ==
 
 # Explicit nested struct constructor is still allowed when V_1_4_GROUPING_SETS is enabled
-[language_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_2_GROUP_BY_STRUCT]
-SELECT SUM(key), value
+[language_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_BUILTIN]
+SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP(STRUCT<INT64, STRUCT<INT64, STRING>>(key, (key, value)), value);
 --
-
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#3 AS `$col1` [INT64]
-| +-$groupby.value#5 AS value [STRING]
+| +-$grouping_call.$grouping_call1#7 AS `$col2` [INT64]
+| +-$groupby.value#6 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3, $groupby.value#5]
+    +-column_list=[$aggregate.$agg1#3, $grouping_call.$grouping_call1#7, $groupby.value#6]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.value#5, $aggregate.$agg1#3]
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#3, $grouping_call.$grouping_call1#7]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-group_by_list=
-        | +-$groupbycol1#4 :=
+        | +-$groupbycol1#5 :=
         | | +-MakeStruct
         | |   +-type=STRUCT<INT64, STRUCT<INT64, STRING>>
         | |   +-field_list=
@@ -1381,17 +1552,67 @@ QueryStmt
         | |       +-field_list=
         | |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         | |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-        | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-aggregate_list=
         | +-$agg1#3 :=
         |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-grouping_set_list=
-          +-Rollup
-            +-rollup_column_list=
-              +-GroupingSetMultiColumn
-              | +-column_list=
-              |   +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#4)
-              +-GroupingSetMultiColumn
-                +-column_list=
-                  +-ColumnRef(type=STRING, column=$groupby.value#5)
+        | +-Rollup
+        |   +-rollup_column_list=
+        |     +-GroupingSetMultiColumn
+        |     | +-column_list=
+        |     |   +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#5)
+        |     +-GroupingSetMultiColumn
+        |       +-column_list=
+        |         +-ColumnRef(type=STRING, column=$groupby.value#6)
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
+| +-$grouping_call.$grouping_call1#7 AS `$col2` [INT64]
+| +-$groupby.value#6 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3, $grouping_call.$grouping_call1#7, $groupby.value#6]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.value#6, $aggregate.$agg1#3, $grouping_call.$grouping_call1#7]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-$groupbycol1#5 :=
+        | | +-MakeStruct
+        | |   +-type=STRUCT<INT64, STRUCT<INT64, STRING>>
+        | |   +-field_list=
+        | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |     +-MakeStruct
+        | |       +-type=STRUCT<INT64, STRING>
+        | |       +-field_list=
+        | |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+        | +-value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-aggregate_list=
+        | +-$agg1#3 :=
+        |   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=STRING, column=$groupby.value#6)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=STRUCT<INT64, STRUCT<INT64, STRING>>, column=$groupby.$groupbycol1#5)
+        | +-GroupingSet
+        +-grouping_call_list=
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=STRING, column=$groupby.value#6)
+            +-output_column=$grouping_call.$grouping_call1#7

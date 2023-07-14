@@ -1130,6 +1130,16 @@ create function fn( a int32, b string 'und:ci' ) returns string
 
 ==
 
+create function myfunc(x FUNCTION<()->INT64>) as (false);
+--
+
+ERROR: FUNCTION type not supported [at 1:26]
+create function myfunc(x FUNCTION<()->INT64>) as (false);
+                         ^
+==
+
+==
+
 [disallow_duplicate_options]
 create function fn( s string )
 returns string language testlang as "return 'a';"

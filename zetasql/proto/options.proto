@@ -85,7 +85,7 @@ message AllowedHintsAndOptionsProto {
 }
 
 // Serialized form of AnalyzerOptions.
-// next id: 28
+// next id: 29
 message AnalyzerOptionsProto {
   message QueryParameterProto {
     optional string name = 1;
@@ -127,4 +127,5 @@ message AnalyzerOptionsProto {
   optional bool show_function_signature_mismatch_details = 27;
   optional string default_anon_function_report_format = 25;
   optional int64 default_anon_kappa_value = 26;
+  optional RewriteOptions rewrite_options = 28;
 }

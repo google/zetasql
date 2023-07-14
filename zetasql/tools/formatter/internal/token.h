@@ -120,8 +120,12 @@ class Token : public ParseToken {
     // Marks builtin-functions, some of which may be multipart, e.g.
     // D3A_COUNT.INIT()
     BUILTIN_FUNCTION,
-    // Mark open and closing brackets in brace constructors.
+    // Marks open and closing brackets inside brace constructors.
     BRACED_CONSTR_BRACKET,
+    // Marks the first open curly brace that starts a map constructor.
+    BRACED_CONSTR_FIRST_BRACKET,
+    // Marks the last closing curly brace that ends a map constructor.
+    BRACED_CONSTR_LAST_BRACKET,
     // Marks colons in braced constructors.
     BRACED_CONSTR_COLON,
     // Marks the beginning of a field name in braced constructor. It can be '('

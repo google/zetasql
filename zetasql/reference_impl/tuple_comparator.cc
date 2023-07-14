@@ -194,4 +194,65 @@ bool TupleComparator::IsUniquelyOrdered(
   return true;
 }
 
+bool TupleComparator::InvolvesUncertainArrayComparisons(
+    absl::Span<const TupleData* const> tuples) const {
+  if (tuples.empty()) {
+    return false;
+  }
+  // The implementation strategy here is to find a prefix of the sort keys which
+  // have no array values with uncertain orders in them. If the tuples have a
+  // unique ordering using only that prefix, then the order was not determined
+  // by comparing any array values with uncertain orders.
+  int safe_slot_count = 0;
+  for (const int slot_idx : slots_for_keys_) {
+    const Type* slot_type = tuples[0]->slot(slot_idx).value().type();
+    // This ZETASQL_DCHECK should be okay here. Its not. For some reason window scans
+    // are including columns in their tuple comparison keys that aren't part
+    // of the window definition order by clause.
+    // TODO: Stop including struct columns in window sorting and
+    //     enable this ZETASQL_DCHECK.
+    // ZETASQL_DCHECK(!slot_type->IsStruct())
+    //    << "Extra work needed in TupleCompartor to support ordering by "
+    //    << "structs because they might contain nested arrays with uncertain "
+    //    << "orders.";
+    if (!slot_type->IsArray()) {
+      safe_slot_count++;
+      continue;
+    }
+    bool contains_uncertain_array_order = false;
+    for (int i = 0; i < tuples.size(); ++i) {
+      if (InternalValue::ContainsArrayWithUncertainOrder(
+              tuples[i]->slot(slot_idx).value())) {
+        contains_uncertain_array_order = true;
+        break;  // Break tuple loop
+      }
+    }
+    if (contains_uncertain_array_order) {
+      break;  // Break slot loop, the current value of safe_slot_count is final.
+    }
+    safe_slot_count++;
+  }
+  // None of the key columns contains an array value with uncertain order.
+  if (safe_slot_count == slots_for_keys_.size()) {
+    return false;
+  }
+  // The first key column contains an array with uncertain order.
+  if (safe_slot_count == 0) {
+    return true;
+  }
+
+  TupleComparator prefix_comparator(
+      absl::MakeSpan(keys_).subspan(0, safe_slot_count),
+      absl::MakeSpan(slots_for_keys_).subspan(0, safe_slot_count), collators_);
+  for (int i = 1; i < tuples.size(); ++i) {
+    const TupleData* a = tuples[i - 1];
+    const TupleData* b = tuples[i];
+
+    if (!prefix_comparator(*a, *b)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace zetasql

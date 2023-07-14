@@ -1420,6 +1420,52 @@ void GetJSONFunctions(TypeFactory* type_factory,
       FunctionOptions()
           .add_required_language_feature(FEATURE_JSON_TYPE)
           .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+
+  InsertFunction(
+      functions, options, "json_array_insert", SCALAR,
+      {{json_type,
+        {json_type,
+         // Ensure at least one repetition ...
+         {string_type, FunctionArgumentTypeOptions().set_must_be_constant()},
+         {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()},
+         // ... Then any number of additional pairs of args.
+         {string_type, FunctionArgumentTypeOptions()
+                           .set_cardinality(REPEATED)
+                           .set_must_be_constant()},
+         {ARG_TYPE_ARBITRARY,
+          FunctionArgumentTypeOptions().set_cardinality(REPEATED)},
+         {bool_type, FunctionArgumentTypeOptions()
+                         .set_cardinality(FunctionEnums::OPTIONAL)
+                         .set_must_be_constant()
+                         .set_argument_name("insert_each_element", kNamedOnly)
+                         .set_default(Value::Bool(true))}},
+        FN_JSON_ARRAY_INSERT}},
+      FunctionOptions()
+          .add_required_language_feature(FEATURE_JSON_TYPE)
+          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+
+  InsertFunction(
+      functions, options, "json_array_append", SCALAR,
+      {{json_type,
+        {json_type,
+         // Ensure at least one repetition ...
+         {string_type, FunctionArgumentTypeOptions().set_must_be_constant()},
+         {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()},
+         // ... Then any number of additional pairs of args.
+         {string_type, FunctionArgumentTypeOptions()
+                           .set_cardinality(REPEATED)
+                           .set_must_be_constant()},
+         {ARG_TYPE_ARBITRARY,
+          FunctionArgumentTypeOptions().set_cardinality(REPEATED)},
+         {bool_type, FunctionArgumentTypeOptions()
+                         .set_cardinality(FunctionEnums::OPTIONAL)
+                         .set_must_be_constant()
+                         .set_argument_name("append_each_element", kNamedOnly)
+                         .set_default(Value::Bool(true))}},
+        FN_JSON_ARRAY_APPEND}},
+      FunctionOptions()
+          .add_required_language_feature(FEATURE_JSON_TYPE)
+          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 }
 
 absl::Status GetNumericFunctions(TypeFactory* type_factory,
@@ -1842,7 +1888,8 @@ void GetTrigonometricFunctions(TypeFactory* type_factory,
                        {{double_type, {double_type}, FN_SECH_DOUBLE}});
   InsertSimpleFunction(functions, options, "coth", SCALAR,
                        {{double_type, {double_type}, FN_COTH_DOUBLE}});
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_PI_FUNCTIONS)) {
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_PI_FUNCTIONS)) {
     constexpr absl::string_view kPiDoubleTemplate = R"sql(
     3.1415926535897931
     )sql";

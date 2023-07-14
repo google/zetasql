@@ -8,7 +8,7 @@
 #
 # Empty argument list.
 [default also_show_signature_mismatch_details]
-[default language_features=TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES]
+[default language_features=TABLE_VALUED_FUNCTIONS]
 select 1 from tvf_no_args()
 --
 QueryStmt
@@ -555,7 +555,7 @@ QueryStmt
       +-TVFScan(column_list=tvf_no_args_return_all_pod_types.[column_date#3, column_double#4, column_int32#6, column_time#9, column_uint64#11], tvf=tvf_no_args_return_all_pod_types(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[2, 3, 5, 8, 10])
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES,INTERVAL_TYPE]
+[language_features=TABLE_VALUED_FUNCTIONS,INTERVAL_TYPE]
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_bool_arg(true) union all
 select column_bool from tvf_exactly_1_bytes_arg(cast("" as bytes)) union all
@@ -2505,10 +2505,8 @@ QueryStmt
 # argument name and a column name introduced by an inline subquery. The
 # resolution of that name inside the TVF body changes from resolving to the
 # column name to argument name when choosing argument names first.
-[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES}}]
+[language_features=TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_templated_select_int64_arg_with_name_ambiguity(33);
---
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -2543,44 +2541,6 @@ QueryStmt
         | +-x#1 := Literal(type=INT64, value=-99)
         +-input_scan=
           +-SingleRowScan
---
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES
---
-QueryStmt
-+-output_column_list=
-| +-tvf_templated_select_int64_arg_with_name_ambiguity.x#1 AS x [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[tvf_templated_select_int64_arg_with_name_ambiguity.x#1]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=[tvf_templated_select_int64_arg_with_name_ambiguity.x#1]
-        +-tvf=tvf_templated_select_int64_arg_with_name_ambiguity((INT64) -> ANY TABLE)
-        +-signature=(literal INT64) -> TABLE<x INT64>
-        +-argument_list=
-        | +-FunctionArgument
-        |   +-expr=
-        |     +-Literal(type=INT64, value=33)
-        +-column_index_list=[0]
-
-With Templated SQL TVF signature:
-  tvf_templated_select_int64_arg_with_name_ambiguity(literal INT64) -> TABLE<x INT64>
-containing resolved templated query:
-QueryStmt
-+-output_column_list=
-| +-$query.x#2 AS x [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.x#2]
-    +-expr_list=
-    | +-x#2 := ArgumentRef(type=INT64, name="x")
-    +-input_scan=
-      +-ProjectScan
-        +-column_list=[$subquery1.x#1]
-        +-expr_list=
-        | +-x#1 := Literal(type=INT64, value=-99)
-        +-input_scan=
-          +-SingleRowScan
 ==
 
 ################################################################################
@@ -2605,6 +2565,14 @@ select column_bytes from tvf_no_args(42)
 ERROR: No matching signature for tvf_no_args for argument types: INT64. Supported signature: TVF_NO_ARGS() [at 1:26]
 select column_bytes from tvf_no_args(42)
                          ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_no_args
+  Argument types: INT64
+  Signature: TVF_NO_ARGS()
+    Signature accepts at most 0 arguments, found 1 argument [at 1:26]
+select column_bytes from tvf_no_args(42)
+                         ^
 ==
 
 # Empty output schema using "select 1".
@@ -2627,6 +2595,13 @@ select * from tvf_empty_output_schema()
 select * from tvf_exactly_3_int64_args()
 --
 ERROR: No matching signature for tvf_exactly_3_int64_args with no arguments. Supported signature: TVF_EXACTLY_3_INT64_ARGS(INT64, INT64, INT64) [at 1:15]
+select * from tvf_exactly_3_int64_args()
+              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_3_int64_args with no arguments
+  Signature: TVF_EXACTLY_3_INT64_ARGS(INT64, INT64, INT64)
+    Signature requires at least 3 arguments, found 0 arguments [at 1:15]
 select * from tvf_exactly_3_int64_args()
               ^
 ==
@@ -2765,12 +2740,28 @@ select column_bool from tvf_exactly_one_arg_type_any_1(1, 2, 3)
 ERROR: No matching signature for tvf_exactly_one_arg_type_any_1 for argument types: INT64, INT64, INT64. Supported signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_1(ANY) [at 1:25]
 select column_bool from tvf_exactly_one_arg_type_any_1(1, 2, 3)
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_one_arg_type_any_1
+  Argument types: INT64, INT64, INT64
+  Signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_1(ANY)
+    Signature accepts at most 1 argument, found 3 arguments [at 1:25]
+select column_bool from tvf_exactly_one_arg_type_any_1(1, 2, 3)
+                        ^
 ==
 
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_type_any_2(1, 2, 3)
 --
 ERROR: No matching signature for tvf_exactly_one_arg_type_any_2 for argument types: INT64, INT64, INT64. Supported signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_2(ANY) [at 1:25]
+select column_bool from tvf_exactly_one_arg_type_any_2(1, 2, 3)
+                        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_one_arg_type_any_2
+  Argument types: INT64, INT64, INT64
+  Signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_2(ANY)
+    Signature accepts at most 1 argument, found 3 arguments [at 1:25]
 select column_bool from tvf_exactly_one_arg_type_any_2(1, 2, 3)
                         ^
 ==
@@ -2781,6 +2772,14 @@ select column_bool from tvf_exactly_one_arg_array_type_any_1([1, 2, 3], [4, 5, 6
 ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_1 for argument types: ARRAY<INT64>, ARRAY<INT64>. Supported signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_1(ARRAY) [at 1:25]
 select column_bool from tvf_exactly_one_arg_array_type_any_1([1, 2, 3], [4, 5...
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_1
+  Argument types: ARRAY<INT64>, ARRAY<INT64>
+  Signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_1(ARRAY)
+    Signature accepts at most 1 argument, found 2 arguments [at 1:25]
+select column_bool from tvf_exactly_one_arg_array_type_any_1([1, 2, 3], [4, 5...
+                        ^
 ==
 
 # The TVF accepts a templated argument.
@@ -2789,12 +2788,28 @@ select column_bool from tvf_exactly_one_arg_array_type_any_2([1, 2, 3], [4, 5, 6
 ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_2 for argument types: ARRAY<INT64>, ARRAY<INT64>. Supported signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_2(ARRAY) [at 1:25]
 select column_bool from tvf_exactly_one_arg_array_type_any_2([1, 2, 3], [4, 5...
                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_2
+  Argument types: ARRAY<INT64>, ARRAY<INT64>
+  Signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_2(ARRAY)
+    Signature accepts at most 1 argument, found 2 arguments [at 1:25]
+select column_bool from tvf_exactly_one_arg_array_type_any_2([1, 2, 3], [4, 5...
+                        ^
 ==
 
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_type_arbitrary(1, 2, 3)
 --
 ERROR: No matching signature for tvf_exactly_one_arg_type_arbitrary for argument types: INT64, INT64, INT64. Supported signature: TVF_EXACTLY_ONE_ARG_TYPE_ARBITRARY(ANY) [at 1:25]
+select column_bool from tvf_exactly_one_arg_type_arbitrary(1, 2, 3)
+                        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_exactly_one_arg_type_arbitrary
+  Argument types: INT64, INT64, INT64
+  Signature: TVF_EXACTLY_ONE_ARG_TYPE_ARBITRARY(ANY)
+    Signature accepts at most 1 argument, found 3 arguments [at 1:25]
 select column_bool from tvf_exactly_one_arg_type_arbitrary(1, 2, 3)
                         ^
 ==

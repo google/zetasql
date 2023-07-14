@@ -11,7 +11,7 @@
 # type bool and bytes (rather than passing through the schema of the input
 # relation).
 [default also_show_signature_mismatch_details]
-[default language_features=TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES]
+[default language_features=TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY]
 select * from tvf_one_relation_arg_with_fixed_output(
     (select cast(42 as bool) as bool_column))
 --
@@ -5561,20 +5561,14 @@ QueryStmt
 # argument that does not include column 'x'. In all cases for that TVF, the 'x'
 # path expression resolves to the scalar argument. The TVF with "no_schema" uses
 # `ANY TABLE` instead of specifying a schema for the table argument. In that
-# case, when the supplied subquery includes a column 'x' and the language
-# feature FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES is off, the 'x' path
+# case, when the supplied subquery includes a column 'x', the 'x' path
 # expression is resolved to the column implied by scanning the table argument in
-# the FROM clause. With FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES turned on,
-# the 'x' path expression resolves to the scalar argument.
-# When the argument table uses the column name 'y' instead, there is no
-# difference.
-[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES}}]
+# the FROM clause.
+[language_features=TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_templated_select_scalar_and_relation_args{{|_no_schema}}(
     /*x=*/33, (SELECT 1 AS key, 2 as {{x|y}}));
 --
-ALTERNATION GROUPS:
-    TABLE_VALUED_FUNCTIONS,,x
-    TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES,,x
+ALTERNATION GROUP: x
 --
 QueryStmt
 +-output_column_list=
@@ -5625,9 +5619,7 @@ QueryStmt
             +-ColumnRef(type=INT64, column=t.key#1)
             +-ArgumentRef(type=INT64, name="x")
 --
-ALTERNATION GROUPS:
-    TABLE_VALUED_FUNCTIONS,,y
-    TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES,,y
+ALTERNATION GROUP: y
 --
 QueryStmt
 +-output_column_list=
@@ -5678,7 +5670,7 @@ QueryStmt
             +-ColumnRef(type=INT64, column=t.key#1)
             +-ArgumentRef(type=INT64, name="x")
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,_no_schema,x
+ALTERNATION GROUP: _no_schema,x
 --
 QueryStmt
 +-output_column_list=
@@ -5726,9 +5718,7 @@ QueryStmt
             +-ColumnRef(type=INT64, column=t.key#1)
             +-ColumnRef(type=INT64, column=t.x#2)
 --
-ALTERNATION GROUPS:
-    TABLE_VALUED_FUNCTIONS,_no_schema,y
-    TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES,_no_schema,y
+ALTERNATION GROUP: _no_schema,y
 --
 QueryStmt
 +-output_column_list=
@@ -5775,66 +5765,16 @@ QueryStmt
           +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=t.key#1)
             +-ArgumentRef(type=INT64, name="x")
---
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES,_no_schema,x
---
-QueryStmt
-+-output_column_list=
-| +-tvf_templated_select_scalar_and_relation_args_no_schema.key#3 AS key [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[tvf_templated_select_scalar_and_relation_args_no_schema.key#3]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=[tvf_templated_select_scalar_and_relation_args_no_schema.key#3]
-        +-tvf=tvf_templated_select_scalar_and_relation_args_no_schema((INT64, ANY TABLE) -> ANY TABLE)
-        +-signature=(literal INT64, TABLE<key INT64, x INT64>) -> TABLE<key INT64>
-        +-argument_list=
-        | +-FunctionArgument
-        | | +-expr=
-        | |   +-Literal(type=INT64, value=33)
-        | +-FunctionArgument
-        |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=$subquery1.[key#1, x#2]
-        |   |   +-expr_list=
-        |   |   | +-key#1 := Literal(type=INT64, value=1)
-        |   |   | +-x#2 := Literal(type=INT64, value=2)
-        |   |   +-input_scan=
-        |   |     +-SingleRowScan
-        |   +-argument_column_list=$subquery1.[key#1, x#2]
-        +-column_index_list=[0]
-
-With Templated SQL TVF signature:
-  tvf_templated_select_scalar_and_relation_args_no_schema(literal INT64, TABLE<key INT64, x INT64>) -> TABLE<key INT64>
-containing resolved templated query:
-QueryStmt
-+-output_column_list=
-| +-t.key#1 AS key [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[t.key#1]
-    +-input_scan=
-      +-FilterScan
-        +-column_list=[t.key#1]
-        +-input_scan=
-        | +-RelationArgumentScan(column_list=[t.key#1], name="t")
-        +-filter_expr=
-          +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=t.key#1)
-            +-ArgumentRef(type=INT64, name="x")
 ==
 
 # A function where the SELECT list path expression could resolve to a qualifed
 # struct field (for an argument struct) or a qualified column name (for a table
-# scanned in the FROM clause). The FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES
-# language feature changes resolution from the column case to the struct field
-# case when enabled.
-[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES}}]
+# scanned in the FROM clause).
+[language_features=TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_templated_with_struct_param(STRUCT(1 as y, "2" as z),
                                               (select 3 as {{y|a}}, "4" as z));
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,y
+ALTERNATION GROUP: y
 --
 QueryStmt
 +-output_column_list=
@@ -5875,7 +5815,7 @@ QueryStmt
     +-input_scan=
       +-RelationArgumentScan(column_list=[t.y#1], name="t")
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,a
+ALTERNATION GROUP: a
 --
 ERROR: Invalid table-valued function tvf_templated_with_struct_param [at 1:15]
 SELECT * FROM tvf_templated_with_struct_param(STRUCT(1 as y, "2" as z),
@@ -5886,102 +5826,6 @@ select x.y from t as x
 Name y not found inside x [at 1:10]
 select x.y from t as x
          ^
---
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES,y
---
-QueryStmt
-+-output_column_list=
-| +-tvf_templated_with_struct_param.y#3 AS y [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[tvf_templated_with_struct_param.y#3]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=[tvf_templated_with_struct_param.y#3]
-        +-tvf=tvf_templated_with_struct_param((STRUCT<y INT64, z STRING>, ANY TABLE) -> ANY TABLE)
-        +-signature=(STRUCT<y INT64, z STRING>, TABLE<y INT64, z STRING>) -> TABLE<y INT64>
-        +-argument_list=
-        | +-FunctionArgument
-        | | +-expr=
-        | |   +-Literal(type=STRUCT<y INT64, z STRING>, value={y:1, z:"2"})
-        | +-FunctionArgument
-        |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=$subquery1.[y#1, z#2]
-        |   |   +-expr_list=
-        |   |   | +-y#1 := Literal(type=INT64, value=3)
-        |   |   | +-z#2 := Literal(type=STRING, value="4")
-        |   |   +-input_scan=
-        |   |     +-SingleRowScan
-        |   +-argument_column_list=$subquery1.[y#1, z#2]
-        +-column_index_list=[0]
-
-With Templated SQL TVF signature:
-  tvf_templated_with_struct_param(STRUCT<y INT64, z STRING>, TABLE<y INT64, z STRING>) -> TABLE<y INT64>
-containing resolved templated query:
-QueryStmt
-+-output_column_list=
-| +-$query.y#3 AS y [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.y#3]
-    +-expr_list=
-    | +-y#3 :=
-    |   +-GetStructField
-    |     +-type=INT64
-    |     +-expr=
-    |     | +-ArgumentRef(type=STRUCT<y INT64, z STRING>, name="x")
-    |     +-field_idx=0
-    +-input_scan=
-      +-RelationArgumentScan(name="t")
---
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES,a
---
-QueryStmt
-+-output_column_list=
-| +-tvf_templated_with_struct_param.y#3 AS y [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[tvf_templated_with_struct_param.y#3]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=[tvf_templated_with_struct_param.y#3]
-        +-tvf=tvf_templated_with_struct_param((STRUCT<y INT64, z STRING>, ANY TABLE) -> ANY TABLE)
-        +-signature=(STRUCT<y INT64, z STRING>, TABLE<a INT64, z STRING>) -> TABLE<y INT64>
-        +-argument_list=
-        | +-FunctionArgument
-        | | +-expr=
-        | |   +-Literal(type=STRUCT<y INT64, z STRING>, value={y:1, z:"2"})
-        | +-FunctionArgument
-        |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=$subquery1.[a#1, z#2]
-        |   |   +-expr_list=
-        |   |   | +-a#1 := Literal(type=INT64, value=3)
-        |   |   | +-z#2 := Literal(type=STRING, value="4")
-        |   |   +-input_scan=
-        |   |     +-SingleRowScan
-        |   +-argument_column_list=$subquery1.[a#1, z#2]
-        +-column_index_list=[0]
-
-With Templated SQL TVF signature:
-  tvf_templated_with_struct_param(STRUCT<y INT64, z STRING>, TABLE<a INT64, z STRING>) -> TABLE<y INT64>
-containing resolved templated query:
-QueryStmt
-+-output_column_list=
-| +-$query.y#3 AS y [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.y#3]
-    +-expr_list=
-    | +-y#3 :=
-    |   +-GetStructField
-    |     +-type=INT64
-    |     +-expr=
-    |     | +-ArgumentRef(type=STRUCT<y INT64, z STRING>, name="x")
-    |     +-field_idx=0
-    +-input_scan=
-      +-RelationArgumentScan(name="t")
 ==
 
 # TVF alias can be used to unnest the array in the result schema.
@@ -6526,6 +6370,14 @@ select column_bytes from tvf_one_relation_arg_one_int64_arg((select 1, 2))
 ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg for argument types: TABLE<$col1 INT64, $col2 INT64>. Supported signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64) [at 1:26]
 select column_bytes from tvf_one_relation_arg_one_int64_arg((select 1, 2))
                          ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg
+  Argument types: TABLE<$col1 INT64, $col2 INT64>
+  Signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64)
+    Signature requires at least 2 arguments, found 1 argument [at 1:26]
+select column_bytes from tvf_one_relation_arg_one_int64_arg((select 1, 2))
+                         ^
 ==
 
 # A TVF accepts one relation argument and one scalar argument, but the query
@@ -6563,6 +6415,14 @@ select column_bytes from tvf_one_relation_arg_one_int64_arg(
     (select 1, 2), 3, 4)
 --
 ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg for argument types: TABLE<$col1 INT64, $col2 INT64>, INT64, INT64. Supported signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64) [at 1:26]
+select column_bytes from tvf_one_relation_arg_one_int64_arg(
+                         ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg
+  Argument types: TABLE<$col1 INT64, $col2 INT64>, INT64, INT64
+  Signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64)
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:26]
 select column_bytes from tvf_one_relation_arg_one_int64_arg(
                          ^
 ==

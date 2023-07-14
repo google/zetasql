@@ -516,10 +516,6 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "(ResolvedFunctionCallBase::collation_list not accessed and has "
       "non-default value)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kUnimplemented,
-      "(ResolvedWindowPartitioning::collation_list not accessed and has "
-      "non-default value)"));
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "The second argument of COLLATE\\(\\) must be a string literal"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -615,6 +611,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Invalid input to JSON_(REMOVE|SET)"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid input to JSON_STRIP_NULLS"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Invalid input to JSON_ARRAY_(INSERT|APPEND)"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

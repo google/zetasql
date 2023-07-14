@@ -136,6 +136,8 @@ std::string ToIdentifierLiteral(absl::string_view str,
                                 bool quote_reserved_keywords = true);
 std::string ToIdentifierLiteral(IdString str,
                                 bool quote_reserved_keywords = true);
+// The output will always be quoted with backticks.
+std::string ToAlwaysQuotedIdentifierLiteral(absl::string_view str);
 
 // Convert an identifier path to a string, quoting identifiers if necessary.
 // If <quote_reserved_keywords> is true then all reserved (including

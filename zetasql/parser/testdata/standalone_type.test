@@ -544,6 +544,316 @@ StructType [0-69] [struct<a string...lation_name>]
 STRUCT< a string COLLATE 'ABC', b string(100) COLLATE @collation_name >
 ==
 
+FUNCTION<()->{{INT64|STRUCT<INT64>}}>
+--
+
+ALTERNATION GROUP: INT64
+--
+FunctionType [0-19] [FUNCTION<()->INT64>]
+  FunctionTypeArgList [9-11] [()]
+  SimpleType [13-18] [INT64]
+    PathExpression [13-18] [INT64]
+      Identifier(INT64) [13-18] [INT64]
+--
+FUNCTION<() -> INT64 >
+--
+ALTERNATION GROUP: STRUCT<INT64>
+--
+FunctionType [0-27] [FUNCTION<()->STRUCT<INT64>>]
+  FunctionTypeArgList [9-11] [()]
+  StructType [13-26] [STRUCT<INT64>]
+    StructField [20-25] [INT64]
+      SimpleType [20-25] [INT64]
+        PathExpression [20-25] [INT64]
+          Identifier(INT64) [20-25] [INT64]
+--
+FUNCTION<() -> STRUCT< INT64 > >
+==
+
+FUNCTION<{{INT64|STRUCT<INT64>}}->INT64>
+--
+
+ALTERNATION GROUP: INT64
+--
+FunctionType [0-22] [FUNCTION<INT64->INT64>]
+  FunctionTypeArgList [9-14] [INT64]
+    SimpleType [9-14] [INT64]
+      PathExpression [9-14] [INT64]
+        Identifier(INT64) [9-14] [INT64]
+  SimpleType [16-21] [INT64]
+    PathExpression [16-21] [INT64]
+      Identifier(INT64) [16-21] [INT64]
+--
+FUNCTION<(INT64) -> INT64 >
+--
+ALTERNATION GROUP: STRUCT<INT64>
+--
+FunctionType [0-30] [FUNCTION<STRUCT<INT64>->INT64>]
+  FunctionTypeArgList [9-22] [STRUCT<INT64>]
+    StructType [9-22] [STRUCT<INT64>]
+      StructField [16-21] [INT64]
+        SimpleType [16-21] [INT64]
+          PathExpression [16-21] [INT64]
+            Identifier(INT64) [16-21] [INT64]
+  SimpleType [24-29] [INT64]
+    PathExpression [24-29] [INT64]
+      Identifier(INT64) [24-29] [INT64]
+--
+FUNCTION<(STRUCT< INT64 >) -> INT64 >
+==
+
+FUNCTION<({{INT64|STRUCT<INT64>}})->INT64>
+--
+
+ALTERNATION GROUP: INT64
+--
+FunctionType [0-24] [FUNCTION<(INT64)->INT64>]
+  FunctionTypeArgList [0-15] [FUNCTION<(INT64]
+    SimpleType [10-15] [INT64]
+      PathExpression [10-15] [INT64]
+        Identifier(INT64) [10-15] [INT64]
+  SimpleType [18-23] [INT64]
+    PathExpression [18-23] [INT64]
+      Identifier(INT64) [18-23] [INT64]
+--
+FUNCTION<(INT64) -> INT64 >
+--
+ALTERNATION GROUP: STRUCT<INT64>
+--
+FunctionType [0-32] [FUNCTION<(...>)->INT64>]
+  FunctionTypeArgList [0-23] [FUNCTION<(STRUCT<INT64>]
+    StructType [10-23] [STRUCT<INT64>]
+      StructField [17-22] [INT64]
+        SimpleType [17-22] [INT64]
+          PathExpression [17-22] [INT64]
+            Identifier(INT64) [17-22] [INT64]
+  SimpleType [26-31] [INT64]
+    PathExpression [26-31] [INT64]
+      Identifier(INT64) [26-31] [INT64]
+--
+FUNCTION<(STRUCT< INT64 >) -> INT64 >
+==
+
+FUNCTION<({{INT64|STRUCT<INT64>}}, {{INT64|STRUCT<INT64>}})->INT64>
+--
+
+ALTERNATION GROUP: INT64,INT64
+--
+FunctionType [0-31] [FUNCTION<(...INT64)->INT64>]
+  FunctionTypeArgList [0-22] [FUNCTION<(INT64, INT64]
+    SimpleType [10-15] [INT64]
+      PathExpression [10-15] [INT64]
+        Identifier(INT64) [10-15] [INT64]
+    SimpleType [17-22] [INT64]
+      PathExpression [17-22] [INT64]
+        Identifier(INT64) [17-22] [INT64]
+  SimpleType [25-30] [INT64]
+    PathExpression [25-30] [INT64]
+      Identifier(INT64) [25-30] [INT64]
+--
+FUNCTION<(INT64, INT64) -> INT64 >
+--
+ALTERNATION GROUP: INT64,STRUCT<INT64>
+--
+FunctionType [0-39] [FUNCTION<(...>)->INT64>]
+  FunctionTypeArgList [0-30] [FUNCTION<(INT64, STRUCT<INT64>]
+    SimpleType [10-15] [INT64]
+      PathExpression [10-15] [INT64]
+        Identifier(INT64) [10-15] [INT64]
+    StructType [17-30] [STRUCT<INT64>]
+      StructField [24-29] [INT64]
+        SimpleType [24-29] [INT64]
+          PathExpression [24-29] [INT64]
+            Identifier(INT64) [24-29] [INT64]
+  SimpleType [33-38] [INT64]
+    PathExpression [33-38] [INT64]
+      Identifier(INT64) [33-38] [INT64]
+--
+FUNCTION<(INT64, STRUCT< INT64 >) -> INT64 >
+--
+ALTERNATION GROUP: STRUCT<INT64>,INT64
+--
+FunctionType [0-39] [FUNCTION<(...INT64)->INT64>]
+  FunctionTypeArgList [0-30] [FUNCTION<(STRUCT<INT64>, INT64]
+    StructType [10-23] [STRUCT<INT64>]
+      StructField [17-22] [INT64]
+        SimpleType [17-22] [INT64]
+          PathExpression [17-22] [INT64]
+            Identifier(INT64) [17-22] [INT64]
+    SimpleType [25-30] [INT64]
+      PathExpression [25-30] [INT64]
+        Identifier(INT64) [25-30] [INT64]
+  SimpleType [33-38] [INT64]
+    PathExpression [33-38] [INT64]
+      Identifier(INT64) [33-38] [INT64]
+--
+FUNCTION<(STRUCT< INT64 >, INT64) -> INT64 >
+--
+ALTERNATION GROUP: STRUCT<INT64>,STRUCT<INT64>
+--
+FunctionType [0-47] [FUNCTION<(...>)->INT64>]
+  FunctionTypeArgList [0-38] [FUNCTION<(...STRUCT<INT64>]
+    StructType [10-23] [STRUCT<INT64>]
+      StructField [17-22] [INT64]
+        SimpleType [17-22] [INT64]
+          PathExpression [17-22] [INT64]
+            Identifier(INT64) [17-22] [INT64]
+    StructType [25-38] [STRUCT<INT64>]
+      StructField [32-37] [INT64]
+        SimpleType [32-37] [INT64]
+          PathExpression [32-37] [INT64]
+            Identifier(INT64) [32-37] [INT64]
+  SimpleType [41-46] [INT64]
+    PathExpression [41-46] [INT64]
+      Identifier(INT64) [41-46] [INT64]
+--
+FUNCTION<(STRUCT< INT64 >, STRUCT< INT64 >) -> INT64 >
+==
+
+# Parser allows this, analyzer will prevent.
+FUNCTION<STRING collate 'abc'->STRING>
+--
+
+FunctionType [0-38] [FUNCTION<STRING...'->STRING>]
+  FunctionTypeArgList [9-29] [STRING collate 'abc']
+    SimpleType [9-29] [STRING collate 'abc']
+      PathExpression [9-15] [STRING]
+        Identifier(STRING) [9-15] [STRING]
+      Collate [16-29] [collate 'abc']
+        StringLiteral('abc') [24-29] ['abc']
+  SimpleType [31-37] [STRING]
+    PathExpression [31-37] [STRING]
+      Identifier(STRING) [31-37] [STRING]
+--
+FUNCTION<(STRING COLLATE 'abc') -> STRING >
+==
+
+# Parser allows this, analyzer will prevent.
+FUNCTION<STRING(8) collate 'abc'->STRING(8) collate 'abc'>
+--
+
+FunctionType [0-58] [FUNCTION<STRING...llate 'abc'>]
+  FunctionTypeArgList [9-32] [STRING(8) collate 'abc']
+    SimpleType [9-32] [STRING(8) collate 'abc']
+      PathExpression [9-15] [STRING]
+        Identifier(STRING) [9-15] [STRING]
+      TypeParameterList [15-17] [(8]
+        IntLiteral(8) [16-17] [8]
+      Collate [19-32] [collate 'abc']
+        StringLiteral('abc') [27-32] ['abc']
+  SimpleType [34-57] [STRING(8) collate 'abc']
+    PathExpression [34-40] [STRING]
+      Identifier(STRING) [34-40] [STRING]
+    TypeParameterList [40-42] [(8]
+      IntLiteral(8) [41-42] [8]
+    Collate [44-57] [collate 'abc']
+      StringLiteral('abc') [52-57] ['abc']
+--
+FUNCTION<(STRING(8) COLLATE 'abc') -> STRING(8) COLLATE 'abc' >
+==
+
+# Parser allows this, analyzer will prevent.
+FUNCTION<(STRING(8) collate 'abc')->STRING(8) collate 'abc'>
+--
+
+FunctionType [0-60] [FUNCTION<(...collate 'abc'>]
+  FunctionTypeArgList [0-33] [FUNCTION<(...collate 'abc']
+    SimpleType [10-33] [STRING(8) collate 'abc']
+      PathExpression [10-16] [STRING]
+        Identifier(STRING) [10-16] [STRING]
+      TypeParameterList [16-18] [(8]
+        IntLiteral(8) [17-18] [8]
+      Collate [20-33] [collate 'abc']
+        StringLiteral('abc') [28-33] ['abc']
+  SimpleType [36-59] [STRING(8) collate 'abc']
+    PathExpression [36-42] [STRING]
+      Identifier(STRING) [36-42] [STRING]
+    TypeParameterList [42-44] [(8]
+      IntLiteral(8) [43-44] [8]
+    Collate [46-59] [collate 'abc']
+      StringLiteral('abc') [54-59] ['abc']
+--
+FUNCTION<(STRING(8) COLLATE 'abc') -> STRING(8) COLLATE 'abc' >
+==
+
+FUNCTION<STRING collate 'abc'->STRING>
+--
+
+FunctionType [0-38] [FUNCTION<STRING...'->STRING>]
+  FunctionTypeArgList [9-29] [STRING collate 'abc']
+    SimpleType [9-29] [STRING collate 'abc']
+      PathExpression [9-15] [STRING]
+        Identifier(STRING) [9-15] [STRING]
+      Collate [16-29] [collate 'abc']
+        StringLiteral('abc') [24-29] ['abc']
+  SimpleType [31-37] [STRING]
+    PathExpression [31-37] [STRING]
+      Identifier(STRING) [31-37] [STRING]
+--
+FUNCTION<(STRING COLLATE 'abc') -> STRING >
+==
+
+FUNCTION<(STRING collate 'abc')->STRING>
+--
+
+FunctionType [0-40] [FUNCTION<(...)->STRING>]
+  FunctionTypeArgList [0-30] [FUNCTION<(STRING collate 'abc']
+    SimpleType [10-30] [STRING collate 'abc']
+      PathExpression [10-16] [STRING]
+        Identifier(STRING) [10-16] [STRING]
+      Collate [17-30] [collate 'abc']
+        StringLiteral('abc') [25-30] ['abc']
+  SimpleType [33-39] [STRING]
+    PathExpression [33-39] [STRING]
+      Identifier(STRING) [33-39] [STRING]
+
+--
+FUNCTION<(STRING COLLATE 'abc') -> STRING >
+==
+
+# Parser allows these, but the analyzer will toss an error.
+FUNCTION<()->INT64>{{(0)| collate 'c'|(0) collate 'c'}}
+--
+ALTERNATION GROUP: (0)
+--
+FunctionType [0-22] [FUNCTION<()->INT64>(0)]
+  FunctionTypeArgList [9-11] [()]
+  SimpleType [13-18] [INT64]
+    PathExpression [13-18] [INT64]
+      Identifier(INT64) [13-18] [INT64]
+  TypeParameterList [19-21] [(0]
+    IntLiteral(0) [20-21] [0]
+--
+FUNCTION<() -> INT64 > (0)
+--
+ALTERNATION GROUP:  collate 'c'
+--
+FunctionType [0-31] [FUNCTION<(...collate 'c']
+  FunctionTypeArgList [9-11] [()]
+  SimpleType [13-18] [INT64]
+    PathExpression [13-18] [INT64]
+      Identifier(INT64) [13-18] [INT64]
+  Collate [20-31] [collate 'c']
+    StringLiteral('c') [28-31] ['c']
+--
+FUNCTION<() -> INT64 > COLLATE 'c'
+--
+ALTERNATION GROUP: (0) collate 'c'
+--
+FunctionType [0-34] [FUNCTION<(...collate 'c']
+  FunctionTypeArgList [9-11] [()]
+  SimpleType [13-18] [INT64]
+    PathExpression [13-18] [INT64]
+      Identifier(INT64) [13-18] [INT64]
+  TypeParameterList [19-21] [(0]
+    IntLiteral(0) [20-21] [0]
+  Collate [23-34] [collate 'c']
+    StringLiteral('c') [31-34] ['c']
+--
+FUNCTION<() -> INT64 > (0) COLLATE 'c'
+==
+
+
 # Collate clause cannot be an expression.
 string collate concat('abc', 'def')
 --

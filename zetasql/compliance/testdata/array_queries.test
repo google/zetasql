@@ -1482,3 +1482,392 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, B
   {true, true, true, true, true, true, true, true, true, true, true, true},
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 ]
+
+==
+
+# In this test, the arrays have no guaranteed order, so the result of equality
+# is not knowable. This query should be marked as non-deterministic.
+[required_features=V_1_1_ARRAY_EQUALITY]
+[name=array_equality_on_incidentally_different_ordered_arrays]
+SELECT a, b, a = b
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) as a,
+         ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as b,
+)
+--
+ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
+  {
+    ARRAY<INT64>[unknown order:1, 2, 3],
+    ARRAY<INT64>[unknown order:3, 2, 1],
+    false
+  }
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guaranteed order, so the result of equality
+# is not knowable. This query should be marked as non-deterministic.
+[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_ARRAY]
+[name=array_distinct_from_on_incidentally_different_ordered_arrays]
+SELECT a, b, a IS NOT DISTINCT FROM b
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) as a,
+         ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as b,
+)
+--
+ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
+  {
+    ARRAY<INT64>[unknown order:1, 2, 3],
+    ARRAY<INT64>[unknown order:3, 2, 1],
+    false
+  }
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guaranteed order, and the element values
+# are the same 'set', but the array lengths are different. This is
+# deterministic, so the reference implementation should not signal that this
+# result is non-deterministic.
+[required_features=V_1_1_ARRAY_EQUALITY]
+[name=array_equality_on_incidentally_different_ordered_arrays_of_different_lenths]
+SELECT a, b, a = b
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3, 1]) as e) as a,
+         ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as b,
+)
+--
+ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
+  {
+    ARRAY<INT64>[unknown order:1, 2, 3, 1],
+    ARRAY<INT64>[unknown order:3, 2, 1],
+    false
+  }
+]
+==
+
+# In this test, the arrays have no guaranteed order, and the arrays have the
+# same length, but the sets of values are different. This is
+# deterministic, but its more expensive to compute than we probably want in
+# the equality operator, so we let this be a false positive for now.
+[required_features=V_1_1_ARRAY_EQUALITY]
+[name=array_equality_on_incidentally_different_ordered_arrays_of_different_value_sets]
+SELECT a, b, a = b
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 4]) as e) as a,
+         ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as b,
+)
+--
+ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
+  {
+    ARRAY<INT64>[unknown order:1, 2, 4],
+    ARRAY<INT64>[unknown order:3, 2, 1],
+    false
+  }
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guaranteed order, so the result of equality
+# is not knowable. This query should be marked as non-deterministic.
+[required_features=V_1_1_ARRAY_EQUALITY]
+[name=array_equality_on_incidentally_different_ordered_arrays_nested_in_structs]
+SELECT a, b, a = b
+FROM (
+  SELECT STRUCT(1, ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) AS f) as a,
+         STRUCT(2, ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) AS f) as b,
+)
+--
+ARRAY<STRUCT<
+        a STRUCT<INT64, f ARRAY<>>,
+        b STRUCT<INT64, f ARRAY<>>,
+        BOOL
+      >>
+[{{
+    1,
+    ARRAY<INT64>[unknown order:1, 2, 3]
+  },
+  {
+    2,
+    ARRAY<INT64>[unknown order:3, 2, 1]
+  },
+  false}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guaranteed order, so the result of equality
+# is not knowable. This query should be marked as non-deterministic.
+[required_features=V_1_1_ARRAY_EQUALITY]
+[name=array_equality_on_incidentally_different_ordered_arrays_embeed_in_ordered_arrays]
+SELECT a, b, a = b
+FROM (
+  SELECT [NULL, STRUCT(1, ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) AS f)] as a,
+         [NULL, STRUCT(2, ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) AS f)] as b,
+)
+--
+ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
+  {ARRAY<STRUCT<INT64, f ARRAY<>>>[known order:
+     NULL,
+     {
+       1,
+       ARRAY<INT64>[unknown order:1, 2, 3]
+     }
+   ],
+   ARRAY<STRUCT<INT64, f ARRAY<>>>[known order:
+     NULL,
+     {
+       2,
+       ARRAY<INT64>[unknown order:3, 2, 1]
+     }
+   ],
+   false}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guaranteed order, so the result of inequality
+# is not knowable. This query should be marked as non-deterministic.
+[required_features=V_1_3_ARRAY_ORDERING]
+[name=array_inequality_on_incidentally_different_ordered_arrays]
+SELECT a, b, a < b
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) as a,
+         ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as b,
+)
+--
+ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
+  {
+    ARRAY<INT64>[unknown order:1, 2, 3],
+    ARRAY<INT64>[unknown order:3, 2, 1],
+    true
+  }
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guaranteed order and which elements are the
+# prefix of the array is unknowable. The result of inequality is likewise
+# unknowable. This query should be marked as non-deterministic.
+[required_features=V_1_3_ARRAY_ORDERING]
+[name=array_inequality_on_incidentally_different_ordered_arrays_of_different_lenths]
+SELECT a, b, a < b
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3, 1]) as e) as a,
+         ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as b,
+)
+--
+ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
+  {
+    ARRAY<INT64>[unknown order:1, 2, 3, 1],
+    ARRAY<INT64>[unknown order:3, 2, 1],
+    true
+  }
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guaranteed order and which elements are the
+# prefix of the array is unknowable. The result of inequality is likewise
+# unknowable. This query should be marked as non-deterministic.
+[required_features=V_1_3_ARRAY_ORDERING]
+[name=array_lessequal_on_incidentally_different_ordered_arrays_of_different_lenths]
+SELECT a, b, a <= b
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3, 1]) as e) as a,
+         ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as b,
+)
+--
+ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
+  {
+    ARRAY<INT64>[unknown order:1, 2, 3, 1],
+    ARRAY<INT64>[unknown order:3, 2, 1],
+    true
+  }
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guaranteed internal order. It happens that
+# every element in the second array is larger than any element of the first
+# array. In this case, it is possible to know that a < b. So ideally, the
+# reference implementation does not report this as non-deterministic. This is
+# deterministic, but its more expensive to compute than we probably want in
+# the equality operator, so we let this be a false positive for now.
+[required_features=V_1_3_ARRAY_ORDERING]
+[name=array_inequality_on_incidentally_different_ordered_arrays_of_disjoint_value_ranges]
+SELECT a, b, a < b
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) as a,
+         ARRAY(SELECT e FROM UNNEST([4, 5, 6]) as e) as b,
+)
+--
+ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
+  {
+    ARRAY<INT64>[unknown order:1, 2, 3],
+    ARRAY<INT64>[unknown order:4, 5, 6],
+    true
+  }
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guaranteed internal order, so the order
+# between the output rows is unknowable. The result rows in this query should
+# have unknown order.
+[required_features=V_1_3_ARRAY_ORDERING]
+[name=array_order_by_on_incidentally_different_ordered_arrays]
+SELECT a
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) as a
+  UNION ALL
+  SELECT ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as a
+)
+ORDER BY a
+--
+ARRAY<STRUCT<a ARRAY<>>>[unknown order:
+  {ARRAY<INT64>[unknown order:1, 2, 3]},
+  {ARRAY<INT64>[unknown order:3, 2, 1]}
+]
+==
+
+# In this test, the arrays have no guaranteed internal order, but the leading
+# column in the order by key does. The row order of the final output is known.
+[required_features=V_1_3_ARRAY_ORDERING]
+[name=array_order_by_on_incidentally_different_ordered_arrays_with_ordered_prefix]
+SELECT a
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) as a, 1 AS b
+  UNION ALL
+  SELECT ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as a, 2 AS b
+)
+ORDER BY b, a
+--
+ARRAY<STRUCT<a ARRAY<>>>[known order:
+  {ARRAY<INT64>[unknown order:1, 2, 3]},
+  {ARRAY<INT64>[unknown order:3, 2, 1]}
+]
+==
+
+# In this test, the arrays have no guaranteed internal order, though the
+# trailing column in the order by key does. The result rows in this query
+# should have unknown order.
+[required_features=V_1_3_ARRAY_ORDERING]
+[name=array_order_by_on_incidentally_different_ordered_arrays_with_ordered_suffix]
+SELECT a
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) as a, 1 AS b
+  UNION ALL
+  SELECT ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as a, 2 AS b
+)
+ORDER BY a, b
+--
+ARRAY<STRUCT<a ARRAY<>>>[unknown order:
+  {ARRAY<INT64>[unknown order:1, 2, 3]},
+  {ARRAY<INT64>[unknown order:3, 2, 1]}
+]
+==
+
+# In this test, the arrays have no guaranteed internal order and the leading
+# column in the order by provides no useful information. The result rows in
+# this query should have unknown order.
+[required_features=V_1_3_ARRAY_ORDERING]
+[name=array_order_by_on_incidentally_different_ordered_arrays_with_unordered_prefix]
+SELECT a
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) as a, 1 AS b
+  UNION ALL
+  SELECT ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as a, 1 AS b
+)
+ORDER BY b, a
+--
+ARRAY<STRUCT<a ARRAY<>>>[unknown order:
+  {ARRAY<INT64>[unknown order:1, 2, 3]},
+  {ARRAY<INT64>[unknown order:3, 2, 1]}
+]
+==
+
+# In this test, the arrays have no guarenteed internal order, so whether the two
+# rows group  is not knowable.
+[required_features=V_1_2_GROUP_BY_ARRAY]
+[name=array_group_by_on_incidentally_different_ordered_arrays_nested_in_structs]
+SELECT a
+FROM (
+  SELECT ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) as a
+  UNION ALL
+  SELECT ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) as a
+)
+GROUP BY a
+--
+ARRAY<STRUCT<a ARRAY<>>>[unknown order:
+  {ARRAY<INT64>[unknown order:1, 2, 3]},
+  {ARRAY<INT64>[unknown order:3, 2, 1]}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guarenteed internal order, so whether the two
+# rows group  is not knowable.
+[required_features=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
+[name=array_group_by_on_incidentally_different_ordered_arrays_embedded_in_ordered_arrays]
+SELECT a
+FROM (
+  SELECT STRUCT(1, ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) AS f) as a
+  UNION ALL
+  SELECT STRUCT(2, ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) AS f) as a
+)
+GROUP BY a
+--
+ARRAY<STRUCT<a STRUCT<INT64, f ARRAY<>>>>[unknown order:
+  {{
+     1,
+     ARRAY<INT64>[unknown order:1, 2, 3]
+   }},
+  {{
+     2,
+     ARRAY<INT64>[unknown order:3, 2, 1]
+   }}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# In this test, the arrays have no guarenteed internal order, so whether the two
+# rows group  is not knowable.
+[required_features=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
+[name=array_group_by_on_incidentally_different_ordered_arrays]
+SELECT a
+FROM (
+  SELECT [NULL, STRUCT(1, ARRAY(SELECT e FROM UNNEST([1, 2, 3]) as e) AS f)] as a
+  UNION ALL
+  SELECT [NULL, STRUCT(2, ARRAY(SELECT e FROM UNNEST([3, 2, 1]) as e) AS f)] as a
+)
+GROUP BY a
+--
+ARRAY<STRUCT<a ARRAY<>>>[unknown order:
+  {ARRAY<STRUCT<INT64, f ARRAY<>>>[known order:
+     NULL,
+     {
+       1,
+       ARRAY<INT64>[unknown order:1, 2, 3]
+     }
+   ]},
+  {ARRAY<STRUCT<INT64, f ARRAY<>>>[known order:
+     NULL,
+     {
+       2,
+       ARRAY<INT64>[unknown order:3, 2, 1]
+     }
+   ]}
+]
+
+NOTE: Reference implementation reports non-determinism.

@@ -1038,24 +1038,24 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
   ASSERT_EQ(data.size(), 2);
   EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(),
             "<k:0,"
-            "d:[unordered: 1, 1, 2],"
+            "d:[1, 1, 2],"
             "e:[\"z\", \"y\", \"x\"],"
             "f:\"z,y,x\","
             "g:\"z|y|x\","
             "h:\"x,y,z\","
             "i:\"y,x,z\","
             "j:[1, 2],"
-            "l:[unordered: \"z\", \"x\", \"y\"]>");
+            "l:[\"z\", \"x\", \"y\"]>");
   EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(),
             "<k:1,"
-            "d:[unordered: NULL, NULL, 10, 10],"
+            "d:[NULL, NULL, 10, 10],"
             "e:[\"c\", \"b\", \"a\", NULL],"
             "f:\"c,b,a\","
             "g:\"c|b|a\","
             "h:\"a,c,b\","
             "i:\"a,c,b\","
             "j:[NULL, 10],"
-            "l:[unordered: \"c\", \"b\", \"a\", NULL]>");
+            "l:[\"c\", \"b\", \"a\", NULL]>");
   // Check for the extra slot.
   EXPECT_EQ(data[0].num_slots(), 10);
   EXPECT_EQ(data[1].num_slots(), 10);
@@ -1326,16 +1326,16 @@ TEST(CreateIteratorTest, AggregateLimit) {
   EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(),
             "<k:0,"
             "d:NULL,"
-            "e:[unordered: 1, 1],"
-            "f:[unordered: 1, 1, 2],"
+            "e:[1, 1],"
+            "f:[1, 1, 2],"
             "g:NULL,"
             "h:[\"z\", \"y\"],"
             "i:[\"z\", \"y\", \"x\"]>");
   EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(),
             "<k:1,"
             "d:NULL,"
-            "e:[unordered: NULL, NULL],"
-            "f:[unordered: NULL, NULL, 10, 10],"
+            "e:[NULL, NULL],"
+            "f:[NULL, NULL, 10, 10],"
             "g:NULL,"
             "h:[\"c\", \"b\"],"
             "i:[\"c\", \"b\", \"a\", NULL]>");
@@ -1464,9 +1464,9 @@ TEST(CreateIteratorTest, AggregateHaving) {
                        ReadFromTupleIterator(iter.get()));
   ASSERT_EQ(data.size(), 2);
   EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(),
-            "<k:0,d:[unordered: \"z\"],e:[unordered: \"x\", \"y\"]>");
+            "<k:0,d:[\"z\"],e:[\"x\", \"y\"]>");
   EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(),
-            "<k:1,d:[unordered: \"c\", \"b\"],e:[unordered: \"n\"]>");
+            "<k:1,d:[\"c\", \"b\"],e:[\"n\"]>");
   // Check for the extra slot.
   EXPECT_EQ(data[0].num_slots(), 4);
   EXPECT_EQ(data[1].num_slots(), 4);

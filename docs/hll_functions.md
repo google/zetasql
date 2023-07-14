@@ -24,6 +24,57 @@ and custom precision.
 
 ZetaSQL supports the following HLL++ functions:
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#hll_countextract"><code>HLL_COUNT.EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts a cardinality estimate of an HLL++ sketch.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#hll_countinit"><code>HLL_COUNT.INIT</code></a>
+
+</td>
+  <td>
+    Aggregates values of the same underlying type into a new HLL++ sketch.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#hll_countmerge"><code>HLL_COUNT.MERGE</code></a>
+
+</td>
+  <td>
+    Merges HLL++ sketches of the same underlying type into a new sketch, and
+    then gets the cardinality of the new sketch.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#hll_countmerge_partial"><code>HLL_COUNT.MERGE_PARTIAL</code></a>
+
+</td>
+  <td>
+    Merges HLL++ sketches of the same underlying type into a new sketch.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `HLL_COUNT.EXTRACT`
 
 ```
@@ -163,7 +214,7 @@ HLL_COUNT.MERGE(sketch)
 **Description**
 
 An aggregate function that returns the cardinality of several
-[HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
+[HLL++][hll-link-to-research-whitepaper] sketches by computing their union.
 
 Each `sketch` must be initialized on the same type. Attempts to merge sketches
 for different types results in an error. For example, you cannot merge a sketch

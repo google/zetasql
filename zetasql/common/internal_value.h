@@ -103,9 +103,17 @@ class InternalValue {
   }
 
   static std::string FormatInternal(const Value& x,
-                                    Value::FormatInternalOptions options) {
-    return x.FormatInternal(options);
+                                    bool include_array_ordereness) {
+    return x.FormatInternal(
+        {.force_type_at_top_level = true,
+         .include_array_ordereness = include_array_ordereness,
+         .indent = 0});
   }
+
+  // Returns true if `val` contains in its nested structure an array with two
+  // or more elements where the order between those elements is unknown because
+  // the array reports kIgnoresOrder.
+  static bool ContainsArrayWithUncertainOrder(const Value& val);
 };
 
 }  // namespace zetasql

@@ -4,20 +4,10 @@
 
 # Data definition language
 
-ZetaSQL specifies the syntax for data definition language (DDL)
-statements.
+Data definition language (DDL) statements let you create, alter, and delete
+ZetaSQL resources.
 
-Where possible, this topic provides a link to the product-specific documentation
-for each statement.
-
-## `CREATE`
-
-Note: Some documentation is pending for this feature.
-
-The `CREATE` statement creates an object. To learn more about creating
-specific types of objects, see the following sections.
-
-### `CREATE DATABASE`
+## `CREATE DATABASE`
 
 <pre>
 CREATE
@@ -50,7 +40,7 @@ CREATE DATABASE library OPTIONS(
 
 [hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
-### `CREATE TABLE`
+## `CREATE TABLE`
 
 <a id="create_table_statement"></a>
 
@@ -474,7 +464,7 @@ CREATE TABLE books AS (
 
 [primary-key]: #primary_key
 
-### `CREATE VIEW`
+## `CREATE VIEW`
 
 Note: The `RECURSIVE` keyword has been added, but documentation is pending.
 
@@ -511,7 +501,7 @@ The `CREATE VIEW` statement creates a view based on a specific query.
        that invoked the view are used to run the view, and are applied to each
        schema object the view accesses.
 
-### `CREATE EXTERNAL TABLE`
+## `CREATE EXTERNAL TABLE`
 
 <pre>
 CREATE
@@ -540,11 +530,11 @@ pointer to data that exists outside of the database.
 +   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
 
-### `CREATE SNAPSHOT TABLE`
+## `CREATE SNAPSHOT TABLE`
 
 Documentation is pending for this feature.
 
-### `CREATE INDEX`
+## `CREATE INDEX`
 
 <pre>
 CREATE
@@ -714,13 +704,13 @@ CREATE INDEX i1 ON KeyValue (Key) STORING (KeyValue);
 
 [hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
-### `CREATE_SCHEMA`
+## `CREATE_SCHEMA`
 
 <a id="create_schema_statement"></a>
 
 Documentation is pending for this feature.
 
-### `CREATE CONSTANT`
+## `CREATE CONSTANT`
 
 <pre>
 CREATE
@@ -777,7 +767,7 @@ SELECT (DEFAULT_HEIGHT + 5) AS result;
  *--------*/
 ```
 
-### `CREATE AGGREGATE FUNCTION`
+## `CREATE AGGREGATE FUNCTION`
 
 A user-defined aggregate function (UDA), enables you to create an
 aggregate function using another SQL expression or another programming language.
@@ -787,7 +777,7 @@ see [UDAs][udas].
 
 [udas]: https://github.com/google/zetasql/blob/master/docs/user-defined-aggregates.md#udas
 
-### `CREATE FUNCTION`
+## `CREATE FUNCTION`
 
 A user-defined function (UDF), enables you to create a scalar function using
 another SQL expression or another programming language.
@@ -796,23 +786,23 @@ result of those actions as a value. To create a UDF, see [UDFs][udfs].
 
 [udfs]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 
-### `CREATE MODEL`
+## `CREATE MODEL`
 
 Documentation is pending for this feature.
 
-### `CREATE PLACEMENT`
+## `CREATE PLACEMENT`
 
 Documentation is pending for this feature.
 
-### `CREATE PROCEDURE`
+## `CREATE PROCEDURE`
 
 Documentation is pending for this feature.
 
-### `CREATE ROW POLICY`
+## `CREATE ROW POLICY`
 
 Documentation is pending for this feature.
 
-### `CREATE PRIVILEGE RESTRICTION`
+## `CREATE PRIVILEGE RESTRICTION`
 
 <pre>
 CREATE
@@ -866,7 +856,7 @@ denied from exercising these privileges on the object.
     interpreted as having an empty ACL, in which case no users can exercise the
     privileges.
 
-### `CREATE TABLE FUNCTION`
+## `CREATE TABLE FUNCTION`
 
 A table function, also known as a table value function (TVF), is a function that
 returns a table.  A TVF is called in the `FROM` clause like a table subquery.

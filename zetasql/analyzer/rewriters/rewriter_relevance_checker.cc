@@ -16,6 +16,7 @@
 
 #include "zetasql/analyzer/rewriters/rewriter_relevance_checker.h"
 
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -170,6 +171,19 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     if (node->column_match_mode() != ResolvedSetOperationScan::BY_POSITION) {
       applicable_rewrites_->insert(
           ResolvedASTRewrite::REWRITE_SET_OPERATION_CORRESPONDING);
+    }
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedAggregateScan(
+      const ResolvedAggregateScan* node) override {
+    for (const std::unique_ptr<const ResolvedGroupingSetBase>&
+             grouping_set_base : node->grouping_set_list()) {
+      if (grouping_set_base->Is<ResolvedRollup>() ||
+          grouping_set_base->Is<ResolvedCube>()) {
+        applicable_rewrites_->insert(ResolvedASTRewrite::REWRITE_GROUPING_SET);
+        break;
+      }
     }
     return DefaultVisit(node);
   }

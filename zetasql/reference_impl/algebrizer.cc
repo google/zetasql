@@ -42,6 +42,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/functions/json.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
@@ -3817,8 +3818,12 @@ absl::Status Algebrizer::AlgebrizePartitionExpressions(
     const ResolvedWindowPartitioning* partition_by,
     absl::flat_hash_map<int, VariableId>* column_to_id_map,
     std::vector<std::unique_ptr<KeyArg>>* partition_by_keys) {
-  for (const std::unique_ptr<const ResolvedColumnRef>& partition_column_ref :
-       partition_by->partition_by_list()) {
+  ZETASQL_RET_CHECK(partition_by->collation_list().empty() ||
+            partition_by->collation_list().size() ==
+                partition_by->partition_by_list().size());
+  for (int i = 0; i < partition_by->partition_by_list().size(); ++i) {
+    const ResolvedColumnRef* partition_column_ref =
+        partition_by->partition_by_list(i);
     if (partition_column_ref->is_correlated()) {
       // Access the column field to prevent ZetaSQL from complaining that
       // the field is not accessed.
@@ -3840,6 +3845,16 @@ absl::Status Algebrizer::AlgebrizePartitionExpressions(
                      DerefExpr::Create(key, partition_column.type()));
     partition_by_keys->push_back(std::make_unique<KeyArg>(
         key, std::move(deref_key), KeyArg::kAscending));
+
+    if (!partition_by->collation_list().empty() &&
+        !partition_by->collation_list(i).Empty()) {
+      std::unique_ptr<ValueExpr> partition_by_collation;
+      ZETASQL_ASSIGN_OR_RETURN(partition_by_collation,
+                       AlgebrizeResolvedCollation(
+                           partition_by->collation_list(i), type_factory_));
+      partition_by_keys->back()->set_collation(
+          std::move(partition_by_collation));
+    }
   }
 
   return absl::OkStatus();

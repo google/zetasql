@@ -308,6 +308,8 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonObjectArrays(
 std::vector<FunctionTestCall> GetFunctionTestsJsonRemove();
 std::vector<FunctionTestCall> GetFunctionTestsJsonSet();
 std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls();
+std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert();
+std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

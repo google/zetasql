@@ -265,7 +265,7 @@ absl::StatusOr<Value> Value::MakeRange(const Value& start, const Value& end) {
       types::RangeTypeFromSimpleTypeKind(start.type_kind());
   // If both ends are not unbounded, then enforce that start < end.
   if (!start.is_null() && !end.is_null() && !start.LessThan(end)) {
-    return absl::InternalError(
+    return absl::InvalidArgumentError(
         "Range start element must be smaller than range end element");
   }
 
@@ -909,7 +909,8 @@ std::string Value::DebugString(bool verbose) const {
 
 // Format will wrap arrays and structs.
 std::string Value::Format(bool print_top_level_type) const {
-  return FormatInternal({.indent = 0, .force_type = print_top_level_type});
+  return FormatInternal(
+      {.force_type_at_top_level = print_top_level_type, .indent = 0});
 }
 
 // NOTE: There is a similar method in ../resolved_ast/sql_builder.cc.
@@ -959,8 +960,6 @@ std::string RepeatString(absl::string_view text, int times) {
   return result;
 }
 
-// Number of columns per indentation.
-const int kIndentStep = 2;
 // Character used to indent.
 const char* kIndentChar = " ";
 
@@ -1032,7 +1031,7 @@ static int FindSubstitutionMarker(absl::string_view block_template) {
 std::string FormatBlock(absl::string_view block_template,
                         const std::vector<std::string>& elements,
                         absl::string_view separator, int block_indent_cols,
-                        WrapStyle wrap_style) {
+                        WrapStyle wrap_style, int indent_step) {
   // The length of the template string preceding the substitution marker.
   // This prefix may or may not have line returns.
   int prefix_len = FindSubstitutionMarker(block_template);
@@ -1042,7 +1041,7 @@ std::string FormatBlock(absl::string_view block_template,
   // The column at which "COLUMN" style will wrap.
   int column_wrap_len = block_indent_cols + prefix_len - last_line_start;
   // The column at which "INDENT" style will wrap.
-  int indent_wrap_len = block_indent_cols + kIndentStep;
+  int indent_wrap_len = block_indent_cols + indent_step;
 
   if (wrap_style == WrapStyle::AUTO) {
     int count = elements.size();
@@ -1095,7 +1094,7 @@ std::string FormatBlock(absl::string_view block_template,
       sep = absl::StrCat(",\n", Indent(column_wrap_len));
       // Multi-line elements were formatted assuming they are at
       // block_indent_cols. They are actually at column_wrap_len.  Fix.
-      int additional_indent = column_wrap_len - indent_wrap_len + kIndentStep;
+      int additional_indent = column_wrap_len - indent_wrap_len + indent_step;
       for (const std::string& elem : elements) {
         indented_elements.push_back(ReIndentTail(elem, additional_indent));
       }
@@ -1116,7 +1115,7 @@ const int kStructIndent = 7;  // Length of "STRUCT<"
 // Helps FormatInternal print value types. This is a specific format for
 // types, so we choose not to add this as a generally used method on Type.
 std::string FormatType(const Type* type, ArrayElemFormat elem_format,
-                       int indent_cols) {
+                       int indent_cols, int indent_step) {
   ArrayElemFormat continue_elem_format =
       elem_format == ArrayElemFormat::FIRST_LEVEL_ONLY ? ArrayElemFormat::NONE
                                                        : elem_format;
@@ -1124,7 +1123,7 @@ std::string FormatType(const Type* type, ArrayElemFormat elem_format,
     std::string element_type =
         elem_format != ArrayElemFormat::NONE
             ? FormatType(type->AsArray()->element_type(), continue_elem_format,
-                         indent_cols + kArrayIndent)
+                         indent_cols + kArrayIndent, indent_step)
             : "";
     return Substitute("ARRAY<$0>", element_type);
   } else if (type->IsStruct()) {
@@ -1133,12 +1132,13 @@ std::string FormatType(const Type* type, ArrayElemFormat elem_format,
     for (int i = 0; i < struct_type->num_fields(); ++i) {
       const StructType::StructField& field = struct_type->field(i);
       fields[i] = FormatType(field.type, continue_elem_format,
-                             indent_cols + kStructIndent);
+                             indent_cols + kStructIndent, indent_step);
       if (!field.name.empty()) {
         fields[i] = Substitute("$0 $1", field.name, fields[i]);
       }
     }
-    return FormatBlock("STRUCT<$0>", fields, ",", indent_cols, WrapStyle::AUTO);
+    return FormatBlock("STRUCT<$0>", fields, ",", indent_cols, WrapStyle::AUTO,
+                       indent_step);
   } else if (type->IsProto()) {
     ZETASQL_CHECK(type->AsProto()->descriptor() != nullptr);
     return Substitute("PROTO<$0>", type->AsProto()->descriptor()->full_name());
@@ -1150,15 +1150,8 @@ std::string FormatType(const Type* type, ArrayElemFormat elem_format,
   }
 }
 
-Value::FormatInternalOptions Value::FormatInternalOptions::IncreaseIndent() {
-  FormatInternalOptions ret = *this;
-  ret.indent += kIndentStep;
-  // `force_type` only applies at the topmost level
-  ret.force_type = false;
-  return ret;
-}
-
-std::string Value::FormatInternal(FormatInternalOptions options) const {
+std::string Value::FormatInternal(
+    Type::FormatValueContentOptions options) const {
   if (type()->IsArray()) {
     // If the array is null or empty, print the whole type because there
     // are no printed elements that provide type information of nested arrays.
@@ -1167,7 +1160,9 @@ std::string Value::FormatInternal(FormatInternalOptions options) const {
     ArrayElemFormat elem_style = (is_null() || elements().empty())
                                      ? ArrayElemFormat::ALL
                                      : ArrayElemFormat::FIRST_LEVEL_ONLY;
-    std::string type_string = FormatType(type(), elem_style, options.indent);
+    std::string type_string =
+        FormatType(type(), elem_style, options.indent,
+                   Type::FormatValueContentOptions::kIndentStep);
     if (is_null()) {
       return absl::StrCat(type_string, "(NULL)");
     }
@@ -1200,14 +1195,18 @@ std::string Value::FormatInternal(FormatInternalOptions options) const {
                            "[", array_orderedness, "$0]");
     }
     return FormatBlock(templ, element_strings, ",", options.indent,
-                       WrapStyle::AUTO);
+                       WrapStyle::AUTO,
+                       Type::FormatValueContentOptions::kIndentStep);
   } else if (type()->IsStruct()) {
     std::string type_string =
-        options.force_type
-            ? FormatType(type(), ArrayElemFormat::NONE, options.indent)
+        options.force_type_at_top_level
+            ? FormatType(type(), ArrayElemFormat::NONE, options.indent,
+                         Type::FormatValueContentOptions::kIndentStep)
             : "";
     if (is_null()) {
-      return options.force_type ? Substitute("$0(NULL)", type_string) : "NULL";
+      return options.force_type_at_top_level
+                 ? Substitute("$0(NULL)", type_string)
+                 : "NULL";
     }
     const StructType* struct_type = type()->AsStruct();
     std::vector<std::string> field_strings(struct_type->num_fields());
@@ -1219,14 +1218,18 @@ std::string Value::FormatInternal(FormatInternalOptions options) const {
     std::string templ =
         absl::StrCat(absl::StrReplaceAll(type_string, {{"$", "$$"}}), "{$0}");
     return FormatBlock(templ, field_strings, ",", options.indent,
-                       WrapStyle::AUTO);
+                       WrapStyle::AUTO,
+                       Type::FormatValueContentOptions::kIndentStep);
   } else if (type()->IsProto()) {
     std::string type_string =
-        options.force_type
-            ? FormatType(type(), ArrayElemFormat::NONE, options.indent)
+        options.force_type_at_top_level
+            ? FormatType(type(), ArrayElemFormat::NONE, options.indent,
+                         Type::FormatValueContentOptions::kIndentStep)
             : "";
     if (is_null()) {
-      return options.force_type ? Substitute("$0(NULL)", type_string) : "NULL";
+      return options.force_type_at_top_level
+                 ? Substitute("$0(NULL)", type_string)
+                 : "NULL";
     }
     google::protobuf::DynamicMessageFactory message_factory;
     std::unique_ptr<google::protobuf::Message> m(this->ToMessage(&message_factory));
@@ -1239,14 +1242,18 @@ std::string Value::FormatInternal(FormatInternalOptions options) const {
     // cannot contain '$' characters.
     return FormatBlock(absl::StrCat(type_string, "{$0}"), field_strings, "",
                        options.indent,
-                       wraps ? WrapStyle::INDENT : WrapStyle::NONE);
+                       wraps ? WrapStyle::INDENT : WrapStyle::NONE,
+                       Type::FormatValueContentOptions::kIndentStep);
   } else if (type()->IsRangeType()) {
     std::string type_string =
-        options.force_type
-            ? FormatType(type(), ArrayElemFormat::NONE, options.indent)
+        options.force_type_at_top_level
+            ? FormatType(type(), ArrayElemFormat::NONE, options.indent,
+                         Type::FormatValueContentOptions::kIndentStep)
             : "";
     if (is_null()) {
-      return options.force_type ? Substitute("$0(NULL)", type_string) : "NULL";
+      return options.force_type_at_top_level
+                 ? Substitute("$0(NULL)", type_string)
+                 : "NULL";
     }
     std::vector<std::string> boundaries_strings;
     boundaries_strings.push_back(
@@ -1258,9 +1265,10 @@ std::string Value::FormatInternal(FormatInternalOptions options) const {
     std::string templ =
         absl::StrCat(absl::StrReplaceAll(type_string, {{"$", "$$"}}), "[$0)");
     return FormatBlock(templ, boundaries_strings, ",", options.indent,
-                       WrapStyle::AUTO);
+                       WrapStyle::AUTO,
+                       Type::FormatValueContentOptions::kIndentStep);
   } else {
-    return DebugString(options.force_type);
+    return DebugString(options.force_type_at_top_level);
   }
 }
 

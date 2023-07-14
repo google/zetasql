@@ -103,12 +103,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#31)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
-}
 ==
 
 # incomplete join condition
@@ -409,12 +403,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#31)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
-}
 ==
 
 # join where both tables contain user data with where a.uid=b.uid
@@ -618,12 +606,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#67)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#47], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="c")
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#59], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="d")
-}
 ==
 
 # reject joins where both tables contain user data without explict uid join
@@ -758,12 +740,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#31)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 4, 10], alias="a")
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, string#17, uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 4, 10], alias="b")
-}
 ==
 
 # complex join expr
@@ -847,12 +823,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#31)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
-}
 ==
 
 # complex join expr
@@ -1026,11 +996,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#37)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#20, uid#29], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10], alias="b")
-}
 ==
 
 # reject right join projecting the wrong uid
@@ -1175,11 +1140,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#37)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10], alias="a")
-}
 ==
 
 # reject left join with non-uid left table
@@ -1464,12 +1424,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#32)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
-}
 ==
 
 # reject full join with outer scan referencing uid
@@ -1726,12 +1680,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#35)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#25], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Support aggregation nested inside one side of a join
@@ -1830,12 +1778,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#33)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Support aggregation nested inside both sides of a join, with one side
@@ -1941,11 +1883,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#40)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # A simple join+group by query.
@@ -2018,11 +1955,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#40)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#33], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-}
 ==
 
 # string_val is the userid column for KitchenSinkWithUidValueTable
@@ -2169,12 +2101,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=35-63, column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t1")
-  TableScan(parse_location=85-113, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
-}
 ==
 
 # string_val is the userid column for KitchenSinkWithUidValueTable
@@ -2386,12 +2312,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#13)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=122-150, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
-  TableScan(parse_location=81-109, column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t1")
-}
 ==
 
 # Inner joins always use the left table as the userid, using the right table
@@ -2617,12 +2537,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#13)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=26-54, column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t1")
-  TableScan(parse_location=63-91, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
-}
 ==
 
 # Reject USING clause on the wrong column
@@ -2868,12 +2782,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#15)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=156-184, column_list=[KitchenSinkWithUidValueTable.value#4], table=KitchenSinkWithUidValueTable, column_index_list=[0])
-  TableScan(parse_location=72-100, column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
-}
 ==
 
 # TODO: Allow equivalent userid columns to be used interchangeably
@@ -3034,9 +2942,3 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#25)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
-}

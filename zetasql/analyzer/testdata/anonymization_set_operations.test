@@ -157,12 +157,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=154-185, column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(parse_location=86-117, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 --
 ALTERNATION GROUP: union,distinct
 --
@@ -258,12 +252,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=159-190, column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(parse_location=86-117, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 --
 ALTERNATION GROUP: intersect,all
 --
@@ -359,12 +347,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=158-189, column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(parse_location=86-117, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 --
 ALTERNATION GROUP: intersect,distinct
 --
@@ -460,12 +442,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=163-194, column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(parse_location=86-117, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 --
 ALTERNATION GROUP: except,all
 --
@@ -561,12 +537,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=155-186, column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(parse_location=86-117, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 --
 ALTERNATION GROUP: except,distinct
 --
@@ -662,12 +632,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#43)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=160-191, column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(parse_location=86-117, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}
 ==
 
 # Reject set operations without a consistent userid column
@@ -1722,13 +1686,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#17)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=171-195, column_list=T1StringAnonymizationUid.[uid#3, c2#4], table=T1StringAnonymizationUid, column_index_list=[0, 1])
-  TableScan(parse_location=236-260, column_list=T1StringAnonymizationUid.[uid#5, c2#6], table=T1StringAnonymizationUid, column_index_list=[0, 1])
-  TableScan(parse_location=86-110, column_list=T1StringAnonymizationUid.[uid#1, c2#2], table=T1StringAnonymizationUid, column_index_list=[0, 1])
-}
 ==
 
 # Support a mix of set operations with and without uid columns
@@ -1896,12 +1853,6 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#19)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=147-171, column_list=T1StringAnonymizationUid.[uid#3, c2#4], table=T1StringAnonymizationUid, column_index_list=[0, 1])
-  TableScan(parse_location=86-110, column_list=T1StringAnonymizationUid.[uid#1, c2#2], table=T1StringAnonymizationUid, column_index_list=[0, 1])
-}
 ==
 
 # Count (*) counting unique users.
@@ -2002,9 +1953,3 @@ QueryStmt
         |     +-Literal(parse_location=61-62, type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#37)
-
-[TableScan Groups]
-{
-  TableScan(parse_location=152-183, column_list=SimpleTypesWithAnonymizationUid.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-  TableScan(parse_location=84-115, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-}

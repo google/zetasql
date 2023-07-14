@@ -235,7 +235,7 @@ WHERE
     SELECT
       4
   )
-GROUP BY(
+GROUP BY (
     SELECT
       5
   ), EXISTS(

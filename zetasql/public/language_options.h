@@ -217,6 +217,8 @@ class LanguageOptions {
                rhs.supported_generic_sub_entity_types_ &&
            reserved_keywords_ == rhs.reserved_keywords_;
   }
+  bool operator!=(const LanguageOptions& rhs) const { return !operator==(rhs); }
+
   template <typename H>
   friend H AbslHashValue(H h, const LanguageOptions& value) {
     // absl::flat_hash_set does not support being absl Hash-ed.

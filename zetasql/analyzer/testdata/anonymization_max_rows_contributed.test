@@ -1,5 +1,5 @@
 # max_rows_contributed added to anonymization options
-[default language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED]
+[default language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization options(max_rows_contributed = 5)
 anon_count(*)
@@ -32,7 +32,16 @@ QueryStmt
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        | +-SampleScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#14]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=5)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
         +-aggregate_list=
         | +-$agg1#13 :=
         | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
@@ -46,11 +55,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#17)
         +-anonymization_option_list=
           +-max_rows_contributed := Literal(type=INT64, value=5)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Don't bound contributions when max_rows_contributed is set to NULL
@@ -106,11 +110,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
         +-anonymization_option_list=
           +-max_rows_contributed := Literal(type=INT64, value=NULL)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 ==
 
 # Count aggregation with max_rows_contributed
@@ -147,11 +146,24 @@ QueryStmt
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        | +-SampleScan
+        |   +-column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=3)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
         +-aggregate_list=
         | +-$agg1#13 :=
-        | | +-AggregateFunctionCall(ZetaSQL:anon_count(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
-        | |   +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+        | |     +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        | |     | +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        | |     +-Literal(type=INT64, value=0)
+        | |     +-Literal(type=INT64, value=1)
         | +-$k_threshold_col#17 :=
         |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
         |     +-Literal(type=INT64, value=1)
@@ -161,14 +173,8 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#17)
         +-anonymization_option_list=
           +-max_rows_contributed := Literal(type=INT64, value=3)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
 ==
 
-[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
 # COUNT and COUNT(*) aggregations with reports and max_rows_contributed
 SELECT WITH ANONYMIZATION OPTIONS(max_rows_contributed = 3)
   ANON_COUNT({{*|int64}} WITH REPORT(format={{JSON|PROTO}}))
@@ -203,7 +209,16 @@ QueryStmt
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        | +-SampleScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#14]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=3)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
         +-aggregate_list=
         | +-$agg1#13 :=
         | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(0) INT64, optional(0) INT64) -> JSON)
@@ -217,11 +232,6 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#17)
         +-anonymization_option_list=
           +-max_rows_contributed := Literal(type=INT64, value=3)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: *,PROTO
 --
@@ -252,7 +262,16 @@ QueryStmt
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        | +-SampleScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#14]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=3)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
         +-aggregate_list=
         | +-$agg1#13 :=
         | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_proto(INT64, optional(0) INT64, optional(0) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
@@ -266,14 +285,10 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#17)
         +-anonymization_option_list=
           +-max_rows_contributed := Literal(type=INT64, value=3)
-
-[TableScan Groups]
-{
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
-}
 --
 ALTERNATION GROUP: int64,JSON
 --
+[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#13 AS `$col1` [JSON]
@@ -292,39 +307,11 @@ QueryStmt
         +-anonymization_option_list=
           +-max_rows_contributed := Literal(type=INT64, value=3)
 
-[REWRITTEN AST]
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#13 AS `$col1` [JSON]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#13]
-    +-input_scan=
-      +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.$agg1#13]
-        +-input_scan=
-        | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-        +-aggregate_list=
-        | +-$agg1#13 :=
-        | | +-AggregateFunctionCall(ZetaSQL:$anon_count_with_report_json(INT64, optional(0) INT64, optional(0) INT64) -> JSON)
-        | |   +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
-        | +-$k_threshold_col#17 :=
-        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
-        |     +-Literal(type=INT64, value=1)
-        |     +-Literal(type=INT64, value=0)
-        |     +-Literal(type=INT64, value=1)
-        +-k_threshold_expr=
-        | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#17)
-        +-anonymization_option_list=
-          +-max_rows_contributed := Literal(type=INT64, value=3)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
+Rewrite ERROR: Unsupported aggregation: ANON_COUNT WITH REPORT while using max_rows_contributed
 --
 ALTERNATION GROUP: int64,PROTO
 --
+[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
@@ -343,36 +330,7 @@ QueryStmt
         +-anonymization_option_list=
           +-max_rows_contributed := Literal(type=INT64, value=3)
 
-[REWRITTEN AST]
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#13]
-    +-input_scan=
-      +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.$agg1#13]
-        +-input_scan=
-        | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-        +-aggregate_list=
-        | +-$agg1#13 :=
-        | | +-AggregateFunctionCall(ZetaSQL:$anon_count_with_report_proto(INT64, optional(0) INT64, optional(0) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
-        | |   +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
-        | +-$k_threshold_col#17 :=
-        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
-        |     +-Literal(type=INT64, value=1)
-        |     +-Literal(type=INT64, value=0)
-        |     +-Literal(type=INT64, value=1)
-        +-k_threshold_expr=
-        | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#17)
-        +-anonymization_option_list=
-          +-max_rows_contributed := Literal(type=INT64, value=3)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
+Rewrite ERROR: Unsupported aggregation: ANON_COUNT WITH REPORT while using max_rows_contributed
 ==
 
 # Invalid max_rows_contributed, specified twice
