@@ -334,29 +334,34 @@ bool Chunk::SpaceBetweenTokens(const Token& token_before,
     return false;
   }
   // Map constructor:
-  // Always have space after ':' and before and after '{'
-  // e.g.: "field1: { a: 1 }"
+  // Always have space after ':' and after '{'
+  // e.g.: "field1: { a: 1 ..."
   if (token_before.Is(Token::Type::BRACED_CONSTR_COLON) ||
-      (token_before.IsOneOf({Token::Type::BRACED_CONSTR_BRACKET,
-                             Token::Type::BRACED_CONSTR_FIRST_BRACKET}) &&
-       token_before.GetKeyword() == "{") ||
-      (token_after.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
-       token_after.GetKeyword() == "{")) {
+      (token_before.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+       token_before.GetKeyword() == "{")) {
     return true;
     // Always have space before '}'.
-  } else if (token_after.IsOneOf({Token::Type::BRACED_CONSTR_BRACKET,
-                                  Token::Type::BRACED_CONSTR_LAST_BRACKET}) &&
+  } else if (token_after.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
              token_after.GetKeyword() == "}") {
     return true;
-    // After '}' leave space only when next token is also a bracket, and we are
-    // within a map constructor, otherwise use default rules. e.g.:
-    //   repeated: [ { a: 1 }, { a: 2 } ]
+    // Keep space before '{' only if when it goes after another map constructor
+    // bracket, otherwise default SQL spacing rules apply, e.g.:
+    //   repeated_field: [ { ...
     // but:
-    //   ARRAY<Foo>[{ a: 1 }, { a: 2 }]
+    //   ARRAY<Foo>[{ ...
+  } else if (token_after.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+             token_after.GetKeyword() == "{" &&
+             token_before.Is(Token::Type::BRACED_CONSTR_BRACKET)) {
+    return true;
+    // After '}' leave space only when next token is another map constructor
+    // bracket, otherwise use default rules. e.g.:
+    //   repeated_field: [ { ... } ]
+    // but:
+    //   ARRAY<Foo>[{ ... }]
   } else if (token_before.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
-             token_before.GetKeyword() == "}") {
-    return IsCloseParenOrBracket(token_after.GetKeyword()) ||
-           AllowSpaceBefore(token_after.GetKeyword());
+             token_before.GetKeyword() == "}" &&
+             token_after.Is(Token::Type::BRACED_CONSTR_BRACKET)) {
+    return true;
   }
 
   static const auto* kRequireSpaceBeforeParenthesis =
@@ -732,14 +737,14 @@ Chunk* Chunk::JumpToTopOpeningBracketIfAny() {
 }
 
 void Chunk::SetMatchingOpeningChunk(Chunk* matching_chunk) {
-  ZETASQL_DCHECK_NE(this, matching_chunk);
+  ABSL_DCHECK_NE(this, matching_chunk);
   if (matching_chunk != this) {
     matching_open_chunk_ = matching_chunk;
   }
 }
 
 void Chunk::SetMatchingClosingChunk(Chunk* matching_chunk) {
-  ZETASQL_DCHECK_NE(this, matching_chunk);
+  ABSL_DCHECK_NE(this, matching_chunk);
   if (matching_chunk != this) {
     matching_close_chunk_ = matching_chunk;
   }
@@ -2221,10 +2226,10 @@ void MarkTokensInBracedConstructors(const TokensView& tokens_view) {
       continue;
     }
     // Found braced constructor start.
-    tokens[t]->SetType(Token::Type::BRACED_CONSTR_FIRST_BRACKET);
+    tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
     const int end = FindMatchingClosingBracket(tokens, t);
     if (end < tokens.size()) {
-      tokens[end]->SetType(Token::Type::BRACED_CONSTR_LAST_BRACKET);
+      tokens[end]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
     }
     while (++t < end) {
       bool found_field_name = false;
@@ -2578,7 +2583,7 @@ void ChunkBlock::AddChunkBefore(class Chunk* chunk, ChunkBlock* block) {
         return;
       }
     }
-    ZETASQL_DLOG(FATAL) << "Given block is not a child of this chunk block.\n"
+    ABSL_DLOG(FATAL) << "Given block is not a child of this chunk block.\n"
                    "*this:\n"
                 << DebugString() << "\nblock:\n"
                 << block->DebugString();
@@ -2594,7 +2599,7 @@ void ChunkBlock::AddIndentedChunkBefore(class Chunk* chunk, ChunkBlock* block) {
       return;
     }
   }
-  ZETASQL_DLOG(FATAL) << "Given block is not a child of this chunk block.\n"
+  ABSL_DLOG(FATAL) << "Given block is not a child of this chunk block.\n"
                  "*this:\n"
               << DebugString() << "\nblock:\n"
               << block->DebugString();

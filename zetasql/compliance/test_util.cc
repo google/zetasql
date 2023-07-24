@@ -78,8 +78,7 @@ absl::Status ComputeTransitiveClosure(const google::protobuf::DescriptorPool* po
   std::set<std::string> delta_proto;  // dP
   std::set<std::string> delta_enum;   // dE
   for (absl::string_view proto : protos) {
-    const google::protobuf::Descriptor* descriptor =
-        pool->FindMessageTypeByName(std::string(proto));
+    const google::protobuf::Descriptor* descriptor = pool->FindMessageTypeByName(proto);
     if (!descriptor) {
       return absl::Status(absl::StatusCode::kNotFound,
                           absl::StrCat("Proto Message Type: ", proto));
@@ -172,7 +171,7 @@ static int64_t GetInt64FromEnv(absl::string_view env_var, int64_t def) {
   const char* env_val = getenv(std::string(env_var).c_str());
   if (env_val == nullptr) {return def;}
   int64_t val;
-  ZETASQL_CHECK(absl::SimpleAtoi(env_val, &val));
+  ABSL_CHECK(absl::SimpleAtoi(env_val, &val));
   return val;
 }
 

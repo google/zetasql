@@ -31,7 +31,7 @@
 namespace zetasql {
 
 InputArgumentType GetInputArgumentTypeForExpr(const ResolvedExpr* expr) {
-  ZETASQL_DCHECK(expr != nullptr);
+  ABSL_DCHECK(expr != nullptr);
   if (expr->type()->IsStruct() && expr->node_kind() == RESOLVED_MAKE_STRUCT) {
     const ResolvedMakeStruct* struct_expr = expr->GetAs<ResolvedMakeStruct>();
     std::vector<InputArgumentType> field_types;
@@ -90,21 +90,21 @@ InputArgumentType GetInputArgumentTypeForExpr(const ResolvedExpr* expr) {
 
 static InputArgumentType GetInputArgumentTypeForGenericArgument(
     const ASTNode* argument_ast_node, const ResolvedExpr* expr) {
-  ZETASQL_DCHECK(argument_ast_node != nullptr);
+  ABSL_DCHECK(argument_ast_node != nullptr);
 
   bool expects_null_expr = argument_ast_node->Is<ASTLambda>() ||
                            argument_ast_node->Is<ASTSequenceArg>();
   if (expr == nullptr) {
-    ZETASQL_DCHECK(expects_null_expr);
+    ABSL_DCHECK(expects_null_expr);
     if (argument_ast_node->Is<ASTLambda>()) {
       return InputArgumentType::LambdaInputArgumentType();
     } else if (argument_ast_node->Is<ASTSequenceArg>()) {
       return InputArgumentType::SequenceInputArgumentType();
     }
-    ZETASQL_DCHECK(false) << "A nullptr placeholder can only be used for a lambda or "
+    ABSL_DCHECK(false) << "A nullptr placeholder can only be used for a lambda or "
                      "sequence argument";
   }
-  ZETASQL_DCHECK(!expects_null_expr);
+  ABSL_DCHECK(!expects_null_expr);
   return GetInputArgumentTypeForExpr(expr);
 }
 
@@ -112,7 +112,7 @@ void GetInputArgumentTypesForGenericArgumentList(
     const std::vector<const ASTNode*>& argument_ast_nodes,
     const std::vector<std::unique_ptr<const ResolvedExpr>>& arguments,
     std::vector<InputArgumentType>* input_arguments) {
-  ZETASQL_DCHECK_EQ(argument_ast_nodes.size(), arguments.size());
+  ABSL_DCHECK_EQ(argument_ast_nodes.size(), arguments.size());
   input_arguments->clear();
   input_arguments->reserve(arguments.size());
   for (int i = 0; i < argument_ast_nodes.size(); i++) {

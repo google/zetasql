@@ -701,8 +701,8 @@ class Validator {
     }
     ~PushErrorContext() {
       if (node_ != nullptr) {
-        ZETASQL_DCHECK(!validator_->context_stack_.empty());
-        ZETASQL_DCHECK_EQ(validator_->context_stack_.back(), node_);
+        ABSL_DCHECK(!validator_->context_stack_.empty());
+        ABSL_DCHECK_EQ(validator_->context_stack_.back(), node_);
         validator_->context_stack_.pop_back();
       }
     }

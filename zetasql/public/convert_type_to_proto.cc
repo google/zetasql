@@ -151,7 +151,7 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
   proto_field->set_number(field_number);
   proto_field->set_label(label);
 
-  ZETASQL_DCHECK(!proto_field->has_type());
+  ABSL_DCHECK(!proto_field->has_type());
   switch (field_type->kind()) {
     case TYPE_INT32:
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_INT32);

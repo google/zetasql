@@ -11,7 +11,7 @@ RUN apt-get update && apt-get -qq install -y default-jre default-jdk
 RUN apt-get update && apt-get -qq install curl tar build-essential wget        \
     python python3 zip unzip
 
-ENV BAZEL_VERSION=4.2.2
+ENV BAZEL_VERSION=6.2.0
 
 # Install bazel from source
 RUN mkdir -p bazel                                                          && \

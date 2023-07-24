@@ -66,14 +66,14 @@ void ASTNode::ExpandLocationRangeEnd(const ParseLocationRange& expand_range) {
 }
 
 void ASTNode::AddChild(ASTNode* child) {
-  ZETASQL_DCHECK(child != nullptr);
+  ABSL_DCHECK(child != nullptr);
   children_.push_back(child);
   child->set_parent(this);
   ExpandLocationRangeEnd(child->GetParseLocationRange());
 }
 
 void ASTNode::AddChildFront(ASTNode* child) {
-  ZETASQL_DCHECK(child != nullptr);
+  ABSL_DCHECK(child != nullptr);
   children_.insert(children_.begin(), child);
   child->set_parent(this);
   ExpandLocationRangeEnd(child->GetParseLocationRange());
@@ -753,7 +753,7 @@ std::string ASTWindowFrame::FrameUnitToString(FrameUnit unit) {
     case RANGE:
       return "RANGE";
     default:
-      ZETASQL_LOG(DFATAL) << "Unknown analytic window frame unit: " << unit;
+      ABSL_LOG(ERROR) << "Unknown analytic window frame unit: " << unit;
       return "";
   }
 }
@@ -781,7 +781,7 @@ std::string ASTWindowFrameExpr::BoundaryTypeToString(BoundaryType type) {
     case UNBOUNDED_FOLLOWING:
       return "UNBOUNDED FOLLOWING";
     default:
-      ZETASQL_LOG(DFATAL) << "Unknown analytic window frame expression type:" << type;
+      ABSL_LOG(ERROR) << "Unknown analytic window frame expression type:" << type;
       return "";
   }
 }
@@ -1173,13 +1173,13 @@ std::string ASTMergeWhenClause::GetSQLForMatchType() const {
     case NOT_MATCHED_BY_TARGET:
       return "NOT_MATCHED_BY_TARGET";
     case NOT_SET:
-      ZETASQL_LOG(DFATAL) << "Match type of merge match clause is not set.";
+      ABSL_LOG(ERROR) << "Match type of merge match clause is not set.";
       return "";
   }
 }
 
 std::string ASTSampleSize::GetSQLForUnit() const {
-  ZETASQL_DCHECK_NE(unit_, NOT_SET);
+  ABSL_DCHECK_NE(unit_, NOT_SET);
   if (unit_ == NOT_SET) return "<UNKNOWN UNIT>";
   return unit_ == ROWS ? "ROWS" : "PERCENT";
 }
@@ -1563,7 +1563,7 @@ std::string ASTAuxLoadDataStatement::SingleNodeDebugString() const {
       result = "(overwrite";
       break;
     default:
-      ZETASQL_LOG(DFATAL) << "Unexpected InsertionMode for Load Data Statement: "
+      ABSL_LOG(ERROR) << "Unexpected InsertionMode for Load Data Statement: "
                   << insertion_mode_;
       result = "(unspecified";
   }

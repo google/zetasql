@@ -979,7 +979,7 @@ class Resolver {
       const ASTForeignKeyReference* ast_foreign_key_reference,
       ResolvedForeignKey* foreign_key);
 
-  // Resolves ZETASQL_CHECK constraints.
+  // Resolves ABSL_CHECK constraints.
   // - <name_scope>: used for resolving column names in the expression.
   // - <constraint_names>: contains list of constraint names already encountered
   //   so far, for checking uniqueness of new constraint names. The method is

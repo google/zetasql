@@ -318,7 +318,7 @@ class Conversion {
 
   // Returns itself if this Conversion is valid. Crashes otherwise.
   const Conversion& validated() const {
-    ZETASQL_CHECK(is_valid()) << "Attempt to access properties of invalid Conversion";
+    ABSL_CHECK(is_valid()) << "Attempt to access properties of invalid Conversion";
     return *this;
   }
 
@@ -369,8 +369,8 @@ class ConversionTypePair {
  public:
   ConversionTypePair(const Type* from_type, const Type* to_type)
       : from_type_(from_type), to_type_(to_type) {
-    ZETASQL_DCHECK(to_type);
-    ZETASQL_DCHECK(from_type);
+    ABSL_DCHECK(to_type);
+    ABSL_DCHECK(from_type);
   }
 
   // Explicitly copyable and assignable.

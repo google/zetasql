@@ -92,7 +92,7 @@ TEST(TypeModifiersTest, Creation) {
 
     TypeFactory type_factory;
     const ArrayType* array_of_string_type;
-    ZETASQL_CHECK_OK(
+    ZETASQL_QCHECK_OK(
         type_factory.MakeArrayType(types::StringType(), &array_of_string_type));
     std::unique_ptr<AnnotationMap> annotation_map =
         AnnotationMap::Create(array_of_string_type);

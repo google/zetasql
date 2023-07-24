@@ -146,7 +146,7 @@ class FunctionSignatureMatcher {
     // Changes the set to kind UNTYPED_EMPTY_ARRAY. Cannot be called if
     // InsertTypedArgument() has already been called.
     void SetToUntypedEmptyArray() {
-      ZETASQL_DCHECK(kind_ != TYPED_ARGUMENTS);
+      ABSL_DCHECK(kind_ != TYPED_ARGUMENTS);
       kind_ = UNTYPED_EMPTY_ARRAY;
     }
 
@@ -156,7 +156,7 @@ class FunctionSignatureMatcher {
     bool InsertTypedArgument(const InputArgumentType& input_argument,
                              bool set_dominant = false) {
       // Typed arguments have precedence over untyped arguments.
-      ZETASQL_DCHECK(!input_argument.is_untyped());
+      ABSL_DCHECK(!input_argument.is_untyped());
       kind_ = TYPED_ARGUMENTS;
       return typed_arguments_.Insert(input_argument, set_dominant);
     }
@@ -164,7 +164,7 @@ class FunctionSignatureMatcher {
     // Returns the set of typed arguments corresponding to this object. Can only
     // be called if 'kind() == TYPED_ARGUMENTS'.
     const InputArgumentTypeSet& typed_arguments() const {
-      ZETASQL_DCHECK_EQ(kind_, TYPED_ARGUMENTS);
+      ABSL_DCHECK_EQ(kind_, TYPED_ARGUMENTS);
       return typed_arguments_;
     }
 
@@ -365,7 +365,7 @@ SignatureArgumentKind RelatedTemplatedKind(SignatureArgumentKind kind) {
     default:
       break;
   }
-  ZETASQL_LOG(DFATAL) << "Unexpected RelatedTemplatedKind: "
+  ABSL_LOG(ERROR) << "Unexpected RelatedTemplatedKind: "
               << FunctionArgumentType::SignatureArgumentKindToString(kind);
   return kind;
 }
@@ -712,8 +712,8 @@ bool FunctionSignatureMatcher::
         ArgKindToInputTypesMap* templated_argument_map,
         SignatureMatchResult* signature_match_result,
         std::vector<FunctionArgumentOverride>* arg_overrides) const {
-  ZETASQL_DCHECK(arg_overrides);
-  ZETASQL_DCHECK(arg_ast_node->Is<ASTLambda>());
+  ABSL_DCHECK(arg_overrides);
+  ABSL_DCHECK(arg_ast_node->Is<ASTLambda>());
 
   // Get lambda argument names from AST
   const ASTLambda* ast_lambda = arg_ast_node->GetAs<ASTLambda>();
@@ -757,7 +757,7 @@ bool FunctionSignatureMatcher::
         zetasql_base::FindOrNull(*templated_argument_map, sig_arg_type.kind());
     // FunctionSignature::IsValid() guarantees that a templated argument of
     // lambda must have been seen before the lambda argument.
-    ZETASQL_DCHECK_NE(param_typeset, nullptr);
+    ABSL_DCHECK_NE(param_typeset, nullptr);
     if (param_typeset == nullptr) {
       SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
           "failed to infer type for %dth argument (%s) of lambda",
@@ -811,7 +811,7 @@ bool FunctionSignatureMatcher::
 
   // Resolve the lambda.
   std::unique_ptr<const ResolvedInlineLambda> resolved_lambda;
-  ZETASQL_DCHECK(resolve_lambda_callback != nullptr)
+  ABSL_DCHECK(resolve_lambda_callback != nullptr)
       << "Cannot resolve lambda argument with a nullptr callback";
   const absl::Status s = (*resolve_lambda_callback)(
       ast_lambda, arg_names, concrete_arg_types, body_result_type,
@@ -821,7 +821,7 @@ bool FunctionSignatureMatcher::
         "failed to resolve lambda body, error: %s", s.message()));
     return false;
   }
-  ZETASQL_DCHECK(resolved_lambda != nullptr);
+  ABSL_DCHECK(resolved_lambda != nullptr);
 
   const Type* resolved_body_type = resolved_lambda->body()->type();
   // Body result type doesn't match signature specification.
@@ -1020,19 +1020,19 @@ bool FunctionSignatureMatcher::
     ZETASQL_DCHECK_OK(status);
     if (!signature_matches) return false;
   } else if (signature_argument.IsModel()) {
-    ZETASQL_DCHECK(input_argument.is_model());
+    ABSL_DCHECK(input_argument.is_model());
     // We currently only support ANY MODEL signatures and there is no need to
     // to check for coercion given that the models are templated.
   } else if (signature_argument.IsConnection()) {
-    ZETASQL_DCHECK(input_argument.is_connection());
+    ABSL_DCHECK(input_argument.is_connection());
     // We currently only support ANY CONNECTION signatures and there is no
     // need to to check for coercion given that the connections are templated.
   } else if (signature_argument.IsSequence()) {
-    ZETASQL_DCHECK(input_argument.is_sequence());
+    ABSL_DCHECK(input_argument.is_sequence());
   } else if (signature_argument.kind() == ARG_TYPE_ARBITRARY) {
     // Arbitrary kind arguments match any input argument type.
   } else if (signature_argument.IsLambda()) {
-    ZETASQL_DCHECK(arg_overrides)
+    ABSL_DCHECK(arg_overrides)
         << "Resolved lambdas need to be put into arg_overrides";
     return CheckResolveLambdaTypeAndCollectTemplatedArguments(
         arg_idx, arg_ast_node, signature_argument, input_argument,
@@ -1353,7 +1353,7 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
       const InputArgumentType* dominant_type =
           type_set.typed_arguments().dominant_argument();
       if (dominant_type == nullptr) {
-        ZETASQL_DLOG(FATAL) << "Dominant type should be set for map key and value in "
+        ABSL_DLOG(FATAL) << "Dominant type should be set for map key and value in "
                     << "all cases";
         SET_MISMATCH_ERROR(absl::StrCat(
             "Unable to determine type for ",
@@ -1459,7 +1459,7 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
       const Type** element_type =
           zetasql_base::FindOrNull(*resolved_templated_arguments, related_kind);
       // ANY_K is handled before ARRAY_ANY_K.
-      ZETASQL_DCHECK_NE(element_type, nullptr);
+      ABSL_DCHECK_NE(element_type, nullptr);
 
       if ((*element_type)->IsArray()) {
         // Arrays of arrays are not supported.
@@ -1585,15 +1585,15 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
           zetasql_base::FindOrNull(resolved_templated_arguments, kind.second);
       if (arg_related_type != nullptr) {
         if ((*arg_type)->IsArray()) {
-          ZETASQL_DCHECK(
+          ABSL_DCHECK(
               (*arg_type)->AsArray()->element_type()->Equals(*arg_related_type))
               << "arg_type: " << (*arg_type)->DebugString()
               << "\nelement_type: "
               << (*arg_type)->AsArray()->element_type()->DebugString()
               << "\narg_related_type: " << (*arg_related_type)->DebugString();
         } else {
-          ZETASQL_DCHECK((*arg_related_type)->IsArray());
-          ZETASQL_DCHECK((*arg_related_type)
+          ABSL_DCHECK((*arg_related_type)->IsArray());
+          ABSL_DCHECK((*arg_related_type)
                      ->AsArray()
                      ->element_type()
                      ->Equals(*arg_type));

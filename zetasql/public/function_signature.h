@@ -128,7 +128,7 @@ class FunctionArgumentTypeOptions {
   }
 
   const TVFRelation& relation_input_schema() const {
-    ZETASQL_DCHECK(has_relation_input_schema());
+    ABSL_DCHECK(has_relation_input_schema());
     return *relation_input_schema_;
   }
 
@@ -137,7 +137,7 @@ class FunctionArgumentTypeOptions {
   }
   bool has_argument_name() const { return !argument_name_.empty(); }
   const std::string& argument_name() const {
-    ZETASQL_DCHECK(has_argument_name());
+    ABSL_DCHECK(has_argument_name());
     return argument_name_;
   }
 
@@ -303,7 +303,7 @@ class FunctionArgumentTypeOptions {
   // Also note that the type of <default_value> must outlive this object as well
   // as all the FunctionSignature instances created using this object.
   FunctionArgumentTypeOptions& set_default(Value default_value) {
-    ZETASQL_DCHECK(default_value.is_valid()) << "Default value must be valid";
+    ABSL_DCHECK(default_value.is_valid()) << "Default value must be valid";
     default_ = std::move(default_value);
     return *this;
   }
@@ -629,7 +629,7 @@ class FunctionArgumentType {
 
   // Returns information about a lambda typed function argument.
   const ArgumentTypeLambda& lambda() const {
-    ZETASQL_DCHECK(IsLambda());
+    ABSL_DCHECK(IsLambda());
     return *lambda_;
   }
 
@@ -840,7 +840,7 @@ class FunctionArgumentType::ArgumentTypeLambda {
 // zetasql::NameToFunctionMap function_map;
 // zetasql::NameToTypeMap types_map;
 // ZETASQL_CHECK_OK(zetasql::GetBuiltinFunctionsAndTypes(
-//     zetasql::ZetaSQLBuiltinFunctionOptions(language_opts), type_factory,
+//     zetasql::BuiltinFunctionOptions(language_opts), type_factory,
 //     function_map, types_map));
 //
 // for (const auto& [name, function] : function_map) {
@@ -863,7 +863,7 @@ class FunctionArgumentType::ArgumentTypeLambda {
 // ## Adjusting rewrite configuration of built-in functions for an engine.
 //
 // Engine code that sets up a ZetaSQL `Catalog` typically calls
-// `GetZetaSQLFunctionsAndTypes` (found in ./builtin_function.h) to get all
+// `GetBuiltinFunctionsAndTypes` (found in ./builtin_function.h) to get all
 // the function signatures for ZetaSQL core library functions. Some engines
 // might want to change some of the fields in `FunctionSignatureRewriteOptions`
 // to enable/disable the rewrite implementation for the function signature or to
@@ -992,7 +992,7 @@ class FunctionSignatureOptions {
 
   // Add a LanguageFeature that must be enabled for this function to be enabled.
   // This is used only on built-in functions, and determines whether they will
-  // be loaded in GetZetaSQLFunctions.
+  // be loaded in GetBuiltinFunctionsAndTypes.
   FunctionSignatureOptions& add_required_language_feature(
       LanguageFeature feature) {
     zetasql_base::InsertIfNotPresent(&required_language_features_, feature);
@@ -1095,9 +1095,8 @@ class FunctionSignatureOptions {
   // Stores any deprecation warnings associated with the body of a SQL function.
   std::vector<FreestandingDeprecationWarning> additional_deprecation_warnings_;
 
-
   // A set of LanguageFeatures that need to be enabled for the signature to be
-  // loaded in GetZetaSQLFunctions.
+  // loaded in GetBuiltinFunctionsAndTypes.
   std::set<LanguageFeature> required_language_features_;
 
   bool is_deprecated_ = false;
@@ -1220,7 +1219,7 @@ class FunctionSignature {
   // arguments expanded.
   // Requires: HasConcreteArguments()
   int NumConcreteArguments() const {
-    ZETASQL_DCHECK(HasConcreteArguments());
+    ABSL_DCHECK(HasConcreteArguments());
     return concrete_arguments_.size();
   }
 
@@ -1229,7 +1228,7 @@ class FunctionSignature {
   // are fully expanded in a concrete signature.
   // Requires that the signature has concrete arguments.
   const FunctionArgumentType& ConcreteArgument(int concrete_idx) const {
-    ZETASQL_DCHECK(HasConcreteArguments());
+    ABSL_DCHECK(HasConcreteArguments());
     return concrete_arguments_[concrete_idx];
   }
 

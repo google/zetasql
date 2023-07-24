@@ -99,7 +99,7 @@ TypeStore::~TypeStore() {
     delete annotation_map;
   }
   if (!factories_depending_on_this_.empty()) {
-    ZETASQL_LOG(DFATAL) << "Destructing TypeFactory " << this
+    ABSL_LOG(ERROR) << "Destructing TypeFactory " << this
                 << " is unsafe because TypeFactory "
                 << *factories_depending_on_this_.begin()
                 << " depends on it staying alive.\n"
@@ -137,7 +137,7 @@ void TypeStore::Unref() const {
 }
 
 void TypeStoreHelper::RefFromValue(const TypeStore* store) {
-  ZETASQL_DCHECK(store);
+  ABSL_DCHECK(store);
 
   // We still do TypeStore reference counting in debug mode regardless of
   // whether keep_alive_while_referenced_from_value_ is true or not: this is
@@ -152,7 +152,7 @@ void TypeStoreHelper::RefFromValue(const TypeStore* store) {
 }
 
 void TypeStoreHelper::UnrefFromValue(const TypeStore* store) {
-  ZETASQL_DCHECK(store);
+  ABSL_DCHECK(store);
 
 #ifdef NDEBUG
   if (!store->keep_alive_while_referenced_from_value_) return;
@@ -162,12 +162,12 @@ void TypeStoreHelper::UnrefFromValue(const TypeStore* store) {
 }
 
 const TypeStore* TypeStoreHelper::GetTypeStore(const TypeFactory* factory) {
-  ZETASQL_DCHECK(factory);
+  ABSL_DCHECK(factory);
   return factory->store_;
 }
 
 int64_t TypeStoreHelper::Test_GetRefCount(const TypeStore* store) {
-  ZETASQL_DCHECK(store);
+  ABSL_DCHECK(store);
   return store->ref_count_.load(std::memory_order_seq_cst);
 }
 
@@ -202,7 +202,7 @@ TypeFactory::~TypeFactory() {
   // types from this TypeFactory.
   if (!store_->keep_alive_while_referenced_from_value_ &&
       store_->ref_count_.load(std::memory_order_seq_cst) != 1) {
-    ZETASQL_LOG(DFATAL)
+    ABSL_LOG(ERROR)
         << "Type factory is released while there are still some objects "
            "that reference it";
   }
@@ -219,7 +219,7 @@ int TypeFactory::nesting_depth_limit() const {
 void TypeFactory::set_nesting_depth_limit(int value) {
   // We don't want to have to check the depth for simple types, so a depth of
   // 0 must be allowed.
-  ZETASQL_DCHECK_GE(value, 0);
+  ABSL_DCHECK_GE(value, 0);
   absl::MutexLock l(&store_->mutex_);
   nesting_depth_limit_ = value;
 }
@@ -266,8 +266,8 @@ const TYPE* TypeFactory::TakeOwnershipLocked(const TYPE* type) {
 template <class TYPE>
 const TYPE* TypeFactory::TakeOwnershipLocked(const TYPE* type,
                                              int64_t type_owned_bytes_size) {
-  ZETASQL_DCHECK_EQ(type->type_store_, store_);
-  ZETASQL_DCHECK_GT(type_owned_bytes_size, 0);
+  ABSL_DCHECK_EQ(type->type_store_, store_);
+  ABSL_DCHECK_GT(type_owned_bytes_size, 0);
   store_->owned_types_.push_back(type);
   estimated_memory_used_by_types_ += type_owned_bytes_size;
   return type;
@@ -304,9 +304,9 @@ const Type* TypeFactory::get_bignumeric() { return types::BigNumericType(); }
 const Type* TypeFactory::get_json() { return types::JsonType(); }
 
 const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
-  ZETASQL_CHECK(Type::IsSimpleType(kind)) << kind;
+  ABSL_CHECK(Type::IsSimpleType(kind)) << kind;
   const Type* type = types::TypeFromSimpleTypeKind(kind);
-  ZETASQL_CHECK(type != nullptr);
+  ABSL_CHECK(type != nullptr);
   return type;
 }
 
@@ -529,7 +529,7 @@ absl::Status TypeFactory::MakeRangeType(const Type* element_type,
       types::DateType(),
       types::DatetimeType(),
   };
-  ZETASQL_DCHECK(kStaticTypeSet->contains(element_type));
+  ABSL_DCHECK(kStaticTypeSet->contains(element_type));
   if (this != s_type_factory()) {
     return s_type_factory()->MakeRangeType(element_type, result);
   }
@@ -698,8 +698,8 @@ absl::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
     return_status = MakeStructType(struct_fields, result_type);
   } else if (existing_message_type != nullptr) {
     // Use the message_type we already have allocated.
-    ZETASQL_DCHECK(existing_message_type->IsProto());
-    ZETASQL_DCHECK_EQ(message->full_name(),
+    ABSL_DCHECK(existing_message_type->IsProto());
+    ABSL_DCHECK_EQ(message->full_name(),
               existing_message_type->AsProto()->descriptor()->full_name());
     *result_type = existing_message_type;
     return_status = absl::OkStatus();
@@ -1390,7 +1390,7 @@ void TypeFactory::AddDependency(const Type* other_type) {
     // longer cycles, so those won't give this error message, but the
     // destructor error will still fire because no destruction order is safe.
     if (store_->factories_depending_on_this_.contains(other_store)) {
-      ZETASQL_LOG(DFATAL) << "Created cyclical dependency between TypeFactories, "
+      ABSL_LOG(ERROR) << "Created cyclical dependency between TypeFactories, "
                      "which is not legal because there can be no safe "
                      "destruction order";
     }

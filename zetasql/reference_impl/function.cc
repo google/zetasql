@@ -102,6 +102,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
+#include "zetasql/base/source_location.h"
 #include "absl/types/span.h"
 #include "algorithms/algorithm.h"
 #include "algorithms/bounded-mean.h"
@@ -206,7 +207,7 @@ template <typename OutType, typename InType = OutType>
 bool InvokeUnary(typename UnaryExecutor<OutType, InType>::ptr function,
                  absl::Span<const Value> args, Value* result,
                  absl::Status* status) {
-  ZETASQL_CHECK_EQ(1, args.size());
+  ABSL_CHECK_EQ(1, args.size());
   OutType out;
   if (!function(args[0].template Get<InType>(), &out, status)) {
     return false;
@@ -241,7 +242,7 @@ template <typename OutType, typename InType1 = OutType,
 bool InvokeBinary(
     typename BinaryExecutor<OutType, InType1, InType2>::ptr function,
     absl::Span<const Value> args, Value* result, absl::Status* status) {
-  ZETASQL_CHECK_EQ(2, args.size());
+  ABSL_CHECK_EQ(2, args.size());
   OutType out;
   if (!function(args[0].template Get<InType1>(),
                 args[1].template Get<InType2>(), &out, status)) {
@@ -281,7 +282,7 @@ bool InvokeRoundTernary(typename TernaryRoundExecutor<OutType, InType1, InType2,
                                                       IntType3>::ptr function,
                         absl::Span<const Value> args, Value* result,
                         absl::Status* status) {
-  ZETASQL_CHECK_EQ(3, args.size());  // Crash OK
+  ABSL_CHECK_EQ(3, args.size());  // Crash OK
   functions::RoundingMode rounding_mode =
       static_cast<functions::RoundingMode>(args[2].enum_value());
   OutType out;
@@ -366,7 +367,8 @@ absl::Status GenerateArrayHelper(T start, T end, TStep step,
     bytes_so_far += tracked_value.physical_byte_size();
     if (bytes_so_far > context->options().max_value_byte_size) {
       return MakeMaxArrayValueByteSizeExceededError(
-          context->options().max_value_byte_size, ZETASQL_LOC);
+          context->options().max_value_byte_size,
+          zetasql_base::SourceLocation::current());
     }
     values->push_back(tracked_value);
   }
@@ -460,10 +462,10 @@ class FunctionMap {
   // implications here since it is called once per process invocation.
   void RegisterFunction(FunctionKind kind, absl::string_view name,
                         absl::string_view debug_name) {
-    ZETASQL_CHECK(function_debug_name_by_kind_.try_emplace(kind, debug_name).second)
+    ABSL_CHECK(function_debug_name_by_kind_.try_emplace(kind, debug_name).second)
         << "Duplicate function debug_name: " << debug_name;
     if (!name.empty()) {
-      ZETASQL_CHECK(function_kind_by_name_.try_emplace(name, kind).second)
+      ABSL_CHECK(function_kind_by_name_.try_emplace(name, kind).second)
           << "Duplicate function name: " << name;
     }
   }
@@ -1556,7 +1558,7 @@ BuiltinFunctionRegistry::GetScalarFunction(FunctionKind kind,
   if (it != GetFunctionMap().end()) {
     return it->second(output_type);
   } else {
-    return zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC)
+    return zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current())
            << BuiltinFunctionCatalog::GetDebugNameByKind(kind)
            << " is an optional function implementation which is not present "
               "in this binary or has not been registered";
@@ -1588,7 +1590,7 @@ BuiltinFunctionRegistry::GetFunctionMap() {
 // given array has more than one element and is not order-preserving.
 void MaybeSetNonDeterministicArrayOutput(const Value& array,
                                          EvaluationContext* context) {
-  ZETASQL_DCHECK(array.type()->IsArray());
+  ABSL_DCHECK(array.type()->IsArray());
   if (!array.is_null() && array.num_elements() > 1 &&
       (InternalValue::GetOrderKind(array) == InternalValue::kIgnoresOrder)) {
     context->SetNonDeterministicOutput();
@@ -2415,7 +2417,7 @@ bool LeastFunction::Eval(absl::Span<const TupleData* const> params,
                          absl::Span<const Value> args,
                          EvaluationContext* context, Value* result,
                          absl::Status* status) const {
-  ZETASQL_DCHECK_GT(args.size(), 0);
+  ABSL_DCHECK_GT(args.size(), 0);
   for (int i = 0; i < args.size(); i++) {
     if (*status = ValidateMicrosPrecision(args[i], context); !status->ok()) {
       return false;
@@ -2442,7 +2444,7 @@ bool GreatestFunction::Eval(absl::Span<const TupleData* const> params,
                             absl::Span<const Value> args,
                             EvaluationContext* context, Value* result,
                             absl::Status* status) const {
-  ZETASQL_DCHECK_GT(args.size(), 0);
+  ABSL_DCHECK_GT(args.size(), 0);
   for (int i = 0; i < args.size(); i++) {
     if (*status = ValidateMicrosPrecision(args[i], context); !status->ok()) {
       return false;
@@ -2468,7 +2470,7 @@ bool GreatestFunction::Eval(absl::Span<const TupleData* const> params,
 absl::StatusOr<Value> ToCodePointsFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 1);
+  ABSL_DCHECK_EQ(args.size(), 1);
   if (args[0].is_null()) return Value::Null(output_type());
 
   std::vector<int64_t> codepoints;
@@ -2496,7 +2498,7 @@ absl::StatusOr<Value> ToCodePointsFunction::Eval(
 absl::StatusOr<Value> CodePointsToFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 1);
+  ABSL_DCHECK_EQ(args.size(), 1);
   if (args[0].is_null()) return Value::Null(output_type());
 
   MaybeSetNonDeterministicArrayOutput(args[0], context);
@@ -2531,9 +2533,9 @@ absl::StatusOr<Value> CodePointsToFunction::Eval(
 absl::StatusOr<Value> FormatFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_GE(args.size(), 1);
+  ABSL_DCHECK_GE(args.size(), 1);
   if (args[0].is_null()) return Value::NullString();
-  ZETASQL_DCHECK(args[0].type()->IsString());
+  ABSL_DCHECK(args[0].type()->IsString());
 
   std::string output;
   bool is_null;
@@ -2568,8 +2570,8 @@ absl::StatusOr<Value> FormatFunction::Eval(
 absl::StatusOr<Value> GenerateArrayFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_GE(args.size(), 2);
-  ZETASQL_DCHECK_LE(args.size(), 4);
+  ABSL_DCHECK_GE(args.size(), 2);
+  ABSL_DCHECK_LE(args.size(), 4);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
@@ -2636,7 +2638,8 @@ absl::StatusOr<Value> GenerateArrayFunction::Eval(
   if (array_value.physical_byte_size() >
       context->options().max_value_byte_size) {
     return MakeMaxArrayValueByteSizeExceededError(
-        context->options().max_value_byte_size, ZETASQL_LOC);
+        context->options().max_value_byte_size,
+        zetasql_base::SourceLocation::current());
   }
   return array_value;
 }
@@ -2676,7 +2679,7 @@ absl::Status CheckArrayElementInRangeBucket(absl::Span<const Value> elements,
 absl::StatusOr<Value> RangeBucketFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 2);
+  ABSL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args) || IsNaN(args[0])) {
     return Value::NullInt64();
   }
@@ -2738,9 +2741,9 @@ bool ArithmeticFunction::Eval(absl::Span<const TupleData* const> params,
                               absl::Status* status) const {
   if (kind() == FunctionKind::kUnaryMinus ||
       kind() == FunctionKind::kSafeNegate) {
-    ZETASQL_DCHECK_EQ(1, args.size());
+    ABSL_DCHECK_EQ(1, args.size());
   } else {
-    ZETASQL_DCHECK_EQ(2, args.size());
+    ABSL_DCHECK_EQ(2, args.size());
   }
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
@@ -3158,7 +3161,7 @@ static bool IsDistinctFrom(const Value& x, const Value& y) {
 
   // The function signatures of $is_distinct_from/$is_not_distinct_from
   // guarantees that, in all other cases, x and y are the same type.
-  ZETASQL_DCHECK(x.type()->Equals(y.type()));
+  ABSL_DCHECK(x.type()->Equals(y.type()));
   return !x.Equals(y);
 }
 
@@ -3195,7 +3198,7 @@ bool ComparisonFunction::Eval(absl::Span<const TupleData* const> params,
                               absl::Span<const Value> args,
                               EvaluationContext* context, Value* result,
                               absl::Status* status) const {
-  ZETASQL_DCHECK_EQ(2, args.size());
+  ABSL_DCHECK_EQ(2, args.size());
 
   const Value& x = args[0];
   const Value& y = args[1];
@@ -3360,7 +3363,7 @@ bool ExistsFunction::Eval(absl::Span<const TupleData* const> params,
                           absl::Span<const Value> args,
                           EvaluationContext* context, Value* result,
                           absl::Status* status) const {
-  ZETASQL_DCHECK_EQ(1, args.size());
+  ABSL_DCHECK_EQ(1, args.size());
   *result = Value::Bool(!args[0].empty());
   return true;
 }
@@ -3369,13 +3372,14 @@ bool ArrayConcatFunction::Eval(absl::Span<const TupleData* const> params,
                                absl::Span<const Value> args,
                                EvaluationContext* context, Value* result,
                                absl::Status* status) const {
-  ZETASQL_DCHECK_LE(1, args.size());
+  ABSL_DCHECK_LE(1, args.size());
   if (HasNulls(args)) {
     Value tracked_value = Value::Null(output_type());
     if (tracked_value.physical_byte_size() >
         context->options().max_value_byte_size) {
       *status = MakeMaxArrayValueByteSizeExceededError(
-          context->options().max_value_byte_size, ZETASQL_LOC);
+          context->options().max_value_byte_size,
+          zetasql_base::SourceLocation::current());
       return false;
     }
     *result = std::move(tracked_value);
@@ -3387,7 +3391,8 @@ bool ArrayConcatFunction::Eval(absl::Span<const TupleData* const> params,
     bytes_so_far += input_array.physical_byte_size();
     if (bytes_so_far > context->options().max_value_byte_size) {
       *status = MakeMaxArrayValueByteSizeExceededError(
-          context->options().max_value_byte_size, ZETASQL_LOC);
+          context->options().max_value_byte_size,
+          zetasql_base::SourceLocation::current());
       return false;
     }
     num_values += input_array.num_elements();
@@ -3413,7 +3418,7 @@ bool ArrayLengthFunction::Eval(absl::Span<const TupleData* const> params,
                                absl::Span<const Value> args,
                                EvaluationContext* context, Value* result,
                                absl::Status* status) const {
-  ZETASQL_DCHECK_EQ(1, args.size());
+  ABSL_DCHECK_EQ(1, args.size());
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -3542,7 +3547,7 @@ bool ArrayElementFunction::Eval(absl::Span<const TupleData* const> params,
                                 absl::Span<const Value> args,
                                 EvaluationContext* context, Value* result,
                                 absl::Status* status) const {
-  ZETASQL_DCHECK_EQ(2, args.size());
+  ABSL_DCHECK_EQ(2, args.size());
   const Value& array = args[0];
   // If any of the arguments to the function is NULL, it should return NULL
   // of the element type.
@@ -3582,8 +3587,8 @@ bool ArrayElementFunction::Eval(absl::Span<const TupleData* const> params,
 absl::StatusOr<Value> ArrayToStringFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_GE(args.size(), 2);
-  ZETASQL_DCHECK_LE(args.size(), 3);
+  ABSL_DCHECK_GE(args.size(), 2);
+  ABSL_DCHECK_LE(args.size(), 3);
   if (HasNulls(args)) return Value::Null(output_type());
   std::string delim = args[1].type()->IsString() ? args[1].string_value()
                                                  : args[1].bytes_value();
@@ -3618,7 +3623,7 @@ absl::StatusOr<Value> ArrayToStringFunction::Eval(
 absl::StatusOr<Value> ArrayReverseFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 1);
+  ABSL_DCHECK_EQ(args.size(), 1);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
@@ -3633,7 +3638,7 @@ absl::StatusOr<Value> ArrayReverseFunction::Eval(
 absl::StatusOr<Value> ArrayIsDistinctFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 1);
+  ABSL_DCHECK_EQ(args.size(), 1);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
@@ -3667,7 +3672,7 @@ absl::StatusOr<Value> ArrayIsDistinctFunction::Eval(
 absl::StatusOr<Value> ArrayIncludesFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 2);
+  ABSL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
@@ -3692,7 +3697,7 @@ absl::StatusOr<Value> ArrayIncludesFunction::Eval(
 absl::StatusOr<Value> ArrayIncludesArrayFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 2);
+  ABSL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
@@ -4715,7 +4720,7 @@ absl::StatusOr<Value> ArrayFindFunctions::Eval(
 bool IsFunction::Eval(absl::Span<const TupleData* const> params,
                       absl::Span<const Value> args, EvaluationContext* context,
                       Value* result, absl::Status* status) const {
-  ZETASQL_DCHECK_EQ(1, args.size());
+  ABSL_DCHECK_EQ(1, args.size());
   const Value& val = args[0];
   switch (kind()) {
     case FunctionKind::kIsNull:
@@ -4806,7 +4811,7 @@ bool BitCastFunction::Eval(absl::Span<const TupleData* const> params,
                            absl::Span<const Value> args,
                            EvaluationContext* context, Value* result,
                            absl::Status* status) const {
-  ZETASQL_DCHECK_EQ(args.size(), 1);
+  ABSL_DCHECK_EQ(args.size(), 1);
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -4855,7 +4860,7 @@ bool LogicalFunction::Eval(absl::Span<const TupleData* const> params,
           known_false = true;
         }
       }
-      ZETASQL_DCHECK(!(known_true && known_false));
+      ABSL_DCHECK(!(known_true && known_false));
       *result = known_true
                     ? Value::Bool(true)
                     : (known_false ? Value::Bool(false) : Value::NullBool());
@@ -4873,14 +4878,14 @@ bool LogicalFunction::Eval(absl::Span<const TupleData* const> params,
           known_false = false;
         }
       }
-      ZETASQL_DCHECK(!(known_true && known_false));
+      ABSL_DCHECK(!(known_true && known_false));
       *result = known_true
                     ? Value::Bool(true)
                     : (known_false ? Value::Bool(false) : Value::NullBool());
       return true;
     }
     case FCT(FunctionKind::kNot, TYPE_BOOL): {
-      ZETASQL_DCHECK_EQ(1, args.size());
+      ABSL_DCHECK_EQ(1, args.size());
       *result =
           args[0].is_null() ? args[0] : Value::Bool(!args[0].bool_value());
       return true;
@@ -5019,7 +5024,7 @@ static absl::Status SetAnonBuilderEpsilon(const Value& arg, T* builder) {
     return ::zetasql_base::OutOfRangeErrorBuilder() << "Epsilon cannot be NULL";
   } else {
     // We check for NaN epsilon here because it will cause the privacy
-    // libraries to ZETASQL_DCHECK fail.  The privacy libraries should also probably
+    // libraries to ABSL_DCHECK fail.  The privacy libraries should also probably
     // not allow non-positive or non-finite values, but we don't check that
     // here for the reference implementation.
     if (std::isnan(arg.double_value())) {
@@ -7349,15 +7354,15 @@ bool IsFalse(const Value& value) {
 absl::StatusOr<Value> LikeFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_CHECK_EQ(2, args.size());
+  ABSL_CHECK_EQ(2, args.size());
   return LikeImpl(args[0], args[1], regexp_.get());
 }
 
 absl::StatusOr<Value> LikeAnyFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_CHECK_LE(1, args.size());
-  ZETASQL_CHECK_EQ(regexp_.size(), args.size() - 1);
+  ABSL_CHECK_LE(1, args.size());
+  ABSL_CHECK_EQ(regexp_.size(), args.size() - 1);
 
   if (args[0].is_null()) {
     return Value::Null(output_type());
@@ -7380,8 +7385,8 @@ absl::StatusOr<Value> LikeAnyFunction::Eval(
 absl::StatusOr<Value> LikeAllFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_CHECK_LE(1, args.size());
-  ZETASQL_CHECK_EQ(regexp_.size(), args.size() - 1);
+  ABSL_CHECK_LE(1, args.size());
+  ABSL_CHECK_EQ(regexp_.size(), args.size() - 1);
 
   if (args[0].is_null()) {
     return Value::Null(output_type());
@@ -7592,7 +7597,7 @@ bool BitCountFunction::Eval(absl::Span<const TupleData* const> params,
                             absl::Span<const Value> args,
                             EvaluationContext* context, Value* result,
                             absl::Status* status) const {
-  ZETASQL_CHECK_EQ(1, args.size());
+  ABSL_CHECK_EQ(1, args.size());
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -8390,7 +8395,8 @@ absl::StatusOr<Value> ConcatFunction::Eval(
     for (const Value& in : args) {
       output_size += in.string_value().size();
       if (output_size > context->options().max_value_byte_size) {
-        return ConcatError(context->options().max_value_byte_size, ZETASQL_LOC);
+        return ConcatError(context->options().max_value_byte_size,
+                           zetasql_base::SourceLocation::current());
       }
     }
     for (const Value& in : args) {
@@ -8402,7 +8408,8 @@ absl::StatusOr<Value> ConcatFunction::Eval(
     for (const Value& in : args) {
       output_size += in.bytes_value().size();
       if (output_size > context->options().max_value_byte_size) {
-        return ConcatError(context->options().max_value_byte_size, ZETASQL_LOC);
+        return ConcatError(context->options().max_value_byte_size,
+                           zetasql_base::SourceLocation::current());
       }
     }
     for (const Value& in : args) {
@@ -8451,7 +8458,7 @@ absl::StatusOr<Value> CaseConverterFunction::Eval(
 absl::StatusOr<Value> MakeProtoFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_CHECK_EQ(args.size(), fields_.size());
+  ABSL_CHECK_EQ(args.size(), fields_.size());
   absl::Cord proto_cord;
   std::string bytes_str;
   google::protobuf::io::StringOutputStream cord_output(&bytes_str);
@@ -8690,7 +8697,7 @@ static absl::StatusOr<Value> ReplaceProtoFields(
   }
 
   // We should not be able to deinitialize, but defensively verify and return
-  // here or else we will `ZETASQL_CHECK` and crash the process.
+  // here or else we will `ABSL_CHECK` and crash the process.
   if (!mutable_root_message->IsInitialized()) {
     return MakeEvalError()
            << "REPLACE_FIELDS() cannot be used to make an uninitialized proto: "
@@ -8837,8 +8844,8 @@ absl::StatusOr<Value> DateTimeUnaryFunction::Eval(
 absl::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_GE(args.size(), 2);
-  ZETASQL_DCHECK_LE(args.size(), 3);
+  ABSL_DCHECK_GE(args.size(), 2);
+  ABSL_DCHECK_LE(args.size(), 3);
   if (HasNulls(args)) return Value::Null(output_type());
   std::string result_string;
   switch (args[1].type_kind()) {
@@ -8885,7 +8892,7 @@ absl::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
 absl::StatusOr<Value> FormatTimeFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 2);
+  ABSL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) return Value::Null(output_type());
   std::string result_string;
   ZETASQL_RETURN_IF_ERROR(functions::FormatTimeToString(
@@ -9222,7 +9229,7 @@ absl::StatusOr<Value> StringConversionFunction::Eval(
 absl::StatusOr<Value> ParseDateFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 2);
+  ABSL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) return Value::Null(output_type());
   int32_t date;
   ZETASQL_RETURN_IF_ERROR(functions::ParseStringToDate(args[0].string_value(),
@@ -9234,7 +9241,7 @@ absl::StatusOr<Value> ParseDateFunction::Eval(
 absl::StatusOr<Value> ParseDatetimeFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 2);
+  ABSL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) return Value::Null(output_type());
   DatetimeValue datetime;
   ZETASQL_RETURN_IF_ERROR(functions::ParseStringToDatetime(
@@ -9247,7 +9254,7 @@ absl::StatusOr<Value> ParseDatetimeFunction::Eval(
 absl::StatusOr<Value> ParseTimeFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_EQ(args.size(), 2);
+  ABSL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) return Value::Null(output_type());
   TimeValue time;
   ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTime(
@@ -10478,7 +10485,7 @@ absl::Status NthValueFunction::Eval(
 // the bound, otherwise returns 'default_value'.
 static Value GetOutputAtOffset(int offset, const std::vector<Value>& arg_values,
                                const Value& default_value) {
-  ZETASQL_DCHECK(!arg_values.empty());
+  ABSL_DCHECK(!arg_values.empty());
   if (offset < 0 || offset >= arg_values.size()) {
     return default_value;
   }

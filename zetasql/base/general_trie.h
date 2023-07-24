@@ -168,12 +168,12 @@ class GeneralTrieImpl {
 
     // Note: the referenced key is mutated by each call to Next().
     const std::string& Key() const {
-      ZETASQL_CHECK(!Done());
+      ABSL_CHECK(!Done());
       return key_;
     }
 
     const T& Value() const {
-      ZETASQL_CHECK(!Done());
+      ABSL_CHECK(!Done());
       return stack_.back().first->data_;
     }
 

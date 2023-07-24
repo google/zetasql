@@ -117,7 +117,7 @@ Resolver::Resolver(Catalog* catalog, TypeFactory* type_factory,
       std::make_unique<FunctionResolver>(catalog, type_factory, this);
   annotation_propagator_ =
       std::make_unique<AnnotationPropagator>(*analyzer_options, *type_factory);
-  ZETASQL_DCHECK(analyzer_options_.AllArenasAreInitialized());
+  ABSL_DCHECK(analyzer_options_.AllArenasAreInitialized());
 }
 
 Resolver::~Resolver() = default;
@@ -166,11 +166,11 @@ int Resolver::AllocateColumnId() {
   int64_t id = next_column_id_sequence_->GetNext();
   if (id == 0) {  // Avoid using column_id 0.
     id = next_column_id_sequence_->GetNext();
-    ZETASQL_DCHECK_NE(id, 0);
+    ABSL_DCHECK_NE(id, 0);
   }
   // Should be impossible for this to happen unless sharing across huge
   // numbers of queries.  If it does, column_ids will wrap around as int32s.
-  ZETASQL_DCHECK_LE(id, std::numeric_limits<int32_t>::max());
+  ABSL_DCHECK_LE(id, std::numeric_limits<int32_t>::max());
   max_column_id_ = static_cast<int>(id);
   return max_column_id_;
 }
@@ -654,7 +654,7 @@ std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRef(
   RecordColumnAccess(column, access_flags);
   std::unique_ptr<ResolvedColumnRef> resolved_node =
       MakeResolvedColumnRef(column.type(), column, is_correlated);
-  // TODO: Replace ZETASQL_DCHECK below with ZETASQL_RETURN_IF_ERROR and update all
+  // TODO: Replace ABSL_DCHECK below with ZETASQL_RETURN_IF_ERROR and update all
   // the references of this function.
   absl::Status status =
       CheckAndPropagateAnnotations(/*error_node=*/nullptr, resolved_node.get());
@@ -677,7 +677,7 @@ std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRefWithCorrelation(
           (column_set != correlated_columns_sets.back());
       if (!zetasql_base::InsertIfNotPresent(column_set, column, is_already_correlated)) {
         // is_already_correlated should always be computed consistently.
-        ZETASQL_DCHECK_EQ((*column_set)[column], is_already_correlated);
+        ABSL_DCHECK_EQ((*column_set)[column], is_already_correlated);
       }
     }
   }
@@ -707,7 +707,7 @@ absl::Status Resolver::ResolvePathExpressionAsType(
         identifier_path[0], language());
     if (type_kind != TYPE_UNKNOWN) {
       *resolved_type = type_factory_->MakeSimpleType(type_kind);
-      ZETASQL_DCHECK((*resolved_type)->IsSupportedType(language()))
+      ABSL_DCHECK((*resolved_type)->IsSupportedType(language()))
           << identifier_path[0];
       return absl::OkStatus();
     }
@@ -2066,9 +2066,9 @@ absl::Status Resolver::FindTable(const ASTPathExpression* name,
 
 void Resolver::FindColumnIndex(const Table* table, const std::string& name,
                                int* index, bool* duplicate) {
-  ZETASQL_DCHECK(table != nullptr);
-  ZETASQL_DCHECK(index != nullptr);
-  ZETASQL_DCHECK(duplicate != nullptr);
+  ABSL_DCHECK(table != nullptr);
+  ABSL_DCHECK(index != nullptr);
+  ABSL_DCHECK(duplicate != nullptr);
 
   *index = -1;
   *duplicate = false;
@@ -2342,7 +2342,7 @@ absl::Status FunctionArgumentInfo::AddArgCommon(ArgumentDetails details) {
 const FunctionArgumentInfo::ArgumentDetails* FunctionArgumentInfo::FindArg(
     IdString name) const {
   int64_t index = zetasql_base::FindWithDefault(details_index_by_name_, name, -1);
-  ZETASQL_DCHECK_LT(index, static_cast<int64_t>(details_.size()));
+  ABSL_DCHECK_LT(index, static_cast<int64_t>(details_.size()));
   if (index < 0 || index >= details_.size()) {
     return nullptr;
   }

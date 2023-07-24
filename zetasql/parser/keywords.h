@@ -40,7 +40,7 @@ class KeywordInfo {
       : keyword_(absl::AsciiStrToUpper(keyword)),
         reserved_bison_token_(reserved_bison_token),
         nonreserved_bison_token_(nonreserved_bison_token) {
-    ZETASQL_DCHECK(reserved_bison_token.has_value() ||
+    ABSL_DCHECK(reserved_bison_token.has_value() ||
            nonreserved_bison_token.has_value())
         << "Either reserved or nonreserved must have a Bison token";
   }

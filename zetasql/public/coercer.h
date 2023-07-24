@@ -105,7 +105,7 @@ class Coercer {
   // closer types and a better match).
   //
   // Caveat: If a Catalog is not set for this Coercer and extended type is
-  // encountered this function will crash in debug mode (ZETASQL_DCHECK) and return
+  // encountered this function will crash in debug mode (ABSL_DCHECK) and return
   // false in release mode. The same approach will be applied if Catalog's
   // FindConversion function returns a Status different from Ok or NotFound
   // (NotFound benignly means "conversion is not found" and thus CoercesTo just

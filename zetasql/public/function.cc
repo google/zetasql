@@ -265,8 +265,8 @@ absl::Status Function::Serialize(
 // static
 void Function::RegisterDeserializer(const std::string& group_name,
                                     FunctionDeserializer deserializer) {
-  // ZETASQL_CHECK validated -- This is used at initialization time only.
-  ZETASQL_CHECK(zetasql_base::InsertIfNotPresent(FunctionDeserializers(), group_name,
+  // ABSL_CHECK validated -- This is used at initialization time only.
+  ABSL_CHECK(zetasql_base::InsertIfNotPresent(FunctionDeserializers(), group_name,
                                 deserializer));
 }
 
@@ -467,7 +467,7 @@ std::string Function::GetSQL(std::vector<std::string> inputs,
       const FunctionArgumentType& arg = signature->argument(i);
       if (!arg.repeated()) {
         if (arg.options().named_argument_kind() == kNamedOnly) {
-          ZETASQL_DCHECK(!arg.argument_name().empty());
+          ABSL_DCHECK(!arg.argument_name().empty());
           inputs[arg_index] =
               absl::StrCat(signature->argument(i).argument_name(), " => ",
                            inputs[arg_index]);

@@ -170,7 +170,7 @@ struct MultisetValueContentContainerElementHasher {
 
 ArrayType::ArrayType(const TypeFactory* factory, const Type* element_type)
     : ContainerType(factory, TYPE_ARRAY), element_type_(element_type) {
-  ZETASQL_CHECK(!element_type->IsArray());  // Blocked in MakeArrayType.
+  ABSL_CHECK(!element_type->IsArray());  // Blocked in MakeArrayType.
 }
 
 ArrayType::~ArrayType() {}
@@ -181,7 +181,7 @@ bool ArrayType::IsSupportedType(const LanguageOptions& language_options) const {
 
 bool ArrayType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const ArrayType* other = that->AsArray();
-  ZETASQL_DCHECK(other);
+  ABSL_DCHECK(other);
   return EqualsImpl(this, other, equivalent);
 }
 
@@ -387,7 +387,7 @@ bool ArrayType::EqualElementMultiSet(
   ValueContentContainerElementEq eq(options, element_type());
   CountMap x_multiset(x_container->num_elements(), hasher, eq);
   CountMap y_multiset(y_container->num_elements(), hasher, eq);
-  ZETASQL_DCHECK_EQ(x_container->num_elements(), y_container->num_elements());
+  ABSL_DCHECK_EQ(x_container->num_elements(), y_container->num_elements());
   for (int i = 0; i < x_container->num_elements(); i++) {
     x_multiset[x_container->element(i)]++;
     y_multiset[y_container->element(i)]++;
@@ -440,7 +440,7 @@ bool ArrayType::EqualElementMultiSet(
                              FormatValueContent(x, format_options)));
       }
     }
-    ZETASQL_DCHECK(!reason->empty());
+    ABSL_DCHECK(!reason->empty());
   }
   return false;
 }

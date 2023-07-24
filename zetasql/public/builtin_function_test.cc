@@ -181,7 +181,7 @@ void GetConcreteTypesFromSignature(
 void ValidateFunction(const LanguageOptions& language_options,
                       absl::string_view function_name,
                       const Function& function) {
-  // GetZetaSQLFunctions should all be builtin functions.
+  // GetBuiltinFunctionsAndTypes should all be builtin functions.
   EXPECT_TRUE(function.IsZetaSQLBuiltin());
 
   // None of the built-in function names/aliases should start with
@@ -817,7 +817,7 @@ TEST(SimpleFunctionTests, TestOpaqueTypeConsistency) {
           EXPECT_THAT(types_in_catalog, testing::Contains(type))
               << "function " << name << " with signature " << sig.DebugString()
               << " references opaque enum type " << type->DebugString()
-              << " which is not returned by GetZetaSQLFunctionsAndTypes";
+              << " which is not returned by GetBuiltinFunctionsAndTypes";
         }
       }
       all_referenced_types.insert(types_in_signature.begin(),

@@ -101,8 +101,8 @@ std::string TableValuedFunction::GetSignatureUserFacingText(
     bool print_template_and_name_details) const {
   std::vector<std::string> argument_texts;
   for (const FunctionArgumentType& argument : signature.arguments()) {
-    std::string arg_type_string =
-        argument.UserFacingName(language_options.product_mode());
+    std::string arg_type_string = argument.UserFacingName(
+        language_options.product_mode(), print_template_and_name_details);
     if (print_template_and_name_details && argument.has_argument_name()) {
       arg_type_string =
           absl::StrCat(argument.argument_name(), " => ", arg_type_string);
@@ -244,10 +244,10 @@ absl::Status TableValuedFunction::Deserialize(
 // static
 void TableValuedFunction::RegisterDeserializer(
     FunctionEnums::TableValuedFunctionType type, TVFDeserializer deserializer) {
-  // ZETASQL_CHECK validated -- This is used at initialization time only.
-  ZETASQL_CHECK(FunctionEnums::TableValuedFunctionType_IsValid(type)) << type;
-  // ZETASQL_CHECK validated -- This is used at initialization time only.
-  ZETASQL_CHECK(!(*TvfDeserializers())[type]) << type;
+  // ABSL_CHECK validated -- This is used at initialization time only.
+  ABSL_CHECK(FunctionEnums::TableValuedFunctionType_IsValid(type)) << type;
+  // ABSL_CHECK validated -- This is used at initialization time only.
+  ABSL_CHECK(!(*TvfDeserializers())[type]) << type;
   (*TvfDeserializers())[type] = std::move(deserializer);
 }
 

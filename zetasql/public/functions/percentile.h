@@ -44,7 +44,7 @@ class LessComparatorWithCollation {
  public:
   explicit LessComparatorWithCollation(const ZetaSqlCollator* collator)
       : collator_(collator) {
-    ZETASQL_DCHECK(collator_ != nullptr);
+    ABSL_DCHECK(collator_ != nullptr);
   }
 
   bool operator()(absl::string_view lhs, absl::string_view rhs) {

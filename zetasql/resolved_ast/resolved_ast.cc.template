@@ -32,6 +32,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
+#include "zetasql/base/source_location.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
@@ -163,7 +164,7 @@ static std::string ToStringImpl(
   for (const ResolvedStatement::ObjectAccess& value : value_vector) {
     std::string name = ResolvedStatementEnums::ObjectAccess_Name(value);
     if (name.empty()) {
-      ZETASQL_LOG(DFATAL) << "Invalid ObjectAccess: " << value;
+      ABSL_LOG(ERROR) << "Invalid ObjectAccess: " << value;
       name = absl::StrCat("INVALID_OBJECT_ACCESS(", value, ")");
     }
     if (!ret.empty()) ret += ",";
@@ -174,68 +175,68 @@ static std::string ToStringImpl(
 static std::string ToStringImpl(ResolvedJoinScan::JoinType join_type) {
   std::string name = ResolvedJoinScanEnums::JoinType_Name(join_type);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid JoinType: " << join_type;
+  ABSL_LOG(ERROR) << "Invalid JoinType: " << join_type;
   return absl::StrCat("INVALID_JOIN_TYPE(", join_type, ")");
 }
 static std::string ToStringImpl(ResolvedSubqueryExpr::SubqueryType type) {
   std::string name = ResolvedSubqueryExprEnums::SubqueryType_Name(type);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid SubqueryType: " << type;
+  ABSL_LOG(ERROR) << "Invalid SubqueryType: " << type;
   return absl::StrCat("INVALID_SUBQUERY_TYPE(", type, ")");
 }
 static std::string ToStringImpl(ResolvedSetOperationScan::SetOperationType type) {
   std::string name = ResolvedSetOperationScanEnums::SetOperationType_Name(type);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid SetType: " << type;
+  ABSL_LOG(ERROR) << "Invalid SetType: " << type;
   return absl::StrCat("INVALID_SET_TYPE(", type, ")");
 }
 static std::string ToStringImpl(ResolvedSetOperationScan::SetOperationColumnMatchMode mode) {
   std::string name = ResolvedSetOperationScanEnums::SetOperationColumnMatchMode_Name(mode);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid SetOperationColumnMatchMode: " << mode;
+  ABSL_LOG(ERROR) << "Invalid SetOperationColumnMatchMode: " << mode;
   return absl::StrCat("INVALID_SET_COLUMN_MATCH_MODE(", mode, ")");
 }
 static std::string ToStringImpl(ResolvedSetOperationScan::SetOperationColumnPropagationMode mode) {
   std::string name = ResolvedSetOperationScanEnums::SetOperationColumnPropagationMode_Name(mode);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid SetOperationColumnPropagationMode: " << mode;
+  ABSL_LOG(ERROR) << "Invalid SetOperationColumnPropagationMode: " << mode;
   return absl::StrCat("INVALID_SET_COLUMN_PROPAGATION_MODE(", mode, ")");
 }
 static std::string ToStringImpl(ResolvedRecursiveScan::RecursiveSetOperationType type) {
   std::string name = ResolvedRecursiveScanEnums::RecursiveSetOperationType_Name(type);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid RecursiveSetType: " << type;
+  ABSL_LOG(ERROR) << "Invalid RecursiveSetType: " << type;
   return absl::StrCat("INVALID_SET_TYPE(", type, ")");
 }
 static std::string ToStringImpl(ResolvedCreateStatement::CreateScope scope) {
   std::string name = ResolvedCreateStatementEnums::CreateScope_Name(scope);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid CreateScope: " << scope;
+  ABSL_LOG(ERROR) << "Invalid CreateScope: " << scope;
   return absl::StrCat("INVALID_CREATE_SCOPE(", scope, ")");
 }
 static std::string ToStringImpl(ResolvedCreateStatement::CreateMode mode) {
   std::string name = ResolvedCreateStatementEnums::CreateMode_Name(mode);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid CreateMode: " << mode;
+  ABSL_LOG(ERROR) << "Invalid CreateMode: " << mode;
   return absl::StrCat("INVALID_CREATE_MODE(", mode, ")");
 }
 
 static std::string ToStringImpl(ResolvedDropStmtEnums::DropMode mode) {
   std::string name = ResolvedDropStmtEnums::DropMode_Name(mode);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid DropMode: " << mode;
+  ABSL_LOG(ERROR) << "Invalid DropMode: " << mode;
   return absl::StrCat("INVALID_DROP_MODE(", mode, ")");
 }
 static std::string ToStringImpl(ResolvedBeginStmt::ReadWriteMode mode) {
   std::string name = ResolvedBeginStmtEnums::ReadWriteMode_Name(mode);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid ReadWriteMode: " << mode;
+  ABSL_LOG(ERROR) << "Invalid ReadWriteMode: " << mode;
   return absl::StrCat("INVALID_READ_WRITE_MODE(", mode, ")");
 }
 static std::string ToStringImpl(ResolvedSampleScan::SampleUnit unit) {
   std::string name = ResolvedSampleScanEnums::SampleUnit_Name(unit);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid SampleUnit: " << unit;
+  ABSL_LOG(ERROR) << "Invalid SampleUnit: " << unit;
   return absl::StrCat("INVALID_SAMPLE_UNIT(", unit, ")");
 }
 static std::string ToStringImpl(FieldFormat::Format format) {
@@ -264,7 +265,7 @@ static std::string ToStringImpl(ResolvedImportStmt::ImportKind kind) {
 static std::string ToStringImpl(ResolvedAuxLoadDataStmt::InsertionMode mode) {
   std::string name = ResolvedAuxLoadDataStmtEnums::InsertionMode_Name(mode);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid InsertionMode: " << mode;
+  ABSL_LOG(ERROR) << "Invalid InsertionMode: " << mode;
   return absl::StrCat("INVALID_INSERTION_MODE(", mode, ")");
 }
 static std::string ToStringImpl(const absl::optional<FunctionSignature>& signature) {
@@ -354,47 +355,47 @@ static std::string ToStringImpl(const std::vector<std::string>& value_vector,
 static std::string ToStringImpl(const ResolvedMergeWhen::MatchType match_type) {
   std::string name = ResolvedMergeWhenEnums::MatchType_Name(match_type);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid MatchType: " << match_type;
+  ABSL_LOG(ERROR) << "Invalid MatchType: " << match_type;
   return absl::StrCat("INVALID_MATCH_TYPE(", match_type, ")");
 }
 static std::string ToStringImpl(const ResolvedMergeWhen::ActionType action_type) {
   std::string name = ResolvedMergeWhenEnums::ActionType_Name(action_type);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid ActionType: " << action_type;
+  ABSL_LOG(ERROR) << "Invalid ActionType: " << action_type;
   return absl::StrCat("INVALID_ACTION_TYPE(", action_type, ")");
 }
 static std::string ToStringImpl(ResolvedForeignKeyEnums::MatchMode match_mode) {
   std::string name = ResolvedForeignKeyEnums::MatchMode_Name(match_mode);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid MatchMode: " << match_mode;
+  ABSL_LOG(ERROR) << "Invalid MatchMode: " << match_mode;
   return absl::StrCat("INVALID_MATCH_MODE(", match_mode, ")");
 }
 static std::string ToStringImpl(
     ResolvedForeignKeyEnums::ActionOperation action_operation) {
   std::string name = ResolvedForeignKeyEnums::ActionOperation_Name(action_operation);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid ActionOperation: " << action_operation;
+  ABSL_LOG(ERROR) << "Invalid ActionOperation: " << action_operation;
   return absl::StrCat("INVALID_ACTION_OPERATION(", action_operation, ")");
 }
 static std::string ToStringImpl(
     ResolvedCreateStatementEnums::SqlSecurity sql_security) {
   std::string name = ResolvedCreateStatementEnums::SqlSecurity_Name(sql_security);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid SqlSecurity: " << sql_security;
+  ABSL_LOG(ERROR) << "Invalid SqlSecurity: " << sql_security;
   return absl::StrCat("INVALID_SQL_SECURITY(", sql_security, ")");
 }
 static std::string ToStringImpl(
     ResolvedOrderByItemEnums::NullOrderMode null_order) {
   std::string name = ResolvedOrderByItemEnums::NullOrderMode_Name(null_order);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid NullOrderMode: " << null_order;
+  ABSL_LOG(ERROR) << "Invalid NullOrderMode: " << null_order;
   return absl::StrCat("INVALID_NULL_ORDER(", null_order, ")");
 }
 static std::string ToStringImpl(
     ResolvedCreateStatementEnums::DeterminismLevel level) {
   std::string name = ResolvedCreateStatementEnums::DeterminismLevel_Name(level);
   if (!name.empty()) return name;
-  ZETASQL_LOG(DFATAL) << "Invalid DeterminismLevel: " << level;
+  ABSL_LOG(ERROR) << "Invalid DeterminismLevel: " << level;
   return absl::StrCat("INVALID_DETERMINISM_LEVEL(", level, ")");
 }
 static std::string ToStringImpl(
@@ -405,7 +406,7 @@ static std::string ToStringImpl(
     case ResolvedGeneratedColumnInfoEnums::STORED_VOLATILE:
       return "STORED_VOLATILE";
     default:
-      ZETASQL_LOG(DFATAL) << "Invalid StoredMode: " << mode;
+      ABSL_LOG(ERROR) << "Invalid StoredMode: " << mode;
       return absl::StrCat("INVALID_STORED_MODE(", mode, ")");
   }
 }
@@ -533,7 +534,7 @@ template<>
 absl::StatusOr<const Constant*> RestoreFromImpl(
     const ConstantRefProto& proto, const ResolvedNode::RestoreParams& params) {
   if (proto.name().empty()) {
-    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
            << "Tried to parse function with blank name: "
            << proto.DebugString();
   }
@@ -561,7 +562,7 @@ absl::StatusOr<const Function*> RestoreFromImpl(
   const std::vector<absl::string_view> group_and_name =
       absl::StrSplit(proto.name(), ":");
   if (group_and_name.empty()) {
-    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
         << "Tried to parse function with blank name: " << proto.DebugString();
   }
 
@@ -726,7 +727,7 @@ absl::StatusOr<const google::protobuf::FieldDescriptor*> RestoreFromImpl(
       type_proto, params.pools, &containing_type));
   const ProtoType* proto_type = containing_type->AsProto();
   if (!proto_type) {
-    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
         << "Expected ProtoType, got: " << containing_type->DebugString();
   }
   const google::protobuf::FieldDescriptor* field_descriptor =
@@ -740,7 +741,7 @@ absl::StatusOr<const google::protobuf::FieldDescriptor*> RestoreFromImpl(
     if (field_descriptor) return field_descriptor;
   }
 
-  return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+  return zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
       << "Field number " << proto.number() << " is neither a field or a known "
       << "extension of " << proto_type->DebugString();
 }
@@ -777,7 +778,7 @@ absl::StatusOr<const google::protobuf::OneofDescriptor*> RestoreFromImpl(
   if (oneof_proto.index() < 0 ||
       oneof_proto.index() >=
           containing_proto_type->descriptor()->oneof_decl_count()) {
-    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
            << "Invalid Oneof index " << oneof_proto.index() << " in message "
            << containing_proto_type->DebugString();
   }
@@ -1131,7 +1132,7 @@ absl::StatusOr<std::unique_ptr<ResolvedNode>> ResolvedNode::RestoreFrom(
           proto.{{node.member_name}}_node(), params);
 # endfor
     case AnyResolvedNodeProto::NODE_NOT_SET:
-      return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
           << "No subnode types set in AnyResolvedNodeProto";
   }
 }
@@ -1231,7 +1232,7 @@ absl::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFrom(
           proto.{{subnode.member_name}}_node(), params);
  # endfor
   case {{node.proto_field_type}}::NODE_NOT_SET:
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
         << "No subnode types set in {{node.proto_type}}";
   }
 }
@@ -1424,7 +1425,7 @@ absl::Status {{node.name}}::CheckFieldsAccessedImpl(
       .node = this,
       .annotation = "(*** This node has unaccessed field ***)"
     };
-    return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC).LogError()
+    return ::zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
         << "Unimplemented feature "
            "({{node.name}}::{{field.name}} not accessed)\n"
         << root->DebugString(DebugStringConfig{ {annotation}, /*print_accessed=*/true});
@@ -1437,7 +1438,7 @@ absl::Status {{node.name}}::CheckFieldsAccessedImpl(
       .node = this,
       .annotation = "(*** This node has unaccessed field ***)"
     };
-    return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC).LogError()
+    return ::zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
         << "Unimplemented feature "
            "({{node.name}}::{{field.name}} not accessed "
            "and has non-default value)\n"
@@ -1471,13 +1472,13 @@ absl::Status {{node.name}}::CheckNoFieldsAccessed() const {
  # for field in node.fields
   # if field.is_not_ignorable
   if ((accessed_ & {{field.bitmap}}) != 0) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC).LogError()
+    return ::zetasql_base::InternalErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
         << "({{node.name}}::{{field.name}} is accessed, but shouldn't be)";
   }
   # endif
   # if field.is_ignorable_default
   if ((accessed_ & {{field.bitmap}}) != 0 ) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC).LogError()
+    return ::zetasql_base::InternalErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
         << "({{node.name}}::{{field.name}} is accessed, but shouldn't be)";
   }
   # endif

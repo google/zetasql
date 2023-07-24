@@ -64,7 +64,7 @@ std::string ToString(int64_t value) {
     while (v >= int64_t{1000000}) {
       v /= int64_t{1000};
       ++unit;
-      ZETASQL_CHECK(unit < units + ABSL_ARRAYSIZE(units));
+      ABSL_CHECK(unit < units + ABSL_ARRAYSIZE(units));
     }
     absl::StrAppendFormat(&s, "%.2f%c", v / 1000.0, *unit);
   }
@@ -194,7 +194,7 @@ absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetSum() const {
 
 absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetAverage(
     int64_t count, bool round_to_micros) const {
-  ZETASQL_DCHECK_GT(count, 0);
+  ABSL_DCHECK_GT(count, 0);
 
   // AVG(interval) = SUM(interval) / count, but SUM(interval) may not be a
   // valid interval (because of overflow), so we do manual division of parts

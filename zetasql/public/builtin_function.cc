@@ -115,6 +115,7 @@ const std::string FunctionSignatureIdToName(FunctionSignatureId id) {
   return absl::StrCat("<INVALID FUNCTION ID: ", id, ">");
 }
 
+// DEPRECATED
 void GetZetaSQLFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     std::map<std::string, std::unique_ptr<Function>>* functions) {
@@ -126,21 +127,6 @@ void GetZetaSQLFunctions(
     functions->emplace(name, std::move(function));
   }
   ZETASQL_DCHECK_OK(status);
-}
-
-absl::Status GetZetaSQLFunctionsAndTypes(
-    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
-    std::map<std::string, std::unique_ptr<Function>>* functions,
-    NameToTypeMap* types) {
-  NameToFunctionMap adequately_efficient_function_map;
-  absl::Status status = GetBuiltinFunctionsAndTypes(
-      options, *type_factory, adequately_efficient_function_map, *types);
-  if (status.ok()) {
-    for (auto& [name, function] : adequately_efficient_function_map) {
-      functions->emplace(name, std::move(function));
-    }
-  }
-  return status;
 }
 
 absl::Status GetBuiltinFunctionsAndTypes(

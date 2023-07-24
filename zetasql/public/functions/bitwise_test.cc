@@ -73,7 +73,7 @@ void TestBitwiseNot(bool (*fn)(T, Result*, absl::Status*),
 typedef testing::TestWithParam<QueryParamsWithResult> BitwiseNotTemplateTest;
 TEST_P(BitwiseNotTemplateTest, Testlib) {
   const QueryParamsWithResult& param = GetParam();
-  ZETASQL_CHECK_EQ(1, param.num_params());
+  ABSL_CHECK_EQ(1, param.num_params());
   const Value& input = param.param(0);
   const Value& expected = param.result();
   if (input.is_null()) {  // NULLs arguments are ignored by this test.

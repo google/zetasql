@@ -133,7 +133,7 @@ class ParseLocationRange {
   absl::StatusOr<ParseLocationRangeProto> ToProto() const {
     // The ParseLocationProto only has a single field for the filename, so it
     // cannot represent a ParseLocationRange where the start and end locations
-    // have different filenames. We ZETASQL_CHECK that condition here.
+    // have different filenames. We ABSL_CHECK that condition here.
     ZETASQL_RET_CHECK_EQ(start().filename(), end().filename());
     ParseLocationRangeProto proto;
     proto.set_filename(std::string(start().filename()));
@@ -182,11 +182,11 @@ class ParseLocationRange {
   // REQUIRES: 'start' and 'end' must be initialized on this ParseLocationRange.
   absl::string_view GetTextFrom(absl::string_view input) const {
     size_t start = start_.GetByteOffset();
-    ZETASQL_DCHECK_GE(start, 0);
-    ZETASQL_DCHECK_LE(start, input.size());
+    ABSL_DCHECK_GE(start, 0);
+    ABSL_DCHECK_LE(start, input.size());
     size_t len = end_.GetByteOffset() - start;
-    ZETASQL_DCHECK_GE(len, 0);
-    ZETASQL_DCHECK_LE(len, input.length());
+    ABSL_DCHECK_GE(len, 0);
+    ABSL_DCHECK_LE(len, input.length());
     return absl::ClippedSubstr(input, start, len);
   }
 

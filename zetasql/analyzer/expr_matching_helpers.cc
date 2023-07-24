@@ -202,7 +202,7 @@ absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
 }
 
 size_t FieldPathHash(const ResolvedExpr* expr) {
-  ZETASQL_DCHECK(expr != nullptr);
+  ABSL_DCHECK(expr != nullptr);
   switch (expr->node_kind()) {
     case RESOLVED_GET_PROTO_FIELD: {
       // Note that this only hashes the top-level type (e.g. ARRAY).

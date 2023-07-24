@@ -169,7 +169,7 @@ absl::Status TypeParameters::ValidateNumericTypeParameters(
 }
 
 void TypeParameters::set_child_list(std::vector<TypeParameters> child_list) {
-  ZETASQL_DCHECK(IsEmpty());
+  ABSL_DCHECK(IsEmpty());
   child_list_ = std::move(child_list);
 }
 

@@ -98,7 +98,7 @@ absl::Status* ResolvedASTComparator::stack_overflow_status_ =
 
 #define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()                                  \
   if (!ThreadHasEnoughStack()) {                                              \
-    ZETASQL_LOG(INFO) << "Out of stack space due to deeply nested query expressions"  \
+    ABSL_LOG(INFO) << "Out of stack space due to deeply nested query expressions"  \
               << " when comparing";                                           \
     return *ResolvedASTComparator::stack_overflow_status_;                    \
   }

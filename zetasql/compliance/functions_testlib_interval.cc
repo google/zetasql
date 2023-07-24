@@ -263,13 +263,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIntervalUnaryMinus() {
 
 Value Date(absl::string_view str) {
   int32_t date;
-  ZETASQL_CHECK_OK(functions::ConvertStringToDate(str, &date));
+  ZETASQL_QCHECK_OK(functions::ConvertStringToDate(str, &date));
   return Value::Date(date);
 }
 
 Value Timestamp(absl::string_view str) {
   absl::Time t;
-  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+  ZETASQL_QCHECK_OK(functions::ConvertStringToTimestamp(
       str, absl::UTCTimeZone(), functions::kNanoseconds,
       /* allow_tz_in_str = */ true, &t));
   return Value::Timestamp(t);
@@ -277,14 +277,14 @@ Value Timestamp(absl::string_view str) {
 
 Value Datetime(absl::string_view str) {
   DatetimeValue datetime;
-  ZETASQL_CHECK_OK(functions::ConvertStringToDatetime(str, functions::kNanoseconds,
+  ZETASQL_QCHECK_OK(functions::ConvertStringToDatetime(str, functions::kNanoseconds,
                                                &datetime));
   return Value::Datetime(datetime);
 }
 
 Value Time(absl::string_view str) {
   TimeValue time;
-  ZETASQL_CHECK_OK(
+  ZETASQL_QCHECK_OK(
       functions::ConvertStringToTime(str, functions::kMicroseconds, &time));
   return Value::Time(time);
 }
@@ -610,7 +610,7 @@ std::vector<QueryParamsWithResult> GetDatetimeAddSubInterval() {
   // Use test cases for DATETIME-DATETIME=INTERVAL, applying transformation
   // x-y=z => z+y=x
   for (const auto& test : GetDatetimeTimeIntervalSubtractionsBase()) {
-    ZETASQL_CHECK_EQ(2, test.num_params());
+    ABSL_QCHECK_EQ(2, test.num_params());
     if (test.result().is_null() || !test.param(0).type()->IsDatetime()) {
       continue;
     }
@@ -662,7 +662,7 @@ std::vector<QueryParamsWithResult> GetTimestampAddSubInterval() {
   // Use test cases for TIMESTAMP-TIMESTAMP=INTERVAL, applying transformation
   // x-y=z => z+y=x
   for (const auto& test : GetDateTimestampIntervalSubtractionsBase()) {
-    ZETASQL_CHECK_EQ(2, test.num_params());
+    ABSL_QCHECK_EQ(2, test.num_params());
     if (test.result().is_null() || !test.param(0).type()->IsTimestamp()) {
       continue;
     }
@@ -719,7 +719,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIntervalSub() {
       continue;
     }
     // x+y=z <=> z-x=y <=> z-y=x
-    ZETASQL_CHECK_EQ(2, test.num_params());
+    ABSL_QCHECK_EQ(2, test.num_params());
     tests.emplace_back(
         QueryParamsWithResult({{test.result(), test.param(1)}, test.param(0)}));
     tests.emplace_back(

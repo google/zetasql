@@ -166,7 +166,7 @@ bool Type::IsSimpleType(TypeKind kind) {
 
 bool Type::IsSupportedSimpleTypeKind(TypeKind kind,
                                      const LanguageOptions& language_options) {
-  ZETASQL_DCHECK(IsSimpleType(kind));
+  ABSL_DCHECK(IsSimpleType(kind));
   const zetasql::Type* type = types::TypeFromSimpleTypeKind(kind);
   return type->IsSupportedType(language_options);
 }
@@ -231,7 +231,7 @@ int Type::KindSpecificity(TypeKind kind) {
     return GetTypeKindInfoMap().at(kind).specificity;
   }
 
-  ZETASQL_LOG(FATAL) << "Out of range: " << kind;
+  ABSL_LOG(FATAL) << "Out of range: " << kind;
 }
 
 static int KindCost(TypeKind kind) {
@@ -239,7 +239,7 @@ static int KindCost(TypeKind kind) {
     return GetTypeKindInfoMap().at(kind).cost;
   }
 
-  ZETASQL_LOG(FATAL) << "Out of range: " << kind;
+  ABSL_LOG(FATAL) << "Out of range: " << kind;
 }
 
 int Type::GetTypeCoercionCost(TypeKind kind1, TypeKind kind2) {
@@ -247,8 +247,8 @@ int Type::GetTypeCoercionCost(TypeKind kind1, TypeKind kind2) {
 }
 
 bool Type::KindSpecificityLess(TypeKind kind1, TypeKind kind2) {
-  ZETASQL_DCHECK_NE(kind1, TypeKind::TYPE_EXTENDED);
-  ZETASQL_DCHECK_NE(kind2, TypeKind::TYPE_EXTENDED);
+  ABSL_DCHECK_NE(kind1, TypeKind::TYPE_EXTENDED);
+  ABSL_DCHECK_NE(kind2, TypeKind::TYPE_EXTENDED);
 
   return KindSpecificity(kind1) < KindSpecificity(kind2);
 }
@@ -432,7 +432,7 @@ std::string Type::CapitalizedName() const {
     case TYPE_STRUCT:
       return "Struct";
     case TYPE_PROTO:
-      ZETASQL_CHECK(AsProto()->descriptor() != nullptr);
+      ABSL_CHECK(AsProto()->descriptor() != nullptr);
       return absl::StrCat("Proto<", AsProto()->descriptor()->full_name(), ">");
     case TYPE_EXTENDED:
       // TODO: move this logic into an appropriate function of
@@ -440,7 +440,7 @@ std::string Type::CapitalizedName() const {
       return ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
     case TYPE_UNKNOWN:
     case __TypeKind__switch_must_have_a_default__:
-      ZETASQL_LOG(FATAL) << "Unexpected type kind expected internally only: " << kind();
+      ABSL_LOG(FATAL) << "Unexpected type kind expected internally only: " << kind();
   }
 }
 

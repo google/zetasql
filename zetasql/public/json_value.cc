@@ -17,7 +17,7 @@
 #include "zetasql/public/json_value.h"
 
 #define JSON_NOEXCEPTION
-#define JSON_THROW_USER(exception) ZETASQL_LOG(FATAL) << (exception).what();
+#define JSON_THROW_USER(exception) ABSL_LOG(FATAL) << (exception).what();
 
 #include <stddef.h>
 #include <stdint.h>
@@ -94,7 +94,7 @@ class JSONValueBuilder {
 
   absl::Status EndObject() {
     ref_stack_.pop_back();
-    ZETASQL_DCHECK(GetSkippingNodeMarker()->is_null());
+    ABSL_DCHECK(GetSkippingNodeMarker()->is_null());
     return absl::OkStatus();
   }
 
@@ -191,7 +191,7 @@ class JSONValueBuilder {
       ref_stack_.back()->emplace_back(std::forward<Value>(v));
       return &(ref_stack_.back()->back());
     }
-    ZETASQL_CHECK(object_member_);
+    ABSL_CHECK(object_member_);
     // If here, the subtree should not be skipped, and the subtree is an object.
     // Since the subtree is an object, this code can only be reached if the key
     // associated with the value v has already been seen. If the key is a
@@ -551,7 +551,7 @@ bool JSONValueConstRef::GetBoolean() const { return impl_->value.get<bool>(); }
 
 size_t JSONValueConstRef::GetObjectSize() const {
   if (ABSL_PREDICT_FALSE(!IsObject())) {
-    ZETASQL_LOG(FATAL) << "JSON value is not an object";
+    ABSL_LOG(FATAL) << "JSON value is not an object";
   }
   return impl_->value.size();
 }
@@ -589,7 +589,7 @@ JSONValueConstRef::GetMembers() const {
 
 size_t JSONValueConstRef::GetArraySize() const {
   if (ABSL_PREDICT_FALSE(!IsArray())) {
-    ZETASQL_LOG(FATAL) << "JSON value is not an array";
+    ABSL_LOG(FATAL) << "JSON value is not an array";
   }
   return impl_->value.size();
 }

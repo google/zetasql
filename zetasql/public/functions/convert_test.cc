@@ -249,7 +249,7 @@ void FindMaximalRoundtripValue() {
       upper = mid;
     }
   }
-  ZETASQL_LOG(INFO) << "Maximal integer: " << lower << " is "
+  ABSL_LOG(INFO) << "Maximal integer: " << lower << " is "
             << (max - lower) << " away from max " << max
             << ", convers back as " << result
             << " which is " << (max - result) << " away from max";

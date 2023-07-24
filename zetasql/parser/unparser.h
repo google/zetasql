@@ -121,7 +121,7 @@ class Unparser : public ParseTreeVisitor {
   ~Unparser() override {}
 
   virtual void defaultVisit(const ASTNode* node, void* data) {
-    ZETASQL_LOG(FATAL) << "Unimplemented node: " << node->SingleNodeDebugString();
+    ABSL_LOG(FATAL) << "Unimplemented node: " << node->SingleNodeDebugString();
   }
 
   void visitASTChildren(const ASTNode* node, void* data) {

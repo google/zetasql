@@ -147,7 +147,7 @@ absl::Status SimpleCatalog::GetType(const std::string& name, const Type** type,
     }
   }
 
-  ZETASQL_DCHECK(*type == nullptr);
+  ABSL_DCHECK(*type == nullptr);
   return absl::OkStatus();
 }
 
@@ -303,7 +303,7 @@ std::string SimpleCatalog::SuggestConstant(
       // the suggested Constant and return its original name.
       const Constant* constant = nullptr;
       if (FindConstant({closest_name}, &constant).ok()) {
-        ZETASQL_DCHECK_NE(constant, nullptr) << closest_name;
+        ABSL_DCHECK_NE(constant, nullptr) << closest_name;
         return ToIdentifierLiteral(constant->Name());
       }
     }
@@ -339,7 +339,7 @@ void SimpleCatalog::AddSequence(const std::string& name,
 
 void SimpleCatalog::AddType(const std::string& name, const Type* type) {
   absl::MutexLock l(&mutex_);
-  ZETASQL_CHECK(types_.insert({absl::AsciiStrToLower(name), type}).second);
+  ABSL_CHECK(types_.insert({absl::AsciiStrToLower(name), type}).second);
 }
 
 void SimpleCatalog::AddCatalog(const std::string& name, Catalog* catalog) {
@@ -746,7 +746,7 @@ SimpleCatalog* SimpleCatalog::MakeOwnedSimpleCatalog(const std::string& name) {
 
 void SimpleCatalog::SetDescriptorPool(const google::protobuf::DescriptorPool* pool) {
   absl::MutexLock l(&mutex_);
-  ZETASQL_CHECK(descriptor_pool_ == nullptr)
+  ABSL_CHECK(descriptor_pool_ == nullptr)
       << "SimpleCatalog::SetDescriptorPool can only be called once";
   owned_descriptor_pool_.reset();
   descriptor_pool_ = pool;
@@ -755,7 +755,7 @@ void SimpleCatalog::SetDescriptorPool(const google::protobuf::DescriptorPool* po
 void SimpleCatalog::SetOwnedDescriptorPool(
     std::unique_ptr<const google::protobuf::DescriptorPool> pool) {
   absl::MutexLock l(&mutex_);
-  ZETASQL_CHECK(descriptor_pool_ == nullptr)
+  ABSL_CHECK(descriptor_pool_ == nullptr)
       << "SimpleCatalog::SetDescriptorPool can only be called once";
   owned_descriptor_pool_ = std::move(pool);
   descriptor_pool_ = owned_descriptor_pool_.get();
@@ -770,17 +770,17 @@ void SimpleCatalog::AddZetaSQLFunctions(
     const std::vector<std::string>& path = function->FunctionNamePath();
     SimpleCatalog* catalog = this;
     if (path.size() > 1) {
-      ZETASQL_CHECK_LE(path.size(), 2);
+      ABSL_CHECK_LE(path.size(), 2);
       const std::string& space = path[0];
       auto sub_entry = owned_zetasql_subcatalogs_.find(space);
       if (sub_entry != owned_zetasql_subcatalogs_.end()) {
         catalog = sub_entry->second.get();
-        ZETASQL_CHECK(catalog != nullptr) << "internal state corrupt: " << space;
+        ABSL_CHECK(catalog != nullptr) << "internal state corrupt: " << space;
       } else {
         auto new_catalog = std::make_unique<SimpleCatalog>(space, type_factory);
         AddCatalogLocked(space, new_catalog.get());
         catalog = new_catalog.get();
-        ZETASQL_CHECK(
+        ABSL_CHECK(
             owned_zetasql_subcatalogs_.emplace(space, std::move(new_catalog))
                 .second);
       }
@@ -951,7 +951,7 @@ void SimpleCatalog::ClearTableValuedFunctions() {
 TypeFactory* SimpleCatalog::type_factory() {
   absl::MutexLock l(&mutex_);
   if (type_factory_ == nullptr) {
-    ZETASQL_DCHECK(owned_type_factory_ == nullptr);
+    ABSL_DCHECK(owned_type_factory_ == nullptr);
     owned_type_factory_ = std::make_unique<TypeFactory>();
     type_factory_ = owned_type_factory_.get();
   }

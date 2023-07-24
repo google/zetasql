@@ -966,7 +966,7 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
       new google::protobuf::compiler::Importer(source_tree.get(), &error_collector));
 
   for (const std::string& test_file : test_files) {
-    ZETASQL_CHECK(proto_importer->Import(test_file) != nullptr)
+    ABSL_CHECK(proto_importer->Import(test_file) != nullptr)
         << "Error importing " << test_file << ": "
         << error_collector.GetError();
   }
@@ -1207,7 +1207,7 @@ TEST_F(AnalyzerOptionsTest, AllowedHintsAndOptionsSerializeAndDeserialize) {
       new google::protobuf::compiler::Importer(source_tree.get(), &error_collector));
 
   for (const std::string& test_file : test_files) {
-    ZETASQL_CHECK(proto_importer->Import(test_file) != nullptr)
+    ABSL_CHECK(proto_importer->Import(test_file) != nullptr)
         << "Error importing " << test_file << ": "
         << error_collector.GetError();
   }
@@ -1426,7 +1426,7 @@ TEST(AnalyzerSupportedFeaturesTest, SupportedFeaturesTest) {
     AnalyzerOptions options;
     options.mutable_language()->SetEnabledLanguageFeatures(
         input.supported_features);
-    ZETASQL_LOG(INFO) << "Supported features: " << input.FeaturesToString();
+    ABSL_LOG(INFO) << "Supported features: " << input.FeaturesToString();
     SampleCatalog catalog(options.language());
     const absl::Status status = AnalyzeStatement(
         input.statement, options, catalog.catalog(), &type_factory, &output);
@@ -1507,7 +1507,7 @@ TEST(AnalyzerTest, ExternalExtension) {
       new google::protobuf::compiler::Importer(source_tree.get(), &error_collector));
 
   for (const std::string& test_file : test_files) {
-    ZETASQL_CHECK(proto_importer->Import(test_file) != nullptr)
+    ABSL_CHECK(proto_importer->Import(test_file) != nullptr)
         << "Error importing " << test_file << ": "
         << error_collector.GetError();
   }

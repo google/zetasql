@@ -341,7 +341,7 @@ struct FunctionOptions {
 
   // Add a LanguageFeature that must be enabled for this function to be enabled.
   // This is used only on built-in functions, and determines whether they will
-  // be loaded in GetZetaSQLFunctions.
+  // be loaded in GetBuiltinFunctionsAndTypes.
   FunctionOptions& add_required_language_feature(LanguageFeature feature) {
     zetasql_base::InsertIfNotPresent(&required_language_features, feature);
     return *this;
@@ -483,7 +483,7 @@ struct FunctionOptions {
   bool uses_upper_case_sql_name = true;
 
   // A set of LanguageFeatures that need to be enabled for the function to be
-  // loaded in GetZetaSQLFunctions.
+  // loaded in GetBuiltinFunctionsAndTypes.
   std::set<LanguageFeature> required_language_features;
 
   // Copyable.
@@ -522,7 +522,7 @@ class Function {
   // <function_name_path>, identifying the full path name of the function
   // including its containing catalog names.
   //
-  // These constructors perform ZETASQL_CHECK validations of basic invariants:
+  // These constructors perform ABSL_CHECK validations of basic invariants:
   // * Scalar functions cannot support the OVER clause.
   // * Analytic functions must support OVER clause.
   // * Signatures must satisfy FunctionSignature::IsValidForFunction().

@@ -103,7 +103,7 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
         } else if (arg->inline_lambda() != nullptr) {
           return false;
         } else {
-          ZETASQL_DCHECK(false) << "Unexpected function argument: "
+          ABSL_DCHECK(false) << "Unexpected function argument: "
                         << arg->DebugString() << "\n of function call: "
                         << function_call->DebugString();
           return false;

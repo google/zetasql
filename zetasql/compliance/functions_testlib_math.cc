@@ -1533,7 +1533,7 @@ std::vector<FunctionTestCall> GetFunctionTestsMath() {
       {"log", {double_neg_inf}, double_nan},
       {"log", {double_pos_inf}, double_pos_inf},
 
-      // ZETASQL_LOG(X, Y)
+      // ABSL_LOG(X, Y)
       {"log", {NullDouble(), NullDouble()}, NullDouble()},
       {"log", {NullDouble(), 0.0}, NullDouble()},
       {"log", {0.0, NullDouble()}, NullDouble()},

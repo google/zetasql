@@ -53,7 +53,7 @@ ExecuteQueryCompletionRequest PrepareCompletionReq(absl::string_view body,
     req.word_start = std::distance(body.cbegin(), start);
     req.word_end = std::distance(body.cbegin(), end);
 
-    ZETASQL_CHECK_LE(req.word_start, req.word_end);
+    ABSL_CHECK_LE(req.word_start, req.word_end);
 
     req.word = body.substr(req.word_start, req.word_end - req.word_start);
   }

@@ -544,8 +544,9 @@ class Value {
   // declared in 'enum_type', otherwise created Value is invalid.
   // NOTE: Enum types could only be 4 bytes, so this will always return an
   // invalid value if <value> is out-of-range for int32_t.
+  static Value Enum(const EnumType* type, int64_t value);
   static Value Enum(const EnumType* type, int64_t value,
-                    bool allow_unknown_enum_values = true);
+                    bool allow_unknown_enum_values);
   // Creates an enum value of the specified 'type'. 'name' must be a valid name
   // declared in 'type', otherwise created Value is invalid. 'name' is case
   // sensitive.
@@ -582,7 +583,7 @@ class Value {
   // Creates a struct of the specified 'type' and given 'values'. The size of
   // the 'values' vector must agree with the number of fields in 'type', and the
   // types of those values must match the corresponding struct fields, otherwise
-  // this will crash with a ZETASQL_CHECK failure.
+  // this will crash with a ABSL_CHECK failure.
   ABSL_DEPRECATED("Please use MakeStruct() instead.")
   static Value Struct(const StructType* type, absl::Span<const Value> values) {
     absl::StatusOr<Value> value = MakeStruct(type, values);
@@ -593,7 +594,7 @@ class Value {
   // Creates a struct of the specified 'type' by moving 'values'. The size of
   // the 'values' vector must agree with the number of fields in 'type', and the
   // types of those values must match the corresponding struct fields. However,
-  // this is only ZETASQL_CHECK'd in debug mode.
+  // this is only ABSL_CHECK'd in debug mode.
   ABSL_DEPRECATED("Please use MakeStructFromValidatedInputs() instead.")
   static Value UnsafeStruct(const StructType* type,
                             std::vector<Value>&& values) {
@@ -632,7 +633,7 @@ class Value {
 
   // Creates an array of the given 'array_type' initialized with 'values'.
   // The type of each value must be the same as array_type->element_type().
-  // otherwise this will crash with a ZETASQL_CHECK failure.
+  // otherwise this will crash with a ABSL_CHECK failure.
   // 'array_type' must outlive the returned object.
   ABSL_DEPRECATED("Please use MakeArray() instead.")
   static Value Array(const ArrayType* array_type,
@@ -644,7 +645,7 @@ class Value {
 
   // Creates an array of the given 'array_type' initialized with 'values'.
   // The type of each value must be the same as array_type->element_type(),
-  // however, this is only ZETASQL_CHECK'd in debug mode.
+  // however, this is only ABSL_CHECK'd in debug mode.
   // 'array_type' must outlive the returned object.
   ABSL_DEPRECATED("Please use MakeArrayFromValidatedInputs() instead.")
   static Value UnsafeArray(const ArrayType* array_type,
@@ -842,8 +843,8 @@ class Value {
 
   // Nanoseconds for TYPE_TIMESTAMP, TYPE_TIME and TYPE_DATETIME types
   int32_t subsecond_nanos() const {
-    ZETASQL_DCHECK(metadata_.can_store_value_extended_content());
-    ZETASQL_DCHECK(metadata_.type_kind() == TypeKind::TYPE_TIMESTAMP ||
+    ABSL_DCHECK(metadata_.can_store_value_extended_content());
+    ABSL_DCHECK(metadata_.type_kind() == TypeKind::TYPE_TIMESTAMP ||
            metadata_.type_kind() == TypeKind::TYPE_TIME ||
            metadata_.type_kind() == TypeKind::TYPE_DATETIME);
     return metadata_.value_extended_content();

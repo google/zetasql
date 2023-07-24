@@ -41,7 +41,7 @@ AnalyzerOutputMutator::FinalizeAnalyzerOutput(
 
   // TODO: high complexity queries should fit into the more general
   // kinds of warning that will be available soon.
-  ZETASQL_DCHECK_GT(stats.stack_available_bytes(), 0);
+  ABSL_DCHECK_GT(stats.stack_available_bytes(), 0);
   if (stats.stack_peak_used_bytes() >
       stats.stack_available_bytes() *
           absl::GetFlag(FLAGS_zetasql_stack_usage_proportion_warning)) {

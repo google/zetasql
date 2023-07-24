@@ -694,7 +694,7 @@ TEST_P(NormalizeStringTemplateTest, Testlib) {
   }
   NormalizeMode mode = NormalizeMode::NFC;
   if (args.size() == 2) {
-    ZETASQL_CHECK_EQ(zetasql::TypeKind::TYPE_ENUM, args[1].type_kind());
+    ABSL_CHECK_EQ(zetasql::TypeKind::TYPE_ENUM, args[1].type_kind());
     mode = static_cast<NormalizeMode>(args[1].enum_value());
   }
   if (function == "normalize") {

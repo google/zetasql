@@ -671,11 +671,14 @@ void AnalyzerOptions::SetLookupCatalogColumnCallback(
           std::unique_ptr<const ResolvedExpr>& expr) -> absl::Status {
     ZETASQL_ASSIGN_OR_RETURN(const Column* column,
                      lookup_catalog_column_callback(column_name));
-
-    ZETASQL_ASSIGN_OR_RETURN(expr, ResolvedCatalogColumnRefBuilder()
-                               .set_column(column)
-                               .set_type(column->GetType())
-                               .Build());
+    if (column != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          expr, ResolvedCatalogColumnRefBuilder()
+                    .set_column(column)
+                    .set_type(column->GetType())
+                    .set_type_annotation_map(column->GetTypeAnnotationMap())
+                    .Build());
+    }
     return absl::OkStatus();
   };
 }

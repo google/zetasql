@@ -1565,7 +1565,7 @@ absl::Status Resolver::ResolveForeignKeys(
         ast_foreign_key_nodes.push_back(attribute);
       }
     }
-    ZETASQL_DCHECK_EQ(foreign_keys.size(), ast_foreign_key_nodes.size());
+    ABSL_DCHECK_EQ(foreign_keys.size(), ast_foreign_key_nodes.size());
     for (int i = 0; i < foreign_keys.size(); i++) {
       auto& foreign_key = foreign_keys[i];
       const auto& constraint_name = foreign_key->constraint_name();
@@ -2673,7 +2673,7 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
 
   // Resolve the query, if any, before resolving the PARTITION BY and
   // CLUSTER BY clauses. These clauses may reference the columns in the output
-  // of the query. ZETASQL_CHECK constraints may also reference these columns.
+  // of the query. ABSL_CHECK constraints may also reference these columns.
   if (query != nullptr) {
     if (!(statement_base_properties->column_definition_list).empty()) {
       ZETASQL_RETURN_IF_ERROR(ResolveAndAdaptQueryAndOutputColumns(
@@ -2703,7 +2703,7 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
       has_check_constraint || partitions_clause != nullptr) {
     // Set up the name scope for the table columns, which may appear in
     // PARTITION BY and CLUSTER BY expressions, PARTITIONS filtering expression
-    // or ZETASQL_CHECK constraint expressions. The column definition list is populated
+    // or ABSL_CHECK constraint expressions. The column definition list is populated
     // even for CREATE TABLE AS statements with no explicit list.
 
     // Populate pseudo-columns for the table, if any.
@@ -3669,7 +3669,7 @@ static std::string CreateScopeErrorString(
     case ResolvedCreateStatement::CREATE_TEMP:
       return "TEMP";
     case ResolvedCreateStatement::CREATE_DEFAULT_SCOPE:
-      ZETASQL_LOG(FATAL) << "Unexpected error scope default.";
+      ABSL_LOG(FATAL) << "Unexpected error scope default.";
   }
 }
 
@@ -5059,6 +5059,13 @@ absl::Status Resolver::ResolveCreatePrivilegeRestrictionStatement(
   ZETASQL_RET_CHECK(!ast_statement->is_temp())
       << absl::StrFormat("CREATE TEMP %s is not supported", statement_type);
 
+  std::string object_type_lower =
+      absl::AsciiStrToLower(ast_statement->object_type()->GetAsString());
+  if (object_type_lower != "table" && object_type_lower != "view") {
+    return MakeSqlErrorAt(ast_statement->object_type())
+           << "Object type must be \"table\" or \"view\"";
+  }
+
   std::vector<std::unique_ptr<const ResolvedExpr>> restrictee_expr_list;
   if (ast_statement->restrict_to() != nullptr) {
     // We reuse ResolveGranteeList because restrictee_list and grantee_list have
@@ -5206,6 +5213,13 @@ absl::Status Resolver::ResolveAlterPrivilegeRestrictionStatement(
 
   // The statement type is used for error messaging.
   constexpr absl::string_view statement_type = "ALTER PRIVILEGE RESTRICTION";
+
+  std::string object_type_lower =
+      absl::AsciiStrToLower(ast_statement->object_type()->GetAsString());
+  if (object_type_lower != "table" && object_type_lower != "view") {
+    return MakeSqlErrorAt(ast_statement->object_type())
+           << "Object type must be \"table\" or \"view\"";
+  }
 
   std::vector<std::unique_ptr<const ResolvedAlterAction>>
       resolved_alter_actions;
@@ -6018,6 +6032,13 @@ absl::Status Resolver::ResolveDropPrivilegeRestrictionStatement(
 
   // The statement type is used for error messaging.
   constexpr absl::string_view statement_type = "DROP PRIVILEGE RESTRICTION";
+
+  std::string object_type_lower =
+      absl::AsciiStrToLower(ast_statement->object_type()->GetAsString());
+  if (object_type_lower != "table" && object_type_lower != "view") {
+    return MakeSqlErrorAt(ast_statement->object_type())
+           << "Object type must be \"table\" or \"view\"";
+  }
 
   for (const ASTPrivilege* privilege :
        ast_statement->privileges()->privileges()) {

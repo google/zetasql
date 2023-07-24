@@ -57,20 +57,20 @@ void CommonInitialCheck(const Value& t1, const Value& t2, const Value& t3,
                         const Value& null_range) {
   // Verify provided values are of the same type
   // All values must be of the same type, coercion is not allowed
-  ZETASQL_CHECK(t1.type_kind() == t2.type_kind());
-  ZETASQL_CHECK(t2.type_kind() == t3.type_kind());
-  ZETASQL_CHECK(t3.type_kind() == t4.type_kind());
-  ZETASQL_CHECK(t4.type_kind() == unbounded.type_kind());
-  ZETASQL_CHECK(null_range.type_kind() == TypeKind::TYPE_RANGE);
-  ZETASQL_CHECK(unbounded.type_kind() ==
+  ABSL_CHECK(t1.type_kind() == t2.type_kind());
+  ABSL_CHECK(t2.type_kind() == t3.type_kind());
+  ABSL_CHECK(t3.type_kind() == t4.type_kind());
+  ABSL_CHECK(t4.type_kind() == unbounded.type_kind());
+  ABSL_CHECK(null_range.type_kind() == TypeKind::TYPE_RANGE);
+  ABSL_CHECK(unbounded.type_kind() ==
         null_range.type()->AsRange()->element_type()->kind());
   // Verify t1 < t2 < t3 < t4
-  ZETASQL_CHECK(t1.LessThan(t2));
-  ZETASQL_CHECK(t2.LessThan(t3));
-  ZETASQL_CHECK(t3.LessThan(t4));
+  ABSL_CHECK(t1.LessThan(t2));
+  ABSL_CHECK(t2.LessThan(t3));
+  ABSL_CHECK(t3.LessThan(t4));
   // Check nulls are nulls indeed
-  ZETASQL_CHECK(unbounded.is_null());
-  ZETASQL_CHECK(null_range.is_null());
+  ABSL_CHECK(unbounded.is_null());
+  ABSL_CHECK(null_range.is_null());
 }
 
 std::vector<FunctionTestCall> WrapFeatures(
@@ -92,8 +92,8 @@ std::vector<FunctionTestCall> EqualityTests(const Value& t1, const Value& t2,
                                             const Value& t3,
                                             const Value& unbounded,
                                             const Value& null_range) {
-  ZETASQL_CHECK(t1.LessThan(t2));
-  ZETASQL_CHECK(t2.LessThan(t3));
+  ABSL_CHECK(t1.LessThan(t2));
+  ABSL_CHECK(t2.LessThan(t3));
   return {
       // Same ranges
       {"RangeEquals", {Range(t1, t2), Range(t1, t2)}, Bool(true)},
@@ -664,7 +664,7 @@ Value RangeElementFromStr(std::optional<absl::string_view> element_string,
     case TypeKind::TYPE_TIMESTAMP:
       return TimestampFromStr(*element_string, scale);
     default:
-      ZETASQL_LOG(FATAL) << "Unsupported RANGE element type: "
+      ABSL_LOG(FATAL) << "Unsupported RANGE element type: "
                  << TypeKind_Name(element_type->kind());
   }
 }

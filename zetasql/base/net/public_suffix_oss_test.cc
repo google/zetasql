@@ -113,12 +113,6 @@ TEST_F(PublicSuffixRulesTest, IntlDomainNameWithTransitionalCharacter) {
   EXPECT_EQ(expected_rules, Build().icann_domains());
 }
 
-TEST_F(PublicSuffixRulesTest, AmbiguousException) {
-  builder_.AddRules("!foo.bar\n"
-                    "foo.bar\n");
-  EXPECT_DEATH(Build(), "inconsistent exception");
-}
-
 TEST_F(PublicSuffixRulesTest, AllowedWildcard) {
   builder_.AddRules("*.foo.bar\n"
                     "foo.bar\n");

@@ -624,7 +624,7 @@ namespace {
 bool StrPositivePosUtf8(absl::string_view str, absl::string_view substr,
                         int64_t pos, int64_t occurrence, int64_t* out,
                         absl::Status* error) {
-  ZETASQL_DCHECK_GT(pos, 0);
+  ABSL_DCHECK_GT(pos, 0);
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -691,7 +691,7 @@ bool StrPositivePosUtf8(absl::string_view str, absl::string_view substr,
 bool StrNegativePosUtf8(absl::string_view str, absl::string_view substr,
                         int64_t pos, int64_t occurrence, int64_t* out,
                         absl::Status* error) {
-  ZETASQL_DCHECK_LT(pos, 0);
+  ABSL_DCHECK_LT(pos, 0);
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -842,7 +842,7 @@ bool StrPosOccurrenceBytes(absl::string_view str, absl::string_view substr,
 // In this case pos identifies a character counting from the end of the string.
 static bool SubstrSuffixUtf8(absl::string_view str, int64_t pos, int64_t length,
                              absl::string_view* out, absl::Status* error) {
-  ZETASQL_DCHECK_LT(pos, 0);
+  ABSL_DCHECK_LT(pos, 0);
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -1321,7 +1321,7 @@ bool FirstCharToCodePoint(absl::string_view str, int64_t* out,
     U8_NEXT(str.data(), i, str_length32, character);
     if (character < 0) {
       std::string hexFirstChar = absl::BytesToHexString(str.substr(0, i));
-      ZETASQL_DCHECK_EQ(hexFirstChar.size() % 2, 0);
+      ABSL_DCHECK_EQ(hexFirstChar.size() % 2, 0);
       std::string bytesFirstChar;
       size_t sizeOfFirstBytes = hexFirstChar.size() + hexFirstChar.size() / 2;
       bytesFirstChar.reserve(sizeOfFirstBytes);
@@ -2094,8 +2094,8 @@ void EightBase8DigitsToThreeBytes(const char* in, unsigned char* bytes_out) {
   //
   const unsigned char* inval = reinterpret_cast<const unsigned char*>(in);
   for (int i = 0; i < 8; ++i) {
-    ZETASQL_DCHECK_GE(inval[i], '0') << "Byte " << i << ", input = " << in;
-    ZETASQL_DCHECK_LE(inval[i], '7') << "Byte " << i << ", input = " << in;
+    ABSL_DCHECK_GE(inval[i], '0') << "Byte " << i << ", input = " << in;
+    ABSL_DCHECK_LE(inval[i], '7') << "Byte " << i << ", input = " << in;
   }
 
   bytes_out[2] =

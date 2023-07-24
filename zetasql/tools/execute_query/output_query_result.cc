@@ -198,7 +198,7 @@ std::vector<std::vector<std::string>> SplitColumnStringsIntoLines(
 std::string GenerateRowStringFromSingleLineColumns(
     const std::vector<std::string>& column_strings,
     const std::vector<size_t>& column_buffer_lengths) {
-  ZETASQL_CHECK_EQ(column_strings.size(), column_buffer_lengths.size());
+  ABSL_CHECK_EQ(column_strings.size(), column_buffer_lengths.size());
   std::string row_string = "|";
   for (int col_idx = 0; col_idx < column_strings.size(); ++col_idx) {
     // One space is added before and after the value.  The value is
@@ -211,7 +211,7 @@ std::string GenerateRowStringFromSingleLineColumns(
     // The column_buffer_lengths are the max lengths of all the column
     // values for each column, so this column length should not be bigger
     // than the related max length.
-    ZETASQL_CHECK_GE(pad_size, 0);
+    ABSL_CHECK_GE(pad_size, 0);
     if (pad_size > 0) {
       absl::StrAppend(&row_string, std::string(pad_size, ' '));
     }
@@ -236,13 +236,13 @@ std::string GenerateRowStringFromColumns(
 }
 
 std::string GetEscapedString(const Value& value) {
-  ZETASQL_DCHECK(value.type()->IsString());
+  ABSL_DCHECK(value.type()->IsString());
   std::string literal = value.GetSQLLiteral();
 
   // GetSQLLiteral() returns a quoted string.  Strip the enclosing quotes.
-  ZETASQL_DCHECK_GE(literal.length(), 2);
-  ZETASQL_DCHECK(literal[0] == '\"' || literal[0] == '\'');
-  ZETASQL_DCHECK_EQ(literal[0], literal[literal.length() - 1]);
+  ABSL_DCHECK_GE(literal.length(), 2);
+  ABSL_DCHECK(literal[0] == '\"' || literal[0] == '\'');
+  ABSL_DCHECK_EQ(literal[0], literal[literal.length() - 1]);
   return literal.substr(1, literal.length() - 2);
 }
 

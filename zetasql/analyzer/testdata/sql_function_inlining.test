@@ -1944,3 +1944,141 @@ QueryStmt
     |               +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-input_scan=
       +-SingleRowScan
+
+==
+
+SELECT *
+FROM (SELECT 1 AS thing_id)
+WHERE b290673529(thing_id);
+--
+
+QueryStmt
++-output_column_list=
+| +-$subquery1.thing_id#1 AS thing_id [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$subquery1.thing_id#1]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$subquery1.thing_id#1]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.thing_id#1]
+        |   +-expr_list=
+        |   | +-thing_id#1 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-filter_expr=
+          +-FunctionCall(Templated_SQL_Function:b290673529(INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$subquery1.thing_id#1)
+
+With Templated SQL function call:
+  Templated_SQL_Function:b290673529(INT64) -> BOOL
+containing resolved templated expression:
+SubqueryExpr
++-type=BOOL
++-subquery_type=IN
++-in_expr=
+| +-ArgumentRef(type=INT64, name="thing_id")
++-subquery=
+  +-ProjectScan
+    +-column_list=[$subquery1.thing_id#1]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.thing_id#1]
+        +-expr_list=
+        | +-thing_id#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$subquery1.thing_id#1 AS thing_id [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$subquery1.thing_id#1]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$subquery1.thing_id#1]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.thing_id#1]
+        |   +-expr_list=
+        |   | +-thing_id#1 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-filter_expr=
+          +-SubqueryExpr
+            +-type=BOOL
+            +-subquery_type=SCALAR
+            +-parameter_list=
+            | +-ColumnRef(type=INT64, column=$subquery1.thing_id#1)
+            +-subquery=
+              +-ProjectScan
+                +-column_list=[$with_expr.injected#4]
+                +-expr_list=
+                | +-injected#4 :=
+                |   +-SubqueryExpr
+                |     +-type=BOOL
+                |     +-subquery_type=IN
+                |     +-in_expr=
+                |     | +-ColumnRef(type=INT64, column=$inlined_b290673529.thing_id#3)
+                |     +-subquery=
+                |       +-ProjectScan
+                |         +-column_list=[$subquery1.thing_id#2]
+                |         +-input_scan=
+                |           +-ProjectScan
+                |             +-column_list=[$subquery1.thing_id#2]
+                |             +-expr_list=
+                |             | +-thing_id#2 := Literal(type=INT64, value=1)
+                |             +-input_scan=
+                |               +-SingleRowScan
+                +-input_scan=
+                  +-ProjectScan
+                    +-column_list=[$inlined_b290673529.thing_id#3]
+                    +-expr_list=
+                    | +-thing_id#3 := ColumnRef(type=INT64, column=$subquery1.thing_id#1, is_correlated=TRUE)
+                    +-input_scan=
+                      +-SingleRowScan
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL,-WITH_EXPR' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$subquery1.thing_id#1 AS thing_id [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$subquery1.thing_id#1]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$subquery1.thing_id#1]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.thing_id#1]
+        |   +-expr_list=
+        |   | +-thing_id#1 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-filter_expr=
+          +-WithExpr
+            +-type=BOOL
+            +-assignment_list=
+            | +-thing_id#3 := ColumnRef(type=INT64, column=$subquery1.thing_id#1)
+            +-expr=
+              +-SubqueryExpr
+                +-type=BOOL
+                +-subquery_type=IN
+                +-in_expr=
+                | +-ColumnRef(type=INT64, column=$inlined_b290673529.thing_id#3)
+                +-subquery=
+                  +-ProjectScan
+                    +-column_list=[$subquery1.thing_id#2]
+                    +-input_scan=
+                      +-ProjectScan
+                        +-column_list=[$subquery1.thing_id#2]
+                        +-expr_list=
+                        | +-thing_id#2 := Literal(type=INT64, value=1)
+                        +-input_scan=
+                          +-SingleRowScan

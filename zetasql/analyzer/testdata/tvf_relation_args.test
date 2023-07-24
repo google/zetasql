@@ -6497,7 +6497,7 @@ select column_bytes from tvf_one_relation_arg_repeating_any_one_type_args(
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_relation_arg_repeating_any_one_type_args
   Argument types: TABLE<$col1 INT64, $col2 INT64>, INT64, STRING
-  Signature: TVF_ONE_RELATION_ARG_REPEATING_ANY_ONE_TYPE_ARGS(TABLE, [ANY, ...])
+  Signature: TVF_ONE_RELATION_ARG_REPEATING_ANY_ONE_TYPE_ARGS(TABLE, [T1, ...])
     Unable to find common supertype for templated argument <T1> [at 1:26]
 select column_bytes from tvf_one_relation_arg_repeating_any_one_type_args(
                          ^

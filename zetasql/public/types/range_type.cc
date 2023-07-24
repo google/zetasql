@@ -88,7 +88,7 @@ const Type* RangeType::GetElementType(int i) const { return element_type(); }
 RangeType::RangeType(const TypeFactory* factory, const Type* element_type)
     : ContainerType(factory, TYPE_RANGE), element_type_(element_type) {
   // Also blocked in TypeFactory::MakeRangeType.
-  ZETASQL_DCHECK(IsValidElementType(element_type_));
+  ABSL_DCHECK(IsValidElementType(element_type_));
 }
 RangeType::~RangeType() {}
 
@@ -121,7 +121,7 @@ absl::Status RangeType::SerializeToProtoAndDistinctFileDescriptorsImpl(
 
 bool RangeType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const RangeType* other = that->AsRange();
-  ZETASQL_DCHECK(other);
+  ABSL_DCHECK(other);
   return EqualsImpl(this, other, equivalent);
 }
 
@@ -153,7 +153,7 @@ absl::HashState RangeType::HashValueContent(const ValueContent& value,
   absl::HashState result = absl::HashState::Create(&state);
   const internal::ValueContentContainer* container =
       value.GetAs<internal::ValueContentContainerRef*>()->value();
-  ZETASQL_DCHECK_EQ(container->num_elements(), 2);
+  ABSL_DCHECK_EQ(container->num_elements(), 2);
   ValueContentContainerElementHasher hasher(element_type());
   const internal::ValueContentContainerElement& start = container->element(0);
   result = absl::HashState::combine(std::move(result), hasher(start));

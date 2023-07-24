@@ -8314,9 +8314,8 @@ QueryStmt
 ==
 
 # Regresssion: b/282900415, non-subquery select expr in select list
-# Disable array_filter rewrite due to b/290669074
 [language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
-[enabled_ast_rewrites=NONE,+ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION
   int32,
   ARRAY_TO_STRING(ARRAY_FILTER(['a', 'b', 'c'], e -> e = 'x'), ','),
@@ -8380,18 +8379,53 @@ QueryStmt
         |   | +-int32_partial#20 := ColumnRef(type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
         |   | +-$col2_partial#21 :=
         |   | | +-FunctionCall(ZetaSQL:array_to_string(ARRAY<STRING>, STRING, optional(0) STRING) -> STRING)
-        |   | |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, FUNCTION<STRING->BOOL> condition) -> ARRAY<STRING>)
-        |   | |   | +-FunctionArgument
-        |   | |   | | +-expr=
-        |   | |   | |   +-Literal(type=ARRAY<STRING>, value=["a", "b", "c"])
-        |   | |   | +-FunctionArgument
-        |   | |   |   +-inline_lambda=
-        |   | |   |     +-InlineLambda
-        |   | |   |       +-argument_list=[$lambda_arg.e#13]
-        |   | |   |       +-body=
-        |   | |   |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-        |   | |   |           +-ColumnRef(type=STRING, column=$lambda_arg.e#13)
-        |   | |   |           +-Literal(type=STRING, value="x")
+        |   | |   +-SubqueryExpr
+        |   | |   | +-type=ARRAY<STRING>
+        |   | |   | +-subquery_type=SCALAR
+        |   | |   | +-subquery=
+        |   | |   |   +-ProjectScan
+        |   | |   |     +-column_list=[$expr_subquery.$col1#29]
+        |   | |   |     +-expr_list=
+        |   | |   |     | +-$col1#29 :=
+        |   | |   |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
+        |   | |   |     |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+        |   | |   |     |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.array_to_filter#26)
+        |   | |   |     |     +-Literal(type=ARRAY<STRING>, value=NULL)
+        |   | |   |     |     +-SubqueryExpr
+        |   | |   |     |       +-type=ARRAY<STRING>
+        |   | |   |     |       +-subquery_type=ARRAY
+        |   | |   |     |       +-parameter_list=
+        |   | |   |     |       | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.array_to_filter#26)
+        |   | |   |     |       +-subquery=
+        |   | |   |     |         +-OrderByScan
+        |   | |   |     |           +-column_list=[$array.element#27]
+        |   | |   |     |           +-is_ordered=TRUE
+        |   | |   |     |           +-input_scan=
+        |   | |   |     |           | +-FilterScan
+        |   | |   |     |           |   +-column_list=[$array.element#27, $array_offset.off#28]
+        |   | |   |     |           |   +-input_scan=
+        |   | |   |     |           |   | +-ArrayScan
+        |   | |   |     |           |   |   +-column_list=[$array.element#27, $array_offset.off#28]
+        |   | |   |     |           |   |   +-array_expr=
+        |   | |   |     |           |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.array_to_filter#26, is_correlated=TRUE)
+        |   | |   |     |           |   |   +-element_column=$array.element#27
+        |   | |   |     |           |   |   +-array_offset_column=
+        |   | |   |     |           |   |     +-ColumnHolder(column=$array_offset.off#28)
+        |   | |   |     |           |   +-filter_expr=
+        |   | |   |     |           |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   | |   |     |           |       +-ColumnRef(type=STRING, column=$array.element#27)
+        |   | |   |     |           |       +-Literal(type=STRING, value="x")
+        |   | |   |     |           +-order_by_item_list=
+        |   | |   |     |             +-OrderByItem
+        |   | |   |     |               +-column_ref=
+        |   | |   |     |                 +-ColumnRef(type=INT64, column=$array_offset.off#28)
+        |   | |   |     +-input_scan=
+        |   | |   |       +-ProjectScan
+        |   | |   |         +-column_list=[$subquery1.array_to_filter#26]
+        |   | |   |         +-expr_list=
+        |   | |   |         | +-array_to_filter#26 := Literal(type=ARRAY<STRING>, value=["a", "b", "c"])
+        |   | |   |         +-input_scan=
+        |   | |   |           +-SingleRowScan
         |   | |   +-Literal(type=STRING, value=",")
         |   | +-$uid#22 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#17)
         |   +-aggregate_list=
@@ -8415,9 +8449,8 @@ QueryStmt
 ==
 
 # Regresssion: b/282900415, non-subquery, not selected, select expr in select list
-# Disable array_filter rewrite due to b/290669074
 [language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
-[enabled_ast_rewrites=NONE,+ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT WITH ANONYMIZATION
   s,
@@ -8492,21 +8525,58 @@ QueryStmt
     +-column_list=[$groupby.s#16, $query.$col2#18, $aggregate.$agg1#15]
     +-expr_list=
     | +-$col2#18 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, FUNCTION<STRING->BOOL> condition) -> ARRAY<STRING>)
-    |     +-parse_location=33-45
-    |     +-FunctionArgument
-    |     | +-expr=
-    |     |   +-FunctionCall(ZetaSQL:split(STRING, optional(0) STRING) -> ARRAY<STRING>)
-    |     |     +-parse_location=46-51
-    |     |     +-ColumnRef(parse_location=52-53, type=STRING, column=$groupby.s#16)
-    |     +-FunctionArgument
-    |       +-inline_lambda=
-    |         +-InlineLambda
-    |           +-argument_list=[$lambda_arg.e#17]
-    |           +-body=
-    |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |               +-ColumnRef(parse_location=61-62, type=STRING, column=$lambda_arg.e#17)
-    |               +-Literal(parse_location=65-68, type=STRING, value="x")
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRING, column=$groupby.s#16)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#29]
+    |         +-expr_list=
+    |         | +-$col1#29 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.array_to_filter#26)
+    |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<STRING>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.array_to_filter#26)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$array.element#27]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-FilterScan
+    |         |           |   +-column_list=[$array.element#27, $array_offset.off#28]
+    |         |           |   +-input_scan=
+    |         |           |   | +-ArrayScan
+    |         |           |   |   +-column_list=[$array.element#27, $array_offset.off#28]
+    |         |           |   |   +-array_expr=
+    |         |           |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.array_to_filter#26, is_correlated=TRUE)
+    |         |           |   |   +-element_column=$array.element#27
+    |         |           |   |   +-array_offset_column=
+    |         |           |   |     +-ColumnHolder(column=$array_offset.off#28)
+    |         |           |   +-filter_expr=
+    |         |           |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |         |           |       +-ColumnRef(type=STRING, column=$array.element#27)
+    |         |           |       +-Literal(parse_location=65-68, type=STRING, value="x")
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#28)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.array_to_filter#26]
+    |             +-expr_list=
+    |             | +-array_to_filter#26 :=
+    |             |   +-FunctionCall(ZetaSQL:split(STRING, optional(0) STRING) -> ARRAY<STRING>)
+    |             |     +-parse_location=46-51
+    |             |     +-ColumnRef(type=STRING, column=$groupby.s#16, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$groupby.s#16, $aggregate.$agg1#15]

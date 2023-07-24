@@ -63,7 +63,7 @@ ProtoType::ProtoType(const TypeFactory* factory,
     : Type(factory, TYPE_PROTO),
       descriptor_(descriptor),
       catalog_name_(catalog_name) {
-  ZETASQL_CHECK(descriptor_ != nullptr);
+  ABSL_CHECK(descriptor_ != nullptr);
 }
 
 ProtoType::~ProtoType() {
@@ -75,7 +75,7 @@ bool ProtoType::IsSupportedType(const LanguageOptions& language_options) const {
 
 bool ProtoType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const ProtoType* other = that->AsProto();
-  ZETASQL_DCHECK(other);
+  ABSL_DCHECK(other);
   return ProtoType::EqualsImpl(this, other, equivalent);
 }
 
@@ -713,7 +713,7 @@ bool ProtoType::ValueContentEquals(
   if (!differencer_reason.empty()) {
     absl::StrAppend(options.reason, differencer_reason);
     // The newline will be added already.
-    ZETASQL_DCHECK_EQ(differencer_reason[differencer_reason.size() - 1], '\n')
+    ABSL_DCHECK_EQ(differencer_reason[differencer_reason.size() - 1], '\n')
         << differencer_reason;
   }
   return result;
@@ -721,7 +721,7 @@ bool ProtoType::ValueContentEquals(
 
 bool ProtoType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                  const Type* other_type) const {
-  ZETASQL_LOG(DFATAL) << "Cannot compare " << DebugString() << " to "
+  ABSL_LOG(ERROR) << "Cannot compare " << DebugString() << " to "
               << other_type->DebugString();
   return false;
 }

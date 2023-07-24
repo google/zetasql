@@ -106,7 +106,7 @@ class RegExp {
   // ...
   // ExtractAllIterator iter = regexp->CreateExtractAllIterator(input);
   // while (iter.Next(&output, &error)) {
-  //  ZETASQL_LOG(INFO) << output;
+  //  ABSL_LOG(INFO) << output;
   // }
   // ZETASQL_RETURN_IF_ERROR(error);
   //
@@ -219,7 +219,7 @@ class RegExp {
   // Accessor to the initialized RE2 object. Must Initialize() first before
   // calling this.
   const RE2& re() const {
-    ZETASQL_DCHECK(re_ != nullptr) << "Not initialized";
+    ABSL_DCHECK(re_ != nullptr) << "Not initialized";
     return *re_;
   }
 

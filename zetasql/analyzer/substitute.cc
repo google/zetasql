@@ -85,7 +85,7 @@ class ScopedColumnRefLayer {
 
   // Pops the top layer of the column refs stack.
   ~ScopedColumnRefLayer() {
-    ZETASQL_DCHECK(!column_refs_stack_.empty());
+    ABSL_DCHECK(!column_refs_stack_.empty());
     if (column_refs_stack_.empty()) {
       return;
     }

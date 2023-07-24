@@ -41,9 +41,9 @@ int64_t IdStringPool::max_pool_id_ = 0;
 // static
 void IdStringPool::CheckPoolIdAlive(int64_t pool_id) {
   absl::MutexLock l(&global_mutex_);
-  ZETASQL_DCHECK(live_pool_ids_ != nullptr);
+  ABSL_DCHECK(live_pool_ids_ != nullptr);
   if (!zetasql_base::ContainsKey(*live_pool_ids_, pool_id)) {
-    ZETASQL_LOG(FATAL) << "IdString was accessed after its IdStringPool ("
+    ABSL_LOG(FATAL) << "IdString was accessed after its IdStringPool ("
                << pool_id << ") was destructed";
   }
 }
@@ -72,7 +72,7 @@ IdStringPool::~IdStringPool() {
 #ifndef NDEBUG
   ZETASQL_VLOG(1) << "Deleting IdStringPool " << pool_id_;
   absl::MutexLock l(&global_mutex_);
-  ZETASQL_CHECK_EQ(1, live_pool_ids_->erase(pool_id_));
+  ABSL_CHECK_EQ(1, live_pool_ids_->erase(pool_id_));
 #endif
 }
 

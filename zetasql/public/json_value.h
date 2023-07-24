@@ -41,7 +41,7 @@ class JSONValueRef;
 
 // Max array size. This is a soft limit only enforced on InsertArrayElement(s),
 // as a user can accidentally enter a large value. This limit is not enforced on
-// parsing, or AppendArrayElement(s) as an accident is much less likely.
+// parsing as an accident is much less likely.
 inline constexpr size_t kJSONMaxArraySize = 1000000;
 
 // Options for parsing an input JSON-formatted string.
@@ -159,25 +159,25 @@ class JSONValueConstRef {
   bool IsDouble() const;
 
   // Returns a JSON number value as int64_t.
-  // Requires IsInt64() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsInt64() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   int64_t GetInt64() const;
   // Returns a JSON number value as uint64_t.
-  // Requires IsUInt64() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsUInt64() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   uint64_t GetUInt64() const;
   // Returns a JSON number value as double.
-  // Requires IsDouble() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsDouble() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   double GetDouble() const;
   // Returns a JSON string value.
-  // Requires IsString() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsString() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   std::string GetString() const;
   // Returns a JSON boolean value.
-  // Requires IsBoolean() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsBoolean() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   bool GetBoolean() const;
 
   // If the JSON value being referenced is an object, returns the number of
   // elements.
   //
-  // Requires IsObject() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsObject() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   size_t GetObjectSize() const;
   // If the JSON value being referenced is an object, returns whether the 'key'
   // references an existing member. If the JSON value is not an object, returns
@@ -188,9 +188,9 @@ class JSONValueConstRef {
   bool HasMember(absl::string_view key) const;
   // If the JSON value being referenced is an object, returns the member
   // corresponding to the given 'key'. If such 'key' does not exist, then
-  // the call results in ZETASQL_LOG(FATAL).
+  // the call results in ABSL_LOG(FATAL).
   //
-  // Requires IsObject() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsObject() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   JSONValueConstRef GetMember(absl::string_view key) const;
   // If the JSON value being referenced is an object, returns the member
   // corresponding to the given 'key' if it exists. If such 'key' does not
@@ -200,24 +200,24 @@ class JSONValueConstRef {
   // If the JSON value being referenced is an object, returns all the key/value
   // pairs corresponding to members of the object.
   //
-  // Requires IsObject() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsObject() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   std::vector<std::pair<absl::string_view, JSONValueConstRef>> GetMembers()
       const;
 
   // If the JSON value being referenced is an array, returns the number of
   // elements.
   //
-  // Requires IsArray() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsArray() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   size_t GetArraySize() const;
   // If the JSON value being referenced is an array, returns the element at
   // 'index'. If such element does not exist (index >= GetArraySize()), then
   // the returned value is an invalid object.
   //
-  // Requires IsArray() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsArray() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   JSONValueConstRef GetArrayElement(size_t index) const;
   // If the JSON value being referenced is an array, returns all the elements.
   //
-  // Requires IsArray() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  // Requires IsArray() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   std::vector<JSONValueConstRef> GetArrayElements() const;
 
   // Serializes the JSON value into a compact string representation.
@@ -291,7 +291,7 @@ class JSONValueRef : public JSONValueConstRef {
   // a null value corresponding to the 'key' and returns it.
   //
   // Requires IsObject() or IsNull() to be true. Otherwise, the call results in
-  // ZETASQL_LOG(FATAL).
+  // ABSL_LOG(FATAL).
   JSONValueRef GetMember(absl::string_view key);
   // If the JSON value being referenced is an object, returns the member
   // corresponding to the given 'key' if it exists. If such 'key' does not
@@ -301,7 +301,7 @@ class JSONValueRef : public JSONValueConstRef {
   // pairs corresponding to members of the object.
   //
   // Requires IsObject() or IsNull() to be true. Otherwise, the call results in
-  // ZETASQL_LOG(FATAL).
+  // ABSL_LOG(FATAL).
   std::vector<std::pair<absl::string_view, JSONValueRef>> GetMembers();
   // If the JSON value being referenced is an object, removes the key/value
   // pair corresponding to 'key' if it exists. Return true if the member exists,
@@ -315,12 +315,12 @@ class JSONValueRef : public JSONValueConstRef {
   // elements and returns a reference to the newly created null element.
   //
   // Requires IsArray() or IsNull() to be true. Otherwise, the call results in
-  // ZETASQL_LOG(FATAL).
+  // ABSL_LOG(FATAL).
   JSONValueRef GetArrayElement(size_t index);
   // If the JSON value being referenced is an array, returns all the elements.
   //
   // Requires IsArray() or IsNull() to be true. Otherwise, the call results in
-  // ZETASQL_LOG(FATAL).
+  // ABSL_LOG(FATAL).
   std::vector<JSONValueRef> GetArrayElements();
   // If the JSON value being referenced is an array, inserts 'json_value' at
   // 'index'. If 'index' is greater than the size of the array, expands the

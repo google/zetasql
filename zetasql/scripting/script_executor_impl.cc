@@ -184,7 +184,7 @@ void ScriptExecutorImpl::SetSystemVariablesForPendingException() {
     if (stack_trace_value.ok()) {
       system_variables_[{"error", "stack_trace"}] = stack_trace_value.value();
     } else {
-      ZETASQL_LOG(ERROR) << "Unable to get value for @@error.stack_trace: "
+      ABSL_LOG(ERROR) << "Unable to get value for @@error.stack_trace: "
                  << stack_trace_value.status();
     }
     system_variables_[{"error", "formatted_stack_trace"}] =
@@ -196,7 +196,7 @@ void ScriptExecutorImpl::SetSystemVariablesForPendingException() {
       system_variables_[{"error", "stack_trace"}] =
           Value::Null(stack_trace_type.value());
     } else {
-      ZETASQL_LOG(ERROR) << "Unable to get type for @@error.stack_trace: "
+      ABSL_LOG(ERROR) << "Unable to get type for @@error.stack_trace: "
                  << stack_trace_type.status();
     }
     system_variables_[{"error", "formatted_stack_trace"}] = Value::NullString();
@@ -316,12 +316,12 @@ ScriptExecutorImpl::GenerateStatementTextSystemVariable() const {
 
 absl::StatusOr<ScriptException> ScriptExecutorImpl::SetupNewException(
     const absl::Status& status) {
-  ZETASQL_DCHECK(!status.ok() && internal::HasPayloadWithType<ScriptException>(status));
-  ZETASQL_DCHECK(!options_.dry_run());
+  ABSL_DCHECK(!status.ok() && internal::HasPayloadWithType<ScriptException>(status));
+  ABSL_DCHECK(!options_.dry_run());
 
   // Should not get here when rethrowing a prior exception.
   const ASTNode* curr_node = callstack_.back().current_node()->ast_node();
-  ZETASQL_DCHECK(curr_node->node_kind() != AST_RAISE_STATEMENT ||
+  ABSL_DCHECK(curr_node->node_kind() != AST_RAISE_STATEMENT ||
          !curr_node->GetAsOrDie<ASTRaiseStatement>()->is_rethrow());
 
   ScriptException exception = internal::GetPayload<ScriptException>(status);
@@ -346,7 +346,7 @@ absl::StatusOr<ScriptException> ScriptExecutorImpl::SetupNewException(
 
 absl::Status ScriptExecutorImpl::EnterExceptionHandler(
     const ScriptException& exception) {
-  ZETASQL_DCHECK(!options_.dry_run());
+  ABSL_DCHECK(!options_.dry_run());
   sql_feature_usage_.set_exception(sql_feature_usage_.exception() + 1);
   triggered_features_.insert(ScriptExecutorStateProto::EXCEPTION_CAUGHT);
   pending_exceptions_.push_back(exception);
@@ -356,7 +356,7 @@ absl::Status ScriptExecutorImpl::EnterExceptionHandler(
 }
 
 absl::Status ScriptExecutorImpl::ExitExceptionHandler() {
-  ZETASQL_DCHECK(!options_.dry_run());
+  ABSL_DCHECK(!options_.dry_run());
   ZETASQL_RET_CHECK(!pending_exceptions_.empty());
   pending_exceptions_.pop_back();
   SetSystemVariablesForPendingException();
@@ -1865,7 +1865,7 @@ absl::Status ScriptExecutorImpl::SetState(
     // Unable to load timezone from state proto - fall back to default time
     // zone.  This can happen if we are restoring from an older version of
     // ScriptExecutorStateProto, which did not persist timezone values.
-    ZETASQL_LOG_IF(WARNING, !state.timezone().empty())
+    ABSL_LOG_IF(WARNING, !state.timezone().empty())
         << "Unable to load timezone '" << state.timezone()
         << "' from state proto; using default timezone instead: "
         << options_.default_time_zone().name();
@@ -2327,7 +2327,7 @@ absl::Status ScriptExecutorImpl::ExitFromProcedure(
   for (const auto& pair : frame_exit_from->variable_sizes()) {
     int64_t variable_size = pair.second;
     total_memory_usage_ -= variable_size;
-    ZETASQL_DCHECK_GE(total_memory_usage_, 0) << "Total size should never be negative";
+    ABSL_DCHECK_GE(total_memory_usage_, 0) << "Total size should never be negative";
   }
 
   if (normal_return) {

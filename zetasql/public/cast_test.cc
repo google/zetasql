@@ -135,7 +135,7 @@ TEST(ConversionTest, ValueCastTest) {
       "MyIntToMyString", "engine_defined_conversion", Function::SCALAR,
       /*function_signatures=*/{},
       FunctionOptions().set_evaluator([](const absl::Span<const Value> args) {
-        ZETASQL_CHECK_EQ(args.size(), 1);
+        ABSL_CHECK_EQ(args.size(), 1);
         return Value::StringValue(std::to_string(args[0].int32_value()));
       }));
 
@@ -281,7 +281,7 @@ TEST(ConversionTest, ConversionMatchTest) {
 }
 
 static void ExecuteTest(const QueryParamsWithResult& test_case) {
-  ZETASQL_CHECK_EQ(1, test_case.num_params());
+  ABSL_CHECK_EQ(1, test_case.num_params());
   const Value& from_value = test_case.param(0);
   absl::TimeZone los_angeles;
   absl::LoadTimeZone("America/Los_Angeles", &los_angeles);

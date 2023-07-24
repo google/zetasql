@@ -105,9 +105,9 @@ bool JSONParser::ParseHexDigits(const int size, std::string* str) {
   if (p_.length() < size) {
     return false;
   }
-  ZETASQL_CHECK_GT(size, 2);
-  ZETASQL_CHECK_EQ(p_.data()[0], '\\');
-  ZETASQL_CHECK(p_.data()[1] == 'u' || p_.data()[1] == 'x');
+  ABSL_CHECK_GT(size, 2);
+  ABSL_CHECK_EQ(p_.data()[0], '\\');
+  ABSL_CHECK(p_.data()[1] == 'u' || p_.data()[1] == 'x');
   char32_t code = 0;
   for (int i = 2; i < size; ++i) {
     if (!absl::ascii_isxdigit(p_.data()[i])) {
@@ -137,8 +137,8 @@ bool JSONParser::IsOctalDigit(char c) { return (c >= '0' && c <= '7'); }
 
 void JSONParser::ParseOctalDigits(const int max_size, std::string* str) {
   // Length >= 2 because it must have a \ and at least one octal digit.
-  ZETASQL_DCHECK_GE(p_.length(), 2);
-  ZETASQL_CHECK_EQ(p_.data()[0], '\\');
+  ABSL_DCHECK_GE(p_.length(), 2);
+  ABSL_CHECK_EQ(p_.data()[0], '\\');
   char32_t sum = 0;
   // Start at one because we skip the \.
   int num_octal_digits = 1;
@@ -167,7 +167,7 @@ bool JSONParser::ParseStringHelper(std::string* str) {
   str->clear();
   // The character used to open the string (' or ") must also close the string.
   const char* open = p_.data();
-  ZETASQL_CHECK(*open == '\"' || *open == '\'');
+  ABSL_CHECK(*open == '\"' || *open == '\'');
   // We may hit the end of the string before finding the closing quote.
   bool found_close_quote = false;
   AdvanceOneByte();
@@ -193,7 +193,7 @@ bool JSONParser::ParseStringHelper(std::string* str) {
     if (flush_start == nullptr) {
       return;
     }
-    ZETASQL_DCHECK_GE(flush_end, flush_start);
+    ABSL_DCHECK_GE(flush_end, flush_start);
     str->append(flush_start, flush_end - flush_start);
   };
 
@@ -259,7 +259,7 @@ bool JSONParser::ParseNumber() {
 }
 
 bool JSONParser::ParseNumberTextHelper(absl::string_view* str) {
-  ZETASQL_CHECK(str);
+  ABSL_CHECK(str);
   const char* p = p_.data();
   const char* end = p + p_.size();
 
@@ -318,7 +318,7 @@ bool JSONParser::ParseNumberTextHelper(absl::string_view* str) {
 }
 
 bool JSONParser::ParseObject() {
-  ZETASQL_CHECK_EQ('{', *p_.data());
+  ABSL_CHECK_EQ('{', *p_.data());
   AdvanceOneByte();
 
   if (!BeginObject()) return ReportFailure("BeginObject returned false");
@@ -380,7 +380,7 @@ bool JSONParser::ParseObject() {
 }
 
 bool JSONParser::ParseArray() {
-  ZETASQL_CHECK_EQ('[', *p_.data());
+  ABSL_CHECK_EQ('[', *p_.data());
   AdvanceOneByte();
   if (!BeginArray()) return ReportFailure("BeginArray returned false");
   // Deal with [] case
@@ -426,21 +426,21 @@ bool JSONParser::ParseArray() {
 
 bool JSONParser::ParseTrue() {
   if (!ParsedBool(true)) return ReportFailure("ParsedBool returned false");
-  ZETASQL_DCHECK_GE(p_.length(), kTrue.length());
+  ABSL_DCHECK_GE(p_.length(), kTrue.length());
   p_.remove_prefix(kTrue.length());
   return true;
 }
 
 bool JSONParser::ParseFalse() {
   if (!ParsedBool(false)) return ReportFailure("ParsedBool returned false");
-  ZETASQL_DCHECK_GE(p_.length(), kFalse.length());
+  ABSL_DCHECK_GE(p_.length(), kFalse.length());
   p_.remove_prefix(kFalse.length());
   return true;
 }
 
 bool JSONParser::ParseNull() {
   if (!ParsedNull()) return ReportFailure("ParsedNull returned false");
-  ZETASQL_DCHECK_GE(p_.length(), kNull.length());
+  ABSL_DCHECK_GE(p_.length(), kNull.length());
   p_.remove_prefix(kNull.length());
   return true;
 }

@@ -139,7 +139,7 @@ AnalyticFunctionResolver::AnalyticFunctionResolver(
 
 AnalyticFunctionResolver::~AnalyticFunctionResolver() {
   if (is_create_analytic_scan_successful_) {
-    ZETASQL_DCHECK(window_columns_to_compute_.empty())
+    ABSL_DCHECK(window_columns_to_compute_.empty())
         << "Output columns for window expressions have not been attached to "
            "the tree";
   }
@@ -179,7 +179,7 @@ AnalyticFunctionResolver::NamedWindowInfoMap*
 
 void AnalyticFunctionResolver::DisableNamedWindowRefs(
     const char* clause_name) {
-  ZETASQL_CHECK_NE(clause_name[0], '\0');
+  ABSL_CHECK_NE(clause_name[0], '\0');
   named_window_not_allowed_here_name_ = clause_name;
 }
 
@@ -588,7 +588,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowExpression(
 absl::Status AnalyticFunctionResolver::ValidateOrderByInRangeBasedWindow(
     const ASTOrderBy* ast_order_by, const ASTWindowFrame* ast_window_frame,
     WindowExprInfoList* order_by_info) {
-  ZETASQL_DCHECK_EQ(ast_window_frame->frame_unit(), ASTWindowFrame::RANGE);
+  ABSL_DCHECK_EQ(ast_window_frame->frame_unit(), ASTWindowFrame::RANGE);
   if (order_by_info == nullptr) {
     if (ast_window_frame->start_expr()->boundary_type() ==
             ASTWindowFrameExpr::UNBOUNDED_PRECEDING &&
@@ -781,8 +781,8 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
         "has type $1",
         resolved_offset_expr));
   } else {
-    ZETASQL_DCHECK_EQ(frame_unit, ResolvedWindowFrame::RANGE);
-    ZETASQL_DCHECK(ordering_expr_type != nullptr);
+    ABSL_DCHECK_EQ(frame_unit, ResolvedWindowFrame::RANGE);
+    ABSL_DCHECK(ordering_expr_type != nullptr);
 
     ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToType(
         ast_frame_expr->expression(), ordering_expr_type,

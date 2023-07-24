@@ -2384,7 +2384,7 @@ static bool ExcludeOrReplaceColumn(
     select_column_state_list->AddSelectColumn(std::move(
         zetasql_base::FindOrDie(column_replacements->replaced_columns, column_name)));
     // I'd use ZETASQL_RET_CHECK here, except then I'd have to return StatusOr<bool>.
-    ZETASQL_DCHECK(select_column_state_list->select_column_state_list().back() !=
+    ABSL_DCHECK(select_column_state_list->select_column_state_list().back() !=
            nullptr);
     return true;
   }
@@ -3602,7 +3602,7 @@ absl::Status Resolver::ResolveGroupingItemExpression(
 
   ExprResolutionInfo no_aggregation(from_clause_scope, "GROUP BY");
 
-  ZETASQL_DCHECK_NE(ast_group_by_expr->node_kind(), AST_IDENTIFIER)
+  ABSL_DCHECK_NE(ast_group_by_expr->node_kind(), AST_IDENTIFIER)
       << "We expect to get PathExpressions, not Identifiers here";
 
   const SelectColumnState* group_by_column_state = nullptr;
@@ -3940,7 +3940,7 @@ absl::Status Resolver::ResolveSelectAs(
     *output_scan = std::move(input_scan);
     return absl::OkStatus();
   } else {
-    ZETASQL_DCHECK(select_as->type_name() != nullptr);
+    ABSL_DCHECK(select_as->type_name() != nullptr);
 
     const Type* type;
     ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsType(
@@ -5483,7 +5483,7 @@ absl::Status Resolver::ResolveLimitOrOffsetExpr(
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_expr, expr_resolution_info, resolved_expr));
-  ZETASQL_DCHECK(resolved_expr != nullptr);
+  ABSL_DCHECK(resolved_expr != nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateParameterOrLiteralAndCoerceToInt64IfNeeded(
       clause_name, ast_expr, resolved_expr));
   return absl::OkStatus();
@@ -5514,7 +5514,7 @@ absl::Status Resolver::ResolveHavingModifier(
            << resolved_expr->type()->ShortTypeName(product_mode());
   }
 
-  ZETASQL_DCHECK(resolved_having != nullptr);
+  ABSL_DCHECK(resolved_having != nullptr);
   ResolvedAggregateHavingModifier::HavingModifierKind kind;
   if (ast_having_modifier->modifier_kind() ==
       ASTHavingModifier::ModifierKind::MAX) {
@@ -7135,7 +7135,7 @@ absl::Status Resolver::ResolveColumnInUsing(
   compute_expr_for_found_column->reset();
   // <ast_identifier> and <found_column> are redundant but we pass the
   // string in to avoid doing extra string copy.
-  ZETASQL_DCHECK_EQ(ast_identifier->GetAsIdString(), key_name);
+  ABSL_DCHECK_EQ(ast_identifier->GetAsIdString(), key_name);
 
   NameTarget found_name;
   if (!name_list.LookupName(key_name, &found_name)) {

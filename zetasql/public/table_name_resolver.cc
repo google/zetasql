@@ -80,7 +80,7 @@ class TableNameResolver {
         table_names_(table_names),
         tvf_names_(tvf_names),
         table_resolution_time_info_map_(table_resolution_time_info_map) {
-    ZETASQL_DCHECK(analyzer_options_->AllArenasAreInitialized());
+    ABSL_DCHECK(analyzer_options_->AllArenasAreInitialized());
   }
 
   TableNameResolver(const TableNameResolver&) = delete;

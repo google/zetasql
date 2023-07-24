@@ -145,7 +145,7 @@ void CompareResult<bool>(const QueryParamsWithResult& param,
 template <typename OutType>
 void TestNullaryFunction(const QueryParamsWithResult& param,
                          OutType (*function)()) {
-  ZETASQL_CHECK_EQ(0, param.num_params());
+  ABSL_CHECK_EQ(0, param.num_params());
   return CompareResult(param, absl::OkStatus(), function());
 }
 
@@ -153,7 +153,7 @@ template <typename InType, typename OutType>
 void TestUnaryFunction(const QueryParamsWithResult& param,
                        bool (*function)(InType, OutType*,
                            absl::Status* error)) {
-  ZETASQL_CHECK_EQ(1, param.num_params());
+  ABSL_CHECK_EQ(1, param.num_params());
   const Value& input1 = param.param(0);
   if (input1.is_null()) {
     return;
@@ -169,7 +169,7 @@ template <typename InType1, typename InType2, typename OutType>
 void TestBinaryFunction(const QueryParamsWithResult& param,
                         bool (*function)(InType1, InType2, OutType*,
                             absl::Status* error)) {
-  ZETASQL_CHECK_EQ(2, param.num_params());
+  ABSL_CHECK_EQ(2, param.num_params());
   const Value& input1 = param.param(0);
   const Value& input2 = param.param(1);
   if (input1.is_null() || input2.is_null()) {
@@ -187,7 +187,7 @@ template <typename InType1, typename InType2, typename InType3,
 void TestTernaryRoundFunction(const QueryParamsWithResult& param,
                               bool (*function)(InType1, InType2, InType3,
                                                OutType*, absl::Status* error)) {
-  ZETASQL_CHECK_EQ(3, param.num_params());
+  ABSL_CHECK_EQ(3, param.num_params());
   const Value& input1 = param.param(0);
   const Value& input2 = param.param(1);
   const Value& input3 = param.param(2);

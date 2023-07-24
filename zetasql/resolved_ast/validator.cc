@@ -3285,7 +3285,7 @@ absl::Status Validator::ValidateResolvedCreateTableStmtBase(
           << check_constraint->constraint_name();
     }
     VALIDATOR_RET_CHECK(check_constraint->expression() != nullptr)
-        << "Missing expression in ZETASQL_CHECK constraint";
+        << "Missing expression in ABSL_CHECK constraint";
     VALIDATOR_RET_CHECK(check_constraint->expression()->type()->IsBool())
         << "CHECK constraint expects a boolean expression; got "
         << check_constraint->expression()->type()->ShortTypeName(

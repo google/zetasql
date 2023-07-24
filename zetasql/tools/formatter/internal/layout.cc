@@ -217,8 +217,8 @@ bool StmtLayout::Empty() const { return chunks_.empty(); }
 
 const Chunk& StmtLayout::ChunkAt(int index) const {
   // In debug mode: crash with readable message if the index is out of bounds.
-  ZETASQL_DCHECK_GE(index, 0);
-  ZETASQL_DCHECK_LT(index, chunks_.size());
+  ABSL_DCHECK_GE(index, 0);
+  ABSL_DCHECK_LT(index, chunks_.size());
   // Not in debug mode: try to recover.
   if (index < 0) {
     return chunks_.front();
@@ -1000,9 +1000,7 @@ void StmtLayout::PruneLineBreaks() {
     if (prev_line->LengthInChunks() == 1 &&
         !ChunkAt(prev_line->start)
              .LastToken()
-             .IsOneOf({Token::Type::BRACED_CONSTR_BRACKET,
-                       Token::Type::BRACED_CONSTR_FIRST_BRACKET,
-                       Token::Type::BRACED_CONSTR_LAST_BRACKET})) {
+             .Is(Token::Type::BRACED_CONSTR_BRACKET)) {
       const Chunk& prev_chunk = ChunkAt(prev_line->start);
       const int curr_line_level = first_chunk.ChunkBlock()->Level();
       const int prev_line_level = prev_chunk.ChunkBlock()->Level();
@@ -1451,7 +1449,7 @@ absl::btree_set<int> StmtLayout::BreakpointsCloseToLineLength(
     ChunkAt(b).ChunkBlock()->MarkAsBreakCloseToLineLength();
   }
 
-  // Once we splitted the expression, check if the expression is followed by an
+  // Once we split the expression, check if the expression is followed by an
   // 'AS alias' clause. If it does, and there is more than 1 token on the last
   // line, add a line break before the alias. For instance:
   //   1 + 2 + 3
@@ -1555,8 +1553,7 @@ absl::btree_set<int> StmtLayout::FindSiblingBreakpoints(const Line& line,
           // Curly braced constructor `NEW Type { foo: 1 }`.
           ChunkAt(closing_bracket)
               .FirstToken()
-              .IsOneOf({Token::Type::BRACED_CONSTR_BRACKET,
-                        Token::Type::BRACED_CONSTR_LAST_BRACKET})) {
+              .Is(Token::Type::BRACED_CONSTR_BRACKET)) {
         // Add a line break before closing parenthesis.
         result.insert(closing_bracket);
       } else {

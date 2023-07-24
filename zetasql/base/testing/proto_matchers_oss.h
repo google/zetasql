@@ -35,7 +35,7 @@ inline bool InternalProtoEqual(const google::protobuf::Message& msg1,
 inline bool InternalProtoEqual(const google::protobuf::Message& msg1,
                                absl::string_view msg2_text) {
   google::protobuf::Message* msg2 = msg1.New();
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(std::string(msg2_text), msg2));
+  ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(std::string(msg2_text), msg2));
   return InternalProtoEqual(msg1, *msg2);
 }
 }  // namespace proto_matchers_internal

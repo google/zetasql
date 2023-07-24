@@ -31,17 +31,17 @@ SimpleProtoEvaluatorTableIterator::SimpleProtoEvaluatorTableIterator(
 int SimpleProtoEvaluatorTableIterator::NumColumns() const { return 1; }
 
 std::string SimpleProtoEvaluatorTableIterator::GetColumnName(int i) const {
-  ZETASQL_CHECK_EQ(i, 0);
+  ABSL_CHECK_EQ(i, 0);
   return kValueColumnName;
 }
 
 const Type* SimpleProtoEvaluatorTableIterator::GetColumnType(int i) const {
-  ZETASQL_CHECK_EQ(i, 0);
+  ABSL_CHECK_EQ(i, 0);
   return proto_type_;
 }
 
 const Value& SimpleProtoEvaluatorTableIterator::GetValue(int i) const {
-  ZETASQL_CHECK_EQ(i, 0);
+  ABSL_CHECK_EQ(i, 0);
   return current_value_;
 }
 

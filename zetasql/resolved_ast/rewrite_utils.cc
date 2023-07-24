@@ -788,7 +788,7 @@ LikeAnyAllSubqueryScanBuilder::AggregateLogicalOperation(
 
 bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* const function_call,
                            FunctionSignatureId function_signature_id) {
-  ZETASQL_DCHECK(function_call->function() != nullptr)
+  ABSL_DCHECK(function_call->function() != nullptr)
       << "Expected function_call->function() to not be null";
   return function_call->function() != nullptr &&
          function_call->signature().context_id() == function_signature_id &&

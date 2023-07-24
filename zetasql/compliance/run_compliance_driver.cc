@@ -96,7 +96,7 @@ std::string GetQuery(const std::vector<std::string>& args) {
   if (args.empty()) {
     if (!absl::GetFlag(FLAGS_sql_file).empty()) {
       std::string sql;
-      ZETASQL_CHECK_OK(zetasql_base::GetContents(absl::GetFlag(FLAGS_sql_file), &sql,
+      ZETASQL_QCHECK_OK(zetasql_base::GetContents(absl::GetFlag(FLAGS_sql_file), &sql,
                                   ::zetasql_base::Defaults()));
       return sql;
     } else {
@@ -121,17 +121,17 @@ int main(int argc, char* argv[]) {
   const std::vector<google::protobuf::DescriptorPool*> descriptor_pools;
   std::vector<std::unique_ptr<const zetasql::AnnotationMap>> annotation_maps;
   if (absl::GetFlag(FLAGS_test_db).empty()) {
-    ZETASQL_CHECK_OK(test_driver->CreateDatabase(test_db));
+    ZETASQL_QCHECK_OK(test_driver->CreateDatabase(test_db));
   } else {
     zetasql::TestDatabaseProto proto;
     zetasql_base::ReadFileToProtoOrDie(absl::GetFlag(FLAGS_test_db), &proto);
     absl::StatusOr<zetasql::TestDatabase> db =
         zetasql::DeserializeTestDatabase(proto, &type_factory,
                                            descriptor_pools, annotation_maps);
-    ZETASQL_CHECK_OK(db.status());
+    ZETASQL_QCHECK_OK(db.status());
     test_db = *db;
   }
-  ZETASQL_CHECK_OK(test_driver->CreateDatabase(test_db));
+  ZETASQL_QCHECK_OK(test_driver->CreateDatabase(test_db));
 
   absl::StatusOr<zetasql::Value> value = test_driver->ExecuteStatement(
       sql, absl::GetFlag(FLAGS_parameters).parameters, &type_factory);

@@ -48,7 +48,7 @@ namespace zetasql {
 static absl::Status GetZetaSqlCollators(
     absl::Span<const KeyArg* const> keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
-    std::vector<std::unique_ptr<const ZetaSqlCollator>>* collators) {
+    CollatorList* collators) {
   for (int i = 0; i < keys.size(); ++i) {
     if (keys.at(i)->collation() != nullptr) {
       TupleSlot collation_slot;
@@ -102,8 +102,8 @@ static absl::Status GetZetaSqlCollators(
 absl::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
     absl::Span<const KeyArg* const> keys, absl::Span<const int> slots_for_keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context) {
-  std::shared_ptr<Collators> collators =
-      std::make_shared<Collators>(Collators());
+  std::shared_ptr<CollatorList> collators =
+      std::make_shared<CollatorList>(CollatorList());
   ZETASQL_RETURN_IF_ERROR(
       GetZetaSqlCollators(keys, params, context, collators.get()));
   return absl::WrapUnique(new TupleComparator(keys, slots_for_keys, collators));
@@ -137,8 +137,8 @@ bool TupleComparator::operator()(const TupleData& t1,
     }
 
     if (collator != nullptr) {
-      ZETASQL_DCHECK(v1.type()->IsString());
-      ZETASQL_DCHECK(v2.type()->IsString());
+      ABSL_DCHECK(v1.type()->IsString());
+      ABSL_DCHECK(v2.type()->IsString());
       absl::Status status;
       int64_t result =
           collator->CompareUtf8(v1.string_value(), v2.string_value(), &status);
@@ -206,12 +206,12 @@ bool TupleComparator::InvolvesUncertainArrayComparisons(
   int safe_slot_count = 0;
   for (const int slot_idx : slots_for_keys_) {
     const Type* slot_type = tuples[0]->slot(slot_idx).value().type();
-    // This ZETASQL_DCHECK should be okay here. Its not. For some reason window scans
+    // This ABSL_DCHECK should be okay here. Its not. For some reason window scans
     // are including columns in their tuple comparison keys that aren't part
     // of the window definition order by clause.
     // TODO: Stop including struct columns in window sorting and
-    //     enable this ZETASQL_DCHECK.
-    // ZETASQL_DCHECK(!slot_type->IsStruct())
+    //     enable this ABSL_DCHECK.
+    // ABSL_DCHECK(!slot_type->IsStruct())
     //    << "Extra work needed in TupleCompartor to support ordering by "
     //    << "structs because they might contain nested arrays with uncertain "
     //    << "orders.";

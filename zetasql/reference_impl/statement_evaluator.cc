@@ -181,8 +181,8 @@ absl::Status StatementEvaluatorImpl::Evaluation::Evaluate(
 absl::Status StatementEvaluatorImpl::Evaluation::EvaluateInternal(
     const ScriptExecutor& script_executor, StatementEvaluatorImpl* evaluator,
     const ScriptSegment& segment) {
-  ZETASQL_CHECK(evaluator != nullptr);
-  ZETASQL_CHECK(evaluator_ == nullptr) << "StatementEvaluatorImpl::Evaluation::"
+  ABSL_CHECK(evaluator != nullptr);
+  ABSL_CHECK(evaluator_ == nullptr) << "StatementEvaluatorImpl::Evaluation::"
                                   "Evaluate() called multiple times.";
   evaluator_ = evaluator;
   AnalyzerOptions analyzer_options = evaluator->initial_analyzer_options_;
@@ -296,7 +296,7 @@ absl::StatusOr<Value> IteratorToValue(TypeFactory* type_factory,
   std::vector<Value> values;
   while (iterator->NextRow()) {
     if (is_value_table) {
-      ZETASQL_CHECK_EQ(iterator->NumColumns(), 1);
+      ABSL_CHECK_EQ(iterator->NumColumns(), 1);
       values.push_back(iterator->GetValue(0));
       ZETASQL_RET_CHECK(iterator->GetValue(0).is_valid());
     } else {

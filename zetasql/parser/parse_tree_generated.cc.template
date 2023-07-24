@@ -39,7 +39,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
 {{blank_line}}
   for (int kind = kFirstASTNodeKind; kind <= kLastASTNodeKind;
        ++kind) {
-    ZETASQL_DCHECK(map.contains(static_cast<ASTNodeKind>(kind))) << "kind=" << kind;
+    ABSL_DCHECK(map.contains(static_cast<ASTNodeKind>(kind))) << "kind=" << kind;
   }
   return map;
 }

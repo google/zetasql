@@ -545,8 +545,8 @@ public class AllowedHintsAndOptions implements Serializable {
   }
 
   // Helper function populates differentialPrivacyOptions with default set of options that are
-  // accepted not that
-  // these options are different than anonymization options above see:(broken link).
+  // accepted. Note that these options are different than anonymization options above see:
+  // (broken link).
   private void addDefaultDifferentialPrivacyOptions() {
     differentialPrivacyOptions.put(
         "epsilon",

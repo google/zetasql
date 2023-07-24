@@ -86,7 +86,7 @@ void SimpleValue::Clear() {
       // Nothing to clear.
       break;
     default:
-      ZETASQL_CHECK(false) << "All ValueType must be explicitly handled in Clear()";
+      ABSL_CHECK(false) << "All ValueType must be explicitly handled in Clear()";
   }
   type_ = TYPE_INVALID;
 }
@@ -102,13 +102,13 @@ int64_t SimpleValue::GetEstimatedOwnedMemoryBytesSize() const {
     case TYPE_DOUBLE:
       return sizeof(SimpleValue);
     default:
-      ZETASQL_CHECK(false) << "All ValueType must be explicitly handled";
+      ABSL_CHECK(false) << "All ValueType must be explicitly handled";
   }
 }
 
 void SimpleValue::CopyFrom(const SimpleValue& that) {
-  // Self-copy check is done in the copy constructor. Here we just ZETASQL_DCHECK that.
-  ZETASQL_DCHECK_NE(this, &that);
+  // Self-copy check is done in the copy constructor. Here we just ABSL_DCHECK that.
+  ABSL_DCHECK_NE(this, &that);
   // NOLINTNEXTLINE - suppress clang-tidy warning on not TriviallyCopyable.
   memcpy(this, &that, sizeof(SimpleValue));
   if (!IsValid()) {
@@ -129,27 +129,27 @@ void SimpleValue::CopyFrom(const SimpleValue& that) {
 }
 
 int64_t SimpleValue::int64_value() const {
-  ZETASQL_CHECK(has_int64_value()) << "Not an int64_t value";
+  ABSL_CHECK(has_int64_value()) << "Not an int64_t value";
   return int64_value_;
 }
 
 const std::string& SimpleValue::string_value() const {
-  ZETASQL_CHECK(has_string_value()) << "Not a string value";
+  ABSL_CHECK(has_string_value()) << "Not a string value";
   return string_ptr_->value();
 }
 
 bool SimpleValue::bool_value() const {
-  ZETASQL_CHECK(has_bool_value()) << "Not an bool value";
+  ABSL_CHECK(has_bool_value()) << "Not an bool value";
   return bool_value_;
 }
 
 double SimpleValue::double_value() const {
-  ZETASQL_CHECK(has_double_value()) << "Not a double value";
+  ABSL_CHECK(has_double_value()) << "Not a double value";
   return double_value_;
 }
 
 const std::string& SimpleValue::bytes_value() const {
-  ZETASQL_CHECK(has_bytes_value()) << "Not a bytes value";
+  ABSL_CHECK(has_bytes_value()) << "Not a bytes value";
   return string_ptr_->value();
 }
 

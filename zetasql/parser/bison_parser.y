@@ -26,8 +26,9 @@
 
 #include "zetasql/parser/location.hh"
 #include "zetasql/parser/bison_parser.h"
-#include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/join_processor.h"
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser_internal.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/base/case.h"
@@ -36,9 +37,6 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_format.h"
 #include "absl/status/status.h"
-#include "zetasql/parser/parser_internal.h"
-
-using namespace zetasql::parser_internal;
 
 #define YYINITDEPTH 50
 #ifndef YYDEBUG
@@ -277,13 +275,15 @@ using namespace zetasql::parser_internal;
   zetasql::ASTInsertStatement::InsertMode insert_mode;
   zetasql::ASTNodeKind ast_node_kind;
   zetasql::ASTUnpivotClause::NullFilter opt_unpivot_nulls_filter;
-  NotKeywordPresence not_keyword_presence;
-  AllOrDistinctKeyword all_or_distinct_keyword;
+  zetasql::parser_internal::NotKeywordPresence not_keyword_presence;
+  zetasql::parser_internal::AllOrDistinctKeyword all_or_distinct_keyword;
   zetasql::SchemaObjectKind schema_object_kind_keyword;
-  PrecedingOrFollowingKeyword preceding_or_following_keyword;
-  TableOrTableFunctionKeywords table_or_table_function_keywords;
-  ShiftOperator shift_operator;
-  ImportType import_type;
+  zetasql::parser_internal::PrecedingOrFollowingKeyword
+      preceding_or_following_keyword;
+  zetasql::parser_internal::TableOrTableFunctionKeywords
+      table_or_table_function_keywords;
+  zetasql::parser_internal::ShiftOperator shift_operator;
+  zetasql::parser_internal::ImportType import_type;
   zetasql::ASTAuxLoadDataStatement::InsertionMode insertion_mode;
   zetasql::ASTCreateStatement::Scope create_scope;
   zetasql::ASTCreateStatement::SqlSecurity sql_security;
@@ -313,7 +313,7 @@ using namespace zetasql::parser_internal;
   zetasql::ASTInsertStatement* insert_statement;
   zetasql::ASTNode* node;
   zetasql::ASTStatementList* statement_list;
-  SeparatedIdentifierTmpNode* slashed_identifier;
+  zetasql::parser_internal::SeparatedIdentifierTmpNode* slashed_identifier;
   zetasql::ASTPivotClause* pivot_clause;
   zetasql::ASTUnpivotClause* unpivot_clause;
   zetasql::ASTSetOperationType* set_operation_type;
@@ -473,6 +473,8 @@ using namespace zetasql::parser_internal;
 ABSL_FLAG(bool, zetasql_bison_parserdebug, true, "Print traces for the ZetaSQL parser.");
 #endif
 // NOYACC-END
+
+using namespace zetasql::parser_internal;
 }
 
 // KEYWORDS
@@ -8233,7 +8235,7 @@ string_literal:
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ", error_string));
           }
-          ZETASQL_DLOG(FATAL) << "ParseStringLiteral did not return an error string";
+          ABSL_DLOG(FATAL) << "ParseStringLiteral did not return an error string";
           YYERROR_AND_ABORT_AT(location,
                                absl::StrCat("Syntax error: ",
                                             parse_status.message()));
@@ -8264,7 +8266,7 @@ bytes_literal:
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ", error_string));
           }
-          ZETASQL_DLOG(FATAL) << "ParseBytesLiteral did not return an error string";
+          ABSL_DLOG(FATAL) << "ParseBytesLiteral did not return an error string";
           YYERROR_AND_ABORT_AT(location,
                                absl::StrCat("Syntax error: ",
                                             parse_status.message()));
@@ -8358,7 +8360,7 @@ identifier:
                                    absl::StrCat("Syntax error: ",
                                                 error_string));
             }
-            ZETASQL_DLOG(FATAL) << "ParseIdentifier did not return an error string";
+            ABSL_DLOG(FATAL) << "ParseIdentifier did not return an error string";
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ",
                                               parse_status.message()));
@@ -8395,7 +8397,7 @@ label:
                                  absl::StrCat("Syntax error: ",
                                               error_string));
           }
-          ZETASQL_DLOG(FATAL) << "ParseIdentifier did not return an error string";
+          ABSL_DLOG(FATAL) << "ParseIdentifier did not return an error string";
           YYERROR_AND_ABORT_AT(location,
                                absl::StrCat("Syntax error: ",
                                             parse_status.message()));

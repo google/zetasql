@@ -38,7 +38,10 @@ statement.
     <tr>
       <td>1</td>
       <td>Field access operator</td>
-      <td><span><code>JSON</code></span><br><span><code>PROTO</code></span><br><span><code>STRUCT</code></span><br></td>
+      <td>
+
+<span><code>STRUCT</code></span><br /><span><code>PROTO</code></span><br /><span><code>JSON</code></span><br />
+</td>
       <td>Field access operator</td>
       <td>Binary</td>
     </tr>

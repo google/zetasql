@@ -22,6 +22,7 @@
 
 #include "zetasql/common/internal_value.h"
 #include "zetasql/public/collator.h"
+#include "zetasql/reference_impl/common.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
@@ -75,11 +76,9 @@ class TupleComparator {
   const std::vector<const KeyArg*>& keys() const { return keys_; }
 
  private:
-  using Collators = std::vector<std::unique_ptr<const ZetaSqlCollator>>;
-
   TupleComparator(absl::Span<const KeyArg* const> keys,
                   absl::Span<const int> slots_for_keys,
-                  std::shared_ptr<const Collators> collators)
+                  std::shared_ptr<const CollatorList> collators)
       : keys_(keys.begin(), keys.end()),
         slots_for_keys_(slots_for_keys.begin(), slots_for_keys.end()),
         collators_(collators) {}
@@ -91,7 +90,7 @@ class TupleComparator {
   // NOTE: If any element of <collators_> is nullptr, then the strings are
   // compared based on their UTF-8 encoding.
   // We use std::shared_ptr<const ...> to allow the comparator to be copied.
-  const std::shared_ptr<const Collators> collators_;
+  const std::shared_ptr<const CollatorList> collators_;
 };
 
 }  // namespace zetasql

@@ -190,7 +190,7 @@ const std::vector<FusibleTokens>* GetFusibleTokens() {
   static const auto* fusible_tokens = new std::vector<FusibleTokens>({
       // Note: cannot supports this open source due to initialization pattern.
       // (broken link) start
-      // ADD ZETASQL_CHECK would be normally followed by an identifier, but
+      // ADD ABSL_CHECK would be normally followed by an identifier, but
       // it is enough to fuse a single token only and if it was a part of
       // multi-token identifier, IsPartOfSameChunk will handle it.
       {.t{"ADD", "CHECK", kAny}, .mark_as = kTopLevel},

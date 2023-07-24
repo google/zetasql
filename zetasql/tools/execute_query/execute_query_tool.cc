@@ -416,7 +416,7 @@ absl::Status SetQueryParametersFromFlags(ExecuteQueryConfig& config) {
 ExecuteQueryConfig::ExecuteQueryConfig() : catalog_("") {}
 
 void ExecuteQueryConfig::SetDescriptorPool(const google::protobuf::DescriptorPool* pool) {
-  ZETASQL_CHECK(descriptor_pool_ == nullptr) << __func__ << " can only be called once";
+  ABSL_CHECK(descriptor_pool_ == nullptr) << __func__ << " can only be called once";
   owned_descriptor_pool_.reset();
   descriptor_pool_ = pool;
   catalog_.SetDescriptorPool(pool);
@@ -424,7 +424,7 @@ void ExecuteQueryConfig::SetDescriptorPool(const google::protobuf::DescriptorPoo
 
 void ExecuteQueryConfig::SetOwnedDescriptorPool(
     std::unique_ptr<const google::protobuf::DescriptorPool> pool) {
-  ZETASQL_CHECK(descriptor_pool_ == nullptr) << __func__ << " can only be called once";
+  ABSL_CHECK(descriptor_pool_ == nullptr) << __func__ << " can only be called once";
   owned_descriptor_pool_ = std::move(pool);
   descriptor_pool_ = owned_descriptor_pool_.get();
   catalog_.SetDescriptorPool(descriptor_pool_);
@@ -432,7 +432,7 @@ void ExecuteQueryConfig::SetOwnedDescriptorPool(
 
 void ExecuteQueryConfig::SetOwnedDescriptorDatabase(
     std::unique_ptr<google::protobuf::DescriptorDatabase> db) {
-  ZETASQL_CHECK(descriptor_db_ == nullptr) << __func__ << " can only be called once";
+  ABSL_CHECK(descriptor_db_ == nullptr) << __func__ << " can only be called once";
 
   // The descriptor database given to the pool needs to be owned locally.
   descriptor_db_ = std::move(db);

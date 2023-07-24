@@ -20,6 +20,7 @@
 #include <string>
 
 #include "absl/memory/memory.h"
+#include "zetasql/base/source_location.h"
 
 namespace zetasql {
 
@@ -27,7 +28,7 @@ namespace zetasql {
 // ensure that the entire AST is copied.
 absl::Status ResolvedASTDeepCopyVisitor::DefaultVisit(
     const ResolvedNode* node) {
-  return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+  return ::zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
          << "Unhandled node type in deep copy:\n"
          << node->DebugString();
 }

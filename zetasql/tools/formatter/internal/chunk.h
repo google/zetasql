@@ -27,7 +27,7 @@
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/tools/formatter/internal/token.h"
-#include "zetasql/base/die_if_null.h"
+#include "absl/log/die_if_null.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
@@ -623,15 +623,15 @@ class ChunkBlock {
   // Creates a root chunk block. Level is -1 because the root is before anything
   // else.
   explicit ChunkBlock(ChunkBlockFactory* block_factory)
-      : block_factory_(ZETASQL_DIE_IF_NULL(block_factory)),
+      : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
         parent_(nullptr),
         chunk_(nullptr) {}
 
   // Creates an intermediate (not top or leaf) chunk block with the given
   // <parent>.
   explicit ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent)
-      : block_factory_(ZETASQL_DIE_IF_NULL(block_factory)),
-        parent_(ZETASQL_DIE_IF_NULL(parent)),
+      : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
+        parent_(ABSL_DIE_IF_NULL(parent)),
         chunk_(nullptr) {
     level_ = parent->Level() + 1;
   }
@@ -639,9 +639,9 @@ class ChunkBlock {
   // Creates a leaf chunk block with the given <parent> and <chunk>.
   ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent,
              class Chunk* chunk)
-      : block_factory_(ZETASQL_DIE_IF_NULL(block_factory)),
-        parent_(ZETASQL_DIE_IF_NULL(parent)),
-        chunk_(ZETASQL_DIE_IF_NULL(chunk)) {
+      : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
+        parent_(ABSL_DIE_IF_NULL(parent)),
+        chunk_(ABSL_DIE_IF_NULL(chunk)) {
     level_ = parent->Level() + 1;
     chunk->SetChunkBlock(this);
   }

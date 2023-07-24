@@ -20,14 +20,14 @@
 #include "absl/status/status.h"  
 #include "absl/status/statusor.h"  
 
-// This is better than ZETASQL_CHECK((val).ok()) because the embedded
-// error string gets printed by the ZETASQL_CHECK_EQ.
+// This is better than ABSL_CHECK((val).ok()) because the embedded
+// error string gets printed by the ABSL_CHECK_EQ.
 #define ZETASQL_CHECK_OK(val) \
-  ZETASQL_CHECK_EQ(::absl::OkStatus(), ::zetasql::status_internal::AsStatus((val)))
+  ABSL_CHECK_EQ(::absl::OkStatus(), ::zetasql::status_internal::AsStatus((val)))
 #define ZETASQL_DCHECK_OK(val) \
-  ZETASQL_DCHECK_EQ(::absl::OkStatus(), ::zetasql::status_internal::AsStatus((val)))
-#define ZETASQL_ZETASQL_CHECK_OK(val) \
-  ZETASQL_DCHECK_EQ(::absl::OkStatus(), ::zetasql::status_internal::AsStatus((val)))
+  ABSL_DCHECK_EQ(::absl::OkStatus(), ::zetasql::status_internal::AsStatus((val)))
+#define ZETASQL_QCHECK_OK(val) \
+  ABSL_DCHECK_EQ(::absl::OkStatus(), ::zetasql::status_internal::AsStatus((val)))
 
 namespace zetasql::status_internal {
 

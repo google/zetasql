@@ -86,7 +86,7 @@ class TypeDeserializer {
         extended_type_deserializer_(extended_type_deserializer) {
     // In release code we still check type_factory using ZETASQL_RET_CHECK in
     // Deserialize.
-    ZETASQL_DCHECK(type_factory);
+    ABSL_DCHECK(type_factory);
   }
 
   // Create a TypeDeserializer.

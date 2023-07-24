@@ -52,8 +52,8 @@ enum class PrefixGroup { kNone = 0, kDot = 1, kUnderscore = 2 };
 
 // Identifies a function's prefix group and returns extracted prefix based on
 // its sql name if the prefix exists in valid set. Valid prefix sets are
-// established from GetZetaSQLFunctions. 'function_prefix_out' will be set to
-// a substring of 'function_sql_name'.
+// established from GetBuiltinFunctionsAndTypes. 'function_prefix_out' will be
+// set to a substring of 'function_sql_name'.
 void ExtractPrefixGroupAndFunctionPrefix(absl::string_view function_sql_name,
                                          absl::string_view& function_prefix_out,
                                          PrefixGroup& prefix_group_out);

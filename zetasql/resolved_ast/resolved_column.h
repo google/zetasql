@@ -66,10 +66,10 @@ class ResolvedColumn {
         table_name_(table_name),
         name_(name),
         annotated_type_(annotated_type) {
-    ZETASQL_DCHECK_GT(column_id, 0) << "column_id should be positive";
-    ZETASQL_DCHECK(!table_name.empty());
-    ZETASQL_DCHECK(!name.empty());
-    ZETASQL_DCHECK(annotated_type.type != nullptr);
+    ABSL_DCHECK_GT(column_id, 0) << "column_id should be positive";
+    ABSL_DCHECK(!table_name.empty());
+    ABSL_DCHECK(!name.empty());
+    ABSL_DCHECK(annotated_type.type != nullptr);
   }
 
   // Return true if this ResolvedColumn has been initialized.

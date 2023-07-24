@@ -97,7 +97,7 @@ class VerifyMaxScriptingDepthVisitor : public NonRecursiveParseTreeVisitor {
 class ValidateRaiseStatementsVisitor : public NonRecursiveParseTreeVisitor {
  public:
   ~ValidateRaiseStatementsVisitor() override {
-    ZETASQL_DCHECK_EQ(exception_handler_nesting_level_, 0);
+    ABSL_DCHECK_EQ(exception_handler_nesting_level_, 0);
   }
 
   absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {

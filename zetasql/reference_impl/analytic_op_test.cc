@@ -291,17 +291,17 @@ AnalyticFunctionBody* GenerateAnalyticFunction(
           test_case.null_handling_modifier);
     }
     case FunctionKind::kLead: {
-      ZETASQL_CHECK_EQ(3, test_case.arguments.size());
+      ABSL_CHECK_EQ(3, test_case.arguments.size());
       // Infer the output type from the third argument (i.e. default value).
       return new LeadFunction(test_case.arguments[2][0].type());
     }
     case FunctionKind::kLag: {
-      ZETASQL_CHECK_EQ(3, test_case.arguments.size());
+      ABSL_CHECK_EQ(3, test_case.arguments.size());
       // Infer the output type from the third argument (i.e. default value).
       return new LagFunction(test_case.arguments[2][0].type());
     }
     default:
-      ZETASQL_LOG(FATAL) << "Unsupported analytic function "
+      ABSL_LOG(FATAL) << "Unsupported analytic function "
                  << BuiltinFunctionCatalog::GetDebugNameByKind(
                         test_case.function_kind);
   }
@@ -1385,7 +1385,7 @@ struct AnalyticWindowFrameParam {
         start_offset_value(start_offset_value_in),
         end_offset_value(end_offset_value_in),
         offset_value_type(offset_value_type_in) {
-    ZETASQL_CHECK(window_frame_type == WindowFrameArg::kRows ||
+    ABSL_CHECK(window_frame_type == WindowFrameArg::kRows ||
           offset_value_type != TYPE_UNKNOWN);
   }
 
@@ -1544,7 +1544,7 @@ class AnalyticWindowTest
       WindowFrameArg::WindowFrameType window_frame_type,
       int start_offset, int end_offset,
       TypeKind offset_value_type = TYPE_UNKNOWN) {
-    ZETASQL_CHECK(window_frame_type == WindowFrameArg::kRows ||
+    ABSL_CHECK(window_frame_type == WindowFrameArg::kRows ||
           offset_value_type != TYPE_UNKNOWN);
     return AnalyticWindowFrameParam(
         window_frame_type,
@@ -1652,7 +1652,7 @@ class AnalyticWindowTest
                                            TYPE_INT64 /* offset_type */))
           .value();
     } else {
-      ZETASQL_CHECK_EQ(frame_param.window_frame_type, WindowFrameArg::kRange);
+      ABSL_CHECK_EQ(frame_param.window_frame_type, WindowFrameArg::kRange);
       return WindowFrameArg::Create(
                  WindowFrameArg::kRange,
                  CreateWindowFrameBoundary(frame_param.start_boundary_type,
@@ -1783,10 +1783,10 @@ Value AnalyticWindowTest::CreateValueFromInt(TypeKind type_kind, int value) {
     case TYPE_INT64:
       return Int64(static_cast<int64_t>(value));
     case TYPE_UINT32:
-      ZETASQL_CHECK_GE(value, 0);
+      ABSL_CHECK_GE(value, 0);
       return Uint32(static_cast<uint32_t>(value));
     case TYPE_UINT64:
-      ZETASQL_CHECK_GE(value, 0);
+      ABSL_CHECK_GE(value, 0);
       return Uint64(static_cast<uint64_t>(value));
     case TYPE_FLOAT:
       return Float(static_cast<float>(value));
@@ -1797,7 +1797,7 @@ Value AnalyticWindowTest::CreateValueFromInt(TypeKind type_kind, int value) {
     case TYPE_BIGNUMERIC:
       return BigNumeric(BigNumericValue(static_cast<int64_t>(value)));
     default:
-      ZETASQL_LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
+      ABSL_LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
   }
 }
 
@@ -1820,7 +1820,7 @@ Value AnalyticWindowTest::CreateNullValue(TypeKind type_kind) {
     case TYPE_BIGNUMERIC:
       return NullBigNumeric();
     default:
-      ZETASQL_LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
+      ABSL_LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
   }
 }
 
@@ -1834,19 +1834,19 @@ Value AnalyticWindowTest::SubtractMaxValue(TypeKind type_kind,
       return Int64(std::numeric_limits<int64_t>::max() -
                    static_cast<int64_t>(operand));
     case TYPE_UINT32:
-      ZETASQL_CHECK_GE(operand, 0);
+      ABSL_CHECK_GE(operand, 0);
       return Uint32(std::numeric_limits<uint32_t>::max() -
                     static_cast<uint32_t>(operand));
     case TYPE_UINT64:
-      ZETASQL_CHECK_GE(operand, 0);
+      ABSL_CHECK_GE(operand, 0);
       return Uint64(std::numeric_limits<uint64_t>::max() -
                     static_cast<uint64_t>(operand));
     case TYPE_NUMERIC:
-      ZETASQL_CHECK_GE(operand, 0);
+      ABSL_CHECK_GE(operand, 0);
       return Numeric(
           NumericValue::MaxValue().Subtract(NumericValue(operand)).value());
     case TYPE_BIGNUMERIC:
-      ZETASQL_CHECK_GE(operand, 0);
+      ABSL_CHECK_GE(operand, 0);
       return BigNumeric(BigNumericValue::MaxValue()
                             .Subtract(BigNumericValue(operand))
                             .value());
@@ -1857,7 +1857,7 @@ Value AnalyticWindowTest::SubtractMaxValue(TypeKind type_kind,
       return Double(std::numeric_limits<double>::max() -
                     static_cast<float>(operand));
     default:
-      ZETASQL_LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
+      ABSL_LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
   }
 }
 
@@ -1934,19 +1934,19 @@ Value AnalyticWindowTest::AddMinValue(TypeKind type_kind,
       return Int64(std::numeric_limits<int64_t>::lowest() +
                    static_cast<int64_t>(operand));
     case TYPE_UINT32:
-      ZETASQL_CHECK_GE(operand, 0);
+      ABSL_CHECK_GE(operand, 0);
       return Uint32(std::numeric_limits<uint32_t>::lowest() +
                     static_cast<uint32_t>(operand));
     case TYPE_UINT64:
-      ZETASQL_CHECK_GE(operand, 0);
+      ABSL_CHECK_GE(operand, 0);
       return Uint64(std::numeric_limits<uint64_t>::lowest() +
                     static_cast<uint32_t>(operand));
     case TYPE_NUMERIC:
-      ZETASQL_CHECK_GE(operand, 0);
+      ABSL_CHECK_GE(operand, 0);
       return Numeric(
           NumericValue::MinValue().Add(NumericValue(operand)).value());
     case TYPE_BIGNUMERIC:
-      ZETASQL_CHECK_GE(operand, 0);
+      ABSL_CHECK_GE(operand, 0);
       return BigNumeric(
           BigNumericValue::MinValue().Add(BigNumericValue(operand)).value());
     case TYPE_FLOAT:
@@ -1956,7 +1956,7 @@ Value AnalyticWindowTest::AddMinValue(TypeKind type_kind,
       return Double(std::numeric_limits<double>::lowest() +
                     static_cast<float>(operand));
     default:
-      ZETASQL_LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
+      ABSL_LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
   }
 }
 
@@ -2512,17 +2512,17 @@ AnalyticWindowTest::GetRangeWindowTestsWithOptions(TypeKind type_kind,
     case TYPE_NUMERIC:
     case TYPE_BIGNUMERIC:
       if (inf_nan_bits != 0) {
-        ZETASQL_LOG(FATAL) << "Integer types do not have infinity and NaN values";
+        ABSL_LOG(FATAL) << "Integer types do not have infinity and NaN values";
       }
       break;
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
       if (null_min_max_bits & 12) {
-        ZETASQL_LOG(FATAL) << "Min and max values must be removed";
+        ABSL_LOG(FATAL) << "Min and max values must be removed";
       }
       break;
     default:
-      ZETASQL_LOG(FATAL) << "Unsupported type kind " << TypeKind_Name(type_kind);
+      ABSL_LOG(FATAL) << "Unsupported type kind " << TypeKind_Name(type_kind);
   }
 
   std::vector<int> tuple_ids_to_remove;
@@ -3224,7 +3224,7 @@ INSTANTIATE_TEST_SUITE_P(AnalyticWindowInfinityOffsetTest,
 void AddColumn(const VariableId& var, const std::vector<Value>& column_values,
                std::vector<VariableId>* vars, std::vector<TupleData>* tuples) {
   vars->push_back(var);
-  ZETASQL_CHECK_EQ(tuples->size(), column_values.size());
+  ABSL_CHECK_EQ(tuples->size(), column_values.size());
   for (int tuple_id = 0; tuple_id < tuples->size(); ++tuple_id) {
     TupleData& tuple = (*tuples)[tuple_id];
     const int new_slot_idx = tuple.num_slots();

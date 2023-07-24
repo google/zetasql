@@ -398,7 +398,7 @@ absl::StatusOr<Value> DoMapEntryCast(const Value& from_value,
 
   absl::Cord bytes;
   std::string bytes_str;
-  ZETASQL_CHECK(message->SerializeToString(&bytes_str));
+  ABSL_CHECK(message->SerializeToString(&bytes_str));
   bytes = absl::Cord(bytes_str);
   return Value::Proto(to_proto_type, bytes);
 }
@@ -1107,7 +1107,7 @@ absl::StatusOr<Value> CastContext::CastValue(
     }
     case FCT(TYPE_DATE, TYPE_DATETIME): {
       DatetimeValue datetime;
-      ZETASQL_CHECK_OK(
+      ZETASQL_QCHECK_OK(
           functions::ConstructDatetime(v.date_value(), TimeValue(), &datetime));
       return Value::Datetime(datetime);
     }
@@ -1503,7 +1503,7 @@ absl::StatusOr<Value> ConversionEvaluator::Eval(const Value& from_value) const {
   ZETASQL_ASSIGN_OR_RETURN(auto evaluator, function_->GetFunctionEvaluatorFactory()(
                                        function_signature()));
   absl::StatusOr<Value> result = evaluator({from_value});
-  ZETASQL_DCHECK(!result.ok() || to_type_->Equals(result.value().type()))
+  ABSL_DCHECK(!result.ok() || to_type_->Equals(result.value().type()))
       << "Conversion evaluator from type " << from_type_->DebugString()
       << " to type " << to_type_->DebugString() << " returned a value of type "
       << result.value().type()->DebugString();

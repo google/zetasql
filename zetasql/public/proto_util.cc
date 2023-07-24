@@ -50,13 +50,13 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "zetasql/base/source_location.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -73,7 +73,8 @@ namespace zetasql {
 
 #define RETURN_ERROR_IF_INVALID_DEFAULT_VALUE(valid, field)                 \
   while (ABSL_PREDICT_FALSE(!(valid)))                                      \
-  return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)                       \
+  return ::zetasql_base::InvalidArgumentErrorBuilder(                               \
+             ::zetasql_base::SourceLocation::current())                             \
          << "Unable to decode default value for " << (field)->DebugString() \
          << "\n(value out of valid range)"
 
@@ -329,7 +330,7 @@ absl::Status GetProtoFieldTypeAndDefault(
     ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefault(options, field, *type, default_value));
   }
 
-  ZETASQL_DCHECK(default_value == nullptr || !default_value->is_valid() ||
+  ABSL_DCHECK(default_value == nullptr || !default_value->is_valid() ||
          default_value->type_kind() == (*type)->kind());
 
   if (ZETASQL_DEBUG_MODE) {
@@ -481,7 +482,7 @@ absl::Status RemoveDupsByKeyIfProtoMap(std::vector<Value>& values) {
       std::remove_if(
           values.begin(), values.end(),
           [&](const Value& value) {
-            ZETASQL_DCHECK(value.type()->IsProto()) << value.DebugString(true);
+            ABSL_DCHECK(value.type()->IsProto()) << value.DebugString(true);
             Value key;
             if (value.is_valid() && !value.is_null()) {
               status.Update(ReadProtoField(

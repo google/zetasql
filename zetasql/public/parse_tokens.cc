@@ -382,9 +382,9 @@ ParseToken::ParseToken(ParseLocationRange location_range, std::string image,
       image_(std::move(image)),
       location_range_(location_range),
       value_(std::move(value)) {
-  ZETASQL_DCHECK(kind == IDENTIFIER || kind == IDENTIFIER_OR_KEYWORD || kind == VALUE ||
+  ABSL_DCHECK(kind == IDENTIFIER || kind == IDENTIFIER_OR_KEYWORD || kind == VALUE ||
          kind == COMMENT);
-  ZETASQL_DCHECK(!value_.is_null());
+  ABSL_DCHECK(!value_.is_null());
 }
 
 }  // namespace zetasql

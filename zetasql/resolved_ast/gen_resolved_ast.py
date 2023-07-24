@@ -3468,10 +3468,10 @@ value.
       tag_id=113,
       parent='ResolvedConstraint',
       comment="""
-      This represents the ZETASQL_CHECK constraint on a table. It is of the form:
+      This represents the ABSL_CHECK constraint on a table. It is of the form:
 
         CONSTRAINT <constraint_name>
-        ZETASQL_CHECK <expression>
+        ABSL_CHECK <expression>
         <enforced>
         <option_list>
 
@@ -4036,7 +4036,7 @@ value.
       <primary_key> specifies the PRIMARY KEY constraint on the table, it is
                     nullptr when no PRIMARY KEY is specified.
       <foreign_key_list> specifies the FOREIGN KEY constraints on the table.
-      <check_constraint_list> specifies the ZETASQL_CHECK constraints on the table.
+      <check_constraint_list> specifies the ABSL_CHECK constraints on the table.
       <partition_by_list> specifies the partitioning expressions for the table.
       <cluster_by_list> specifies the clustering expressions for the table.
       TODO: Return error when the PARTITION BY / CLUSTER BY
@@ -8540,7 +8540,7 @@ ResolvedArgumentRef(y)
       <foreign_key_list> specifies the FOREIGN KEY constraints on the table.
           If specified, and the table already exists, the foreign keys are
           required to be the same as that of the existing.
-      <check_constraint_list> specifies the ZETASQL_CHECK constraints on the table.
+      <check_constraint_list> specifies the ABSL_CHECK constraints on the table.
           If specified, and the table already exists, the constraints are
           required to be the same as that of the existing.
       <partition_by_list> The list of columns to partition the destination

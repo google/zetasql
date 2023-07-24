@@ -360,7 +360,7 @@ GeneralFormatConverter<ValueType>::FromHost(ValueType v) {
       return LittleEndian::FromHost64(static_cast<uint64_t>(v));
       break;
     default:
-      ZETASQL_LOG(FATAL) << "Unexpected value size: " << sizeof(ValueType);
+      ABSL_LOG(FATAL) << "Unexpected value size: " << sizeof(ValueType);
   }
 }
 
@@ -385,7 +385,7 @@ GeneralFormatConverter<ValueType>::ToHost(ValueType v) {
       return LittleEndian::ToHost64(static_cast<uint64_t>(v));
       break;
     default:
-      ZETASQL_LOG(FATAL) << "Unexpected value size: " << sizeof(ValueType);
+      ABSL_LOG(FATAL) << "Unexpected value size: " << sizeof(ValueType);
   }
 }
 
@@ -419,7 +419,7 @@ inline T LittleEndian::Load(const char* p) {
     case 8:
       return LittleEndian::ToHost64(ZETASQL_INTERNAL_UNALIGNED_LOAD64(p));
     default: {
-      ZETASQL_LOG(FATAL) << "Not reached!";
+      ABSL_LOG(FATAL) << "Not reached!";
       return 0;
     }
   }
@@ -443,7 +443,7 @@ inline void LittleEndian::Store(T value, char* p) {
       LittleEndian::Store64(p, value);
       break;
     default: {
-      ZETASQL_LOG(FATAL) << "Not reached!";
+      ABSL_LOG(FATAL) << "Not reached!";
     }
   }
 }

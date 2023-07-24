@@ -117,15 +117,15 @@ class TypeParameters {
         type_parameters_holder_);
   }
   const StringTypeParametersProto& string_type_parameters() const {
-    ZETASQL_CHECK(IsStringTypeParameters()) << "Not STRING type parameters";
+    ABSL_CHECK(IsStringTypeParameters()) << "Not STRING type parameters";
     return std::get<StringTypeParametersProto>(type_parameters_holder_);
   }
   const NumericTypeParametersProto& numeric_type_parameters() const {
-    ZETASQL_CHECK(IsNumericTypeParameters()) << "Not NUMERIC type parameters";
+    ABSL_CHECK(IsNumericTypeParameters()) << "Not NUMERIC type parameters";
     return std::get<NumericTypeParametersProto>(type_parameters_holder_);
   }
   const ExtendedTypeParameters& extended_type_parameters() const {
-    ZETASQL_CHECK(IsExtendedTypeParameters()) << "Not EXTENDED type parameters";
+    ABSL_CHECK(IsExtendedTypeParameters()) << "Not EXTENDED type parameters";
     return std::get<ExtendedTypeParameters>(type_parameters_holder_);
   }
 
@@ -191,7 +191,7 @@ class TypeParameterValue {
       : value_(value_in), literal_(kNonSpecialLiteral) {}
   explicit TypeParameterValue(TypeParametersLiteral literal_in)
       : literal_(literal_in) {
-    ZETASQL_CHECK(IsSpecialLiteral()) << "TypeParameterValue cannot be constructed "
+    ABSL_CHECK(IsSpecialLiteral()) << "TypeParameterValue cannot be constructed "
                                  "with a non-special literal";
   }
 

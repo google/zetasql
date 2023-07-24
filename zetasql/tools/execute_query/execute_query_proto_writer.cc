@@ -45,7 +45,7 @@ ExecuteQueryStreamProtobufWriter::ExecuteQueryStreamProtobufWriter(
     : parent_descriptor_pool_{parent_descriptor_pool},
       proto_writer_func_{proto_writer_func} {
   if (!parent_descriptor_pool_) {
-    ZETASQL_LOG(WARNING) << "Parent descriptor pool is missing; encoding of "
+    ABSL_LOG(WARNING) << "Parent descriptor pool is missing; encoding of "
                     "non-primitive types may be incomplete";
   }
 }

@@ -964,16 +964,6 @@ Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
     // TODO: Support sort keys with collation for aggregate
     // functions.
     if (!resolved_aggregate_func->order_by_item_list().empty()) {
-      for (const auto& order_by_item :
-           resolved_aggregate_func->order_by_item_list()) {
-        if (!order_by_item->collation().Empty()) {
-          return absl::UnimplementedError(absl::Substitute(
-              "Order by item '$0' with collation '$1' in function '$2' "
-              "is not supported",
-              order_by_item->column_ref()->DebugString(),
-              order_by_item->collation().DebugString(), name));
-        }
-      }
       absl::flat_hash_map<int, VariableId> column_to_id_map;
       // It is safe to remove correlated column references, because they
       // are constant and do not affect the order of the input to
@@ -1028,15 +1018,15 @@ Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
 
 absl::StatusOr<std::unique_ptr<NewStructExpr>> Algebrizer::MakeStruct(
     const ResolvedMakeStruct* make_struct) {
-  ZETASQL_DCHECK(make_struct->type()->IsStruct());
+  ABSL_DCHECK(make_struct->type()->IsStruct());
   const StructType* struct_type = make_struct->type()->AsStruct();
 
   // Build a list of arguments.
   std::vector<std::unique_ptr<ExprArg>> arguments;
-  ZETASQL_DCHECK_EQ(struct_type->num_fields(), make_struct->field_list_size());
+  ABSL_DCHECK_EQ(struct_type->num_fields(), make_struct->field_list_size());
   for (int i = 0; i < struct_type->num_fields(); ++i) {
     const ResolvedExpr* field_expr = make_struct->field_list()[i].get();
-    ZETASQL_DCHECK(field_expr->type()->Equals(struct_type->field(i).type));
+    ABSL_DCHECK(field_expr->type()->Equals(struct_type->field(i).type));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> algebrized_field_expr,
                      AlgebrizeExpression(field_expr));
     // Record the field value.
@@ -1316,7 +1306,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeSubqueryExpr(
     }
     case ResolvedSubqueryExpr::SCALAR: {
       // A single column which may be a struct or an array.
-      ZETASQL_DCHECK_EQ(output_columns.size(), 1);
+      ABSL_DCHECK_EQ(output_columns.size(), 1);
       const VariableId& var =
           column_to_variable_->GetVariableNameFromColumn(output_columns[0]);
       ZETASQL_ASSIGN_OR_RETURN(auto deref,
@@ -1927,7 +1917,7 @@ Algebrizer::CreateScanOfTableAsArray(const ResolvedScan* scan,
   if (!is_value_table) {
     // List of fields emitted by the table.
     std::vector<std::pair<VariableId, int>> fields;
-    ZETASQL_DCHECK_EQ(column_list.size(), element_type->AsStruct()->num_fields());
+    ABSL_DCHECK_EQ(column_list.size(), element_type->AsStruct()->num_fields());
     fields.reserve(column_list.size());
     for (int i = 0; i < column_list.size(); ++i) {
       fields.emplace_back(std::make_pair(

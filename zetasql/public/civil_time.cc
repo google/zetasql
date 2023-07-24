@@ -100,7 +100,7 @@ void NormalizeTime(int32_t* h, int32_t* m, int32_t* s, int64_t* ns) {
   *ns -= (carry_seconds * kNanosPerSecond);
   // The CivilTime constructor should have coerced all the values to the
   // appropriate range.
-  ZETASQL_DCHECK(IsValidTimeFields(*h, *m, *s, *ns));
+  ABSL_DCHECK(IsValidTimeFields(*h, *m, *s, *ns));
 }
 
 // Normalize date and time parts by carrying any overage of the legal range of
@@ -119,7 +119,7 @@ void NormalizeDatetime(int64_t* y, int32_t* mo, int32_t* d, int32_t* h,
   *ns -= (carry_seconds * kNanosPerSecond);
   // The CivilTime constructor should have coerced all the time values to the
   // appropriate range.
-  ZETASQL_DCHECK(IsValidTimeFields(*h, *m, *s, *ns));
+  ABSL_DCHECK(IsValidTimeFields(*h, *m, *s, *ns));
 }
 
 }  // namespace
@@ -142,7 +142,7 @@ TimeValue TimeValue::FromHMSAndNanosNormalized(int32_t hour, int32_t minute,
   int64_t nanos64 = static_cast<int64_t>(nanosecond);
   NormalizeTime(&hour, &minute, &second, &nanos64);
   TimeValue ret = FromHMSAndNanosInternal(hour, minute, second, nanos64);
-  ZETASQL_DCHECK(ret.IsValid());
+  ABSL_DCHECK(ret.IsValid());
   return ret;
 }
 
@@ -158,7 +158,7 @@ TimeValue TimeValue::FromHMSAndMicrosNormalized(int32_t hour, int32_t minute,
   int64_t nanos64 = static_cast<int64_t>(microsecond) * 1000;
   NormalizeTime(&hour, &minute, &second, &nanos64);
   TimeValue ret = FromHMSAndNanosInternal(hour, minute, second, nanos64);
-  ZETASQL_DCHECK(ret.IsValid());
+  ABSL_DCHECK(ret.IsValid());
   return ret;
 }
 
@@ -195,7 +195,7 @@ TimeValue TimeValue::FromPacked64Micros(int64_t bit_field_time_micros) {
   int64_t microsecond =
       GetPartFromBitField(bit_field, kMicrosMask, /*shift=*/0);
   // Cannot overflow because micros is less than 1 << 20.
-  ZETASQL_DCHECK_LT(microsecond, 1 << 20);
+  ABSL_DCHECK_LT(microsecond, 1 << 20);
   int64_t nanosecond = microsecond * 1000;
   return InternalFromPacked64SecondsAndNanos(bit_field >> kMicrosShift,
                                              nanosecond);

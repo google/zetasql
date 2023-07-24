@@ -57,7 +57,7 @@ enum FunctionSignatureId {
   // 2600-2699 More misc functions.           (NextId: 2622)
   // 2700-2799 Aggregate functions II         (NextId: 2746)
   // 2800-2899 Differential Privacy functions (NextId: 2832)
-  // 2900-2999 Range functions                (NextId: 2919)
+  // 2900-2999 Range functions                (NextId: 2921)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -1277,4 +1277,9 @@ enum FunctionSignatureId {
   // generate_range_array(range<timestamp>, INTERVAL, bool) ->
   // array<range<timestamp>>
   FN_GENERATE_TIMESTAMP_RANGE_ARRAY = 2918;
+
+  // range_contains(range<T>, range<T>) -> bool
+  FN_RANGE_CONTAINS_RANGE = 2919;
+  // range_contains(range<T>, T) -> bool
+  FN_RANGE_CONTAINS_ELEMENT = 2920;
 }

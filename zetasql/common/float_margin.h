@@ -105,12 +105,12 @@ class FloatMargin {
   // last place (ULP).
   template <typename T>
   static T Ulp(T result) {
-    // Using a ZETASQL_CHECK instead of static_assert to make the code compile for
+    // Using a ABSL_CHECK instead of static_assert to make the code compile for
     // integer T.
-    ZETASQL_CHECK(!std::numeric_limits<T>::is_integer)
+    ABSL_CHECK(!std::numeric_limits<T>::is_integer)
         << "T must be a floating point type.";
-    ZETASQL_CHECK_NE(0, result);
-    ZETASQL_CHECK(std::isfinite(result));
+    ABSL_CHECK_NE(0, result);
+    ABSL_CHECK(std::isfinite(result));
     int exp;
     // Extract exponent. Because frexp() always returns a value less than one
     // this will be greater than the normalized exponent by 1.
@@ -155,14 +155,14 @@ class FloatMargin {
   T MaxAbsDiff(T x, T y) const {
     if (IsExactEquality()) return T(0);
 
-    ZETASQL_CHECK(ulp_bits_ >= 0 && ulp_bits_ <= kMaxUlpBits &&
+    ABSL_CHECK(ulp_bits_ >= 0 && ulp_bits_ <= kMaxUlpBits &&
           zero_ulp_bits_ >= 0 && zero_ulp_bits_ <= kMaxUlpBits)
         << "Out of range float margin: " << *this;
 
     if (zero_ulp_bits_ > 0) {
       T zero_margin =
           zetasql_base::MathUtil::IPow(2.0, zero_ulp_bits_) * Ulp(static_cast<T>(1.0));
-      ZETASQL_CHECK(std::isfinite(zero_margin)) << "Zero margin overflow: " << *this;
+      ABSL_CHECK(std::isfinite(zero_margin)) << "Zero margin overflow: " << *this;
       if (zetasql_base::MathUtil::Abs<T>(x) <= zero_margin &&
           zetasql_base::MathUtil::Abs<T>(y) <= zero_margin) {
         return zero_margin;
@@ -171,7 +171,7 @@ class FloatMargin {
 
     T result = zetasql_base::MathUtil::IPow(2.0, ulp_bits_) *
                Ulp(std::max(zetasql_base::MathUtil::Abs<T>(x), zetasql_base::MathUtil::Abs<T>(y)));
-    ZETASQL_CHECK(std::isfinite(result)) << "Float margin overflow: " << *this;
+    ABSL_CHECK(std::isfinite(result)) << "Float margin overflow: " << *this;
     return result;
   }
 

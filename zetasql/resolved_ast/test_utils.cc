@@ -56,7 +56,7 @@ std::unique_ptr<ResolvedQueryStmt> MakeSelect1Stmt(IdStringPool& pool) {
   std::unique_ptr<ResolvedQueryStmt> query_stmt =
       MakeResolvedQueryStmt(std::move(output_column_list),
                             /*is_value_table=*/false, std::move(project_scan));
-  ZETASQL_CHECK_EQ(R"(
+  ABSL_CHECK_EQ(R"(
 QueryStmt
 +-output_column_list=
 | +-tbl.x#1 AS x [INT64]

@@ -618,7 +618,7 @@ absl::Status Resolver::ResolveAddColumnAction(
     const ASTAddColumnAction* action, IdStringSetCase* new_columns,
     IdStringSetCase* columns_to_drop,
     std::unique_ptr<const ResolvedAlterAction>* alter_action) {
-  ZETASQL_DCHECK(*alter_action == nullptr);
+  ABSL_DCHECK(*alter_action == nullptr);
 
   const ASTColumnDefinition* column = action->column_definition();
 
@@ -711,7 +711,7 @@ absl::Status Resolver::ResolveDropColumnAction(
     const Table* table, const ASTDropColumnAction* action,
     IdStringSetCase* new_columns, IdStringSetCase* columns_to_drop,
     std::unique_ptr<const ResolvedAlterAction>* alter_action) {
-  ZETASQL_DCHECK(*alter_action == nullptr);
+  ABSL_DCHECK(*alter_action == nullptr);
 
   const IdString column_name = action->column_name()->GetAsIdString();
   if (!columns_to_drop->insert(column_name).second) {

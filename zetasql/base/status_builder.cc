@@ -22,6 +22,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/base/source_location.h"
 
 namespace zetasql_base {
 
@@ -71,15 +72,9 @@ absl::Status StatusBuilder::JoinMessageToStatus(absl::Status s,
 void StatusBuilder::ConditionallyLog(const absl::Status& result) const {
   if (rep_->logging_mode == Rep::LoggingMode::kDisabled) return;
 
-  absl::LogSeverity severity = rep_->log_severity;
-
-  zetasql_base::logging_internal::LogMessage log_message(
-      location_.file_name(), location_.line(), severity);
-  log_message.stream() << result;
-  if (rep_->should_log_stack_trace) {
-    log_message.stream() << "\n";
-    // TODO:   << CurrentStackTrace();
-  }
+  ABSL_LOG(LEVEL(rep_->log_severity))
+          .AtLocation(location_.file_name(), location_.line())
+      << result;
 }
 
 absl::Status StatusBuilder::CreateStatusAndConditionallyLog() && {

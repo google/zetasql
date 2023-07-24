@@ -2658,7 +2658,7 @@ TEST_F(NumericValueTest, Log_WithRandomLosslessDoubleValue) {
 template <typename T>
 void TestLogPowRoundTrip(T expected_relative_error_ratio,
                          absl::BitGen* random) {
-  // Testing POW(y,ZETASQL_LOG(x,y)) should be close to x.
+  // Testing POW(y,ABSL_LOG(x,y)) should be close to x.
   int trivial_case_count = 0;
   for (int i = 0; i < 10000; ++i) {
     T x_value = MakeRandomPositiveNumericValue<T>(random);

@@ -32,6 +32,7 @@
 #include "gtest/gtest.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_join.h"
+#include "zetasql/base/source_location.h"
 #include "absl/types/variant.h"
 
 namespace zetasql {
@@ -264,7 +265,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
   // is implemented as part of building the control-flow graph, this is
   // covered more thoroughly in the control-flow-graph tests.
   result.push_back(
-      TestInputWithError(ZETASQL_LOC,
+      TestInputWithError(zetasql_base::SourceLocation::current(),
                          "BREAK without label is only allowed inside "
                          "of a loop body [at 3:7]",
                          R"(
@@ -275,7 +276,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
   // Test cases with variables. This checks logic to screen for:
   // - Illegal variable redeclaration or shadowing
   // - Variable declaration outside of the start of the block or script
-  result.push_back(TestInput(ZETASQL_LOC, R"(
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(), R"(
     -- Variable declarations at start
     DECLARE x INT64;
     DECLARE y DEFAULT x;
@@ -285,7 +286,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
     SELECT a, b, c, d, x, y, z;
   )"));
 
-  result.push_back(TestInput(ZETASQL_LOC, R"(
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(), R"(
     -- Variable declarations inside BEGIN block
     SELECT 1;
     BEGIN
@@ -297,7 +298,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
       SELECT a, b, c, d, x, y, z;
     END;
   )"));
-  result.push_back(TestInput(ZETASQL_LOC, R"(
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(), R"(
     -- Variable declarations inside nested BEGIN blocks
     SELECT 1;
     BEGIN
@@ -312,7 +313,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
     END;
   )"));
   result.push_back(
-      TestInputWithError(ZETASQL_LOC,
+      TestInputWithError(zetasql_base::SourceLocation::current(),
                          "Variable declarations are allowed only at the start "
                          "of a block or script [at 4:5]",
                          R"(
@@ -321,7 +322,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
     DECLARE x INT64;
   )"));
   result.push_back(
-      TestInputWithError(ZETASQL_LOC,
+      TestInputWithError(zetasql_base::SourceLocation::current(),
                          "Variable declarations are allowed only at the start "
                          "of a block or script [at 4:7]",
                          R"(
@@ -331,7 +332,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
     END IF;
   )"));
   result.push_back(
-      TestInputWithError(ZETASQL_LOC,
+      TestInputWithError(zetasql_base::SourceLocation::current(),
                          "Variable declarations are allowed only at the start "
                          "of a block or script [at 5:7]",
                          R"(
@@ -342,7 +343,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
     END;
   )"));
   result.push_back(
-      TestInputWithError(ZETASQL_LOC,
+      TestInputWithError(zetasql_base::SourceLocation::current(),
                          "Variable declarations are allowed only at the start "
                          "of a block or script [at 5:7]",
                          R"(
@@ -352,7 +353,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
       DECLARE x INT64;
     END;
   )"));
-  result.push_back(TestInputWithError(ZETASQL_LOC,
+  result.push_back(TestInputWithError(zetasql_base::SourceLocation::current(),
                                       "Variable 'x' redeclaration [at 3:16]; x "
                                       "previously declared here [at 3:13]",
                                       R"(
@@ -360,13 +361,15 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
     DECLARE x, x INT64;
   )"));
   result.push_back(TestInputWithError(
-      ZETASQL_LOC, "Variable 'test_predefined_var1' redeclaration [at 3:19]",
+      zetasql_base::SourceLocation::current(),
+      "Variable 'test_predefined_var1' redeclaration [at 3:19]",
       R"(
     -- Variable redeclaration with predefined variable
     BEGIN DECLARE test_predefined_var1 INT64; END;
   )"));
   result.push_back(TestInputWithError(
-      ZETASQL_LOC, "Variable 'test_predefined_var1' redeclaration [at 7:23]",
+      zetasql_base::SourceLocation::current(),
+      "Variable 'test_predefined_var1' redeclaration [at 7:23]",
       R"(
     -- Variable redeclaration with predefined variable
     BEGIN
@@ -379,7 +382,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
       END IF;
     END;
   )"));
-  result.push_back(TestInputWithError(ZETASQL_LOC,
+  result.push_back(TestInputWithError(zetasql_base::SourceLocation::current(),
                                       "Variable 'x' redeclaration [at 5:13]; x "
                                       "previously declared here [at 3:13]",
                                       R"(
@@ -388,7 +391,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
     DECLARE y STRING;
     DECLARE x INT64;
   )"));
-  result.push_back(TestInputWithError(ZETASQL_LOC,
+  result.push_back(TestInputWithError(zetasql_base::SourceLocation::current(),
                                       "Variable 'x' redeclaration [at 5:22]; x "
                                       "previously declared here [at 3:17]",
                                       R"(
@@ -398,14 +401,14 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
           DECLARE y, x INT64;
         END;
       )"));
-  result.push_back(TestInputWithError(ZETASQL_LOC,
+  result.push_back(TestInputWithError(zetasql_base::SourceLocation::current(),
                                       "Variable 'X' redeclaration [at 3:20]; X "
                                       "previously declared here [at 3:17]",
                                       R"(
         -- Variable redeclaration (names differ only by case)
         DECLARE x, X INT64;
       )"));
-  result.push_back(TestInput(ZETASQL_LOC,
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(),
                              R"(
     -- Disjoint blocks declaring the same variable is ok.
     BEGIN
@@ -417,7 +420,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
       SELECT x;
     END;
   )"));
-  result.push_back(TestInput(ZETASQL_LOC,
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(),
                              R"(
     -- An EXCEPTION clause uses a different variable scope from its
     -- associated BEGIN clause, so reuse of 'x' here is ok.
@@ -432,7 +435,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
   )"));
 
   // Test cases with RAISE.
-  result.push_back(TestInput(ZETASQL_LOC, R"(
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(), R"(
     -- Legal uses of RAISE
     RAISE USING MESSAGE = "test";
     BEGIN
@@ -446,7 +449,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
     END;
   )"));
   result.push_back(
-      TestInputWithError(ZETASQL_LOC,
+      TestInputWithError(zetasql_base::SourceLocation::current(),
                          "Cannot re-raise an existing exception outside of an "
                          "exception handler [at 2:5]",
                          R"(
@@ -454,49 +457,53 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
   )"));
 
   // Test cases with query parameters
-  result.push_back(TestInput(ZETASQL_LOC, "SELECT 1;", empty_named));
-  result.push_back(TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos));
-  result.push_back(TestInput(ZETASQL_LOC, "SELECT @a, @A, @b, @a;", {"a", "b"}));
-  result.push_back(TestInput(ZETASQL_LOC, "SELECT @a, @a, @b, @a;", {"a"},
+  result.push_back(
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT 1;", empty_named));
+  result.push_back(
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT 1;", empty_pos));
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(),
+                             "SELECT @a, @A, @b, @a;", {"a", "b"}));
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(),
+                             "SELECT @a, @a, @b, @a;", {"a"},
                              "Unknown named query parameter: b"));
   result.push_back(TestCase({
-      TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos),
-      TestInput(ZETASQL_LOC, "SELECT ?;", {0, 1}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT 1;", empty_pos),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT ?;", {0, 1}),
   }));
   result.push_back(TestCase({
-      TestInput(ZETASQL_LOC, "SELECT ?;", {0, 1}),
-      TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT ?;", {0, 1}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT 1;", empty_pos),
   }));
   result.push_back(TestCase({
-      TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos),
-      TestInput(ZETASQL_LOC, "SELECT ?;", {0, 1}),
-      TestInput(ZETASQL_LOC, "SELECT ?, ?;", {1, 2}),
-      TestInput(ZETASQL_LOC, "SELECT ?;", {3, 1}),
-      TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT 1;", empty_pos),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT ?;", {0, 1}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT ?, ?;", {1, 2}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT ?;", {3, 1}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT 1;", empty_pos),
   }));
   result.push_back(TestCase({
-      TestInput(ZETASQL_LOC, "SELECT 1;", empty_named),
-      TestInput(ZETASQL_LOC, "SELECT @a;", {"a"}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT 1;", empty_named),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT @a;", {"a"}),
   }));
   result.push_back(TestCase({
-      TestInput(ZETASQL_LOC, "SELECT 1;", empty_named),
-      TestInput(ZETASQL_LOC, "SELECT @a;", {"a"}),
-      TestInput(ZETASQL_LOC, "SELECT @a, @b;", {"a", "b"}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT 1;", empty_named),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT @a;", {"a"}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT @a, @b;", {"a", "b"}),
   }));
   result.push_back(TestCase({
-      TestInput(ZETASQL_LOC, "SELECT @a;", {"a"}),
-      TestInput(ZETASQL_LOC, "SELECT @b;", {"b"}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT @a;", {"a"}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT @b;", {"b"}),
   }));
   result.push_back(TestCase({
-      TestInput(ZETASQL_LOC, "SELECT @A;", {"a"}),
-      TestInput(ZETASQL_LOC, "SELECT @B;", {"b"}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT @A;", {"a"}),
+      TestInput(zetasql_base::SourceLocation::current(), "SELECT @B;", {"b"}),
   }));
 
   // Test cases with CREATE PROCEDURE.
 
   // Variable inside the procedure doesn't conflict with the variable defined
   // before the procedure.
-  result.push_back(TestInput(ZETASQL_LOC,
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(),
                              R"(
     DECLARE x INT64;
     CREATE OR REPLACE PROCEDURE abc() BEGIN
@@ -505,7 +512,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
   )"));
 
   // Same as above but with nested procedure.
-  result.push_back(TestInput(ZETASQL_LOC,
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(),
                              R"(
     DECLARE x INT64;
     CREATE OR REPLACE PROCEDURE p1() BEGIN
@@ -520,7 +527,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
   )"));
 
   // Variables after procedure definition are still checked for redeclaration.
-  result.push_back(TestInputWithError(ZETASQL_LOC,
+  result.push_back(TestInputWithError(zetasql_base::SourceLocation::current(),
                                       "Variable 'x' redeclaration [at 7:17]; x "
                                       "previously declared here [at 2:15]",
                                       R"(
@@ -534,7 +541,7 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
       )"));
 
   // Variables inside the procedure are still checked for redeclaration.
-  result.push_back(TestInputWithError(ZETASQL_LOC,
+  result.push_back(TestInputWithError(zetasql_base::SourceLocation::current(),
                                       "Variable 'x' redeclaration [at 5:21]; x "
                                       "previously declared here [at 3:19]",
                                       R"(

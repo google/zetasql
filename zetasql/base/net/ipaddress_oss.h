@@ -95,17 +95,17 @@ class IPAddress {
     return address_family_;
   }
 
-  // The address as an in_addr structure; ZETASQL_CHECK-fails if address_family() is
+  // The address as an in_addr structure; ABSL_CHECK-fails if address_family() is
   // not AF_INET (ie. the held address is not an IPv4 address).
   in_addr ipv4_address() const {
-    ZETASQL_CHECK_EQ(AF_INET, address_family_);
+    ABSL_CHECK_EQ(AF_INET, address_family_);
     return addr_.addr4;
   }
 
-  // The address as an in6_addr structure; ZETASQL_CHECK-fails if address_family() is
+  // The address as an in6_addr structure; ABSL_CHECK-fails if address_family() is
   // not AF_INET6 (ie. the held address is not an IPv6 address).
   in6_addr ipv6_address() const {
-    ZETASQL_CHECK_EQ(AF_INET6, address_family_);
+    ABSL_CHECK_EQ(AF_INET6, address_family_);
     if (ABSL_PREDICT_FALSE(HasCompactScopeId(addr_.addr6))) {
       return ipv6_address_slowpath();
     }
@@ -216,13 +216,13 @@ class IPAddress {
         // May have been asked to explicitly overwrite one scope with another.
         addr_.addr6.s6_addr32[1] = htonl(scope_id);
       } else if (scope_id != 0) {
-        ZETASQL_LOG(WARNING) << "Discarding scope_id; cannot be compactly stored.";
+        ABSL_LOG(WARNING) << "Discarding scope_id; cannot be compactly stored.";
       }
     }
   }
 
   bool Equals6(const IPAddress& other) const {
-    ZETASQL_DCHECK_EQ(address_family_, AF_INET6);
+    ABSL_DCHECK_EQ(address_family_, AF_INET6);
 #if defined(__x86_64__) || defined(__powerpc64__)
     // These 64-bit CPUs have efficient implementations of UNALIGNED_LOAD64().
     uint64_t a1 = ZETASQL_INTERNAL_UNALIGNED_LOAD64(&addr_.addr6.s6_addr32[0]);
@@ -268,7 +268,7 @@ namespace ipaddress_internal {
 // Truncate any IPv4, IPv6, or empty IPAddress to the specified length.
 // If *length_io exceeds the number of bits in the address family, then it
 // will be overwritten with the correct value.  Normal addresses will
-// ZETASQL_CHECK-fail if the length is negative, but empty addresses ignore the
+// ABSL_CHECK-fail if the length is negative, but empty addresses ignore the
 // length and write -1.
 //
 IPAddress TruncateIPAndLength(const IPAddress& addr, int* length_io);
@@ -334,7 +334,7 @@ class IPRange {
   IPRange() { }
 
   // Constructs an IPRange from an address and a length. Properly zeroes out
-  // bits and adjusts length as required, but ZETASQL_CHECK-fails on negative lengths
+  // bits and adjusts length as required, but ABSL_CHECK-fails on negative lengths
   // (since that is inherently nonsensical). Typical examples:
   //
   //   129.240.2.3/10 => 129.192.0.0/10
@@ -345,8 +345,8 @@ class IPRange {
   //
   //   IPAddress()/* => empty IPRange()
   //
-  //   127.0.0.1/-1 => undefined (currently ZETASQL_CHECK-fail)
-  //   ::1/-1 => undefined (currently ZETASQL_CHECK-fail)
+  //   127.0.0.1/-1 => undefined (currently ABSL_CHECK-fail)
+  //   ::1/-1 => undefined (currently ABSL_CHECK-fail)
   //
   IPRange(const IPAddress& host, int length)
       : data_(ipaddress_internal::TruncateIPAndLength(host, &length)) {
@@ -415,10 +415,10 @@ class IPRange {
   // Internal implementation of UnsafeConstruct().
   IPRange(const IPAddress& host, int length, int dummy)
       : data_(host, static_cast<int16_t>(length)) {
-    ZETASQL_DCHECK_EQ(this->host(),
+    ABSL_DCHECK_EQ(this->host(),
               ipaddress_internal::TruncateIPAndLength(host, &length))
         << "Host has bits set beyond the prefix length.";
-    ZETASQL_DCHECK_EQ(this->length(), length)
+    ABSL_DCHECK_EQ(this->length(), length)
         << "Length is inconsistent with address family.";
   }
 
@@ -443,7 +443,7 @@ IPAddress HostUInt32ToIPAddress(uint32_t address);
 //   const IPAddress addr(...); // 1.2.3.4
 //   IPAddressToHostUInt32(addr);  // Yields 0x01020304
 //
-// Will ZETASQL_CHECK-fail if addr does not contain an IPv4 address.
+// Will ABSL_CHECK-fail if addr does not contain an IPv4 address.
 inline uint32_t IPAddressToHostUInt32(const IPAddress &addr) {
   return ntohl(addr.ipv4_address().s_addr);
 }
@@ -455,7 +455,7 @@ IPAddress UInt128ToIPAddress(absl::uint128 bigint);
 
 // Convert an IPv6 IPAddress to a uint128 in host byte order
 // (e.g., "::1" will become uint128(0, 1)).
-// Will ZETASQL_CHECK-fail if addr does not contain an IPv6 address,
+// Will ABSL_CHECK-fail if addr does not contain an IPv6 address,
 // so use with care, and only in low-level code.
 inline absl::uint128 IPAddressToUInt128(const IPAddress& addr) {
   struct in6_addr addr6 = addr.ipv6_address();
@@ -489,11 +489,11 @@ ABSL_MUST_USE_RESULT bool StringToIPAddress(const absl::string_view str,
 absl::StatusOr<IPAddress> StringToIPAddressWithOptionalScope(
     absl::string_view str);
 
-// StringToIPAddress conversion methods that ZETASQL_CHECK()-fail on invalid input.
+// StringToIPAddress conversion methods that ABSL_CHECK()-fail on invalid input.
 // Not a good idea to use on user-provided input.
 inline IPAddress StringToIPAddressOrDie(absl::string_view str) {
   IPAddress ip;
-  ZETASQL_CHECK(StringToIPAddress(str, &ip)) << "Invalid IP " << str;
+  ABSL_CHECK(StringToIPAddress(str, &ip)) << "Invalid IP " << str;
   return ip;
 }
 // Parse a "binary" or packed string containing an IPv4 or IPv6 address in
@@ -503,10 +503,10 @@ inline IPAddress StringToIPAddressOrDie(absl::string_view str) {
 // nullptr.
 ABSL_MUST_USE_RESULT bool PackedStringToIPAddress(absl::string_view str,
                                                   IPAddress* out);
-// Binary packed string conversion methods that ZETASQL_CHECK()-fail on invalid input.
+// Binary packed string conversion methods that ABSL_CHECK()-fail on invalid input.
 inline IPAddress PackedStringToIPAddressOrDie(absl::string_view str) {
   IPAddress ip;
-  ZETASQL_CHECK(PackedStringToIPAddress(str, &ip))
+  ABSL_CHECK(PackedStringToIPAddress(str, &ip))
       << "Invalid packed IP address of length " << str.length();
   return ip;
 }
@@ -538,8 +538,8 @@ inline int IPAddressLength(const IPAddress& ip) {
     case AF_INET6:
       return 128;
     default:
-      ZETASQL_LOG(DFATAL) << "IPAddressLength() of object with invalid address family: "
-                  << ip.address_family();
+      ABSL_LOG(ERROR) << "IPAddressLength() of object with invalid address family: "
+                 << ip.address_family();
       return -1;
   }
 }
@@ -562,11 +562,11 @@ inline int IPAddressLength(const IPAddress& ip) {
 //
 ABSL_MUST_USE_RESULT bool StringToIPRange(absl::string_view str, IPRange* out);
 
-// StringToIPRange conversion methods that ZETASQL_CHECK()-fail on invalid input.
+// StringToIPRange conversion methods that ABSL_CHECK()-fail on invalid input.
 // Not a good idea to use on user-provided input.
 inline IPRange StringToIPRangeOrDie(absl::string_view str) {
   IPRange ipr;
-  ZETASQL_CHECK(StringToIPRange(str, &ipr)) << "Invalid IP range " << str;
+  ABSL_CHECK(StringToIPRange(str, &ipr)) << "Invalid IP range " << str;
   return ipr;
 }
 
@@ -579,7 +579,7 @@ ABSL_MUST_USE_RESULT bool StringToIPRangeAndTruncate(absl::string_view str,
                                                      IPRange* out);
 inline IPRange StringToIPRangeAndTruncateOrDie(absl::string_view str) {
   IPRange ipr;
-  ZETASQL_CHECK(StringToIPRangeAndTruncate(str, &ipr)) << "Invalid IP range " << str;
+  ABSL_CHECK(StringToIPRangeAndTruncate(str, &ipr)) << "Invalid IP range " << str;
   return ipr;
 }
 // For debugging/logging.

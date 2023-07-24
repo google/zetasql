@@ -126,7 +126,7 @@ class ProtoRep final
     : public zetasql_base::refcount::CompactReferenceCounted<ProtoRep, int64_t> {
  public:
   ProtoRep(const ProtoType* type, absl::Cord value) : value_(std::move(value)) {
-    ZETASQL_CHECK(type != nullptr);
+    ABSL_CHECK(type != nullptr);
   }
 
   ProtoRep(const ProtoRep&) = delete;

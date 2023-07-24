@@ -46,6 +46,7 @@
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/optimization.h"
+#include "absl/flags/flag.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -62,6 +63,10 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
+// TODO: Remove flag once no longer required.
+ABSL_FLAG(bool, zetasql_allow_proto3_unknown_enum_values, true,
+          "Accept enum values without names in proto3 enums");
+
 using zetasql::types::BigNumericArrayType;
 using zetasql::types::BoolArrayType;
 using zetasql::types::BytesArrayType;
@@ -71,8 +76,8 @@ using zetasql::types::Int32ArrayType;
 using zetasql::types::Int64ArrayType;
 using zetasql::types::JsonArrayType;
 using zetasql::types::NumericArrayType;
-using zetasql::types::TimestampArrayType;
 using zetasql::types::StringArrayType;
+using zetasql::types::TimestampArrayType;
 using zetasql::types::Uint32ArrayType;
 using zetasql::types::Uint64ArrayType;
 
@@ -90,14 +95,14 @@ std::ostream& operator<<(std::ostream& out, const Value& value) {
 
 void Value::SetMetadataForNonSimpleType(const Type* type, bool is_null,
                                         bool preserves_order) {
-  ZETASQL_DCHECK(!type->IsSimpleType());
+  ABSL_DCHECK(!type->IsSimpleType());
   metadata_ = Metadata(type, is_null, preserves_order);
   internal::TypeStoreHelper::RefFromValue(type->type_store_);
 }
 
 // Null value constructor.
 Value::Value(const Type* type, bool is_null, OrderPreservationKind order_kind) {
-  ZETASQL_CHECK(type != nullptr);
+  ABSL_CHECK(type != nullptr);
 
   if (type->IsSimpleType()) {
     metadata_ = Metadata(type->kind(), is_null, order_kind,
@@ -108,8 +113,8 @@ Value::Value(const Type* type, bool is_null, OrderPreservationKind order_kind) {
 }
 
 void Value::CopyFrom(const Value& that) {
-  // Self-copy check is done in the copy constructor. Here we just ZETASQL_DCHECK that.
-  ZETASQL_DCHECK_NE(this, &that);
+  // Self-copy check is done in the copy constructor. Here we just ABSL_DCHECK that.
+  ABSL_DCHECK_NE(this, &that);
   memcpy(this, &that, sizeof(Value));
   if (!is_valid()) {
     return;
@@ -143,17 +148,17 @@ void Value::CopyFrom(const Value& that) {
 Value::Value(TypeKind type_kind, int64_t value) : metadata_(type_kind) {
   switch (type_kind) {
     case TYPE_DATE:
-      ZETASQL_CHECK_LE(value, types::kDateMax);
-      ZETASQL_CHECK_GE(value, types::kDateMin);
+      ABSL_CHECK_LE(value, types::kDateMax);
+      ABSL_CHECK_GE(value, types::kDateMin);
       int32_value_ = value;
       break;
     default:
-      ZETASQL_LOG(FATAL) << "Invalid use of private constructor: " << type_kind;
+      ABSL_LOG(FATAL) << "Invalid use of private constructor: " << type_kind;
   }
 }
 
 Value::Value(absl::Time t) {
-  ZETASQL_CHECK(functions::IsValidTime(t));
+  ABSL_CHECK(functions::IsValidTime(t));
   timestamp_seconds_ = absl::ToUnixSeconds(t);
   const int32_t subsecond_nanos =
       (t - absl::FromUnixSeconds(timestamp_seconds_)) / absl::Nanoseconds(1);
@@ -163,13 +168,18 @@ Value::Value(absl::Time t) {
 Value::Value(TimeValue time)
     : metadata_(TypeKind::TYPE_TIME, time.Nanoseconds()),
       bit_field_32_value_(time.Packed32TimeSeconds()) {
-  ZETASQL_CHECK(time.IsValid());
+  ABSL_CHECK(time.IsValid());
 }
 
 Value::Value(DatetimeValue datetime)
     : metadata_(TypeKind::TYPE_DATETIME, datetime.Nanoseconds()),
       bit_field_64_value_(datetime.Packed64DatetimeSeconds()) {
-  ZETASQL_CHECK(datetime.IsValid());
+  ABSL_CHECK(datetime.IsValid());
+}
+
+Value Value::Enum(const EnumType* type, int64_t value) {
+  return Value(type, value,
+               absl::GetFlag(FLAGS_zetasql_allow_proto3_unknown_enum_values));
 }
 
 Value::Value(const EnumType* enum_type, int64_t value,
@@ -206,7 +216,7 @@ Value::Value(const ProtoType* proto_type, absl::Cord value)
 }
 
 Value::Value(const ExtendedType* extended_type, const ValueContent& value) {
-  ZETASQL_DCHECK_EQ(value.simple_type_extended_content_, 0);
+  ABSL_DCHECK_EQ(value.simple_type_extended_content_, 0);
   SetMetadataForNonSimpleType(extended_type);
   SetContent(value);
 }
@@ -280,13 +290,13 @@ absl::StatusOr<Value> Value::MakeRange(const Value& start, const Value& end) {
 }
 
 const Type* Value::type() const {
-  ZETASQL_CHECK(is_valid()) << DebugString();
+  ABSL_CHECK(is_valid()) << DebugString();
   return metadata_.type();
 }
 
 const std::vector<Value>& Value::fields() const {
-  ZETASQL_CHECK_EQ(TYPE_STRUCT, metadata_.type_kind());
-  ZETASQL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_STRUCT, metadata_.type_kind());
+  ABSL_CHECK(!is_null()) << "Null value";
   const internal::ValueContentContainer* const container_ptr =
       container_ptr_->value();
   const TypedList* const list_ptr =
@@ -295,8 +305,8 @@ const std::vector<Value>& Value::fields() const {
 }
 
 const std::vector<Value>& Value::elements() const {
-  ZETASQL_CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
-  ZETASQL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
+  ABSL_CHECK(!is_null()) << "Null value";
   const internal::ValueContentContainer* const container_ptr =
       container_ptr_->value();
   const TypedList* const list_ptr =
@@ -305,13 +315,13 @@ const std::vector<Value>& Value::elements() const {
 }
 
 Value Value::TimestampFromUnixMicros(int64_t v) {
-  ZETASQL_CHECK(functions::IsValidTimestamp(v, functions::kMicroseconds)) << v;
+  ABSL_CHECK(functions::IsValidTimestamp(v, functions::kMicroseconds)) << v;
   return Value(absl::FromUnixMicros(v));
 }
 
 Value Value::TimeFromPacked64Micros(int64_t v) {
   TimeValue time = TimeValue::FromPacked64Micros(v);
-  ZETASQL_CHECK(time.IsValid()) << "int64 " << v
+  ABSL_CHECK(time.IsValid()) << "int64 " << v
                         << " decodes to an invalid time value: "
                         << time.DebugString();
   return Value(time);
@@ -319,7 +329,7 @@ Value Value::TimeFromPacked64Micros(int64_t v) {
 
 Value Value::DatetimeFromPacked64Micros(int64_t v) {
   DatetimeValue datetime = DatetimeValue::FromPacked64Micros(v);
-  ZETASQL_CHECK(datetime.IsValid())
+  ABSL_CHECK(datetime.IsValid())
       << "int64 " << v
       << " decodes to an invalid datetime value: " << datetime.DebugString();
   return Value(datetime);
@@ -340,8 +350,8 @@ absl::StatusOr<std::string_view> Value::EnumName() const {
   return *enum_name;
 }
 std::string Value::EnumDisplayName() const {
-  ZETASQL_CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
-  ZETASQL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
+  ABSL_CHECK(!is_null()) << "Null value";
   const std::string* enum_name = nullptr;
   if (type()->AsEnum()->FindName(enum_value(), &enum_name)) {
     return *enum_name;
@@ -350,7 +360,7 @@ std::string Value::EnumDisplayName() const {
 }
 
 int64_t Value::ToInt64() const {
-  ZETASQL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
     case TYPE_INT64: return int64_value_;
     case TYPE_INT32: return int32_value_;
@@ -369,26 +379,26 @@ int64_t Value::ToInt64() const {
     case TYPE_TIME:
     case TYPE_DATETIME:
     default:
-      ZETASQL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
+      ABSL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
                  << " to int64";
   }
 }
 
 uint64_t Value::ToUint64() const {
-  ZETASQL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
     case TYPE_UINT64: return uint64_value_;
     case TYPE_UINT32: return uint32_value_;
     case TYPE_BOOL: return bool_value_;
     default:
-      ZETASQL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
+      ABSL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
                  << " to uint64";
       return 0;
   }
 }
 
 double Value::ToDouble() const {
-  ZETASQL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
     case TYPE_BOOL: return bool_value_;
     case TYPE_DATE: return int32_value_;
@@ -414,7 +424,7 @@ double Value::ToDouble() const {
     case TYPE_TIME:
     case TYPE_DATETIME:
     default:
-      ZETASQL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
+      ABSL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
                  << " to double";
   }
 }
@@ -436,7 +446,7 @@ uint64_t Value::physical_byte_size() const {
 }
 
 absl::Cord Value::ToCord() const {
-  ZETASQL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
     case TYPE_STRING:
     case TYPE_BYTES:
@@ -444,15 +454,15 @@ absl::Cord Value::ToCord() const {
     case TYPE_PROTO:
       return proto_ptr_->value();
     default:
-      ZETASQL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
+      ABSL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
                  << " to Cord";
       return absl::Cord();
   }
 }
 
 absl::Time Value::ToTime() const {
-  ZETASQL_CHECK(!is_null()) << "Null value";
-  ZETASQL_CHECK_EQ(TYPE_TIMESTAMP, metadata_.type_kind()) << "Not a timestamp value";
+  ABSL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_TIMESTAMP, metadata_.type_kind()) << "Not a timestamp value";
   return absl::FromUnixSeconds(timestamp_seconds_) +
          absl::Nanoseconds(subsecond_nanos());
 }
@@ -479,15 +489,15 @@ absl::Status Value::ToUnixNanos(int64_t* nanos) const {
 }
 
 ValueContent Value::extended_value() const {
-  ZETASQL_CHECK_EQ(type_kind(), TYPE_EXTENDED);
+  ABSL_CHECK_EQ(type_kind(), TYPE_EXTENDED);
   return GetContent();
 }
 
 google::protobuf::Message* Value::ToMessage(
     google::protobuf::DynamicMessageFactory* message_factory,
     bool return_null_on_error) const {
-  ZETASQL_CHECK(type()->IsProto());
-  ZETASQL_CHECK(!is_null());
+  ABSL_CHECK(type()->IsProto());
+  ABSL_CHECK(!is_null());
   std::unique_ptr<google::protobuf::Message> m(
       message_factory->GetPrototype(type()->AsProto()->descriptor())->New());
   const bool success = m->ParsePartialFromString(std::string(ToCord()));
@@ -496,8 +506,8 @@ google::protobuf::Message* Value::ToMessage(
 }
 
 const Value& Value::FindFieldByName(absl::string_view name) const {
-  ZETASQL_CHECK(type()->IsStruct());
-  ZETASQL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK(type()->IsStruct());
+  ABSL_CHECK(!is_null()) << "Null value";
   if (!name.empty()) {
     // Find field position.
     for (int i = 0; i < type()->AsStruct()->num_fields(); i++) {
@@ -546,7 +556,7 @@ void Value::FillDeepOrderKindSpec(const Value& v, DeepOrderKindSpec* spec) {
       if (spec->children.empty()) {
         spec->children.resize(v.num_fields());
       }
-      ZETASQL_DCHECK_EQ(spec->children.size(), v.num_fields());
+      ABSL_DCHECK_EQ(spec->children.size(), v.num_fields());
       for (int i = 0; i < v.num_fields(); i++) {
         Value::FillDeepOrderKindSpec(v.field(i), &spec->children[i]);
       }
@@ -633,7 +643,7 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
       return TypesSupportSqlEquals(type1->AsArray()->element_type(),
                                    type2->AsArray()->element_type());
     case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
-      ZETASQL_DCHECK(TypesSupportSqlEquals(type1->AsRange()->element_type(),
+      ABSL_DCHECK(TypesSupportSqlEquals(type1->AsRange()->element_type(),
                                    type2->AsRange()->element_type()));
       return true;
     default:
@@ -775,7 +785,7 @@ static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
       return TypesSupportSqlLessThan(type1->AsArray()->element_type(),
                                      type2->AsArray()->element_type());
     case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
-      ZETASQL_DCHECK(TypesSupportSqlLessThan(type1->AsRange()->element_type(),
+      ABSL_DCHECK(TypesSupportSqlLessThan(type1->AsRange()->element_type(),
                                      type2->AsRange()->element_type()));
       return true;
     default:
@@ -951,7 +961,7 @@ std::string Value::GetSQLInternal(ProductMode mode) const {
 }
 
 std::string RepeatString(absl::string_view text, int times) {
-  ZETASQL_CHECK_GE(times, 0);
+  ABSL_CHECK_GE(times, 0);
   std::string result;
   result.reserve(text.size() * times);
   for (int i = 0; i < times; ++i) {
@@ -1140,7 +1150,7 @@ std::string FormatType(const Type* type, ArrayElemFormat elem_format,
     return FormatBlock("STRUCT<$0>", fields, ",", indent_cols, WrapStyle::AUTO,
                        indent_step);
   } else if (type->IsProto()) {
-    ZETASQL_CHECK(type->AsProto()->descriptor() != nullptr);
+    ABSL_CHECK(type->AsProto()->descriptor() != nullptr);
     return Substitute("PROTO<$0>", type->AsProto()->descriptor()->full_name());
   } else if (type->IsEnum()) {
     return Substitute("ENUM<$0>",
@@ -1526,7 +1536,7 @@ absl::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
 }
 
 ValueContent Value::GetContent() const {
-  ZETASQL_DCHECK(has_content());
+  ABSL_DCHECK(has_content());
   // If type is less than 64bit, the padding bytes of the union uninitialized.
   // The first byte must be initialized in any case.
   // Suppress msan check for the potentially uninitialized bytes.
@@ -1539,7 +1549,7 @@ ValueContent Value::GetContent() const {
 }
 
 void Value::SetContent(const ValueContent& content) {
-  ZETASQL_DCHECK(metadata_.is_valid());
+  ABSL_DCHECK(metadata_.is_valid());
 
   int64_value_ = content.content_;
   metadata_ = metadata_.has_type_pointer()
@@ -1585,7 +1595,7 @@ bool Value::Metadata::can_store_value_extended_content() const {
 }
 
 int32_t Value::Metadata::value_extended_content() const {
-  ZETASQL_CHECK(can_store_value_extended_content());
+  ABSL_CHECK(can_store_value_extended_content());
   return content()->value_extended_content();
 }
 
@@ -1597,10 +1607,10 @@ bool Value::Metadata::is_valid() const {
 Value::Metadata::Metadata(const Type* type, bool is_null,
                           bool preserves_order) {
   *content() = Content(type, is_null, preserves_order);
-  ZETASQL_DCHECK(content()->has_type_pointer());
-  ZETASQL_DCHECK(content()->type() == type);
-  ZETASQL_DCHECK(content()->preserves_order() == preserves_order);
-  ZETASQL_DCHECK(content()->is_null() == is_null);
+  ABSL_DCHECK(content()->has_type_pointer());
+  ABSL_DCHECK(content()->type() == type);
+  ABSL_DCHECK(content()->preserves_order() == preserves_order);
+  ABSL_DCHECK(content()->is_null() == is_null);
 }
 
 Value::TypedList::~TypedList() {

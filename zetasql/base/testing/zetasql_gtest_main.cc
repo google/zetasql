@@ -17,11 +17,13 @@
 #include "gtest/gtest.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
+#include "absl/log/initialize.h"
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   // If the command-line contains a value for logtostderr, use that. Otherwise,
   // use the default (as set above).
   absl::ParseCommandLine(argc, argv);
+  absl::InitializeLog();
   return RUN_ALL_TESTS();
 }

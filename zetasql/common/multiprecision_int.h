@@ -552,7 +552,7 @@ class FixedUint final {
   // Returns pow(10, exponent).
   static const FixedUint& PowerOf10(uint exponent) {
     static constexpr auto kPowersOf10 = GetPowersOf10();
-    ZETASQL_DCHECK_LT(exponent, kPowersOf10.size());
+    ABSL_DCHECK_LT(exponent, kPowersOf10.size());
     return kPowersOf10[exponent];
   }
   // Equivalent to ToString().size(), but is much faster.
@@ -825,7 +825,7 @@ void FixedUint<kNumBitsPerWord, kNumWords>::AppendToString(
 template <int kNumBitsPerWord, int kNumWords>
 bool FixedUint<kNumBitsPerWord, kNumWords>::ParseOrAppendDigits(
     absl::string_view str, bool append) {
-  ZETASQL_DCHECK(!str.empty());
+  ABSL_DCHECK(!str.empty());
   Word radix =
       multiprecision_int_impl::IntTraits<kNumBitsPerWord>::kMaxPowerOf10;
   constexpr size_t kMaxDigitsPerSegment = multiprecision_int_impl::IntTraits<
@@ -1230,7 +1230,7 @@ class FixedInt final {
 
   static FixedInt PowerOf10(uint exponent) {
     FixedInt result(FixedUint<kNumBitsPerWord, kNumWords>::PowerOf10(exponent));
-    ZETASQL_DCHECK(!result.is_negative());
+    ABSL_DCHECK(!result.is_negative());
     return result;
   }
   uint CountDecimalDigits() const { return abs().CountDecimalDigits(); }
@@ -1433,7 +1433,7 @@ template <bool is_signed, typename UnsignedWord>
 void VarIntBase<is_signed, UnsignedWord>::SerializeToBytes(
     std::string* bytes) const {
 #ifdef ABSL_IS_LITTLE_ENDIAN
-  ZETASQL_DCHECK(!number_.empty());
+  ABSL_DCHECK(!number_.empty());
   const char extension =
       is_signed &&
               static_cast<std::make_signed_t<UnsignedWord>>(number_.back()) < 0
@@ -1559,7 +1559,7 @@ uint64_t VarUintRef<64>::DivMod(std::integral_constant<uint64_t, divisor> x) {
 template <bool is_signed, typename UnsignedWord>
 void VarIntBase<is_signed, UnsignedWord>::AppendToString(
     std::string* result) const {
-  ZETASQL_DCHECK(result != nullptr);
+  ABSL_DCHECK(result != nullptr);
   if (number_.empty()) {
     result->push_back('0');
     return;

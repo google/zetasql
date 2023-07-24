@@ -61,7 +61,7 @@ void Formatter::Indent() {
 }
 
 void Formatter::Dedent() {
-  ZETASQL_CHECK_GE(indentation_.size(), kDefaultNumIndentSpaces)
+  ABSL_CHECK_GE(indentation_.size(), kDefaultNumIndentSpaces)
       << "Impossible to dedent: has reached to the beginning of the line.";
   indentation_.resize(indentation_.size() - kDefaultNumIndentSpaces);
 }
@@ -178,7 +178,7 @@ void Formatter::FlushLine() {
 
 // Helper functions.
 void Unparser::PrintOpenParenIfNeeded(const ASTNode* node) {
-  ZETASQL_DCHECK(node->IsExpression() || node->IsQueryExpression())
+  ABSL_DCHECK(node->IsExpression() || node->IsQueryExpression())
       << "Parenthesization is not allowed for " << node->GetNodeKindString();
   if (node->IsExpression() &&
       node->GetAsOrDie<ASTExpression>()->parenthesized()) {
@@ -190,7 +190,7 @@ void Unparser::PrintOpenParenIfNeeded(const ASTNode* node) {
 }
 
 void Unparser::PrintCloseParenIfNeeded(const ASTNode* node) {
-  ZETASQL_DCHECK(node->IsExpression() || node->IsQueryExpression())
+  ABSL_DCHECK(node->IsExpression() || node->IsQueryExpression())
       << "Parenthesization is not allowed for " << node->GetNodeKindString();
   if (node->IsExpression() &&
       node->GetAsOrDie<ASTExpression>()->parenthesized()) {
@@ -1055,7 +1055,7 @@ void Unparser::visitASTExportMetadataStatement(
   print("EXPORT");
   print(SchemaObjectKindToName(node->schema_object_kind()));
   print("METADATA FROM");
-  ZETASQL_DCHECK(node->name_path() != nullptr);
+  ABSL_DCHECK(node->name_path() != nullptr);
   node->name_path()->Accept(this, data);
 
   if (node->with_connection_clause() != nullptr) {
@@ -1161,7 +1161,7 @@ void Unparser::visitASTTransactionReadWriteMode(
       print("READ WRITE");
       break;
     case ASTTransactionReadWriteMode::INVALID:
-      ZETASQL_LOG(DFATAL) << "invalid read write mode";
+      ABSL_LOG(ERROR) << "invalid read write mode";
       break;
   }
 }
@@ -1698,7 +1698,7 @@ void Unparser::visitASTCube(const ASTCube* node, void* data) {
 }
 
 void Unparser::visitASTGroupingSet(const ASTGroupingSet* node, void* data) {
-  ZETASQL_DCHECK_LE((node->expression() != nullptr) + (node->rollup() != nullptr) +
+  ABSL_DCHECK_LE((node->expression() != nullptr) + (node->rollup() != nullptr) +
                 (node->cube() != nullptr),
             1)
       << "at most one of expressions, rollup, and cube can exist";
@@ -1726,7 +1726,7 @@ void Unparser::visitASTGroupingSetList(const ASTGroupingSetList* node,
 }
 
 void Unparser::visitASTGroupingItem(const ASTGroupingItem* node, void* data) {
-  ZETASQL_DCHECK_LE((node->expression() != nullptr) + (node->rollup() != nullptr) +
+  ABSL_DCHECK_LE((node->expression() != nullptr) + (node->rollup() != nullptr) +
                 (node->cube() != nullptr) +
                 (node->grouping_set_list() != nullptr),
             1)
@@ -2631,7 +2631,7 @@ void Unparser::visitASTStructColumnSchema(const ASTStructColumnSchema* node,
 void Unparser::visitASTGeneratedColumnInfo(const ASTGeneratedColumnInfo* node,
                                            void* data) {
   print("AS (");
-  ZETASQL_DCHECK(node->expression() != nullptr);
+  ABSL_DCHECK(node->expression() != nullptr);
   node->expression()->Accept(this, data);
   print(")");
   print(node->GetSqlForStoredMode());
@@ -3014,7 +3014,7 @@ void Unparser::visitASTMergeAction(const ASTMergeAction* node, void* data) {
         node->insert_column_list()->Accept(this, data);
       }
       println();
-      ZETASQL_DCHECK(node->insert_row() != nullptr);
+      ABSL_DCHECK(node->insert_row() != nullptr);
       if (!node->insert_row()->values().empty()) {
         println("VALUES");
         {
@@ -3038,7 +3038,7 @@ void Unparser::visitASTMergeAction(const ASTMergeAction* node, void* data) {
       print("DELETE");
       break;
     case ASTMergeAction::NOT_SET:
-      ZETASQL_LOG(DFATAL) << "Merge clause action type is not set";
+      ABSL_LOG(ERROR) << "Merge clause action type is not set";
   }
 }
 
@@ -3056,7 +3056,7 @@ void Unparser::visitASTMergeWhenClause(const ASTMergeWhenClause* node,
       print("WHEN NOT MATCHED BY TARGET");
       break;
     case ASTMergeWhenClause::NOT_SET:
-      ZETASQL_LOG(DFATAL) << "Match type of merge match clause is not set.";
+      ABSL_LOG(ERROR) << "Match type of merge match clause is not set.";
   }
   if (node->search_condition() != nullptr) {
     print("AND");
@@ -3201,7 +3201,7 @@ void Unparser::visitASTReplaceFieldsExpression(
 void Unparser::visitASTFilterFieldsArg(const ASTFilterFieldsArg* node,
                                        void* data) {
   std::string path_expression = Unparse(node->path_expression());
-  ZETASQL_DCHECK_EQ(path_expression.back(), '\n');
+  ABSL_DCHECK_EQ(path_expression.back(), '\n');
   path_expression.pop_back();
   print(absl::StrCat(node->GetSQLForOperator(), path_expression));
 }
@@ -3421,7 +3421,7 @@ void Unparser::visitASTAddConstraintAction(const ASTAddConstraintAction* node,
   } else if (node_kind == AST_PRIMARY_KEY) {
     constraint->GetAs<ASTPrimaryKey>()->Accept(this, data);
   } else {
-    ZETASQL_LOG(FATAL) << "Unknown constraint node kind: "
+    ABSL_LOG(FATAL) << "Unknown constraint node kind: "
                << ASTNode::NodeKindToString(node_kind);
   }
 }
@@ -4029,7 +4029,7 @@ void Unparser::visitASTCreateProcedureStatement(
   if (node->body() != nullptr) {
     // CREATE PROCEDURE statements are constructed so that the body always
     // consists of a single ASTBeginEndBlock statement.
-    ZETASQL_DCHECK_EQ(node->body()->statement_list().size(), 1);
+    ABSL_DCHECK_EQ(node->body()->statement_list().size(), 1);
     node->body()->statement_list()[0]->Accept(this, data);
   } else if (node->language() != nullptr) {
     print("LANGUAGE");

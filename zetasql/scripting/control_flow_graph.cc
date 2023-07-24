@@ -968,7 +968,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
     }
   }
   std::string DebugNodeIdentifier(const ASTNode* node) {
-    ZETASQL_CHECK(node != nullptr);
+    ABSL_CHECK(node != nullptr);
     return zetasql::DebugNodeIdentifier(node, graph_->script_text());
   }
 
@@ -1013,7 +1013,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
 
   absl::Status LinkEndNodes(const NodeData* pred, ControlFlowNode* succ,
                             const ASTNode* exit_to) {
-    ZETASQL_CHECK(succ != nullptr);
+    ABSL_CHECK(succ != nullptr);
     for (const auto& edge : pred->end_edges) {
       ZETASQL_RETURN_IF_ERROR(LinkNodes(edge.predecessor, succ, edge.kind, exit_to));
     }
@@ -1023,8 +1023,8 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
   absl::Status LinkNodes(ControlFlowNode* cfg_pred, ControlFlowNode* cfg_succ,
                          ControlFlowEdge::Kind kind,
                          const ASTNode* exit_to = nullptr) {
-    ZETASQL_CHECK(cfg_pred != nullptr);
-    ZETASQL_CHECK(cfg_succ != nullptr);
+    ABSL_CHECK(cfg_pred != nullptr);
+    ABSL_CHECK(cfg_succ != nullptr);
     if (kind == ControlFlowEdge::Kind::kException) {
       // Everything can throw except for begin, repeat, break, continue, return,
       // and empty statement list.
@@ -1352,7 +1352,7 @@ std::vector<const ControlFlowNode*> ControlFlowGraph::GetAllNodes() const {
 }
 
 std::string ControlFlowGraph::DebugString() const {
-  ZETASQL_CHECK(start_node_ != nullptr);
+  ABSL_CHECK(start_node_ != nullptr);
   std::string debug_string;
   absl::StrAppend(&debug_string, "start: ", start_node_->DebugString(),
                   "\nedges:");

@@ -124,7 +124,7 @@ static std::stack<ASTNode*> FlattenJoinExpression(ASTNode* node) {
         } else if (child->node_kind() == AST_HINT) {
           // Ignore
         } else {
-          ZETASQL_LOG(DFATAL) << "Unexpected node kind encountered: "
+          ABSL_LOG(ERROR) << "Unexpected node kind encountered: "
                       << child->node_kind();
         }
       }

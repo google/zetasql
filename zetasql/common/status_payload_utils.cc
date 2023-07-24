@@ -53,7 +53,7 @@ std::string PayloadToString(absl::string_view type_url,
     const google::protobuf::DescriptorPool* pool =
         google::protobuf::DescriptorPool::generated_pool();
     const google::protobuf::Descriptor* desc =
-        pool->FindMessageTypeByName(std::string(descriptor_full_name));
+        pool->FindMessageTypeByName(descriptor_full_name);
     if (desc != nullptr) {
       google::protobuf::MessageFactory* factory =
           google::protobuf::MessageFactory::generated_factory();

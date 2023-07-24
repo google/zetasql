@@ -56,7 +56,7 @@ bool IsUnclosedTripleQuotedLiteralError(absl::Status status) {
 // returned if more input is necessary, e.g. because a statement is incomplete.
 absl::StatusOr<std::optional<absl::string_view>> NextStatement(
     absl::string_view input) {
-  ZETASQL_DCHECK(!input.empty());
+  ABSL_DCHECK(!input.empty());
 
   ParseTokenOptions options;
   options.stop_at_end_of_statement = true;
@@ -109,7 +109,7 @@ ExecuteQueryStatementPrompt::ExecuteQueryStatementPrompt(
     std::function<absl::StatusOr<std::optional<std::string>>(bool)>
         read_next_func)
     : read_next_func_{read_next_func} {
-  ZETASQL_CHECK(read_next_func_);
+  ABSL_CHECK(read_next_func_);
 }
 
 absl::StatusOr<ExecuteQueryCompletionResult>
@@ -163,14 +163,14 @@ absl::StatusOr<std::optional<std::string>> ExecuteQueryStatementPrompt::Read() {
     ProcessBuffer();
   }
 
-  ZETASQL_DCHECK(eof_);
+  ABSL_DCHECK(eof_);
 
   return std::nullopt;
 }
 
 void ExecuteQueryStatementPrompt::ReadInput(bool continuation) {
-  ZETASQL_DCHECK(queue_.empty()) << "Queue must be drained before reading again";
-  ZETASQL_DCHECK(!eof_) << "Can't read after EOF";
+  ABSL_DCHECK(queue_.empty()) << "Queue must be drained before reading again";
+  ABSL_DCHECK(!eof_) << "Can't read after EOF";
 
   absl::StatusOr<std::optional<std::string>> input{
       read_next_func_(continuation)};
@@ -249,7 +249,7 @@ void ExecuteQueryStatementPrompt::ProcessBuffer() {
 
     absl::string_view stripped{
         absl::StripLeadingAsciiWhitespace(stmt->value())};
-    ZETASQL_DCHECK(!stripped.empty());
+    ABSL_DCHECK(!stripped.empty());
 
     queue_.emplace_back(std::move(stripped));
 

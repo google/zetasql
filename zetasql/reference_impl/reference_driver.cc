@@ -118,7 +118,7 @@ ReferenceDriver::ReferenceDriver()
   language_options_.SetSupportedStatementKinds(
       Algebrizer::GetSupportedStatementKinds());
   if (absl::GetFlag(FLAGS_force_reference_product_mode_external)) {
-    ZETASQL_LOG(WARNING) << "Overriding default Reference ProductMode PRODUCT_INTERNAL "
+    ABSL_LOG(WARNING) << "Overriding default Reference ProductMode PRODUCT_INTERNAL "
                     "with PRODUCT_EXTERNAL.";
     language_options_.set_product_mode(ProductMode::PRODUCT_EXTERNAL);
   }
@@ -137,7 +137,7 @@ ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
   if (absl::GetFlag(FLAGS_force_reference_product_mode_external) &&
       options.product_mode() != ProductMode::PRODUCT_EXTERNAL) {
-    ZETASQL_LOG(WARNING) << "Overriding requested Reference ProductMode "
+    ABSL_LOG(WARNING) << "Overriding requested Reference ProductMode "
                  << ProductMode_Name(options.product_mode())
                  << " with PRODUCT_EXTERNAL.";
     language_options_.set_product_mode(ProductMode::PRODUCT_EXTERNAL);
@@ -207,7 +207,7 @@ void ReferenceDriver::AddTable(const std::string& table_name,
 void ReferenceDriver::AddTableInternal(const std::string& table_name,
                                        const TestTable& table) {
   const Value& array_value = table.table_as_value;
-  ZETASQL_CHECK(array_value.type()->IsArray()) << table_name << " "
+  ABSL_CHECK(array_value.type()->IsArray()) << table_name << " "
                                        << array_value.DebugString(true);
   const Table* catalog_table;
   ZETASQL_CHECK_OK(catalog_.catalog()->FindTable({table_name}, &catalog_table));
@@ -219,7 +219,7 @@ void ReferenceDriver::AddTableInternal(const std::string& table_name,
   table_info.array = array_value;
   table_info.table =
       const_cast<SimpleTable*>(dynamic_cast<const SimpleTable*>(catalog_table));
-  ZETASQL_CHECK(table_info.table != nullptr);
+  ABSL_CHECK(table_info.table != nullptr);
 
   tables_.push_back(table_info);
 }
@@ -484,7 +484,7 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     const AnalyzerOutput* analyzed_input,
     ExecuteStatementAuxOutput& aux_output) {
 
-  ZETASQL_CHECK(catalog_.catalog() != nullptr) << "Call CreateDatabase() first";
+  ABSL_CHECK(catalog_.catalog() != nullptr) << "Call CreateDatabase() first";
 
   std::unique_ptr<SimpleCatalog> internal_catalog;
   ZETASQL_ASSIGN_OR_RETURN(
@@ -679,7 +679,7 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     case RESOLVED_CREATE_TABLE_STMT:
     case RESOLVED_CREATE_TABLE_AS_SELECT_STMT: {
       // Insert the table into the database
-      ZETASQL_CHECK(database != nullptr);
+      ABSL_CHECK(database != nullptr);
       const ResolvedCreateTableStmtBase* create_table =
           analyzed->resolved_statement()->GetAs<ResolvedCreateTableStmtBase>();
       TestTable new_table;

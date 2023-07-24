@@ -100,14 +100,14 @@ static std::string GetExtractFunctionSignatureString(
     // The date part argument is present in 'arguments', so arguments[1]
     // is the date part and arguments[2] (if present) is the time zone.
     //
-    // ZETASQL_DCHECK validated - given the non-standard function call syntax for
+    // ABSL_DCHECK validated - given the non-standard function call syntax for
     // EXTRACT, the parser enforces 2 or 3 arguments in the language.
     if (arguments.size() != 2 && arguments.size() != 3) {
       return absl::StrCat("Expected 2 or 3 arguments to EXTRACT, but found ",
                           arguments.size());
     }
     // Expected invariant - the 1th argument is the date part argument.
-    ZETASQL_DCHECK(arguments[1].type()->Equivalent(types::DatePartEnumType()));
+    ABSL_DCHECK(arguments[1].type()->Equivalent(types::DatePartEnumType()));
 
     datepart_string = arguments[1].UserFacingName(product_mode);
     if (arguments.size() == 3) {
@@ -118,11 +118,11 @@ static std::string GetExtractFunctionSignatureString(
     // date part argument is not present in 'arguments', so arguments[1]
     // (if present) is the time zone.
     //
-    // ZETASQL_DCHECK validated - given the non-standard function call syntax for
+    // ABSL_DCHECK validated - given the non-standard function call syntax for
     // EXTRACT, the parser enforces 2 or 3 arguments in the language and
     // the date part argument has been omitted from this signature (i.e.,
     // $extract_date, etc.).
-    ZETASQL_DCHECK(arguments.size() == 1 || arguments.size() == 2) << arguments.size();
+    ABSL_DCHECK(arguments.size() == 1 || arguments.size() == 2) << arguments.size();
     datepart_string = explicit_datepart_name;
     // If present, the 1th argument is the optional timezone argument.
     if (arguments.size() == 2) {
@@ -1029,7 +1029,7 @@ void GetDatetimeFunctions(TypeFactory* type_factory,
 namespace {
 
 std::string IntervalConstructorSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrFormat("INTERVAL %s %s", inputs[0], inputs[1]);
 }
 

@@ -248,7 +248,7 @@ class Evaluator {
   Evaluator& operator=(const Evaluator&) = delete;
 
   ~Evaluator() {
-    ZETASQL_CHECK_EQ(num_live_iterators_, 0)
+    ABSL_CHECK_EQ(num_live_iterators_, 0)
         << "An iterator returned by PreparedQuery::Execute() cannot outlive "
         << "the PreparedQuery object.";
   }
@@ -314,7 +314,7 @@ class Evaluator {
   const ResolvedStatement* resolved_statement() const
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::ReaderMutexLock l(&mutex_);
-    ZETASQL_CHECK(statement_ != nullptr);
+    ABSL_CHECK(statement_ != nullptr);
     return statement_;
   }
 
@@ -324,7 +324,7 @@ class Evaluator {
   const std::vector<NameAndType>& query_output_columns() const
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::ReaderMutexLock l(&mutex_);
-    ZETASQL_CHECK(statement_ != nullptr);
+    ABSL_CHECK(statement_ != nullptr);
     return output_columns_;
   }
 
@@ -1046,9 +1046,9 @@ absl::StatusOr<std::string> Evaluator::ExplainAfterPrepare() const {
 
 const Type* Evaluator::expression_output_type() const {
   absl::ReaderMutexLock l(&mutex_);
-  ZETASQL_CHECK(is_expr_) << "Only expressions have output types";
-  ZETASQL_CHECK(is_prepared()) << "Prepare or Execute must be called first";
-  ZETASQL_CHECK(compiled_value_expr_ != nullptr) << "Invalid prepared expression";
+  ABSL_CHECK(is_expr_) << "Only expressions have output types";
+  ABSL_CHECK(is_prepared()) << "Prepare or Execute must be called first";
+  ABSL_CHECK(compiled_value_expr_ != nullptr) << "Invalid prepared expression";
   return compiled_value_expr_->output_type();
 }
 
@@ -1500,12 +1500,12 @@ int PreparedQueryBase::num_columns() const {
 }
 
 std::string PreparedQueryBase::column_name(int i) const {
-  ZETASQL_DCHECK_LT(i, evaluator_->query_output_columns().size());
+  ABSL_DCHECK_LT(i, evaluator_->query_output_columns().size());
   return evaluator_->query_output_columns()[i].first;
 }
 
 const Type* PreparedQueryBase::column_type(int i) const {
-  ZETASQL_DCHECK_LT(i, evaluator_->query_output_columns().size());
+  ABSL_DCHECK_LT(i, evaluator_->query_output_columns().size());
   return evaluator_->query_output_columns()[i].second;
 }
 

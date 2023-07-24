@@ -569,7 +569,7 @@ TEST_F(ProtoValueConversionTest, WideSchemaTest) {
   const FileDescriptor* result =
       pool->BuildFileCollectingErrors(file_descriptor_proto, &error_collector);
 
-  ZETASQL_CHECK_NE(result, nullptr) << error_collector.errors();
+  ABSL_CHECK_NE(result, nullptr) << error_collector.errors();
   ASSERT_EQ(error_collector.errors(), "");
 
   ASSERT_EQ(result->name(), "wide_schema");

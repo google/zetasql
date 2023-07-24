@@ -90,7 +90,7 @@ absl::Status TestDatabaseCatalog::BuiltinFunctionCache::SetLanguageOptions(
   return absl::OkStatus();
 }
 void TestDatabaseCatalog::BuiltinFunctionCache::DumpStats() {
-  ZETASQL_LOG(INFO) << "BuiltinFunctionCache: hit: " << cache_hit_ << " / "
+  ABSL_LOG(INFO) << "BuiltinFunctionCache: hit: " << cache_hit_ << " / "
             << total_calls_ << "(" << (cache_hit_ * 100. / total_calls_) << "%)"
             << " size: " << builtins_cache_.size();
 }
@@ -145,7 +145,7 @@ absl::Status TestDatabaseCatalog::LoadProtoEnumTypes(
 void TestDatabaseCatalog::AddTable(const std::string& table_name,
                                    const TestTable& table) {
   const Value& array_value = table.table_as_value;
-  ZETASQL_CHECK(array_value.type()->IsArray())
+  ABSL_CHECK(array_value.type()->IsArray())
       << table_name << " " << array_value.DebugString(true);
   auto element_type = array_value.type()->AsArray()->element_type();
   SimpleTable* simple_table = nullptr;
@@ -156,7 +156,7 @@ void TestDatabaseCatalog::AddTable(const std::string& table_name,
     std::vector<SimpleTable::NameAndAnnotatedType> columns;
     const std::vector<const AnnotationMap*>& column_annotations =
         table.options.column_annotations();
-    ZETASQL_CHECK(column_annotations.empty() ||
+    ABSL_CHECK(column_annotations.empty() ||
           column_annotations.size() == row_type->num_fields());
     columns.reserve(row_type->num_fields());
     for (int i = 0; i < row_type->num_fields(); i++) {

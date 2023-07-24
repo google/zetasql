@@ -243,7 +243,7 @@ void ZetaSqlFlexTokenizer::PushBisonParserMode(BisonParserMode mode) {
 }
 
 void ZetaSqlFlexTokenizer::PopBisonParserMode() {
-  ZETASQL_DCHECK(!restore_modes_.empty());
+  ABSL_DCHECK(!restore_modes_.empty());
   mode_ = restore_modes_.top();
   restore_modes_.pop();
 }

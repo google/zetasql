@@ -70,15 +70,15 @@ static inline bool CheckRange(const FromType& value) {
   static_assert(sizeof(FromType) > sizeof(ToType),
                 "FromType must be larger than ToType");
   // Not a static_assert since floating point PODs are not integral constants.
-  ZETASQL_DCHECK_LE(std::numeric_limits<FromType>::lowest(),
+  ABSL_DCHECK_LE(std::numeric_limits<FromType>::lowest(),
             std::numeric_limits<ToType>::lowest());
-  ZETASQL_DCHECK_GE(std::numeric_limits<FromType>::max(),
+  ABSL_DCHECK_GE(std::numeric_limits<FromType>::max(),
             std::numeric_limits<ToType>::max());
   FromType min = static_cast<FromType>(std::numeric_limits<ToType>::lowest());
   FromType max = static_cast<FromType>(std::numeric_limits<ToType>::max());
   // Not a static_assert since floating point PODs are not integral constants.
-  ZETASQL_DCHECK_LE(min, 0);
-  ZETASQL_DCHECK_LT(0, max);
+  ABSL_DCHECK_LE(min, 0);
+  ABSL_DCHECK_LT(0, max);
   return value >= min && value <= max;
 }
 

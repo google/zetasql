@@ -366,7 +366,7 @@ TEST(CivilTimeValuesTest, TimeValueNormalizationTest) {
   TimeValue time;
   std::string expected_time_string;
   for (const auto& each : test_cases) {
-    ZETASQL_LOG(INFO) << "Testing case: " << each.second;
+    ABSL_LOG(INFO) << "Testing case: " << each.second;
     time = each.first;
     ASSERT_TRUE(time.IsValid());
     EXPECT_EQ(each.second, time.DebugString());
@@ -503,7 +503,7 @@ TEST(CivilTimeValuesTest, DatetimeValueNormalizationTest) {
   DatetimeValue datetime;
   std::string expected_datetime_string;
   for (const auto& each : test_cases) {
-    ZETASQL_LOG(INFO) << "Testing case: " << each.first.DebugString();
+    ABSL_LOG(INFO) << "Testing case: " << each.first.DebugString();
 
     // Does not clear sub-second
     datetime = each.first;

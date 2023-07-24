@@ -125,7 +125,7 @@ JSONValue ToJsonFromFloat(FloatType value, bool canonicalize_zero) {
     return value > 0 ? JSONValue(std::string("Infinity"))
                      : JSONValue(std::string("-Infinity"));
   }
-  ZETASQL_DCHECK(std::isfinite(value))
+  ABSL_DCHECK(std::isfinite(value))
       << "Floating point number with unexpected properties" << value;
   if (canonicalize_zero && value == -0.0) {
     value = 0.0;

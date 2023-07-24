@@ -209,7 +209,7 @@ const std::string& FunctionResolver::BinaryOperatorToFunctionName(
       return *kConcatOpFnName;
     case ASTBinaryExpression::DISTINCT:
       if (is_not) {
-        ZETASQL_CHECK(not_handled != nullptr);
+        ABSL_CHECK(not_handled != nullptr);
         *not_handled = true;
         return *kNotDistinctOpFnName;
       } else {
@@ -233,7 +233,7 @@ absl::StatusOr<bool> FunctionResolver::SignatureMatches(
           absl::Span<const Type* const> arg_types, const Type* body_result_type,
           bool allow_argument_coercion,
           std::unique_ptr<const ResolvedInlineLambda>* resolved_expr_out) {
-        ZETASQL_DCHECK(name_scope != nullptr);
+        ABSL_DCHECK(name_scope != nullptr);
         return resolver->ResolveLambda(
             ast_lambda, arg_names, arg_types, body_result_type,
             allow_argument_coercion, name_scope, resolved_expr_out);
@@ -251,7 +251,7 @@ absl::StatusOr<bool> FunctionResolver::SignatureMatches(
 //   return MakeSqlErrorAtPoint(GetLocationFromResolvedNode(node, ast_node))
 static ParseLocationPoint GetLocationFromResolvedNode(const ResolvedNode* node,
                                                       const ASTNode* fallback) {
-  ZETASQL_DCHECK(fallback != nullptr);
+  ABSL_DCHECK(fallback != nullptr);
   const ParseLocationRange* range = node->GetParseLocationOrNULL();
   if (range != nullptr) {
     return range->start();
@@ -986,7 +986,7 @@ FunctionResolver::FindMatchingSignature(
     if (best_result_signature != nullptr) {
       // When the other arguments are not enough to distinguish which
       // signature to use, we're left only with the lambdas, which can't
-      // distinguish between two overloads. If this ZETASQL_CHECK fails, an engine has
+      // distinguish between two overloads. If this ABSL_CHECK fails, an engine has
       // set up its catalog with a function signature that ZetaSQL doesn't
       // mean to support for the time being. This shouldn't happen as
       // Function::CheckMultipleSignatureMatchingSameFunctionCall() validation
@@ -1088,7 +1088,7 @@ absl::Status ExtractStructFieldLocations(
     case AST_STRUCT_CONSTRUCTOR_WITH_PARENS: {
       const ASTStructConstructorWithParens* ast_struct =
           cast_free_ast_location->GetAs<ASTStructConstructorWithParens>();
-      ZETASQL_DCHECK_EQ(ast_struct->field_expressions().size(),
+      ABSL_DCHECK_EQ(ast_struct->field_expressions().size(),
                 to_struct_type->num_fields());
       *field_arg_locations = ToASTNodes(ast_struct->field_expressions());
       break;
@@ -1096,7 +1096,7 @@ absl::Status ExtractStructFieldLocations(
     case AST_STRUCT_CONSTRUCTOR_WITH_KEYWORD: {
       const ASTStructConstructorWithKeyword* ast_struct =
           cast_free_ast_location->GetAs<ASTStructConstructorWithKeyword>();
-      ZETASQL_DCHECK_EQ(ast_struct->fields().size(), to_struct_type->num_fields());
+      ABSL_DCHECK_EQ(ast_struct->fields().size(), to_struct_type->num_fields());
       // Strip "AS <alias>" clauses from field arg locations.
       for (const ASTStructConstructorArg* arg : ast_struct->fields()) {
         field_arg_locations->push_back(arg->expression());
@@ -1396,7 +1396,7 @@ absl::Status FunctionResolver::ConvertLiteralToType(
                                target_field_type, scan, set_has_explicit_type,
                                return_null_on_error, &coerced_field_literal)
               .ok()) {
-        ZETASQL_DCHECK_EQ(field_literal->node_kind(), RESOLVED_LITERAL);
+        ABSL_DCHECK_EQ(field_literal->node_kind(), RESOLVED_LITERAL);
         coerced_field_literals.push_back(coerced_field_literal->value());
       } else {
         success = false;
@@ -1776,7 +1776,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       ZETASQL_RET_CHECK(arg_override->argument->sequence() != nullptr);
       continue;
     }
-    ZETASQL_DCHECK(arguments[idx] != nullptr);
+    ABSL_DCHECK(arguments[idx] != nullptr);
 
     if (concrete_argument.options().must_support_equality() &&
         !concrete_argument.type()->SupportsEquality(resolver_->language())) {
@@ -2379,7 +2379,7 @@ absl::Status FunctionResolver::CheckArgumentValueConstraints(
 }
 
 const Coercer& FunctionResolver::coercer() const {
-  ZETASQL_DCHECK(resolver_ != nullptr);
+  ABSL_DCHECK(resolver_ != nullptr);
   return resolver_->coercer_;
 }
 

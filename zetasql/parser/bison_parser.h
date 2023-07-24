@@ -110,7 +110,7 @@ class BisonParser {
   // returned characters will remain valid throughout Parse().
   absl::string_view GetInputText(
       const zetasql_bison_parser::location& bison_location) const {
-    ZETASQL_DCHECK_GE(bison_location.end.column, bison_location.begin.column);
+    ABSL_DCHECK_GE(bison_location.end.column, bison_location.begin.column);
     return absl::string_view(
         input_.data() + bison_location.begin.column,
         bison_location.end.column - bison_location.begin.column);
@@ -304,9 +304,6 @@ class BisonParser {
   // parsing. The root node itself is added when it is allocated, but it is then
   // taken out of the vector again in Parse(). Only valid during Parse().
   std::unique_ptr<std::vector<std::unique_ptr<ASTNode>>> allocated_ast_nodes_;
-
-  // The Flex tokenizer to use.  Only valid during Parse().
-  std::unique_ptr<ZetaSqlFlexTokenizer> tokenizer_;
 
   // The file that the parser input is from.  Can be empty.  Owned by
   // <id_string_pool_>.

@@ -55,8 +55,8 @@ using CaseInsensitiveMap =
     absl::btree_map<std::string, int, zetasql_base::CaseLess>;
 using UnderscoreAndDotPrefixSets = std::pair<PrefixSet, PrefixSet>;
 
-// Fetch all the functions from GetZetaSQLFunctions with maximum language
-// options in internal mode and populate the prefix group set.
+// Fetch all the functions from GetBuiltinFunctionsAndTypes with maximum
+// language options in internal mode and populate the prefix group set.
 //
 // Any underscore prefix that shows up in 2 or more functions is considered a
 // prefix group.
@@ -281,7 +281,7 @@ class ComplianceLabelSets {
     }
 
     auto found = aggregate_function_modifiers_.find(signature_id);
-    ZETASQL_DCHECK(found != aggregate_function_modifiers_.end());
+    ABSL_DCHECK(found != aggregate_function_modifiers_.end());
     if (node->distinct() == true) {
       found->second.include_distinct = true;
     }
@@ -326,7 +326,7 @@ class ComplianceLabelSets {
           signature_id, WindowFunctionModifierLabel(signature_id));
     }
     auto found = window_function_modifiers_.find(signature_id);
-    ZETASQL_DCHECK(found != window_function_modifiers_.end());
+    ABSL_DCHECK(found != window_function_modifiers_.end());
     if (include_partition_by) {
       found->second.include_partition_by = true;
     }

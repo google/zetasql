@@ -845,6 +845,20 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "lookup_catalog_column_callback_test",
+    srcs = ["lookup_catalog_column_callback_test.cc"],
+    deps = [
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status",
+    ],
+)
+
 [gen_analyzer_test(
     filename = f.split("/")[-1],
 ) for f in glob(["testdata/*.test"])]

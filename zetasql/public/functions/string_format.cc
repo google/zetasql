@@ -296,7 +296,7 @@ absl::Status StringFormatEvaluator::FormatString(
     const std::vector<FormatPart>& format_parts, absl::Cord* out,
     bool* set_null) {
   ZETASQL_DCHECK_OK(status_);
-  ZETASQL_DCHECK_GE(raw_parts.size(), format_parts.size());
+  ABSL_DCHECK_GE(raw_parts.size(), format_parts.size());
   for (int i = 0; i < format_parts.size(); ++i) {
     if (out->size() > absl::GetFlag(FLAGS_zetasql_format_max_output_width)) {
       status_.Update(zetasql_base::OutOfRangeErrorBuilder()
@@ -340,7 +340,7 @@ absl::Status StringFormatEvaluator::FormatString(
     }
   }
   if (raw_parts.size() > format_parts.size()) {
-    ZETASQL_DCHECK_EQ(raw_parts.size(), format_parts.size() + 1);
+    ABSL_DCHECK_EQ(raw_parts.size(), format_parts.size() + 1);
     out->Append(raw_parts.back());
   }
   if (out->size() > absl::GetFlag(FLAGS_zetasql_format_max_output_width)) {
@@ -517,7 +517,7 @@ template <typename T>
 bool StringFormatEvaluator::CopyPrecisionSetter(const FormatPart& part,
                                                 absl::FormatArg* arg) {
   const Value* value = &values_[part.precision_index];
-  ZETASQL_CHECK_NE(value, nullptr);
+  ABSL_CHECK_NE(value, nullptr);
 
   if (value->is_null()) {
     return false;  // NULL
@@ -1129,7 +1129,7 @@ absl::Status StringFormatEvaluator::ValueError(int64_t arg_index,
 }
 
 bool StringFormatEvaluator::TypeCheckSIntArg(int64_t arg_index) {
-  ZETASQL_DCHECK(arg_index < arg_types_.size());
+  ABSL_DCHECK(arg_index < arg_types_.size());
   const Type* t = arg_types_[arg_index];
   if (!t->IsSignedInteger()) {
     status_.Update(TypeError(arg_index, "integer", arg_types_[arg_index]));
@@ -1139,7 +1139,7 @@ bool StringFormatEvaluator::TypeCheckSIntArg(int64_t arg_index) {
 }
 
 bool StringFormatEvaluator::TypeCheckUintArg(int64_t arg_index) {
-  ZETASQL_DCHECK(arg_index < arg_types_.size());
+  ABSL_DCHECK(arg_index < arg_types_.size());
   auto t = arg_types_[arg_index];
   if (!t->IsUnsignedInteger()) {
     status_.Update(TypeError(arg_index, "UINT", arg_types_[arg_index]));
@@ -1149,7 +1149,7 @@ bool StringFormatEvaluator::TypeCheckUintArg(int64_t arg_index) {
 }
 
 bool StringFormatEvaluator::TypeCheckIntOrUintArg(int64_t arg_index) {
-  ZETASQL_DCHECK(arg_index < arg_types_.size());
+  ABSL_DCHECK(arg_index < arg_types_.size());
   const Type* t = arg_types_[arg_index];
   if (!t->IsInteger()) {
     status_.Update(TypeError(arg_index, "integer", arg_types_[arg_index]));
@@ -1159,7 +1159,7 @@ bool StringFormatEvaluator::TypeCheckIntOrUintArg(int64_t arg_index) {
 }
 
 bool StringFormatEvaluator::TypeCheckDoubleOrNumericArg(int64_t arg_index) {
-  ZETASQL_DCHECK(arg_index < arg_types_.size());
+  ABSL_DCHECK(arg_index < arg_types_.size());
   const Type* t = arg_types_[arg_index];
   if (!t->IsFloatingPoint() && !t->IsNumericType() && !t->IsBigNumericType()) {
     status_.Update(TypeError(
@@ -1170,7 +1170,7 @@ bool StringFormatEvaluator::TypeCheckDoubleOrNumericArg(int64_t arg_index) {
 }
 
 bool StringFormatEvaluator::TypeCheckStringArg(int64_t arg_index) {
-  ZETASQL_DCHECK(arg_index < arg_types_.size());
+  ABSL_DCHECK(arg_index < arg_types_.size());
   const Type* t = arg_types_[arg_index];
   if (!t->IsString()) {
     status_.Update(TypeError(arg_index, "STRING", arg_types_[arg_index]));
@@ -1180,7 +1180,7 @@ bool StringFormatEvaluator::TypeCheckStringArg(int64_t arg_index) {
 }
 
 bool StringFormatEvaluator::TypeCheckProtoOrJsonArg(int64_t arg_index) {
-  ZETASQL_DCHECK(arg_index < arg_types_.size());
+  ABSL_DCHECK(arg_index < arg_types_.size());
   const Type* t = arg_types_[arg_index];
   if (!t->IsProto() && !t->IsJson()) {
     status_.Update(
@@ -1280,18 +1280,18 @@ absl::FormatConvertResult<absl::FormatConversionCharSet::kIntegral> ConvertInt(
     default:
       return {false};
   }
-  ZETASQL_DCHECK_GE(sig_digits, 1);
-  ZETASQL_DCHECK_LE(sig_digits, 22);
+  ABSL_DCHECK_GE(sig_digits, 1);
+  ABSL_DCHECK_LE(sig_digits, 22);
 
   // The number of digits before the first separator character.
   int leading_digits = ((sig_digits - 1) % group_size) + 1;
-  ZETASQL_DCHECK_GE(leading_digits, 1);
-  ZETASQL_DCHECK_LE(leading_digits, 4);
+  ABSL_DCHECK_GE(leading_digits, 1);
+  ABSL_DCHECK_LE(leading_digits, 4);
 
   // The number of separator characters in printed value.
   int separators = (sig_digits - leading_digits) / group_size;
   // 6 separators for std::numeric_limits<uint64_t>::max() in base 10
-  ZETASQL_DCHECK_LE(separators, 6);
+  ABSL_DCHECK_LE(separators, 6);
   // The number of leading zeros that satisfy the required precision.
   int precision_digits = 0;
   // The total number of digits (signficant + precision).
@@ -1307,10 +1307,10 @@ absl::FormatConvertResult<absl::FormatConversionCharSet::kIntegral> ConvertInt(
     leading_digits = ((total_digits - 1) % group_size) + 1;
     separators = (total_digits - leading_digits) / group_size;
   }
-  ZETASQL_DCHECK_GE(precision_digits, 0);
-  ZETASQL_DCHECK_GE(total_digits, 1);
-  ZETASQL_DCHECK_GE(leading_digits, 1);
-  ZETASQL_DCHECK_LE(leading_digits, 4);
+  ABSL_DCHECK_GE(precision_digits, 0);
+  ABSL_DCHECK_GE(total_digits, 1);
+  ABSL_DCHECK_GE(leading_digits, 1);
+  ABSL_DCHECK_LE(leading_digits, 4);
 
   // The total number of padding characters (zero or spaces) to satisfy width.
   int padding_size = 0;
@@ -1334,8 +1334,8 @@ absl::FormatConvertResult<absl::FormatConversionCharSet::kIntegral> ConvertInt(
       }
     }
   }
-  ZETASQL_DCHECK_LT(padding_size, 1 << 30);      // Sanity check.
-  ZETASQL_DCHECK_LT(precision_digits, 1 << 30);  // Sanity check.
+  ABSL_DCHECK_LT(padding_size, 1 << 30);      // Sanity check.
+  ABSL_DCHECK_LT(precision_digits, 1 << 30);  // Sanity check.
 
   if (padding_size > 0 && !conv.has_left_flag() && !conv.has_zero_flag()) {
     sink->Append(padding_size, ' ');
@@ -1377,7 +1377,7 @@ absl::FormatConvertResult<absl::FormatConversionCharSet::kIntegral> ConvertInt(
         sink->Append(1, sep);
         precision_digits -= group_size;
       }
-      ZETASQL_DCHECK_GE(precision_digits, 0);
+      ABSL_DCHECK_GE(precision_digits, 0);
       sink->Append(precision_digits, '0');
       // How many significant digits are needed before the *next* separator.
       leading_digits = std::min(sig_digits, group_size - precision_digits);
@@ -1506,10 +1506,10 @@ AbslFormatConvert(const FormatGsqlDouble<GROUPING>& value,
     default:
       return {false};
   }
-  ZETASQL_DCHECK_GE(fmt_length, 1);
+  ABSL_DCHECK_GE(fmt_length, 1);
   // With max precision limited to kMaxPrecisionForFloatingPoint, we're sure
   // that the buffer provided is big enough for all cases.
-  ZETASQL_DCHECK_LT(fmt_length, kBufferSize);
+  ABSL_DCHECK_LT(fmt_length, kBufferSize);
 
   // Task 1: Find the integer portion.
   // Before figuring our grouping separators, first we need to find the integer
@@ -1531,8 +1531,8 @@ AbslFormatConvert(const FormatGsqlDouble<GROUPING>& value,
   int separators = 0;
   if (has_int) {
     leading_digits = ((int_digits - 1) % kGroupSize) + 1;
-    ZETASQL_DCHECK_GE(leading_digits, 1);
-    ZETASQL_DCHECK_LE(leading_digits, 4);
+    ABSL_DCHECK_GE(leading_digits, 1);
+    ABSL_DCHECK_LE(leading_digits, 4);
     if (GROUPING) {
       separators = (int_digits - leading_digits) / kGroupSize;
     }
@@ -1551,7 +1551,7 @@ AbslFormatConvert(const FormatGsqlDouble<GROUPING>& value,
       padding_size -= 1;
     }
   }
-  ZETASQL_DCHECK_LT(padding_size, 1 << 30);  // Sanity check.
+  ABSL_DCHECK_LT(padding_size, 1 << 30);  // Sanity check.
 
   // Task 4: Print the formatted value to the byte sink.
   bool use_zero_padding = conv.has_zero_flag() && has_int;

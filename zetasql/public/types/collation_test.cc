@@ -32,7 +32,7 @@ namespace {
 const ArrayType* MakeArrayType(const Type* element_type,
                                TypeFactory* type_factory) {
   const ArrayType* array_type;
-  ZETASQL_CHECK_OK(type_factory->MakeArrayType(element_type, &array_type));
+  ZETASQL_QCHECK_OK(type_factory->MakeArrayType(element_type, &array_type));
   return array_type;
 }
 

@@ -55,7 +55,7 @@ EnumType::EnumType(const TypeFactory* factory,
       enum_descriptor_(enum_descr),
       catalog_name_(catalog_name),
       is_opaque_(is_opaque) {
-  ZETASQL_CHECK(enum_descriptor_ != nullptr);
+  ABSL_CHECK(enum_descriptor_ != nullptr);
 }
 
 EnumType::~EnumType() {
@@ -63,7 +63,7 @@ EnumType::~EnumType() {
 
 bool EnumType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const EnumType* other = that->AsEnum();
-  ZETASQL_DCHECK(other);
+  ABSL_DCHECK(other);
   return EnumType::EqualsImpl(this, other, equivalent);
 }
 

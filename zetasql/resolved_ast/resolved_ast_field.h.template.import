@@ -39,7 +39,7 @@ import directive. Example:
  # endif
   {{field.getter_return_type}} {{field.name}}() const {
     # if is_from_builder
-    ZETASQL_DCHECK({{inner_node_member_name}} != nullptr);
+    ABSL_DCHECK({{inner_node_member_name}} != nullptr);
     # endif
     accessed_ |= {{field.bitmap}};
     # if not field.is_default_constructible
@@ -53,7 +53,7 @@ import directive. Example:
  # if field.is_vector
   int {{field.name}}_size() const {
     # if is_from_builder
-    ZETASQL_DCHECK({{inner_node_member_name}} != nullptr);
+    ABSL_DCHECK({{inner_node_member_name}} != nullptr);
     # endif
     if ({{field.member_name}}.empty()) accessed_ |= {{field.bitmap}};
     return static_cast<int>({{field.member_name}}.size());

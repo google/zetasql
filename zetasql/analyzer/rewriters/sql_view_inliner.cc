@@ -96,7 +96,7 @@ class SqlViewInlineVistor : public ResolvedASTDeepCopyVisitor {
   absl::Status InlineSqlView(const ResolvedTableScan* scan,
                              const SQLView* view) {
     ZETASQL_RET_CHECK_NE(column_factory_, nullptr);
-    ZETASQL_DCHECK(scan->table()->Is<SQLView>());
+    ABSL_DCHECK(scan->table()->Is<SQLView>());
 
     const ResolvedScan* const view_def = view->view_query();
     ZETASQL_RET_CHECK_NE(view_def, nullptr);

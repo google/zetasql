@@ -56,7 +56,7 @@ static absl::StatusOr<IdString> ExtractArgumentNameFromExpr(
 // nullptr when only check is needed.
 static absl::Status ExtractLambdaArgumentNames(const ASTLambda* ast_lambda,
                                                std::vector<IdString>* names) {
-  ZETASQL_DCHECK(names != nullptr);
+  ABSL_DCHECK(names != nullptr);
   const ASTExpression* args_expr = ast_lambda->argument_list();
   if (args_expr->node_kind() == AST_STRUCT_CONSTRUCTOR_WITH_PARENS) {
     const ASTStructConstructorWithParens* struct_cons =

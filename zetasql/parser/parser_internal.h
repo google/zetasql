@@ -123,12 +123,12 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 
   SeparatedIdentifierTmpNode() : ASTNode(kConcreteNodeKind) {}
   void Accept(zetasql::ParseTreeVisitor* visitor, void* data) const override {
-    ZETASQL_LOG(FATAL)  // Crash OK
+    ABSL_LOG(FATAL)  // Crash OK
         << "SeparatedIdentifierTmpNode does not support Accept";
   }
   absl::StatusOr<zetasql::VisitResult> Accept(
       zetasql::NonRecursiveParseTreeVisitor* visitor) const override {
-    ZETASQL_LOG(FATAL)  // Crash OK
+    ABSL_LOG(FATAL)  // Crash OK
         << "SeparatedIdentifierTmpNode does not support Accept";
   }
   // This is used to represent an unquoted full identifier path that may contain
@@ -213,7 +213,7 @@ template <typename SemanticType>
 inline int zetasql_bison_parserlex(
     SemanticType* yylval, zetasql_bison_parser::location* yylloc,
     zetasql::parser::ZetaSqlFlexTokenizer* tokenizer) {
-  ZETASQL_DCHECK(tokenizer != nullptr);
+  ABSL_DCHECK(tokenizer != nullptr);
   return tokenizer->GetNextTokenFlex(yylloc);
 }
 

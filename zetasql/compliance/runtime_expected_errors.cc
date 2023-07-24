@@ -195,7 +195,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Floating point error in function: "
-      "(ACOS|ACOSH|ASIN|ATANH|COT|COTH|CSC|CSCH|EXP|LN|ZETASQL_LOG|LOG10|POW|SEC)"));
+      "(ACOS|ACOSH|ASIN|ATANH|COT|COTH|CSC|CSCH|EXP|LN|ABSL_LOG|LOG10|POW|SEC)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Argument to SQRT cannot be negative"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(

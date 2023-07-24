@@ -113,7 +113,7 @@ bool ScaleValueToExp(int64_t extra_exp, int64_t decimal_places,
 // iff Concat(high_trailing_digits, low_trailing_digits) == "50...0".
 bool IsHalfwayValue(absl::string_view high_trailing_digits,
                     absl::string_view low_trailing_digits) {
-  ZETASQL_DCHECK(!high_trailing_digits.empty());
+  ABSL_DCHECK(!high_trailing_digits.empty());
   if (high_trailing_digits[0] != '5') {
     return false;
   }

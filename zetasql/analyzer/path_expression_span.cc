@@ -75,7 +75,7 @@ std::string PathExpressionSpan::ToIdentifierPathString(
           ? num_names()
           : std::min(absl::implicit_cast<size_t>(num_names()), max_prefix_size);
   std::string ret;
-  ZETASQL_DCHECK(absl::implicit_cast<size_t>(start_index_) + size <
+  ABSL_DCHECK(absl::implicit_cast<size_t>(start_index_) + size <
          absl::implicit_cast<size_t>(std::numeric_limits<int32_t>::max()));
   for (int32_t i = start_index_; i < start_index_ + static_cast<int32_t>(size);
        ++i) {

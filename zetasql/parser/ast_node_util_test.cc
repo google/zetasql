@@ -32,7 +32,7 @@ using ::zetasql_base::testing::IsOkAndHolds;
 TEST(GetMaxParseTreeDepth, Simple) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_CHECK_OK(ParseExpression("1 + (2 + 3)", ParserOptions(), &parser_output));
-  ZETASQL_CHECK_EQ(
+  ABSL_CHECK_EQ(
       absl::StripAsciiWhitespace(parser_output->expression()->DebugString()),
       absl::StripAsciiWhitespace(
           R"(

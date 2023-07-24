@@ -60,7 +60,7 @@ bool StatusToBool(const absl::StatusOr<bool>& status) {
   // convert StatusOr<bool> values returned by new CoercesTo API. Old API
   // functions should never be called for expressions that may involve extended
   // types and for built-in types new API functions should never return an error
-  // status unless some invariant is broken. Thus, ZETASQL_DCHECK status here to crash
+  // status unless some invariant is broken. Thus, ABSL_DCHECK status here to crash
   // in debug mode to signal that some contract is violated.
   ZETASQL_DCHECK_OK(status.status());
   return status.value_or(false);
@@ -95,7 +95,7 @@ SuperTypesMap* CreateBuiltinSuperTypesMap() {
 
     std::vector<const Type*>& supertypes = (*map)[src_type_kind];
     const Type* dst_type = types::TypeFromSimpleTypeKind(dst_type_kind);
-    ZETASQL_CHECK_NE(dst_type, nullptr);
+    ABSL_CHECK_NE(dst_type, nullptr);
 
     supertypes.push_back(dst_type);
   }
@@ -213,7 +213,7 @@ class TypeGlobalOrderChecker {
 
   Node& GetNode(const Type* type) {
     std::unique_ptr<Node>& node = graph_[type];
-    ZETASQL_CHECK(node);
+    ABSL_CHECK(node);
 
     return *node;
   }
@@ -549,7 +549,7 @@ absl::StatusOr<const StructType*> Coercer::GetCommonStructSuperType(
     if (struct_type->num_fields() != num_struct_fields) {
       return nullptr;
     }
-    ZETASQL_DCHECK_EQ(argument_type.field_types_size(), num_struct_fields);
+    ABSL_DCHECK_EQ(argument_type.field_types_size(), num_struct_fields);
     for (int i = 0; i < num_struct_fields; ++i) {
       struct_field_argument_sets[i].Insert(argument_type.field_type(i));
     }

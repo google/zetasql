@@ -458,7 +458,7 @@ static void TestCastStringToTimestamp(const FunctionTestCall& test) {
   // with NULL value inputs.  The date/time function library is only
   // implemented for non-NULL values.
   const int expected_param_size = 4;
-  ZETASQL_CHECK_EQ(test.params.params().size(), expected_param_size);
+  ABSL_CHECK_EQ(test.params.params().size(), expected_param_size);
 
   for (size_t i = 0; i < expected_param_size; ++i) {
     if (test.params.param(i).is_null()) {
@@ -529,7 +529,7 @@ static void TestCastStringToTimestamp(const FunctionTestCall& test) {
 }
 
 static void TestCastStringToDate(const FunctionTestCall& test) {
-  ZETASQL_CHECK_EQ(test.params.params().size(), 3);
+  ABSL_CHECK_EQ(test.params.params().size(), 3);
   // Ignore test cases with NULL value inputs. The date/time function library
   // is only implemented for non-NULL values.
   if (test.params.param(0).is_null() || test.params.param(1).is_null() ||
@@ -625,7 +625,7 @@ static void TestCivilTimeFunction(
 
 static void TestCastStringToTime(const FunctionTestCall& test) {
   auto ShouldSkipTestCase = [](const FunctionTestCall& testcase) {
-    ZETASQL_CHECK_EQ(testcase.params.params().size(), 2);
+    ABSL_CHECK_EQ(testcase.params.params().size(), 2);
     // Ignore test cases with NULL value inputs.  The date/time function
     // library is only implemented for non-NULL values.
     if (testcase.params.param(0).is_null() ||
@@ -657,7 +657,7 @@ static void TestCastStringToTime(const FunctionTestCall& test) {
 
 static void TestCastStringToDatetime(const FunctionTestCall& test) {
   auto ShouldSkipTestCase = [](const FunctionTestCall& testcase) {
-    ZETASQL_CHECK_EQ(testcase.params.params().size(), 3);
+    ABSL_CHECK_EQ(testcase.params.params().size(), 3);
     // Ignore test cases with NULL value inputs.  The date/time function
     // library is only implemented for non-NULL values.
     if (testcase.params.param(0).is_null() ||
@@ -745,7 +745,7 @@ static void TestCastFormatFunction(
 static void TestCastFormatDatetime(const FunctionTestCall& testcase) {
   auto FormatDatetimeFunc = [&testcase](std::string* result_string,
                                         std::string* test_name) {
-    ZETASQL_CHECK_EQ(testcase.params.num_params(), 2);
+    ABSL_CHECK_EQ(testcase.params.num_params(), 2);
     const Value& format_param = testcase.params.param(1);
     const Value& datetime_param = testcase.params.param(0);
     *test_name = absl::Substitute(
@@ -761,7 +761,7 @@ static void TestCastFormatDatetime(const FunctionTestCall& testcase) {
 static void TestCastFormatTime(const FunctionTestCall& testcase) {
   auto FormatTimeFunc = [&testcase](std::string* result_string,
                                     std::string* test_name) {
-    ZETASQL_CHECK_EQ(testcase.params.num_params(), 2);
+    ABSL_CHECK_EQ(testcase.params.num_params(), 2);
     const Value& format_param = testcase.params.param(1);
     const Value& time_param = testcase.params.param(0);
     *test_name =
@@ -777,7 +777,7 @@ static void TestCastFormatTime(const FunctionTestCall& testcase) {
 static void TestCastFormatDate(const FunctionTestCall& testcase) {
   auto FormatDateFunc = [&testcase](std::string* result_string,
                                     std::string* test_name) {
-    ZETASQL_CHECK_EQ(testcase.params.num_params(), 2);
+    ABSL_CHECK_EQ(testcase.params.num_params(), 2);
     const Value& format_param = testcase.params.param(1);
     const Value& date_param = testcase.params.param(0);
     *test_name =
@@ -793,7 +793,7 @@ static void TestCastFormatDate(const FunctionTestCall& testcase) {
 static void TestCastFormatTimestamp(const FunctionTestCall& testcase) {
   auto FormatTimestampFunc = [&testcase](std::string* result_string,
                                          std::string* test_name) {
-    ZETASQL_CHECK_EQ(testcase.params.num_params(), 3);
+    ABSL_CHECK_EQ(testcase.params.num_params(), 3);
     const Value& format_param = testcase.params.param(1);
     const Value& timestamp_param = testcase.params.param(0);
     const Value& timezone_param = testcase.params.param(2);

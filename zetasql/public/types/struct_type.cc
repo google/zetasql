@@ -76,7 +76,7 @@ bool StructType::IsSupportedType(
 
 bool StructType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const StructType* other = that->AsStruct();
-  ZETASQL_DCHECK(other);
+  ABSL_DCHECK(other);
   return StructType::EqualsImpl(this, other, equivalent);
 }
 

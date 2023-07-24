@@ -72,6 +72,7 @@ cc_test(
     srcs = ["parsed_script_test.cc"],
     deps = [
         ":parsed_script",
+        "//zetasql/base:source_location",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/parser",

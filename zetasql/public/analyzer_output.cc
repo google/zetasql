@@ -151,27 +151,25 @@ std::string AnalyzerRuntimeInfo::DebugString(
   Rewriters  : %s
      %s)",
       print_latency(sum_elapsed_duration()),
-      print_latency(parser_runtime_info().parser_elapsed_duration()),
+      print_latency(
+          parser_runtime_info().parser_timed_value().elapsed_duration()),
       print_latency(resolver_timed_value().elapsed_duration()),
       print_latency(validator_timed_value().elapsed_duration()),
       print_latency(rewriters_timed_value().elapsed_duration()), rewriter_str);
 }
 
 AnalyzerLogEntry AnalyzerRuntimeInfo::log_entry() const {
-  AnalyzerLogEntry entry;
+  AnalyzerLogEntry entry = parser_runtime_info().log_entry();
   *entry.mutable_overall_execution_stats() =
       overall_timed_value().ToExecutionStatsProto();
+
   auto add_timing = [&](AnalyzerLogEntry::LoggedOperationCategory op,
                         const internal::TimedValue& time) {
     auto& stage = *entry.add_execution_stats_by_op();
     stage.set_key(op);
     *stage.mutable_value() = time.ToExecutionStatsProto();
   };
-  add_timing(AnalyzerLogEntry::PARSER,
-             parser_runtime_info().parser_timed_value());
   add_timing(AnalyzerLogEntry::RESOLVER, resolver_timed_value());
-
-  entry.set_num_lexical_tokens(parser_runtime_info().num_lexical_tokens());
   return entry;
 }
 }  // namespace zetasql

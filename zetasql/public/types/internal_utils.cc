@@ -57,7 +57,7 @@ absl::Status PopulateDistinctFileDescriptorSets(
   if (file_descriptor_entry == nullptr) {
     // This is a new entry in the map.
     file_descriptor_entry = std::make_unique<Type::FileDescriptorEntry>();
-    ZETASQL_CHECK(file_descriptor_set_map->size() <
+    ABSL_CHECK(file_descriptor_set_map->size() <
           std::numeric_limits<decltype(
               file_descriptor_entry->descriptor_set_index)>::max());
     file_descriptor_entry->descriptor_set_index =

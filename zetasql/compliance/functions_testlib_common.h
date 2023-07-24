@@ -181,11 +181,11 @@ struct ComparisonTest {
         required_features(required_features) {}
   // Returns NaN of the correct type when result == UNORDERED.
   Value GetNaN() const {
-    ZETASQL_CHECK_EQ(result, UNORDERED_BUT_ARRAY_ORDERS_LESS);
+    ABSL_CHECK_EQ(result, UNORDERED_BUT_ARRAY_ORDERS_LESS);
     if (left.type_kind() == TYPE_DOUBLE) {
       return Value::Double(double_nan);
     }
-    ZETASQL_CHECK_EQ(left.type_kind(), TYPE_FLOAT);
+    ABSL_CHECK_EQ(left.type_kind(), TYPE_FLOAT);
     return Value::Float(float_nan);
   }
   Value left;

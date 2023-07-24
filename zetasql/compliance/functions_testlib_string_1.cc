@@ -479,7 +479,7 @@ std::vector<FunctionTestCall> GetFunctionTestsNormalize() {
   // normalize mode (default/NFC, NFC, NFKC, NFD, NFKD), respectively.
   std::vector<FunctionTestCall> ret;
   for (const NormalizeTestCase& test_case : GetNormalizeTestCases()) {
-    ZETASQL_CHECK_EQ(functions::NormalizeMode_ARRAYSIZE, test_case.expected_nfs.size());
+    ABSL_CHECK_EQ(functions::NormalizeMode_ARRAYSIZE, test_case.expected_nfs.size());
     const std::string function_name =
         test_case.is_casefold ? "normalize_and_casefold" : "normalize";
     ret.push_back(

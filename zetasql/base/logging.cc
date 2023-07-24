@@ -23,10 +23,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <cctype>
-#include <cstdio>
-#include <cstdlib>
-#include <ctime>
 #include <sstream>
 #include <string>
 
@@ -161,7 +157,7 @@ std::string *CheckOpMessageBuilder::NewString() {  // NOLINT
 }
 
 template <>
-void MakeCheckOpValueString(std::ostream *os, const char &v) {
+void ZetaSqlMakeCheckOpValueString(std::ostream *os, const char &v) {
   if (v >= 32 && v <= 126) {
     (*os) << "'" << v << "'";
   } else {
@@ -170,7 +166,7 @@ void MakeCheckOpValueString(std::ostream *os, const char &v) {
 }
 
 template <>
-void MakeCheckOpValueString(std::ostream *os, const signed char &v) {
+void ZetaSqlMakeCheckOpValueString(std::ostream *os, const signed char &v) {
   if (v >= 32 && v <= 126) {
     (*os) << "'" << v << "'";
   } else {
@@ -179,7 +175,7 @@ void MakeCheckOpValueString(std::ostream *os, const signed char &v) {
 }
 
 template <>
-void MakeCheckOpValueString(std::ostream *os, const unsigned char &v) {
+void ZetaSqlMakeCheckOpValueString(std::ostream *os, const unsigned char &v) {
   if (v >= 32 && v <= 126) {
     (*os) << "'" << v << "'";
   } else {
@@ -188,86 +184,8 @@ void MakeCheckOpValueString(std::ostream *os, const unsigned char &v) {
 }
 
 template <>
-void MakeCheckOpValueString(std::ostream *os, const std::nullptr_t &v) {
+void ZetaSqlMakeCheckOpValueString(std::ostream *os, const std::nullptr_t &v) {
   (*os) << "nullptr";
 }
-
-namespace logging_internal {
-
-LogMessage::LogMessage(const char *file, int line)
-  : LogMessage(file, line, absl::LogSeverity::kInfo) {}
-
-LogMessage::LogMessage(const char *file, int line, const std::string &result)
-    : LogMessage(file, line, absl::LogSeverity::kFatal) {
-  stream() << "Check failed: " << result << " ";
-}
-
-static constexpr const char *LogSeverityNames[4] = {"INFO", "WARNING", "ERROR",
-                                                    "FATAL"};
-
-LogMessage::LogMessage(const char *file, int line, absl::LogSeverity severity)
-    : severity_(severity) {
-  const char *filename = GetBasename(file);
-
-  // Write a prefix into the log message, including local date/time, severity
-  // level, filename, and line number.
-  struct timespec time_stamp;
-  clock_gettime(CLOCK_REALTIME, &time_stamp);
-
-  constexpr int kTimeMessageSize = 22;
-  char buffer[kTimeMessageSize];
-  strftime(buffer, kTimeMessageSize, "%Y-%m-%d %H:%M:%S  ",
-           localtime(&time_stamp.tv_sec));
-  stream() << buffer;
-  stream() << LogSeverityNames[static_cast<int>(severity)] << "  "
-           << filename << " : " << line << " : ";
-}
-
-LogMessage::~LogMessage() {
-  Flush();
-  // if FATAL occurs, abort.
-  if (severity_ == absl::LogSeverity::kFatal) {
-    abort();
-  }
-}
-
-void LogMessage::SendToLog(const std::string &message_text) {
-  std::string log_path = get_log_directory() + get_log_basename();
-
-  FILE *file = fopen(log_path.c_str(), "ab");
-  if (file) {
-    if (fprintf(file, "%s", message_text.c_str()) > 0) {
-      if (message_text.back() != '\n') {
-        fprintf(file, "\n");
-      }
-    } else {
-      fprintf(stderr, "Failed to write to log file : %s! [%s]\n",
-              log_path.c_str(), strerror(errno));
-    }
-    fclose(file);
-  } else {
-    fprintf(stderr, "Failed to open log file : %s! [%s]\n",
-            log_path.c_str(), strerror(errno));
-  }
-  if (severity_ >= absl::LogSeverity::kError) {
-    fprintf(stderr, "%s\n", message_text.c_str());
-    fflush(stderr);
-  }
-  printf("%s\n", message_text.c_str());
-  fflush(stdout);
-}
-
-void LogMessage::Flush() {
-  std::string message_text = stream_.str();
-  SendToLog(message_text);
-  stream_.clear();
-}
-
-LogMessageFatal::~LogMessageFatal() {
-  Flush();
-  abort();
-}
-
-}  // namespace logging_internal
 
 }  // namespace zetasql_base

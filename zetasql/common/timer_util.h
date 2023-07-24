@@ -122,7 +122,7 @@ class ScopedTimer {
  public:
   explicit ScopedTimer(TimedValue* timed_value)
       : timed_value_(timed_value), timer_(MakeTimerStarted()) {
-    ZETASQL_DCHECK(timed_value_ != nullptr);
+    ABSL_DCHECK(timed_value_ != nullptr);
     original_stack_usage_ =
         GetCurrentThreadStackStats().ResetPeakStackUsedBytes();
   }

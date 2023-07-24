@@ -94,8 +94,8 @@ class FlattenState {
   // destruction so a child ExprResolutionInfo can essentially share
   // FlattenState.
   void SetParent(FlattenState* parent) {
-    ZETASQL_DCHECK(parent_ == nullptr) << "Parent shouldn't be set more than once";
-    ZETASQL_CHECK(parent);
+    ABSL_DCHECK(parent_ == nullptr) << "Parent shouldn't be set more than once";
+    ABSL_CHECK(parent);
     parent_ = parent;
     can_flatten_ = parent->can_flatten_;
     active_flatten_ = parent->active_flatten_;

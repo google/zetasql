@@ -52,8 +52,8 @@ class TextProtoEvaluatorTableIterator
                                   const ProtoType* proto_type,
                                   absl::Span<const int> columns)
       : SimpleProtoEvaluatorTableIterator(proto_type), path_(path) {
-    ZETASQL_CHECK_EQ(columns.size(), 1);
-    ZETASQL_CHECK_EQ(columns[0], 0);
+    ABSL_CHECK_EQ(columns.size(), 1);
+    ABSL_CHECK_EQ(columns[0], 0);
   }
 
   bool NextRow() override {

@@ -43,7 +43,7 @@ TEST(ErrorMatcherTest, StatusErrorCodeMatcher) {
 
   EXPECT_TRUE(matcher.HasMatches());
   EXPECT_EQ(1, matcher.MatchCount());
-  ZETASQL_LOG(INFO) << matcher.MatcherSummary();
+  ABSL_LOG(INFO) << matcher.MatcherSummary();
 }
 
 TEST(ErrorMatcherTest, RegexMatcher) {
@@ -58,7 +58,7 @@ TEST(ErrorMatcherTest, RegexMatcher) {
 
   EXPECT_TRUE(matcher.HasMatches());
   EXPECT_EQ(2, matcher.MatchCount());
-  ZETASQL_LOG(INFO) << matcher.MatcherSummary();
+  ABSL_LOG(INFO) << matcher.MatcherSummary();
 }
 
 TEST(ErrorMatcherTest, RegexGroupMatcher) {
@@ -78,7 +78,7 @@ TEST(ErrorMatcherTest, RegexGroupMatcher) {
 
   EXPECT_TRUE(matcher.HasMatches());
   EXPECT_EQ(1, matcher.MatchCount());
-  ZETASQL_LOG(INFO) << matcher.MatcherSummary();
+  ABSL_LOG(INFO) << matcher.MatcherSummary();
 }
 
 TEST(ErrorMatcherTest, RegexGroupMatcherNotWrapper) {
@@ -97,7 +97,7 @@ TEST(ErrorMatcherTest, RegexGroupMatcherNotWrapper) {
 
   EXPECT_TRUE(matcher.HasMatches());
   EXPECT_EQ(2, matcher.MatchCount());
-  ZETASQL_LOG(INFO) << matcher.MatcherSummary();
+  ABSL_LOG(INFO) << matcher.MatcherSummary();
 }
 
 TEST(ErrorMatcherTest, StatusRegexMatcher) {
@@ -120,7 +120,7 @@ TEST(ErrorMatcherTest, StatusRegexMatcher) {
 
   EXPECT_TRUE(matcher.HasMatches());
   EXPECT_EQ(3, matcher.MatchCount());
-  ZETASQL_LOG(INFO) << matcher.MatcherSummary();
+  ABSL_LOG(INFO) << matcher.MatcherSummary();
 }
 
 TEST(ErrorMatcherTest, SubstringMatcher) {
@@ -137,7 +137,7 @@ TEST(ErrorMatcherTest, SubstringMatcher) {
 
   EXPECT_TRUE(matcher.HasMatches());
   EXPECT_EQ(3, matcher.MatchCount());
-  ZETASQL_LOG(INFO) << matcher.MatcherSummary();
+  ABSL_LOG(INFO) << matcher.MatcherSummary();
 }
 
 TEST(ErrorMatcherTest, StatusSubstringMatcher) {
@@ -159,7 +159,7 @@ TEST(ErrorMatcherTest, StatusSubstringMatcher) {
 
   EXPECT_TRUE(matcher.HasMatches());
   EXPECT_EQ(2, matcher.MatchCount());
-  ZETASQL_LOG(INFO) << matcher.MatcherSummary();
+  ABSL_LOG(INFO) << matcher.MatcherSummary();
 }
 
 TEST(ErrorMatcherTest, CollectionMatcher) {
@@ -189,7 +189,7 @@ TEST(ErrorMatcherTest, CollectionMatcher) {
 
   EXPECT_TRUE(matchers.HasMatches());
   EXPECT_EQ(4, matchers.MatchCount());
-  ZETASQL_LOG(INFO) << matchers.MatcherSummary();
+  ABSL_LOG(INFO) << matchers.MatcherSummary();
 }
 
 TEST(ErrorMatcherTest, ProtoFieldIsDefaultMatcher) {
@@ -209,7 +209,7 @@ TEST(ErrorMatcherTest, ProtoFieldIsDefaultMatcher) {
   matcher.Matches(std::make_pair(kitchen_sink, "match"));
   EXPECT_TRUE(matcher.HasMatches());
   EXPECT_EQ(1, matcher.MatchCount());
-  ZETASQL_LOG(INFO) << matcher.MatcherSummary();
+  ABSL_LOG(INFO) << matcher.MatcherSummary();
 }
 
 }  // namespace zetasql

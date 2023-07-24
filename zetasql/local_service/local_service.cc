@@ -91,12 +91,12 @@ void PopulateExistingPoolsToFileDescriptorSetMap(
   for (int i = 0; i < pools.size(); ++i) {
     std::unique_ptr<Type::FileDescriptorEntry>& entry =
         (*file_descriptor_set_map)[pools[i]];
-    ZETASQL_CHECK_EQ(entry.get(), nullptr);
+    ABSL_CHECK_EQ(entry.get(), nullptr);
     entry = std::make_unique<Type::FileDescriptorEntry>();
     entry->descriptor_set_index = i;
   }
 
-  ZETASQL_CHECK_EQ(pools.size(), file_descriptor_set_map->size());
+  ABSL_CHECK_EQ(pools.size(), file_descriptor_set_map->size());
 }
 
 absl::Status SerializeTypeUsingExistingPools(
@@ -192,7 +192,7 @@ class RegisteredDescriptorPoolPool
   RegisteredDescriptorPoolPool() {
     int64_t id = Register(new RegisteredDescriptorPoolState(
         RegisteredDescriptorPoolState::builtin_descriptor_pool_t()));
-    ZETASQL_CHECK_NE(id, -1);
+    ABSL_CHECK_NE(id, -1);
     builtin_pool_ = Get(id);
   }
 

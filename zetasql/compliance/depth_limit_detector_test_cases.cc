@@ -136,7 +136,7 @@ inline bool StatusCodeAndMessageEqual(absl::Status a, absl::Status b) {
 // f(1) = A, f(2) = A, f(3) = A, f(4), = A, f(5) = B, etc. this integration
 // called iteratively will create {A:[1-4], B:[5-7]}.
 // However, if a function has a pattern like AAABAAA then there is guarantee
-// that we would notice the B in the middle. If we do, we fail a ZETASQL_CHECK.
+// that we would notice the B in the middle. If we do, we fail a ABSL_CHECK.
 void IntegrateTestResult(DepthLimitDetectorTestResult* result, int depth,
                          absl::Status status) {
   auto insertion_point = std::lower_bound(
@@ -154,7 +154,7 @@ void IntegrateTestResult(DepthLimitDetectorTestResult* result, int depth,
       if (StatusCodeAndMessageEqual(preceding_point->return_status, status)) {
         insertion_point = preceding_point;
       } else {
-        ZETASQL_CHECK(depth > preceding_point->ending_depth)  // Crash OK
+        ABSL_CHECK(depth > preceding_point->ending_depth)  // Crash OK
             << "Disection algorithm cannot split a range "
             << "depth=" << depth << " status=" << status
             << " insertion_point=" << *insertion_point
@@ -171,7 +171,7 @@ void IntegrateTestResult(DepthLimitDetectorTestResult* result, int depth,
     auto following_point = insertion_point + 1;
     if (following_point !=
         result->depth_limit_detector_return_conditions.end()) {
-      ZETASQL_CHECK(following_point->starting_depth > depth)  // Crash OK
+      ABSL_CHECK(following_point->starting_depth > depth)  // Crash OK
           << "Disection algorithm cannot overlap a range at the beginning "
           << "depth=" << depth << " status=" << status
           << " insertion_point=" << *insertion_point
@@ -252,13 +252,13 @@ DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
     absl::Duration try_duration = absl::Now() - start_try;
     absl::Duration probe_duration = absl::Now() - start_probe;
     if (try_duration + probe_duration >= runtime_control.max_probing_duration) {
-      ZETASQL_LOG(INFO) << "DepthLimitDetector cutting short as already spent "
+      ABSL_LOG(INFO) << "DepthLimitDetector cutting short as already spent "
                 << probe_duration << " and next try at least " << try_duration
                 << " on " << depth_limit_case;
       break;
     }
     if (try_duration > absl::Seconds(10)) {
-      ZETASQL_LOG(INFO) << "DepthLimitDetector took " << try_duration
+      ABSL_LOG(INFO) << "DepthLimitDetector took " << try_duration
                 << " probing depth " << depth << " with " << sql.size()
                 << " bytes, spent " << probe_duration << " total on "
                 << depth_limit_case;
@@ -305,7 +305,7 @@ DepthLimitDetectorSeeds(absl::AnyInvocable<absl::Status(std::string_view) const>
           absl::GetFlag(FLAGS_depth_limit_detector_max_seed_probing_duration));
       DepthLimitDetectorTestResult result = RunDepthLimitDetectorTestCase(
           test_case, test_driver_function, control);
-      ZETASQL_LOG(INFO) << "DepthLimitDetectorSeeds "
+      ABSL_LOG(INFO) << "DepthLimitDetectorSeeds "
                 << result.depth_limit_test_case_name << " first condition "
                 << result.depth_limit_detector_return_conditions[0];
       for (const DepthLimitDetectorReturnCondition& cond :
@@ -317,7 +317,7 @@ DepthLimitDetectorSeeds(absl::AnyInvocable<absl::Status(std::string_view) const>
       }
       remaining_cases--;
     }
-    ZETASQL_LOG(INFO) << "DepthLimitDetector seeds finished in "
+    ABSL_LOG(INFO) << "DepthLimitDetector seeds finished in "
               << absl::Now() - start_seeding_time << " with "
               << (target_ending_time - absl::Now()) << " to spare";
     return seeds;

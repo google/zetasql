@@ -36,6 +36,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "zetasql/base/source_location.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
@@ -330,7 +331,7 @@ static absl::Status WriteValue(const google::protobuf::FieldDescriptor* field_de
     } else {
       // This should never fail because CheckIsSupportedFieldFormat would
       // have rejected any other types.
-      ZETASQL_DCHECK(IsInt64FieldType(field_descr->type()))
+      ABSL_DCHECK(IsInt64FieldType(field_descr->type()))
           << field_descr->DebugString();
       encoded_value = Value::Int64(encoded_date);
     }

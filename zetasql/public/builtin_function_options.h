@@ -31,7 +31,7 @@ struct FunctionSignatureIdHasher {
 };
 
 // Controls which builtin functions and function signatures are returned by
-// ZetaSQL's `GetZetaSqlFunctionsAndTypes` APIs.
+// ZetaSQL's `GetBuiltinFunctionsAndTypes` APIs.
 //
 // `LanguageOptions` are applied to determine the set of candidate functions
 // before inclusion/exclusion lists are applied.

@@ -63,7 +63,7 @@ class ColumnFactory {
     //
     // This check ensures that it is safe to remove this assumption, once the
     // legacy constructor is removed and all callers have been migrated.
-    ZETASQL_CHECK(id_string_pool != nullptr);
+    ABSL_CHECK(id_string_pool != nullptr);
   }
 
   // Similar to the above constructor, except allocates column ids on the global

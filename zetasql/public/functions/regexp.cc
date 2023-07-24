@@ -73,14 +73,14 @@ bool RegExp::InitializeWithOptions(absl::string_view pattern,
 
 bool RegExp::Contains(absl::string_view str, bool* out,
                       absl::Status* error) const {
-  ZETASQL_DCHECK(re_);
+  ABSL_DCHECK(re_);
   *out = re_->PartialMatch(str, *re_);
   return true;
 }
 
 bool RegExp::Match(absl::string_view str, bool* out,
                    absl::Status* error) const {
-  ZETASQL_DCHECK(re_);
+  ABSL_DCHECK(re_);
   *out = re_->FullMatch(str, *re_);
   return true;
 }
@@ -89,7 +89,7 @@ bool RegExp::Extract(absl::string_view str, PositionUnit position_unit,
                      int64_t position, int64_t occurrence_index,
                      absl::string_view* out, bool* is_null,
                      absl::Status* error) const {
-  ZETASQL_DCHECK(re_);
+  ABSL_DCHECK(re_);
   *is_null = true;
   *error = internal::ValidatePositionAndOccurrence(position, occurrence_index);
   if (!error->ok()) {
@@ -209,14 +209,14 @@ bool RegExp::ExtractAllIterator::Next(absl::string_view* out,
 
 RegExp::ExtractAllIterator RegExp::CreateExtractAllIterator(
     absl::string_view str) const {
-  ZETASQL_DCHECK(re_.get());
+  ABSL_DCHECK(re_.get());
   return ExtractAllIterator{re_.get(), str};
 }
 
 bool RegExp::Instr(const InstrParams& options, absl::Status* error) const {
-  ZETASQL_DCHECK(re_ != nullptr);
-  ZETASQL_DCHECK(error != nullptr);
-  ZETASQL_DCHECK(options.out != nullptr);
+  ABSL_DCHECK(re_ != nullptr);
+  ABSL_DCHECK(error != nullptr);
+  ABSL_DCHECK(options.out != nullptr);
   absl::string_view str = options.input_str;
   *options.out = 0;
   *error = internal::ValidatePositionAndOccurrence(options.position,
@@ -300,7 +300,7 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
   // (2) it returns proper error message instead of logging it, and
   // (3) limits the size of output string.
 
-  ZETASQL_DCHECK(re_);
+  ABSL_DCHECK(re_);
 
   std::string error_string;
   if (!re_->CheckRewriteString(newsub, &error_string)) {

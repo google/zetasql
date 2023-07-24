@@ -170,7 +170,10 @@ determine the optimal privacy parameters for your dataset and organization.
 
 ```sql
 WITH ANONYMIZATION ...
-  ANON_AVG(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
+  ANON_AVG(expression [clamped_between_clause])
+
+clamped_between_clause:
+  CLAMPED BETWEEN lower_bound AND upper_bound
 ```
 
 **Description**
@@ -184,8 +187,8 @@ can support these arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
-+ `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per privacy unit column averages.
++ `clamped_between_clause`: Perform [clamping][dp-clamp-between] per
+  privacy unit column averages.
 
 **Return type**
 

@@ -187,7 +187,7 @@ std::string GenerateSelectStmtWithLength(int32_t length) {
 const int32_t k_65535 = 65535;
 
 void VerifyParseTokenWithSqlSize(int32_t sql_size, int32_t max_token) {
-  ZETASQL_LOG(INFO) << "SQL size " << sql_size << ". Max token: " << max_token;
+  ABSL_LOG(INFO) << "SQL size " << sql_size << ". Max token: " << max_token;
   std::string sql = GenerateSelectStmtWithLength(sql_size);
   EXPECT_EQ(sql.size(), sql_size);
   ParseResumeLocation resume_location = ParseResumeLocation::FromString(sql);

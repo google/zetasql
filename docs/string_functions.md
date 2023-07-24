@@ -660,8 +660,9 @@ Additional information about format specifiers:
     <td>Decimal integer</td>
     <td>392</td>
     <td>
-    <span>INT32</span><br><span>INT64</span><br><span>UINT32</span><br><span>UINT64</span><br>
-    </td>
+
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br />
+</td>
  </tr>
 
  <tr>
@@ -669,32 +670,49 @@ Additional information about format specifiers:
     <td>Unsigned integer</td>
     <td>7235</td>
     <td>
-    <span>UINT32</span><br><span>UINT64</span><br>
-    </td>
+
+<span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br />
+</td>
  </tr>
 
  <tr>
     <td><code>o</code></td>
-    <td>Octal</td>
+    <td>
+    Octal
+    <br /><br />
+    Note: If an <code>INT64</code> value is negative, an error is produced.
+    </td>
     <td>610</td>
     <td>
-    <span>INT32</span><br><span>INT64</span><a href="#oxX">*</a><br><span>UINT32</span><br><span>UINT64</span>
-    </td>
+
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br />
+</td>
  </tr>
  <tr>
     <td><code>x</code></td>
-    <td>Hexadecimal integer</td>
+    <td>
+      Hexadecimal integer
+      <br /><br />
+      Note: If an <code>INT64</code> value is negative, an error is produced.
+    </td>
     <td>7fa</td>
     <td>
-    <span>INT32</span><br><span>INT64</span><a href="#oxX">*</a><br><span>UINT32</span><br><span>UINT64</span>
-    </td>
+
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br />
+</td>
  </tr>
  <tr>
     <td><code>X</code></td>
-    <td>Hexadecimal integer (uppercase)</td>
+    <td>
+      Hexadecimal integer (uppercase)
+      <br /><br />
+      Note: If an <code>INT64</code> value is negative, an error is produced.
+    </td>
     <td>7FA</td>
     <td>
-    <span>INT32</span><br><span>INT64</span><a href="#oxX">*</a><br><span>UINT32</span><br><span>UINT64</span>
+
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br />
+
     </td>
  </tr>
  <tr>
@@ -705,8 +723,9 @@ Additional information about format specifiers:
     inf<br/>
     nan</td>
     <td>
-    <span> NUMERIC</span><br><span> BIGNUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
-    </td>
+
+<span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
  </tr>
  <tr>
     <td><code>F</code></td>
@@ -716,8 +735,9 @@ Additional information about format specifiers:
     INF<br/>
     NAN</td>
     <td>
-    <span> NUMERIC</span><br><span> BIGNUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
-    </td>
+
+<span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
  </tr>
  <tr>
     <td><code>e</code></td>
@@ -726,8 +746,9 @@ Additional information about format specifiers:
     inf<br/>
     nan</td>
     <td>
-    <span>NUMERIC</span><br><span>BIGNUMERIC</span><br><span>FLOAT</span><br><span>DOUBLE</span>
-    </td>
+
+<span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
  </tr>
  <tr>
     <td><code>E</code></td>
@@ -736,8 +757,9 @@ Additional information about format specifiers:
     INF<br/>
     NAN</td>
     <td>
-    <span>NUMERIC</span><br><span>BIGNUMERIC</span><br><span>FLOAT</span><br><span>DOUBLE</span>
-    </td>
+
+<span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
  </tr>
  <tr>
     <td><code>g</code></td>
@@ -749,8 +771,9 @@ Additional information about format specifiers:
     inf<br/>
     nan</td>
     <td>
-    <span>NUMERIC</span><br><span>BIGNUMERIC</span><br><span>FLOAT</span><br><span>DOUBLE</span>
-    </td>
+
+<span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
  </tr>
  <tr>
     <td><code>G</code></td>
@@ -766,8 +789,9 @@ Additional information about format specifiers:
       NAN
     </td>
     <td>
-    <span>NUMERIC</span><br><span>BIGNUMERIC</span><br><span>FLOAT</span><br><span>DOUBLE</span>
-    </td>
+
+<span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
  </tr>
 
  <tr>
@@ -788,10 +812,9 @@ Additional information about format specifiers:
       
     </td>
     <td>
-      PROTO
-      <br />
-      JSON
-    </td>
+
+<span><code>JSON</code></span><br /><span><code>PROTO</code></span><br />
+</td>
  </tr>
 
   <tr>
@@ -820,17 +843,19 @@ month: 10
       
     </td>
     <td>
-      PROTO
-      <br />
-      JSON
-    </td>
+
+<span><code>JSON</code></span><br /><span><code>PROTO</code></span><br />
+</td>
   </tr>
 
  <tr>
     <td><code>s</code></td>
     <td>String of characters</td>
     <td>sample</td>
-    <td>STRING</td>
+    <td>
+
+<span><code>STRING</code></span><br />
+</td>
  </tr>
  <tr>
     <td><code>t</code></td>
@@ -843,7 +868,7 @@ month: 10
       sample<br/>
       2014&#8209;01&#8209;01
     </td>
-    <td>&lt;any&gt;</td>
+    <td>Any type</td>
  </tr>
  <tr>
     <td><code>T</code></td>
@@ -859,7 +884,7 @@ month: 10
       2.3<br/>
       date&nbsp;'2014&#8209;01&#8209;01'
     </td>
-    <td>&lt;any&gt;</td>
+    <td>Any type</td>
  </tr>
  <tr>
     <td><code>%</code></td>
@@ -868,9 +893,6 @@ month: 10
     <td>n/a</td>
  </tr>
 </table>
-
-<a id="oxX"></a><sup>*</sup>The specifiers `%o`, `%x`, and `%X` raise an
-error if negative values are used.
 
 The format specifier can optionally contain the sub-specifiers identified above
 in the specifier prototype.
@@ -1127,7 +1149,10 @@ The `STRING` is formatted as follows:
     <td>NULL</td>
   </tr>
   <tr>
-    <td><span> INT32</span><br><span> INT64</span><br><span> UINT32</span><br><span> UINT64</span><br></td>
+    <td>
+
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br />
+</td>
     <td>123</td>
     <td>123</td>
   </tr>

@@ -843,7 +843,7 @@ absl::Status Resolver::ResolveExpr(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
     const Type* inferred_type) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
-  ZETASQL_DCHECK(parent_expr_resolution_info != nullptr);
+  ABSL_DCHECK(parent_expr_resolution_info != nullptr);
 
   // Use a separate ExprAggregationInfo for the child because we don't
   // want it to observe <has_aggregation>, <has_analytic>, or <can_flatten> from
@@ -1311,8 +1311,8 @@ absl::Status Resolver::ResolveColumnRefExprToPostGroupingColumn(
     QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_column_ref_expr) {
   ZETASQL_RET_CHECK_EQ(RESOLVED_COLUMN_REF, (*resolved_column_ref_expr)->node_kind());
-  ZETASQL_DCHECK(query_resolution_info != nullptr);
-  ZETASQL_DCHECK(query_resolution_info->HasGroupByOrAggregation());
+  ABSL_DCHECK(query_resolution_info != nullptr);
+  ABSL_DCHECK(query_resolution_info->HasGroupByOrAggregation());
 
   const ResolvedColumnRef* resolved_column_ref =
       (*resolved_column_ref_expr)->GetAs<ResolvedColumnRef>();
@@ -2080,7 +2080,7 @@ absl::Status Resolver::MaybeResolveStructFieldAccess(
       return absl::OkStatus();
     }
   }
-  ZETASQL_DCHECK_EQ(field, &struct_type->field(found_idx));
+  ABSL_DCHECK_EQ(field, &struct_type->field(found_idx));
 
   std::unique_ptr<ResolvedExpr> resolved_node = MakeResolvedGetStructField(
       field->type, std::move(resolved_lhs), found_idx);
@@ -3226,7 +3226,7 @@ absl::Status Resolver::ResolveInSubquery(
   const ASTExpression* in_expr = in_subquery_expr->lhs();
   const ASTQuery* in_subquery = in_subquery_expr->query();
 
-  ZETASQL_DCHECK(in_expr != nullptr);
+  ABSL_DCHECK(in_expr != nullptr);
   ZETASQL_RETURN_IF_ERROR(
       ResolveExpr(in_expr, expr_resolution_info, &resolved_in_expr));
 
@@ -3235,7 +3235,7 @@ absl::Status Resolver::ResolveInSubquery(
       new NameScope(expr_resolution_info->name_scope, &correlated_columns_set));
   std::unique_ptr<const ResolvedScan> resolved_in_subquery;
   std::shared_ptr<const NameList> resolved_name_list;
-  ZETASQL_DCHECK(in_subquery != nullptr);
+  ABSL_DCHECK(in_subquery != nullptr);
   ZETASQL_RETURN_IF_ERROR(ResolveQuery(
       in_subquery, subquery_scope.get(), kExprSubqueryId,
       /*is_outer_query=*/false, &resolved_in_subquery, &resolved_name_list,
@@ -5202,7 +5202,7 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
       /*is_analytic=*/true, std::move(resolved_arguments),
       std::move(named_arguments), /*expected_result_type=*/nullptr,
       &resolved_function_call));
-  ZETASQL_DCHECK(expr_resolution_info->query_resolution_info != nullptr);
+  ABSL_DCHECK(expr_resolution_info->query_resolution_info != nullptr);
   return expr_resolution_info->query_resolution_info->analytic_resolver()
       ->ResolveOverClauseAndCreateAnalyticColumn(
           analytic_function_call, resolved_function_call.get(),
@@ -6254,7 +6254,7 @@ absl::Status Resolver::ResolveExtractExpression(
     default:
       break;
   }
-  // ZETASQL_CHECK should never fail because the date_part should always be valid now.
+  // ABSL_CHECK should never fail because the date_part should always be valid now.
   ZETASQL_RET_CHECK(!function_name.empty());
 
   return ResolveFunctionCallWithResolvedArguments(
@@ -7013,7 +7013,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
     std::vector<std::unique_ptr<const ResolvedColumnRef>>
         with_group_rows_correlation_references,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
-  ZETASQL_DCHECK(expr_resolution_info != nullptr);
+  ABSL_DCHECK(expr_resolution_info != nullptr);
   QueryResolutionInfo* const query_resolution_info =
       expr_resolution_info->query_resolution_info;
   const Function* function = (*resolved_function_call)->function();
@@ -7596,7 +7596,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
-  // Generated columns, ZETASQL_CHECK constraints, and expressions that are stored in an
+  // Generated columns, ABSL_CHECK constraints, and expressions that are stored in an
   // index have specific limitations on VOLATILE/STABLE functions. ZetaSQL
   // relies upon each engine to provide volatility information for non-builtin
   // functions (including user defined functions).
@@ -7678,7 +7678,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
              << function->QualifiedSQLName(/*capitalize_qualifier=*/true)
              << " cannot be called without an OVER clause";
     }
-    ZETASQL_DCHECK_EQ(function->mode(), Function::SCALAR);
+    ABSL_DCHECK_EQ(function->mode(), Function::SCALAR);
 
     // We handle the PROTO_DEFAULT_IF_NULL() function here so that it can be
     // resolved to a ResolvedGetProtoField.

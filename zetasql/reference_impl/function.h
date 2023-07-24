@@ -1098,7 +1098,7 @@ class ArrayElementFunction : public BuiltinScalarFunction {
             output_type),
         base_(base),
         safe_(safe) {
-    ZETASQL_CHECK(base_ == 0 || base_ == 1) << base_;
+    ABSL_CHECK(base_ == 0 || base_ == 1) << base_;
   }
   bool Eval(absl::Span<const TupleData* const> params,
             absl::Span<const Value> args, EvaluationContext* context,

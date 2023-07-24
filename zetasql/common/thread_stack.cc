@@ -64,7 +64,7 @@ void ThreadStackStats::SetToCurrentThreadStackBoundaries() {
   // The Apple stack pointer is to the highest address, the opposite
   // of the Linux convention.
   thread_stack_high_ = absl::bit_cast<std::uintptr_t>(stack_addr);
-  ZETASQL_DCHECK_GT(thread_stack_high_, stack_size);
+  ABSL_DCHECK_GT(thread_stack_high_, stack_size);
   thread_stack_low_ = thread_stack_high_ - stack_size;
 #else
   // Allows gwpsan to override stack limits.
@@ -118,8 +118,8 @@ void ThreadStackStats::ThreadStackUpdateAvailableBytes() {
   std::uintptr_t stack_ptr =
       absl::bit_cast<uintptr_t>(__builtin_frame_address(0));
   // Prove we are on the right thread.
-  ZETASQL_DCHECK_GE(stack_ptr, thread_stack_low_) << *this;
-  ZETASQL_DCHECK_LT(stack_ptr, thread_stack_high_) << *this;
+  ABSL_DCHECK_GE(stack_ptr, thread_stack_low_) << *this;
+  ABSL_DCHECK_LT(stack_ptr, thread_stack_high_) << *this;
   size_t used = thread_stack_high_ - stack_ptr;
   thread_stack_estimated_usage_.stack_used_min =
       std::min(thread_stack_estimated_usage_.stack_used_min, used);

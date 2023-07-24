@@ -75,7 +75,7 @@ class AnalyzerRuntimeInfo {
   // result in overcounting of parser time, as well as this value.
   // see parser_elapsed_duration for more information.
   absl::Duration sum_elapsed_duration() const {
-    return parser_runtime_info().parser_elapsed_duration() +
+    return parser_runtime_info().parser_timed_value().elapsed_duration() +
            resolver_timed_value().elapsed_duration() +
            rewriters_timed_value().elapsed_duration() +
            validator_timed_value().elapsed_duration();
@@ -96,7 +96,7 @@ class AnalyzerRuntimeInfo {
   // analyzer calls.
   ABSL_DEPRECATED("Inline me!")
   absl::Duration parser_elapsed_duration() const {
-    return parser_runtime_info().parser_elapsed_duration();
+    return parser_runtime_info().parser_timed_value().elapsed_duration();
   }
 
   // Total time in this ZetaSQL API call.

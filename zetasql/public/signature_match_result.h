@@ -77,8 +77,8 @@ class SignatureMatchResult {
   // The message about why the siganture doesn't match the function call.
   std::string mismatch_message() const { return mismatch_message_; }
   void set_mismatch_message(absl::string_view message) {
-    ZETASQL_DCHECK(allow_mismatch_message_) << message;
-    ZETASQL_DCHECK(mismatch_message_.empty()) << mismatch_message_;
+    ABSL_DCHECK(allow_mismatch_message_) << message;
+    ABSL_DCHECK(mismatch_message_.empty()) << mismatch_message_;
     mismatch_message_ = message;
   }
 
@@ -90,7 +90,7 @@ class SignatureMatchResult {
   // mismatch path.
   std::string tvf_mismatch_message() const { return tvf_mismatch_message_; }
   void set_tvf_mismatch_message(absl::string_view message) {
-    ZETASQL_DCHECK(tvf_mismatch_message_.empty()) << tvf_mismatch_message_;
+    ABSL_DCHECK(tvf_mismatch_message_.empty()) << tvf_mismatch_message_;
     tvf_mismatch_message_ = message;
   }
 

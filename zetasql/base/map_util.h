@@ -29,7 +29,7 @@
 // - Lookup*()
 //
 // These functions often have "...OrDie" or "...OrDieNoPrint" variants. These
-// variants will crash the process with a ZETASQL_CHECK() failure on error, including
+// variants will crash the process with a ABSL_CHECK() failure on error, including
 // the offending key/data in the log message. The NoPrint variants will not
 // include the key/data in the log output under the assumption that it's not a
 // printable type.
@@ -156,7 +156,7 @@ using MapUtilInitT = typename internal_map_util::InitType<M>::type;
 template <typename M, typename KeyType = MapUtilKeyT<M>>
 const MapUtilMappedT<M>& FindOrDie(const M& m, const KeyType& key) {
   auto it = m.find(key);
-  ZETASQL_CHECK(it != m.end()) << "Map key not found: " << key;
+  ABSL_CHECK(it != m.end()) << "Map key not found: " << key;
   return zetasql_base::subtle::GetMapped(*it);
 }
 
@@ -165,7 +165,7 @@ template <typename M, typename KeyType = MapUtilKeyT<M>>
 MapUtilMappedT<M>& FindOrDie(M& m,  // NOLINT
                              const KeyType& key) {
   auto it = m.find(key);
-  ZETASQL_CHECK(it != m.end()) << "Map key not found: " << key;
+  ABSL_CHECK(it != m.end()) << "Map key not found: " << key;
   return zetasql_base::subtle::GetMapped(*it);
 }
 
@@ -173,7 +173,7 @@ MapUtilMappedT<M>& FindOrDie(M& m,  // NOLINT
 template <typename M, typename KeyType = MapUtilKeyT<M>>
 const MapUtilMappedT<M>& FindOrDieNoPrint(const M& m, const KeyType& key) {
   auto it = m.find(key);
-  ZETASQL_CHECK(it != m.end()) << "Map key not found";
+  ABSL_CHECK(it != m.end()) << "Map key not found";
   return zetasql_base::subtle::GetMapped(*it);
 }
 
@@ -182,7 +182,7 @@ template <typename M, typename KeyType = MapUtilKeyT<M>>
 MapUtilMappedT<M>& FindOrDieNoPrint(M& m,  // NOLINT
                                     const KeyType& key) {
   auto it = m.find(key);
-  ZETASQL_CHECK(it != m.end()) << "Map key not found";
+  ABSL_CHECK(it != m.end()) << "Map key not found";
   return zetasql_base::subtle::GetMapped(*it);
 }
 
@@ -359,13 +359,13 @@ bool InsertIfNotPresent(M* m, const MapUtilKeyT<M>& key,
 // Same as above except dies if the key already exists in the m.
 template <typename M>
 void InsertOrDie(M* m, const MapUtilInitT<M>& value) {
-  ZETASQL_CHECK(InsertIfNotPresent(m, value)) << "duplicate value: " << value;
+  ABSL_CHECK(InsertIfNotPresent(m, value)) << "duplicate value: " << value;
 }
 
 // Same as above except doesn't log the value on error.
 template <typename M>
 void InsertOrDieNoPrint(M* m, const MapUtilInitT<M>& value) {
-  ZETASQL_CHECK(InsertIfNotPresent(m, value)) << "duplicate value.";
+  ABSL_CHECK(InsertIfNotPresent(m, value)) << "duplicate value.";
 }
 
 // Inserts the key-value pair into the m. Dies if key was already
@@ -373,14 +373,14 @@ void InsertOrDieNoPrint(M* m, const MapUtilInitT<M>& value) {
 template <typename M>
 void InsertOrDie(M* m, const MapUtilKeyT<M>& key,
                  const MapUtilMappedT<M>& data) {
-  ZETASQL_CHECK(InsertIfNotPresent(m, key, data)) << "duplicate key: " << key;
+  ABSL_CHECK(InsertIfNotPresent(m, key, data)) << "duplicate key: " << key;
 }
 
 // Same as above except doesn't log the key on error.
 template <typename M>
 void InsertOrDieNoPrint(M* m, const MapUtilKeyT<M>& key,
                         const MapUtilMappedT<M>& data) {
-  ZETASQL_CHECK(InsertIfNotPresent(m, key, data)) << "duplicate key.";
+  ABSL_CHECK(InsertIfNotPresent(m, key, data)) << "duplicate key.";
 }
 
 // Inserts a new key and default-initialized value. Dies if the key was already
@@ -394,7 +394,7 @@ auto InsertKeyOrDie(M* m, const MapUtilKeyT<M>& key) ->
     typename std::enable_if<internal_map_util::HasTryEmplace<M>::value,
                             MapUtilMappedT<M>&>::type {
   auto res = m->try_emplace(key);
-  ZETASQL_CHECK(res.second) << "duplicate key: " << key;
+  ABSL_CHECK(res.second) << "duplicate key: " << key;
   return zetasql_base::subtle::GetMapped(*res.first);
 }
 
@@ -404,7 +404,7 @@ auto InsertKeyOrDie(M* m, const MapUtilKeyT<M>& key) ->
     typename std::enable_if<!internal_map_util::HasTryEmplace<M>::value,
                             MapUtilMappedT<M>&>::type {
   auto res = m->insert(MapUtilValueT<M>(key, MapUtilMappedT<M>()));
-  ZETASQL_CHECK(res.second) << "duplicate key: " << key;
+  ABSL_CHECK(res.second) << "duplicate key: " << key;
   return res.first->second;
 }
 
@@ -504,7 +504,7 @@ MapUtilMappedT<M>* InsertOrReturnExisting(M* m, const MapUtilKeyT<M>& key,
 // inserted.
 template <typename M, typename ReverseM>
 bool ReverseMap(const M& m, ReverseM* reverse) {
-  ZETASQL_CHECK(reverse != nullptr);
+  ABSL_CHECK(reverse != nullptr);
   bool all_unique = true;
   for (const auto& kv : m) {
     if (!InsertOrUpdate(reverse, kv.second, kv.first)) {
@@ -556,7 +556,7 @@ MapUtilMappedT<M> EraseKeyReturnValuePtr(M* m, const MapUtilKeyT<M>& key) {
 // Note: any initial contents of the key_container are not cleared.
 template <typename M, typename KeyContainer>
 void InsertKeysFromMap(const M& m, KeyContainer* key_container) {
-  ZETASQL_CHECK(key_container != nullptr);
+  ABSL_CHECK(key_container != nullptr);
   for (const auto& kv : m) {
     key_container->insert(kv.first);
   }
@@ -568,7 +568,7 @@ void InsertKeysFromMap(const M& m, KeyContainer* key_container) {
 // Note: any initial contents of the key_container are not cleared.
 template <typename M, typename KeyContainer>
 void AppendKeysFromMap(const M& m, KeyContainer* key_container) {
-  ZETASQL_CHECK(key_container != nullptr);
+  ABSL_CHECK(key_container != nullptr);
   for (const auto& kv : m) {
     key_container->push_back(kv.first);
   }
@@ -583,7 +583,7 @@ void AppendKeysFromMap(const M& m, KeyContainer* key_container) {
 // without the complexity of a SFINAE-based solution.)
 template <typename M, typename KeyType>
 void AppendKeysFromMap(const M& m, std::vector<KeyType>* key_container) {
-  ZETASQL_CHECK(key_container != nullptr);
+  ABSL_CHECK(key_container != nullptr);
   // We now have the opportunity to call reserve(). Calling reserve() every
   // time is a bad idea for some use cases: libstdc++'s implementation of
   // std::vector<>::reserve() resizes the vector's backing store to exactly the
@@ -607,7 +607,7 @@ void AppendKeysFromMap(const M& m, std::vector<KeyType>* key_container) {
 // Note: any initial contents of the value_container are not cleared.
 template <typename M, typename ValueContainer>
 void AppendValuesFromMap(const M& m, ValueContainer* value_container) {
-  ZETASQL_CHECK(value_container != nullptr);
+  ABSL_CHECK(value_container != nullptr);
   for (const auto& kv : m) {
     value_container->push_back(kv.second);
   }
@@ -622,7 +622,7 @@ void AppendValuesFromMap(const M& m, ValueContainer* value_container) {
 // without the complexity of a SFINAE-based solution.)
 template <typename M, typename ValueType>
 void AppendValuesFromMap(const M& m, std::vector<ValueType>* value_container) {
-  ZETASQL_CHECK(value_container != nullptr);
+  ABSL_CHECK(value_container != nullptr);
   // See AppendKeysFromMap for why this is done.
   if (value_container->empty()) {
     value_container->reserve(m.size());
@@ -640,7 +640,7 @@ void AppendValuesFromMap(const M& m, std::vector<ValueType>* value_container) {
 template <typename M, typename Predicate>
 auto AssociativeEraseIf(M* m, Predicate predicate) -> typename std::enable_if<
     std::is_same<void, decltype(m->erase(m->begin()))>::value>::type {
-  ZETASQL_CHECK(m != nullptr);
+  ABSL_CHECK(m != nullptr);
   for (auto it = m->begin(); it != m->end();) {
     if (predicate(*it)) {
       m->erase(it++);
@@ -654,7 +654,7 @@ template <typename M, typename Predicate>
 auto AssociativeEraseIf(M* m, Predicate predicate) ->
     typename std::enable_if<std::is_same<
         decltype(m->begin()), decltype(m->erase(m->begin()))>::value>::type {
-  ZETASQL_CHECK(m != nullptr);
+  ABSL_CHECK(m != nullptr);
   for (auto it = m->begin(); it != m->end();) {
     if (predicate(*it)) {
       it = m->erase(it);

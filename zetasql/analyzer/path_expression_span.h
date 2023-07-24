@@ -46,8 +46,8 @@ class PathExpressionSpan {
       : node_(node),
         start_index_(0),
         end_index_(static_cast<int32_t>(node.num_names())) {
-    ZETASQL_DCHECK_GE(node.num_names(), 0);
-    ZETASQL_DCHECK_LE(node.num_names(), std::numeric_limits<int32_t>::max());
+    ABSL_DCHECK_GE(node.num_names(), 0);
+    ABSL_DCHECK_LE(node.num_names(), std::numeric_limits<int32_t>::max());
   }
 
   // Validate the input close-open range [start, end) for the current path

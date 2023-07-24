@@ -27,8 +27,8 @@ namespace zetasql {
 
 VariableId::VariableId(absl::string_view name) : name_(name) {
   // Make sure we don't use certain special characters for ease of debugging.
-  ZETASQL_DCHECK(!absl::StrContains(name, '$'));  // used in the resolved AST
-  ZETASQL_DCHECK(!absl::StrContains(name, '@'));  // used for query parameters
+  ABSL_DCHECK(!absl::StrContains(name, '$'));  // used in the resolved AST
+  ABSL_DCHECK(!absl::StrContains(name, '@'));  // used for query parameters
 }
 
 std::ostream& operator<<(std::ostream& out, const VariableId& id) {

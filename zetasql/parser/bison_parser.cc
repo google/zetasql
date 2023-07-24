@@ -79,7 +79,7 @@ static std::string GetBisonParserModeName(BisonParserMode mode) {
       return "macro";
     case BisonParserMode::kTokenizer:
     case BisonParserMode::kTokenizerPreserveComments:
-      ZETASQL_LOG(FATAL) << "CleanUpBisonError called in tokenizer mode";
+      ABSL_LOG(FATAL) << "CleanUpBisonError called in tokenizer mode";
   }
 }
 
@@ -336,8 +336,87 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
                           actual_token_description);
     }
   }
-  ZETASQL_LOG(DFATAL) << "Syntax error location not found in input";
+  ABSL_LOG(ERROR) << "Syntax error location not found in input";
   return MakeSqlErrorAtPoint(error_location) << bison_error_message;
+}
+
+static absl::Status ParseWithBison(
+    BisonParser* parser, absl::string_view filename, absl::string_view input,
+    ParserRuntimeInfo& parser_runtime_info, BisonParserMode mode,
+    int start_byte_offset, const LanguageOptions& language_options,
+    ASTNode*& output_node, std::string& error_message,
+    ParseLocationPoint& error_location,
+    ASTStatementProperties* ast_statement_properties,
+    bool& move_error_location_past_whitespace, int* statement_end_byte_offset,
+    bool& format_error) {
+  auto tokenizer = std::make_unique<ZetaSqlFlexTokenizer>(
+      mode, filename, input, start_byte_offset, language_options);
+
+  auto parser_timer = internal::MakeScopedTimerStarted(
+      &parser_runtime_info.parser_timed_value());
+
+  zetasql_bison_parser::BisonParserImpl bison_parser_impl(
+      tokenizer.get(), parser, &output_node, ast_statement_properties,
+      &error_message, &error_location, &move_error_location_past_whitespace,
+      statement_end_byte_offset);
+
+  const int parse_status_code = bison_parser_impl.parse();
+  parser_runtime_info.add_lexical_tokens(tokenizer->num_lexical_tokens());
+
+  format_error = false;
+  // The tokenizer's error overrides the parser's error.
+  if (!tokenizer->GetOverrideError().ok()) {
+    return tokenizer->GetOverrideError();
+  }
+
+  if (parse_status_code == kBisonParseSuccess) {
+    return absl::OkStatus();
+  }
+
+  if (parse_status_code == kBisonParseError) {
+    format_error = true;
+    return MakeSqlErrorAtPoint(error_location) << error_message;
+  }
+
+  // The Bison C++ parser skeleton doesn't actually return this code. We handle
+  // it here for completeness in case it starts returning this code at some
+  // point.
+  if (parse_status_code == kBisonMemoryExhausted) {
+    return MakeSqlError() << "Input too large";
+  }
+  ZETASQL_RET_CHECK_FAIL() << "Parser returned undefined return code "
+                   << parse_status_code;
+}
+
+// Initializes fields on the nodes out of 'allocated_ast_nodes' and moves them
+// out into 'other_allocated_ast_nodes', separating 'output_node' which goes
+// into 'output'.
+static absl::Status InitNodes(
+    const ASTNode* output_node,
+    std::vector<std::unique_ptr<ASTNode>>& allocated_ast_nodes,
+    std::unique_ptr<ASTNode>* output,
+    std::vector<std::unique_ptr<ASTNode>>& other_allocated_ast_nodes) {
+  // Make sure InitFields() is called for all ASTNodes that were created.
+  // We don't use the result of InitFields() in the grammar itself, so we
+  // don't need to do this during parsing.
+  for (const auto& ast_node : allocated_ast_nodes) {
+    ZETASQL_RETURN_IF_ERROR(ast_node->InitFields());
+  }
+
+  if (output != nullptr && output_node != nullptr) {
+    *output = nullptr;
+    // Move 'output_node' out of 'allocated_ast_nodes' and into 'output'.
+    for (int64_t i = allocated_ast_nodes.size() - 1; i >= 0; --i) {
+      if ((allocated_ast_nodes)[i].get() == output_node) {
+        *output = std::move(allocated_ast_nodes[i]);
+        // There's no need to erase the entry in allocated_ast_nodes_.
+        break;
+      }
+    }
+    ZETASQL_RET_CHECK_EQ(output->get(), output_node);
+  }
+  other_allocated_ast_nodes = std::move(allocated_ast_nodes);
+  return absl::OkStatus();
 }
 
 absl::Status BisonParser::Parse(
@@ -347,8 +426,6 @@ absl::Status BisonParser::Parse(
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
     ASTStatementProperties* ast_statement_properties,
     int* statement_end_byte_offset) {
-  auto parser_timer = internal::MakeScopedTimerStarted(
-      &parser_runtime_info_.parser_timed_value());
   id_string_pool_ = id_string_pool;
   arena_ = arena;
   language_options_ = &language_options;
@@ -363,85 +440,57 @@ absl::Status BisonParser::Parse(
   // there will outlive the ASTNodes that reference it.
   filename_ = id_string_pool->Make(filename);
   input_ = input;
-  tokenizer_ = std::make_unique<ZetaSqlFlexTokenizer>(
-      mode, filename_.ToStringView(), input_, start_byte_offset,
-      language_options);
+
   ASTNode* output_node = nullptr;
   std::string error_message;
   ParseLocationPoint error_location;
   bool move_error_location_past_whitespace = false;
-  zetasql_bison_parser::BisonParserImpl bison_parser_impl(
-      tokenizer_.get(), this, &output_node, ast_statement_properties,
-      &error_message, &error_location, &move_error_location_past_whitespace,
-      statement_end_byte_offset);
+  bool format_error = false;
 
-  const int parse_status_code = bison_parser_impl.parse();
-  parser_runtime_info_.add_lexical_tokens(tokenizer_->num_lexical_tokens());
-  if (parse_status_code == kBisonParseSuccess &&
-      tokenizer_->GetOverrideError().ok()) {
-    // Make sure InitFields() is called for all ASTNodes that were created.
-    // We don't use the result of InitFields() in the grammar itself, so we
-    // don't need to do this during parsing.
-    for (const auto& ast_node : *allocated_ast_nodes_) {
-      ZETASQL_RETURN_IF_ERROR(ast_node->InitFields());
-    }
+  absl::Status parse_status = ParseWithBison(
+      this, filename, input, parser_runtime_info_, mode, start_byte_offset,
+      language_options, output_node, error_message, error_location,
+      ast_statement_properties, move_error_location_past_whitespace,
+      statement_end_byte_offset, format_error);
 
-    if (output != nullptr && output_node != nullptr) {
-      *output = nullptr;
-      // Move 'output_node' out of 'allocated_ast_nodes_' and into '*output'.
-      for (int i = allocated_ast_nodes_->size() - 1; i >= 0; --i) {
-        if ((*allocated_ast_nodes_)[i].get() == output_node) {
-          *output = std::move((*allocated_ast_nodes_)[i]);
-          // There's no need to erase the entry in allocated_ast_nodes_.
-          break;
-        }
-      }
-      ZETASQL_RET_CHECK_EQ(output->get(), output_node);
-    }
-    *other_allocated_ast_nodes = std::move(*allocated_ast_nodes_);
-
+  if (parse_status.ok()) {
+    ZETASQL_RETURN_IF_ERROR(InitNodes(output_node, *allocated_ast_nodes_, output,
+                              *other_allocated_ast_nodes));
     return absl::OkStatus();
   }
-  // The tokenizer's error overrides the parser's error.
-  ZETASQL_RETURN_IF_ERROR(tokenizer_->GetOverrideError());
-  if (parse_status_code == kBisonParseError) {
-    if (move_error_location_past_whitespace) {
-      // In rare cases we manually generate parse errors when tokens are
-      // missing. In those cases we typically don't have the position of the
-      // next token available, and the parser can request that the error
-      // location be moved past any whitespace onto the next token.
-      ZetaSqlFlexTokenizer skip_whitespace_tokenizer(
-          BisonParserMode::kTokenizer, filename_.ToStringView(), input_,
-          error_location.GetByteOffset(), this->language_options());
-      ParseLocationRange next_token_location;
-      int token;
-      ZETASQL_RETURN_IF_ERROR(
-          skip_whitespace_tokenizer.GetNextToken(&next_token_location, &token));
-      // Ignore the token. We only care about its starting location.
-      error_location = next_token_location.start();
-    }
-    // Bison returns error messages that start with "syntax error, ". The parser
-    // logic itself will return an empty error message if it wants to generate
-    // a simple "Unexpected X" error.
-    if (absl::StartsWith(error_message, "syntax error, ") ||
-        error_message.empty()) {
-      // This was a Bison-generated syntax error. Generate a message that is to
-      // our own liking.
-      ZETASQL_ASSIGN_OR_RETURN(error_message,
-                       GenerateImprovedBisonSyntaxError(
-                           language_options, error_location, error_message,
-                           mode, input_, start_byte_offset));
-    }
-    return MakeSqlErrorAtPoint(error_location) << error_message;
+
+  if (!format_error) {
+    return parse_status;
   }
-  // The Bison C++ parser skeleton doesn't actually return this code. We handle
-  // it here for completeness in case it starts returning this code at some
-  // point.
-  if (parse_status_code == kBisonMemoryExhausted) {
-    return MakeSqlError() << "Input too large";
+
+  if (move_error_location_past_whitespace) {
+    // In rare cases we manually generate parse errors when tokens are
+    // missing. In those cases we typically don't have the position of the
+    // next token available, and the parser can request that the error
+    // location be moved past any whitespace onto the next token.
+    ZetaSqlFlexTokenizer skip_whitespace_tokenizer(
+        BisonParserMode::kTokenizer, filename_.ToStringView(), input_,
+        error_location.GetByteOffset(), this->language_options());
+    ParseLocationRange next_token_location;
+    int token;
+    ZETASQL_RETURN_IF_ERROR(
+        skip_whitespace_tokenizer.GetNextToken(&next_token_location, &token));
+    // Ignore the token. We only care about its starting location.
+    error_location = next_token_location.start();
   }
-  ZETASQL_RET_CHECK_FAIL() << "Parser returned undefined return code "
-                   << parse_status_code;
+  // Bison returns error messages that start with "syntax error, ". The parser
+  // logic itself will return an empty error message if it wants to generate
+  // a simple "Unexpected X" error.
+  if (absl::StartsWith(error_message, "syntax error, ") ||
+      error_message.empty()) {
+    // This was a Bison-generated syntax error. Generate a message that is to
+    // our own liking.
+    ZETASQL_ASSIGN_OR_RETURN(error_message,
+                     GenerateImprovedBisonSyntaxError(
+                         language_options, error_location, error_message, mode,
+                         input_, start_byte_offset));
+  }
+  return MakeSqlErrorAtPoint(error_location) << error_message;
 }
 
 absl::string_view BisonParser::GetFirstTokenOfNode(

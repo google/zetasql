@@ -19,6 +19,7 @@
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/function.pb.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type.h"
@@ -210,6 +211,20 @@ void GetRangeFunctions(TypeFactory* type_factory,
        }},
       FunctionOptions().set_pre_resolution_argument_constraint(
           &PreResolutionArgConstraintForUntypedNullOneRangeInput));
+
+  InsertFunction(functions, options, "range_contains", Function::SCALAR,
+                 {{
+                      bool_type,
+                      {ARG_RANGE_TYPE_ANY, ARG_RANGE_TYPE_ANY},
+                      FN_RANGE_CONTAINS_RANGE,
+                  },
+                  {
+                      bool_type,
+                      {ARG_RANGE_TYPE_ANY, ARG_TYPE_ANY_1},
+                      FN_RANGE_CONTAINS_ELEMENT,
+                  }},
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &PreResolutionArgConstraintForUntypedNullOneRangeInput));
 }
 
 }  // namespace zetasql

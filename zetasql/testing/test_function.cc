@@ -94,9 +94,9 @@ QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
     : result(result_in.get()), status(status_in) {}
 
 QueryParamsWithResult QueryParamsWithResult::CopyWithInvertedResult() const {
-  ZETASQL_CHECK(required_features().empty()) << *this;
+  ABSL_CHECK(required_features().empty()) << *this;
   const Value& value = result();
-  ZETASQL_CHECK_EQ(value.type_kind(), TYPE_BOOL);
+  ABSL_CHECK_EQ(value.type_kind(), TYPE_BOOL);
   return QueryParamsWithResult(
       std::vector<ValueConstructor>(params_.begin(), params_.end()),
       value.is_null() ? Value::NullBool() : Value::Bool(!value.bool_value()),
@@ -123,7 +123,7 @@ QueryParamsWithResult& QueryParamsWithResult::AddRequiredFeature(
 QueryParamsWithResult& QueryParamsWithResult::AddRequiredFeatures(
     const FeatureSet& features) {
   for (LanguageFeature feature : features) {
-    ZETASQL_DCHECK(!zetasql_base::ContainsKey(prohibited_features_, feature));
+    ABSL_DCHECK(!zetasql_base::ContainsKey(prohibited_features_, feature));
   }
   required_features_.insert(features.begin(), features.end());
   return *this;
@@ -131,7 +131,7 @@ QueryParamsWithResult& QueryParamsWithResult::AddRequiredFeatures(
 
 QueryParamsWithResult& QueryParamsWithResult::AddProhibitedFeature(
     LanguageFeature feature) {
-  ZETASQL_DCHECK(!zetasql_base::ContainsKey(required_features_, feature));
+  ABSL_DCHECK(!zetasql_base::ContainsKey(required_features_, feature));
   prohibited_features_.insert(feature);
   return *this;
 }
@@ -139,7 +139,7 @@ QueryParamsWithResult& QueryParamsWithResult::AddProhibitedFeature(
 QueryParamsWithResult& QueryParamsWithResult::AddProhibitedFeatures(
     const FeatureSet& features) {
   for (LanguageFeature feature : features) {
-    ZETASQL_DCHECK(!zetasql_base::ContainsKey(prohibited_features_, feature));
+    ABSL_DCHECK(!zetasql_base::ContainsKey(prohibited_features_, feature));
   }
   prohibited_features_.insert(features.begin(), features.end());
   return *this;

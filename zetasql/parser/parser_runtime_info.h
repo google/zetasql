@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "zetasql/common/timer_util.h"
+#include "zetasql/public/proto/logging.pb.h"
 #include "absl/base/macros.h"
 
 namespace zetasql {
@@ -49,6 +50,20 @@ class ParserRuntimeInfo {
   void add_lexical_tokens(int64_t tokens) { num_lexical_tokens_ += tokens; }
 
   int64_t num_lexical_tokens() const { return num_lexical_tokens_; }
+
+  AnalyzerLogEntry log_entry() const {
+    AnalyzerLogEntry entry;
+    entry.set_num_lexical_tokens(num_lexical_tokens());
+
+    auto add_timing = [&](AnalyzerLogEntry::LoggedOperationCategory op,
+                          const internal::TimedValue& time) {
+      auto& stage = *entry.add_execution_stats_by_op();
+      stage.set_key(op);
+      *stage.mutable_value() = time.ToExecutionStatsProto();
+    };
+    add_timing(AnalyzerLogEntry::PARSER, parser_timed_value());
+    return entry;
+  }
 
  private:
 

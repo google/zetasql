@@ -129,9 +129,9 @@ class ArgBuilder {
   }
 
   FunctionArgumentType Build() && {
-    ZETASQL_CHECK(kind_.has_value());
+    ABSL_CHECK(kind_.has_value());
     if (type_ != nullptr) {
-      ZETASQL_CHECK(kind_ = ARG_TYPE_FIXED);
+      ABSL_CHECK(kind_ = ARG_TYPE_FIXED);
       return FunctionArgumentType(type_, options_);
     } else {
       return FunctionArgumentType(*kind_, options_);
@@ -230,8 +230,8 @@ const ProtoType* SampleCatalog::GetProtoType(
     const google::protobuf::Descriptor* descriptor) {
   const Type* type;
   ZETASQL_CHECK_OK(catalog_->FindType({descriptor->full_name()}, &type));
-  ZETASQL_CHECK(type != nullptr);
-  ZETASQL_CHECK(type->IsProto());
+  ABSL_CHECK(type != nullptr);
+  ABSL_CHECK(type->IsProto());
   return type->AsProto();
 }
 
@@ -239,8 +239,8 @@ const EnumType* SampleCatalog::GetEnumType(
     const google::protobuf::EnumDescriptor* descriptor) {
   const Type* type;
   ZETASQL_CHECK_OK(catalog_->FindType({descriptor->full_name()}, &type));
-  ZETASQL_CHECK(type != nullptr);
-  ZETASQL_CHECK(type->IsEnum());
+  ABSL_CHECK(type != nullptr);
+  ABSL_CHECK(type->IsEnum());
   return type->AsEnum();
 }
 
@@ -376,10 +376,10 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
           break;
         }
       }
-      ZETASQL_CHECK(found_field) << message_descriptor_proto.DebugString();
+      ABSL_CHECK(found_field) << message_descriptor_proto.DebugString();
     }
   }
-  ZETASQL_CHECK(found_message) << modified_descriptor_proto.DebugString();
+  ABSL_CHECK(found_message) << modified_descriptor_proto.DebugString();
   ambiguous_has_descriptor_pool_ = std::make_unique<google::protobuf::DescriptorPool>();
   ambiguous_has_descriptor_pool_->BuildFile(modified_descriptor_proto);
 
@@ -449,7 +449,7 @@ void SampleCatalog::LoadTypes() {
   const google::protobuf::Descriptor* ambiguous_has_descriptor =
       ambiguous_has_descriptor_pool_->FindMessageTypeByName(
           "zetasql_test__.AmbiguousHasPB");
-  ZETASQL_CHECK(ambiguous_has_descriptor);
+  ABSL_CHECK(ambiguous_has_descriptor);
   ZETASQL_CHECK_OK(
       types_->MakeProtoType(ambiguous_has_descriptor, &proto_ambiguous_has_));
 
@@ -1817,10 +1817,10 @@ void SampleCatalog::LoadExtendedSubscriptFunctions() {
   const Function* subscript_offset_function;
   ZETASQL_CHECK_OK(catalog_->GetFunction("$subscript_with_offset",
                                  &subscript_offset_function));
-  ZETASQL_CHECK(subscript_offset_function != nullptr);
+  ABSL_CHECK(subscript_offset_function != nullptr);
   // If we ever update the builtin function implementation to actually include
   // a signature, then take a look at this code to see if it is still needed.
-  ZETASQL_CHECK_EQ(subscript_offset_function->NumSignatures(), 0);
+  ABSL_CHECK_EQ(subscript_offset_function->NumSignatures(), 0);
   Function* mutable_subscript_offset_function =
       const_cast<Function*>(subscript_offset_function);
   mutable_subscript_offset_function->AddSignature(
@@ -2526,10 +2526,10 @@ void SampleCatalog::LoadFunctions() {
   auto sanity_check_nonnull_arg_constraints =
       [](const FunctionSignature& signature,
          const std::vector<InputArgumentType>& arguments) {
-        ZETASQL_CHECK(signature.IsConcrete());
-        ZETASQL_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+        ABSL_CHECK(signature.IsConcrete());
+        ABSL_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
         for (int i = 0; i < arguments.size(); ++i) {
-          ZETASQL_CHECK(
+          ABSL_CHECK(
               arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
           if (arguments[i].is_null()) {
             return false;
@@ -2545,7 +2545,7 @@ void SampleCatalog::LoadFunctions() {
          const std::vector<InputArgumentType>& arguments,
          const LanguageOptions& language_options) -> absl::Status {
         for (int i = 0; i < arguments.size(); ++i) {
-          ZETASQL_CHECK(
+          ABSL_CHECK(
               arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
           if (!arguments[i].type()->IsInt64() || !arguments[i].is_literal()) {
             continue;
@@ -4994,7 +4994,7 @@ void SampleCatalog::AddSqlDefinedTableFunctionFromCreate(
                             &analyzer_output))
       << "[" << create_table_function << "]";
   const ResolvedStatement* resolved = analyzer_output->resolved_statement();
-  ZETASQL_CHECK(resolved->Is<ResolvedCreateTableFunctionStmt>());
+  ABSL_CHECK(resolved->Is<ResolvedCreateTableFunctionStmt>());
   const auto* resolved_create =
       resolved->GetAs<ResolvedCreateTableFunctionStmt>();
 
@@ -6079,14 +6079,14 @@ void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
        {ARG_ARRAY_TYPE_ANY_1,
         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<array<T1>>, FUNCTION<<T1>->BOOL>) -> <array<T1>>",
+  ABSL_CHECK_EQ("(<array<T1>>, FUNCTION<<T1>->BOOL>) -> <array<T1>>",
            function->GetSignature(0)->DebugString());
   function->AddSignature(
       {ARG_ARRAY_TYPE_ANY_1,
        {ARG_ARRAY_TYPE_ANY_1,
         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1, int64_type}, bool_type)},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<array<T1>>, FUNCTION<(<T1>, INT64)->BOOL>) -> <array<T1>>",
+  ABSL_CHECK_EQ("(<array<T1>>, FUNCTION<(<T1>, INT64)->BOOL>) -> <array<T1>>",
            function->GetSignature(1)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6098,14 +6098,14 @@ void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
        {ARG_ARRAY_TYPE_ANY_1,
         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2)},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<array<T1>>, FUNCTION<<T1>-><T2>>) -> <array<T2>>",
+  ABSL_CHECK_EQ("(<array<T1>>, FUNCTION<<T1>-><T2>>) -> <array<T2>>",
            function->GetSignature(0)->DebugString());
   function->AddSignature({ARG_ARRAY_TYPE_ANY_2,
                           {ARG_ARRAY_TYPE_ANY_1,
                            FunctionArgumentType::Lambda(
                                {ARG_TYPE_ANY_1, int64_type}, ARG_TYPE_ANY_2)},
                           /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<array<T1>>, FUNCTION<(<T1>, INT64)-><T2>>) -> <array<T2>>",
+  ABSL_CHECK_EQ("(<array<T1>>, FUNCTION<(<T1>, INT64)-><T2>>) -> <array<T2>>",
            function->GetSignature(1)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6116,7 +6116,7 @@ void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
                            FunctionArgumentType::Lambda(
                                {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, int64_type)},
                           /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<array<T1>>, FUNCTION<(<T1>, <T1>)->INT64>) -> <T1>",
+  ABSL_CHECK_EQ("(<array<T1>>, FUNCTION<(<T1>, <T1>)->INT64>) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6131,7 +6131,7 @@ void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
         FunctionArgumentType::Lambda({ARG_TYPE_ANY_2, ARG_TYPE_ANY_1},
                                      ARG_TYPE_ANY_2)},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<array<T1>>, <T2>, FUNCTION<(<T2>, <T1>)-><T2>>) -> <T2>",
+  ABSL_CHECK_EQ("(<array<T1>>, <T2>, FUNCTION<(<T2>, <T1>)-><T2>>) -> <T2>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 }
@@ -6150,7 +6150,7 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1,
         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<T1>, <T1>, FUNCTION<<T1>->BOOL>) -> <T1>",
+  ABSL_CHECK_EQ("(<T1>, <T1>, FUNCTION<<T1>->BOOL>) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6161,7 +6161,7 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
   function->AddSignature({ARG_TYPE_ANY_1,
                           {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_1},
                           /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<array<T1>>, <T1>) -> <T1>",
+  ABSL_CHECK_EQ("(<array<T1>>, <T1>) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6174,7 +6174,7 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
        {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_1,
         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<array<T1>>, <T1>, FUNCTION<<T1>->BOOL>) -> <T1>",
+  ABSL_CHECK_EQ("(<array<T1>>, <T1>, FUNCTION<<T1>->BOOL>) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6187,7 +6187,7 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
        {ARG_TYPE_ANY_1,
         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_1)},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(<T1>, FUNCTION<<T1>-><T1>>) -> <T1>",
+  ABSL_CHECK_EQ("(<T1>, FUNCTION<<T1>-><T1>>) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6202,7 +6202,7 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
        {named_required_format_arg,
         FunctionArgumentType::Lambda({int64_type}, ARG_TYPE_ANY_1)},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(STRING format_string, FUNCTION<INT64-><T1>>) -> <T1>",
+  ABSL_CHECK_EQ("(STRING format_string, FUNCTION<INT64-><T1>>) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6214,7 +6214,7 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
        {FunctionArgumentType::Lambda({int64_type}, ARG_TYPE_ANY_1),
         named_required_format_arg},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(FUNCTION<INT64-><T1>>, STRING format_string) -> <T1>",
+  ABSL_CHECK_EQ("(FUNCTION<INT64-><T1>>, STRING format_string) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6228,7 +6228,7 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
        {FunctionArgumentType::Lambda({int64_type}, ARG_TYPE_ANY_1),
         repeated_arg},
        /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(FUNCTION<INT64-><T1>>, repeated INT64) -> <T1>",
+  ABSL_CHECK_EQ("(FUNCTION<INT64-><T1>>, repeated INT64) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6239,7 +6239,7 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
                           {repeated_arg, FunctionArgumentType::Lambda(
                                              {int64_type}, ARG_TYPE_ANY_1)},
                           /*context_id=*/-1});
-  ZETASQL_CHECK_EQ("(repeated INT64, FUNCTION<INT64-><T1>>) -> <T1>",
+  ABSL_CHECK_EQ("(repeated INT64, FUNCTION<INT64-><T1>>) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
@@ -6272,9 +6272,9 @@ void SampleCatalog::AddSqlDefinedFunction(
     const LanguageOptions& language_options) {
   AnalyzerOptions analyzer_options;
   analyzer_options.set_language(language_options);
-  ZETASQL_CHECK_EQ(argument_names.size(), signature.arguments().size());
+  ABSL_CHECK_EQ(argument_names.size(), signature.arguments().size());
   for (int i = 0; i < argument_names.size(); ++i) {
-    ZETASQL_CHECK_NE(signature.argument(i).type(), nullptr);
+    ABSL_CHECK_NE(signature.argument(i).type(), nullptr);
     ZETASQL_CHECK_OK(analyzer_options.AddExpressionColumn(
         argument_names[i], signature.argument(i).type()));
   }
@@ -6434,6 +6434,14 @@ void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
       /*inline_sql_functions=*/true);
 
   AddSqlDefinedFunctionFromCreate(
+      R"sql(CREATE TEMP FUNCTION b290673529(thing_id ANY TYPE) RETURNS BOOL
+            AS (
+               thing_id IN (SELECT thing_id FROM (SELECT 1 AS thing_id))
+            );
+        )sql",
+      language_options, /*inline_sql_functions=*/false);
+
+  AddSqlDefinedFunctionFromCreate(
       R"sql( CREATE AGGREGATE FUNCTION NotAggregate() AS (1 + 1);)sql",
       language_options);
 
@@ -6449,6 +6457,10 @@ void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
 
   AddSqlDefinedFunctionFromCreate(
       R"sql( CREATE AGGREGATE FUNCTION CountStar() AS (COUNT(*));)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql( CREATE AGGREGATE FUNCTION CallsCountStar() AS (CountStar());)sql",
       language_options);
 
   AddSqlDefinedFunctionFromCreate(

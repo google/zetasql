@@ -26,6 +26,8 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
+#include "zetasql/base/source_location.h"
+
 {{blank_line}}
 {%- macro move_or_copy_value(field, variable_name) -%}
   {%- if field.is_node_ptr or field.is_node_vector -%}
@@ -175,7 +177,7 @@ class {{node.builder_name}} final {
     if (!{{field_set_bitmap_name}}.test({{field.builder_bitmap}})) {
       zetasql::internal::UpdateStatus(
           &{{status_member_name}},
-          ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC).LogError()
+          ::zetasql_base::InternalErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
             << "{{node.name}}::{{field.name}} was not set on the builder");
     }
   # endfor
@@ -193,18 +195,18 @@ class {{node.builder_name}} final {
 {{field.comment}}
  # endif
   {{field.getter_return_type}} {{field.name}}() const {
-    ZETASQL_DCHECK({{inner_node_member_name}} != nullptr);
+    ABSL_DCHECK({{inner_node_member_name}} != nullptr);
     return {{inner_node_member_name}}->{{field.name}}();
   }
   {{ blank_line }}
  # if field.is_vector
   int {{field.name}}_size() const {
-    ZETASQL_DCHECK({{inner_node_member_name}} != nullptr);
+    ABSL_DCHECK({{inner_node_member_name}} != nullptr);
     return {{inner_node_member_name}}->{{field.name}}_size();
   }
 
   {{field.element_getter_return_type}} {{field.name}}(int i) const {
-    ZETASQL_DCHECK({{inner_node_member_name}} != nullptr);
+    ABSL_DCHECK({{inner_node_member_name}} != nullptr);
     return {{inner_node_member_name}}->{{field.name}}(i);
   }
   {{ blank_line }}
@@ -269,7 +271,7 @@ class {{node.builder_name}} final {
 #}
   {{node.builder_name}}(std::unique_ptr<{{node.name}}> node)
       : {{inner_node_member_name}}(std::move(node)) {
-    ZETASQL_DCHECK({{inner_node_member_name}} != nullptr);
+    ABSL_DCHECK({{inner_node_member_name}} != nullptr);
   }
 };
 

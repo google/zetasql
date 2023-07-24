@@ -765,20 +765,36 @@ ARRAY<STRUCT<INT64>>[{2}]
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ORDER_BY_IN_AGGREGATE]
 [name=string_agg_with_sort_key_with_collation_ci]
-[labels=Special:NoReference]
-select string_agg(elem order by elem) from
-unnest([collate('a', 'und:ci'), 'B', 'd', 'C', 'e']) elem
+with TestTable as (
+select 'a' col union all
+select 'B' union all
+select 'd' union all
+select 'C' union all
+select 'e'
+)
+select string_agg(col order by collate(col, 'und:ci'))
+from TestTable
 --
 ARRAY<STRUCT<STRING>>[{"a,B,C,d,e"}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ORDER_BY_IN_AGGREGATE]
 [name=string_agg_with_sort_key_with_collation_binary]
-[labels=Special:NoReference]
-select string_agg(elem order by elem) from
-unnest([collate('a', 'binary'), 'B', 'd', 'C', 'e']) elem
+with TestTable as (
+select 'a' col union all
+select 'B' union all
+select 'd' union all
+select 'C' union all
+select 'e'
+)
+select string_agg(col order by collate(col, 'binary'))
+from TestTable
 --
 ARRAY<STRUCT<STRING>>[{"B,C,a,d,e"}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=array_agg_distinct_with_collation_binary]

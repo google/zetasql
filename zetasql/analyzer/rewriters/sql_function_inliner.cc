@@ -146,6 +146,7 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
   absl::Status VisitResolvedSubqueryExpr(
       const ResolvedSubqueryExpr* node) override {
     std::optional<ArgColumnSet> arg_columns_referenced = ArgColumnSet{};
+    std::unique_ptr<const ResolvedScan> subquery_scan;
     {
       // This cleanup implements a scoped swap. Its like zetasql_base::VarSetter but also
       // swaps the temporary object state back into the local variable so it may
@@ -154,11 +155,14 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
         arg_columns_referenced.swap(args_referenced_in_subquery_);
       };
       arg_columns_referenced.swap(args_referenced_in_subquery_);
-      ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedSubqueryExpr(node));
+      ZETASQL_ASSIGN_OR_RETURN(subquery_scan, ProcessNode(node->subquery()));
     }
-    ResolvedSubqueryExpr* copy = GetUnownedTopOfStack<ResolvedSubqueryExpr>();
+    ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedSubqueryExpr(node));
+    ResolvedSubqueryExprBuilder subquery_builder =
+        ToBuilder(ConsumeTopOfStack<ResolvedSubqueryExpr>())
+            .set_subquery(std::move(subquery_scan));
     for (auto& arg_column : arg_columns_referenced.value()) {
-      copy->add_parameter_list(MakeResolvedColumnRef(
+      subquery_builder.add_parameter_list(MakeResolvedColumnRef(
           arg_column.type(), arg_column, IsCopyingSubqueryInFunctionBody()));
       // If we are nested inside subqueries, then any arguments referenced in
       // this subquery are automatically referenced in the containing subquery.
@@ -166,6 +170,10 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
         args_referenced_in_subquery_.value().insert(arg_column);
       }
     }
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedSubqueryExpr> copy,
+                     std::move(subquery_builder).Build());
+    PushNodeToStack(
+        absl::WrapUnique(const_cast<ResolvedSubqueryExpr*>(copy.release())));
     return absl::OkStatus();
   }
 
@@ -746,24 +754,10 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
     std::vector<std::unique_ptr<const ResolvedComputedColumn>> old_aggregates =
         aggr_builder.release_aggregate_list();
 
-    // SQL-defined aggregates have any aggregations internal to the function
-    // body already factored out. Those aggregations will be promoted into the
-    // new copy of the AggregateScan. Those are processed in this loop,
-    // collecting the processed aggregations in `new_aggregates` and also the
-    // columns they are written into in `new_aggr_col_list`. These lists will
-    // later be used to build the new AggregateScan.
-
     // The aggregations included in the aggregate scan post-rewrite.
     std::vector<std::unique_ptr<const ResolvedComputedColumn>> new_aggregates;
     // The column list produced by thew new aggregate scan post-rewrite.
     std::vector<ResolvedColumn> new_aggr_col_list;
-
-    // The new aggregate scan after inlinine will no longer have calls to the
-    // SQL-defined aggregate functions. This section is building the new
-    // list of aggregates for the new aggregate scan, as well as collecting
-    // expressions for the post-aggregate project scan that will host the
-    // expression from the SQL-defined aggregate that modifies or combines the
-    // results of any aggregations called internally.
 
     // Expressions computed by a new project scan after aggregation.
     std::vector<std::unique_ptr<const ResolvedComputedColumn>>
@@ -771,6 +765,13 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
     // Columns that were part of the aggregate scan pre-rewrite that are not
     // included in the aggregate scan column list post-rewrite.
     absl::flat_hash_set<ResolvedColumn> columns_to_remove_from_aggr;
+
+    // The new aggregate scan after inlinine will no longer have calls to the
+    // SQL-defined aggregate functions. This section is building the new
+    // list of aggregates for the new aggregate scan, as well as collecting
+    // expressions for the post-aggregate project scan that will host the
+    // expression from the SQL-defined aggregate that modifies or combines the
+    // results of any aggregations called internally.
     for (auto& aggr : old_aggregates) {
       ZETASQL_RET_CHECK(aggr->expr()->Is<ResolvedAggregateFunctionCall>());
       const ResolvedAggregateFunctionCall* aggr_function_call =
@@ -784,6 +785,12 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
       details.computed_column = aggr->column();
       columns_to_remove_from_aggr.insert(aggr->column());
 
+      // SQL-defined aggregates have any aggregations internal to the function
+      // body already factored out. Those aggregations will be promoted into the
+      // new copy of the AggregateScan. Those are processed in this loop,
+      // collecting the processed aggregations in `new_aggregates` and also the
+      // columns they are written into in `new_aggr_col_list`. These lists will
+      // later be used to build the new AggregateScan.
       ColumnReplacementMap no_replacements;
       for (auto& aggr_computed_col : details.aggregate_expression_list) {
         ZETASQL_ASSIGN_OR_RETURN(

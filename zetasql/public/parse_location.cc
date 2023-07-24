@@ -178,16 +178,16 @@ absl::StatusOr<int> ColumnNumberFromLineLocalByteOffset(
 
 absl::StatusOr<std::pair<int, int>>
 ParseLocationTranslator::GetLineAndColumnFromByteOffset(int byte_offset) const {
-  ZETASQL_DCHECK_GE(byte_offset, 0);
-  ZETASQL_DCHECK_LE(byte_offset, input_.size());
+  ABSL_DCHECK_GE(byte_offset, 0);
+  ABSL_DCHECK_LE(byte_offset, input_.size());
   ZETASQL_RET_CHECK(byte_offset >= 0 &&
             byte_offset <= static_cast<int64_t>(input_.size()))
       << "Byte offset " << byte_offset << " out of bounds of input (size "
       << input_.size() << ")";
   CalculateLineOffsets();
-  ZETASQL_DCHECK_EQ(line_offsets_[0], 0);
-  ZETASQL_DCHECK(!line_offsets_.empty());
-  ZETASQL_DCHECK_EQ(line_offsets_.front(), 0);
+  ABSL_DCHECK_EQ(line_offsets_[0], 0);
+  ABSL_DCHECK(!line_offsets_.empty());
+  ABSL_DCHECK_EQ(line_offsets_.front(), 0);
   auto ub_iter =
       std::upper_bound(line_offsets_.begin(), line_offsets_.end(), byte_offset);
   // ub_iter points at the beginning of the *next* line.
@@ -217,9 +217,9 @@ absl::StatusOr<int> ParseLocationTranslator::GetByteOffsetFromLineAndColumn(
       << " was requested";
 
   ZETASQL_ASSIGN_OR_RETURN(absl::string_view current_line, GetLineText(line));
-  ZETASQL_DCHECK_EQ(current_line.find('\r'), current_line.npos)
+  ABSL_DCHECK_EQ(current_line.find('\r'), current_line.npos)
       << "GetLineText() returned string with newline characters";
-  ZETASQL_DCHECK_EQ(current_line.find('\n'), current_line.npos)
+  ABSL_DCHECK_EQ(current_line.find('\n'), current_line.npos)
       << "GetLineText() returned string with newline characters";
 
   int byte_offset = 0;
@@ -244,7 +244,7 @@ ParseLocationTranslator::GetLineAndColumnAfterTabExpansion(
 std::string ParseLocationTranslator::ExpandTabs(absl::string_view input) {
   std::string out;
   for (int i = 0; i < input.size(); ++i) {
-    ZETASQL_DCHECK(input[i] != '\n' && input[i] != '\r');
+    ABSL_DCHECK(input[i] != '\n' && input[i] != '\r');
     if (input[i] == '\t') {
       out += std::string(kTabWidth - (out.size() % kTabWidth), ' ');
     } else {

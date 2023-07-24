@@ -311,7 +311,7 @@ absl::Status PivotRewriterVisitor::VisitResolvedPivotScan(
     const ResolvedExpr* pivot_value_expr =
         node->pivot_value_list()[pivot_column->pivot_value_index()].get();
 
-    ZETASQL_CHECK_LE(pivot_column->pivot_expr_index(), agg_fn_argument_columns.size());
+    ABSL_CHECK_LE(pivot_column->pivot_expr_index(), agg_fn_argument_columns.size());
     const std::vector<ResolvedColumn>& agg_fn_arg_columns =
         agg_fn_argument_columns[pivot_column->pivot_expr_index()];
 

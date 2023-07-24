@@ -87,7 +87,7 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_TYPE_SEQUENCE:
       return false;
     default:
-      ZETASQL_DCHECK(false) << "Invalid signature argument kind: " << kind;
+      ABSL_DCHECK(false) << "Invalid signature argument kind: " << kind;
       return false;
   }
 }
@@ -177,7 +177,7 @@ absl::Status FunctionSignatureRewriteOptions::Deserialize(
 
 void FunctionSignatureRewriteOptions::Serialize(
     FunctionSignatureRewriteOptionsProto* proto) const {
-  ZETASQL_DCHECK(proto != nullptr);
+  ABSL_DCHECK(proto != nullptr);
   proto->set_enabled(enabled());
   proto->set_rewriter(rewriter());
   proto->set_sql(sql_);
@@ -594,7 +594,7 @@ FunctionArgumentType::FunctionArgumentType(
       num_occurrences_(num_occurrences),
       type_(type),
       options_(std::move(options)) {
-  ZETASQL_DCHECK_EQ(kind == ARG_TYPE_FIXED, type != nullptr);
+  ABSL_DCHECK_EQ(kind == ARG_TYPE_FIXED, type != nullptr);
 }
 
 FunctionArgumentType::FunctionArgumentType(SignatureArgumentKind kind,
@@ -858,7 +858,7 @@ std::string FunctionArgumentType::UserFacingName(
       case ARG_TYPE_FIXED:
       default:
         // We really should have had type() != nullptr in this case.
-        ZETASQL_DCHECK(type() != nullptr) << DebugString();
+        ABSL_DCHECK(type() != nullptr) << DebugString();
         return "?";
     }
   } else {

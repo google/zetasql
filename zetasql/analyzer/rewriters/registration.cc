@@ -37,7 +37,7 @@ const Rewriter* RewriteRegistry::Get(ResolvedASTRewrite key) const {
   auto it = rewriters_.find(key);
   if (it == rewriters_.end()) {
     if (ZETASQL_DEBUG_MODE) {
-      ZETASQL_LOG(FATAL) << "Rewriter was not registered: "
+      ABSL_LOG(FATAL) << "Rewriter was not registered: "
                  << ResolvedASTRewrite_Name(key);
     }
     return nullptr;
@@ -55,7 +55,7 @@ void RewriteRegistry::Register(ResolvedASTRewrite key,
   absl::MutexLock l(&mu_);
   const bool did_insert = rewriters_.emplace(key, rewriter).second;
   if (ZETASQL_DEBUG_MODE) {
-    ZETASQL_CHECK(did_insert) << "Key conflict for ZetaSQL Rewriter: "
+    ABSL_CHECK(did_insert) << "Key conflict for ZetaSQL Rewriter: "
                       << ResolvedASTRewrite_Name(key);
   }
   registration_order_.push_back(key);

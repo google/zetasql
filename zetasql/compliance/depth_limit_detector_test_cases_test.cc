@@ -94,7 +94,7 @@ TEST(DepthLimitDetectorTest, DepthLimitDetectorSqrtTest) {
       test_case,
       [](std::string_view number) {
         int64_t i;
-        ZETASQL_CHECK(absl::SimpleAtoi(number, &i));
+        ABSL_CHECK(absl::SimpleAtoi(number, &i));
         return absl::ResourceExhaustedError(
             absl::StrCat(static_cast<int64_t>(sqrt(i))));
       },
@@ -153,7 +153,7 @@ TEST(DepthLimitDetectorTest, DepthLimitDetectorSleepTest) {
       test_case,
       [](std::string_view number) {
         int64_t i;
-        ZETASQL_CHECK(absl::SimpleAtoi(number, &i));
+        ABSL_CHECK(absl::SimpleAtoi(number, &i));
         absl::SleepFor(absl::Seconds(i));
         return absl::OkStatus();
       },
@@ -258,7 +258,7 @@ TEST_P(DepthLimitDetectorTemplateTest, ReferenceImplAcceptsInstantiation) {
 
   DepthLimitDetectorTestResult results;
 
-  ZETASQL_LOG(INFO) << "Disecting reference implementation " << test_case;
+  ABSL_LOG(INFO) << "Disecting reference implementation " << test_case;
 
   DepthLimitDetectorRuntimeControl runtime_control;
   runtime_control.max_probing_duration =
@@ -268,7 +268,7 @@ TEST_P(DepthLimitDetectorTemplateTest, ReferenceImplAcceptsInstantiation) {
         test_case, [&](std::string_view sql) { return driver(sql); },
         runtime_control);
 
-  ZETASQL_LOG(INFO) << "Disection finished " << results;
+  ABSL_LOG(INFO) << "Disection finished " << results;
   EXPECT_THAT(results.depth_limit_detector_return_conditions[0].return_status,
               ::zetasql_base::testing::IsOk())
       << results;

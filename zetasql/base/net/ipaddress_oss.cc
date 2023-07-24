@@ -70,7 +70,7 @@ IPAddress IPAddress::Any6() {
 }
 
 in6_addr IPAddress::ipv6_address_slowpath() const {
-  ZETASQL_CHECK_EQ(AF_INET6, address_family_);
+  ABSL_CHECK_EQ(AF_INET6, address_family_);
   if (ABSL_PREDICT_FALSE(HasCompactScopeId(addr_.addr6))) {
     in6_addr copy = addr_.addr6;
     copy.s6_addr32[1] = 0;  // clear the scope_id (interface index)
@@ -196,11 +196,11 @@ std::string IPAddress::ToString() const {
       }
       break;
     case AF_UNSPEC:
-      ZETASQL_LOG(DFATAL) << "Calling ToCharBuf() on an empty IPAddress";
+      ABSL_LOG(ERROR) << "Calling ToCharBuf() on an empty IPAddress";
       return "";
       break;
     default:
-      ZETASQL_LOG(FATAL) << "Unknown address family " << address_family_;
+      ABSL_LOG(FATAL) << "Unknown address family " << address_family_;
   }
   return out;
 }
@@ -227,10 +227,10 @@ std::string IPAddress::ToPackedString() const {
                            sizeof(addr_.addr6));
       }
     case AF_UNSPEC:
-      ZETASQL_LOG(DFATAL) << "Calling ToPackedString() on an empty IPAddress";
+      ABSL_LOG(ERROR) << "Calling ToPackedString() on an empty IPAddress";
       return "";
     default:
-      ZETASQL_LOG(FATAL) << "Unknown address family " << address_family_;
+      ABSL_LOG(FATAL) << "Unknown address family " << address_family_;
   }
 }
 
@@ -405,7 +405,7 @@ namespace {
 
 bool InternalStringToNetmaskLength(absl::string_view str,
                                    int host_address_family, int32_t* out) {
-  ZETASQL_DCHECK(out);
+  ABSL_DCHECK(out);
 
   // Explicitly check that the first and last characters are digits, because
   // SimpleAtoi will accept whitespace, +, -, etc.
@@ -416,7 +416,7 @@ bool InternalStringToNetmaskLength(absl::string_view str,
 
   // Check for a decimal number.
   if (absl::SimpleAtoi(str, out)) {
-    ZETASQL_DCHECK_GE(*out, 0);
+    ABSL_DCHECK_GE(*out, 0);
     const int max_length =
         host_address_family == AF_INET6 ? kMaxNetmaskIPv6 : kMaxNetmaskIPv4;
     return *out <= max_length;
@@ -451,7 +451,7 @@ bool InternalStringToNetmaskLength(absl::string_view str,
 //
 bool InternalStringToIPRange(absl::string_view str,
                              std::pair<IPAddress, int>* out) {
-  ZETASQL_DCHECK(out);
+  ABSL_DCHECK(out);
 
   // Try to parse everything before the slash as an IP address.
   // If there is no slash, then substr(0, npos) yields the full string.
@@ -535,7 +535,7 @@ IPAddress TruncateIPAndLength(const IPAddress& addr, int* length_io) {
       *length_io = -1;
       return addr;
   }
-  ZETASQL_LOG(DFATAL) << "Invalid truncation: " << addr << "/" << length;
+  ABSL_LOG(ERROR) << "Invalid truncation: " << addr << "/" << length;
   *length_io = -1;
   return IPAddress();
 }

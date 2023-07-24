@@ -34,7 +34,7 @@ const icu::IDNA* CreateIdnaOrDie() {
   icu::ErrorCode error;
   const icu::IDNA* idna =
       icu::IDNA::createUTS46Instance(UIDNA_NONTRANSITIONAL_TO_ASCII, error);
-  ZETASQL_CHECK(error.isSuccess()) << error.errorName();
+  ABSL_CHECK(error.isSuccess()) << error.errorName();
   return idna;
 }
 
@@ -49,7 +49,7 @@ bool ConvertToAsciiAndAppend(absl::string_view utf8, std::string* ascii) {
   idna->nameToASCII_UTF8(utf8, sink, info, error);
 
   if (error.isFailure() || info.hasErrors()) {
-    ZETASQL_LOG(WARNING) << "ToASCII error: " << error.errorName()
+    ABSL_LOG(WARNING) << "ToASCII error: " << error.errorName()
                  << ", error bits: " << absl::PrintF("0x%X", info.getErrors())
                  << ", input: " << utf8;
     error.reset();
@@ -91,7 +91,7 @@ PublicSuffixRulesBuilder& PublicSuffixRulesBuilder::AddRule(
     absl::string_view rule, PublicSuffixRules::DomainType domain_type) {
   std::string norm = NormalizeRule(rule);
   if (norm.empty()) {
-    ZETASQL_LOG(WARNING) << "bad rule " << rule;
+    ABSL_LOG(WARNING) << "bad rule " << rule;
     return *this;
   }
 
@@ -99,7 +99,7 @@ PublicSuffixRulesBuilder& PublicSuffixRulesBuilder::AddRule(
     rules_->icann_domains_.insert(norm);
   } else {
     if (norm.find('.') == norm.npos) {
-      ZETASQL_LOG(WARNING) << "must have dot in PRIVATE domain " << norm;
+      ABSL_LOG(WARNING) << "must have dot in PRIVATE domain " << norm;
     }
     rules_->private_domains_.insert(norm);
   }
@@ -205,7 +205,7 @@ void PublicSuffixRulesBuilder::ProcessRules(
     // It is not OK to have "foo.bar" and "!foo.bar".
     if ((*stored_flags & PublicSuffixType::kException) !=
         (new_flags & PublicSuffixType::kException)) {
-      ZETASQL_LOG(DFATAL) << "inconsistent exception " << rule;
+      ABSL_LOG(ERROR) << "inconsistent exception " << rule;
       *stored_flags &= ~PublicSuffixType::kException;
     }
 
@@ -213,7 +213,7 @@ void PublicSuffixRulesBuilder::ProcessRules(
     // PRIVATE sections.
     if ((*stored_flags & PublicSuffixType::kPrivate) !=
         (new_flags & PublicSuffixType::kPrivate)) {
-      ZETASQL_LOG(DFATAL) << "ICANN/PRIVATE conflict " << rule;
+      ABSL_LOG(ERROR) << "ICANN/PRIVATE conflict " << rule;
       *stored_flags &= ~PublicSuffixType::kPrivate;
     }
 

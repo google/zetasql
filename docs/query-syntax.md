@@ -2135,15 +2135,19 @@ GROUP BY <span class="var">group_by_specification</span>
 
 <span class="var">group_by_specification</span>:
   {
-    <span class="var">column_list</span>
-    | <span class="var">rollup_list</span>
+    <span class="var">grouping_list</span>
+    | <span class="var">rollup_specification</span>
   }
 
-<span class="var">column_list</span>:
-  { <span class="var">value</span> | <span class="var">column_ordinal</span> }[, ...]
+<span class="var">grouping_list</span>:
+  {
+    <span class="var">value</span>
+    | <span class="var">value_alias</span>
+    | <span class="var">column_ordinal</span>
+  }[, ...]
 
-<span class="var">rollup_list</span>:
-  ROLLUP ( <span class="var">column_list</span> )
+<span class="var">rollup_specification</span>:
+  ROLLUP ( <span class="var">grouping_list</span> )
 </pre>
 
 The `GROUP BY` clause groups together rows in a table that share common values
@@ -2154,19 +2158,22 @@ present in the `SELECT` list, or to eliminate redundancy in the output.
 
 **Definitions**
 
-+ `column_list`: Group rows in a table that share common values
-  for certain columns. To learn more, see [`GROUP BY` values][group-by-values].
-+ `rollup_list`: Group results by prefixes, using this list of
-  non-distinct values.
-  To learn more, see [`GROUP BY ROLLUP` list][group-by-rollup-list].
++ `grouping_list`: Group rows in a table that share common values
+  for certain columns.
++ `rollup_specification`: Group rows by rollup. To learn more, see
+  [Group rows by rollup][group-by-rollup-list].
 + `value`: A general expression that represents a non-distinct value.
   The data type of `value` must be [groupable][data-type-properties].
+  To learn more, see [Group rows by values][group-by-values].
++ `value_alias`: An alias for `value`.
+  To learn more, see [Group rows by values][group-by-values].
 + `column_ordinal`: An `INT64` value that represents the ordinal assigned to an
   expression in the `SELECT` list. For example, `1` refers to the first value
   in the `SELECT` list, `2` the second, and so forth. The data type of the
   expression must be [groupable][data-type-properties].
+  To learn more, see [Group rows by column ordinals][group-by-col-ordinals].
 
-### `GROUP BY` value list 
+### Group rows by values 
 <a id="group_by_values"></a>
 
 The `GROUP BY` clause groups together rows in a table with non-distinct values
@@ -2191,6 +2198,37 @@ GROUP BY LastName;
  | 1            | Coolidge |
  +--------------+----------*/
 ```
+
+`GROUP BY` clauses may also refer to aliases. If a query contains aliases in
+the `SELECT` clause, those aliases override names in the corresponding `FROM`
+clause. For example:
+
+```sql
+WITH PlayerStats AS (
+  SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 'Jie', 0 UNION ALL
+  SELECT 'Coolidge', 'Kiran', 1 UNION ALL
+  SELECT 'Adams', 'Noam', 4 UNION ALL
+  SELECT 'Buchanan', 'Jie', 13)
+SELECT SUM(PointsScored) AS total_points, LastName AS last_name
+FROM PlayerStats
+GROUP BY last_name;
+
+/*--------------+-----------+
+ | total_points | last_name |
+ +--------------+-----------+
+ | 7            | Adams     |
+ | 13           | Buchanan  |
+ | 1            | Coolidge  |
+ +--------------+-----------*/
+```
+
+`GROUP BY` can group rows by the value of an array.
+`GROUP BY` will group two arrays if they have the same number of elements and
+all corresponding elements are in the same groups, or if both arrays are `NULL`.
+
+### Group rows by column ordinals 
+<a id="group_by_col_ordinals"></a>
 
 The `GROUP BY` clause can refer to expression names in the `SELECT` list. The
 `GROUP BY` clause also allows ordinal references to expressions in the `SELECT`
@@ -2238,67 +2276,78 @@ GROUP BY 2, 3;
  +--------------+----------+-----------*/
 ```
 
-`GROUP BY` clauses may also refer to aliases. If a query contains aliases in
-the `SELECT` clause, those aliases override names in the corresponding `FROM`
-clause. For example:
-
-```sql
-WITH PlayerStats AS (
-  SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
-  SELECT 'Buchanan', 'Jie', 0 UNION ALL
-  SELECT 'Coolidge', 'Kiran', 1 UNION ALL
-  SELECT 'Adams', 'Noam', 4 UNION ALL
-  SELECT 'Buchanan', 'Jie', 13)
-SELECT SUM(PointsScored) AS total_points, LastName AS last_name
-FROM PlayerStats
-GROUP BY last_name;
-
-/*--------------+-----------+
- | total_points | last_name |
- +--------------+-----------+
- | 7            | Adams     |
- | 13           | Buchanan  |
- | 1            | Coolidge  |
- +--------------+-----------*/
-```
-
-`GROUP BY` can group rows by the value of an array.
-`GROUP BY` will group two arrays if they have the same number of elements and
-all corresponding elements are in the same groups, or if both arrays are `NULL`.
-
-### `GROUP BY ROLLUP` list 
+### Group rows by rollup 
 <a id="group_by_rollup_list"></a>
 
-`GROUP BY ROLLUP` returns the results of `GROUP BY` for
-prefixes of the expressions in the `ROLLUP` list, each of which is known as a
-*grouping set*.  For the `ROLLUP` list `(a, b, c)`, the grouping sets are
-`(a, b, c)`, `(a, b)`, `(a)`, `()`. When evaluating the results of `GROUP BY`
-for a particular grouping set, `GROUP BY ROLLUP` treats expressions that are not
-in the grouping set as having a `NULL` value.
+With `GROUP BY ROLLUP`, you can quickly produce rolled up aggregated data in
+rows. This is especially helpful if you need to use an aggregate function to
+roll up totals.
 
-A `SELECT` statement like the following uses the rollup list `(a, b)`. The
-result includes the results of `GROUP BY` for the grouping sets `(a, b)`,
-`(a)`, and `()`, which includes all rows. This allows the computation of
-aggregates for the grouping sets defined by the expressions in the `ROLLUP` list
-and the prefixes of that list. For example:
+`GROUP BY ROLLUP` works by taking the `grouping_list`, generating
+_grouping sets_ from it, and then producing a table as a union of queries
+grouped by each grouping set. Grouping sets are generated by the prefix of the
+`grouping_list`. For example, `GROUP BY ROLLUP(a, b, c)` generates the following
+grouping sets from the grouping list `a, b, c`, and then produces aggregated
+rows for each of them:
+
++ `(a, b, c)`
++ `(a, b)`
++ `(a)`
++ `()`
+
+When evaluating the results for a particular grouping set,
+expressions that are not in the grouping set are treated as `NULL`. In other
+words, if an expression is treated as `NULL`, then the column in all rows is
+aggregated.
+
+The following queries produce the same subtotals and a grand total, but
+the first one uses `GROUP BY` with `ROLLUP` and the second one does not:
 
 ```sql
-WITH Numbers AS (
-  SELECT 1 AS a, 2 AS b, 3 AS c UNION ALL
-  SELECT 4, 5, 6 UNION ALL
-  SELECT 1, 2, 8)
-SELECT a, b, SUM(c) AS sum_c FROM Numbers GROUP BY ROLLUP(a, b)
-ORDER BY a, b;
+-- GROUP BY with ROLLUP
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY ROLLUP(product_type, product_name)
+ORDER BY product_type, product_name;
 
-/*------+------+-------+
- | a    | b    | sum_c |
- +------+------+-------+
- | NULL | NULL | 17    |
- | 1    | NULL | 11    |
- | 1    | 2    | 11    |
- | 4    | NULL | 6     |
- | 4    | 5    | 6     |
- +------+------+-------*/
+/*--------------+--------------+-------------+
+ | product_type | product_name | product_sum |
+ +--------------+--------------+-------------+
+ | NULL         | NULL         | 42          |
+ | pants        | NULL         | 6           |
+ | pants        | jeans        | 6           |
+ | shirt        | NULL         | 36          |
+ | shirt        | t-shirt      | 11          |
+ | shirt        | polo         | 25          |
+ +--------------+--------------+-------------*/
+```
+
+```sql
+-- GROUP BY without ROLLUP (produces the same results as ROLLUP)
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY product_type, product_name
+UNION ALL
+SELECT product_type, NULL, SUM(product_count)
+FROM Products
+GROUP BY product_type
+UNION ALL
+SELECT NULL, NULL, SUM(product_count) FROM Products
+ORDER BY product_type, product_name;
 ```
 
 The following query outputs a row for each day in addition to the rolled up
@@ -2316,29 +2365,29 @@ WITH Sales AS (
 )
 SELECT
   day,
-  SUM(price) AS total
+  SUM(price) AS total_sales
 FROM Sales
 GROUP BY ROLLUP(day)
 ORDER BY day;
 
-/*------+-------*
- | day  | total |
- +------+-------+
- | NULL | 39.77 |
- |    1 | 23.54 |
- |    2 |  9.99 |
- |    3 |  6.24 |
- *------+-------*/
+/*------+-------------*
+ | day  | total_sales |
+ +------+-------------+
+ | NULL | 39.77       |
+ |    1 | 23.54       |
+ |    2 |  9.99       |
+ |    3 |  6.24       |
+ *------+-------------*/
 ```
 
 The following query returns rows grouped by these grouping sets:
 
 + sku and day
 + sku (day is `NULL`)
-+ The empty grouping set (day and sku are `NULL`)
++ An empty grouping set (day and sku are `NULL`)
 
-The sums for these grouping sets correspond to the total for each
-distinct sku-day combination, the total for each sku across all days, and the
+The sums for these grouping sets correspond to the total for each distinct
+sku-day combination, the total for each sku across all days, and the
 grand total.
 
 ```sql
@@ -2354,24 +2403,24 @@ WITH Sales AS (
 SELECT
   sku,
   day,
-  SUM(price) AS total
+  SUM(price) AS total_sales
 FROM Sales
 GROUP BY ROLLUP(sku, day)
 ORDER BY sku, day;
 
-/*------+------+-------*
- | sku  | day  | total |
- +------+------+-------+
- | NULL | NULL | 39.77 |
- |  123 | NULL | 28.97 |
- |  123 |    1 | 18.98 |
- |  123 |    2 |  9.99 |
- |  456 | NULL |  8.81 |
- |  456 |    1 |  4.56 |
- |  456 |    3 |  4.25 |
- |  789 |    3 |  1.99 |
- |  789 | NULL |  1.99 |
- *------+------+-------*/
+/*------+------+-------------*
+ | sku  | day  | total_sales |
+ +------+------+-------------+
+ | NULL | NULL | 39.77       |
+ |  123 | NULL | 28.97       |
+ |  123 |    1 | 18.98       |
+ |  123 |    2 |  9.99       |
+ |  456 | NULL |  8.81       |
+ |  456 |    1 |  4.56       |
+ |  456 |    3 |  4.25       |
+ |  789 |    3 |  1.99       |
+ |  789 | NULL |  1.99       |
+ *------+------+-------------*/
 ```
 
 ## `HAVING` clause 
@@ -4854,6 +4903,8 @@ Results:
 [explicit-implicit-unnest]: #explicit_implicit_unnest
 
 [group-by-values]: #group_by_values
+
+[group-by-col-ordinals]: #group_by_col_ordinals
 
 [group-by-rollup-list]: #group_by_rollup_list
 

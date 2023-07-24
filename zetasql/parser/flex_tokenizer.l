@@ -83,11 +83,13 @@
 #include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/parser/parser_internal.h"
 #include "zetasql/public/strings.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/string_view.h"
 
 using zetasql_bison_parser::BisonParserImpl;
+using namespace zetasql::parser_internal;
 
 #undef YY_DECL
 #define YY_DECL \
@@ -878,7 +880,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   // If this triggers, then we pushed a non-INITIAL state on top of
   // STACK_BOTTOM. That should be impossible, because the only rules that are
   // active in state STACK_BOTTOM are the catch-all error rules.
-  ZETASQL_DCHECK(YY_START != STACK_BOTTOM);
+  ABSL_DCHECK(YY_START != STACK_BOTTOM);
   if (YY_START != STACK_BOTTOM) {
     yy_pop_state();
   }

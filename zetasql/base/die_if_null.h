@@ -24,7 +24,7 @@
 namespace zetasql_internal {
 template <typename T>
 inline T DieIfNull(T&& t) {
-  ZETASQL_CHECK(t != nullptr);
+  ABSL_CHECK(t != nullptr);
   return std::forward<T>(t);
 }
 }  // namespace zetasql_internal

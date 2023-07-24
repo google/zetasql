@@ -38,27 +38,27 @@ static void TestMathLimits() {
   const Type kMin10Exp = MathLimits<Type>::kMin10Exp;
   const Type kEpsilon = MathLimits<Type>::kEpsilon;
 
-  ZETASQL_LOG(INFO) << "Size = " << sizeof(Type);
-  ZETASQL_LOG(INFO) << "kMin = " << kMin;
-  ZETASQL_LOG(INFO) << "kMax = " << kMax;
-  ZETASQL_LOG(INFO) << "kPosMin = " << kPosMin;
-  ZETASQL_LOG(INFO) << "kMax10Exp = " << kMax10Exp;
-  ZETASQL_LOG(INFO) << "kMin10Exp = " << kMin10Exp;
-  ZETASQL_LOG(INFO) << "kEpsilon = " << kEpsilon;
-  ZETASQL_LOG(INFO) << "kStdError = " << MathLimits<Type>::kStdError;
+  ABSL_LOG(INFO) << "Size = " << sizeof(Type);
+  ABSL_LOG(INFO) << "kMin = " << kMin;
+  ABSL_LOG(INFO) << "kMax = " << kMax;
+  ABSL_LOG(INFO) << "kPosMin = " << kPosMin;
+  ABSL_LOG(INFO) << "kMax10Exp = " << kMax10Exp;
+  ABSL_LOG(INFO) << "kMin10Exp = " << kMin10Exp;
+  ABSL_LOG(INFO) << "kEpsilon = " << kEpsilon;
+  ABSL_LOG(INFO) << "kStdError = " << MathLimits<Type>::kStdError;
 
   // Some basic checks:
 
-  ZETASQL_CHECK_EQ(sizeof(typename MathLimits<Type>::UnsignedType), sizeof(Type));
+  ABSL_CHECK_EQ(sizeof(typename MathLimits<Type>::UnsignedType), sizeof(Type));
 
-  ZETASQL_CHECK_EQ(kMax, MathLimits<Type>::kPosMax);
+  ABSL_CHECK_EQ(kMax, MathLimits<Type>::kPosMax);
 
-  ZETASQL_CHECK_GT(Type(1 + kEpsilon), Type(1));
+  ABSL_CHECK_GT(Type(1 + kEpsilon), Type(1));
   if (MathLimits<Type>::kIsSigned) {
-    ZETASQL_CHECK_LT(kMin, 0);
-    ZETASQL_CHECK_LE(-(kMin + kMax), kEpsilon);
+    ABSL_CHECK_LT(kMin, 0);
+    ABSL_CHECK_LE(-(kMin + kMax), kEpsilon);
   } else {
-    ZETASQL_CHECK_EQ(kMin, 0);
+    ABSL_CHECK_EQ(kMin, 0);
   }
 
   // Check kMax10Exp's claim:
@@ -67,16 +67,16 @@ static void TestMathLimits() {
   for (int i = 0; i < kMax10Exp; ++i) {
     pow *= 10;
   }
-  ZETASQL_LOG(INFO) << "1 * 10^kMaxExp = " << pow;
-  ZETASQL_LOG(INFO) << "kMax - 1 * 10^kMaxExp = " << kMax - pow;
-  ZETASQL_CHECK_GT(pow, kOne);
-  ZETASQL_CHECK_LE(pow, kMax);
-  ZETASQL_CHECK_GE(pow, kPosMin);
+  ABSL_LOG(INFO) << "1 * 10^kMaxExp = " << pow;
+  ABSL_LOG(INFO) << "kMax - 1 * 10^kMaxExp = " << kMax - pow;
+  ABSL_CHECK_GT(pow, kOne);
+  ABSL_CHECK_LE(pow, kMax);
+  ABSL_CHECK_GE(pow, kPosMin);
   for (int i = 0; i < kMax10Exp; ++i) {
     pow /= 10;
   }
-  ZETASQL_LOG(INFO) << "1 * 10^kMaxExp / 10^kMaxExp - 1 = " << pow - kOne;
-  ZETASQL_CHECK(MathUtil::WithinMargin(pow, kOne, MathLimits<Type>::kStdError));
+  ABSL_LOG(INFO) << "1 * 10^kMaxExp / 10^kMaxExp - 1 = " << pow - kOne;
+  ABSL_CHECK(MathUtil::WithinMargin(pow, kOne, MathLimits<Type>::kStdError));
 
   // Check kMin10Exp's claim:
 
@@ -84,20 +84,20 @@ static void TestMathLimits() {
   for (int i = 0; i < -kMin10Exp; ++i) {
     pow /= 10;
   }
-  ZETASQL_LOG(INFO) << "1 * 10^kMinExp = " << pow;
-  ZETASQL_LOG(INFO) << "1 * 10^kMaxExp - kPosMin = " << pow - kPosMin;
+  ABSL_LOG(INFO) << "1 * 10^kMinExp = " << pow;
+  ABSL_LOG(INFO) << "1 * 10^kMaxExp - kPosMin = " << pow - kPosMin;
   if (MathLimits<Type>::kIsInteger) {
-    ZETASQL_CHECK_EQ(pow, kOne);
+    ABSL_CHECK_EQ(pow, kOne);
   } else {
-    ZETASQL_CHECK_LT(pow, kOne);
+    ABSL_CHECK_LT(pow, kOne);
   }
-  ZETASQL_CHECK_LE(pow, kMax);
-  ZETASQL_CHECK_GE(pow, kPosMin);
+  ABSL_CHECK_LE(pow, kMax);
+  ABSL_CHECK_GE(pow, kPosMin);
   for (int i = 0; i < -kMin10Exp; ++i) {
     pow *= 10;
   }
-  ZETASQL_LOG(INFO) << "1 * 10^kMinExp / 10^kMinExp - 1 = " << pow - kOne;
-  ZETASQL_CHECK(MathUtil::WithinMargin(pow, kOne, MathLimits<Type>::kStdError));
+  ABSL_LOG(INFO) << "1 * 10^kMinExp / 10^kMinExp - 1 = " << pow - kOne;
+  ABSL_CHECK(MathUtil::WithinMargin(pow, kOne, MathLimits<Type>::kStdError));
 }
 
 TEST(MathLimits, IntMathLimits) {
@@ -112,13 +112,13 @@ TEST(MathLimits, IntMathLimits) {
   TestMathLimits<int64_t>();
 
   // Guaranteed size relations:
-  ZETASQL_CHECK_LE(MathLimits<uint8_t>::kMax, MathLimits<uint16_t>::kMax);
-  ZETASQL_CHECK_LE(MathLimits<uint16_t>::kMax, MathLimits<uint32_t>::kMax);
-  ZETASQL_CHECK_LE(MathLimits<uint32_t>::kMax, MathLimits<uint64_t>::kMax);
+  ABSL_CHECK_LE(MathLimits<uint8_t>::kMax, MathLimits<uint16_t>::kMax);
+  ABSL_CHECK_LE(MathLimits<uint16_t>::kMax, MathLimits<uint32_t>::kMax);
+  ABSL_CHECK_LE(MathLimits<uint32_t>::kMax, MathLimits<uint64_t>::kMax);
 
-  ZETASQL_CHECK_LE(MathLimits<int8_t>::kMax, MathLimits<int16_t>::kMax);
-  ZETASQL_CHECK_LE(MathLimits<int16_t>::kMax, MathLimits<int32_t>::kMax);
-  ZETASQL_CHECK_LE(MathLimits<int32_t>::kMax, MathLimits<int64_t>::kMax);
+  ABSL_CHECK_LE(MathLimits<int8_t>::kMax, MathLimits<int16_t>::kMax);
+  ABSL_CHECK_LE(MathLimits<int16_t>::kMax, MathLimits<int32_t>::kMax);
+  ABSL_CHECK_LE(MathLimits<int32_t>::kMax, MathLimits<int64_t>::kMax);
 }
 
 template<typename Type, typename TypeTwo, typename TypeThree>
@@ -130,109 +130,109 @@ static void TestFPMathLimits() {
   const Type kPosInf = MathLimits<Type>::kPosInf;
   const Type kNegInf = MathLimits<Type>::kNegInf;
 
-  ZETASQL_LOG(INFO) << "Size = " << sizeof(Type);
-  ZETASQL_LOG(INFO) << "kNaN = " << kNaN;
-  ZETASQL_LOG(INFO) << "kPosInf = " << kPosInf;
-  ZETASQL_LOG(INFO) << "kNegInf = " << kNegInf;
+  ABSL_LOG(INFO) << "Size = " << sizeof(Type);
+  ABSL_LOG(INFO) << "kNaN = " << kNaN;
+  ABSL_LOG(INFO) << "kPosInf = " << kPosInf;
+  ABSL_LOG(INFO) << "kNegInf = " << kNegInf;
 
   // Special value compatibility:
 
-  ZETASQL_CHECK(MathLimits<TypeTwo>::IsNaN(kNaN));
-  ZETASQL_CHECK(MathLimits<TypeTwo>::IsPosInf(kPosInf));
-  ZETASQL_CHECK(MathLimits<TypeTwo>::IsNegInf(kNegInf));
-  ZETASQL_CHECK(MathLimits<TypeThree>::IsNaN(kNaN));
-  ZETASQL_CHECK(MathLimits<TypeThree>::IsPosInf(kPosInf));
-  ZETASQL_CHECK(MathLimits<TypeThree>::IsNegInf(kNegInf));
+  ABSL_CHECK(MathLimits<TypeTwo>::IsNaN(kNaN));
+  ABSL_CHECK(MathLimits<TypeTwo>::IsPosInf(kPosInf));
+  ABSL_CHECK(MathLimits<TypeTwo>::IsNegInf(kNegInf));
+  ABSL_CHECK(MathLimits<TypeThree>::IsNaN(kNaN));
+  ABSL_CHECK(MathLimits<TypeThree>::IsPosInf(kPosInf));
+  ABSL_CHECK(MathLimits<TypeThree>::IsNegInf(kNegInf));
 
   // Special values and operations over them:
 
-  ZETASQL_CHECK(MathLimits<Type>::IsFinite(0));
-  ZETASQL_CHECK(MathLimits<Type>::IsFinite(1.1));
-  ZETASQL_CHECK(MathLimits<Type>::IsFinite(-1.1));
-  ZETASQL_CHECK(!MathLimits<Type>::IsFinite(kNaN));
-  ZETASQL_CHECK(!MathLimits<Type>::IsFinite(kPosInf));
-  ZETASQL_CHECK(!MathLimits<Type>::IsFinite(kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsFinite(0));
+  ABSL_CHECK(MathLimits<Type>::IsFinite(1.1));
+  ABSL_CHECK(MathLimits<Type>::IsFinite(-1.1));
+  ABSL_CHECK(!MathLimits<Type>::IsFinite(kNaN));
+  ABSL_CHECK(!MathLimits<Type>::IsFinite(kPosInf));
+  ABSL_CHECK(!MathLimits<Type>::IsFinite(kNegInf));
 
-  ZETASQL_CHECK(!MathLimits<Type>::IsNaN(0));
-  ZETASQL_CHECK(!MathLimits<Type>::IsNaN(1.1));
-  ZETASQL_CHECK(!MathLimits<Type>::IsNaN(-1.1));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN));
-  ZETASQL_CHECK(!MathLimits<Type>::IsNaN(kPosInf));
-  ZETASQL_CHECK(!MathLimits<Type>::IsNaN(kNegInf));
+  ABSL_CHECK(!MathLimits<Type>::IsNaN(0));
+  ABSL_CHECK(!MathLimits<Type>::IsNaN(1.1));
+  ABSL_CHECK(!MathLimits<Type>::IsNaN(-1.1));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN));
+  ABSL_CHECK(!MathLimits<Type>::IsNaN(kPosInf));
+  ABSL_CHECK(!MathLimits<Type>::IsNaN(kNegInf));
 
-  ZETASQL_CHECK(!MathLimits<Type>::IsInf(0));
-  ZETASQL_CHECK(!MathLimits<Type>::IsInf(1.1));
-  ZETASQL_CHECK(!MathLimits<Type>::IsInf(-1.1));
-  ZETASQL_CHECK(!MathLimits<Type>::IsInf(kNaN));
-  ZETASQL_CHECK(MathLimits<Type>::IsInf(kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsInf(kNegInf));
+  ABSL_CHECK(!MathLimits<Type>::IsInf(0));
+  ABSL_CHECK(!MathLimits<Type>::IsInf(1.1));
+  ABSL_CHECK(!MathLimits<Type>::IsInf(-1.1));
+  ABSL_CHECK(!MathLimits<Type>::IsInf(kNaN));
+  ABSL_CHECK(MathLimits<Type>::IsInf(kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsInf(kNegInf));
 
-  ZETASQL_CHECK(!MathLimits<Type>::IsPosInf(0));
-  ZETASQL_CHECK(!MathLimits<Type>::IsPosInf(1.1));
-  ZETASQL_CHECK(!MathLimits<Type>::IsPosInf(-1.1));
-  ZETASQL_CHECK(!MathLimits<Type>::IsPosInf(kNaN));
-  ZETASQL_CHECK(MathLimits<Type>::IsPosInf(kPosInf));
-  ZETASQL_CHECK(!MathLimits<Type>::IsPosInf(kNegInf));
+  ABSL_CHECK(!MathLimits<Type>::IsPosInf(0));
+  ABSL_CHECK(!MathLimits<Type>::IsPosInf(1.1));
+  ABSL_CHECK(!MathLimits<Type>::IsPosInf(-1.1));
+  ABSL_CHECK(!MathLimits<Type>::IsPosInf(kNaN));
+  ABSL_CHECK(MathLimits<Type>::IsPosInf(kPosInf));
+  ABSL_CHECK(!MathLimits<Type>::IsPosInf(kNegInf));
 
-  ZETASQL_CHECK(!MathLimits<Type>::IsNegInf(0));
-  ZETASQL_CHECK(!MathLimits<Type>::IsNegInf(1.1));
-  ZETASQL_CHECK(!MathLimits<Type>::IsNegInf(-1.1));
-  ZETASQL_CHECK(!MathLimits<Type>::IsNegInf(kNaN));
-  ZETASQL_CHECK(!MathLimits<Type>::IsNegInf(kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNegInf(kNegInf));
+  ABSL_CHECK(!MathLimits<Type>::IsNegInf(0));
+  ABSL_CHECK(!MathLimits<Type>::IsNegInf(1.1));
+  ABSL_CHECK(!MathLimits<Type>::IsNegInf(-1.1));
+  ABSL_CHECK(!MathLimits<Type>::IsNegInf(kNaN));
+  ABSL_CHECK(!MathLimits<Type>::IsNegInf(kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsNegInf(kNegInf));
 
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN + 1));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN + 1e30));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN + kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN + kNegInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN * 1));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN * 1e30));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN * kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN * kNegInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN / 1));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN / 1e30));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN / kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNaN / kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN + 1));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN + 1e30));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN + kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN + kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN * 1));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN * 1e30));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN * kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN * kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN / 1));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN / 1e30));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN / kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNaN / kNegInf));
 
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kPosInf + kNegInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kPosInf - kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNegInf - kNegInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kPosInf / kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kPosInf / kNegInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNaN(kNegInf / kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kPosInf + kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kPosInf - kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNegInf - kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kPosInf / kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kPosInf / kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsNaN(kNegInf / kPosInf));
 
-  ZETASQL_CHECK(MathLimits<Type>::IsPosInf(kPosInf + 1));
-  ZETASQL_CHECK(MathLimits<Type>::IsPosInf(kPosInf - 1e30));
-  ZETASQL_CHECK(MathLimits<Type>::IsPosInf(kPosInf + kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsPosInf(kPosInf * kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsPosInf(kPosInf - kNegInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsPosInf(kNegInf * kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsPosInf(kPosInf + 1));
+  ABSL_CHECK(MathLimits<Type>::IsPosInf(kPosInf - 1e30));
+  ABSL_CHECK(MathLimits<Type>::IsPosInf(kPosInf + kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsPosInf(kPosInf * kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsPosInf(kPosInf - kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsPosInf(kNegInf * kNegInf));
 
-  ZETASQL_CHECK(MathLimits<Type>::IsNegInf(kNegInf - 1));
-  ZETASQL_CHECK(MathLimits<Type>::IsNegInf(kNegInf + 1e30));
-  ZETASQL_CHECK(MathLimits<Type>::IsNegInf(kNegInf + kNegInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNegInf(kNegInf - kPosInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNegInf(kPosInf * kNegInf));
-  ZETASQL_CHECK(MathLimits<Type>::IsNegInf(kNegInf * kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsNegInf(kNegInf - 1));
+  ABSL_CHECK(MathLimits<Type>::IsNegInf(kNegInf + 1e30));
+  ABSL_CHECK(MathLimits<Type>::IsNegInf(kNegInf + kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsNegInf(kNegInf - kPosInf));
+  ABSL_CHECK(MathLimits<Type>::IsNegInf(kPosInf * kNegInf));
+  ABSL_CHECK(MathLimits<Type>::IsNegInf(kNegInf * kPosInf));
 
-  ZETASQL_CHECK_NE(kNaN, 0);
-  ZETASQL_CHECK_NE(kNaN, 1);
-  ZETASQL_CHECK_NE(kNaN, kNegInf);
-  ZETASQL_CHECK_NE(kNaN, kPosInf);
-  ZETASQL_CHECK_NE(kNaN, kNaN);
-  ZETASQL_CHECK(!(kNaN < 0));
-  ZETASQL_CHECK(!(kNaN > 0));
+  ABSL_CHECK_NE(kNaN, 0);
+  ABSL_CHECK_NE(kNaN, 1);
+  ABSL_CHECK_NE(kNaN, kNegInf);
+  ABSL_CHECK_NE(kNaN, kPosInf);
+  ABSL_CHECK_NE(kNaN, kNaN);
+  ABSL_CHECK(!(kNaN < 0));
+  ABSL_CHECK(!(kNaN > 0));
 
-  ZETASQL_CHECK_NE(kPosInf, 0);
-  ZETASQL_CHECK_NE(kPosInf, 1);
-  ZETASQL_CHECK_NE(kPosInf, kNegInf);
-  ZETASQL_CHECK(!(kPosInf < 0));
-  ZETASQL_CHECK_GT(kPosInf, 0);
+  ABSL_CHECK_NE(kPosInf, 0);
+  ABSL_CHECK_NE(kPosInf, 1);
+  ABSL_CHECK_NE(kPosInf, kNegInf);
+  ABSL_CHECK(!(kPosInf < 0));
+  ABSL_CHECK_GT(kPosInf, 0);
 
-  ZETASQL_CHECK_NE(kNegInf, 0);
-  ZETASQL_CHECK_NE(kNegInf, 1);
-  ZETASQL_CHECK_LT(kNegInf, 0);
-  ZETASQL_CHECK(!(kNegInf > 0));
+  ABSL_CHECK_NE(kNegInf, 0);
+  ABSL_CHECK_NE(kNegInf, 1);
+  ABSL_CHECK_LT(kNegInf, 0);
+  ABSL_CHECK(!(kNegInf > 0));
 }
 
 TEST(MathLimits, FPMathLimits) {

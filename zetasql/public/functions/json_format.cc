@@ -76,7 +76,7 @@ void JsonFromFloatImpl(FloatType value, std::string* output,
     output->append("\"NaN\"");
   } else {
     // !isfinite implies isnan or isinf.
-    ZETASQL_DCHECK(std::isinf(value)) << value;
+    ABSL_DCHECK(std::isinf(value)) << value;
     if (value > 0) {
       output->append("\"Infinity\"");
     } else {

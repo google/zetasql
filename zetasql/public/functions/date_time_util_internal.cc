@@ -63,8 +63,8 @@ int GetIsoWeek(absl::CivilDay day) {
   absl::CivilDay first_monday_of_iso_year = GetFirstDayOfIsoYear(day);
   absl::civil_diff_t iso_week =
       ((monday_of_week - first_monday_of_iso_year) / 7) + 1;
-  ZETASQL_CHECK_GE(iso_week, 1);
-  ZETASQL_CHECK_LE(iso_week, 53);
+  ABSL_CHECK_GE(iso_week, 1);
+  ABSL_CHECK_LE(iso_week, 53);
   return static_cast<int>(iso_week);
 }
 

@@ -73,7 +73,7 @@ class JSONPathIterator {
 
   // Precondition: End() is false.
   inline const Token& operator*() const {
-    ZETASQL_DCHECK(depth_ > 0 && depth_ <= tokens_.size());
+    ABSL_DCHECK(depth_ > 0 && depth_ <= tokens_.size());
     return tokens_[depth_ - 1];
   }
 

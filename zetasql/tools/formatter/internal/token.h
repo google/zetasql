@@ -120,12 +120,8 @@ class Token : public ParseToken {
     // Marks builtin-functions, some of which may be multipart, e.g.
     // D3A_COUNT.INIT()
     BUILTIN_FUNCTION,
-    // Marks open and closing brackets inside brace constructors.
+    // Marks open and closing brackets inside braced (map) constructors.
     BRACED_CONSTR_BRACKET,
-    // Marks the first open curly brace that starts a map constructor.
-    BRACED_CONSTR_FIRST_BRACKET,
-    // Marks the last closing curly brace that ends a map constructor.
-    BRACED_CONSTR_LAST_BRACKET,
     // Marks colons in braced constructors.
     BRACED_CONSTR_COLON,
     // Marks the beginning of a field name in braced constructor. It can be '('
@@ -304,10 +300,10 @@ enum class OperatorPrecedenceEnum {
 // See also: (broken link).
 OperatorPrecedenceEnum OperatorPrecedenceLevel(const Token& token);
 
-// Searches a next input range that includes a statement or a comment. Assumes
-// that `start` points anywhere between statements. Returns an open-ended byte
-// range [start, end), where `start` - is start of the first line containing the
-// statement and `end` - end of the last line.
+// Searches for the next input range that includes a statement or a comment.
+// Assumes that `start` points anywhere between statements. Returns an
+// open-ended byte range [start, end), where `start` - is start of the first
+// line containing the statement and `end` - end of the last line.
 FormatterRange FindNextStatementOrComment(absl::string_view input, int start);
 
 }  // namespace zetasql::formatter::internal

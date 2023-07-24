@@ -187,8 +187,8 @@ InvalidTokenType DetectTokenType(icu::StringCharacterIterator* current_char) {
 }
 
 // Checks if the current or next characters end the current token.
-// Returns the offset from the current character until the token end or -1 if
-// the token doesn't end here.
+// Returns the iterator pointing to the last character of the token (or end of
+// input).
 icu::StringCharacterIterator FindTokenEnd(icu::StringCharacterIterator it,
                                           InvalidTokenType type) {
   int state = 0;
@@ -475,6 +475,38 @@ icu::StringCharacterIterator SkipSpacesUntilEndOfLine(
       return it;
     } else if (!u_isUWhiteSpace(it.current32())) {
       return it;
+    }
+    it.next32();
+  }
+  return it;
+}
+
+// Returns iterator pointing to the first non-comment token on the current line
+// or first character after the line break - whatever comes first.
+icu::StringCharacterIterator SkipSpacesAndCommentsUntilEndOfLine(
+    icu::StringCharacterIterator it) {
+  while (it.hasNext()) {
+    if (it.current32() == '\r' || it.current32() == '\n') {
+      // Consume any of the following line breaks: '\r' '\r\n', '\n'.
+      if (it.current32() == '\r') {
+        it.next32();
+      }
+      if (it.hasNext() && it.current32() == '\n') {
+        it.next32();
+      }
+      return it;
+    } else if (!u_isUWhiteSpace(it.current32())) {
+      // `DetectTokenType` moves the iterator past the token start and we don't
+      // want that if the token is not a comment.
+      icu::StringCharacterIterator copy = it;
+      InvalidTokenType type = DetectTokenType(&copy);
+      if (type == InvalidTokenType::SINGLE_LINE_COMMENT ||
+          type == InvalidTokenType::MULTILINE_COMMENT) {
+        it = FindTokenEnd(copy, type);
+        continue;
+      } else {
+        return it;
+      }
     }
     it.next32();
   }
@@ -1818,7 +1850,7 @@ FormatterRange FindNextStatementOrComment(absl::string_view input, int start) {
                                         txt, it.startIndex(), it.getIndex())};
       } else if (it.current32() == ';') {
         it.next32();
-        it = SkipSpacesUntilEndOfLine(it);
+        it = SkipSpacesAndCommentsUntilEndOfLine(it);
         return {stmt_start, start + DistanceBetweenTwoIndexInBytes(
                                         txt, it.startIndex(), it.getIndex())};
       }

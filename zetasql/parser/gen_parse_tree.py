@@ -7905,7 +7905,7 @@ def main(argv):
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
 
   const ASTIdentifier* name() const {
-    ZETASQL_DCHECK(name_ == nullptr || name_->num_names() == 1);
+    ABSL_DCHECK(name_ == nullptr || name_->num_names() == 1);
     return name_ == nullptr ? nullptr : name_->name(0);
   }
       """)
@@ -7967,7 +7967,7 @@ def main(argv):
       ],
       extra_public_defs="""
   const ASTIdentifier* name() const {
-    ZETASQL_DCHECK(name_ == nullptr || name_->num_names() == 1);
+    ABSL_DCHECK(name_ == nullptr || name_->num_names() == 1);
     return name_ == nullptr ? nullptr : name_->name(0);
   }
 

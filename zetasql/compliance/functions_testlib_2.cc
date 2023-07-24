@@ -301,20 +301,20 @@ static std::vector<ComparisonTest> GetStructComparisonTests() {
 
   // These DCHECKs are only here to more clearly show the contents of
   // all the struct values.
-  ZETASQL_DCHECK_EQ("(\"foo\", 0)",    struct0.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"bar\", 1)",    struct1.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(NULL, 1)",       struct_with_null2.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"bar\", NULL)", struct_with_null3.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(NULL, NULL)",    struct_with_null4.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("NULL",            null_struct.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"foo\", 0)",    struct0.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"bar\", 1)",    struct1.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(NULL, 1)",       struct_with_null2.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"bar\", NULL)", struct_with_null3.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(NULL, NULL)",    struct_with_null4.GetSQLLiteral());
+  ABSL_DCHECK_EQ("NULL",            null_struct.GetSQLLiteral());
 
-  ZETASQL_DCHECK_EQ("NULL",                     null_nested_struct.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"x\", (\"bar\", 1))",    nested_struct1.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"x\", (\"bar\", 1))",    nested_struct1b.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(NULL, (\"bar\", 1))",     nested_struct_null1.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"x\", (NULL, 1))",       nested_struct_null2.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"x\", (\"bar\", NULL))", nested_struct_null3.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"x\", NULL)",            nested_struct_null4.GetSQLLiteral());
+  ABSL_DCHECK_EQ("NULL",                     null_nested_struct.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"x\", (\"bar\", 1))",    nested_struct1.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"x\", (\"bar\", 1))",    nested_struct1b.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(NULL, (\"bar\", 1))",     nested_struct_null1.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"x\", (NULL, 1))",       nested_struct_null2.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"x\", (\"bar\", NULL))", nested_struct_null3.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"x\", NULL)",            nested_struct_null4.GetSQLLiteral());
 
   std::vector<ComparisonTest> v = {
       // same non-null struct
@@ -1217,13 +1217,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsStructIn() {
   const Value null_struct = Value::Null(struct_type);
   // These DCHECKs are only here to more clearly show the contents of
   // all the struct values.
-  ZETASQL_DCHECK_EQ("(\"foo\", 0)",    struct0.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"bar\", 1)",    struct1.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"baz\", 2)",    struct2.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(NULL, 1)",       struct1_with_null1.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(\"bar\", NULL)", struct1_with_null2.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("(NULL, NULL)",    struct_with_all_nulls.GetSQLLiteral());
-  ZETASQL_DCHECK_EQ("NULL",            null_struct.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"foo\", 0)",    struct0.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"bar\", 1)",    struct1.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"baz\", 2)",    struct2.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(NULL, 1)",       struct1_with_null1.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(\"bar\", NULL)", struct1_with_null2.GetSQLLiteral());
+  ABSL_DCHECK_EQ("(NULL, NULL)",    struct_with_all_nulls.GetSQLLiteral());
+  ABSL_DCHECK_EQ("NULL",            null_struct.GetSQLLiteral());
 
   return {
     {{struct0, struct0}, True()},
@@ -1356,10 +1356,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIsNull() {
 }
 
 const Value* findArrayWithFirstNull(const Value* arr1, const Value* arr2) {
-  ZETASQL_CHECK_EQ(arr1->type(), arr2->type());
-  ZETASQL_CHECK_EQ(TYPE_ARRAY, arr1->type()->kind());
-  ZETASQL_CHECK_GT(arr1->num_elements(), 0);
-  ZETASQL_CHECK_GT(arr2->num_elements(), 0);
+  ABSL_CHECK_EQ(arr1->type(), arr2->type());
+  ABSL_CHECK_EQ(TYPE_ARRAY, arr1->type()->kind());
+  ABSL_CHECK_GT(arr1->num_elements(), 0);
+  ABSL_CHECK_GT(arr2->num_elements(), 0);
 
   for (int i = 0; i < std::min(arr1->num_elements(), arr2->num_elements());
        i++) {
@@ -1371,7 +1371,7 @@ const Value* findArrayWithFirstNull(const Value* arr1, const Value* arr2) {
     }
   }
 
-  ZETASQL_CHECK(false) << "Expected at least 1 null value in the input arrays";
+  ABSL_CHECK(false) << "Expected at least 1 null value in the input arrays";
   return nullptr;
 }
 
@@ -1699,7 +1699,7 @@ static const std::vector<QueryParamsWithResult> GetArraySliceTestCases(
     bool is_safe) {
   std::vector<QueryParamsWithResult> test_cases;
   std::vector<TypeFeaturePair> pairs = GetArrayTypesWithFeatures();
-  ZETASQL_DCHECK_GT(pairs.size(), 0);
+  ABSL_DCHECK_GT(pairs.size(), 0);
   for (const TypeFeaturePair& v : pairs) {
     QueryParamsWithResult::FeatureSet feature_set;
     if (is_safe) {
@@ -2370,11 +2370,11 @@ static const std::vector<QueryParamsWithResult> GetArrayMinMaxTestCases(
     bool is_safe, bool is_min) {
   std::vector<QueryParamsWithResult> test_cases;
   std::vector<TypeFeaturePair> pairs = GetOrderableTypesWithFeaturesAndValues();
-  ZETASQL_DCHECK_GT(pairs.size(), 0);
+  ABSL_DCHECK_GT(pairs.size(), 0);
   for (const TypeFeaturePair& v : pairs) {
     // Setup array values with different example input combinations, which are
     // used as input of the test cases.
-    ZETASQL_DCHECK(v.example_input_4.is_valid());
+    ABSL_DCHECK(v.example_input_4.is_valid());
     const ArrayType* array_type = MakeArrayType(v.type, type_factory());
     Value null = Null(v.type);
     Value input1234 =
@@ -2968,7 +2968,7 @@ static const std::vector<QueryParamsWithResult> GetArrayAvgTestCases(
         output_max = Value::Double(v.max_input.ToDouble());
         break;
       default:
-        ZETASQL_CHECK(false)
+        ABSL_CHECK(false)
             << "ARRAY_AVG only supports INT32, INT64, UINT32, UINT64, FLOAT, "
                "DOUBLE, NUMERIC, BIGNUMERIC or INTERVAL array element type";
         break;
@@ -3217,7 +3217,7 @@ GetArrayFindFunctionsTestCases() {
 
   std::vector<ArrayFindFunctionsTestCase> test_cases;
   std::vector<TypeFeaturePair> pairs = GetOrderableTypesWithFeaturesAndValues();
-  ZETASQL_DCHECK_GT(pairs.size(), 0);
+  ABSL_DCHECK_GT(pairs.size(), 0);
   for (const TypeFeaturePair& v : pairs) {
     const ArrayType* array_type = MakeArrayType(v.type, type_factory());
     Value null_element = Null(v.type);

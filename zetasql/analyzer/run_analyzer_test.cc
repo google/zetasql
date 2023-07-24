@@ -787,7 +787,7 @@ class AnalyzerTestRunner {
         case_options.set_show_function_signature_mismatch_details(true);
         detailed_sig_mismatch_status = AnalyzeStatement(
             test_case, case_options, catalog, type_factory, &output);
-        ZETASQL_CHECK(!detailed_sig_mismatch_status.ok())
+        ABSL_CHECK(!detailed_sig_mismatch_status.ok())
             << "Expecting 'No matching signature' error";
       }
 
@@ -871,7 +871,7 @@ class AnalyzerTestRunner {
             true);
         detailed_sig_mismatch_status = AnalyzeExpression(
             test_case, case_analyzer_options, catalog, type_factory, &output);
-        ZETASQL_CHECK(!detailed_sig_mismatch_status.ok())
+        ABSL_CHECK(!detailed_sig_mismatch_status.ok())
             << "Expecting 'No matching signature' error";
       }
     } else if (mode == "type") {
@@ -2005,7 +2005,7 @@ class AnalyzerTestRunner {
                    unparsed_create_stmt->from_files_option_list());
       }
       default:
-        ZETASQL_LOG(ERROR) << "Statement type " << unparsed_stmt->node_kind_string()
+        ABSL_LOG(ERROR) << "Statement type " << unparsed_stmt->node_kind_string()
                    << " not supported";
         return false;
     }
@@ -2210,7 +2210,7 @@ class AnalyzerTestRunner {
         return true;
 
       default:
-        ZETASQL_LOG(ERROR) << "Statement type " << unparsed_stmt->node_kind_string()
+        ABSL_LOG(ERROR) << "Statement type " << unparsed_stmt->node_kind_string()
                    << " not supported";
         return false;
     }
@@ -2639,7 +2639,7 @@ class AnalyzerTestRunner {
                      const AnalyzerOptions& orig_options, Catalog* catalog,
                      bool is_statement, const AnalyzerOutput* analyzer_output,
                      std::string* result_string) {
-    ZETASQL_CHECK(analyzer_output != nullptr);
+    ABSL_CHECK(analyzer_output != nullptr);
     result_string->clear();
 
     AnalyzerOptions options = orig_options;
@@ -2678,7 +2678,7 @@ class AnalyzerTestRunner {
     } else {
       ast = analyzer_output->resolved_expr();
     }
-    ZETASQL_CHECK(ast != nullptr)
+    ABSL_CHECK(ast != nullptr)
         << "ResolvedAST passed to SQLBuilder should be either a "
         "ResolvedStatement or a ResolvedExpr";
 
@@ -2839,7 +2839,7 @@ bool RunAllTests(TestDumperCallback callback) {
     aggregate_info.AccumulateAll(info);
   }
 
-  ZETASQL_LOG(INFO) << "Aggregate Runtime Info:\n"
+  ABSL_LOG(INFO) << "Aggregate Runtime Info:\n"
             << aggregate_info.DebugString(runner.runtime_info_list().size());
 
   return result;

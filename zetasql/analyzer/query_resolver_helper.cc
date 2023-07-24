@@ -216,7 +216,7 @@ void SelectColumnStateList::AddSelectColumn(
 
 void SelectColumnStateList::AddSelectColumn(
     std::unique_ptr<SelectColumnState> select_column_state) {
-  ZETASQL_DCHECK_EQ(select_column_state->select_list_position, -1);
+  ABSL_DCHECK_EQ(select_column_state->select_list_position, -1);
   select_column_state->select_list_position =
       static_cast<int>(select_column_state_list_.size());
   // Save a mapping from the alias to this SelectColumnState. The mapping is
@@ -307,15 +307,15 @@ absl::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
 
 SelectColumnState* SelectColumnStateList::GetSelectColumnState(
     int select_list_position) {
-  ZETASQL_CHECK_GE(select_list_position, 0);
-  ZETASQL_CHECK_LT(select_list_position, select_column_state_list_.size());
+  ABSL_CHECK_GE(select_list_position, 0);
+  ABSL_CHECK_LT(select_list_position, select_column_state_list_.size());
   return select_column_state_list_[select_list_position].get();
 }
 
 const SelectColumnState* SelectColumnStateList::GetSelectColumnState(
     int select_list_position) const {
-  ZETASQL_CHECK_GE(select_list_position, 0);
-  ZETASQL_CHECK_LT(select_list_position, select_column_state_list_.size());
+  ABSL_CHECK_GE(select_list_position, 0);
+  ABSL_CHECK_LT(select_list_position, select_column_state_list_.size());
   return select_column_state_list_[select_list_position].get();
 }
 

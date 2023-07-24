@@ -181,7 +181,7 @@ std::map<absl::string_view, TypeInfo>* BuildSimpleTypeInfoMap() {
     const TypeNameInfo& type_name_info = item.second;
     TypeKind type_kind = type_name_info.type_kind;
     auto itr = type_kind_info_map.find(type_kind);
-    ZETASQL_CHECK(itr != type_kind_info_map.end())
+    ABSL_CHECK(itr != type_kind_info_map.end())
         << TypeKind_Name(type_kind) << " not found in SimpleTypeKindInfoMap()";
     const TypeKindInfo& type_kind_info = itr->second;
     result->emplace(
@@ -251,7 +251,7 @@ bool ReferencedValueLess(const ValueContent& x, const ValueContent& y) {
 
 SimpleType::SimpleType(const TypeFactory* factory, TypeKind kind)
     : Type(factory, kind) {
-  ZETASQL_CHECK(IsSimpleType(kind)) << kind;
+  ABSL_CHECK(IsSimpleType(kind)) << kind;
 }
 
 SimpleType::~SimpleType() {
@@ -534,7 +534,7 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
     case TYPE_JSON:
       return absl::HashState::combine(std::move(state), GetJsonString(value));
     default:
-      ZETASQL_LOG(DFATAL) << "Unexpected type kind: " << kind();
+      ABSL_LOG(ERROR) << "Unexpected type kind: " << kind();
       return state;
   }
 }
@@ -596,7 +596,7 @@ bool SimpleType::ValueContentEquals(
       return GetJsonString(x) == GetJsonString(y);
     }
     default:
-      ZETASQL_LOG(FATAL) << "Unexpected simple type kind: " << kind();
+      ABSL_LOG(FATAL) << "Unexpected simple type kind: " << kind();
   }
 }
 
@@ -656,7 +656,7 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
     case TYPE_BIGNUMERIC:
       return ReferencedValueLess<internal::BigNumericRef>(x, y);
     default:
-      ZETASQL_LOG(DFATAL) << "Cannot compare " << DebugString() << " to "
+      ABSL_LOG(ERROR) << "Cannot compare " << DebugString() << " to "
                   << DebugString();
       return false;
   }
@@ -794,7 +794,7 @@ std::string SimpleType::FormatValueContent(
                  : s;
     }
     default:
-      ZETASQL_LOG(DFATAL) << "Unexpected type kind: " << kind();
+      ABSL_LOG(ERROR) << "Unexpected type kind: " << kind();
       return "<Invalid simple type's value>";
   }
 }

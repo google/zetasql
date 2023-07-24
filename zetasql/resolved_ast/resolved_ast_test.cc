@@ -77,7 +77,7 @@ static std::unique_ptr<const ResolvedJoinScan> MakeJoin(
       MakeResolvedTableScan({} /* column_list */, t1, nullptr /* systime */),
       MakeResolvedTableScan({} /* column_list */, t2, nullptr /* systime */),
       nullptr /* join_condition */);
-  ZETASQL_LOG(INFO) << "Made " << node->DebugString();
+  ABSL_LOG(INFO) << "Made " << node->DebugString();
   return node;
 }
 
@@ -108,7 +108,7 @@ TEST_F(ResolvedASTTest, Misc) {
       MakeNodeVector(MakeResolvedComputedColumn(
           select_column, MakeIntLiteral(4))) /* expr_list */,
       MakeJoin() /* input_scan */);
-  ZETASQL_LOG(INFO) << project->DebugString();
+  ABSL_LOG(INFO) << project->DebugString();
   EXPECT_EQ(RESOLVED_PROJECT_SCAN, project->node_kind());
   EXPECT_EQ(1, project->expr_list_size());
   EXPECT_EQ(select_column, project->expr_list(0)->column());
@@ -125,7 +125,7 @@ TEST_F(ResolvedASTTest, Misc) {
   project->set_input_scan(std::move(new_scan));
   project->add_expr_list(
       MakeResolvedComputedColumn(MakeColumn(), MakeIntLiteral(-1234)));
-  ZETASQL_LOG(INFO) << project->DebugString();
+  ABSL_LOG(INFO) << project->DebugString();
 
   EXPECT_EQ("ProjectScan", project->node_kind_string());
   EXPECT_EQ("ProjectScan", ResolvedNodeKindToString(RESOLVED_PROJECT_SCAN));
@@ -892,7 +892,7 @@ TEST_F(ResolvedASTTest, GetDescendantsWithKinds) {
       MakeNodeVector(MakeResolvedSetOperationItem(std::move(join1)),
                      MakeResolvedSetOperationItem(std::move(s4_uptr))));
 
-  ZETASQL_LOG(INFO) << "Built tree:\n" << u1->DebugString();
+  ABSL_LOG(INFO) << "Built tree:\n" << u1->DebugString();
 
   std::vector<const ResolvedNode*> found_nodes;
 
@@ -967,7 +967,7 @@ TEST_F(ResolvedASTTest, GetDescendantsSatisfying) {
                             false /* is_value_table */, std::move(p1_uptr));
   const ResolvedQueryStmt* q1 = q1_uptr.get();
 
-  ZETASQL_LOG(INFO) << "Built tree:\n" << q1->DebugString();
+  ABSL_LOG(INFO) << "Built tree:\n" << q1->DebugString();
 
   std::vector<const ResolvedNode*> found_nodes;
 

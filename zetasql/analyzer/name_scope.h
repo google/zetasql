@@ -181,7 +181,6 @@ class NamedColumn {
   const IdStringSetCase& excluded_field_names() const {
     return excluded_field_names_;
   }
-  IdStringSetCase& excluded_Field_names() { return excluded_field_names_; }
 
  private:
   IdString name_;
@@ -319,7 +318,7 @@ class NameTarget {
   Kind kind() const { return kind_; }
 
   Kind original_kind() const {
-    ZETASQL_DCHECK(IsAccessError());
+    ABSL_DCHECK(IsAccessError());
     return original_kind_;
   }
 
@@ -366,19 +365,19 @@ class NameTarget {
   }
 
   const std::shared_ptr<const NameList>& scan_columns() const {
-    ZETASQL_DCHECK_EQ(kind_, RANGE_VARIABLE);
+    ABSL_DCHECK_EQ(kind_, RANGE_VARIABLE);
     return scan_columns_;
   }
   const ResolvedColumn& column() const {
-    ZETASQL_DCHECK(IsColumn()) << DebugString();
+    ABSL_DCHECK(IsColumn()) << DebugString();
     return column_;
   }
   const ResolvedColumn& column_containing_field() const {
-    ZETASQL_DCHECK(IsFieldOf()) << DebugString();
+    ABSL_DCHECK(IsFieldOf()) << DebugString();
     return column_;
   }
   int field_id() const {
-    ZETASQL_DCHECK(IsFieldOf()) << DebugString();
+    ABSL_DCHECK(IsFieldOf()) << DebugString();
     return field_id_;
   }
 
@@ -399,8 +398,8 @@ class NameTarget {
   // must not be AMBIGUOUS since if the original NameTarget was
   // AMBIGUOUS then accessing fields from it cannot be valid.
   void AppendValidNamePathList(const ValidNamePathList& info_list) {
-    ZETASQL_DCHECK(IsAccessError()) << DebugString();
-    ZETASQL_DCHECK(!IsAmbiguousKind(original_kind_)) << DebugString();
+    ABSL_DCHECK(IsAccessError()) << DebugString();
+    ABSL_DCHECK(!IsAmbiguousKind(original_kind_)) << DebugString();
     valid_name_path_list_.insert(valid_name_path_list_.end(),
                                  info_list.begin(), info_list.end());
   }

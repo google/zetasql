@@ -41,7 +41,7 @@ absl::Status MultiCatalog::Create(
 }
 
 void MultiCatalog::AppendCatalog(Catalog* catalog) {
-  ZETASQL_CHECK(catalog != nullptr);
+  ABSL_CHECK(catalog != nullptr);
   catalog_list_.push_back(catalog);
 }
 

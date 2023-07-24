@@ -177,7 +177,7 @@ static bool IsWordChar(char c) {
 
 // Return true if <column> (0-based) in <str> starts a word.
 static bool IsWordStart(const std::string& str, int column) {
-  ZETASQL_DCHECK_LT(column, str.size());
+  ABSL_DCHECK_LT(column, str.size());
   if (column == 0 || column >= str.size()) return true;
   return !IsWordChar(str[column - 1]) && IsWordChar(str[column]);
 }
@@ -196,8 +196,8 @@ static void GetTruncatedInputStringInfo(absl::string_view input,
   // We need some minimum width.
   const int max_width = std::max(max_width_in, kMinimumMaxWidth);
 
-  ZETASQL_DCHECK_GT(location.line(), 0);
-  ZETASQL_DCHECK_GT(location.column(), 0);
+  ABSL_DCHECK_GT(location.line(), 0);
+  ABSL_DCHECK_GT(location.column(), 0);
 
   ParseLocationTranslator translator(input);
   absl::StatusOr<absl::string_view> line_text =
@@ -207,7 +207,7 @@ static void GetTruncatedInputStringInfo(absl::string_view input,
   *truncated_input = translator.ExpandTabs(line_text.value_or(""));
 
   // location.column() may be one off the end of the line for EOF errors.
-  ZETASQL_DCHECK_LE(location.column(), truncated_input->size() + 1);
+  ABSL_DCHECK_LE(location.column(), truncated_input->size() + 1);
   // error_column is 0-based.
   *error_column =
       std::max(1, std::min(static_cast<int>(truncated_input->size() + 1),
@@ -245,7 +245,7 @@ static void GetTruncatedInputStringInfo(absl::string_view input,
       }
     }
     *truncated_input = PrettyTruncateUTF8(*truncated_input, max_width);
-    ZETASQL_DCHECK_LE(*error_column, truncated_input->size());
+    ABSL_DCHECK_LE(*error_column, truncated_input->size());
   }
 }
 

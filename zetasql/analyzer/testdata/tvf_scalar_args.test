@@ -2744,7 +2744,7 @@ select column_bool from tvf_exactly_one_arg_type_any_1(1, 2, 3)
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_type_any_1
   Argument types: INT64, INT64, INT64
-  Signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_1(ANY)
+  Signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_1(T1)
     Signature accepts at most 1 argument, found 3 arguments [at 1:25]
 select column_bool from tvf_exactly_one_arg_type_any_1(1, 2, 3)
                         ^
@@ -2760,7 +2760,7 @@ select column_bool from tvf_exactly_one_arg_type_any_2(1, 2, 3)
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_type_any_2
   Argument types: INT64, INT64, INT64
-  Signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_2(ANY)
+  Signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_2(T2)
     Signature accepts at most 1 argument, found 3 arguments [at 1:25]
 select column_bool from tvf_exactly_one_arg_type_any_2(1, 2, 3)
                         ^
@@ -2776,7 +2776,7 @@ select column_bool from tvf_exactly_one_arg_array_type_any_1([1, 2, 3], [4, 5...
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_1
   Argument types: ARRAY<INT64>, ARRAY<INT64>
-  Signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_1(ARRAY)
+  Signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_1(ARRAY<T1>)
     Signature accepts at most 1 argument, found 2 arguments [at 1:25]
 select column_bool from tvf_exactly_one_arg_array_type_any_1([1, 2, 3], [4, 5...
                         ^
@@ -2792,7 +2792,7 @@ select column_bool from tvf_exactly_one_arg_array_type_any_2([1, 2, 3], [4, 5...
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_2
   Argument types: ARRAY<INT64>, ARRAY<INT64>
-  Signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_2(ARRAY)
+  Signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_2(ARRAY<T2>)
     Signature accepts at most 1 argument, found 2 arguments [at 1:25]
 select column_bool from tvf_exactly_one_arg_array_type_any_2([1, 2, 3], [4, 5...
                         ^
@@ -2888,7 +2888,7 @@ select column_bool from tvf_repeating_any_one_type_args(1, "a")
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_repeating_any_one_type_args
   Argument types: INT64, STRING
-  Signature: TVF_REPEATING_ANY_ONE_TYPE_ARGS([ANY, ...])
+  Signature: TVF_REPEATING_ANY_ONE_TYPE_ARGS([T1, ...])
     Unable to find common supertype for templated argument <T1> [at 1:25]
 select column_bool from tvf_repeating_any_one_type_args(1, "a")
                         ^

@@ -47,7 +47,7 @@ std::string UnparseEnumOptionsSet(
   }
 
   // No exact match, just pick none, and add
-  ZETASQL_CHECK(base_factory.contains("NONE"));
+  ABSL_CHECK(base_factory.contains("NONE"));
   const google::protobuf::EnumDescriptor* enum_descriptor =
       google::protobuf::GetEnumDescriptor<EnumT>();
 
@@ -55,7 +55,7 @@ std::string UnparseEnumOptionsSet(
   for (EnumT option : options) {
     const google::protobuf::EnumValueDescriptor* enum_value_descriptor =
         enum_descriptor->FindValueByNumber(option);
-    ZETASQL_CHECK(enum_value_descriptor);
+    ABSL_CHECK(enum_value_descriptor);
     absl::string_view name = enum_value_descriptor->name();
     absl::ConsumePrefix(&name, strip_prefix);
     absl::StrAppend(&output, ",+", name);

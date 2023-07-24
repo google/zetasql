@@ -27,6 +27,7 @@
 #include "zetasql/reference_impl/function.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
+#include "zetasql/base/source_location.h"
 #include "absl/types/span.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_macros.h"
@@ -322,7 +323,8 @@ absl::StatusOr<std::vector<Value>> GenerateRangeArrayFunction::EvalForElement(
         bytes_so_far += range.physical_byte_size();
         if (bytes_so_far > context->options().max_value_byte_size) {
           return MakeMaxArrayValueByteSizeExceededError(
-              context->options().max_value_byte_size, ZETASQL_LOC);
+              context->options().max_value_byte_size,
+              zetasql_base::SourceLocation::current());
         }
         result.push_back(range);
         return absl::OkStatus();
@@ -333,14 +335,14 @@ absl::StatusOr<std::vector<Value>> GenerateRangeArrayFunction::EvalForElement(
 absl::StatusOr<Value> GenerateRangeArrayFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_DCHECK_GE(args.size(), 2);
-  ZETASQL_DCHECK_LE(args.size(), 3);
+  ABSL_DCHECK_GE(args.size(), 2);
+  ABSL_DCHECK_LE(args.size(), 3);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
 
   ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
-  ZETASQL_DCHECK(args[0].type()->IsRangeType());
+  ABSL_DCHECK(args[0].type()->IsRangeType());
 
   std::vector<Value> result;
   switch (args[0].type()->AsRange()->element_type()->kind()) {

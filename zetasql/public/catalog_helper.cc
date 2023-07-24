@@ -80,8 +80,8 @@ typename NameListT::value_type ClosestNameImpl(
     return {};
   }
 
-  ZETASQL_DCHECK_GE(closest_name_index, 0);
-  ZETASQL_DCHECK_LT(closest_name_index, possible_names.size());
+  ABSL_DCHECK_GE(closest_name_index, 0);
+  ABSL_DCHECK_LT(closest_name_index, possible_names.size());
   return possible_names[closest_name_index];
 }
 

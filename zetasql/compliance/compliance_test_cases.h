@@ -351,7 +351,7 @@ constexpr size_t ShardedTest<NumShards, BaseT>::kMaxQueriesPerShard;
   TEST_P(ShardedTest_##test_name, test_name) {                    \
     set_test_name(#test_name);                                    \
     uint32_t index;                                               \
-    ZETASQL_CHECK(absl::SimpleAtoi(GetParam(), &index));                  \
+    ABSL_CHECK(absl::SimpleAtoi(GetParam(), &index));                  \
     set_index(index);                                             \
     RunTest();                                                    \
   }                                                               \

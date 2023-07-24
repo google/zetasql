@@ -53,7 +53,7 @@ class ScopedMockLogVerifier {
 IPAddress MakeScopedIP(const IPAddress& addr, uint32_t scope_id) {
   if (scope_id == 0) return addr;
 
-  ZETASQL_CHECK_EQ(AF_INET6, addr.address_family());
+  ABSL_CHECK_EQ(AF_INET6, addr.address_family());
   return MakeIPAddressWithScopeId(addr.ipv6_address(), scope_id).value();
 }
 
@@ -92,7 +92,7 @@ TEST(IPAddressTest, ToAndFromString4) {
   const std::string kIPString = "1.2.3.4";
   const std::string kBogusIPString = "1.2.3.256";
   in_addr addr4;
-  ZETASQL_CHECK_GT(inet_pton(AF_INET, kIPString.c_str(), &addr4), 0);
+  ABSL_CHECK_GT(inet_pton(AF_INET, kIPString.c_str(), &addr4), 0);
 
   IPAddress addr;
   EXPECT_FALSE(StringToIPAddress(kBogusIPString, nullptr));
@@ -172,7 +172,7 @@ TEST(IPAddressTest, ToAndFromString6) {
   const std::string kBogusIPString2 = "2001:db8::g";
 
   in6_addr addr6;
-  ZETASQL_CHECK_GT(inet_pton(AF_INET6, kIPString.c_str(), &addr6), 0);
+  ABSL_CHECK_GT(inet_pton(AF_INET6, kIPString.c_str(), &addr6), 0);
 
   IPAddress addr;
   EXPECT_FALSE(StringToIPAddress(kBogusIPString, nullptr));
@@ -207,7 +207,7 @@ TEST(IPAddressTest, ToAndFromString6WithOptionalScope) {
       "2001:db8:300:1800:1:2:3:4:5%ifacename", "2001:db8::g%ifacename"};
 
   in6_addr addr6;
-  ZETASQL_CHECK_GT(inet_pton(AF_INET6, kIPString, &addr6), 0);
+  ABSL_CHECK_GT(inet_pton(AF_INET6, kIPString, &addr6), 0);
 
   for (const auto& bogus_ip_string : kBogusIPStrings) {
     // This sets the environment for an error-handling bug which would only
@@ -556,14 +556,10 @@ TEST(IPAddressDeathTest, IPAddressLength) {
   IPAddress ip;
   int bitlength = 0;
 
-  if (ZETASQL_DEBUG_MODE) {
-    EXPECT_DEBUG_DEATH(bitlength = IPAddressLength(ip), "");
-  } else {
-    ScopedMockLogVerifier log(
-        "IPAddressLength() of object with invalid address family");
-    bitlength = IPAddressLength(ip);
-    EXPECT_EQ(-1, bitlength);
-  }
+  ScopedMockLogVerifier log(
+      "IPAddressLength() of object with invalid address family");
+  bitlength = IPAddressLength(ip);
+  EXPECT_EQ(-1, bitlength);
 }
 
 TEST(IPAddressTest, IPAddressToUInt128) {
@@ -574,14 +570,14 @@ TEST(IPAddressTest, IPAddressToUInt128) {
 }
 
 // Various death tests for IPAddress emergency behavior in production that
-// should simply result in ZETASQL_CHECK failures in debug mode.
+// should simply result in ABSL_CHECK failures in debug mode.
 
 TEST(IPAddressDeathTest, EmergencyCoercion) {
   const std::string kIPv6Address = "2001:700:300:1803::1";
   IPAddress addr;
   in_addr addr4;
 
-  ZETASQL_CHECK(StringToIPAddress(kIPv6Address, &addr));
+  ABSL_CHECK(StringToIPAddress(kIPv6Address, &addr));
 
   if (ZETASQL_DEBUG_MODE) {
     EXPECT_DEBUG_DEATH(addr4 = addr.ipv4_address(), "Check failed");
@@ -596,7 +592,7 @@ TEST(IPAddressDeathTest, EmergencyCompatibility) {
   IPAddress addr;
   in6_addr addr6;
 
-  ZETASQL_CHECK(StringToIPAddress(kIPv4Address, &addr));
+  ABSL_CHECK(StringToIPAddress(kIPv4Address, &addr));
 
   if (ZETASQL_DEBUG_MODE) {
     EXPECT_DEBUG_DEATH(addr6 = addr.ipv6_address(), "Check failed");
@@ -607,25 +603,8 @@ TEST(IPAddressDeathTest, EmergencyCompatibility) {
   }
 }
 
-TEST(IPAddressDeathTest, EmergencyEmptyString) {
-  IPAddress empty;
-
-  if (ZETASQL_DEBUG_MODE) {
-    EXPECT_DEBUG_DEATH(empty.ToString(), "empty IPAddress");
-  } else {
-    ScopedMockLogVerifier log("empty IPAddress");
-    EXPECT_EQ("", empty.ToString());
-  }
-}
-
 // Invalid conversion in *OrDie() functions.
 TEST(IPAddressDeathTest, InvalidStringConversion) {
-  // Invalid conversion.
-  EXPECT_DEATH(StringToIPAddressOrDie("foo"), "Invalid IP foo");
-  EXPECT_DEATH(StringToIPAddressOrDie("172.1.1.300"), "Invalid IP");
-  EXPECT_DEATH(StringToIPAddressOrDie("::g"), "Invalid IP");
-  EXPECT_DEATH(StringToIPAddressOrDie(absl::string_view("::g")), "Invalid IP");
-
   // Valid conversion.
   EXPECT_EQ(StringToIPAddressOrDie("1.2.3.4").ToString(), "1.2.3.4");
   EXPECT_EQ(StringToIPAddressOrDie("1.2.3.4").ToString(), "1.2.3.4");
@@ -1162,29 +1141,6 @@ TEST(IPRangeTest, UnsafeConstruct) {
   IPRange::UnsafeConstruct(IPAddress(), -1);
   IPRange::UnsafeConstruct(StringToIPAddressOrDie("192.0.2.0"), 24);
   IPRange::UnsafeConstruct(StringToIPAddressOrDie("2001:db8::"), 32);
-
-  // Invalid inputs fail only in debug mode.
-  EXPECT_DEBUG_DEATH(
-      IPRange::UnsafeConstruct(IPAddress(), -2),
-      "Length is inconsistent with address family");
-  EXPECT_DEBUG_DEATH(
-      IPRange::UnsafeConstruct(StringToIPAddressOrDie("192.0.2.1"), 33),
-      "Length is inconsistent with address family");
-  EXPECT_DEBUG_DEATH(
-      IPRange::UnsafeConstruct(StringToIPAddressOrDie("2001:db8::1"), 129),
-      "Length is inconsistent with address family");
-  EXPECT_DEBUG_DEATH(
-      IPRange::UnsafeConstruct(StringToIPAddressOrDie("192.0.2.1"), 24),
-      "Host has bits set beyond the prefix length");
-  EXPECT_DEBUG_DEATH(
-      IPRange::UnsafeConstruct(StringToIPAddressOrDie("2001:db8::1"), 32),
-      "Host has bits set beyond the prefix length");
-  EXPECT_DEBUG_DEATH(
-      IPRange::UnsafeConstruct(StringToIPAddressOrDie("192.0.2.0"), -1),
-      "Invalid truncation");
-  EXPECT_DEBUG_DEATH(
-      IPRange::UnsafeConstruct(StringToIPAddressOrDie("2001:db8::"), -1),
-      "Invalid truncation");
 }
 
 TEST(IPRangeTest, LoggingUninitialized) {

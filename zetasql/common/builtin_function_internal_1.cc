@@ -126,23 +126,23 @@ std::string InfixFunctionSQL(const std::string& display_name,
 }
 std::string PreUnaryFunctionSQL(const std::string& display_name,
                                 const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 1);
+  ABSL_DCHECK_EQ(inputs.size(), 1);
   return absl::StrCat(display_name, "(", inputs[0], ")");
 }
 std::string PostUnaryFunctionSQL(const std::string& display_name,
                                  const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 1);
+  ABSL_DCHECK_EQ(inputs.size(), 1);
   return absl::StrCat("(", inputs[0], ")", display_name);
 }
 std::string DateAddOrSubFunctionSQL(const std::string& display_name,
                                     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 3);
+  ABSL_DCHECK_EQ(inputs.size(), 3);
   return absl::StrCat(display_name, "(", inputs[0], ", INTERVAL ", inputs[1],
                       " ", inputs[2], ")");
 }
 
 std::string CountStarFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_LE(inputs.size(), 1);
+  ABSL_DCHECK_LE(inputs.size(), 1);
 
   if (inputs.size() == 1) {
     return absl::StrCat("COUNT(* ", inputs[0], ")");
@@ -152,7 +152,7 @@ std::string CountStarFunctionSQL(const std::vector<std::string>& inputs) {
 }
 
 std::string AnonCountStarFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.empty() || inputs.size() == 2);
+  ABSL_DCHECK(inputs.empty() || inputs.size() == 2);
   return absl::StrCat(
       "ANON_COUNT(*",
       inputs.size() == 2
@@ -187,7 +187,7 @@ std::string SupportedSignaturesForAnonQuantilesWithReportFunction(
 
 std::string AnonSumWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_SUM(", inputs[0],
       inputs.size() == 3
@@ -198,7 +198,7 @@ std::string AnonSumWithReportJsonFunctionSQL(
 
 std::string AnonSumWithReportProtoFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_SUM(", inputs[0],
       inputs.size() == 3
@@ -209,7 +209,7 @@ std::string AnonSumWithReportProtoFunctionSQL(
 
 std::string AnonAvgWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_AVG(", inputs[0],
       inputs.size() == 3
@@ -220,7 +220,7 @@ std::string AnonAvgWithReportJsonFunctionSQL(
 
 std::string AnonAvgWithReportProtoFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_AVG(", inputs[0],
       inputs.size() == 3
@@ -231,7 +231,7 @@ std::string AnonAvgWithReportProtoFunctionSQL(
 
 std::string AnonCountWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_COUNT(", inputs[0],
       inputs.size() == 3
@@ -242,7 +242,7 @@ std::string AnonCountWithReportJsonFunctionSQL(
 
 std::string AnonCountWithReportProtoFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_COUNT(", inputs[0],
       inputs.size() == 3
@@ -253,7 +253,7 @@ std::string AnonCountWithReportProtoFunctionSQL(
 
 std::string AnonCountStarWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.empty() || inputs.size() == 2);
+  ABSL_DCHECK(inputs.empty() || inputs.size() == 2);
   return absl::StrCat(
       "ANON_COUNT(*",
       inputs.size() == 2
@@ -264,7 +264,7 @@ std::string AnonCountStarWithReportJsonFunctionSQL(
 
 std::string AnonCountStarWithReportProtoFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.empty() || inputs.size() == 2);
+  ABSL_DCHECK(inputs.empty() || inputs.size() == 2);
   return absl::StrCat(
       "ANON_COUNT(*",
       inputs.size() == 2
@@ -277,7 +277,7 @@ std::string AnonQuantilesWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs) {
   // TODO: Once CLAMPED BETWEEN arguments are no longer required,
   // this function should also support only 2 args.
-  ZETASQL_DCHECK_EQ(inputs.size(), 4);
+  ABSL_DCHECK_EQ(inputs.size(), 4);
   return absl::StrCat("ANON_QUANTILES(", inputs[0], ", ", inputs[1],
                       " CLAMPED BETWEEN ", inputs[2], " AND ", inputs[3],
                       " WITH REPORT(FORMAT=JSON))");
@@ -287,38 +287,38 @@ std::string AnonQuantilesWithReportProtoFunctionSQL(
     const std::vector<std::string>& inputs) {
   // TODO: Once CLAMPED BETWEEN arguments are no longer required,
   // this function should also support only 2 args.
-  ZETASQL_DCHECK_EQ(inputs.size(), 4);
+  ABSL_DCHECK_EQ(inputs.size(), 4);
   return absl::StrCat("ANON_QUANTILES(", inputs[0], ", ", inputs[1],
                       " CLAMPED BETWEEN ", inputs[2], " AND ", inputs[3],
                       " WITH REPORT(FORMAT=PROTO))");
 }
 
 std::string BetweenFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 3);
+  ABSL_DCHECK_EQ(inputs.size(), 3);
   return absl::StrCat("(", inputs[0], ") BETWEEN (", inputs[1], ") AND (",
                       inputs[2], ")");
 }
 std::string InListFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_GT(inputs.size(), 1);
+  ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> in_list(inputs.begin() + 1, inputs.end());
   return absl::StrCat("(", inputs[0], ") IN (", absl::StrJoin(in_list, ", "),
                       ")");
 }
 std::string LikeAnyFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_GT(inputs.size(), 1);
+  ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
   return absl::StrCat(inputs[0], " LIKE ANY (", absl::StrJoin(like_list, ", "),
                       ")");
 }
 std::string LikeAllFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_GT(inputs.size(), 1);
+  ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
   return absl::StrCat(inputs[0], " LIKE ALL (", absl::StrJoin(like_list, ", "),
                       ")");
 }
 std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_GE(inputs.size(), 2);
-  ZETASQL_DCHECK_EQ((inputs.size() - 2) % 2, 0);
+  ABSL_DCHECK_GE(inputs.size(), 2);
+  ABSL_DCHECK_EQ((inputs.size() - 2) % 2, 0);
 
   std::string case_with_value;
   absl::StrAppend(&case_with_value, "CASE (", inputs[0], ")");
@@ -332,8 +332,8 @@ std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs) {
   return case_with_value;
 }
 std::string CaseNoValueFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_GE(inputs.size(), 1);
-  ZETASQL_DCHECK_EQ((inputs.size() - 1) % 2, 0);
+  ABSL_DCHECK_GE(inputs.size(), 1);
+  ABSL_DCHECK_EQ((inputs.size() - 1) % 2, 0);
 
   std::string case_no_value;
   absl::StrAppend(&case_no_value, "CASE");
@@ -347,15 +347,15 @@ std::string CaseNoValueFunctionSQL(const std::vector<std::string>& inputs) {
   return case_no_value;
 }
 std::string InArrayFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat("(", inputs[0], ") IN UNNEST(", inputs[1], ")");
 }
 std::string LikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], " LIKE ANY UNNEST(", inputs[1], ")");
 }
 std::string LikeAllArrayFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], " LIKE ALL UNNEST(", inputs[1], ")");
 }
 std::string ParenthesizedArrayFunctionSQL(const std::string& input) {
@@ -368,7 +368,7 @@ std::string ParenthesizedArrayFunctionSQL(const std::string& input) {
 }
 std::string ArrayAtFunctionSQL(absl::string_view inner_function_name,
                                const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]), "[",
                       inner_function_name, "(", inputs[1], ")]");
 }
@@ -383,22 +383,22 @@ std::string SafeArrayAtOffsetFunctionSQL(
   return ArrayAtFunctionSQL("SAFE_OFFSET", inputs);
 }
 std::string SubscriptFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[", inputs[1], "]");
 }
 std::string SubscriptWithKeyFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[KEY(", inputs[1], ")]");
 }
 std::string SubscriptWithOffsetFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[OFFSET(", inputs[1], ")]");
 }
 std::string SubscriptWithOrdinalFunctionSQL(
     const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[ORDINAL(", inputs[1], ")]");
 }
 std::string SafeArrayAtOrdinalFunctionSQL(
@@ -413,14 +413,14 @@ std::string SafeProtoMapAtKeySQL(const std::vector<std::string>& inputs) {
 }
 std::string GenerateDateTimestampArrayFunctionSQL(
     const std::string& function_name, const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.size() == 2 || inputs.size() == 4);
+  ABSL_DCHECK(inputs.size() == 2 || inputs.size() == 4);
   std::string sql =
       absl::StrCat(function_name, "(", inputs[0], ", ", inputs[1]);
   if (inputs.size() == 4) {
     if (inputs[2][0] == '[') {
       // Fix the function signature text:
       // INTERVAL [INT64] [DATE_TIME_PART] --> [INTERVAL INT64 DATE_TIME_PART]
-      ZETASQL_DCHECK_EQ(inputs[3][0], '[');
+      ABSL_DCHECK_EQ(inputs[3][0], '[');
       absl::StrAppend(&sql, ", [INTERVAL ",
                       inputs[2].substr(1, inputs[2].size() - 2), " ",
                       inputs[3].substr(1, inputs[3].size() - 2), "]");
@@ -435,14 +435,14 @@ std::string GenerateDateTimestampArrayFunctionSQL(
 // For MakeArray we explicitly prepend the array type to the function sql, thus
 // array-type-name is expected to be passed as the first element of inputs.
 std::string MakeArrayFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_GT(inputs.size(), 0);
+  ABSL_DCHECK_GT(inputs.size(), 0);
   const std::string& type_name = inputs[0];
   const std::vector<std::string> args(inputs.begin() + 1, inputs.end());
   return absl::StrCat(type_name, "[", absl::StrJoin(args, ", "), "]");
 }
 
 std::string ExtractFunctionSQL(const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_GT(inputs.size(), 1);
+  ABSL_DCHECK_GT(inputs.size(), 1);
   std::string prefix = absl::StrCat("EXTRACT(", inputs[1], " FROM ", inputs[0]);
   if (inputs.size() > 2) {
     absl::StrAppend(&prefix, " AT TIME ZONE ", inputs[2]);
@@ -452,7 +452,7 @@ std::string ExtractFunctionSQL(const std::vector<std::string>& inputs) {
 
 std::string ExtractDateOrTimeFunctionSQL(
     const std::string& date_part, const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK_GT(inputs.size(), 0);
+  ABSL_DCHECK_GT(inputs.size(), 0);
   std::string prefix = absl::StrCat("EXTRACT(", date_part, " FROM ", inputs[0]);
   if (inputs.size() > 1) {
     absl::StrAppend(&prefix, " AT TIME ZONE ", inputs[1]);

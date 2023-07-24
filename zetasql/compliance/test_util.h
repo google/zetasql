@@ -50,7 +50,7 @@ absl::Status ComputeTransitiveClosure(const google::protobuf::DescriptorPool* po
 //
 // Usage:
 //  for (absl::string_view sp : absl::StrSplit(message, LogChunkDelimiter())) {
-//    ZETASQL_LOG(INFO) << sp;
+//    ABSL_LOG(INFO) << sp;
 //  }
 //
 class LogChunkDelimiter {

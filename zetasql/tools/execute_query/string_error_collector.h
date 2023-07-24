@@ -36,7 +36,7 @@ namespace zetasql {
 // if (parser.Parse(GetProtoStream(), mutable_proto)) {
 //   // All is well.
 // } else {
-//   ZETASQL_LOG(FATAL) << "Could not parse MyProto: " << std::endl << all_errors;
+//   ABSL_LOG(FATAL) << "Could not parse MyProto: " << std::endl << all_errors;
 // }
 //
 class StringErrorCollector : public google::protobuf::io::ErrorCollector {

@@ -1398,7 +1398,7 @@ template <bool round, int N>
   value.DivMod(std::integral_constant<uint64_t, internal::k1e19>(), &value,
                &remainder);
   // 10^38 > 2^64, so the highest uint64_t must be 0, even after adding 2^38.
-  ZETASQL_DCHECK_EQ(value.number()[N - 1], 0);
+  ABSL_DCHECK_EQ(value.number()[N - 1], 0);
   FixedUint<64, N - 1> value_trunc(value);
   if (round && remainder >= (internal::k1e19 >> 1)) {
     value_trunc += uint64_t{1};
@@ -1438,7 +1438,7 @@ inline absl::StatusOr<NumericValue> BigNumericValue::ToNumericValue() const {
   uint64_t remainder;
   abs_value.DivMod(std::integral_constant<uint64_t, internal::k1e10>(),
                    &abs_value, &remainder);
-  ZETASQL_DCHECK_EQ(abs_value.number()[3], 0);
+  ABSL_DCHECK_EQ(abs_value.number()[3], 0);
   FixedUint<64, 3> abs_value_trunc(abs_value);
   if (remainder >= (internal::k1e10 >> 1)) {
     abs_value_trunc += uint64_t{1};

@@ -132,6 +132,7 @@ cc_library(
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/common:errors",
         "//zetasql/common:thread_stack",
@@ -169,6 +170,7 @@ cc_library(
     deps = [
         ":resolved_ast",
         "//zetasql/base:logging",
+        "//zetasql/base:source_location",
         "//zetasql/common:status_payload_utils",
         "@com_google_absl//absl/status:statusor",
     ],

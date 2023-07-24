@@ -59,7 +59,7 @@ template <typename ArgType, typename ResultType = ArgType>
 void TestBinaryFunction(const QueryParamsWithResult& param,
                         bool (*function)(ArgType, ArgType, ResultType*,
                                          absl::Status* error)) {
-  ZETASQL_CHECK_EQ(2, param.num_params());
+  ABSL_CHECK_EQ(2, param.num_params());
   const Value& input1 = param.param(0);
   const Value& input2 = param.param(1);
   if (!input1.type()->Equals(input2.type())) {
@@ -124,7 +124,7 @@ TEST_P(AddTemplateTest, Testlib) {
       TestBinaryFunction(param, &Add<BigNumericValue>);
       break;
     default:
-      ZETASQL_LOG(FATAL) << "This op is not tested here: " << param;
+      ABSL_LOG(FATAL) << "This op is not tested here: " << param;
   }
 }
 
@@ -151,7 +151,7 @@ TEST_P(SubtractTemplateTest, Testlib) {
       TestBinaryFunction(param, &Subtract<BigNumericValue>);
       break;
     default:
-      ZETASQL_LOG(FATAL) << "This op is not tested here: " << param;
+      ABSL_LOG(FATAL) << "This op is not tested here: " << param;
   }
 }
 
@@ -178,7 +178,7 @@ TEST_P(MultiplyTemplateTest, Testlib) {
       TestBinaryFunction(param, &Multiply<BigNumericValue>);
       break;
     default:
-      ZETASQL_LOG(FATAL) << "This op is not tested here: " << param;
+      ABSL_LOG(FATAL) << "This op is not tested here: " << param;
   }
 }
 
@@ -199,7 +199,7 @@ TEST_P(DivideTemplateTest, Testlib) {
       TestBinaryFunction(param, &Divide<BigNumericValue>);
       break;
     default:
-      ZETASQL_LOG(FATAL) << "This op is not tested here: " << param;
+      ABSL_LOG(FATAL) << "This op is not tested here: " << param;
   }
 }
 
@@ -223,7 +223,7 @@ TEST_P(DivTemplateTest, Testlib) {
       TestBinaryFunction(param, &DivideToIntegralValue<BigNumericValue>);
       break;
     default:
-      ZETASQL_LOG(FATAL) << "This op is not tested here: " << param;
+      ABSL_LOG(FATAL) << "This op is not tested here: " << param;
   }
 }
 
@@ -247,7 +247,7 @@ TEST_P(ModuloTemplateTest, Testlib) {
       TestBinaryFunction(param, &Modulo<BigNumericValue>);
       break;
     default:
-      ZETASQL_LOG(FATAL) << "This op is not tested here: " << param;
+      ABSL_LOG(FATAL) << "This op is not tested here: " << param;
   }
 }
 
@@ -256,7 +256,7 @@ INSTANTIATE_TEST_SUITE_P(Modulo, ModuloTemplateTest,
 
 template <typename InType, typename OutType>
 void TestUnaryMinus(const QueryParamsWithResult& param) {
-  ZETASQL_CHECK_EQ(1, param.num_params());
+  ABSL_CHECK_EQ(1, param.num_params());
   const Value& input1 = param.param(0);
   if (input1.is_null()) {
     return;
@@ -298,7 +298,7 @@ TEST_P(UnaryMinusTemplateTest, Testlib) {
       TestUnaryMinus<BigNumericValue, BigNumericValue>(param);
       break;
     default:
-      ZETASQL_LOG(FATAL) << "This op is not tested here: " << param;
+      ABSL_LOG(FATAL) << "This op is not tested here: " << param;
   }
 }
 

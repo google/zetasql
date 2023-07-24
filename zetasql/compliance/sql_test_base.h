@@ -581,7 +581,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Accessor for language options of the driver.
   LanguageOptions driver_language_options();
 
-  // Returns true if 'driver()' supports 'feature'. ZETASQL_CHECK fails if 'driver()' is
+  // Returns true if 'driver()' supports 'feature'. ABSL_CHECK fails if 'driver()' is
   // the reference implementation and 'feature' is not enabled.
   bool DriverSupportsFeature(LanguageFeature feature);
 
@@ -861,6 +861,13 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
     absl::string_view ToString() const;
 
    private:
+    // This helps compliance tests provide better failure messages.
+    template <typename Sink>
+    friend void AbslStringify(Sink& sink, const TestResults& result) {
+      sink.Append(result.ToString());
+      sink.Append("\n");
+    }
+
     // We need the result status to honor the known error filters.
     const absl::StatusOr<ComplianceTestCaseResult> driver_output_;
 

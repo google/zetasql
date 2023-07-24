@@ -62,7 +62,7 @@
 //   ZETASQL_CHECK_OK(options.AddQueryParameter("param1", types::Int64Type()));
 //   ZETASQL_CHECK_OK(options.AddQueryParameter("param2", types::Int64Type()));
 //   ZETASQL_CHECK_OK(expr.Prepare(options));
-//   ZETASQL_CHECK(types::Int64Type()->Equals(expr.output_type()));
+//   ABSL_CHECK(types::Int64Type()->Equals(expr.output_type()));
 //   Value result = expr.Execute(
 //     {{"col", Value::Int64(5)}},
 //     {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}).value();
@@ -88,8 +88,8 @@
 //   function_options.set_evaluator(
 //       [](const absl::Span<const Value>& args) {
 //         // Returns string length as int64_t.
-//         ZETASQL_DCHECK_EQ(args.size(), 1);
-//         ZETASQL_DCHECK(args[0].type()->Equals(zetasql::types::StringType()));
+//         ABSL_DCHECK_EQ(args.size(), 1);
+//         ABSL_DCHECK(args[0].type()->Equals(zetasql::types::StringType()));
 //         return Value::Int64(args[0].string_value().size());
 //       });
 //

@@ -135,7 +135,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
     case VERSION_1_0:
       break;
     case __LanguageVersion__switch_must_have_a_default__:
-      ZETASQL_LOG(DFATAL) << "GetLanguageFeaturesForVersion called with " << version;
+      ABSL_LOG(ERROR) << "GetLanguageFeaturesForVersion called with " << version;
       break;
   }
   return features;

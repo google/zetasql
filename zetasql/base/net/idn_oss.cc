@@ -31,7 +31,7 @@ const icu::IDNA* CreateIdnaOrDie() {
   icu::ErrorCode error;
   const icu::IDNA* idna =
       icu::IDNA::createUTS46Instance(UIDNA_CHECK_BIDI, error);
-  ZETASQL_CHECK(error.isSuccess()) << error.errorName();
+  ABSL_CHECK(error.isSuccess()) << error.errorName();
   return idna;
 }
 
@@ -55,7 +55,7 @@ bool ToASCII(absl::string_view utf8_host, std::string* ascii_host) {
   }
 
   if (ZETASQL_VLOG_IS_ON(1)) {
-    ZETASQL_LOG(INFO) << "ToASCII error: " << error.errorName()
+    ABSL_LOG(INFO) << "ToASCII error: " << error.errorName()
               << ", error bits: " << absl::StrFormat("0x%X", info.getErrors())
               << ", input: " << utf8_host;
   }

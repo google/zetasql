@@ -83,7 +83,7 @@ class ColumnCycleDetector {
   // previously visited column (if there is one). It is an error to call this
   // method more times than VisitNewColumn() has been called. Each call to
   // VisitNewColumn() should be matched by a call to FinishCurrentColumn(). If
-  // you miss calling FinishCurrentColumn() it will hit a ZETASQL_DCHECK on the
+  // you miss calling FinishCurrentColumn() it will hit a ABSL_DCHECK on the
   // destructor.
   absl::Status FinishCurrentColumn();
 

@@ -303,7 +303,7 @@ std::string RoundTripDoubleToString(double d) {
 
     // The snprintf should never overflow because the buffer is significantly
     // larger than the precision we asked for.
-    ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+    ABSL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
 
     full_precision_needed = strtod(buffer, nullptr) != d;
   }
@@ -313,7 +313,7 @@ std::string RoundTripDoubleToString(double d) {
         snprintf(buffer, kFastToBufferSize, "%.*g", DBL_DIG + 2, d);
 
     // Should never overflow; see above.
-    ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+    ABSL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
   }
   return buffer;
 }
@@ -331,7 +331,7 @@ std::string RoundTripFloatToString(float value) {
 
   // The snprintf should never overflow because the buffer is significantly
   // larger than the precision we asked for.
-  ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+  ABSL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
 
   float parsed_value;
   if (!absl::SimpleAtof(buffer, &parsed_value) || parsed_value != value) {
@@ -339,7 +339,7 @@ std::string RoundTripFloatToString(float value) {
         snprintf(buffer, kFastToBufferSize, "%.*g", FLT_DIG + 2, value);
 
     // Should never overflow; see above.
-    ZETASQL_DCHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+    ABSL_DCHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
   }
   return buffer;
 }

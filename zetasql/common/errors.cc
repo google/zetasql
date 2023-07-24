@@ -49,9 +49,9 @@ absl::Status StatusWithInternalErrorLocation(
 
 ErrorSource MakeErrorSource(const absl::Status& status, std::string_view text,
                             ErrorMessageMode mode) {
-  ZETASQL_DCHECK(!status.ok());
+  ABSL_DCHECK(!status.ok());
   // Sanity check that status does not have an InternalErrorLocation.
-  ZETASQL_DCHECK(!HasInternalErrorLocation(status));
+  ABSL_DCHECK(!HasInternalErrorLocation(status));
 
   ErrorSource error_source;
   error_source.set_error_message(std::string(status.message()));
@@ -72,7 +72,7 @@ const std::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorS
     const absl::Status& status) {
   if (internal::HasPayloadWithType<ErrorLocation>(status)) {
     // Sanity check that an OK status does not have a payload.
-    ZETASQL_DCHECK(!status.ok());
+    ABSL_DCHECK(!status.ok());
 
     return internal::GetPayload<ErrorLocation>(status).error_source();
   }

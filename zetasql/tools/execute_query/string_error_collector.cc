@@ -29,7 +29,7 @@ StringErrorCollector::StringErrorCollector(std::string* error_text)
 StringErrorCollector::StringErrorCollector(std::string* error_text,
                                            bool one_indexing)
     : error_text_(error_text), index_offset_(one_indexing ? 1 : 0) {
-  ZETASQL_CHECK_NE(error_text, nullptr);
+  ABSL_CHECK_NE(error_text, nullptr);
 }
 
 void StringErrorCollector::AddError(int line, int column,

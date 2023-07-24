@@ -361,6 +361,9 @@ class RunParserTest : public ::testing::Test {
   // Given an AST, return its DebugString with some some string hacks applied
   // to make it more comparable by hiding some diffs we want to ignore.
   static std::string RedactedDebugString(const ASTNode* tree) {
+    if (tree == nullptr) {
+      return "<RedactedDebugString got NULL>";
+    }
     // Literals and identifiers may come out differently because of
     // normalization of quoting and formatting, so we erase the actual value
     // and just compare the shape of the tree for those. We also erase the
@@ -689,7 +692,7 @@ class RunParserTest : public ::testing::Test {
       const parser::ASTStatementProperties& extracted_statement_properties,
       bool is_single, std::vector<std::string>* test_outputs) {
     if (status.ok()) {
-      ZETASQL_CHECK(parsed_root != nullptr);
+      ABSL_CHECK(parsed_root != nullptr);
 
       // Check that the statement we parsed matches the statement kind we
       // extracted with ParseStatementKind.
@@ -792,7 +795,7 @@ class RunParserTest : public ::testing::Test {
             << "\nRebuilt error: " << rebuilt_parse_status
             << "\nRebuilt query: " << rebuilt;
 
-        if (rebuilt_parse_status.ok()) {
+        if (status.ok() && rebuilt_parse_status.ok()) {
           EXPECT_EQ(RedactedDebugString(parsed_root),
                     RedactedDebugString(rebuilt_root));
         }

@@ -71,7 +71,7 @@ class AnnotationMap {
   // Returns a self reference for caller to be able to chain SetAnnotation()
   // calls.
   AnnotationMap& SetAnnotation(int id, const SimpleValue& value) {
-    ZETASQL_DCHECK(value.IsValid());
+    ABSL_DCHECK(value.IsValid());
     annotations_[id] = value;
     return *this;
   }

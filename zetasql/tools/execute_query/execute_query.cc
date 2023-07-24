@@ -96,7 +96,7 @@ absl::Status RunTool(const std::vector<std::string>& args) {
                    MakeWriterFromFlags(config, std::cout));
 
   if (absl::GetFlag(FLAGS_interactive)) {
-    ZETASQL_LOG(QFATAL) << "Interactive mode is not implemented in this version";
+    ABSL_LOG(QFATAL) << "Interactive mode is not implemented in this version";
   }
 
   const std::string sql = absl::StrJoin(args, " ");
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
   }
 
   if (absl::GetFlag(FLAGS_interactive) != args.empty()) {
-    ZETASQL_LOG(QFATAL) << kUsage;
+    ABSL_LOG(QFATAL) << kUsage;
   }
 
   if (const absl::Status status = zetasql::RunTool(args); status.ok()) {

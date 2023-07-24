@@ -199,7 +199,7 @@ static void SerializeDeserialize(const TypeParameters& type_parameters) {
 // Roundtrips TypeParametersProto through TypeParameters and back.
 static void DeserializeSerialize(const std::string& type_parameters_proto_str) {
   TypeParametersProto type_parameters_proto;
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(type_parameters_proto_str,
+  ABSL_QCHECK(google::protobuf::TextFormat::ParseFromString(type_parameters_proto_str,
                                              &type_parameters_proto))
       << type_parameters_proto_str;
   auto status_or_value = TypeParameters::Deserialize(type_parameters_proto);
@@ -215,7 +215,7 @@ static void DeserializeWithExpectedError(
     const std::string& type_parameters_proto_str,
     absl::string_view expected_error_message) {
   TypeParametersProto type_parameters_proto;
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(type_parameters_proto_str,
+  ABSL_QCHECK(google::protobuf::TextFormat::ParseFromString(type_parameters_proto_str,
                                              &type_parameters_proto))
       << type_parameters_proto_str;
   auto status_or_value = TypeParameters::Deserialize(type_parameters_proto);

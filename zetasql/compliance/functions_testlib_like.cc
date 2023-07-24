@@ -54,7 +54,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLikeCommon() {
   }
 
   const std::string a0c = std::string("a\0c", 3);
-  ZETASQL_CHECK_EQ(a0c.size(), 3);
+  ABSL_CHECK_EQ(a0c.size(), 3);
 
   // Tests for value LIKE value -> bool that work for string or bytes.
   std::vector<QueryParamsWithResult> common_tests = {
@@ -190,7 +190,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLikeCommon() {
 // Test cases for both binary comparison and comparison with collation with
 // STRING.
 std::vector<QueryParamsWithResult> GetFunctionTestsLikeStringCommon() {
-  ZETASQL_LOG(INFO) << "kUtf8String: " << kUtf8String;
+  ABSL_LOG(INFO) << "kUtf8String: " << kUtf8String;
   return {
       {{kUtf8String, kUtf8String}, True()},
 

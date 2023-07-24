@@ -115,7 +115,7 @@ class JsonExtractFunction : public SimpleBuiltinScalarFunction {
  public:
   JsonExtractFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {
-    ZETASQL_DCHECK(output_type->Equals(types::JsonType()) ||
+    ABSL_DCHECK(output_type->Equals(types::JsonType()) ||
            output_type->Equals(types::StringType()));
   }
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
@@ -127,7 +127,7 @@ class JsonExtractArrayFunction : public SimpleBuiltinScalarFunction {
  public:
   JsonExtractArrayFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {
-    ZETASQL_DCHECK(output_type->Equals(types::JsonArrayType()) ||
+    ABSL_DCHECK(output_type->Equals(types::JsonArrayType()) ||
            output_type->Equals(types::StringArrayType()));
   }
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,

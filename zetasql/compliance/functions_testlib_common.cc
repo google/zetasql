@@ -176,7 +176,7 @@ Value DatetimeNanos(int year, int month, int day, int hour, int minute,
 }
 Value KitchenSink(const std::string& proto_str) {
   zetasql_test__::KitchenSinkPB kitchen_sink_message;
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
+  ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &kitchen_sink_message));
   return ProtoToValue(KitchenSinkProtoType(), kitchen_sink_message);
 }
@@ -218,7 +218,7 @@ Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds,
 
 Value CivilTimeTypesSink(const std::string& proto_str) {
   zetasql_test__::CivilTimeTypesSinkPB civil_time_types_sink_message;
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
+  ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &civil_time_types_sink_message));
   return ProtoToValue(CivilTimeTypesSinkProtoType(),
                       civil_time_types_sink_message);
@@ -226,7 +226,7 @@ Value CivilTimeTypesSink(const std::string& proto_str) {
 
 Value NullableInt(const std::string& proto_str) {
   zetasql_test__::NullableInt nullable_int_message;
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
+  ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &nullable_int_message));
   return ProtoToValue(NullableIntProtoType(), nullable_int_message);
 }
@@ -289,14 +289,14 @@ CivilTimeTestCase::CivilTimeTestCase(
   }
   if (nanos_output.status().ok()) {
     if (this->output_type != nullptr) {
-      ZETASQL_CHECK(this->output_type->Equals(nanos_output.value().type()));
+      ABSL_CHECK(this->output_type->Equals(nanos_output.value().type()));
     } else {
       this->output_type = nanos_output.value().type();
     }
   }
   if (output_type != nullptr) {
     if (this->output_type != nullptr) {
-      ZETASQL_CHECK(this->output_type->Equals(output_type));
+      ABSL_CHECK(this->output_type->Equals(output_type));
     } else {
       this->output_type = output_type;
     }
@@ -322,7 +322,7 @@ CivilTimeTestCase::CivilTimeTestCase(
                     (output_type == nullptr ? "nullptr" :
                      output_type->DebugString()));
     // The constructor must set a non-null output_type for this test case.
-    ZETASQL_CHECK(this->output_type != nullptr)
+    ABSL_CHECK(this->output_type != nullptr)
         << "The test 'output_type' cannot be nullptr.  This can potentially "
         << "happen if both the micros and nanos results are errors, in which "
         << "case the output type must be explicitly passed into the "
@@ -421,7 +421,7 @@ const std::string EscapeKey(bool sql_standard_mode, const std::string& key) {
 }
 
 Value StringToBytes(const Value& value) {
-  ZETASQL_CHECK_EQ(value.type_kind(), TYPE_STRING);
+  ABSL_CHECK_EQ(value.type_kind(), TYPE_STRING);
   if (value.is_null()) {
     return Value::NullBytes();
   } else {

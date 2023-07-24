@@ -107,7 +107,7 @@ inline absl::Status AppendMessage(const absl::Status& status,
 //    b. Both statuses are not OK. The message of the new status is appended to
 //       the current one.
 inline void UpdateStatus(absl::Status* status, const absl::Status& new_status) {
-  ZETASQL_DCHECK_NE(status, nullptr);
+  ABSL_DCHECK_NE(status, nullptr);
   if (new_status.ok()) {
     return;
   }
@@ -116,7 +116,7 @@ inline void UpdateStatus(absl::Status* status, const absl::Status& new_status) {
     return;
   }
 
-  ZETASQL_DCHECK_EQ(status->code(), new_status.code());
+  ABSL_DCHECK_EQ(status->code(), new_status.code());
   *status = AppendMessage(*status, new_status.message());
 }
 

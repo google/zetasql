@@ -42,11 +42,11 @@ class FakeASTNode final : public ASTNode {
 
   FakeASTNode() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override {
-    ZETASQL_LOG(FATAL) << "FakeASTNode does not support Accept";
+    ABSL_LOG(FATAL) << "FakeASTNode does not support Accept";
   }
   absl::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override {
-    ZETASQL_LOG(FATAL) << "FakeASTNode does not support Accept";
+    ABSL_LOG(FATAL) << "FakeASTNode does not support Accept";
   }
 
   absl::Status InitFields() final {

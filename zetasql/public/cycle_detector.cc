@@ -59,14 +59,14 @@ bool CycleDetector::DetectCycleOrPushObject(const ObjectInfo* object_info) {
     object_deque_.emplace_back(object_info);
   }
   // Expected invariant.
-  ZETASQL_DCHECK_EQ(objects_.size(), object_deque_.size());
+  ABSL_DCHECK_EQ(objects_.size(), object_deque_.size());
   return cycle_detected;
 }
 
 void CycleDetector::PopObject(const ObjectInfo* expected_object_info) {
   if (object_deque_.empty() ||
       expected_object_info != object_deque_.back()) {
-    ZETASQL_LOG(DFATAL) << "Unexpected object being popped from CycleDetector: "
+    ABSL_LOG(ERROR) << "Unexpected object being popped from CycleDetector: "
                 << expected_object_info->name() << ":"
                 << expected_object_info->object() << "\nCycle detector: "
                 << DebugString();
@@ -76,7 +76,7 @@ void CycleDetector::PopObject(const ObjectInfo* expected_object_info) {
   objects_.erase(object_deque_.back());
   object_deque_.pop_back();
   // Expected invariant.
-  ZETASQL_DCHECK_EQ(objects_.size(), object_deque_.size());
+  ABSL_DCHECK_EQ(objects_.size(), object_deque_.size());
 }
 
 CycleDetector::ObjectInfo::ObjectInfo(absl::string_view name,

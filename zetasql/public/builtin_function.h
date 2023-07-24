@@ -82,27 +82,6 @@ GetBuiltinFunctionsAndTypesForDefaultOptions();
 
 const std::string FunctionSignatureIdToName(FunctionSignatureId id);
 
-// DEPRECATED: Use GetBuiltinFunctionsAndTypes
-//
-// Populates <functions> with a list of built-in ZetaSQL functions. New
-// Types are added to <type_factory> as needed to support those functions.
-// <type_factory> must outlive <functions>.
-// The <options> identify specific ZetaSQL FunctionSignatures that are
-// explicitly included or excluded from the returned map.
-// A LanguageOptions or AnalyzerOptions object can be passed to <options>
-// using the implicit constructor.
-ABSL_DEPRECATED("Inline me!")
-absl::Status GetZetaSQLFunctionsAndTypes(
-    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
-    std::map<std::string, std::unique_ptr<Function>>* functions,
-    absl::flat_hash_map<std::string, const Type*>* types);
-
-// DEPRECATED: Use GetBuiltinFunctionsAndTypes
-ABSL_DEPRECATED("Inline me!")
-void GetZetaSQLFunctions(
-    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
-    std::map<std::string, std::unique_ptr<Function>>* functions);
-
 // If the function allows argument coercion, then checks the function
 // signatures to see if they are defined for floating point and
 // only one of signed/unsigned integer arguments (but not both integer
@@ -123,6 +102,13 @@ void GetZetaSQLFunctions(
 // Note that this function does not take into consideration any argument
 // constraints that might be present.
 bool FunctionMayHaveUnintendedArgumentCoercion(const Function* function);
+
+// DEPRECATED: Use GetBuiltinFunctionsAndTypes
+//
+ABSL_DEPRECATED("Inline me!")
+void GetZetaSQLFunctions(  // NOLINT
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    std::map<std::string, std::unique_ptr<Function>>* functions);
 
 }  // namespace zetasql
 

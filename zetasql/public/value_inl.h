@@ -185,7 +185,7 @@ inline Value::Value(double value)
 inline Value::Value(TypeKind type_kind, std::string value)
     : metadata_(type_kind),
       string_ptr_(new internal::StringRef(std::move(value))) {
-  ZETASQL_CHECK(type_kind == TYPE_STRING ||
+  ABSL_CHECK(type_kind == TYPE_STRING ||
         type_kind == TYPE_BYTES);
 }
 
@@ -199,7 +199,7 @@ inline Value::Value(const BigNumericValue& bignumeric)
 
 inline Value::Value(internal::JSONRef* json_ptr)
     : metadata_(TypeKind::TYPE_JSON), json_ptr_(json_ptr) {
-  ZETASQL_CHECK(json_ptr != nullptr);
+  ABSL_CHECK(json_ptr != nullptr);
 }
 
 inline Value::Value(const IntervalValue& interval)
@@ -355,7 +355,7 @@ inline Value Value::NullBigNumeric() {
 }
 inline Value Value::NullJson() { return Value(TypeKind::TYPE_JSON); }
 inline Value Value::EmptyGeography() {
-  ZETASQL_CHECK(false);
+  ABSL_CHECK(false);
   return NullGeography();
 }
 inline Value Value::UnboundedStartDate() { return NullDate(); }
@@ -374,22 +374,22 @@ inline Value::~Value() {
 }
 
 inline TypeKind Value::type_kind() const {
-  ZETASQL_CHECK(is_valid()) << DebugString();
+  ABSL_CHECK(is_valid()) << DebugString();
   return metadata_.type_kind();
 }
 
 inline bool Value::is_null() const {
-  ZETASQL_CHECK(is_valid()) << DebugString();
+  ABSL_CHECK(is_valid()) << DebugString();
   return metadata_.is_null();
 }
 
 inline bool Value::is_empty_array() const {
-  ZETASQL_CHECK(is_valid()) << DebugString();
+  ABSL_CHECK(is_valid()) << DebugString();
   return type()->IsArray() && !is_null() && empty();
 }
 
 inline bool Value::order_kind() const {
-  ZETASQL_CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
+  ABSL_CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
   return metadata_.preserves_order();
 }
 
@@ -405,74 +405,74 @@ inline bool Value::has_content() const {
 }
 
 inline int32_t Value::int32_value() const {
-  ZETASQL_CHECK_EQ(TYPE_INT32, metadata_.type_kind()) << "Not an int32_t value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_INT32, metadata_.type_kind()) << "Not an int32_t value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return int32_value_;
 }
 
 inline int64_t Value::int64_value() const {
-  ZETASQL_CHECK_EQ(TYPE_INT64, metadata_.type_kind()) << "Not an int64_t value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_INT64, metadata_.type_kind()) << "Not an int64_t value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return int64_value_;
 }
 
 inline uint32_t Value::uint32_value() const {
-  ZETASQL_CHECK_EQ(TYPE_UINT32, metadata_.type_kind()) << "Not a uint32_t value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_UINT32, metadata_.type_kind()) << "Not a uint32_t value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return uint32_value_;
 }
 
 inline uint64_t Value::uint64_value() const {
-  ZETASQL_CHECK_EQ(TYPE_UINT64, metadata_.type_kind()) << "Not a uint64_t value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_UINT64, metadata_.type_kind()) << "Not a uint64_t value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return uint64_value_;
 }
 
 inline bool Value::bool_value() const {
-  ZETASQL_CHECK_EQ(TYPE_BOOL, metadata_.type_kind()) << "Not a bool value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_BOOL, metadata_.type_kind()) << "Not a bool value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return bool_value_;
 }
 
 inline float Value::float_value() const {
-  ZETASQL_CHECK_EQ(TYPE_FLOAT, metadata_.type_kind()) << "Not a float value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_FLOAT, metadata_.type_kind()) << "Not a float value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return float_value_;
 }
 
 inline double Value::double_value() const {
-  ZETASQL_CHECK_EQ(TYPE_DOUBLE, metadata_.type_kind()) << "Not a double value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_DOUBLE, metadata_.type_kind()) << "Not a double value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return double_value_;
 }
 
 inline const std::string& Value::string_value() const {
-  ZETASQL_CHECK_EQ(TYPE_STRING, metadata_.type_kind()) << "Not a string value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_STRING, metadata_.type_kind()) << "Not a string value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return string_ptr_->value();
 }
 
 inline const std::string& Value::bytes_value() const {
-  ZETASQL_CHECK_EQ(TYPE_BYTES, metadata_.type_kind()) << "Not a bytes value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_BYTES, metadata_.type_kind()) << "Not a bytes value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return string_ptr_->value();
 }
 
 inline int32_t Value::date_value() const {
-  ZETASQL_CHECK_EQ(TYPE_DATE, metadata_.type_kind()) << "Not a date value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_DATE, metadata_.type_kind()) << "Not a date value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return int32_value_;
 }
 
 inline int32_t Value::enum_value() const {
-  ZETASQL_CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return enum_value_;
 }
 
 inline const absl::Cord& Value::proto_value() const {
-  ZETASQL_DCHECK_EQ(TYPE_PROTO, metadata_.type_kind()) << "Not a proto value";
-  ZETASQL_DCHECK(!metadata_.is_null()) << "Null value";
+  ABSL_DCHECK_EQ(TYPE_PROTO, metadata_.type_kind()) << "Not a proto value";
+  ABSL_DCHECK(!metadata_.is_null()) << "Null value";
   return proto_ptr_->value();
 }
 
@@ -487,20 +487,20 @@ inline DatetimeValue Value::datetime_value() const {
 }
 
 inline const IntervalValue& Value::interval_value() const {
-  ZETASQL_CHECK_EQ(TYPE_INTERVAL, metadata_.type_kind()) << "Not an interval type";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_INTERVAL, metadata_.type_kind()) << "Not an interval type";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return interval_ptr_->value();
 }
 
 inline const NumericValue& Value::numeric_value() const {
-  ZETASQL_CHECK_EQ(TYPE_NUMERIC, metadata_.type_kind()) << "Not a numeric type";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_NUMERIC, metadata_.type_kind()) << "Not a numeric type";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return numeric_ptr_->value();
 }
 
 inline const BigNumericValue& Value::bignumeric_value() const {
-  ZETASQL_CHECK_EQ(TYPE_BIGNUMERIC, metadata_.type_kind()) << "Not a bignumeric type";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_BIGNUMERIC, metadata_.type_kind()) << "Not a bignumeric type";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return bignumeric_ptr_->value();
 }
 
@@ -515,22 +515,22 @@ inline bool Value::is_unparsed_json() const {
 }
 
 inline const std::string& Value::json_value_unparsed() const {
-  ZETASQL_CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
-  ZETASQL_CHECK(is_unparsed_json()) << "Not an unparsed json value";
+  ABSL_CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK(is_unparsed_json()) << "Not an unparsed json value";
   return *json_ptr_->unparsed_string();
 }
 
 inline JSONValueConstRef Value::json_value() const {
-  ZETASQL_CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
-  ZETASQL_CHECK(is_validated_json()) << "Non a validated json value";
+  ABSL_CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK(is_validated_json()) << "Non a validated json value";
   return json_ptr_->document().value();
 }
 
 inline std::string Value::json_string() const {
-  ZETASQL_CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
 
   if (json_ptr_->unparsed_string() == nullptr) {
     return json_ptr_->document().value().ToString();
@@ -556,7 +556,7 @@ inline const Value& Value::field(int i) const {
 }
 
 inline const Value& Value::element(int i) const {
-  ZETASQL_CHECK(type()->IsArray());
+  ABSL_CHECK(type()->IsArray());
   return elements()[i];
 }
 
@@ -565,28 +565,28 @@ inline bool Value::Equals(const Value& that) const {
 }
 
 inline const Value& Value::start() const {
-  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind())  // Crash ok
+  ABSL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind())  // Crash ok
       << "Not a range value";
-  ZETASQL_CHECK(!is_null()) << "Null value";  // Crash ok
-  ZETASQL_CHECK(type()->IsRange());           // Crash ok
+  ABSL_CHECK(!is_null()) << "Null value";  // Crash ok
+  ABSL_CHECK(type()->IsRange());           // Crash ok
   const internal::ValueContentContainer* const container_ptr =
       container_ptr_->value();
   const TypedList* const list_ptr =
       static_cast<const TypedList* const>(container_ptr);
-  ZETASQL_CHECK_EQ(list_ptr->values().size(), 2);  // Crash ok
+  ABSL_CHECK_EQ(list_ptr->values().size(), 2);  // Crash ok
   return list_ptr->values().at(0);
 }
 
 inline const Value& Value::end() const {
-  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind())  // Crash ok
+  ABSL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind())  // Crash ok
       << "Not a range value";
-  ZETASQL_CHECK(!is_null()) << "Null value";  // Crash ok
-  ZETASQL_CHECK(type()->IsRange());           // Crash ok
+  ABSL_CHECK(!is_null()) << "Null value";  // Crash ok
+  ABSL_CHECK(type()->IsRange());           // Crash ok
   const internal::ValueContentContainer* const container_ptr =
       container_ptr_->value();
   const TypedList* const list_ptr =
       static_cast<const TypedList* const>(container_ptr);
-  ZETASQL_CHECK_EQ(list_ptr->values().size(), 2);  // Crash ok
+  ABSL_CHECK_EQ(list_ptr->values().size(), 2);  // Crash ok
   return list_ptr->values().at(1);
 }
 
@@ -868,7 +868,7 @@ inline Value Proto(const ProtoType* proto_type, absl::Cord value) {
 }
 inline Value Proto(const ProtoType* proto_type, const google::protobuf::Message& msg) {
   std::string bytes;
-  ZETASQL_CHECK(msg.SerializeToString(&bytes));
+  ABSL_CHECK(msg.SerializeToString(&bytes));
   return Value::Proto(proto_type, absl::Cord(bytes));
 }
 inline Value EmptyArray(const ArrayType* type) {
