@@ -18,15 +18,11 @@
 #define ZETASQL_PARSER_PARSER_RUNTIME_INFO_H_
 
 #include <cstdint>
-#include <memory>
-#include <string>
-#include <utility>
-#include <variant>
-#include <vector>
 
 #include "zetasql/common/timer_util.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "absl/base/macros.h"
+#include "absl/flags/flag.h"
 
 namespace zetasql {
 
@@ -56,13 +52,15 @@ class ParserRuntimeInfo {
     entry.set_num_lexical_tokens(num_lexical_tokens());
 
     auto add_timing = [&](AnalyzerLogEntry::LoggedOperationCategory op,
-                          const internal::TimedValue& time) {
+                          const internal::TimedValue& time,
+                          const ExecutionStats::ParserVariant parser_variant) {
       if (!time.HasAnyRecordedTiming()) return;
       auto& stage = *entry.add_execution_stats_by_op();
       stage.set_key(op);
       *stage.mutable_value() = time.ToExecutionStatsProto();
     };
-    add_timing(AnalyzerLogEntry::PARSER, parser_timed_value());
+    add_timing(AnalyzerLogEntry::PARSER, parser_timed_value(),
+               ExecutionStats::PARSER_BISON);
     return entry;
   }
 

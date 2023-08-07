@@ -322,6 +322,7 @@ cc_library(
         "//zetasql/base",
         "//zetasql/base:arena",
         "//zetasql/base:arena_allocator",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base:strings",
         "//zetasql/common:errors",

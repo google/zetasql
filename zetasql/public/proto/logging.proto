@@ -34,6 +34,13 @@ message ExecutionStats {
 
   // Peak stack use estimated for the operation
   optional uint64 stack_peak_used_bytes = 5;
+
+  enum ParserVariant {
+    PARSER_UNSPECIFIED = 0;
+    PARSER_BISON = 1;
+    // Experimental Textmapper parser
+    PARSER_TEXTMAPPER = 2;
+  }
 }
 
 // The AnalyzerLogEntry summarizes the resource usage across operations

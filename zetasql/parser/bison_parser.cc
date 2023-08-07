@@ -18,6 +18,7 @@
 
 #include <cctype>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <set>
 #include <string>
@@ -30,10 +31,9 @@
 #include "zetasql/parser/bison_parser.bison.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/id_string.h"
-#include <cstdint>
+#include "zetasql/public/proto/logging.pb.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/flags/flag.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -352,9 +352,6 @@ static absl::Status ParseWithBison(
   auto tokenizer = std::make_unique<ZetaSqlFlexTokenizer>(
       mode, filename, input, start_byte_offset, language_options);
 
-  auto parser_timer = internal::MakeScopedTimerStarted(
-      &parser_runtime_info.parser_timed_value());
-
   zetasql_bison_parser::BisonParserImpl bison_parser_impl(
       tokenizer.get(), parser, &output_node, ast_statement_properties,
       &error_message, &error_location, &move_error_location_past_whitespace,
@@ -446,6 +443,9 @@ absl::Status BisonParser::Parse(
   ParseLocationPoint error_location;
   bool move_error_location_past_whitespace = false;
   bool format_error = false;
+
+  auto parser_timer = internal::MakeScopedTimerStarted(
+      &parser_runtime_info_.parser_timed_value());
 
   absl::Status parse_status = ParseWithBison(
       this, filename, input, parser_runtime_info_, mode, start_byte_offset,

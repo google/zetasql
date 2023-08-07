@@ -3684,8 +3684,7 @@ absl::Status Resolver::ResolveGroupingItemExpression(
     // If the same expression already has a computed column, then reuse the
     // existing computed column. This is to make sure the group_by_list only has
     // one expression when multiple duplicated expressions appear in the group
-    // by clause. See discussion in
-    // https://groups.google.com/a/google.com/g/zetasql-discuss/c/RWHXblZ5ngA.
+    // by clause.
     // This change only applies to grouping sets, rollup and cube when
     // FEATURE_V_1_4_GROUPING_SETS is enabled for SAFETY. This is because a
     // global deduplication may have subtle impact to existing DISTINCT, normal

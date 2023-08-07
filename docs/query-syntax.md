@@ -2530,7 +2530,7 @@ collation_specification:
 </pre>
 
 The `ORDER BY` clause specifies a column or expression as the sort criterion for
-the result set. If an ORDER BY clause is not present, the order of the results
+the result set. If an `ORDER BY` clause is not present, the order of the results
 of a query is not defined. Column aliases from a `FROM` clause or `SELECT` list
 are allowed. If a query contains aliases in the `SELECT` clause, those aliases
 override names in the corresponding `FROM` clause. The data type of
