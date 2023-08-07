@@ -1973,6 +1973,181 @@ TEST(AnalyzerTest, AnalyzeStatementsOfScript) {
                                "Unrecognized name: garbage [at 2:8]"));
 }
 
+TEST(AnalyzerTest, AnalyzeInsertStatement) {
+  // Setup catalog and table.
+  // Table ddl representation
+  // CREATE TABLE test_table (
+  // id INT64,
+  // data INT64,
+  // ) PRIMARY KEY(id);
+  SimpleCatalog catalog{"test_catalog"};
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->SetSupportsAllStatementKinds();
+  auto test_table = std::make_unique<SimpleTable>(
+      "test_table",
+      std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
+                                            {"data", types::Int64Type()}});
+  test_table->SetContents(
+      {{values::Int64(1), values::Int64(2), values::Int64(8), values::Int64(4)},
+       {values::Int64(2), values::Int64(3), values::Int64(12),
+        values::Int64(6)}});
+  ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
+  catalog.AddOwnedTable(std::move(test_table));
+
+  std::string sql = "INSERT into test_table(id,data) values(3,7);";
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(
+      ParseStatement(sql, analyzer_options.GetParserOptions(), &parser_output));
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  TypeFactory type_factory;
+
+  // Analyze the insert statement
+  ZETASQL_EXPECT_OK(AnalyzeStatementFromParserOutputOwnedOnSuccess(
+      &parser_output, analyzer_options, sql, &catalog, &type_factory,
+      &analyzer_output));
+}
+
+TEST(AnalyzerTest, AnalyzeInsertStatementWithGenColInTable) {
+  // Setup catalog and table.
+  // Table ddl representation
+  // CREATE TABLE test_table (
+  // id INT64,
+  // data INT64,
+  // gen1 AS data*2,
+  // gen2 AS gen1,
+  // ) PRIMARY KEY(id,gen1);
+  SimpleCatalog catalog{"test_catalog"};
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->SetSupportsAllStatementKinds();
+  auto test_table = std::make_unique<SimpleTable>(
+      "test_table",
+      std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
+                                            {"data", types::Int64Type()}});
+  // Adding column gen1 AS (data*2) to test_table.
+  std::unique_ptr<const AnalyzerOutput> output1;
+  const std::string generated_expr1 = "data*2";
+  zetasql::AnalyzerOptions new_options1 = analyzer_options;
+  ZETASQL_ASSERT_OK(new_options1.AddExpressionColumn("data", types::Int64Type()));
+  ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr1, new_options1, &catalog,
+                              catalog.type_factory(), &output1));
+  SimpleColumn::ExpressionAttributes expr_attributes1(
+      SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
+      generated_expr1, output1->resolved_expr());
+  ZETASQL_ASSERT_OK(test_table->AddColumn(
+      new SimpleColumn(test_table->Name(), "gen1", types::Int64Type(),
+                       {.column_expression = expr_attributes1}),
+      /*is_owned=*/true));
+
+  // Adding column gen2 AS (gen1) to test_table.
+  std::unique_ptr<const AnalyzerOutput> output2;
+  const std::string generated_expr2 = "gen1";
+  zetasql::AnalyzerOptions new_options2 = analyzer_options;
+  ZETASQL_ASSERT_OK(new_options2.AddExpressionColumn("gen1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr2, new_options2, &catalog,
+                              catalog.type_factory(), &output2));
+  SimpleColumn::ExpressionAttributes expr_attributes2(
+      SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
+      generated_expr1, output1->resolved_expr());
+  ZETASQL_ASSERT_OK(test_table->AddColumn(
+      new SimpleColumn(test_table->Name(), "gen2", types::Int64Type(),
+                       {.column_expression = expr_attributes2}),
+      /*is_owned=*/true));
+  test_table->SetContents(
+      {{values::Int64(1), values::Int64(2), values::Int64(4), values::Int64(4)},
+       {values::Int64(2), values::Int64(3), values::Int64(6),
+        values::Int64(6)}});
+  ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+  catalog.AddOwnedTable(std::move(test_table));
+
+  std::string sql = "INSERT into test_table(id,data) values(3,7);";
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(
+      ParseStatement(sql, analyzer_options.GetParserOptions(), &parser_output));
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  TypeFactory type_factory;
+
+  // Analyze the insert statement.
+  ZETASQL_EXPECT_OK(AnalyzeStatementFromParserOutputOwnedOnSuccess(
+      &parser_output, analyzer_options, sql, &catalog, &type_factory,
+      &analyzer_output));
+}
+
+TEST(AnalyzerTest, AnalyzeInsertStatementFailsWithCyclicGenColInTable) {
+  // Setup catalog and table.
+  // Table ddl representation
+  // CREATE TABLE test_table (
+  // id INT64,
+  // data INT64,
+  // gen2 AS gen1*2,
+  // gen1 AS gen2*2,
+  // ) PRIMARY KEY(id,gen2);
+  SimpleCatalog catalog{"test_catalog"};
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->SetSupportsAllStatementKinds();
+  auto test_table = std::make_unique<SimpleTable>(
+      "test_table",
+      std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
+                                            {"data", types::Int64Type()}});
+  // Adding column gen2 AS (gen1*2) to test_table.
+  std::unique_ptr<const AnalyzerOutput> output2;
+  const std::string generated_expr2 = "gen1*2";
+  zetasql::AnalyzerOptions new_options2 = analyzer_options;
+  ZETASQL_ASSERT_OK(new_options2.AddExpressionColumn("gen1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr2, new_options2, &catalog,
+                              catalog.type_factory(), &output2));
+  SimpleColumn::ExpressionAttributes expr_attributes2(
+      SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
+      generated_expr2, output2->resolved_expr());
+  ZETASQL_ASSERT_OK(test_table->AddColumn(
+      new SimpleColumn(test_table->Name(), "gen2", types::Int64Type(),
+                       {.column_expression = expr_attributes2}),
+      /*is_owned=*/true));
+  // Adding column gen1 AS (gen2*2) to test_table.
+  const std::string generated_expr1 = "gen2*2";
+  std::unique_ptr<const AnalyzerOutput> output1;
+  zetasql::AnalyzerOptions new_options1 = analyzer_options;
+  ZETASQL_ASSERT_OK(new_options1.AddExpressionColumn("gen2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr1, new_options1, &catalog,
+                              catalog.type_factory(), &output1));
+  SimpleColumn::ExpressionAttributes expr_attributes1(
+      SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
+      generated_expr1, output1->resolved_expr());
+  ZETASQL_ASSERT_OK(test_table->AddColumn(
+      new SimpleColumn(test_table->Name(), "gen1", types::Int64Type(),
+                       {.column_expression = expr_attributes1}),
+      /*is_owned=*/true));
+  test_table->SetContents(
+      {{values::Int64(1), values::Int64(2), values::Int64(8), values::Int64(4)},
+       {values::Int64(2), values::Int64(3), values::Int64(12),
+        values::Int64(6)}});
+  ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+  catalog.AddOwnedTable(std::move(test_table));
+
+  std::string sql = "INSERT into test_table(id,data) values(3,7);";
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(
+      ParseStatement(sql, analyzer_options.GetParserOptions(), &parser_output));
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  TypeFactory type_factory;
+
+  // Analyze the insert statement - this should fail as generated columns in
+  // table have cycles.
+  EXPECT_THAT(
+      AnalyzeStatementFromParserOutputOwnedOnSuccess(
+          &parser_output, analyzer_options, sql, &catalog, &type_factory,
+          &analyzer_output),
+      zetasql_base::testing::StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          testing::MatchesRegex(
+              "Recursive dependencies detected while evaluating generated "
+              "column expression values for test_table.gen.. The expression "
+              "indicates the column depends on itself. Columns forming the "
+              "cycle : test_table.gen., test_table.gen.")));
+}
+
 // Verify the catalog name path of the outer proto type will be carried to its
 // inner field types.
 // Have to put it here rather than in a text-based test since the Java library

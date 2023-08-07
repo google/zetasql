@@ -282,6 +282,8 @@
       preceding_or_following_keyword;
   zetasql::parser_internal::TableOrTableFunctionKeywords
       table_or_table_function_keywords;
+  zetasql::parser_internal::IndexTypeKeywords
+      index_type_keywords;
   zetasql::parser_internal::ShiftOperator shift_operator;
   zetasql::parser_internal::ImportType import_type;
   zetasql::ASTAuxLoadDataStatement::InsertionMode insertion_mode;
@@ -519,14 +521,6 @@ using namespace zetasql::parser_internal;
 %token KW_ELSE "ELSE"
 %token KW_END "END"
 %token KW_ENUM "ENUM"
-// Except is used in two locations of the language. And when the parser is
-// exploding the rules it detects two rules can be used for the same syntax.
-// See flex_tokenizer.l where it defines this special token that is only
-// generated for an EXCEPT when there is a conflict involved.
-//
-// This is a special token that is only generated for an EXCEPT that is followed
-// by a hint, ALL or DISTINCT.
-%token KW_EXCEPT_IN_SET_OP "EXCEPT in set operation"
 %token KW_EXCEPT "EXCEPT"
 %token KW_EXISTS "EXISTS"
 %token KW_EXTRACT "EXTRACT"
@@ -588,7 +582,6 @@ using namespace zetasql::parser_internal;
 %token KW_WHERE "WHERE"
 %token KW_WINDOW "WINDOW"
 %token KW_WITH "WITH"
-%token KW_WITH_STARTING_WITH_EXPRESSION "WITH starting with expression"
 %token KW_UNNEST "UNNEST"
 
 // These keywords may not be used in the grammar currently but are reserved
@@ -609,6 +602,13 @@ using namespace zetasql::parser_internal;
 // END_RESERVED_KEYWORDS -- Do not remove this!
 %token SENTINEL_RESERVED_KW_END  // See comment on SENTINEL_RESERVED_KW_END
 
+// The tokens in this section are reserved in the sense they cannot be used as
+// identifiers in the parser. They are not produced directly by the lexer
+// though, they are produced by disambiguation transformations after the main
+// lexer.
+
+%token KW_WITH_STARTING_WITH_EXPRESSION "WITH starting with expression"
+%token KW_EXCEPT_IN_SET_OP "EXCEPT in set operation"
 // This is a different token because using KW_NOT for BETWEEN/IN/LIKE would
 // confuse the operator precedence parsing. Boolean NOT has a different
 // precedence than NOT BETWEEN/IN/LIKE.
@@ -790,6 +790,7 @@ using namespace zetasql::parser_internal;
 %token KW_UPDATE "UPDATE"
 %token KW_VALUE "VALUE"
 %token KW_VALUES "VALUES"
+%token KW_VECTOR "VECTOR"
 %token KW_VOLATILE "VOLATILE"
 %token KW_VIEW "VIEW"
 %token KW_VIEWS "VIEWS"
@@ -1330,6 +1331,8 @@ using namespace zetasql::parser_internal;
 %type <stored_mode> stored_mode
 
 %type <table_or_table_function_keywords> table_or_table_function
+%type <index_type_keywords> index_type
+%type <index_type_keywords> opt_index_type
 %type <boolean> opt_access
 %type <boolean> opt_aggregate
 %type <ordering_spec> opt_asc_or_desc
@@ -1342,7 +1345,6 @@ using namespace zetasql::parser_internal;
 %type <boolean> opt_overwrite
 %type <boolean> opt_recursive
 %type <boolean> opt_unique
-%type <boolean> opt_search
 %type <select_with> opt_select_with;
 %type <node> primary_key_column_attribute
 %type <node> hidden_column_attribute
@@ -1874,6 +1876,7 @@ row_access_policy_alter_action_list:
 // - TABLE, TABLE FUNCTION, and SNAPSHOT TABLE since we use different production
 //   for table path expressions (one which may contain dashes).
 // - SEARCH INDEX since the DROP SEARCH INDEX has an optional ON <table> clause.
+// - VECTOR INDEX since the DROP VECTOR INDEX has an optional ON <table> clause.
 schema_object_kind:
     "AGGREGATE" "FUNCTION"
       { $$ = zetasql::SchemaObjectKind::kAggregateFunction; }
@@ -2531,7 +2534,9 @@ remote_with_connection_clause:
           $$.with_connection_clause = nullptr;
         } else {
           if (!parser->language_options().LanguageFeatureEnabled(
-                  zetasql::FEATURE_V_1_3_REMOTE_FUNCTION)) {
+                  zetasql::FEATURE_V_1_3_REMOTE_FUNCTION) &&
+              !parser->language_options().LanguageFeatureEnabled(
+                  zetasql::FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION)) {
             YYERROR_AND_ABORT_AT(@1, "WITH CONNECTION clause is not supported");
           }
           $$.with_connection_clause =
@@ -2833,7 +2838,7 @@ create_external_table_function_statement:
     ;
 
 create_index_statement:
-  "CREATE" opt_or_replace opt_unique opt_spanner_null_filtered opt_search
+  "CREATE" opt_or_replace opt_unique opt_spanner_null_filtered opt_index_type
     "INDEX" opt_if_not_exists path_expression "ON" path_expression opt_as_alias
     opt_index_unnest_expression_list index_order_by opt_index_storing_list
     opt_options_list opt_spanner_index_interleave_clause
@@ -2844,8 +2849,12 @@ create_index_statement:
         create->set_is_or_replace($2);
         create->set_is_unique($3);
         create->set_is_if_not_exists($7);
-        create->set_is_search($5);
         create->set_spanner_is_null_filtered($4);
+        if ($5 == IndexTypeKeywords::kSearch) {
+          create->set_is_search(true);
+        } else if ($5 == IndexTypeKeywords::kVector) {
+          create->set_is_vector(true);
+        }
         $$ = create;
       }
     ;
@@ -3462,7 +3471,7 @@ foreign_key_column_attribute:
   opt_constraint_identity foreign_key_reference
     {
       auto* node = MAKE_NODE(ASTForeignKeyColumnAttribute, @$, {$1, $2});
-      $$ = parser->WithStartLocation(node, FirstNonEmptyLocation({@1, @2}));
+      $$ = parser->WithStartLocation(node, FirstNonEmptyLocation(@1, @2));
     }
   ;
 
@@ -4338,10 +4347,9 @@ parenthesized_query:
       }
   ;
 
-// We don't use an opt_with_clause for the first element because it causes
-// shift/reduce conflicts.
-//
 query:
+    // We don't use an opt_with_clause for the first element because it causes
+    // shift/reduce conflicts.
     with_clause query_primary_or_set_operation[query_primary]
       opt_order_by_clause[order_by]
       opt_limit_offset_clause[offset]
@@ -4727,7 +4735,7 @@ select_column:
 opt_as_alias:
     opt_as identifier
       {
-        $$ = MAKE_NODE(ASTAlias, FirstNonEmptyLocation({@1, @2}), @2, {$2});
+        $$ = MAKE_NODE(ASTAlias, FirstNonEmptyLocation(@1, @2), @2, {$2});
       }
     | %empty { $$ = nullptr; }
     ;
@@ -5446,7 +5454,7 @@ join:
       {
         zetasql::parser::ErrorInfo error_info;
         auto *join_location =
-            parser->MakeLocation(NonEmptyRangeLocation({@2, @3, @4, @5}));
+            parser->MakeLocation(NonEmptyRangeLocation(@2, @3, @4, @5));
         auto node = zetasql::parser::JoinRuleAction(
             @1, @$,
             $1, $2, $3, $4, $6, $7, $8, join_location, parser, &error_info);
@@ -5507,7 +5515,7 @@ from_clause_contents:
 
         zetasql::parser::ErrorInfo error_info;
         auto* join_location = parser->MakeLocation(
-            NonEmptyRangeLocation({@2, @3, @4, @5}));
+            NonEmptyRangeLocation(@2, @3, @4, @5));
         auto node = zetasql::parser::JoinRuleAction(
             @1, @$,
             $1, $2, $3, $4, $6, $7, $8,
@@ -8229,7 +8237,7 @@ string_literal:
         const absl::Status parse_status = zetasql::ParseStringLiteral(
             input_text, &str, &error_string, &error_offset);
         if (!parse_status.ok()) {
-          zetasql_bison_parser::location location = @1;
+          auto location = @1;
           location.begin.column += error_offset;
           if (!error_string.empty()) {
             YYERROR_AND_ABORT_AT(location,
@@ -8260,7 +8268,7 @@ bytes_literal:
         const absl::Status parse_status = zetasql::ParseBytesLiteral(
             input_text, &bytes, &error_string, &error_offset);
         if (!parse_status.ok()) {
-          zetasql_bison_parser::location location = @1;
+          auto location = @1;
           location.begin.column += error_offset;
           if (!error_string.empty()) {
             YYERROR_AND_ABORT_AT(location,
@@ -8353,7 +8361,7 @@ identifier:
               zetasql::ParseGeneralizedIdentifier(
                   identifier_text, &str, &error_string, &error_offset);
           if (!parse_status.ok()) {
-            zetasql_bison_parser::location location = @1;
+            auto location = @1;
             location.begin.column += error_offset;
             if (!error_string.empty()) {
               YYERROR_AND_ABORT_AT(location,
@@ -8390,7 +8398,7 @@ label:
             zetasql::ParseGeneralizedIdentifier(
                 label_text, &str, &error_string, &error_offset);
         if (!parse_status.ok()) {
-          zetasql_bison_parser::location location = @1;
+          auto location = @1;
           location.begin.column += error_offset;
           if (!error_string.empty()) {
             YYERROR_AND_ABORT_AT(location,
@@ -8600,6 +8608,7 @@ keyword_as_identifier:
     | "UPDATE"
     | "VALUE"
     | "VALUES"
+    | "VECTOR"
     | "VIEW"
     | "VIEWS"
     | "VOLATILE"
@@ -8627,8 +8636,6 @@ opt_create_scope:
     ;
 
 opt_unique: "UNIQUE" { $$ = true; } | %empty { $$ = false; } ;
-
-opt_search: "SEARCH" { $$ = true; } | %empty { $$ = false; } ;
 
 describe_keyword: "DESCRIBE" | "DESC" ;
 
@@ -9444,13 +9451,21 @@ drop_statement:
         drop_row_access_policy->set_is_if_exists($5);
         $$ = drop_row_access_policy;
       }
-    | "DROP" "SEARCH" "INDEX" opt_if_exists path_expression
+    | "DROP" index_type "INDEX" opt_if_exists path_expression
       opt_on_path_expression
       {
-        auto* drop_search_index = MAKE_NODE(
-            ASTDropSearchIndexStatement, @$, {$5, $6});
-        drop_search_index->set_is_if_exists($4);
-        $$ = drop_search_index;
+        if ($2 == IndexTypeKeywords::kSearch) {
+          auto* drop_search_index = MAKE_NODE(
+             ASTDropSearchIndexStatement, @$, {$5, $6});
+          drop_search_index->set_is_if_exists($4);
+          $$ = drop_search_index;
+        }
+        if ($2 == IndexTypeKeywords::kVector) {
+          auto* drop_vector_index = MAKE_NODE(
+            ASTDropVectorIndexStatement, @$, {$5, $6});
+          drop_vector_index->set_is_if_exists($4);
+          $$ = drop_vector_index;
+        }
       }
     | "DROP" table_or_table_function opt_if_exists maybe_dashed_path_expression
       opt_function_parameters
@@ -9546,6 +9561,17 @@ drop_statement:
         }
       }
     ;
+
+
+index_type:
+    KW_SEARCH
+      { $$ = IndexTypeKeywords::kSearch; }
+    | KW_VECTOR
+      { $$ = IndexTypeKeywords::kVector; };
+
+opt_index_type:
+    index_type
+    | %empty { $$ = IndexTypeKeywords::kNone; };
 
 non_empty_statement_list:
     terminated_statement
@@ -10070,6 +10096,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTDropRowAccessPolicyStatement::kConcreteNodeKind; }
     | "DROP" "SEARCH" "INDEX"
       { $$ = zetasql::ASTDropSearchIndexStatement::kConcreteNodeKind; }
+    | "DROP" "VECTOR" "INDEX"
+      { $$ = zetasql::ASTDropVectorIndexStatement::kConcreteNodeKind; }
     | "DROP" table_or_table_function
       {
         if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
@@ -10159,7 +10187,7 @@ next_statement_kind_without_hint:
       {
         $$ = zetasql::ASTCreateProcedureStatement::kConcreteNodeKind;
       }
-    | "CREATE" opt_or_replace opt_unique opt_spanner_null_filtered opt_search
+    | "CREATE" opt_or_replace opt_unique opt_spanner_null_filtered opt_index_type
       "INDEX"
       { $$ = zetasql::ASTCreateIndexStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "SCHEMA"

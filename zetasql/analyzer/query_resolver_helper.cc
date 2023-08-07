@@ -207,10 +207,10 @@ std::string SelectColumnState::DebugString(absl::string_view indent) const {
 
 void SelectColumnStateList::AddSelectColumn(
     const ASTExpression* ast_expr, IdString alias, bool is_explicit,
-    bool has_aggregation, bool has_analytic,
+    bool has_aggregation, bool has_analytic, bool has_volatile,
     std::unique_ptr<const ResolvedExpr> resolved_expr) {
   AddSelectColumn(std::make_unique<SelectColumnState>(
-      ast_expr, alias, is_explicit, has_aggregation, has_analytic,
+      ast_expr, alias, is_explicit, has_aggregation, has_analytic, has_volatile,
       std::move(resolved_expr)));
 }
 

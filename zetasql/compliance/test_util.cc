@@ -196,7 +196,7 @@ ReproCommand::ReproCommand() {
 }
 
 bool ReproCommand::RemoveFromMapIfPresent(
-    const std::string& key, absl::btree_map<std::string, std::string>* map) {
+    absl::string_view key, absl::btree_map<std::string, std::string>* map) {
   auto it = map->find(key);
   if (it != map->end()) {
     map->erase(it);

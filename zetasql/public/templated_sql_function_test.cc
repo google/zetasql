@@ -16,6 +16,7 @@
 
 #include "zetasql/public/templated_sql_function.h"
 
+#include <cstdint>
 #include <memory>
 
 #include "zetasql/base/testing/status_matchers.h"  
@@ -29,7 +30,7 @@ TEST(TemplatedSqlFunctionTest, SerailizeDeserialize) {
   TemplatedSQLFunction initial(
       {"test_function"},
       FunctionSignature(type_factory.get_int64(), /*arguments=*/{},
-                        /*context_id=*/0l),
+                        /*context_id=*/static_cast<int64_t>(0)),
       /*argument_names=*/{},
       ParseResumeLocation::FromStringView("filename", "input"),
       Function::AGGREGATE, FunctionOptions());
@@ -51,7 +52,7 @@ TEST(TemplatedSqlFunctionTest, RegiesteredDeserializer) {
   TemplatedSQLFunction initial(
       {"test_function"},
       FunctionSignature(type_factory.get_int64(), /*arguments=*/{},
-                        /*context_id=*/0l),
+                        /*context_id=*/static_cast<int64_t>(0)),
       /*argument_names=*/{},
       ParseResumeLocation::FromStringView("filename", "input"),
       Function::AGGREGATE, FunctionOptions());

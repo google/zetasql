@@ -1303,9 +1303,8 @@ void Unparser::visitASTDropAllRowAccessPoliciesStatement(
   node->table_name()->Accept(this, data);
 }
 
-void Unparser::visitASTDropSearchIndexStatement(
-    const ASTDropSearchIndexStatement* node, void* data) {
-  print("DROP SEARCH INDEX");
+void Unparser::VisitASTDropIndexStatement(const ASTDropIndexStatement* node,
+                                          void* data) {
   if (node->is_if_exists()) {
     print("IF EXISTS");
   }
@@ -1314,6 +1313,18 @@ void Unparser::visitASTDropSearchIndexStatement(
     print("ON");
     node->table_name()->Accept(this, data);
   }
+}
+
+void Unparser::visitASTDropSearchIndexStatement(
+    const ASTDropSearchIndexStatement* node, void* data) {
+  print("DROP SEARCH INDEX");
+  VisitASTDropIndexStatement(node, data);
+}
+
+void Unparser::visitASTDropVectorIndexStatement(
+    const ASTDropVectorIndexStatement* node, void* data) {
+  print("DROP VECTOR INDEX");
+  VisitASTDropIndexStatement(node, data);
 }
 
 void Unparser::visitASTDropMaterializedViewStatement(
@@ -3636,6 +3647,7 @@ void Unparser::visitASTCreateIndexStatement(const ASTCreateIndexStatement* node,
   if (node->is_unique()) print("UNIQUE");
   if (node->spanner_is_null_filtered()) print("NULL_FILTERED");
   if (node->is_search()) print("SEARCH");
+  if (node->is_vector()) print("VECTOR");
   print("INDEX");
   if (node->is_if_not_exists()) print("IF NOT EXISTS");
   node->name()->Accept(this, data);

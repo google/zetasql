@@ -16,6 +16,84 @@ current row. The `OVER` clause syntax varies across navigation functions.
 For all navigation functions, the result data type is the same type as
 `value_expression`.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#first_value"><code>FIRST_VALUE</code></a>
+
+</td>
+  <td>
+    Gets a value for the first row in the current window frame.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lag"><code>LAG</code></a>
+
+</td>
+  <td>
+    Gets a value for a preceding row.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#last_value"><code>LAST_VALUE</code></a>
+
+</td>
+  <td>
+    Gets a value for the last row in the current window frame.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lead"><code>LEAD</code></a>
+
+</td>
+  <td>
+    Gets a value for a subsequent row.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nth_value"><code>NTH_VALUE</code></a>
+
+</td>
+  <td>
+    Gets a value for the Nth row of the current window frame.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#percentile_cont"><code>PERCENTILE_CONT</code></a>
+
+</td>
+  <td>
+    Computes the specified percentile for a value, using
+    linear interpolation.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#percentile_disc"><code>PERCENTILE_DISC</code></a>
+
+</td>
+  <td>
+    Computes the specified percentile for a discrete value.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `FIRST_VALUE`
 
 ```sql

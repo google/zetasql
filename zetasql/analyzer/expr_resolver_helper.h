@@ -246,6 +246,9 @@ struct ExprResolutionInfo {
   // True if this expression contains an analytic function.
   bool has_analytic = false;
 
+  // True if this expression contains a volatile function.
+  bool has_volatile = false;
+
   // True if this expression should be resolved against post-grouping
   // columns.  Gets set to false when resolving arguments of aggregation
   // functions.

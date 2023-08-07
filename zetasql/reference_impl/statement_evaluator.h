@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/public/analyzer.h"
@@ -114,7 +115,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
   StatementEvaluatorImpl(
       const AnalyzerOptions& initial_analyzer_options,
       const EvaluatorOptions& evaluator_options,
-      absl::variant<ParameterValueList, ParameterValueMap> parameters,
+      std::variant<ParameterValueList, ParameterValueMap> parameters,
       TypeFactory* type_factory, Catalog* catalog,
       StatementEvaluatorCallback* callback)
       : initial_analyzer_options_(initial_analyzer_options),
@@ -208,7 +209,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
         absl::string_view sql, const AnalyzerOptions& analyzer_options,
         Catalog* catalog, const EvaluatorOptions& evaluator_options,
         const SystemVariableValuesMap& system_variables,
-        absl::variant<ParameterValueList, ParameterValueMap> parameters) = 0;
+        std::variant<ParameterValueList, ParameterValueMap> parameters) = 0;
 
     absl::Status SetTableContents(const Table* table,
                                   const std::vector<std::vector<Value>>& rows) {
@@ -242,7 +243,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
         absl::string_view sql, const AnalyzerOptions& analyzer_options,
         Catalog* catalog, const EvaluatorOptions& evaluator_options,
         const SystemVariableValuesMap& system_variables,
-        absl::variant<ParameterValueList, ParameterValueMap> parameters)
+        std::variant<ParameterValueList, ParameterValueMap> parameters)
         override;
 
    private:
@@ -282,7 +283,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
         absl::string_view sql, const AnalyzerOptions& analyzer_options,
         Catalog* catalog, const EvaluatorOptions& evaluator_options,
         const SystemVariableValuesMap& system_variables,
-        absl::variant<ParameterValueList, ParameterValueMap> parameters)
+        std::variant<ParameterValueList, ParameterValueMap> parameters)
         override;
 
    private:

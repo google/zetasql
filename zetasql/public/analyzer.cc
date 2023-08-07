@@ -42,6 +42,7 @@
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/parse_resume_location.h"
@@ -306,6 +307,11 @@ static absl::Status AnalyzeStatementFromParserOutputImpl(
     ZETASQL_RET_CHECK((*statement_parser_output)->id_string_pool() != nullptr);
     local_options.set_id_string_pool(
         (*statement_parser_output)->id_string_pool());
+  }
+  CycleDetector owned_cycle_detector;
+  if (local_options.find_options().cycle_detector() == nullptr) {
+    local_options.mutable_find_options()->set_cycle_detector(
+        &owned_cycle_detector);
   }
 
   const ASTStatement* ast_statement = (*statement_parser_output)->statement();

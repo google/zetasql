@@ -662,13 +662,13 @@ void SampleCatalog::LoadTables() {
   ZETASQL_CHECK_OK(AnalyzeExpression(default_expr, analyzer_options, catalog_.get(),
                              catalog_->type_factory(), &output));
 
-  SimpleColumn::ExpressionAttributes expr_attributes{
-      .expression_string = default_expr,
-      .resolved_expr = output->resolved_expr()};
+  SimpleColumn::ExpressionAttributes expr_attributes(
+      SimpleColumn::ExpressionAttributes::ExpressionKind::DEFAULT, default_expr,
+      output->resolved_expr());
   ZETASQL_CHECK_OK(table_with_default_column->AddColumn(
-      new SimpleColumn(
-          table_with_default_column->Name(), "default_col", types_->get_int64(),
-          {.has_default_value = true, .column_expression = expr_attributes}),
+      new SimpleColumn(table_with_default_column->Name(), "default_col",
+                       types_->get_int64(),
+                       {.column_expression = expr_attributes}),
       /*is_owned=*/true));
 
   sql_object_artifacts_.emplace_back(std::move(output));
@@ -6314,6 +6314,8 @@ void SampleCatalog::AddSqlDefinedFunctionFromCreate(
   analyzer_options.set_enabled_rewrites(/*rewrites=*/{});
   analyzer_options.enable_rewrite(REWRITE_INLINE_SQL_FUNCTIONS,
                                   inline_sql_functions);
+  analyzer_options.enable_rewrite(REWRITE_INLINE_SQL_UDAS,
+                                  inline_sql_functions);
   sql_object_artifacts_.emplace_back();
   ZETASQL_CHECK_OK(AddFunctionFromCreateFunction(
       create_function, analyzer_options, /*allow_persistent_function=*/true,
@@ -6653,6 +6655,13 @@ void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
       )sql",
       language_options, /*inline_sql_functions=*/false,
       aggregate_calling_clauses_enabled);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION UdaInlinedOnCreate(x INT64) AS (
+          SumExpressionOfAggregateArgs(x)
+      );)sql",
+      language_options, /*inline_sql_functions=*/true);
 }
 
 void SampleCatalog::ForceLinkProtoTypes() {

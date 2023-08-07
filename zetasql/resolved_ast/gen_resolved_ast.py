@@ -271,6 +271,7 @@ SCALAR_STORED_MODE = EnumScalarType('StoredMode', 'ResolvedGeneratedColumnInfo')
 SCALAR_DROP_MODE = EnumScalarType('DropMode', 'ResolvedDropStmt')
 SCALAR_INSERTION_MODE = EnumScalarType('InsertionMode',
                                        'ResolvedAuxLoadDataStmt')
+SCALAR_INDEX_TYPE = EnumScalarType('IndexType', 'ResolvedDropIndexStmt')
 
 
 def Field(name,
@@ -548,7 +549,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 241
+          Next tag_id: 244
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -3897,7 +3898,7 @@ value.
       parent='ResolvedCreateStatement',
       comment="""
       This statement:
-      CREATE [OR REPLACE] [UNIQUE] [SEARCH] INDEX [IF NOT EXISTS]
+      CREATE [OR REPLACE] [UNIQUE] [SEARCH | VECTOR] INDEX [IF NOT EXISTS]
        <index_name_path> ON <table_name_path>
       [STORING (Expression, ...)]
       [UNNEST(path_expression) [[AS] alias] [WITH OFFSET [[AS] alias]], ...]
@@ -3906,7 +3907,10 @@ value.
       <table_name_path> is the name of table being indexed.
       <table_scan> is a TableScan on the table being indexed.
       <is_unique> specifies if the index has unique entries.
-      <is_search> specifies if the index is for search.
+      <is_search> specifies if the index is for search. It is mutually exclusive
+                  with is_vector.
+      <is_vector> specifies if the index is for vector search. It is mutually
+                  exclusive with is_search.
       <index_all_columns> specifies if indexing all the columns of the table.
                           When this field is true, index_item_list must be
                           empty and is_search must be true.
@@ -3932,10 +3936,17 @@ value.
               tag_id=3,
               ignorable=IGNORABLE),
           Field('is_unique', SCALAR_BOOL, tag_id=4),
+          # TODO: Replace is_search and is_vector with an enum.
           Field(
               'is_search',
               SCALAR_BOOL,
               tag_id=10,
+              is_optional_constructor_arg=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'is_vector',
+              SCALAR_BOOL,
+              tag_id=12,
               is_optional_constructor_arg=True,
               ignorable=IGNORABLE_DEFAULT),
           Field(
@@ -6831,11 +6842,14 @@ value.
       ])
 
   gen.AddNode(
-      name='ResolvedDropSearchIndexStmt',
-      tag_id=190,
+      name='ResolvedDropIndexStmt',
+      tag_id=242,
       parent='ResolvedStatement',
       comment="""
-      DROP SEARCH INDEX [IF EXISTS] <name> [ON <table_name_path>];
+      DROP SEARCH|VECTOR INDEX [IF EXISTS] <name> [ON <table_name_path>];
+      Note: DROP INDEX without SEARCH or VECTOR is currently resolved to a
+      generic ResolvedDropStmt. The index_type currently would never be
+      INDEX_DEFAULT.
 
       <name> is the name of the search index to be dropped.
       <table_name_path> is a vector giving the identifier path of the target
@@ -6851,8 +6865,18 @@ value.
               'table_name_path',
               SCALAR_STRING,
               tag_id=4,
-              vector=True)
-      ])
+              vector=True),
+          Field(
+              'index_type',
+              SCALAR_INDEX_TYPE,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=5,
+          ),
+      ],
+      extra_defs="""
+  std::string GetIndexTypeString() const;
+  static std::string IndexTypeToString(IndexType index_type);""",
+  )
 
   gen.AddNode(
       name='ResolvedGrantToAction',

@@ -706,8 +706,6 @@ FROM
 
 ==
 
-# This looks like a bug. Query parameters are supposed to accept reseved
-# keywords.
 SELECT @{{UNION|INTERSECT|EXCEPT}};
 --
 ALTERNATION GROUP: UNION
@@ -738,6 +736,13 @@ SELECT
 --
 ALTERNATION GROUP: EXCEPT
 --
-ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 1:9]
-SELECT @EXCEPT;
-        ^
+QueryStatement [0-14] [SELECT @EXCEPT]
+  Query [0-14] [SELECT @EXCEPT]
+    Select [0-14] [SELECT @EXCEPT]
+      SelectList [7-14] [@EXCEPT]
+        SelectColumn [7-14] [@EXCEPT]
+          ParameterExpr [7-14] [@EXCEPT]
+            Identifier(`EXCEPT`) [8-14] [EXCEPT]
+--
+SELECT
+  @`EXCEPT`

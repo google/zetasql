@@ -71,6 +71,7 @@
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -529,9 +530,16 @@ absl::Status Resolver::ResolveStatement(
       break;
 
     case AST_DROP_SEARCH_INDEX_STATEMENT:
-      if (language().SupportsStatementKind(RESOLVED_DROP_SEARCH_INDEX_STMT)) {
-        ZETASQL_RETURN_IF_ERROR(ResolveDropSearchIndexStatement(
-            statement->GetAsOrDie<ASTDropSearchIndexStatement>(), &stmt));
+      if (language().SupportsStatementKind(RESOLVED_DROP_INDEX_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveDropIndexStatement(
+            statement->GetAs<ASTDropSearchIndexStatement>(), &stmt));
+      }
+      break;
+
+    case AST_DROP_VECTOR_INDEX_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_DROP_INDEX_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveDropIndexStatement(
+            statement->GetAs<ASTDropIndexStatement>(), &stmt));
       }
       break;
 
@@ -777,6 +785,9 @@ absl::Status Resolver::ResolveQueryStatement(
     // ResolvedOutputColumn so we don't have to call ToString and copy here.
     output_column_list.push_back(MakeResolvedOutputColumn(
         named_column.name().ToString(), named_column.column()));
+
+    // Any column making it into the output cannot be pruned.
+    RecordColumnAccess(named_column.column());
   }
 
   *output_stmt = MakeResolvedQueryStmt(std::move(output_column_list),
@@ -1930,24 +1941,26 @@ absl::Status Resolver::ResolveCreateSchemaStatement(
   return absl::OkStatus();
 }
 
-absl::Status Resolver::ValidateIndexKeyExpressionForCreateSearchIndex(
+absl::Status Resolver::ValidateIndexKeyExpressionForCreateSearchOrVectorIndex(
+    std::string_view index_type,
     const ASTOrderingExpression& ordering_expression,
     const ResolvedExpr& resolved_expr) {
   if (ordering_expression.ordering_spec() !=
       ASTOrderingExpression::UNSPECIFIED) {
     return MakeSqlErrorAt(&ordering_expression)
            << "Key expression with ASC or DESC option for "
-           << "CREATE SEARCH INDEX is not allowed";
+           << "CREATE " << index_type << " INDEX is not allowed";
   }
   if (ordering_expression.null_order() != nullptr) {
     return MakeSqlErrorAt(&ordering_expression)
            << "Key expression with NULL order option for "
-           << "CREATE SEARCH INDEX is not allowed";
+           << "CREATE " << index_type << " INDEX is not allowed";
   }
 
   if (resolved_expr.node_kind() != RESOLVED_COLUMN_REF) {
     return MakeSqlErrorAt(&ordering_expression)
-           << "CREATE SEARCH INDEX does not yet support expressions to define "
+           << "CREATE " << index_type
+           << " INDEX does not yet support expressions to define "
            << "index keys, only column name is supported";
   }
   return absl::OkStatus();
@@ -1956,6 +1969,9 @@ absl::Status Resolver::ValidateIndexKeyExpressionForCreateSearchIndex(
 absl::Status Resolver::ResolveCreateIndexStatement(
     const ASTCreateIndexStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
+  // The parser would fail if both modifiers are specified.
+  ZETASQL_RET_CHECK(!ast_statement->is_search() || !ast_statement->is_vector());
+
   const ASTPathExpression* table_path = ast_statement->table_name();
   IdString table_alias;
   const ASTNode* table_alias_location = nullptr;
@@ -2025,9 +2041,10 @@ absl::Status Resolver::ResolveCreateIndexStatement(
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExprForCreateIndex(
         ast_statement, path_expression, &resolved_columns,
         resolved_expr.get()));
-    if (ast_statement->is_search()) {
-      ZETASQL_RETURN_IF_ERROR(ValidateIndexKeyExpressionForCreateSearchIndex(
-          *ordering_expression, *resolved_expr.get()));
+    if (ast_statement->is_search() || ast_statement->is_vector()) {
+      std::string index_type = ast_statement->is_search() ? "SEARCH" : "VECTOR";
+      ZETASQL_RETURN_IF_ERROR(ValidateIndexKeyExpressionForCreateSearchOrVectorIndex(
+          index_type, *ordering_expression, *resolved_expr.get()));
     }
     switch (resolved_expr->node_kind()) {
       case RESOLVED_COLUMN_REF: {
@@ -2109,7 +2126,7 @@ absl::Status Resolver::ResolveCreateIndexStatement(
   *output = MakeResolvedCreateIndexStmt(
       index_name, create_scope, create_mode, table_name,
       std::move(resolved_table_scan), ast_statement->is_unique(),
-      ast_statement->is_search(), index_all_columns,
+      ast_statement->is_search(), ast_statement->is_vector(), index_all_columns,
       std::move(resolved_index_items), std::move(resolved_index_storing_items),
       std::move(resolved_options), std::move(resolved_computed_columns),
       std::move(resolved_unnest_items));
@@ -3984,7 +4001,9 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
           &resolved_connection));
     }
   } else if (with_connection != nullptr) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION) &&
+        !language().LanguageFeatureEnabled(
+            FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION)) {
       return MakeSqlErrorAt(with_connection)
              << "WITH CONNECTION clause is not supported";
     }
@@ -3997,9 +4016,20 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
                 "of using LANGUAGE clause";
     }
 
-    return MakeSqlErrorAt(with_connection)
-           << "WITH CONNECTION clause should be preceded by keyword REMOTE "
-              "and can't be used together with LANGUAGE clause";
+    if (!language().LanguageFeatureEnabled(
+            FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION)) {
+      return MakeSqlErrorAt(with_connection)
+             << "WITH CONNECTION clause should be preceded by keyword REMOTE "
+                "and can't be used together with LANGUAGE clause";
+    }
+    if (function_language == nullptr) {
+      return MakeSqlErrorAt(with_connection)
+             << "WITH CONNECTION clause should be preceded by keyword REMOTE "
+                "or must be used with LANGUAGE clause";
+    }
+    ZETASQL_RETURN_IF_ERROR(ResolveConnection(
+        with_connection->connection_clause()->connection_path(),
+        &resolved_connection));
   }
 
   // If REMOTE keyword is used or LANGUAGE is set to "REMOTE" and the feature is
@@ -6117,25 +6147,56 @@ absl::Status Resolver::ResolveDropSnapshotTableStatement(
   return absl::OkStatus();
 }
 
-absl::Status Resolver::ResolveDropSearchIndexStatement(
-    const ASTDropSearchIndexStatement* ast_statement,
+absl::Status Resolver::ResolveDropIndexStatement(
+    const ASTDropIndexStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
   // The parser would fail if the index name was missing.
   ZETASQL_RET_CHECK(ast_statement->name() != nullptr);
-
+  std::string index_type_for_error;
+  switch (ast_statement->node_kind()) {
+    case AST_DROP_SEARCH_INDEX_STATEMENT:
+      index_type_for_error = "SEARCH";
+      break;
+    case AST_DROP_VECTOR_INDEX_STATEMENT:
+      index_type_for_error = "VECTOR";
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Invalid statement";
+  }
   if (ast_statement->name()->names().size() != 1) {
     return MakeSqlErrorAt(ast_statement->name())
-           << "The DROP SEARCH INDEX statement requires an index name, not a "
-              "path";
+           << "The DROP " << index_type_for_error
+           << " INDEX statement requires an index "
+              "name, not a path";
   }
   std::vector<std::string> table_name;
   if (ast_statement->table_name() != nullptr) {
     table_name = ast_statement->table_name()->ToIdentifierVector();
   }
-  *output = MakeResolvedDropSearchIndexStmt(
-      ast_statement->is_if_exists(),
-      ast_statement->name()->first_name()->GetAsString(), table_name);
-  return absl::OkStatus();
+  ResolvedDropIndexStmt::IndexType index_type =
+      ResolvedDropIndexStmt::INDEX_DEFAULT;
+  switch (ast_statement->node_kind()) {
+    case AST_DROP_SEARCH_INDEX_STATEMENT:
+      index_type = ResolvedDropIndexStmt::INDEX_SEARCH;
+      break;
+    case AST_DROP_VECTOR_INDEX_STATEMENT:
+        index_type = ResolvedDropIndexStmt::INDEX_VECTOR;
+        break;
+    default:
+        break;
+  }
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto drop_index_stmt,
+        ResolvedDropIndexStmtBuilder()
+            .set_is_if_exists(ast_statement->is_if_exists())
+            .set_name(ast_statement->name()->first_name()->GetAsString())
+            .set_table_name_path(table_name)
+            .set_index_type(index_type)
+            .Build());
+    *output = absl::WrapUnique(
+        const_cast<ResolvedDropIndexStmt*>(drop_index_stmt.release()));
+    return absl::OkStatus();
 }
 absl::Status Resolver::ResolveAlterViewStatement(
     const ASTAlterViewStatement* ast_statement,

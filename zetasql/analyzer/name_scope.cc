@@ -36,7 +36,6 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -44,7 +43,6 @@
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -283,21 +281,15 @@ bool NameScope::LookupName(
   return false;
 }
 
-// Find the entry in 'name_path_list' whose name path is the
-// longest prefix of 'path_names'.  If no entry is found returns false.
-// If a matching entry is found, returns true along with the matching
-// entry's target column in 'resolved_column' and the entry's name path
-// size in 'name_at'.
-static bool FindLongestMatchingPathIfAny(
+bool ValidFieldInfoMap::FindLongestMatchingPathIfAny(
     const ValidNamePathList& name_path_list,
-    const std::vector<IdString>& path_names,
-    ResolvedColumn* resolved_column,
+    const std::vector<IdString>& path_names, ResolvedColumn* resolved_column,
     int* name_at) {
   bool found = false;
   *name_at = 0;
   for (const ValidNamePath& valid_name_path : name_path_list) {
     if (valid_name_path.name_path().size() > path_names.size() ||
-        valid_name_path.name_path().size() <= *name_at) {
+        valid_name_path.name_path().size() < *name_at) {
       // The 'valid_name_path' is longer than 'path_names', or it
       // is shorter than the longest prefix so far, so it cannot be
       // the longest prefix.
@@ -431,9 +423,9 @@ absl::Status NameScope::LookupNamePath(
           }
 
           ResolvedColumn resolved_column;
-          if (!FindLongestMatchingPathIfAny(target.valid_name_path_list(),
-                                            path_names, &resolved_column,
-                                            num_names_consumed)) {
+          if (!ValidFieldInfoMap::FindLongestMatchingPathIfAny(
+                  target.valid_name_path_list(), path_names, &resolved_column,
+                  num_names_consumed)) {
             if (!target.access_error_message().empty()) {
               return MakeSqlErrorAt(path_expr.first_name())
                      << target.access_error_message();

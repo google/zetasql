@@ -317,7 +317,7 @@ table contains a stream of protocol buffer values. In this case, the top-level
 protocol buffer fields can be used in the same way that column names are used
 when querying a regular table.
 
-### Copy a protocol buffers using a value table
+### Copy a protocol buffer using a value table
 
 In some cases you might not want to work with the data within a protocol buffer,
 but with the protocol buffer itself.

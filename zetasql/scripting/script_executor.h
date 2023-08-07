@@ -23,6 +23,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"
@@ -246,7 +247,7 @@ class ScriptExecutor {
 
   // Returns current stack frame's query parameters
   virtual const std::optional<
-      absl::variant<ParameterValueList, ParameterValueMap>>&
+      std::variant<ParameterValueList, ParameterValueMap>>&
   GetCurrentParameterValues() const = 0;
 
   // Returns the next statement or clause to be executed. Nullptr if the script

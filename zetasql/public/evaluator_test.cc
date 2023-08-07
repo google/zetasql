@@ -1801,6 +1801,66 @@ TEST(EvaluatorTest, PreparedFromAST_IllegalDeref) {
               zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
 }
 
+TEST(EvaluatorTest,
+     InListFiltersIntersectDifferentTypesCorrectlyWhenPushedDown) {
+  SimpleTable test_table(
+      "t", {{"a", types::Int64Type()}, {"b", types::StringType()}});
+  test_table.SetContents({{Int64(10), String("foo")}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+
+  PreparedExpression expr(
+      "EXISTS(SELECT * FROM t WHERE a = 10 AND a = CAST(10 AS UINT64))");
+  ZETASQL_ASSERT_OK(expr.Prepare(AnalyzerOptions(), &catalog));
+  EXPECT_THAT(expr.Execute(), IsOkAndHolds(Value::Bool(true)));
+}
+
+TEST(EvaluatorTest,
+     InListFiltersIntersectDifferentTypesCorrectlyWhenPushedDown_Inf) {
+  SimpleTable test_table(
+      "t", {{"a", types::Int64Type()}, {"b", types::DoubleType()}});
+  test_table.SetContents(
+      {{Int64(10), Double(-std::numeric_limits<double>::infinity())}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+
+  PreparedExpression expr(R"(
+  EXISTS(
+    SELECT b FROM t
+    WHERE b = CAST('-INF' AS double) AND b = -CAST('INF' AS float) AND b < 0
+  )
+)");
+
+  ZETASQL_ASSERT_OK(expr.Prepare(AnalyzerOptions(), &catalog));
+  EXPECT_THAT(expr.Execute(), IsOkAndHolds(Value::Bool(true)));
+}
+
+TEST(EvaluatorTest,
+     InListFiltersIntersectDifferentTypesCorrectlyWhenPushedDown_NaN) {
+  SimpleTable test_table(
+      "t", {{"a", types::Int64Type()}, {"b", types::DoubleType()}});
+  test_table.SetContents(
+      {{Int64(10), Double(std::numeric_limits<double>::quiet_NaN())}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+
+  PreparedExpression expr(R"(
+  EXISTS(
+    SELECT b FROM t
+    WHERE b = CAST('NaN' AS double) AND b = CAST('NaN' AS float)
+  )
+)");
+
+  ZETASQL_ASSERT_OK(expr.Prepare(AnalyzerOptions(), &catalog));
+  EXPECT_THAT(expr.Execute(), IsOkAndHolds(Value::Bool(false)));
+}
+
 TEST(EvaluatorTest, ExecuteWithOrderedColumns) {
   PreparedExpression expr("1 + 2", EvaluatorOptions());
   ExpressionOptions options;
@@ -3384,14 +3444,13 @@ class PreparedModifyWithDefaultColumnTest : public ::testing::Test {
     ZETASQL_CHECK_OK(AnalyzeExpression(default_expr, analyzer_options_, &catalog_,
                                catalog_.type_factory(), &output_));
 
-    SimpleColumn::ExpressionAttributes expr_attributes{
-        .expression_string = default_expr,
-        .resolved_expr = output_->resolved_expr()};
+    SimpleColumn::ExpressionAttributes expr_attributes(
+        SimpleColumn::ExpressionAttributes::ExpressionKind::DEFAULT,
+        default_expr, output_->resolved_expr());
 
     ZETASQL_ASSERT_OK(test_table->AddColumn(
-        new SimpleColumn(
-            test_table->Name(), "d", types::Int64Type(),
-            {.has_default_value = true, .column_expression = expr_attributes}),
+        new SimpleColumn(test_table->Name(), "d", types::Int64Type(),
+                         {.column_expression = expr_attributes}),
         /*is_owned=*/true));
 
     test_table->SetContents({{Int64(1), Int64(1)}, {Int64(2), Int64(2)}});

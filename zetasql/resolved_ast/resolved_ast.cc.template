@@ -279,6 +279,9 @@ static std::string ToStringImpl(
   if (function_call_info == nullptr) return "<null>";
   return function_call_info->DebugString();
 }
+static std::string ToStringImpl(ResolvedDropIndexStmt::IndexType index_type) {
+  return ResolvedDropIndexStmt::IndexTypeToString(index_type);
+}
 static std::string ToStringVerbose(const absl::optional<FunctionSignature>& signature) {
   return signature->DebugString("" /* function_name */, true /* verbose */);
 }

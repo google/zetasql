@@ -76,7 +76,7 @@ const std::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorS
 
     return internal::GetPayload<ErrorLocation>(status).error_source();
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 std::string DeprecationWarningsToDebugString(

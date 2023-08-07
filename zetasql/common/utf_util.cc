@@ -119,7 +119,7 @@ std::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
     UChar32 character;
     U8_NEXT(str, str_offset, str_length32, character);
     if (character < 0) {
-      return absl::nullopt;
+      return std::nullopt;
     }
   }
   return str_offset;

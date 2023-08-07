@@ -1616,3 +1616,283 @@ QueryStmt
             +-group_by_column=
             | +-ColumnRef(type=STRING, column=$groupby.value#6)
             +-output_column=$grouping_call.$grouping_call1#7
+
+==
+
+# rollup with duplicated expressions when GROUPING_SETS are enabled - no duplicated group by expressions
+[no_enable_literal_replacement]
+[language_features=V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN,GROUP_BY_ROLLUP]
+SELECT
+  key-1, key-1, GROUPING(key+1), GROUPING(key+1)
+FROM KeyValue
+GROUP BY ROLLUP(key-1, key-1, key+1, key+1)
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#5 AS `$col1` [INT64]
+| +-$groupby.$groupbycol1#5 AS `$col2` [INT64]
+| +-$grouping_call.$grouping_call1#7 AS `$col3` [INT64]
+| +-$grouping_call.$grouping_call2#8 AS `$col4` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.$groupbycol1#5, $groupby.$groupbycol1#5, $grouping_call.$grouping_call1#7, $grouping_call.$grouping_call2#8]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.$groupbycol1#5, $groupby.$groupbycol2#6, $grouping_call.$grouping_call1#7, $grouping_call.$grouping_call2#8]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-group_by_list=
+        | +-$groupbycol1#5 :=
+        | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |   +-Literal(type=INT64, value=1)
+        | +-$groupbycol2#6 :=
+        |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |     +-Literal(type=INT64, value=1)
+        +-grouping_set_list=
+        | +-Rollup
+        |   +-rollup_column_list=
+        |     +-GroupingSetMultiColumn
+        |     | +-column_list=
+        |     |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        |     +-GroupingSetMultiColumn
+        |     | +-column_list=
+        |     |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        |     +-GroupingSetMultiColumn
+        |     | +-column_list=
+        |     |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+        |     +-GroupingSetMultiColumn
+        |       +-column_list=
+        |         +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+        +-grouping_call_list=
+          +-GroupingCall
+          | +-group_by_column=
+          | | +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+          | +-output_column=$grouping_call.$grouping_call1#7
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+            +-output_column=$grouping_call.$grouping_call2#8
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#5 AS `$col1` [INT64]
+| +-$groupby.$groupbycol1#5 AS `$col2` [INT64]
+| +-$grouping_call.$grouping_call1#7 AS `$col3` [INT64]
+| +-$grouping_call.$grouping_call2#8 AS `$col4` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.$groupbycol1#5, $groupby.$groupbycol1#5, $grouping_call.$grouping_call1#7, $grouping_call.$grouping_call2#8]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.$groupbycol1#5, $groupby.$groupbycol2#6, $grouping_call.$grouping_call1#7, $grouping_call.$grouping_call2#8]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-group_by_list=
+        | +-$groupbycol1#5 :=
+        | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |   +-Literal(type=INT64, value=1)
+        | +-$groupbycol2#6 :=
+        |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |     +-Literal(type=INT64, value=1)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        | +-GroupingSet
+        +-grouping_call_list=
+          +-GroupingCall
+          | +-group_by_column=
+          | | +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+          | +-output_column=$grouping_call.$grouping_call1#7
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+            +-output_column=$grouping_call.$grouping_call2#8
+
+==
+
+# rollup with duplicated expressions when GROUPING_SETS isn't enabled - duplicated expressions exist
+[no_enable_literal_replacement]
+SELECT
+  key-1, key-1, GROUPING(key+1), GROUPING(key+1)
+FROM KeyValue
+GROUP BY ROLLUP(key-1, key-1, key+1, key+1)
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#5 AS `$col1` [INT64]
+| +-$groupby.$groupbycol1#5 AS `$col2` [INT64]
+| +-$grouping_call.$grouping_call1#9 AS `$col3` [INT64]
+| +-$grouping_call.$grouping_call2#10 AS `$col4` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.$groupbycol1#5, $groupby.$groupbycol1#5, $grouping_call.$grouping_call1#9, $grouping_call.$grouping_call2#10]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.$groupbycol1#5, $groupby.$groupbycol3#7, $grouping_call.$grouping_call1#9, $grouping_call.$grouping_call2#10]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-group_by_list=
+        | +-$groupbycol1#5 :=
+        | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |   +-Literal(type=INT64, value=1)
+        | +-$groupbycol2#6 :=
+        | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |   +-Literal(type=INT64, value=1)
+        | +-$groupbycol3#7 :=
+        | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | |   +-Literal(type=INT64, value=1)
+        | +-$groupbycol4#8 :=
+        |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |     +-Literal(type=INT64, value=1)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#7)
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol4#8)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#7)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        | +-GroupingSet
+        +-rollup_column_list=
+        | +-ColumnRef(type=INT64, column=$groupby.$groupbycol1#5)
+        | +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
+        | +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#7)
+        | +-ColumnRef(type=INT64, column=$groupby.$groupbycol4#8)
+        +-grouping_call_list=
+          +-GroupingCall
+          | +-group_by_column=
+          | | +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#7)
+          | +-output_column=$grouping_call.$grouping_call1#9
+          +-GroupingCall
+            +-group_by_column=
+            | +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#7)
+            +-output_column=$grouping_call.$grouping_call2#10
+
+==
+
+# Aggregation Threshold with rollup legacy code path
+[language_features=GROUP_BY_ROLLUP,AGGREGATION_THRESHOLD]
+SELECT WITH AGGREGATION_THRESHOLD
+key, value
+FROM KeyValue
+GROUP BY ROLLUP(key, value);
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key#3 AS key [INT64]
+| +-$groupby.value#4 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$groupby.[key#3, value#4]
+    +-input_scan=
+      +-AggregationThresholdAggregateScan
+        +-column_list=$groupby.[key#3, value#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-grouping_set_list=
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.key#3)
+        | |   +-ColumnRef(type=STRING, column=$groupby.value#4)
+        | +-GroupingSet
+        | | +-group_by_column_list=
+        | |   +-ColumnRef(type=INT64, column=$groupby.key#3)
+        | +-GroupingSet
+        +-rollup_column_list=
+          +-ColumnRef(type=INT64, column=$groupby.key#3)
+          +-ColumnRef(type=STRING, column=$groupby.value#4)
+
+==
+
+# Aggregation Threshold with rollup rewriter
+[language_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,AGGREGATION_THRESHOLD]
+SELECT WITH AGGREGATION_THRESHOLD
+key, value
+FROM KeyValue
+GROUP BY ROLLUP(key, value);
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key#3 AS key [INT64]
+| +-$groupby.value#4 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$groupby.[key#3, value#4]
+    +-input_scan=
+      +-AggregationThresholdAggregateScan
+        +-column_list=$groupby.[key#3, value#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-grouping_set_list=
+          +-Rollup
+            +-rollup_column_list=
+              +-GroupingSetMultiColumn
+              | +-column_list=
+              |   +-ColumnRef(type=INT64, column=$groupby.key#3)
+              +-GroupingSetMultiColumn
+                +-column_list=
+                  +-ColumnRef(type=STRING, column=$groupby.value#4)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.key#3 AS key [INT64]
+| +-$groupby.value#4 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$groupby.[key#3, value#4]
+    +-input_scan=
+      +-AggregationThresholdAggregateScan
+        +-column_list=$groupby.[key#3, value#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-grouping_set_list=
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.key#3)
+          |   +-ColumnRef(type=STRING, column=$groupby.value#4)
+          +-GroupingSet
+          | +-group_by_column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.key#3)
+          +-GroupingSet

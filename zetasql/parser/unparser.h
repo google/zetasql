@@ -269,6 +269,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTDropSnapshotTableStatement* node, void* data) override;
   void visitASTDropSearchIndexStatement(const ASTDropSearchIndexStatement* node,
                                         void* data) override;
+  void visitASTDropVectorIndexStatement(const ASTDropVectorIndexStatement* node,
+                                        void* data) override;
   void visitASTRenameStatement(const ASTRenameStatement* node,
                                void* data) override;
   void visitASTImportStatement(const ASTImportStatement* node,
@@ -819,6 +821,8 @@ class Unparser : public ParseTreeVisitor {
   void UnparseLeafNode(const ASTLeaf* leaf_node);
   void UnparseColumnSchema(const ASTColumnSchema* node, void* data);
   void VisitAlterStatementBase(const ASTAlterStatementBase* node, void* data);
+  void VisitASTDropIndexStatement(const ASTDropIndexStatement* node,
+                                  void* data);
 };
 
 }  // namespace parser

@@ -57,6 +57,7 @@ class ParserRuntimeInfo {
 
     auto add_timing = [&](AnalyzerLogEntry::LoggedOperationCategory op,
                           const internal::TimedValue& time) {
+      if (!time.HasAnyRecordedTiming()) return;
       auto& stage = *entry.add_execution_stats_by_op();
       stage.set_key(op);
       *stage.mutable_value() = time.ToExecutionStatsProto();

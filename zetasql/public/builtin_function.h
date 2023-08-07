@@ -27,6 +27,7 @@
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/type.h"
+#include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 
@@ -54,6 +55,16 @@ absl::Status GetBuiltinFunctionsAndTypes(
     const BuiltinFunctionOptions& options, TypeFactory& type_factory,
     absl::flat_hash_map<std::string, std::unique_ptr<Function>>& functions,
     absl::flat_hash_map<std::string, const Type*>& types);
+// DEPRECATED - As above but taking LanguageOptions rather than
+// BuiltinFunctionOptions
+ABSL_DEPRECATED("Inline me!")
+inline absl::Status GetBuiltinFunctionsAndTypes(
+    const LanguageOptions& options, TypeFactory& type_factory,
+    absl::flat_hash_map<std::string, std::unique_ptr<Function>>& functions,
+    absl::flat_hash_map<std::string, const Type*>& types) {
+  return GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(options),
+                                     type_factory, functions, types);
+}
 
 // Returns statically allocated collections of all released FunctionSignatures
 // and Types that are part of the ZetaSQL core library, using a reasonable
@@ -109,6 +120,15 @@ ABSL_DEPRECATED("Inline me!")
 void GetZetaSQLFunctions(  // NOLINT
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     std::map<std::string, std::unique_ptr<Function>>* functions);
+// DEPRECATED - As above but accepting a LanguageOptions rather than a
+// BuiltinFunctionOptions.
+ABSL_DEPRECATED("Inline me!")
+inline void GetZetaSQLFunctions(
+    TypeFactory* type_factory, const LanguageOptions& options,
+    std::map<std::string, std::unique_ptr<Function>>* functions) {
+  GetZetaSQLFunctions(type_factory,
+                        zetasql::BuiltinFunctionOptions(options), functions);
+}
 
 }  // namespace zetasql
 

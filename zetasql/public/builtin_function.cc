@@ -86,8 +86,9 @@ static const FunctionIdToNameMap& GetFunctionIdToNameMap() {
     options.EnableMaximumLanguageFeaturesForDevelopment();
     options.set_product_mode(PRODUCT_INTERNAL);
 
-    absl::Status status = GetBuiltinFunctionsAndTypes(options, type_factory,
-                                                      functions, types_ignored);
+    absl::Status status =
+        GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(options),
+                                    type_factory, functions, types_ignored);
     ZETASQL_DCHECK_OK(status);
 
     for (const auto& function_entry : functions) {
@@ -117,7 +118,7 @@ const std::string FunctionSignatureIdToName(FunctionSignatureId id) {
 
 // DEPRECATED
 void GetZetaSQLFunctions(
-    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    TypeFactory* type_factory, const BuiltinFunctionOptions& options,
     std::map<std::string, std::unique_ptr<Function>>* functions) {
   NameToTypeMap types_ignored;
   NameToFunctionMap adequately_efficient_function_map;
@@ -129,9 +130,10 @@ void GetZetaSQLFunctions(
   ZETASQL_DCHECK_OK(status);
 }
 
-absl::Status GetBuiltinFunctionsAndTypes(
-    const ZetaSQLBuiltinFunctionOptions& options, TypeFactory& type_factory,
-    NameToFunctionMap& functions, NameToTypeMap& types) {
+absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
+                                         TypeFactory& type_factory,
+                                         NameToFunctionMap& functions,
+                                         NameToTypeMap& types) {
   // TODO: Enable these preconditions with global presubmit.
   // ZETASQL_RET_CHECK(types.empty());
   // ZETASQL_RET_CHECK(functions.empty());

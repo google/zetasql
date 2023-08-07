@@ -35,11 +35,9 @@ class ParseResumeLocation;
 // Parses the <sql> statement and returns OK if the statement is valid
 // ZetaSQL syntax.  Otherwise returns the parser error, formatted according
 // to <error_message_mode>.  Scripting statements are not supported.
-//
-// TODO: Take LanguageOptions as input, which controls some parser
-// behavior.
-absl::Status IsValidStatementSyntax(absl::string_view sql,
-                                    ErrorMessageMode error_message_mode);
+absl::Status IsValidStatementSyntax(
+    absl::string_view sql, ErrorMessageMode error_message_mode,
+    const LanguageOptions& language_options = LanguageOptions());
 
 // Similar to the previous, but checks the validity of the next statement
 // starting from <resume_location>.  If the syntax is valid then returns OK
@@ -50,7 +48,8 @@ absl::Status IsValidStatementSyntax(absl::string_view sql,
 // validate that all the statements in the string are valid syntax.
 absl::Status IsValidNextStatementSyntax(
     ParseResumeLocation* resume_location, ErrorMessageMode error_message_mode,
-    bool* at_end_of_input);
+    bool* at_end_of_input,
+    const LanguageOptions& language_options = LanguageOptions());
 
 // Parse the first few keywords from <input> (ignoring whitespace, comments
 // and hints) to determine what kind of statement it is (if it is valid).

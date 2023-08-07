@@ -25,6 +25,7 @@
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "absl/base/attributes.h"
+#include "zetasql/base/check.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 
@@ -88,6 +89,7 @@ class TimedValue {
       "Consider ToExecutionStatsProto for more than wall time usage")
   absl::Duration elapsed_duration() const { return wall_time_; }
 
+  ABSL_DEPRECATED("Accumulate all statistics not just wall time")
   void Accumulate(absl::Duration duration) { wall_time_ += duration; }
   void Accumulate(ElapsedTimer timer) {
     Accumulate(TimedValue(timer.GetStart(), ResourceMeasurement()));
@@ -99,6 +101,17 @@ class TimedValue {
         std::max(stack_available_bytes_, timer.stack_available_bytes_);
     stack_peak_used_bytes_ =
         std::max(stack_peak_used_bytes_, timer.stack_peak_used_bytes_);
+  }
+
+  bool HasAnyRecordedTiming() const {
+    if (wall_time_ > absl::ZeroDuration()) {
+      return true;
+    }
+    // Confirm that all other members are zero
+    ABSL_DCHECK_EQ(cpu_time_, absl::ZeroDuration());
+    ABSL_DCHECK_EQ(stack_available_bytes_, 0);
+    ABSL_DCHECK_EQ(stack_peak_used_bytes_, 0);
+    return false;
   }
 
  private:

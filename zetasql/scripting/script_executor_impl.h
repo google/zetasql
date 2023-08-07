@@ -23,6 +23,7 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"
@@ -91,7 +92,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   int64_t stack_depth() const override { return callstack_.size(); }
   absl::Status UpdateAnalyzerOptions(
       AnalyzerOptions& analyzer_options) const override;
-  const std::optional<absl::variant<ParameterValueList, ParameterValueMap>>&
+  const std::optional<std::variant<ParameterValueList, ParameterValueMap>>&
   GetCurrentParameterValues() const override {
     return callstack_.back().parameters();
   }
@@ -141,10 +142,9 @@ class ScriptExecutorImpl : public ScriptExecutor {
         VariableTypeParametersMap variable_type_params,
         std::unique_ptr<ProcedureDefinition> procedure_definition,
         std::unique_ptr<IdStringPool> id_string_pool,
-        std::optional<absl::variant<ParameterValueList, ParameterValueMap>>
+        std::optional<std::variant<ParameterValueList, ParameterValueMap>>
             parameters,
-        std::vector<std::unique_ptr<EvaluatorTableIterator>>
-            for_loop_stack)
+        std::vector<std::unique_ptr<EvaluatorTableIterator>> for_loop_stack)
         : parsed_script_(std::move(parsed_script)),
           current_node_(current_node),
           variables_(std::move(variables)),
@@ -174,7 +174,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
     const ProcedureDefinition* procedure_definition() const {
       return procedure_definition_.get();
     }
-    const std::optional<absl::variant<ParameterValueList, ParameterValueMap>>&
+    const std::optional<std::variant<ParameterValueList, ParameterValueMap>>&
     parameters() const {
       return parameters_;
     }
@@ -236,7 +236,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
     std::unique_ptr<IdStringPool> id_string_pool_;
 
     // Parameters to use in this stack frame
-    std::optional<absl::variant<ParameterValueList, ParameterValueMap>>
+    std::optional<std::variant<ParameterValueList, ParameterValueMap>>
         parameters_;
 
     // Stack of EvaluatorTableIterators used by nested FOR loops.
@@ -302,7 +302,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
 
   // Loads parameters specified in an EXECUTE IMMEDIATE USING clause
   absl::StatusOr<
-      std::optional<absl::variant<ParameterValueList, ParameterValueMap>>>
+      std::optional<std::variant<ParameterValueList, ParameterValueMap>>>
   EvaluateDynamicParams(const ASTExecuteUsingClause* using_clause,
                         VariableSizesMap* variable_sizes_map);
 

@@ -711,11 +711,12 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       break;
 
     case AST_DROP_SEARCH_INDEX_STATEMENT:
+    case AST_DROP_VECTOR_INDEX_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
-              RESOLVED_DROP_SEARCH_INDEX_STMT)) {
-        // For a "DROP SEARCH INDEX <name> [ON <table>]" statement, the table
-        // name is not inserted into table_names_. Engines that need to know
-        // about the target table should handle that themselves.
+              RESOLVED_DROP_INDEX_STMT)) {
+        // For a "DROP [SEARCH|VECTOR] INDEX <name> [ON <table>]" statement, the
+        // table name is not inserted into table_names_. Engines that need to
+        // know about the target table should handle that themselves.
         return absl::OkStatus();
       }
       break;

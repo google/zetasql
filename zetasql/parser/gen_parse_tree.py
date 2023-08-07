@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 406
+NEXT_NODE_TAG_ID = 409
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -833,7 +833,7 @@ def main(argv):
               tag_id=7,
               comment="""
                 True if this query represents the input to a pivot clause.
-                """)
+                """),
       ],
       use_custom_debug_string=True)
 
@@ -3752,9 +3752,44 @@ def main(argv):
       """)
 
   gen.AddNode(
+      name='ASTDropIndexStatement',
+      tag_id=407,
+      parent='ASTDdlStatement',
+      is_abstract=True,
+      comment="""
+      Represents a DROP SEARCH|VECTOR INDEX statement. It is different from the
+      regular drop index in that it has a trailing "ON PATH" clause.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              visibility=Visibility.PROTECTED,
+          ),
+          Field(
+              'table_name',
+              'ASTPathExpression',
+              tag_id=3,
+              visibility=Visibility.PROTECTED,
+          ),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=4,
+              visibility=Visibility.PROTECTED,
+          ),
+      ],
+      extra_public_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """,
+  )
+
+  gen.AddNode(
       name='ASTDropSearchIndexStatement',
       tag_id=118,
-      parent='ASTDdlStatement',
+      parent='ASTDropIndexStatement',
       use_custom_debug_string=True,
       custom_debug_string_comment="""
       This adds the "if exists" modifier to the node name.
@@ -3762,24 +3797,20 @@ def main(argv):
       comment="""
       Represents a DROP SEARCH INDEX statement.
       """,
-      fields=[
-          Field(
-              'name',
-              'ASTPathExpression',
-              tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'table_name',
-              'ASTPathExpression',
-              tag_id=3),
-          Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=4),
-      ],
-      extra_public_defs="""
-  const ASTPathExpression* GetDdlTarget() const override { return name_; }
-      """)
+  )
+
+  gen.AddNode(
+      name='ASTDropVectorIndexStatement',
+      tag_id=406,
+      parent='ASTDropIndexStatement',
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      This adds the "if exists" modifier to the node name.
+      """,
+      comment="""
+      Represents a DROP VECTOR INDEX statement.
+      """,
+  )
 
   gen.AddNode(
       name='ASTRenameStatement',
@@ -5066,54 +5097,46 @@ def main(argv):
               'name',
               'ASTPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'table_name',
               'ASTPathExpression',
               tag_id=3,
-              field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'optional_table_alias',
-              'ASTAlias',
-              tag_id=4),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('optional_table_alias', 'ASTAlias', tag_id=4),
           Field(
               'optional_index_unnest_expression_list',
               'ASTIndexUnnestExpressionList',
-              tag_id=5),
+              tag_id=5,
+          ),
           Field(
               'index_item_list',
               'ASTIndexItemList',
               tag_id=6,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'optional_index_storing_expressions',
               'ASTIndexStoringExpressionList',
-              tag_id=7),
-          Field(
-              'options_list',
-              'ASTOptionsList',
-              tag_id=8),
-          Field(
-              'is_unique',
-              SCALAR_BOOL,
-              tag_id=9),
-          Field(
-              'is_search',
-              SCALAR_BOOL,
-              tag_id=10),
+              tag_id=7,
+          ),
+          Field('options_list', 'ASTOptionsList', tag_id=8),
+          Field('is_unique', SCALAR_BOOL, tag_id=9),
+          Field('is_search', SCALAR_BOOL, tag_id=10),
           Field(
               'spanner_interleave_clause',
               'ASTSpannerInterleaveClause',
-              tag_id=11),
-          Field(
-              'spanner_is_null_filtered',
-              SCALAR_BOOL,
-              tag_id=12),
+              tag_id=11,
+          ),
+          Field('spanner_is_null_filtered', SCALAR_BOOL, tag_id=12),
+          Field('is_vector', SCALAR_BOOL, tag_id=13),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
-      """
-      )
+      """,
+  )
 
   gen.AddNode(
       name='ASTExportDataStatement',

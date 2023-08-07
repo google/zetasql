@@ -4062,6 +4062,9 @@ absl::Status SQLBuilder::GetCreateStatementPrefix(
     if (create_index->is_search()) {
       absl::StrAppend(sql, "SEARCH ");
     }
+    if (create_index->is_vector()) {
+      absl::StrAppend(sql, "VECTOR ");
+    }
   } else {
     switch (node->create_scope()) {
       case ResolvedCreateStatement::CREATE_PRIVATE:
@@ -4968,6 +4971,13 @@ absl::Status SQLBuilder::VisitResolvedCreateFunctionStmt(
     } else {
       absl::StrAppend(&sql, " LANGUAGE ",
                       ToIdentifierLiteral(node->language()));
+      if (options_.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION) &&
+          node->connection() != nullptr) {
+        const std::string connection_alias =
+            ToIdentifierLiteral(node->connection()->connection()->Name());
+        absl::StrAppend(&sql, " WITH CONNECTION ", connection_alias, " ");
+      }
     }
   }
 
@@ -5641,10 +5651,19 @@ absl::Status SQLBuilder::VisitResolvedDropRowAccessPolicyStmt(
   return absl::OkStatus();
 }
 
-absl::Status SQLBuilder::VisitResolvedDropSearchIndexStmt(
-    const ResolvedDropSearchIndexStmt* node) {
+absl::Status SQLBuilder::VisitResolvedDropIndexStmt(
+    const ResolvedDropIndexStmt* node) {
   std::string sql;
-  absl::StrAppend(&sql, "DROP SEARCH INDEX");
+  switch (node->index_type()) {
+    case ResolvedDropIndexStmt::INDEX_SEARCH:
+      absl::StrAppend(&sql, "DROP SEARCH INDEX");
+      break;
+    case ResolvedDropIndexStmt::INDEX_VECTOR:
+      absl::StrAppend(&sql, "DROP VECTOR INDEX");
+      break;
+    case ResolvedDropIndexStmt::INDEX_DEFAULT:
+      ZETASQL_RET_CHECK_FAIL() << "unsupported index type";
+  }
   absl::StrAppend(&sql, node->is_if_exists() ? " IF EXISTS " : " ",
                   ToIdentifierLiteral(node->name()));
   if (!node->table_name_path().empty()) {

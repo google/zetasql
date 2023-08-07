@@ -123,7 +123,7 @@ absl::Status SerializeProcedureDefinitionProto(
 }
 
 absl::Status SerializeParametersProto(
-    const std::optional<absl::variant<ParameterValueList, ParameterValueMap>>&
+    const std::optional<std::variant<ParameterValueList, ParameterValueMap>>&
         parameters,
     ParametersProto* parameters_proto) {
   if (!parameters) {
@@ -153,7 +153,7 @@ absl::Status SerializeParametersProto(
 
 absl::Status DeserializeParametersProto(
     const ParametersProto& parameters_proto,
-    std::optional<absl::variant<ParameterValueList, ParameterValueMap>>*
+    std::optional<std::variant<ParameterValueList, ParameterValueMap>>*
         parameters,
     google::protobuf::DescriptorPool* descriptor_pool, IdStringPool* id_string_pool,
     TypeFactory* type_factory) {

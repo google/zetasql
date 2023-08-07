@@ -174,7 +174,7 @@ Value DatetimeNanos(int year, int month, int day, int hour, int minute,
   return Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(
       year, month, day, hour, minute, second, nanoseconds));
 }
-Value KitchenSink(const std::string& proto_str) {
+Value KitchenSink(absl::string_view proto_str) {
   zetasql_test__::KitchenSinkPB kitchen_sink_message;
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &kitchen_sink_message));
@@ -216,7 +216,7 @@ Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds,
   return ProtoToValue(Proto3TimeOfDayType(), proto3_time);
 }
 
-Value CivilTimeTypesSink(const std::string& proto_str) {
+Value CivilTimeTypesSink(absl::string_view proto_str) {
   zetasql_test__::CivilTimeTypesSinkPB civil_time_types_sink_message;
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &civil_time_types_sink_message));
@@ -224,7 +224,7 @@ Value CivilTimeTypesSink(const std::string& proto_str) {
                       civil_time_types_sink_message);
 }
 
-Value NullableInt(const std::string& proto_str) {
+Value NullableInt(absl::string_view proto_str) {
   zetasql_test__::NullableInt nullable_int_message;
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &nullable_int_message));
@@ -412,7 +412,7 @@ void AddTestCaseWithWrappedResultForCivilTimeAndNanos(
       });
 }
 
-const std::string EscapeKey(bool sql_standard_mode, const std::string& key) {
+const std::string EscapeKey(bool sql_standard_mode, absl::string_view key) {
   if (sql_standard_mode) {
     return absl::StrCat(".\"", key, "\"");
   } else {

@@ -97,14 +97,6 @@ absl::StatusOr<bool> LikeUtf8WithCollation(absl::string_view text,
 absl::StatusOr<bool> LikeUtf8WithCollationAllowUnderscore(
     absl::string_view text, absl::string_view pattern,
     const ZetaSqlCollator& collator);
-
-// <allow_underscore> is true when
-// FeatureOptions.enable_underscore_in_collation is true, in which case
-// underscores are allowed in patterns with "und:ci" collation.
-ABSL_DEPRECATED("Inline me!")
-absl::StatusOr<bool> LikeWithUtf8WithCollation(
-    absl::string_view text, absl::string_view pattern,
-    const ZetaSqlCollator& collator, bool allow_underscore = false);
 }  // namespace functions
 }  // namespace zetasql
 

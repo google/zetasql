@@ -529,6 +529,8 @@ zetasql_compliance_test(
     ],
 )
 
+# TODO: These should be nested in (not-yet) stripping above.
+
 cc_test(
     name = "tuple_test",
     size = "small",

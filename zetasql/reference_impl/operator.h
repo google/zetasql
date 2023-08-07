@@ -3560,21 +3560,21 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
 
     // Must only be called if 'kind()' is PROTO_FIELD.
     const google::protobuf::FieldDescriptor* proto_field_descriptor() const {
-      return *absl::get_if<const google::protobuf::FieldDescriptor*>(&component_);
+      return *std::get_if<const google::protobuf::FieldDescriptor*>(&component_);
     }
 
     // Must only be called if 'kind()' is STRUCT_FIELD.
     int64_t struct_field_index() const {
-      return *absl::get_if<int64_t>(&component_);
+      return *std::get_if<int64_t>(&component_);
     }
 
     // Must only be called if 'kind()' is ARRAY_OFFSET.
-    int64_t array_offset() const { return *absl::get_if<int64_t>(&component_); }
+    int64_t array_offset() const { return *std::get_if<int64_t>(&component_); }
 
    private:
     Kind kind_;
     // Stores a FieldDescriptor for PROTO_FIELD or an int64_t for the other Kinds.
-    absl::variant<const google::protobuf::FieldDescriptor*, int64_t> component_;
+    std::variant<const google::protobuf::FieldDescriptor*, int64_t> component_;
 
     // Allow copy/move/assign.
   };
@@ -3622,15 +3622,15 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
 
     // Returns the value for a leaf node. Must only be called if 'is_leaf()'
     // returns true.
-    const Value& leaf_value() const { return *absl::get_if<Value>(&contents_); }
-    Value* mutable_leaf_value() { return absl::get_if<Value>(&contents_); }
+    const Value& leaf_value() const { return *std::get_if<Value>(&contents_); }
+    Value* mutable_leaf_value() { return std::get_if<Value>(&contents_); }
 
     // Returns the children of an internal node. Must only be called if
     // 'is_leaf()' returns false.
     const ChildMap& child_map() const {
-      return *absl::get_if<ChildMap>(&contents_);
+      return *std::get_if<ChildMap>(&contents_);
     }
-    ChildMap* mutable_child_map() { return absl::get_if<ChildMap>(&contents_); }
+    ChildMap* mutable_child_map() { return std::get_if<ChildMap>(&contents_); }
 
     // Returns the new value obtained by modifying 'original_value' according to
     // the update information represented by this object.
@@ -3643,7 +3643,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
     absl::StatusOr<Value> GetNewProtoValue(const Value& original_value,
                                            EvaluationContext* context) const;
 
-    absl::variant<Value, ChildMap> contents_;
+    std::variant<Value, ChildMap> contents_;
   };
 
   // Represents the new value for an element in an array that has been modified
@@ -3675,7 +3675,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
     // Sets a new value for this UpdatedElement (and changes 'kind()' to
     // MODIFIED).
     void set_new_value(const Value& new_value) {
-      new_value_ = absl::make_optional(new_value);
+      new_value_ = std::make_optional(new_value);
     }
 
    private:

@@ -38,13 +38,65 @@
 
 namespace zetasql {
 
-absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
-                                                const ResolvedExpr* expr2) {
-  if (expr1->node_kind() != expr2->node_kind() ||
-      !expr1->type()->Equals(expr2->type())) {
-    return false;
+namespace {
+
+// Returns TestIsSameExpressionForGroupByResult::kNotEqual immediately if two
+// primitive fields are not equal, otherwise continue. An example use case:
+//
+//   RETURN_IF_PRIMITIVE_NOT_EQUAL(expr1->field1(), expr1->field1());
+//   RETURN_IF_PRIMITIVE_NOT_EQUAL(expr1->field2(), expr1->field2());
+//   ...
+//
+#define RETURN_IF_PRIMITIVE_NOT_EQUAL(lhs, rhs)             \
+  if (lhs != rhs) {                                         \
+    return TestIsSameExpressionForGroupByResult::kNotEqual; \
   }
 
+// Returns TestIsSameExpressionForGroupByResult::kNotEqual immediately if two
+// object fields are not equal, otherwise continue. An example use case:
+//
+//   RETURN_IF_OBJECT_NOT_EQUAL(expr1->field1(), expr1->field1());
+//   RETURN_IF_OBJECT_NOT_EQUAL(expr1->field2(), expr1->field2());
+//   ...
+//
+#define RETURN_IF_OBJECT_NOT_EQUAL(lhs, rhs)                \
+  if (!lhs.Equals(rhs)) {                                   \
+    return TestIsSameExpressionForGroupByResult::kNotEqual; \
+  }
+
+// Returns the result immediately if the result of the
+// TestIsSameExpressionForGroupBy function for two expressions is kNotEquala or
+// kUnknown, otherwise continue. An example use case:
+//
+//   RETURN_IF_EXPR_NOT_EQUAL(expr1->sub_expr(), expr2->sub_expr());
+//   RETURN_IF_NOT_EQUAL(expr1->field1(), expr1->field1());
+//  ...
+//
+#define RETURN_IF_EXPR_NOT_EQUAL(expr1, expr2)                    \
+  ZETASQL_ASSIGN_OR_RETURN(TestIsSameExpressionForGroupByResult result,   \
+                   TestIsSameExpressionForGroupBy(expr1, expr2)); \
+  if (result != TestIsSameExpressionForGroupByResult::kEqual) {   \
+    return result;                                                \
+  }
+
+}  // namespace
+
+absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
+                                                const ResolvedExpr* expr2) {
+  ZETASQL_ASSIGN_OR_RETURN(TestIsSameExpressionForGroupByResult result,
+                   TestIsSameExpressionForGroupBy(expr1, expr2));
+  return result == TestIsSameExpressionForGroupByResult::kEqual;
+}
+
+absl::StatusOr<TestIsSameExpressionForGroupByResult>
+TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
+                               const ResolvedExpr* expr2) {
+  RETURN_IF_PRIMITIVE_NOT_EQUAL(expr1->node_kind(), expr2->node_kind());
+  // The type() method returns an abstract type pointer, no way to dereference
+  // it and calls RETURN_IF_OBJECT_NOT_EQUAL.
+  if (!expr1->type()->Equals(expr2->type())) {
+    return TestIsSameExpressionForGroupByResult::kNotEqual;
+  }
   // Need to make sure that all non-default fields of expressions were accessed
   // to make sure that if new fields are added, this function checks them or
   // expressions are not considered the same.
@@ -57,19 +109,15 @@ absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
       const ResolvedLiteral* lit2 = expr2->GetAs<ResolvedLiteral>();
       // Value::Equals does the right thing for GROUP BY - NULLs, NaNs, infs
       // etc are considered equal.
-      if (!lit1->value().Equals(lit2->value())) {
-        return false;
-      }
+      RETURN_IF_OBJECT_NOT_EQUAL(lit1->value(), lit2->value());
       break;
     }
     case RESOLVED_PARAMETER: {
       const ResolvedParameter* param1 = expr1->GetAs<ResolvedParameter>();
       const ResolvedParameter* param2 = expr2->GetAs<ResolvedParameter>();
       // Parameter names are normalized, so case sensitive comparison is ok.
-      if (param1->name() != param2->name() ||
-          param1->position() != param2->position()) {
-        return false;
-      }
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(param1->name(), param2->name());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(param1->position(), param2->position());
       break;
     }
     case RESOLVED_EXPRESSION_COLUMN: {
@@ -79,17 +127,14 @@ absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
           expr2->GetAs<ResolvedExpressionColumn>();
       // Engine could be case sensitive for column names, so stay conservative
       // and do case sensitive comparison.
-      if (col1->name() != col2->name()) {
-        return false;
-      }
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(col1->name(), col2->name());
       break;
     }
     case RESOLVED_COLUMN_REF: {
       const ResolvedColumnRef* ref1 = expr1->GetAs<ResolvedColumnRef>();
       const ResolvedColumnRef* ref2 = expr2->GetAs<ResolvedColumnRef>();
-      if (ref1->column().column_id() != ref2->column().column_id()) {
-        return false;
-      }
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(ref1->column().column_id(),
+                                    ref2->column().column_id());
       break;
     }
     case RESOLVED_GET_STRUCT_FIELD: {
@@ -97,11 +142,8 @@ absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
           expr1->GetAs<ResolvedGetStructField>();
       const ResolvedGetStructField* str2 =
           expr2->GetAs<ResolvedGetStructField>();
-      ZETASQL_ASSIGN_OR_RETURN(bool is_same_expr,
-                       IsSameExpressionForGroupBy(str1->expr(), str2->expr()));
-      if (str1->field_idx() != str2->field_idx() || !is_same_expr) {
-        return false;
-      }
+      RETURN_IF_EXPR_NOT_EQUAL(str1->expr(), str2->expr());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(str1->field_idx(), str2->field_idx());
       break;
     }
     case RESOLVED_GET_PROTO_FIELD: {
@@ -109,62 +151,52 @@ absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
           expr1->GetAs<ResolvedGetProtoField>();
       const ResolvedGetProtoField* proto_field2 =
           expr2->GetAs<ResolvedGetProtoField>();
-      ZETASQL_ASSIGN_OR_RETURN(bool is_same_expr,
-                       IsSameExpressionForGroupBy(proto_field1->expr(),
-                                                  proto_field2->expr()));
-      return proto_field1->expr()->type()->kind() ==
-                 proto_field2->expr()->type()->kind() &&
-             proto_field1->field_descriptor()->number() ==
-                 proto_field2->field_descriptor()->number() &&
-             proto_field1->default_value() == proto_field2->default_value() &&
-             proto_field1->get_has_bit() == proto_field2->get_has_bit() &&
-             proto_field1->format() == proto_field2->format() && is_same_expr;
+      RETURN_IF_EXPR_NOT_EQUAL(proto_field1->expr(), proto_field2->expr());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(proto_field1->expr()->type()->kind(),
+                                    proto_field2->expr()->type()->kind());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(proto_field1->field_descriptor()->number(),
+                                    proto_field2->field_descriptor()->number());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(proto_field1->default_value(),
+                                    proto_field2->default_value());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(proto_field1->get_has_bit(),
+                                    proto_field2->get_has_bit());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(proto_field1->format(),
+                                    proto_field2->format());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(
+          proto_field1->return_default_value_when_unset(),
+          proto_field2->return_default_value_when_unset());
       break;
     }
     case RESOLVED_CAST: {
       const ResolvedCast* cast1 = expr1->GetAs<ResolvedCast>();
       const ResolvedCast* cast2 = expr2->GetAs<ResolvedCast>();
-      ZETASQL_ASSIGN_OR_RETURN(bool is_same_expr, IsSameExpressionForGroupBy(
-                                              cast1->expr(), cast2->expr()));
-      if (!is_same_expr) {
-        return false;
-      }
-      if (cast1->return_null_on_error() != cast2->return_null_on_error()) {
-        return false;
-      }
+      RETURN_IF_EXPR_NOT_EQUAL(cast1->expr(), cast2->expr());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(cast1->return_null_on_error(),
+                                    cast2->return_null_on_error());
       break;
     }
     case RESOLVED_FUNCTION_CALL: {
+      // TODO: Fix holes in ResolvedFunctionCall node comparison.
+      // We need to compare generic_argument_list, hints and function signatures
+      // as well.
       const ResolvedFunctionCall* func1 = expr1->GetAs<ResolvedFunctionCall>();
       const ResolvedFunctionCall* func2 = expr2->GetAs<ResolvedFunctionCall>();
-      if (func1->function() != func2->function()) {
-        return false;
-      }
-      if (func1->error_mode() != func2->error_mode()) {
-        return false;
-      }
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(func1->function(), func2->function());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(func1->error_mode(), func2->error_mode());
       if (func1->function()->function_options().volatility ==
           FunctionEnums::VOLATILE) {
-        return false;
+        return TestIsSameExpressionForGroupByResult::kNotEqual;
       }
       const std::vector<std::unique_ptr<const ResolvedExpr>>& arg1_list =
           func1->argument_list();
       const std::vector<std::unique_ptr<const ResolvedExpr>>& arg2_list =
           func2->argument_list();
-      if (arg1_list.size() != arg2_list.size()) {
-        return false;
-      }
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(arg1_list.size(), arg2_list.size());
       for (int idx = 0; idx < arg1_list.size(); ++idx) {
-        ZETASQL_ASSIGN_OR_RETURN(bool is_same_expr,
-                         IsSameExpressionForGroupBy(arg1_list[idx].get(),
-                                                    arg2_list[idx].get()));
-        if (!is_same_expr) {
-          return false;
-        }
+        RETURN_IF_EXPR_NOT_EQUAL(arg1_list[idx].get(), arg2_list[idx].get());
       }
-      if (func1->collation_list().size() != func2->collation_list().size()) {
-        return false;
-      }
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(func1->collation_list().size(),
+                                    func2->collation_list().size());
       // If the function arguments are considered the same for group by, we
       // assume the <collation_list> in expressions should be the same. Returns
       // an internal error if that's not the case.
@@ -173,32 +205,28 @@ absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
             << "Different collation_list in expressions: "
             << ResolvedCollation::ToString(func1->collation_list()) << " vs "
             << ResolvedCollation::ToString(func2->collation_list());
-        if (!func1->collation_list(idx).Equals(func2->collation_list(idx))) {
-          return false;
-        }
+        RETURN_IF_OBJECT_NOT_EQUAL(func1->collation_list(idx),
+                                   func2->collation_list(idx));
       }
       break;
     }
     case RESOLVED_GET_JSON_FIELD: {
       const auto* json_field1 = expr1->GetAs<ResolvedGetJsonField>();
       const auto* json_field2 = expr2->GetAs<ResolvedGetJsonField>();
-      ZETASQL_ASSIGN_OR_RETURN(
-          bool is_same_expr,
-          IsSameExpressionForGroupBy(json_field1->expr(), json_field2->expr()));
-      return is_same_expr &&
-             json_field1->field_name() == json_field2->field_name();
+      RETURN_IF_EXPR_NOT_EQUAL(json_field1->expr(), json_field2->expr());
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(json_field1->field_name(),
+                                    json_field2->field_name());
+      break;
     }
     default:
-      // Without explicit support for this type of expression, pessimistically
-      // say that they are not equal.
-      // TODO: Add the following:
-      // - RESOLVED_MAKE_STRUCT
-      return false;
+      // Without explicit support for this type of expression, returns an
+      // unknown comparison result.
+      return TestIsSameExpressionForGroupByResult::kUnknown;
   }
 
   ZETASQL_RETURN_IF_ERROR(expr1->CheckFieldsAccessed());
   ZETASQL_RETURN_IF_ERROR(expr2->CheckFieldsAccessed());
-  return true;
+  return TestIsSameExpressionForGroupByResult::kEqual;
 }
 
 size_t FieldPathHash(const ResolvedExpr* expr) {
@@ -270,6 +298,8 @@ bool IsSameFieldPath(const ResolvedExpr* field_path1,
           proto_field1->default_value() == proto_field2->default_value() &&
           proto_field1->get_has_bit() == proto_field2->get_has_bit() &&
           proto_field1->format() == proto_field2->format() &&
+          proto_field1->return_default_value_when_unset() ==
+              proto_field2->return_default_value_when_unset() &&
           IsSameFieldPath(proto_field1->expr(), proto_field2->expr(),
                           match_option);
       if (match_option == FieldPathMatchingOption::kFieldPath) {
@@ -277,10 +307,7 @@ bool IsSameFieldPath(const ResolvedExpr* field_path1,
       }
       return field_paths_match &&
              proto_field1->type()->Equals(proto_field2->type()) &&
-             proto_field1->expr()->type()->Equals(
-                 proto_field2->expr()->type()) &&
-             proto_field1->return_default_value_when_unset() ==
-                 proto_field2->return_default_value_when_unset();
+             proto_field1->expr()->type()->Equals(proto_field2->expr()->type());
     }
     case RESOLVED_GET_STRUCT_FIELD: {
       // Do not need to check field_expr_is_positional as it is just for

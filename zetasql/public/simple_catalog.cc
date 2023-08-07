@@ -789,8 +789,8 @@ void SimpleCatalog::AddZetaSQLFunctions(
   }
 }
 
-absl::Status SimpleCatalog::AddZetaSQLFunctionsAndTypesImpl(
-    const ZetaSQLBuiltinFunctionOptions& options, bool add_types) {
+absl::Status SimpleCatalog::AddBuiltinFunctionsAndTypesImpl(
+    const BuiltinFunctionOptions& options, bool add_types) {
   absl::flat_hash_map<std::string, std::unique_ptr<Function>> function_map;
   // We have to call type_factory() while not holding mutex_.
   TypeFactory* type_factory = this->type_factory();
@@ -829,16 +829,15 @@ absl::Status SimpleCatalog::AddZetaSQLFunctionsAndTypesImpl(
   return absl::OkStatus();
 }
 
-void SimpleCatalog::AddZetaSQLFunctions(
-    const ZetaSQLBuiltinFunctionOptions& options) {
+void SimpleCatalog::AddBuiltinFunctions(const BuiltinFunctionOptions& options) {
   absl::Status status =
-      this->AddZetaSQLFunctionsAndTypesImpl(options, /*add_types=*/false);
+      this->AddBuiltinFunctionsAndTypesImpl(options, /*add_types=*/false);
   ZETASQL_DCHECK_OK(status);
 }
 
-absl::Status SimpleCatalog::AddZetaSQLFunctionsAndTypes(
-    const ZetaSQLBuiltinFunctionOptions& options) {
-  return this->AddZetaSQLFunctionsAndTypesImpl(options, /*add_types=*/true);
+absl::Status SimpleCatalog::AddBuiltinFunctionsAndTypes(
+    const BuiltinFunctionOptions& options) {
+  return this->AddBuiltinFunctionsAndTypesImpl(options, /*add_types=*/true);
 }
 
 int SimpleCatalog::RemoveTypes(std::function<bool(const Type*)> predicate) {
@@ -1047,8 +1046,8 @@ absl::Status SimpleCatalog::DeserializeImpl(
   }
 
   if (proto.has_builtin_function_options()) {
-    ZetaSQLBuiltinFunctionOptions options(proto.builtin_function_options());
-    ZETASQL_RETURN_IF_ERROR(AddZetaSQLFunctionsAndTypes(options));
+    BuiltinFunctionOptions options(proto.builtin_function_options());
+    ZETASQL_RETURN_IF_ERROR(AddBuiltinFunctionsAndTypes(options));
   }
 
   for (const TableValuedFunctionProto& tvf_proto : proto.custom_tvf()) {
@@ -1588,7 +1587,8 @@ void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
     std::unique_ptr<EvaluatorTableIterator> iter(
         new SimpleEvaluatorTableIterator(
             columns, column_values, num_rows_,
-            /*end_status=*/absl::OkStatus(), /*filter_column_idxs=*/{},
+            /*end_status=*/absl::OkStatus(), /*filter_column_idxs=*/
+            absl::flat_hash_set<int>(column_idxs.begin(), column_idxs.end()),
             /*cancel_cb=*/[]() {},
             /*set_deadline_cb=*/[](absl::Time t) {}, zetasql_base::Clock::RealClock()));
     return iter;
@@ -1723,11 +1723,18 @@ absl::Status SimpleColumn::Serialize(
     proto->set_can_update_unwritable_to_default(true);
   }
 
-  proto->set_has_default_value(HasDefaultValue());
-  if (HasDefaultValue()) {
+  // TODO: To be deprecated in later versions.
+  proto->set_has_default_value(HasDefaultExpression());
+
+  if (HasDefaultExpression() || HasGeneratedExpression()) {
     // The ResolvedExpr form of the expression is not serialized.
     proto->mutable_column_expression()->set_expression_string(
-        ExpressionString().value());
+        GetExpression()->GetExpressionString());
+    proto->mutable_column_expression()->set_expression_kind(
+        (GetExpression()->GetExpressionKind() ==
+         Column::ExpressionAttributes::ExpressionKind::DEFAULT)
+            ? ExpressionAttributeProto::DEFAULT
+            : ExpressionAttributeProto::GENERATED);
   }
   return absl::OkStatus();
 }
@@ -1742,19 +1749,23 @@ absl::StatusOr<std::unique_ptr<SimpleColumn>> SimpleColumn::Deserialize(
     ZETASQL_RETURN_IF_ERROR(type_deserializer.type_factory()->DeserializeAnnotationMap(
         proto.annotation_map(), &annotation_map));
   }
-  SimpleColumn::ExpressionAttributes expression_attributes;
-  if (proto.has_default_value()) {
-    expression_attributes.expression_string =
-        proto.column_expression().expression_string();
-  }
 
   SimpleColumn::Attributes attributes{
       .is_pseudo_column = proto.is_pseudo_column(),
       .is_writable_column = proto.is_writable_column(),
       .can_update_unwritable_to_default =
-          proto.can_update_unwritable_to_default(),
-      .has_default_value = proto.has_default_value(),
-      .column_expression = expression_attributes};
+          proto.can_update_unwritable_to_default()};
+
+  if (proto.has_column_expression()) {
+    ExpressionAttributes::ExpressionKind expression_kind =
+        (proto.column_expression().expression_kind() ==
+         ExpressionAttributeProto::DEFAULT)
+            ? ExpressionAttributes::ExpressionKind::DEFAULT
+            : ExpressionAttributes::ExpressionKind::GENERATED;
+    attributes.column_expression = SimpleColumn::ExpressionAttributes(
+        expression_kind, proto.column_expression().expression_string(),
+        nullptr);
+  }
 
   return std::make_unique<SimpleColumn>(table_name, proto.name(),
                                         AnnotatedType(type, annotation_map),

@@ -219,8 +219,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedDropRowAccessPolicyStmt* node) override;
   absl::Status VisitResolvedDropSnapshotTableStmt(
       const ResolvedDropSnapshotTableStmt* node) override;
-  absl::Status VisitResolvedDropSearchIndexStmt(
-      const ResolvedDropSearchIndexStmt* node) override;
+  absl::Status VisitResolvedDropIndexStmt(
+      const ResolvedDropIndexStmt* node) override;
   absl::Status VisitResolvedTruncateStmt(
       const ResolvedTruncateStmt* node) override;
   absl::Status VisitResolvedUpdateStmt(

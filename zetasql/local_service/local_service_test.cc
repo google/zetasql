@@ -50,6 +50,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -238,7 +239,7 @@ void AddKitchenSink3DescriptorPool(DescriptorPoolListProto* list) {
       &ignored, list->add_definitions()->mutable_file_descriptor_set()));
 }
 
-void AddTestTable(SimpleTableProto* table, const std::string& table_name) {
+void AddTestTable(SimpleTableProto* table, absl::string_view table_name) {
   table->set_name(table_name);
   SimpleColumnProto* col1 = table->add_column();
   col1->set_name("column_str");
@@ -254,7 +255,7 @@ void AddTestTable(SimpleTableProto* table, const std::string& table_name) {
 void InsertTestTableContent(
     google::protobuf::Map<std::string, ::zetasql::local_service::TableContent>*
         tables_contents,
-    const std::string& table_name) {
+    absl::string_view table_name) {
   TableContent table_content;
   TableData* table_data = table_content.mutable_table_data();
 
@@ -274,7 +275,7 @@ void InsertTestTableContent(
 void InsertEmptyTestTableContent(
     google::protobuf::Map<std::string, ::zetasql::local_service::TableContent>*
         tables_contents,
-    const std::string& table_name) {
+    absl::string_view table_name) {
   TableContent table_content;
   table_content.mutable_table_data();
 

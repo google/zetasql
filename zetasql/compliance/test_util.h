@@ -73,7 +73,7 @@ class ReproCommand {
   }
 
   // Overrides the value of the given build flag.
-  void OverrideBuildFlag(const std::string& flag_name, std::string flag_value) {
+  void OverrideBuildFlag(absl::string_view flag_name, std::string flag_value) {
     build_flags_[flag_name] = std::move(flag_value);
   }
 
@@ -86,7 +86,7 @@ class ReproCommand {
   // Overrides the value of the given test argument flag.
   // This should be used to override the value of the seed flag used by the
   // random number generator.
-  void OverrideTestArgFlag(const std::string& flag_name,
+  void OverrideTestArgFlag(absl::string_view flag_name,
                            std::string flag_value) {
     test_arg_flags_[flag_name] = std::move(flag_value);
   }
@@ -98,7 +98,7 @@ class ReproCommand {
   }
 
   // Overrides the value of the given environment variable in the test.
-  void OverrideTestEnv(const std::string& env_name, std::string env_value) {
+  void OverrideTestEnv(absl::string_view env_name, std::string env_value) {
     test_envs_[env_name] = std::move(env_value);
   }
 
@@ -115,7 +115,7 @@ class ReproCommand {
   const std::string& test_target() const { return test_target_; }
 
  private:
-  bool RemoveFromMapIfPresent(const std::string& key,
+  bool RemoveFromMapIfPresent(absl::string_view key,
                               absl::btree_map<std::string, std::string>* map);
 
   std::string test_target_;

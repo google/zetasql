@@ -249,10 +249,9 @@ class FunctionResolver {
   // against <signature> to match the order of the arguments in the signature,
   // or returns an error if the signature does not match.
   //
-  // If `show_function_signature_mismatch_details` option is enabled, returns
-  // mismatch message for the provided signature and returns error if the
-  // call cannot possibly match any signature. If nothing wrong happens,
-  // empty mismatch message is returned.
+  // If `show_mismatch_details` is true, returns mismatch message for the
+  // provided signature and returns error if the call cannot possibly match any
+  // signature. If nothing wrong happens, empty mismatch message is returned.
   //
   // <num_repeated_args_repetitions> should be the number of repetitions of
   // the repeated arguments. It is determined by the
@@ -282,6 +281,7 @@ class FunctionResolver {
       const std::vector<NamedArgumentInfo>& named_arguments,
       int num_repeated_args_repetitions,
       bool always_include_omitted_named_arguments_in_index_mapping,
+      bool show_mismatch_details,
       std::vector<ArgIndexEntry>* index_mapping) const;
 
   // Reorders the given <input_argument_types> with respect to the given

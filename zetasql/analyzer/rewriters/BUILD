@@ -113,6 +113,7 @@ cc_library(
         "//zetasql/resolved_ast:resolved_ast_builder",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
         "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "//zetasql/resolved_ast:rewrite_utils",
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_map",

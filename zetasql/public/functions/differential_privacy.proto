@@ -24,11 +24,11 @@ import "zetasql/public/type.proto";
 option java_package = "com.google.zetasql.functions";
 option java_outer_classname = "ZetaSQLDifferentialPrivacy";
 
-// Enum that defines the output format of differential privacy functions that
-// return report. See:
-//   Detailed report description: (broken link).
-//   Updated report syntax:  (broken link).
 message DifferentialPrivacyEnums {
+  // Enum that defines the output format of differential privacy functions that
+  // return report. See:
+  //   Detailed report description: (broken link).
+  //   Updated report syntax:  (broken link).
   enum ReportFormat {
     option (opaque_enum_type_options).sql_opaque_enum_name =
         "DIFFERENTIAL_PRIVACY_REPORT_FORMAT";
@@ -42,6 +42,22 @@ message DifferentialPrivacyEnums {
 
     // Report output format is proto.
     PROTO = 2;
+  }
+
+  // Enum representing the group selection strategy that can be passed by the
+  // user in the anonymization options.  LAPLACE_THRESHOLD is the default group
+  // selection strategy.
+  //
+  // See (broken link).
+  enum GroupSelectionStrategy {
+    option (opaque_enum_type_options).sql_opaque_enum_name =
+        "DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY";
+
+    DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY_INVALID = 0
+        [(opaque_enum_value_options).invalid_enum_value = true];
+
+    LAPLACE_THRESHOLD = 1;
+    PUBLIC_GROUPS = 2;
   }
 }
 

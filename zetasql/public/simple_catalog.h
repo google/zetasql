@@ -39,6 +39,7 @@
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/value.h"
+#include "absl/base/macros.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -287,22 +288,71 @@ class SimpleCatalog : public EnumerableCatalog {
   bool AddOwnedConstantIfNotPresent(std::unique_ptr<const Constant> constant)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  // Add ZetaSQL built-in function definitions into this catalog.
-  // <options> can be used to select which functions get loaded.
-  // See builtin_function.h. Provided such functions are specified in <options>
-  // this can add functions in both the global namespace and more specific
-  // namespaces. If any of the selected functions are in namespaces,
+  // Add ZetaSQL built-in function definitions into this catalog. `options`
+  // can be used to select which functions get loaded. See
+  // builtin_function_options.h. Provided such functions are specified by
+  // `options`, this can add functions in both the global namespace and more
+  // specific namespaces. If any of the selected functions are in namespaces,
   // sub-Catalogs will be created and the appropriate functions will be added in
   // those sub-Catalogs.
   // Also: Functions and Catalogs with the same names must not already exist.
-  void AddZetaSQLFunctions(const ZetaSQLBuiltinFunctionOptions& options =
-                                 ZetaSQLBuiltinFunctionOptions())
+  void AddBuiltinFunctions(const BuiltinFunctionOptions& options)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  absl::Status AddZetaSQLFunctionsAndTypes(
-      const ZetaSQLBuiltinFunctionOptions& options =
-          ZetaSQLBuiltinFunctionOptions()) ABSL_LOCKS_EXCLUDED(mutex_);
+  // DEPRECATED - As above but using the old name.
+  ABSL_DEPRECATED("Inline me!")
+  void AddZetaSQLFunctions(const BuiltinFunctionOptions& options)
+      ABSL_LOCKS_EXCLUDED(mutex_) {
+    AddBuiltinFunctions(options);
+  }
 
+  // DEPRECATED - As above but using the old name and no argument.
+  ABSL_DEPRECATED("Inline me!")
+  void AddZetaSQLFunctions() ABSL_LOCKS_EXCLUDED(mutex_) {
+    AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+  }
+
+  // DEPRECATED - As above but taking `LanguageOptions` directly.
+  ABSL_DEPRECATED("Inline me!")
+  void AddZetaSQLFunctions(const LanguageOptions& options)
+      ABSL_LOCKS_EXCLUDED(mutex_) {
+    AddBuiltinFunctions(BuiltinFunctionOptions(options));
+  }
+
+  // Adds ZetaSQL built-in function signatures into this catalog along with
+  // named types that those signature require. `options` can be used to select
+  // which functions get loaded. See builtin_function_options.h. Provided such
+  // functions are specified by `options`, this can add functions in both the
+  // global namespace and more specific namespaces. If any of the selected
+  // functions are in namespaces, sub-Catalogs will be created and the
+  // appropriate functions will be added in those sub-Catalogs.
+  // Also: Functions and Catalogs with the same names must not already exist.
+  absl::Status AddBuiltinFunctionsAndTypes(
+      const BuiltinFunctionOptions& options) ABSL_LOCKS_EXCLUDED(mutex_);
+
+  // DEPRECATED - As above but using the old name.
+  ABSL_DEPRECATED("Inline me!")
+  absl::Status AddZetaSQLFunctionsAndTypes(
+      const BuiltinFunctionOptions& options) ABSL_LOCKS_EXCLUDED(mutex_) {
+    return AddBuiltinFunctionsAndTypes(options);
+  }
+
+  // DEPRECATED - As above but using the old name an no argument.
+  ABSL_DEPRECATED("Inline me!")
+  absl::Status AddZetaSQLFunctionsAndTypes() ABSL_LOCKS_EXCLUDED(mutex_) {
+    return AddBuiltinFunctionsAndTypes(
+        BuiltinFunctionOptions::AllReleasedFunctions());
+  }
+
+  // DEPRECATED - As above but taking `LanguageOptions` directly.
+  ABSL_DEPRECATED("Inline me!")
+  absl::Status AddZetaSQLFunctionsAndTypes(const LanguageOptions& options)
+      ABSL_LOCKS_EXCLUDED(mutex_) {
+    return AddBuiltinFunctionsAndTypes(BuiltinFunctionOptions(options));
+  }
+
+  // DEPRECATED: Use AddFunction or AddZetaSQLFunctions(options)
+  //
   // Add ZetaSQL built-in function definitions into this catalog.
   // This can add functions in both the global namespace and more specific
   // namespaces. If any of the selected functions are in namespaces,
@@ -310,6 +360,11 @@ class SimpleCatalog : public EnumerableCatalog {
   // those sub-Catalogs.
   // Also: Functions and Catalogs with the same names must not already exist.
   // Functions are unowned, and must outlive this catalog.
+  //
+  // Deprecated because the function is misnamed, misused, and explicitly
+  // delegating function object ownership to the catalog is the preferred
+  // memory ownership pattern now.
+  ABSL_DEPRECATED("Use AddFunction or AddZetaSQLFunctions")
   void AddZetaSQLFunctions(const std::vector<const Function*>& functions)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
@@ -514,8 +569,8 @@ class SimpleCatalog : public EnumerableCatalog {
       bool is_table_valued_function,
       absl::Span<const std::string> mistyped_path);
 
-  absl::Status AddZetaSQLFunctionsAndTypesImpl(
-      const ZetaSQLBuiltinFunctionOptions& options, bool add_types);
+  absl::Status AddBuiltinFunctionsAndTypesImpl(
+      const BuiltinFunctionOptions& options, bool add_types);
 
   const std::string name_;
 
@@ -956,14 +1011,6 @@ class SimpleSequence : public Sequence {
 // SimpleColumn is a concrete implementation of the Column interface.
 class SimpleColumn : public Column {
  public:
-  // Optional column expression attributes.
-  // Used to store the string and ResolvedExpr versions of default value
-  // expressions.
-  struct ExpressionAttributes {
-    std::string expression_string;
-    const ResolvedExpr* resolved_expr = nullptr;
-  };
-
   // Optional column attributes.
   //
   // Example use:
@@ -981,9 +1028,6 @@ class SimpleColumn : public Column {
     // Whether an unwritable column can be set to DEFAULT in an UPDATE DML
     // statement.
     bool can_update_unwritable_to_default = false;
-
-    // Whether the column has a default value.
-    bool has_default_value = false;
 
     // An optional attribute for column expression;
     std::optional<ExpressionAttributes> column_expression = std::nullopt;
@@ -1038,30 +1082,8 @@ class SimpleColumn : public Column {
     return attributes_.can_update_unwritable_to_default;
   }
 
-  bool HasDefaultValue() const override {
-    // The ResolvedExpr may not be analyzed yet.
-    return attributes_.has_default_value &&
-           attributes_.column_expression.has_value();
-  }
-
-  const ResolvedExpr* Expression() const override {
-    if (!attributes_.has_default_value) {
-      return nullptr;
-    }
-    if (attributes_.column_expression == std::nullopt) {
-      return nullptr;
-    }
-    return attributes_.column_expression->resolved_expr;
-  }
-
-  std::optional<std::string> ExpressionString() const override {
-    if (!attributes_.has_default_value) {
-      return std::nullopt;
-    }
-    if (attributes_.column_expression == std::nullopt) {
-      return std::nullopt;
-    }
-    return attributes_.column_expression->expression_string;
+  std::optional<const ExpressionAttributes> GetExpression() const override {
+    return attributes_.column_expression;
   }
 
   // Serialize this column into protobuf, the provided map is used to store

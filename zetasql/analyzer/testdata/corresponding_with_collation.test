@@ -10,20 +10,20 @@ SELECT COLLATE("a", "und:ci") AS a
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.b#5{Collation:"und:binary"} AS b [STRING]
-| +-$union_all.a#6{Collation:"und:ci"} AS a [STRING]
+| +-$union_all.b#3{Collation:"und:binary"} AS b [STRING]
+| +-$union_all.a#4{Collation:"und:ci"} AS a [STRING]
 +-query=
   +-SetOperationScan
-    +-column_list=$union_all.[b#5, a#6]
+    +-column_list=$union_all.[b#3, a#4]
     +-op_type=UNION_ALL
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
     | | | +-ProjectScan
-    | | |   +-column_list=[$union_all1.b#1{Collation:"und:binary"}, $null_column_for_outer_set_op.a#3]
+    | | |   +-column_list=[$union_all1.b#1{Collation:"und:binary"}, $null_column_for_outer_set_op.a#5]
     | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-expr_list=
-    | | |   | +-a#3 := Literal(type=STRING, value=NULL)
+    | | |   | +-a#5 := Literal(type=STRING, value=NULL)
     | | |   +-input_scan=
     | | |     +-ProjectScan
     | | |       +-column_list=[$union_all1.b#1{Collation:"und:binary"}]
@@ -35,14 +35,14 @@ QueryStmt
     | | |       |     +-Literal(type=STRING, value="und:binary", preserve_in_literal_remover=TRUE)
     | | |       +-input_scan=
     | | |         +-SingleRowScan
-    | | +-output_column_list=[$union_all1.b#1{Collation:"und:binary"}, $null_column_for_outer_set_op.a#3]
+    | | +-output_column_list=[$union_all1.b#1{Collation:"und:binary"}, $null_column_for_outer_set_op.a#5]
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=[$null_column_for_outer_set_op.b#4, $union_all2.a#2{Collation:"und:ci"}]
+    |   |   +-column_list=[$null_column_for_outer_set_op.b#6, $union_all2.a#2{Collation:"und:ci"}]
     |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-expr_list=
-    |   |   | +-b#4 := Literal(type=STRING, value=NULL)
+    |   |   | +-b#6 := Literal(type=STRING, value=NULL)
     |   |   +-input_scan=
     |   |     +-ProjectScan
     |   |       +-column_list=[$union_all2.a#2{Collation:"und:ci"}]
@@ -54,7 +54,7 @@ QueryStmt
     |   |       |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     |   |       +-input_scan=
     |   |         +-SingleRowScan
-    |   +-output_column_list=[$null_column_for_outer_set_op.b#4, $union_all2.a#2{Collation:"und:ci"}]
+    |   +-output_column_list=[$null_column_for_outer_set_op.b#6, $union_all2.a#2{Collation:"und:ci"}]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
@@ -62,20 +62,20 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$union_all.b#5{Collation:"und:binary"} AS b [STRING]
-| +-$union_all.a#6{Collation:"und:ci"} AS a [STRING]
+| +-$union_all.b#3{Collation:"und:binary"} AS b [STRING]
+| +-$union_all.a#4{Collation:"und:ci"} AS a [STRING]
 +-query=
   +-SetOperationScan
-    +-column_list=$union_all.[b#5, a#6]
+    +-column_list=$union_all.[b#3, a#4]
     +-op_type=UNION_ALL
     +-input_item_list=
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[$union_all1.b#1{Collation:"und:binary"}, $null_column_for_outer_set_op.a#3]
+      | |   +-column_list=[$union_all1.b#1{Collation:"und:binary"}, $null_column_for_outer_set_op.a#5]
       | |   +-node_source="resolver_set_operation_corresponding"
       | |   +-expr_list=
-      | |   | +-a#3 := Literal(type=STRING, value=NULL)
+      | |   | +-a#5 := Literal(type=STRING, value=NULL)
       | |   +-input_scan=
       | |     +-ProjectScan
       | |       +-column_list=[$union_all1.b#1{Collation:"und:binary"}]
@@ -87,14 +87,14 @@ QueryStmt
       | |       |     +-Literal(type=STRING, value="und:binary", preserve_in_literal_remover=TRUE)
       | |       +-input_scan=
       | |         +-SingleRowScan
-      | +-output_column_list=[$union_all1.b#1{Collation:"und:binary"}, $null_column_for_outer_set_op.a#3]
+      | +-output_column_list=[$union_all1.b#1{Collation:"und:binary"}, $null_column_for_outer_set_op.a#5]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[$null_column_for_outer_set_op.b#4, $union_all2.a#2{Collation:"und:ci"}]
+        |   +-column_list=[$null_column_for_outer_set_op.b#6, $union_all2.a#2{Collation:"und:ci"}]
         |   +-node_source="resolver_set_operation_corresponding"
         |   +-expr_list=
-        |   | +-b#4 := Literal(type=STRING, value=NULL)
+        |   | +-b#6 := Literal(type=STRING, value=NULL)
         |   +-input_scan=
         |     +-ProjectScan
         |       +-column_list=[$union_all2.a#2{Collation:"und:ci"}]
@@ -106,7 +106,7 @@ QueryStmt
         |       |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
         |       +-input_scan=
         |         +-SingleRowScan
-        +-output_column_list=[$null_column_for_outer_set_op.b#4, $union_all2.a#2{Collation:"und:ci"}]
+        +-output_column_list=[$null_column_for_outer_set_op.b#6, $union_all2.a#2{Collation:"und:ci"}]
 ==
 
 # Different collations for the matching columns throws an error.
@@ -199,11 +199,11 @@ SELECT COLLATE("a", "und:ci") AS a
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.b#5{Collation:"und:binary"} AS b [STRING]
-| +-$union_all.a#6{Collation:"und:ci"} AS a [STRING]
+| +-$union_all.b#4{Collation:"und:binary"} AS b [STRING]
+| +-$union_all.a#5{Collation:"und:ci"} AS a [STRING]
 +-query=
   +-SetOperationScan
-    +-column_list=$union_all.[b#5, a#6]
+    +-column_list=$union_all.[b#4, a#5]
     +-op_type=UNION_ALL
     +-input_item_list=
     | +-SetOperationItem
@@ -223,10 +223,10 @@ QueryStmt
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=[$null_column_for_outer_set_op.b#4, $union_all2.a#3{Collation:"und:ci"}]
+    |   |   +-column_list=[$null_column_for_outer_set_op.b#6, $union_all2.a#3{Collation:"und:ci"}]
     |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-expr_list=
-    |   |   | +-b#4 := Literal(type=STRING, value=NULL)
+    |   |   | +-b#6 := Literal(type=STRING, value=NULL)
     |   |   +-input_scan=
     |   |     +-ProjectScan
     |   |       +-column_list=[$union_all2.a#3{Collation:"und:ci"}]
@@ -238,7 +238,7 @@ QueryStmt
     |   |       |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     |   |       +-input_scan=
     |   |         +-SingleRowScan
-    |   +-output_column_list=[$null_column_for_outer_set_op.b#4, $union_all2.a#3{Collation:"und:ci"}]
+    |   +-output_column_list=[$null_column_for_outer_set_op.b#6, $union_all2.a#3{Collation:"und:ci"}]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
@@ -246,11 +246,11 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$union_all.b#5{Collation:"und:binary"} AS b [STRING]
-| +-$union_all.a#6{Collation:"und:ci"} AS a [STRING]
+| +-$union_all.b#4{Collation:"und:binary"} AS b [STRING]
+| +-$union_all.a#5{Collation:"und:ci"} AS a [STRING]
 +-query=
   +-SetOperationScan
-    +-column_list=$union_all.[b#5, a#6]
+    +-column_list=$union_all.[b#4, a#5]
     +-op_type=UNION_ALL
     +-input_item_list=
       +-SetOperationItem
@@ -270,10 +270,10 @@ QueryStmt
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[$null_column_for_outer_set_op.b#4, $union_all2.a#3{Collation:"und:ci"}]
+        |   +-column_list=[$null_column_for_outer_set_op.b#6, $union_all2.a#3{Collation:"und:ci"}]
         |   +-node_source="resolver_set_operation_corresponding"
         |   +-expr_list=
-        |   | +-b#4 := Literal(type=STRING, value=NULL)
+        |   | +-b#6 := Literal(type=STRING, value=NULL)
         |   +-input_scan=
         |     +-ProjectScan
         |       +-column_list=[$union_all2.a#3{Collation:"und:ci"}]
@@ -285,13 +285,10 @@ QueryStmt
         |       |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
         |       +-input_scan=
         |         +-SingleRowScan
-        +-output_column_list=[$null_column_for_outer_set_op.b#4, $union_all2.a#3{Collation:"und:ci"}]
+        +-output_column_list=[$null_column_for_outer_set_op.b#6, $union_all2.a#3{Collation:"und:ci"}]
 ==
 
-# Collation annotation is not preserved when implicit type cast is used and the
-# language feature FEATURE_V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN is
-# not enabled. Specifically, the annotations of string_ci of struct_val is
-# dropped.
+# Collation annotation is preserved when merging with literal struct.
 SELECT (1, "str") AS a
 FULL UNION ALL CORRESPONDING
 SELECT 2 AS b
@@ -300,27 +297,25 @@ SELECT (CAST(1.0 AS float), COLLATE("str", "und:ci")) AS a
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.a#7 AS a [STRUCT<DOUBLE, STRING>]
-| +-$union_all.b#8 AS b [INT64]
+| +-$union_all.a#4<_,{Collation:"und:ci"}> AS a [STRUCT<FLOAT, STRING>]
+| +-$union_all.b#5 AS b [INT64]
 +-query=
   +-SetOperationScan
-    +-column_list=$union_all.[a#7, b#8]
+    +-column_list=$union_all.[a#4, b#5]
     +-op_type=UNION_ALL
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
     | | | +-ProjectScan
-    | | |   +-column_list=[$union_all1_cast.a#9, $null_column_for_outer_set_op.b#4]
+    | | |   +-column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#7]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-expr_list=
-    | | |   | +-a#9 :=
-    | | |   |   +-Cast(STRUCT<INT64, STRING> -> STRUCT<DOUBLE, STRING>)
-    | | |   |     +-ColumnRef(type=STRUCT<INT64, STRING>, column=$union_all1.a#1)
+    | | |   | +-b#7 := Literal(type=INT64, value=NULL)
     | | |   +-input_scan=
     | | |     +-ProjectScan
-    | | |       +-column_list=[$union_all1.a#1, $null_column_for_outer_set_op.b#4]
-    | | |       +-node_source="resolver_set_operation_corresponding"
+    | | |       +-column_list=[$union_all1_cast.a#6]
     | | |       +-expr_list=
-    | | |       | +-b#4 := Literal(type=INT64, value=NULL)
+    | | |       | +-a#6 := Literal(type=STRUCT<FLOAT, STRING>, value={1, "str"})
     | | |       +-input_scan=
     | | |         +-ProjectScan
     | | |           +-column_list=[$union_all1.a#1]
@@ -328,58 +323,46 @@ QueryStmt
     | | |           | +-a#1 := Literal(type=STRUCT<INT64, STRING>, value={1, "str"})
     | | |           +-input_scan=
     | | |             +-SingleRowScan
-    | | +-output_column_list=[$union_all1_cast.a#9, $null_column_for_outer_set_op.b#4]
+    | | +-output_column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#7]
     | +-SetOperationItem
     | | +-scan=
     | | | +-ProjectScan
-    | | |   +-column_list=[$union_all2_cast.a#10, $union_all2.b#2]
+    | | |   +-column_list=[$null_column_for_outer_set_op.a#8, $union_all2.b#2]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-expr_list=
-    | | |   | +-a#10 := Literal(type=STRUCT<DOUBLE, STRING>, value=NULL)
+    | | |   | +-a#8 := Literal(type=STRUCT<FLOAT, STRING>, value=NULL)
     | | |   +-input_scan=
     | | |     +-ProjectScan
-    | | |       +-column_list=[$null_column_for_outer_set_op.a#5, $union_all2.b#2]
-    | | |       +-node_source="resolver_set_operation_corresponding"
+    | | |       +-column_list=[$union_all2.b#2]
     | | |       +-expr_list=
-    | | |       | +-a#5 := Literal(type=STRUCT<INT64, STRING>, value=NULL)
+    | | |       | +-b#2 := Literal(type=INT64, value=2)
     | | |       +-input_scan=
-    | | |         +-ProjectScan
-    | | |           +-column_list=[$union_all2.b#2]
-    | | |           +-expr_list=
-    | | |           | +-b#2 := Literal(type=INT64, value=2)
-    | | |           +-input_scan=
-    | | |             +-SingleRowScan
-    | | +-output_column_list=[$union_all2_cast.a#10, $union_all2.b#2]
+    | | |         +-SingleRowScan
+    | | +-output_column_list=[$null_column_for_outer_set_op.a#8, $union_all2.b#2]
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=[$union_all3_cast.a#11, $null_column_for_outer_set_op.b#6]
+    |   |   +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#9]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-expr_list=
-    |   |   | +-a#11 :=
-    |   |   |   +-Cast(STRUCT<FLOAT, STRING> -> STRUCT<DOUBLE, STRING>)
-    |   |   |     +-ColumnRef(type=STRUCT<FLOAT, STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$union_all3.a#3<_,{Collation:"und:ci"}>)
+    |   |   | +-b#9 := Literal(type=INT64, value=NULL)
     |   |   +-input_scan=
     |   |     +-ProjectScan
-    |   |       +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#6]
-    |   |       +-node_source="resolver_set_operation_corresponding"
+    |   |       +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
     |   |       +-expr_list=
-    |   |       | +-b#6 := Literal(type=INT64, value=NULL)
+    |   |       | +-a#3 :=
+    |   |       |   +-MakeStruct
+    |   |       |     +-type=STRUCT<FLOAT, STRING>
+    |   |       |     +-type_annotation_map=<_,{Collation:"und:ci"}>
+    |   |       |     +-field_list=
+    |   |       |       +-Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
+    |   |       |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |   |       |         +-type_annotation_map={Collation:"und:ci"}
+    |   |       |         +-Literal(type=STRING, value="str")
+    |   |       |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     |   |       +-input_scan=
-    |   |         +-ProjectScan
-    |   |           +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
-    |   |           +-expr_list=
-    |   |           | +-a#3 :=
-    |   |           |   +-MakeStruct
-    |   |           |     +-type=STRUCT<FLOAT, STRING>
-    |   |           |     +-type_annotation_map=<_,{Collation:"und:ci"}>
-    |   |           |     +-field_list=
-    |   |           |       +-Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
-    |   |           |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
-    |   |           |         +-type_annotation_map={Collation:"und:ci"}
-    |   |           |         +-Literal(type=STRING, value="str")
-    |   |           |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-    |   |           +-input_scan=
-    |   |             +-SingleRowScan
-    |   +-output_column_list=[$union_all3_cast.a#11, $null_column_for_outer_set_op.b#6]
+    |   |         +-SingleRowScan
+    |   +-output_column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#9]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
@@ -387,27 +370,25 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$union_all.a#7 AS a [STRUCT<DOUBLE, STRING>]
-| +-$union_all.b#8 AS b [INT64]
+| +-$union_all.a#4<_,{Collation:"und:ci"}> AS a [STRUCT<FLOAT, STRING>]
+| +-$union_all.b#5 AS b [INT64]
 +-query=
   +-SetOperationScan
-    +-column_list=$union_all.[a#7, b#8]
+    +-column_list=$union_all.[a#4, b#5]
     +-op_type=UNION_ALL
     +-input_item_list=
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[$union_all1_cast.a#9, $null_column_for_outer_set_op.b#4]
+      | |   +-column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#7]
+      | |   +-node_source="resolver_set_operation_corresponding"
       | |   +-expr_list=
-      | |   | +-a#9 :=
-      | |   |   +-Cast(STRUCT<INT64, STRING> -> STRUCT<DOUBLE, STRING>)
-      | |   |     +-ColumnRef(type=STRUCT<INT64, STRING>, column=$union_all1.a#1)
+      | |   | +-b#7 := Literal(type=INT64, value=NULL)
       | |   +-input_scan=
       | |     +-ProjectScan
-      | |       +-column_list=[$union_all1.a#1, $null_column_for_outer_set_op.b#4]
-      | |       +-node_source="resolver_set_operation_corresponding"
+      | |       +-column_list=[$union_all1_cast.a#6]
       | |       +-expr_list=
-      | |       | +-b#4 := Literal(type=INT64, value=NULL)
+      | |       | +-a#6 := Literal(type=STRUCT<FLOAT, STRING>, value={1, "str"})
       | |       +-input_scan=
       | |         +-ProjectScan
       | |           +-column_list=[$union_all1.a#1]
@@ -415,64 +396,49 @@ QueryStmt
       | |           | +-a#1 := Literal(type=STRUCT<INT64, STRING>, value={1, "str"})
       | |           +-input_scan=
       | |             +-SingleRowScan
-      | +-output_column_list=[$union_all1_cast.a#9, $null_column_for_outer_set_op.b#4]
+      | +-output_column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#7]
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[$union_all2_cast.a#10, $union_all2.b#2]
+      | |   +-column_list=[$null_column_for_outer_set_op.a#8, $union_all2.b#2]
+      | |   +-node_source="resolver_set_operation_corresponding"
       | |   +-expr_list=
-      | |   | +-a#10 := Literal(type=STRUCT<DOUBLE, STRING>, value=NULL)
+      | |   | +-a#8 := Literal(type=STRUCT<FLOAT, STRING>, value=NULL)
       | |   +-input_scan=
       | |     +-ProjectScan
-      | |       +-column_list=[$null_column_for_outer_set_op.a#5, $union_all2.b#2]
-      | |       +-node_source="resolver_set_operation_corresponding"
+      | |       +-column_list=[$union_all2.b#2]
       | |       +-expr_list=
-      | |       | +-a#5 := Literal(type=STRUCT<INT64, STRING>, value=NULL)
+      | |       | +-b#2 := Literal(type=INT64, value=2)
       | |       +-input_scan=
-      | |         +-ProjectScan
-      | |           +-column_list=[$union_all2.b#2]
-      | |           +-expr_list=
-      | |           | +-b#2 := Literal(type=INT64, value=2)
-      | |           +-input_scan=
-      | |             +-SingleRowScan
-      | +-output_column_list=[$union_all2_cast.a#10, $union_all2.b#2]
+      | |         +-SingleRowScan
+      | +-output_column_list=[$null_column_for_outer_set_op.a#8, $union_all2.b#2]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[$union_all3_cast.a#11, $null_column_for_outer_set_op.b#6]
+        |   +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#9]
+        |   +-node_source="resolver_set_operation_corresponding"
         |   +-expr_list=
-        |   | +-a#11 :=
-        |   |   +-Cast(STRUCT<FLOAT, STRING> -> STRUCT<DOUBLE, STRING>)
-        |   |     +-ColumnRef(type=STRUCT<FLOAT, STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$union_all3.a#3<_,{Collation:"und:ci"}>)
+        |   | +-b#9 := Literal(type=INT64, value=NULL)
         |   +-input_scan=
         |     +-ProjectScan
-        |       +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#6]
-        |       +-node_source="resolver_set_operation_corresponding"
+        |       +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
         |       +-expr_list=
-        |       | +-b#6 := Literal(type=INT64, value=NULL)
+        |       | +-a#3 :=
+        |       |   +-MakeStruct
+        |       |     +-type=STRUCT<FLOAT, STRING>
+        |       |     +-type_annotation_map=<_,{Collation:"und:ci"}>
+        |       |     +-field_list=
+        |       |       +-Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
+        |       |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+        |       |         +-type_annotation_map={Collation:"und:ci"}
+        |       |         +-Literal(type=STRING, value="str")
+        |       |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
         |       +-input_scan=
-        |         +-ProjectScan
-        |           +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
-        |           +-expr_list=
-        |           | +-a#3 :=
-        |           |   +-MakeStruct
-        |           |     +-type=STRUCT<FLOAT, STRING>
-        |           |     +-type_annotation_map=<_,{Collation:"und:ci"}>
-        |           |     +-field_list=
-        |           |       +-Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
-        |           |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
-        |           |         +-type_annotation_map={Collation:"und:ci"}
-        |           |         +-Literal(type=STRING, value="str")
-        |           |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-        |           +-input_scan=
-        |             +-SingleRowScan
-        +-output_column_list=[$union_all3_cast.a#11, $null_column_for_outer_set_op.b#6]
+        |         +-SingleRowScan
+        +-output_column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#9]
 ==
 
-# Collation annotation is preserved when implicit type cast is used and the
-# language feature FEATURE_V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN is
-# enabled. Specifically, the annotations of string_ci of struct_val is
-# preserved.
+# Collation annotation is preserved when merging with literals.
 [language_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
 SELECT (1, "str") AS a
 FULL UNION ALL CORRESPONDING
@@ -482,27 +448,25 @@ SELECT (CAST(1.0 AS float), COLLATE("str", "und:ci")) AS a
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.a#7<_,{Collation:"und:ci"}> AS a [STRUCT<DOUBLE, STRING>]
-| +-$union_all.b#8 AS b [INT64]
+| +-$union_all.a#4<_,{Collation:"und:ci"}> AS a [STRUCT<FLOAT, STRING>]
+| +-$union_all.b#5 AS b [INT64]
 +-query=
   +-SetOperationScan
-    +-column_list=$union_all.[a#7, b#8]
+    +-column_list=$union_all.[a#4, b#5]
     +-op_type=UNION_ALL
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
     | | | +-ProjectScan
-    | | |   +-column_list=[$union_all1_cast.a#9, $null_column_for_outer_set_op.b#4]
+    | | |   +-column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#7]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-expr_list=
-    | | |   | +-a#9 :=
-    | | |   |   +-Cast(STRUCT<INT64, STRING> -> STRUCT<DOUBLE, STRING>)
-    | | |   |     +-ColumnRef(type=STRUCT<INT64, STRING>, column=$union_all1.a#1)
+    | | |   | +-b#7 := Literal(type=INT64, value=NULL)
     | | |   +-input_scan=
     | | |     +-ProjectScan
-    | | |       +-column_list=[$union_all1.a#1, $null_column_for_outer_set_op.b#4]
-    | | |       +-node_source="resolver_set_operation_corresponding"
+    | | |       +-column_list=[$union_all1_cast.a#6]
     | | |       +-expr_list=
-    | | |       | +-b#4 := Literal(type=INT64, value=NULL)
+    | | |       | +-a#6 := Literal(type=STRUCT<FLOAT, STRING>, value={1, "str"})
     | | |       +-input_scan=
     | | |         +-ProjectScan
     | | |           +-column_list=[$union_all1.a#1]
@@ -510,43 +474,189 @@ QueryStmt
     | | |           | +-a#1 := Literal(type=STRUCT<INT64, STRING>, value={1, "str"})
     | | |           +-input_scan=
     | | |             +-SingleRowScan
-    | | +-output_column_list=[$union_all1_cast.a#9, $null_column_for_outer_set_op.b#4]
+    | | +-output_column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#7]
     | +-SetOperationItem
     | | +-scan=
     | | | +-ProjectScan
-    | | |   +-column_list=[$union_all2_cast.a#10, $union_all2.b#2]
+    | | |   +-column_list=[$null_column_for_outer_set_op.a#8, $union_all2.b#2]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-expr_list=
-    | | |   | +-a#10 := Literal(type=STRUCT<DOUBLE, STRING>, value=NULL)
+    | | |   | +-a#8 := Literal(type=STRUCT<FLOAT, STRING>, value=NULL)
     | | |   +-input_scan=
     | | |     +-ProjectScan
-    | | |       +-column_list=[$null_column_for_outer_set_op.a#5, $union_all2.b#2]
-    | | |       +-node_source="resolver_set_operation_corresponding"
+    | | |       +-column_list=[$union_all2.b#2]
     | | |       +-expr_list=
-    | | |       | +-a#5 := Literal(type=STRUCT<INT64, STRING>, value=NULL)
+    | | |       | +-b#2 := Literal(type=INT64, value=2)
     | | |       +-input_scan=
-    | | |         +-ProjectScan
-    | | |           +-column_list=[$union_all2.b#2]
-    | | |           +-expr_list=
-    | | |           | +-b#2 := Literal(type=INT64, value=2)
-    | | |           +-input_scan=
-    | | |             +-SingleRowScan
-    | | +-output_column_list=[$union_all2_cast.a#10, $union_all2.b#2]
+    | | |         +-SingleRowScan
+    | | +-output_column_list=[$null_column_for_outer_set_op.a#8, $union_all2.b#2]
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=[$union_all3_cast.a#11<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#6]
+    |   |   +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#9]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-expr_list=
-    |   |   | +-a#11 :=
-    |   |   |   +-Cast(STRUCT<FLOAT, STRING> -> STRUCT<DOUBLE, STRING>)
-    |   |   |     +-type_annotation_map=<_,{Collation:"und:ci"}>
-    |   |   |     +-ColumnRef(type=STRUCT<FLOAT, STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$union_all3.a#3<_,{Collation:"und:ci"}>)
-    |   |   |     +-type_modifiers=collation:[_,und:ci]
+    |   |   | +-b#9 := Literal(type=INT64, value=NULL)
     |   |   +-input_scan=
     |   |     +-ProjectScan
-    |   |       +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#6]
-    |   |       +-node_source="resolver_set_operation_corresponding"
+    |   |       +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
     |   |       +-expr_list=
-    |   |       | +-b#6 := Literal(type=INT64, value=NULL)
+    |   |       | +-a#3 :=
+    |   |       |   +-MakeStruct
+    |   |       |     +-type=STRUCT<FLOAT, STRING>
+    |   |       |     +-type_annotation_map=<_,{Collation:"und:ci"}>
+    |   |       |     +-field_list=
+    |   |       |       +-Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
+    |   |       |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |   |       |         +-type_annotation_map={Collation:"und:ci"}
+    |   |       |         +-Literal(type=STRING, value="str")
+    |   |       |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |   |       +-input_scan=
+    |   |         +-SingleRowScan
+    |   +-output_column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#9]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=FULL
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$union_all.a#4<_,{Collation:"und:ci"}> AS a [STRUCT<FLOAT, STRING>]
+| +-$union_all.b#5 AS b [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#4, b#5]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#7]
+      | |   +-node_source="resolver_set_operation_corresponding"
+      | |   +-expr_list=
+      | |   | +-b#7 := Literal(type=INT64, value=NULL)
+      | |   +-input_scan=
+      | |     +-ProjectScan
+      | |       +-column_list=[$union_all1_cast.a#6]
+      | |       +-expr_list=
+      | |       | +-a#6 := Literal(type=STRUCT<FLOAT, STRING>, value={1, "str"})
+      | |       +-input_scan=
+      | |         +-ProjectScan
+      | |           +-column_list=[$union_all1.a#1]
+      | |           +-expr_list=
+      | |           | +-a#1 := Literal(type=STRUCT<INT64, STRING>, value={1, "str"})
+      | |           +-input_scan=
+      | |             +-SingleRowScan
+      | +-output_column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#7]
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[$null_column_for_outer_set_op.a#8, $union_all2.b#2]
+      | |   +-node_source="resolver_set_operation_corresponding"
+      | |   +-expr_list=
+      | |   | +-a#8 := Literal(type=STRUCT<FLOAT, STRING>, value=NULL)
+      | |   +-input_scan=
+      | |     +-ProjectScan
+      | |       +-column_list=[$union_all2.b#2]
+      | |       +-expr_list=
+      | |       | +-b#2 := Literal(type=INT64, value=2)
+      | |       +-input_scan=
+      | |         +-SingleRowScan
+      | +-output_column_list=[$null_column_for_outer_set_op.a#8, $union_all2.b#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#9]
+        |   +-node_source="resolver_set_operation_corresponding"
+        |   +-expr_list=
+        |   | +-b#9 := Literal(type=INT64, value=NULL)
+        |   +-input_scan=
+        |     +-ProjectScan
+        |       +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
+        |       +-expr_list=
+        |       | +-a#3 :=
+        |       |   +-MakeStruct
+        |       |     +-type=STRUCT<FLOAT, STRING>
+        |       |     +-type_annotation_map=<_,{Collation:"und:ci"}>
+        |       |     +-field_list=
+        |       |       +-Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
+        |       |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+        |       |         +-type_annotation_map={Collation:"und:ci"}
+        |       |         +-Literal(type=STRING, value="str")
+        |       |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-output_column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#9]
+==
+
+# Collation annotation is not preserved when implicit type cast is used and the
+# language feature FEATURE_V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN is
+# not enabled. Specifically, the annotations of string_ci of struct_val is
+# dropped.
+SELECT CAST((1, "str") AS STRUCT<INT64, STRING>) AS a
+FULL UNION ALL CORRESPONDING
+SELECT 2 AS b
+FULL UNION ALL CORRESPONDING
+SELECT (CAST(1.0 AS float), COLLATE("str", "und:ci")) AS a
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.a#4 AS a [STRUCT<DOUBLE, STRING>]
+| +-$union_all.b#5 AS b [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#4, b#5]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#8]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-expr_list=
+    | | |   | +-b#8 := Literal(type=INT64, value=NULL)
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=[$union_all1_cast.a#6]
+    | | |       +-expr_list=
+    | | |       | +-a#6 := Literal(type=STRUCT<DOUBLE, STRING>, value={1, "str"}, has_explicit_type=TRUE)
+    | | |       +-input_scan=
+    | | |         +-ProjectScan
+    | | |           +-column_list=[$union_all1.a#1]
+    | | |           +-expr_list=
+    | | |           | +-a#1 := Literal(type=STRUCT<INT64, STRING>, value={1, "str"}, has_explicit_type=TRUE)
+    | | |           +-input_scan=
+    | | |             +-SingleRowScan
+    | | +-output_column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#8]
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=[$null_column_for_outer_set_op.a#9, $union_all2.b#2]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-expr_list=
+    | | |   | +-a#9 := Literal(type=STRUCT<DOUBLE, STRING>, value=NULL)
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=[$union_all2.b#2]
+    | | |       +-expr_list=
+    | | |       | +-b#2 := Literal(type=INT64, value=2)
+    | | |       +-input_scan=
+    | | |         +-SingleRowScan
+    | | +-output_column_list=[$null_column_for_outer_set_op.a#9, $union_all2.b#2]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$union_all3_cast.a#7, $null_column_for_outer_set_op.b#10]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-expr_list=
+    |   |   | +-b#10 := Literal(type=INT64, value=NULL)
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=[$union_all3_cast.a#7]
+    |   |       +-expr_list=
+    |   |       | +-a#7 :=
+    |   |       |   +-Cast(STRUCT<FLOAT, STRING> -> STRUCT<DOUBLE, STRING>)
+    |   |       |     +-ColumnRef(type=STRUCT<FLOAT, STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$union_all3.a#3<_,{Collation:"und:ci"}>)
     |   |       +-input_scan=
     |   |         +-ProjectScan
     |   |           +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
@@ -563,7 +673,7 @@ QueryStmt
     |   |           |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     |   |           +-input_scan=
     |   |             +-SingleRowScan
-    |   +-output_column_list=[$union_all3_cast.a#11<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#6]
+    |   +-output_column_list=[$union_all3_cast.a#7, $null_column_for_outer_set_op.b#10]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
@@ -571,71 +681,62 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$union_all.a#7<_,{Collation:"und:ci"}> AS a [STRUCT<DOUBLE, STRING>]
-| +-$union_all.b#8 AS b [INT64]
+| +-$union_all.a#4 AS a [STRUCT<DOUBLE, STRING>]
+| +-$union_all.b#5 AS b [INT64]
 +-query=
   +-SetOperationScan
-    +-column_list=$union_all.[a#7, b#8]
+    +-column_list=$union_all.[a#4, b#5]
     +-op_type=UNION_ALL
     +-input_item_list=
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[$union_all1_cast.a#9, $null_column_for_outer_set_op.b#4]
+      | |   +-column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#8]
+      | |   +-node_source="resolver_set_operation_corresponding"
       | |   +-expr_list=
-      | |   | +-a#9 :=
-      | |   |   +-Cast(STRUCT<INT64, STRING> -> STRUCT<DOUBLE, STRING>)
-      | |   |     +-ColumnRef(type=STRUCT<INT64, STRING>, column=$union_all1.a#1)
+      | |   | +-b#8 := Literal(type=INT64, value=NULL)
       | |   +-input_scan=
       | |     +-ProjectScan
-      | |       +-column_list=[$union_all1.a#1, $null_column_for_outer_set_op.b#4]
-      | |       +-node_source="resolver_set_operation_corresponding"
+      | |       +-column_list=[$union_all1_cast.a#6]
       | |       +-expr_list=
-      | |       | +-b#4 := Literal(type=INT64, value=NULL)
+      | |       | +-a#6 := Literal(type=STRUCT<DOUBLE, STRING>, value={1, "str"}, has_explicit_type=TRUE)
       | |       +-input_scan=
       | |         +-ProjectScan
       | |           +-column_list=[$union_all1.a#1]
       | |           +-expr_list=
-      | |           | +-a#1 := Literal(type=STRUCT<INT64, STRING>, value={1, "str"})
+      | |           | +-a#1 := Literal(type=STRUCT<INT64, STRING>, value={1, "str"}, has_explicit_type=TRUE)
       | |           +-input_scan=
       | |             +-SingleRowScan
-      | +-output_column_list=[$union_all1_cast.a#9, $null_column_for_outer_set_op.b#4]
+      | +-output_column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#8]
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[$union_all2_cast.a#10, $union_all2.b#2]
+      | |   +-column_list=[$null_column_for_outer_set_op.a#9, $union_all2.b#2]
+      | |   +-node_source="resolver_set_operation_corresponding"
       | |   +-expr_list=
-      | |   | +-a#10 := Literal(type=STRUCT<DOUBLE, STRING>, value=NULL)
+      | |   | +-a#9 := Literal(type=STRUCT<DOUBLE, STRING>, value=NULL)
       | |   +-input_scan=
       | |     +-ProjectScan
-      | |       +-column_list=[$null_column_for_outer_set_op.a#5, $union_all2.b#2]
-      | |       +-node_source="resolver_set_operation_corresponding"
+      | |       +-column_list=[$union_all2.b#2]
       | |       +-expr_list=
-      | |       | +-a#5 := Literal(type=STRUCT<INT64, STRING>, value=NULL)
+      | |       | +-b#2 := Literal(type=INT64, value=2)
       | |       +-input_scan=
-      | |         +-ProjectScan
-      | |           +-column_list=[$union_all2.b#2]
-      | |           +-expr_list=
-      | |           | +-b#2 := Literal(type=INT64, value=2)
-      | |           +-input_scan=
-      | |             +-SingleRowScan
-      | +-output_column_list=[$union_all2_cast.a#10, $union_all2.b#2]
+      | |         +-SingleRowScan
+      | +-output_column_list=[$null_column_for_outer_set_op.a#9, $union_all2.b#2]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[$union_all3_cast.a#11<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#6]
+        |   +-column_list=[$union_all3_cast.a#7, $null_column_for_outer_set_op.b#10]
+        |   +-node_source="resolver_set_operation_corresponding"
         |   +-expr_list=
-        |   | +-a#11 :=
-        |   |   +-Cast(STRUCT<FLOAT, STRING> -> STRUCT<DOUBLE, STRING>)
-        |   |     +-type_annotation_map=<_,{Collation:"und:ci"}>
-        |   |     +-ColumnRef(type=STRUCT<FLOAT, STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$union_all3.a#3<_,{Collation:"und:ci"}>)
-        |   |     +-type_modifiers=collation:[_,und:ci]
+        |   | +-b#10 := Literal(type=INT64, value=NULL)
         |   +-input_scan=
         |     +-ProjectScan
-        |       +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#6]
-        |       +-node_source="resolver_set_operation_corresponding"
+        |       +-column_list=[$union_all3_cast.a#7]
         |       +-expr_list=
-        |       | +-b#6 := Literal(type=INT64, value=NULL)
+        |       | +-a#7 :=
+        |       |   +-Cast(STRUCT<FLOAT, STRING> -> STRUCT<DOUBLE, STRING>)
+        |       |     +-ColumnRef(type=STRUCT<FLOAT, STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$union_all3.a#3<_,{Collation:"und:ci"}>)
         |       +-input_scan=
         |         +-ProjectScan
         |           +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
@@ -652,4 +753,176 @@ QueryStmt
         |           |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
         |           +-input_scan=
         |             +-SingleRowScan
-        +-output_column_list=[$union_all3_cast.a#11<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#6]
+        +-output_column_list=[$union_all3_cast.a#7, $null_column_for_outer_set_op.b#10]
+==
+
+# In contrast with the previous example, the collation annotation is preserved
+# when implicit type cast is used and the language feature
+# FEATURE_V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN is *ENABLED*.
+# Specifically, the annotations of string_ci of struct_val is preserved.
+[language_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
+SELECT CAST((1, "str") AS STRUCT<INT64, STRING>) AS a
+FULL UNION ALL CORRESPONDING
+SELECT 2 AS b
+FULL UNION ALL CORRESPONDING
+SELECT (CAST(1.0 AS float), COLLATE("str", "und:ci")) AS a
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.a#4<_,{Collation:"und:ci"}> AS a [STRUCT<DOUBLE, STRING>]
+| +-$union_all.b#5 AS b [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#4, b#5]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#8]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-expr_list=
+    | | |   | +-b#8 := Literal(type=INT64, value=NULL)
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=[$union_all1_cast.a#6]
+    | | |       +-expr_list=
+    | | |       | +-a#6 := Literal(type=STRUCT<DOUBLE, STRING>, value={1, "str"}, has_explicit_type=TRUE)
+    | | |       +-input_scan=
+    | | |         +-ProjectScan
+    | | |           +-column_list=[$union_all1.a#1]
+    | | |           +-expr_list=
+    | | |           | +-a#1 := Literal(type=STRUCT<INT64, STRING>, value={1, "str"}, has_explicit_type=TRUE)
+    | | |           +-input_scan=
+    | | |             +-SingleRowScan
+    | | +-output_column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#8]
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=[$null_column_for_outer_set_op.a#9, $union_all2.b#2]
+    | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   +-expr_list=
+    | | |   | +-a#9 := Literal(type=STRUCT<DOUBLE, STRING>, value=NULL)
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=[$union_all2.b#2]
+    | | |       +-expr_list=
+    | | |       | +-b#2 := Literal(type=INT64, value=2)
+    | | |       +-input_scan=
+    | | |         +-SingleRowScan
+    | | +-output_column_list=[$null_column_for_outer_set_op.a#9, $union_all2.b#2]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$union_all3_cast.a#7<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#10]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-expr_list=
+    |   |   | +-b#10 := Literal(type=INT64, value=NULL)
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=[$union_all3_cast.a#7<_,{Collation:"und:ci"}>]
+    |   |       +-expr_list=
+    |   |       | +-a#7 :=
+    |   |       |   +-Cast(STRUCT<FLOAT, STRING> -> STRUCT<DOUBLE, STRING>)
+    |   |       |     +-type_annotation_map=<_,{Collation:"und:ci"}>
+    |   |       |     +-ColumnRef(type=STRUCT<FLOAT, STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$union_all3.a#3<_,{Collation:"und:ci"}>)
+    |   |       |     +-type_modifiers=collation:[_,und:ci]
+    |   |       +-input_scan=
+    |   |         +-ProjectScan
+    |   |           +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
+    |   |           +-expr_list=
+    |   |           | +-a#3 :=
+    |   |           |   +-MakeStruct
+    |   |           |     +-type=STRUCT<FLOAT, STRING>
+    |   |           |     +-type_annotation_map=<_,{Collation:"und:ci"}>
+    |   |           |     +-field_list=
+    |   |           |       +-Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
+    |   |           |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |   |           |         +-type_annotation_map={Collation:"und:ci"}
+    |   |           |         +-Literal(type=STRING, value="str")
+    |   |           |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |   |           +-input_scan=
+    |   |             +-SingleRowScan
+    |   +-output_column_list=[$union_all3_cast.a#7<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#10]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=FULL
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$union_all.a#4<_,{Collation:"und:ci"}> AS a [STRUCT<DOUBLE, STRING>]
+| +-$union_all.b#5 AS b [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#4, b#5]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#8]
+      | |   +-node_source="resolver_set_operation_corresponding"
+      | |   +-expr_list=
+      | |   | +-b#8 := Literal(type=INT64, value=NULL)
+      | |   +-input_scan=
+      | |     +-ProjectScan
+      | |       +-column_list=[$union_all1_cast.a#6]
+      | |       +-expr_list=
+      | |       | +-a#6 := Literal(type=STRUCT<DOUBLE, STRING>, value={1, "str"}, has_explicit_type=TRUE)
+      | |       +-input_scan=
+      | |         +-ProjectScan
+      | |           +-column_list=[$union_all1.a#1]
+      | |           +-expr_list=
+      | |           | +-a#1 := Literal(type=STRUCT<INT64, STRING>, value={1, "str"}, has_explicit_type=TRUE)
+      | |           +-input_scan=
+      | |             +-SingleRowScan
+      | +-output_column_list=[$union_all1_cast.a#6, $null_column_for_outer_set_op.b#8]
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[$null_column_for_outer_set_op.a#9, $union_all2.b#2]
+      | |   +-node_source="resolver_set_operation_corresponding"
+      | |   +-expr_list=
+      | |   | +-a#9 := Literal(type=STRUCT<DOUBLE, STRING>, value=NULL)
+      | |   +-input_scan=
+      | |     +-ProjectScan
+      | |       +-column_list=[$union_all2.b#2]
+      | |       +-expr_list=
+      | |       | +-b#2 := Literal(type=INT64, value=2)
+      | |       +-input_scan=
+      | |         +-SingleRowScan
+      | +-output_column_list=[$null_column_for_outer_set_op.a#9, $union_all2.b#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=[$union_all3_cast.a#7<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#10]
+        |   +-node_source="resolver_set_operation_corresponding"
+        |   +-expr_list=
+        |   | +-b#10 := Literal(type=INT64, value=NULL)
+        |   +-input_scan=
+        |     +-ProjectScan
+        |       +-column_list=[$union_all3_cast.a#7<_,{Collation:"und:ci"}>]
+        |       +-expr_list=
+        |       | +-a#7 :=
+        |       |   +-Cast(STRUCT<FLOAT, STRING> -> STRUCT<DOUBLE, STRING>)
+        |       |     +-type_annotation_map=<_,{Collation:"und:ci"}>
+        |       |     +-ColumnRef(type=STRUCT<FLOAT, STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$union_all3.a#3<_,{Collation:"und:ci"}>)
+        |       |     +-type_modifiers=collation:[_,und:ci]
+        |       +-input_scan=
+        |         +-ProjectScan
+        |           +-column_list=[$union_all3.a#3<_,{Collation:"und:ci"}>]
+        |           +-expr_list=
+        |           | +-a#3 :=
+        |           |   +-MakeStruct
+        |           |     +-type=STRUCT<FLOAT, STRING>
+        |           |     +-type_annotation_map=<_,{Collation:"und:ci"}>
+        |           |     +-field_list=
+        |           |       +-Literal(type=FLOAT, value=1, has_explicit_type=TRUE)
+        |           |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+        |           |         +-type_annotation_map={Collation:"und:ci"}
+        |           |         +-Literal(type=STRING, value="str")
+        |           |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+        |           +-input_scan=
+        |             +-SingleRowScan
+        +-output_column_list=[$union_all3_cast.a#7<_,{Collation:"und:ci"}>, $null_column_for_outer_set_op.b#10]

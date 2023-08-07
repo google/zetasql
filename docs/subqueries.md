@@ -177,6 +177,40 @@ SELECT
  *--------*/
 ```
 
+### Quantified `LIKE` subqueries 
+<a id="quantified_like_subquery_concepts"></a>
+
+```sql
+value [ NOT ] LIKE { ANY | SOME | ALL } ( subquery )
+```
+
+**Description**
+
+A subquery that can be used in a quantified `LIKE` operation. `value` is a
+`STRING` or `BYTES` type. The `SELECT` list for `subquery`
+must have a single column and its type must be comparable to the type
+for `value`. If not, an error is returned. For full semantics, including
+`NULL` handling, see the [Quantified LIKE operator][quantified-like].
+
+**Examples**
+
+In the example, the quantified `LIKE` operator checks to see if `corba` matches
+at least one pattern in the set of rows returned by the `LIKE ANY` subquery:
+
+```sql {highlight="lines:1:8-1:53"}
+WITH Words AS (
+  SELECT '%orb%' as chars UNION ALL
+  SELECT 'xyg'
+)
+SELECT 'corba' LIKE ANY (SELECT chars FROM Words) as result;
+
++--------+
+| result |
++--------+
+| TRUE   |
++--------+
+```
+
 ### `EXISTS` subqueries 
 <a id="exists_subquery_concepts"></a>
 
@@ -430,6 +464,14 @@ SELECT * FROM (
 [array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#array
 
 [aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+
+[semantic-rules-in]: https://github.com/google/zetasql/blob/master/docs/operators.md#semantic_rules_in
+
+[quantified-like]: https://github.com/google/zetasql/blob/master/docs/operators.md#like_operator_quantified
+
+[semantic-rules-like]: https://github.com/google/zetasql/blob/master/docs/operators.md#semantic_rules_like
+
+[quantified-like]: https://github.com/google/zetasql/blob/master/docs/operators.md#like_operator_quantified
 
 <!-- mdlint on -->
 

@@ -142,7 +142,7 @@ static std::string GetExtractFunctionSignatureString(
 
 static std::string NoMatchingSignatureForExtractFunction(
     const std::string& explicit_datepart_name,
-    const std::string& qualified_function_name,
+    absl::string_view qualified_function_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
   if (arguments.empty()) {
     return "No matching signature for function EXTRACT,"

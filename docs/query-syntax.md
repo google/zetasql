@@ -3318,7 +3318,7 @@ SELECT n FROM T1
 The first iteration of a recursive union operation runs the base term.
 Then, each subsequent iteration runs the recursive term and produces
 _new rows_ which are unioned with the previous iteration. The recursive
-union operation terminates when an recursive term iteration produces no new
+union operation terminates when a recursive term iteration produces no new
 rows.
 
 If recursion does not terminate, the query will not terminate.
@@ -3624,7 +3624,7 @@ The following rules apply to the recursive term in a recursive CTE:
 + A recursive table reference cannot be used as an operand to a
   table-valued function (TVF).
 
-The following rules apply to a subquery inside an recursive term:
+The following rules apply to a subquery inside a recursive term:
 
 + A subquery with a recursive table reference must be a `SELECT` expression,
   not a set operation, such as `UNION ALL`.

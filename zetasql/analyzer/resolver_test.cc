@@ -481,6 +481,23 @@ class ResolverTest : public ::testing::Test {
         << input;
   }
 
+  void TestExpressionVolatility(absl::string_view input,
+                                bool expected_volatile) {
+    std::unique_ptr<ParserOutput> parser_output;
+    std::unique_ptr<const ResolvedExpr> resolved_expression;
+    ZETASQL_ASSERT_OK(ParseExpression(input, ParserOptions(), &parser_output)) << input;
+    const ASTExpression* parsed_expression = parser_output->expression();
+    ASSERT_THAT(parsed_expression, NotNull()) << input;
+
+    QueryResolutionInfo query_resolution_info(resolver_.get());
+    ExprResolutionInfo expr_resolution_info(name_scope_.get(),
+                                            &query_resolution_info);
+    ZETASQL_ASSERT_OK(resolver_->ResolveExpr(parsed_expression, &expr_resolution_info,
+                                     &resolved_expression));
+
+    EXPECT_EQ(expr_resolution_info.has_volatile, expected_volatile);
+  }
+
   TypeFactory type_factory_;
   std::unique_ptr<SampleCatalog> sample_catalog_;
   AnalyzerOptions analyzer_options_;
@@ -2061,6 +2078,15 @@ TEST_F(ResolverTest, TestGetFunctionNameAndArguments) {
       EXPECT_EQ(expected_function_arguments[i], Unparse(function_arguments[i]));
     }
   }
+}
+
+TEST_F(ResolverTest, TestExpressionVolatility) {
+  TestExpressionVolatility(R"sql(volatile_function(1))sql",
+                           /*expected_volatile=*/true);
+  TestExpressionVolatility(R"sql(stable_function(1))sql",
+                           /*expected_volatile=*/false);
+  TestExpressionVolatility(R"sql(stable_function(volatile_function(1)))sql",
+                           /*expected_volatile=*/true);
 }
 
 TEST(FunctionArgumentInfoTest, BasicUse) {

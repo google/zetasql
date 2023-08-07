@@ -45,6 +45,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/civil_time.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/stl_util.h"
@@ -159,7 +160,7 @@ static std::vector<Type> ConcatTests(
   return result;
 }
 
-static Value KitchenSink_equivalent(const std::string& proto_str) {
+static Value KitchenSink_equivalent(absl::string_view proto_str) {
   zetasql_test__::KitchenSinkPB kitchen_sink_message;
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &kitchen_sink_message));
@@ -2160,7 +2161,7 @@ static std::string u8tostring(const std::u8string& s) {
   return std::string(s.begin(), s.end());
 }
 #endif
-static std::string u8tostring(const std::string& s) { return s; }
+static std::string u8tostring(absl::string_view s) { return std::string(s); }
 }  // namespace
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {

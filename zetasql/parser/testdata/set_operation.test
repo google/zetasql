@@ -1035,4 +1035,24 @@ SELECT
 EXCEPT @5 ALL
 SELECT
   2
+==
 
+SELECT {{UNION|INTERSECT|EXCEPT}} @param;
+--
+ALTERNATION GROUP: UNION
+--
+ERROR: Syntax error: Unexpected keyword UNION [at 1:8]
+SELECT UNION @param;
+       ^
+--
+ALTERNATION GROUP: INTERSECT
+--
+ERROR: Syntax error: Unexpected keyword INTERSECT [at 1:8]
+SELECT INTERSECT @param;
+       ^
+--
+ALTERNATION GROUP: EXCEPT
+--
+ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 1:8]
+SELECT EXCEPT @param;
+       ^

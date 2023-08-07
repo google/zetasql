@@ -581,15 +581,6 @@ bool EndsWithUtf8WithCollation(const ZetaSqlCollator& collator,
   return true;
 }
 
-absl::StatusOr<bool> LikeWithUtf8WithCollation(
-    absl::string_view text, absl::string_view pattern,
-    const ZetaSqlCollator& collator, bool allow_underscore) {
-  if (allow_underscore) {
-    return LikeUtf8WithCollationAllowUnderscore(text, pattern, collator);
-  }
-  return LikeUtf8WithCollation(text, pattern, collator);
-}
-
 absl::StatusOr<bool> LikeUtf8WithCollation(absl::string_view text,
                                            absl::string_view pattern,
                                            const ZetaSqlCollator& collator) {

@@ -158,8 +158,7 @@ class Validator {
       const ResolvedDropRowAccessPolicyStmt* stmt);
   absl::Status ValidateResolvedDropSnapshotTableStmt(
       const ResolvedDropSnapshotTableStmt* stmt);
-  absl::Status ValidateResolvedDropSearchIndexStmt(
-      const ResolvedDropSearchIndexStmt* stmt);
+  absl::Status ValidateResolvedDropIndexStmt(const ResolvedDropIndexStmt* stmt);
   absl::Status ValidateResolvedGrantStmt(const ResolvedGrantStmt* stmt);
   absl::Status ValidateResolvedRevokeStmt(const ResolvedRevokeStmt* stmt);
   absl::Status ValidateResolvedAlterPrivilegeRestrictionStmt(

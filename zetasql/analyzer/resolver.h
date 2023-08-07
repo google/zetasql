@@ -74,6 +74,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
+#include "absl/functional/any_invocable.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -596,7 +597,7 @@ class Resolver {
   std::vector<const Type*> undeclared_positional_parameters_;
   // Maps parse locations to the names or positions of untyped occurrences of
   // undeclared parameters.
-  std::map<ParseLocationPoint, absl::variant<std::string, int>>
+  std::map<ParseLocationPoint, std::variant<std::string, int>>
       untyped_undeclared_parameters_;
 
   // Maps ResolvedColumns produced by ResolvedTableScans to their source Columns
@@ -704,8 +705,6 @@ class Resolver {
       const ASTNode* ast_location, DeprecationWarning::Kind kind,
       const std::string& message,
       const FreestandingDeprecationWarning* source_warning = nullptr);
-
-  static void InitStackOverflowStatus();
 
   static ResolvedColumnList ConcatColumnLists(
       const ResolvedColumnList& left, const ResolvedColumnList& right);
@@ -1020,14 +1019,15 @@ class Resolver {
       std::set<IdString, IdStringCaseLess>* resolved_columns,
       const ResolvedExpr* resolved_expr);
 
-  // Validates index key expressions for the search index.
+  // Validates index key expressions for the search / vector index.
   //
   // The key expression should not have ASC or DESC option; the key expression
   // should not have the null order option.
   // The key expression should only refer to column name until b/180069278 been
   // fixed.
   // TODO: Support alias on the index key expression.
-  absl::Status ValidateIndexKeyExpressionForCreateSearchIndex(
+  absl::Status ValidateIndexKeyExpressionForCreateSearchOrVectorIndex(
+      std::string_view index_type,
       const ASTOrderingExpression& ordering_expression,
       const ResolvedExpr& resolved_expr);
 
@@ -1308,8 +1308,8 @@ class Resolver {
       const ASTDropSnapshotTableStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
-  absl::Status ResolveDropSearchIndexStatement(
-      const ASTDropSearchIndexStatement* ast_statement,
+  absl::Status ResolveDropIndexStatement(
+      const ASTDropIndexStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
   absl::Status ResolveDMLTargetTable(
@@ -1838,19 +1838,19 @@ class Resolver {
       const NameScope* from_scan_scope,
       QueryResolutionInfo* query_resolution_info);
 
-  // Adds all fields of the column referenced by <src_column_ref> to
-  // <select_column_state_list>, like we do for 'SELECT column.*'.
-  // Copies <src_column_ref>, without taking ownership.  If
-  // <src_column_has_aggregation>, then marks the new SelectColumnState as
-  // has_aggregation.  If <src_column_has_analytic>, then marks the new
-  // SelectColumnState as has_analytic.  If the column has no fields, then if
-  // <column_alias_if_no_fields> is non-empty, emits the column itself,
+  // Adds all fields of the column referenced by `src_column_ref` to
+  // `select_column_state_list`, like we do for 'SELECT column.*'.
+  // Copies `src_column_ref`, without taking ownership. If
+  // `src_column_has_aggregation`, then marks the new SelectColumnState as
+  // has_aggregation. If `src_column_has_analytic`, then marks the new
+  // SelectColumnState as has_analytic. If `src_column_has_volatile`, then marks
+  // the new SelectColumnState as has_volatile. If the column has no fields,
+  // then if `column_alias_if_no_fields` is non-empty, emits the column itself,
   // and otherwise returns an error.
   absl::Status AddColumnFieldsToSelectList(
       const ASTExpression* ast_expression,
-      const ResolvedColumnRef* src_column_ref,
-      bool src_column_has_aggregation,
-      bool src_column_has_analytic,
+      const ResolvedColumnRef* src_column_ref, bool src_column_has_aggregation,
+      bool src_column_has_analytic, bool src_column_has_volatile,
       IdString column_alias_if_no_fields,
       const IdStringSetCase* excluded_field_names,
       SelectColumnStateList* select_column_state_list,
@@ -2302,35 +2302,32 @@ class Resolver {
 
     // Builds a vector specifying the type of each column for each input scan.
     // After calling:
-    //   ZETASQL_ASSIGN_OR_RETURN(column_type_lists, BuildColumnTypeLists(...));
+    //   ZETASQL_ASSIGN_OR_RETURN(column_type_lists,
+    //       BuildColumnTypeListsByPosition(...));
     //
     // column_type_lists[column_idx][scan_idx] specifies the type for the given
     // column index/input index combination.
+    //
+    // This function should only be called if the column_match_mode is
+    // BY_POSITION.
     absl::StatusOr<std::vector<std::vector<InputArgumentType>>>
-    BuildColumnTypeLists(absl::Span<ResolvedInputResult> resolved_inputs) const;
-
-    absl::StatusOr<ResolvedColumnList> BuildColumnLists(
-        const std::vector<std::vector<InputArgumentType>>& column_type_lists,
-        const NameList& first_item_name_list) const;
-
-    // Modifies <resolved_inputs>, adding a cast if necessary to convert each
-    // column to the respective final column type of the set operation.
-    absl::Status CreateWrapperScansWithCasts(
-        const ResolvedColumnList& column_list,
-        absl::Span<std::unique_ptr<ResolvedSetOperationItem>> resolved_inputs)
-        const;
+    BuildColumnTypeListsByPosition(
+        absl::Span<ResolvedInputResult> resolved_inputs) const;
 
     // Adds a cast to `set_operation_item` if necessary to convert its each
     // column to the respective final column type in `column_list`.
     // `item_index` denotes the index of the given `set_operation_item` in
     // the set operation.
-    absl::Status CreateWrapperScanWithCasts(
+    absl::Status CreateWrapperScanWithCastsForSetOperationItem(
         const ResolvedColumnList& column_list, int item_index,
         ResolvedSetOperationItem* set_operation_item) const;
 
-    // Builds the final name list for the resolution of the set operation.
+    // Builds the final name list for the resolution of the set operation from
+    // the given `name_list_template`. The properties of each NamedColumn in
+    // `name_list_template` will be preserved; only the ResolvedColumns will be
+    // replaced by the ones in `final_column_list`.
     absl::StatusOr<std::shared_ptr<const NameList>> BuildFinalNameList(
-        const NameList& first_item_name_list,
+        const NameList& name_list_template,
         const ResolvedColumnList& final_column_list) const;
 
     // Validates that there is at most one hint and is at the first set
@@ -2354,61 +2351,6 @@ class Resolver {
     // if the validation fails.
     absl::Status ValidateIdenticalSetOperator() const;
 
-    // Corresponds to one column in the final column list of a set operation.
-    struct ColumnMetadata {
-      const IdString column_alias;
-      const Type* type;
-      ColumnMetadata(IdString column_alias, const Type* type)
-          : column_alias(column_alias), type(type) {}
-    };
-
-    // Returns the output columns (in the form of `ColumnMetadata`) for the set
-    // operation. This function should only be called when `column_match_mode`
-    // is CORRESPONDING or CORRESPONDING_BY. A sql error is returned if
-    // - Some query has a value table type; or
-    // - CORRESPONDING / CORRESPONDING_BY -specific checks failed.
-    //
-    // Currently only CORRESPONDING without outer / strict mode is implemented.
-    // TODO: Update the function as we implement outer / strict
-    // mode and CORRESPONDING_BY.
-    absl::StatusOr<std::vector<ColumnMetadata>> GetSetOperationOutputColumns(
-        const std::vector<ResolvedInputResult>& resolved_inputs,
-        ASTSetOperation::ColumnMatchMode column_match_mode) const;
-
-    // Returns the output columns for the set operation when the
-    // column_match_mode is CORRESPONDING. The output columns depend on the
-    // column_propagation_mode, specifically:
-    // - INNER: Returns the column intersections (in terms of column names) the
-    //   `resolved_inputs` (in the order they appear in the first query). A sql
-    //   error is returned iff
-    //   - Any of the ResolvedSetOperationItem has duplicate column names in its
-    //     output_column_list; or
-    //   - Any of the ResolvedSetOperationItem has anoynmous columns; or
-    //   - The intersection is empty.
-    // - Otherwise: Unimplemented error.
-    // TODO: Update the function doc as we add support for other
-    // column_propagation_mode 's.
-    absl::StatusOr<std::vector<ColumnMetadata>>
-    GetSetOperationOutputColumnsCorresponding(
-        const std::vector<ResolvedInputResult>& resolved_inputs) const;
-
-    // Adjust the output columns of each resolved_input in `resolved_inputs` to
-    // match the names and column order as `set_operation_output_columns`.
-    // `set_operation_output_columns` cannot be empty.
-    // Specifically, depending on the column_propagation_mode:
-    // - INNER:
-    //   Selects the columns present in `set_operation_output_columns` and
-    //   reorders them according to the order in `set_operation_output_columns`.
-    //   All columns in `set_operation_output_columns` must be present in the
-    //   column_list of every resolved_input.
-    // - Otherwise:
-    //   Unimplemented error.
-    // TODO: Update the function doc as we add support for other
-    // column_propagation_mode 's.
-    absl::Status AdjustAndReorderColumns(
-        const std::vector<ColumnMetadata>& set_operation_output_columns,
-        std::vector<ResolvedInputResult>& resolved_inputs) const;
-
     // Returns the `column_match_mode()` of the first set operation metadata.
     // Must be called after verifying all set operation metadata share the same
     // column match mode.
@@ -2418,6 +2360,151 @@ class Resolver {
     // metadata. Must be called after verifying all set operation metadata share
     // the same column propagation mode.
     ASTSetOperation::ColumnPropagationMode ASTColumnPropagationMode() const;
+
+    // Coerces the types given by `column_type_lists` into a list of common
+    // super types. Returns an error if the type coercion for any columns is
+    // impossible.
+    //
+    // `column_identifier_in_error_string` is a function that takes in a
+    // column_idx and returns its column identifier used in error strings.
+    absl::StatusOr<std::vector<const Type*>> GetSuperTypes(
+        const std::vector<std::vector<InputArgumentType>>& column_type_lists,
+        std::function<std::string(int)> column_identifier_in_error_string)
+        const;
+
+    // Returns a column list where column names are from `final_column_names`
+    // and column types are from `final_column_types`.
+    //
+    // `final_column_names` and `final_column_types` must have the same length.
+    absl::StatusOr<ResolvedColumnList> BuildFinalColumnList(
+        const std::vector<IdString>& final_column_names,
+        const std::vector<const Type*>& final_column_types) const;
+
+    // Returns the input argument type for the given `column` in the context of
+    // the `resolved_scan`.
+    InputArgumentType GetColumnInputArgumentType(
+        const ResolvedColumn& column, const ResolvedScan* resolved_scan) const;
+
+    // Checks whether all the inputs in `resolved_inputs` have the same number
+    // of columns in their namelists.
+    absl::Status CheckSameColumnNumber(
+        const std::vector<ResolvedInputResult>& resolved_inputs) const;
+
+    // Validates that no elements in `resolved_inputs` have value table columns.
+    absl::Status CheckNoValueTable(
+        const std::vector<ResolvedInputResult>& resolved_inputs) const;
+
+    // Returns the final column names for the set operation. The result depends
+    // on the column_propagation_mode. Check the implementation for more
+    // information.
+    //
+    // This function should only be called when column_match_mode is
+    // CORRESPONDING.
+    absl::StatusOr<std::vector<IdString>>
+    CalculateFinalColumnNamesForCorresponding(
+        const std::vector<ResolvedInputResult>& resolved_inputs) const;
+
+    // This class provides a two-way index mapping between the columns in the
+    // <output_column_list> of each input and the final columns of the set
+    // operation.
+    class IndexMapper {
+     public:
+      IndexMapper() = default;
+
+      // Returns std::nullopt if the `final_column_idx` -th final column does
+      // not have a corresponding column in the <output_column_list> of the
+      // `query_idx` -th input.
+      absl::StatusOr<std::optional<int>> GetOutputColumnIndex(
+          int query_idx, int final_column_idx) const;
+
+      // Returns std::nullopt if for the `query_idx` -th input, its
+      // `output_column_idx` -th column in the <output_column_list> of does not
+      // appear in the final columns of the set operation.
+      absl::StatusOr<std::optional<int>> GetFinalColumnIndex(
+          int query_idx, int output_column_idx) const;
+
+      absl::Status AddMapping(int query_idx, int final_column_idx,
+                              int output_column_idx);
+
+     private:
+      struct TwoWayMapping {
+        absl::flat_hash_map</*final_column_idx*/ int, /*output_column_idx*/ int>
+            final_to_output;
+        absl::flat_hash_map</*output_column_idx*/ int, /*final_column_idx*/ int>
+            output_to_final;
+      };
+
+      absl::flat_hash_map</*query_idx*/ int, TwoWayMapping> index_mapping_;
+    };
+
+    // Builds an index mapping between the columns of the <output_column_list>
+    // of each input in `resolved_inputs` and the names in `final_column_names`.
+    absl::StatusOr<std::unique_ptr<IndexMapper>> BuildIndexMapping(
+        const std::vector<ResolvedInputResult>& resolved_inputs,
+        const std::vector<IdString>& final_column_names) const;
+
+    // Builds a vector specifying the type of each column for each input scan,
+    // where the returned column_type_lists[column_idx][scan_idx] specifies the
+    // type for the given (column index, input index) combination.
+    //
+    // This function should only be called if the column_match_mode is
+    // CORRESPONDING.
+    absl::StatusOr<std::vector<std::vector<InputArgumentType>>>
+    BuildColumnTypeListsForCorresponding(
+        int final_column_num,
+        absl::Span<const ResolvedInputResult> resolved_inputs,
+        const IndexMapper* index_mapper) const;
+
+    // Adds type casts to convert the column types of each item in the
+    // `resolvd_inputs` to the types of the corresponding columns in
+    // `final_column_list`, if they differ. The column mapping is provided by
+    // `index_mapper`.
+    absl::Status AddTypeCastIfNeededForCorresponding(
+        const ResolvedColumnList& final_column_list,
+        absl::Span<ResolvedInputResult> resolved_inputs,
+        const IndexMapper* index_mapper) const;
+
+    // Returns a column list of final columns that match positionally with the
+    // columns in `output_column_list`. If a column in `output_column_list` does
+    // not have a corresponding column in `final_column_list` (mapping is
+    // provided by `index_mapper`), the column itself is used as the "final
+    // column" (to guarantee no type cast is added for those columns).
+    //
+    // This function is primarily used by AddTypeCastIfNeededForCorresponding to
+    // accommodate the interface of
+    // CreateWrapperScanWithCastsForSetOperationItem.
+    absl::StatusOr<ResolvedColumnList> GetCorrespondingFinalColumns(
+        const ResolvedColumnList& final_column_list,
+        const ResolvedColumnList& output_column_list, int query_idx,
+        const IndexMapper* index_mapper) const;
+
+    // Builds the name list template for the final name list for CORRESPONDING.
+    // If a column in `final_column_list` does not appear in the first input,
+    // it is not an explicit column. Otherwise inherits the explicit'ness from
+    // the corresponding column in the first input.
+    absl::StatusOr<std::shared_ptr<const NameList>>
+    BuildNameListTemplateForCorresponding(
+        const ResolvedColumnList& final_column_list,
+        const NameList& first_item_name_list,
+        const IndexMapper* index_mapper) const;
+
+    // Adjust the output columns of each resolved_input in `resolved_inputs` to
+    // match the names and column order of `final_column_list`.
+    absl::Status AdjustAndReorderColumns(
+        const ResolvedColumnList& final_column_list,
+        const IndexMapper* index_mapper,
+        std::vector<ResolvedInputResult>& resolved_inputs) const;
+
+    // Moves the `node` field of each ResolvedInputResults in
+    // `resolved_inputs` to a separate vector.
+    std::vector<std::unique_ptr<const ResolvedSetOperationItem>>
+    ExtractSetOperationItems(
+        absl::Span<ResolvedInputResult> resolved_inputs) const;
+
+    // For a given `resolved_input`, calculates the input argument types of its
+    // resolved columns.
+    std::vector<InputArgumentType> BuildColumnTypeList(
+        const ResolvedInputResult& resolved_input) const;
 
     const ASTSetOperation* const set_operation_;
     Resolver* const resolver_;

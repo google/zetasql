@@ -1,5 +1,5 @@
-[load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test__.NullableDate,zetasql_test__.NullableInt,zetasql_test__.NullableEnum,zetasql_test__.PackedRepeatablePB,zetasql_test__.KitchenSinkPB]
+[load_proto_files=zetasql/testdata/test_schema.proto,zetasql/testdata/test_proto3.proto]
+[load_proto_names=zetasql_test__.NullableDate,zetasql_test__.NullableInt,zetasql_test__.NullableEnum,zetasql_test__.PackedRepeatablePB,zetasql_test__.KitchenSinkPB,zetasql_test__.Proto3KitchenSink]
 [prepare_database]
 CREATE TABLE TableAllTypes AS
 SELECT CAST(1 AS int64) as row_id,
@@ -1359,6 +1359,18 @@ ARRAY<STRUCT<ENUM<zetasql_test__.TestEnum>>>[{NULL}]
 select cast("abc" as int32) + cast("def" as int32)
 --
 ERROR: generic::out_of_range: Bad int32 value: abc
+==
+
+[name=cast_int_into_proto3_unknown_enum]
+select cast(7 as `zetasql_test__.TestProto3Enum`) AS e
+--
+ARRAY<STRUCT<e ENUM<zetasql_test__.TestProto3Enum>>>[{7}]
+==
+
+[name=cast_out_of_range_int_into_proto3_unknown_enum]
+select cast(7777777777 as `zetasql_test__.TestProto3Enum`) AS e
+--
+ERROR: generic::out_of_range: Out of range cast of integer 7777777777 to enum type zetasql_test__.TestProto3Enum
 ==
 
 [name=invalid_cast_nested_inside_a_function]

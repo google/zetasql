@@ -39,7 +39,7 @@ namespace zetasql {
 
 class TestCatalog : public SimpleCatalog {
  public:
-  explicit TestCatalog(const std::string& name) : SimpleCatalog(name) {}
+  explicit TestCatalog(absl::string_view name) : SimpleCatalog(name) {}
   TestCatalog(const TestCatalog&) = delete;
   TestCatalog& operator=(const TestCatalog&) = delete;
   ~TestCatalog() override;

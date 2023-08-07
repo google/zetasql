@@ -224,10 +224,10 @@ See that file for comments on specific nodes and fields.
     <a href="#ResolvedDeleteStmt">ResolvedDeleteStmt</a>
     <a href="#ResolvedDescribeStmt">ResolvedDescribeStmt</a>
     <a href="#ResolvedDropFunctionStmt">ResolvedDropFunctionStmt</a>
+    <a href="#ResolvedDropIndexStmt">ResolvedDropIndexStmt</a>
     <a href="#ResolvedDropMaterializedViewStmt">ResolvedDropMaterializedViewStmt</a>
     <a href="#ResolvedDropPrivilegeRestrictionStmt">ResolvedDropPrivilegeRestrictionStmt</a>
     <a href="#ResolvedDropRowAccessPolicyStmt">ResolvedDropRowAccessPolicyStmt</a>
-    <a href="#ResolvedDropSearchIndexStmt">ResolvedDropSearchIndexStmt</a>
     <a href="#ResolvedDropSnapshotTableStmt">ResolvedDropSnapshotTableStmt</a>
     <a href="#ResolvedDropStmt">ResolvedDropStmt</a>
     <a href="#ResolvedDropTableFunctionStmt">ResolvedDropTableFunctionStmt</a>
@@ -2886,7 +2886,7 @@ class ResolvedUnnestItem : public <a href="#ResolvedArgument">ResolvedArgument</
 
 <p><pre><code class="lang-c++">
 <font color="brown">// This statement:
-// CREATE [OR REPLACE] [UNIQUE] [SEARCH] INDEX [IF NOT EXISTS]
+// CREATE [OR REPLACE] [UNIQUE] [SEARCH | VECTOR] INDEX [IF NOT EXISTS]
 //  &lt;index_name_path&gt; ON &lt;table_name_path&gt;
 // [STORING (Expression, ...)]
 // [UNNEST(path_expression) [[AS] alias] [WITH OFFSET [[AS] alias]], ...]
@@ -2895,7 +2895,10 @@ class ResolvedUnnestItem : public <a href="#ResolvedArgument">ResolvedArgument</
 // &lt;table_name_path&gt; is the name of table being indexed.
 // &lt;table_scan&gt; is a TableScan on the table being indexed.
 // &lt;is_unique&gt; specifies if the index has unique entries.
-// &lt;is_search&gt; specifies if the index is for search.
+// &lt;is_search&gt; specifies if the index is for search. It is mutually exclusive
+//             with is_vector.
+// &lt;is_vector&gt; specifies if the index is for vector search. It is mutually
+//             exclusive with is_search.
 // &lt;index_all_columns&gt; specifies if indexing all the columns of the table.
 //                     When this field is true, index_item_list must be
 //                     empty and is_search must be true.
@@ -2923,6 +2926,8 @@ class ResolvedCreateIndexStmt : public <a href="#ResolvedCreateStatement">Resolv
   bool is_unique() const;
 
   bool is_search() const;
+
+  bool is_vector() const;
 
   bool index_all_columns() const;
 
@@ -5595,17 +5600,28 @@ class ResolvedDropRowAccessPolicyStmt : public <a href="#ResolvedStatement">Reso
 };
 </code></pre></p>
 
-### ResolvedDropSearchIndexStmt
-<a id="ResolvedDropSearchIndexStmt"></a>
+### ResolvedDropIndexStmt
+<a id="ResolvedDropIndexStmt"></a>
 
 <p><pre><code class="lang-c++">
-<font color="brown">// DROP SEARCH INDEX [IF EXISTS] &lt;name&gt; [ON &lt;table_name_path&gt;];
+<font color="brown">// DROP SEARCH|VECTOR INDEX [IF EXISTS] &lt;name&gt; [ON &lt;table_name_path&gt;];
+// Note: DROP INDEX without SEARCH or VECTOR is currently resolved to a
+// generic ResolvedDropStmt. The index_type currently would never be
+// INDEX_DEFAULT.
 //
 // &lt;name&gt; is the name of the search index to be dropped.
 // &lt;table_name_path&gt; is a vector giving the identifier path of the target
 //                   table.</font>
-class ResolvedDropSearchIndexStmt : public <a href="#ResolvedStatement">ResolvedStatement</a> {
-  static const ResolvedNodeKind TYPE = RESOLVED_DROP_SEARCH_INDEX_STMT;
+class ResolvedDropIndexStmt : public <a href="#ResolvedStatement">ResolvedStatement</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_DROP_INDEX_STMT;
+
+  typedef ResolvedDropIndexStmtEnums::IndexType IndexType;
+  static const IndexType INDEX_DEFAULT = ResolvedDropIndexStmtEnums::INDEX_DEFAULT;
+  static const IndexType INDEX_SEARCH = ResolvedDropIndexStmtEnums::INDEX_SEARCH;
+  static const IndexType INDEX_VECTOR = ResolvedDropIndexStmtEnums::INDEX_VECTOR;
+
+  std::string GetIndexTypeString() const;
+  static std::string IndexTypeToString(IndexType index_type);
 
   bool is_if_exists() const;
 
@@ -5614,6 +5630,8 @@ class ResolvedDropSearchIndexStmt : public <a href="#ResolvedStatement">Resolved
   const std::vector&lt;std::string&gt;&amp; table_name_path() const;
   int table_name_path_size() const;
   std::string table_name_path(int i) const;
+
+  <a href="#ResolvedDropIndexStmt">ResolvedDropIndexStmt</a>::IndexType index_type() const;
 };
 </code></pre></p>
 

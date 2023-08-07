@@ -89,20 +89,16 @@ Value CreateValueFromOptional(std::optional<T> opt) {
   return Value::MakeNull<T>();
 }
 
-// Sets the provided EvaluationContext to have non-deterministic output based on
-// <arg> type.
+// Signal that statement evaluation encountered non-determinism if a potentially
+// imprecise value is converted to JSON or to JSON_STRING.
 void MaybeSetNonDeterministicContext(const Value& arg,
                                      EvaluationContext* context) {
   if (!context->IsDeterministicOutput()) {
     return;
   }
-  const Type* arg_type = arg.type();
-  if (HasFloatingPoint(arg_type)) {
+  if (HasFloatingPoint(arg.type()) ||
+      InternalValue::ContainsArrayWithUncertainOrder(arg)) {
     context->SetNonDeterministicOutput();
-  } else if (arg_type->IsArray()) {
-    // For non-order-preserving arrays, mark the current evaluation context
-    // as non-deterministic. (See e.g. b/38248983.)
-    MaybeSetNonDeterministicArrayOutput(arg, context);
   }
 }
 

@@ -58,33 +58,32 @@ class Parameters {
   void set_named(bool named) {
     if (named != is_named()) {
       if (named) {
-        parameters_ =
-            absl::variant<ParameterMap, ParameterList>(ParameterMap());
+        parameters_ = std::variant<ParameterMap, ParameterList>(ParameterMap());
       } else {
         parameters_ =
-            absl::variant<ParameterMap, ParameterList>(ParameterList());
+            std::variant<ParameterMap, ParameterList>(ParameterList());
       }
     }
   }
 
   // Precondition: is_named().
   const ParameterMap& named_parameters() const {
-    return *absl::get_if<ParameterMap>(&parameters_);
+    return *std::get_if<ParameterMap>(&parameters_);
   }
   ParameterMap& named_parameters() {
-    return *absl::get_if<ParameterMap>(&parameters_);
+    return *std::get_if<ParameterMap>(&parameters_);
   }
 
   // Precondition: !is_named().
   const ParameterList& positional_parameters() const {
-    return *absl::get_if<ParameterList>(&parameters_);
+    return *std::get_if<ParameterList>(&parameters_);
   }
   ParameterList& positional_parameters() {
-    return *absl::get_if<ParameterList>(&parameters_);
+    return *std::get_if<ParameterList>(&parameters_);
   }
 
  private:
-  absl::variant<ParameterMap, ParameterList> parameters_;
+  std::variant<ParameterMap, ParameterList> parameters_;
 };
 
 }  // namespace zetasql

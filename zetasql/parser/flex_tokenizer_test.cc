@@ -29,6 +29,17 @@ using ::testing::ElementsAre;
 using Token = zetasql_bison_parser::BisonParserImpl::token;
 using TokenKind = int;
 
+// This class is a friend of the tokenizer so that it can help us test the
+// private API.
+class TokenTestThief {
+ public:
+  static TokenKind Lookahead1(
+      ZetaSqlFlexTokenizer& tokenizer,
+      const ZetaSqlFlexTokenizer::Location& location) {
+    return tokenizer.Lookahead1(location);
+  }
+};
+
 class FlexTokenizerTest : public ::testing::Test {
  public:
   std::vector<TokenKind> GetAllTokens(BisonParserMode mode,
@@ -75,6 +86,57 @@ TEST_F(FlexTokenizerTest, QueryParamCurrentDate) {
   EXPECT_THAT(GetAllTokens(BisonParserMode::kStatement, "a @current_date c"),
               ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, '@',
                           Token::IDENTIFIER, Token::IDENTIFIER, Token::YYEOF));
+}
+
+TEST_F(FlexTokenizerTest, SysvarWithDotId) {
+  EXPECT_THAT(
+      GetAllTokens(BisonParserMode::kStatement, "SELECT @@ORDER.WITH.c"),
+      ElementsAre(Token::MODE_STATEMENT, Token::KW_SELECT, Token::KW_DOUBLE_AT,
+                  Token::IDENTIFIER, '.',
+                  // The dot identifier mini-tokenizer needs to kick in after
+                  // the disambiguation of ORDER to identifier.
+                  Token::IDENTIFIER, '.', Token::IDENTIFIER, Token::YYEOF));
+}
+
+TEST_F(FlexTokenizerTest, Lookahead1) {
+  ZetaSqlFlexTokenizer tokenizer(BisonParserMode::kStatement, "fake_file",
+                                   "a 1 SELECT", 0, options_);
+  ZetaSqlFlexTokenizer::Location location;
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::MODE_STATEMENT);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location), Token::IDENTIFIER);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location), Token::IDENTIFIER);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location), Token::IDENTIFIER);
+
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::IDENTIFIER);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location),
+            Token::INTEGER_LITERAL);
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::INTEGER_LITERAL);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location), Token::KW_SELECT);
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::KW_SELECT);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location), Token::YYEOF);
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::YYEOF);
+
+  // Then even after YYEOF
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location), Token::YYEOF);
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::YYEOF);
+}
+
+TEST_F(FlexTokenizerTest, Lookahead1WithForceTerminate) {
+  ZetaSqlFlexTokenizer tokenizer(BisonParserMode::kStatement, "fake_file",
+                                   "a 1 SELECT", 0, options_);
+  ZetaSqlFlexTokenizer::Location location;
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::MODE_STATEMENT);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location), Token::IDENTIFIER);
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::IDENTIFIER);
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location),
+            Token::INTEGER_LITERAL);
+  tokenizer.SetForceTerminate();
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location), Token::YYEOF);
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::YYEOF);
+
+  // Then even after YYEOF
+  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer, location), Token::YYEOF);
+  EXPECT_EQ(tokenizer.GetNextTokenFlex(&location), Token::YYEOF);
 }
 
 }  // namespace zetasql::parser

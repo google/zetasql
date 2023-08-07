@@ -1969,11 +1969,11 @@ QueryStmt
         |   +-input_scan=
         |     +-SingleRowScan
         +-filter_expr=
-          +-FunctionCall(Templated_SQL_Function:b290673529(INT64) -> BOOL)
+          +-FunctionCall(Templated_SQL_Function:b290673529(INT64 thing_id) -> BOOL)
             +-ColumnRef(type=INT64, column=$subquery1.thing_id#1)
 
 With Templated SQL function call:
-  Templated_SQL_Function:b290673529(INT64) -> BOOL
+  Templated_SQL_Function:b290673529(INT64 thing_id) -> BOOL
 containing resolved templated expression:
 SubqueryExpr
 +-type=BOOL

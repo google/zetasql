@@ -126,6 +126,11 @@ class JSONValue final {
   // Returns a JSON value that is a deep copy of the given value.
   static JSONValue CopyFrom(JSONValueConstRef value);
 
+  // Returns a JSON value with the contents "moved" from `value`. `value` is
+  // left as a JSON 'null'. This operation is constant time complexity as it
+  // uses move semantics.
+  static JSONValue MoveFrom(JSONValueRef value);
+
  private:
   struct Impl;
 

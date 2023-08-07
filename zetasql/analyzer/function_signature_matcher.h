@@ -107,24 +107,6 @@ absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     std::vector<ArgIndexEntry>* arg_index_mapping,
     std::vector<FunctionArgumentOverride>* arg_overrides);
 
-ABSL_DEPRECATED("Inline me!")
-inline absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
-    const LanguageOptions& language_options, const Coercer& coercer,
-    const std::vector<const ASTNode*>& arg_ast_nodes,
-    const std::vector<InputArgumentType>& input_arguments,
-    const FunctionSignature& signature, bool allow_argument_coercion,
-    TypeFactory* type_factory,
-    const ResolveLambdaCallback* resolve_lambda_callback,
-    std::unique_ptr<FunctionSignature>* concrete_result_signature,
-    SignatureMatchResult* signature_match_result,
-    std::vector<FunctionArgumentOverride>* arg_overrides) {
-  return FunctionSignatureMatchesWithStatus(
-      language_options, coercer, arg_ast_nodes, input_arguments, signature,
-      allow_argument_coercion, type_factory, resolve_lambda_callback,
-      concrete_result_signature, signature_match_result,
-      /*arg_index_mapping=*/nullptr, arg_overrides);
-}
-
 // Determines if the argument list count matches signature, returning the number
 // of times each repeated argument repeats and the number of optional arguments
 // present if true.

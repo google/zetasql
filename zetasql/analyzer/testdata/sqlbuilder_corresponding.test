@@ -8337,8 +8337,8 @@ FROM
   ) AS projectscan_14
 )) UNION ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8401,8 +8401,8 @@ FROM
   ) AS projectscan_14
 )) UNION DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8465,8 +8465,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8529,8 +8529,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8593,8 +8593,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8657,8 +8657,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8721,8 +8721,8 @@ FROM
   ) AS projectscan_14
 )) UNION ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8785,8 +8785,8 @@ FROM
   ) AS projectscan_14
 )) UNION DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8849,8 +8849,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8913,8 +8913,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -8977,8 +8977,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9041,8 +9041,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9105,8 +9105,8 @@ FROM
   ) AS projectscan_14
 )) UNION ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9169,8 +9169,8 @@ FROM
   ) AS projectscan_14
 )) UNION DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9233,8 +9233,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9297,8 +9297,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9361,8 +9361,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9425,8 +9425,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9489,8 +9489,8 @@ FROM
   ) AS projectscan_14
 )) UNION ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9553,8 +9553,8 @@ FROM
   ) AS projectscan_14
 )) UNION DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9617,8 +9617,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9681,8 +9681,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9745,8 +9745,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9809,8 +9809,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9873,8 +9873,8 @@ FROM
   ) AS projectscan_14
 )) UNION ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -9937,8 +9937,8 @@ FROM
   ) AS projectscan_14
 )) UNION DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10001,8 +10001,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10065,8 +10065,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10129,8 +10129,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10193,8 +10193,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10257,8 +10257,8 @@ FROM
   ) AS projectscan_14
 )) UNION ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10321,8 +10321,8 @@ FROM
   ) AS projectscan_14
 )) UNION DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10385,8 +10385,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10449,8 +10449,8 @@ FROM
   ) AS projectscan_14
 )) EXCEPT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10513,8 +10513,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT ALL CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT
@@ -10577,8 +10577,8 @@ FROM
   ) AS projectscan_14
 )) INTERSECT DISTINCT CORRESPONDING(
 SELECT
-  CAST(projectscan_20.a_17 AS INT64) AS int32,
-  CAST(projectscan_20.a_18 AS DOUBLE) AS float
+  CAST(projectscan_20.a_18 AS DOUBLE) AS float,
+  CAST(projectscan_20.a_17 AS INT64) AS int32
 FROM
   (
     SELECT

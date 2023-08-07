@@ -691,6 +691,14 @@ std::string ASTDropSnapshotTableStatement::SingleNodeDebugString() const {
   return absl::StrCat(node_name, "(is_if_exists)");
 }
 
+std::string ASTDropVectorIndexStatement::SingleNodeDebugString() const {
+  const std::string node_name = ASTNode::SingleNodeDebugString();
+  if (!is_if_exists()) {
+    return node_name;
+  }
+  return absl::StrCat(node_name, "(is_if_exists)");
+}
+
 std::string ASTExportMetadataStatement::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(), " ",
                       SchemaObjectKindToName(schema_object_kind()));
@@ -1242,17 +1250,20 @@ bool ASTColumnSchema::ContainsAttribute(ASTNodeKind node_kind) const {
 }
 
 std::string ASTCreateIndexStatement::SingleNodeDebugString() const {
-  if (is_unique_ || is_search_) {
+  if (is_unique_ || is_search_ || is_vector_) {
     std::string ret = ASTNode::SingleNodeDebugString();
     absl::StrAppend(&ret, "(");
     if (is_unique_) {
       absl::StrAppend(&ret, "UNIQUE");
-      if (is_search_) {
+      if (is_search_ || is_vector_) {
         absl::StrAppend(&ret, ",");
       }
     }
     if (is_search_) {
       absl::StrAppend(&ret, "SEARCH");
+    }
+    if (is_vector_) {
+      absl::StrAppend(&ret, "VECTOR");
     }
     absl::StrAppend(&ret, ")");
     return ret;

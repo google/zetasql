@@ -37,6 +37,20 @@ SELECT JSON 'null' IS NULL, JSON_EXTRACT(JSON 'null', "$") IS NULL,
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{false, false, true}]
 ==
+[name=to_json_unordered]
+SELECT TO_JSON(ARRAY(SELECT e FROM UNNEST([1, 2, 3]) AS e))
+--
+ARRAY<STRUCT<JSON>>[{[1,2,3]}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=to_json_unordered_struct]
+SELECT TO_JSON(STRUCT(ARRAY(SELECT e FROM UNNEST([1, 2, 3]) AS e) AS f1))
+--
+ARRAY<STRUCT<JSON>>[{{"f1":[1,2,3]}}]
+
+NOTE: Reference implementation reports non-determinism.
+==
 [name=json_extract]
 SELECT JSON_EXTRACT(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$[a][1]['b.c']")
 --

@@ -283,3 +283,11 @@ message ResolvedAuxLoadDataStmtEnums {
     OVERWRITE = 2;
   }
 }
+
+message ResolvedDropIndexStmtEnums {
+  enum IndexType {
+    INDEX_DEFAULT = 0;
+    INDEX_SEARCH = 1;
+    INDEX_VECTOR = 2;
+  }
+}

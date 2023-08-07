@@ -292,7 +292,7 @@ class LabelTracker {
  private:
   // Maps label IdString to corresponding LoopData or BlockData. Each entry
   // is owned by LoopTracker::loop_data_ or BlockTracker::block_data_.
-  absl::flat_hash_map<IdString, absl::variant<LoopData*, BlockData*>,
+  absl::flat_hash_map<IdString, std::variant<LoopData*, BlockData*>,
                       IdStringCaseHash, IdStringCaseEqualFunc>
       label_data_map_;
 };

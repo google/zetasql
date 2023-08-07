@@ -118,14 +118,14 @@ Value DatetimeMicros(int year, int month, int day, int hour, int minute,
 Value DatetimeNanos(int year, int month, int day, int hour, int minute,
                     int second, int nanoseconds);
 
-Value KitchenSink(const std::string& proto_str);
+Value KitchenSink(absl::string_view proto_str);
 Value Proto3Timestamp(int64_t seconds, int32_t nanos);
 Value Proto3Date(int32_t year, int32_t month, int32_t day);
 Value Proto3LatLng(double latitude, double longitude);
 Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds,
                       int32_t nanos);
-Value CivilTimeTypesSink(const std::string& proto_str);
-Value NullableInt(const std::string& proto_str);
+Value CivilTimeTypesSink(absl::string_view proto_str);
+Value NullableInt(absl::string_view proto_str);
 
 // Creates a Value for one of the Proto3 wrapper messages defined in
 // google/protobuf/wrappers.proto. The input argument type must correspond to
@@ -262,7 +262,7 @@ struct NormalizeTestCase {
   const bool is_casefold;
 };
 
-const std::string EscapeKey(bool sql_standard_mode, const std::string& key);
+const std::string EscapeKey(bool sql_standard_mode, absl::string_view key);
 
 Value StringToBytes(const Value& value);
 

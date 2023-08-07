@@ -278,6 +278,9 @@ ExprResolutionInfo::~ExprResolutionInfo() {
     if (has_analytic) {
       parent->has_analytic = true;
     }
+    if (has_volatile) {
+      parent->has_volatile = true;
+    }
   }
 }
 
@@ -306,6 +309,7 @@ std::string ExprResolutionInfo::DebugString() const {
   absl::StrAppend(&debugstring, "\nhas_aggregation: ", has_aggregation);
   absl::StrAppend(&debugstring, "\nallows_analytic: ", allows_analytic);
   absl::StrAppend(&debugstring, "\nhas_analytic: ", has_analytic);
+  absl::StrAppend(&debugstring, "\nhas_volatile: ", has_volatile);
   absl::StrAppend(&debugstring, "\nclause_name: ", clause_name);
   absl::StrAppend(&debugstring,
                   "\nuse_post_grouping_columns: ", use_post_grouping_columns);

@@ -54,7 +54,7 @@ namespace {
 // options. The rewriter won't expand the rollup/cube before checking the above
 // two numbers are in the range, this is to make sure the expansion won't cause
 // OOO issues.
-absl::StatusOr<bool> ShouldRewrite(const ResolvedAggregateScan* node,
+absl::StatusOr<bool> ShouldRewrite(const ResolvedAggregateScanBase* node,
                                    const GroupingSetRewriteOptions& options) {
   if (node->grouping_set_list_size() > options.max_grouping_sets()) {
     return absl::InvalidArgumentError(absl::StrFormat(
@@ -217,19 +217,10 @@ class GroupingSetRewriterVisitor : public ResolvedASTRewriteVisitor {
       : rewriter_options_(rewriter_options) {}
 
  private:
-  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
-  PostVisitResolvedAggregateScan(
-      std::unique_ptr<const ResolvedAggregateScan> node) override {
-    // Only rewrite the resolved ast when rollup or cube exist.
-    ZETASQL_ASSIGN_OR_RETURN(bool should_rewrite,
-                     ShouldRewrite(node.get(), rewriter_options_));
-    if (!should_rewrite) {
-      return std::move(node);
-    }
-
-    ResolvedAggregateScanBuilder builder = ToBuilder(std::move(node));
-    std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>
-        grouping_set_list = builder.release_grouping_set_list();
+  absl::StatusOr<std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>>
+  RewriteGroupingSetList(
+      std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>
+          grouping_set_list) {
     std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>
         new_grouping_set_list;
     for (int i = 0; i < grouping_set_list.size(); ++i) {
@@ -258,6 +249,43 @@ class GroupingSetRewriterVisitor : public ResolvedASTRewriteVisitor {
                      std::back_inserter(new_grouping_set_list));
       }
     }
+    return new_grouping_set_list;
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedAggregateScan(
+      std::unique_ptr<const ResolvedAggregateScan> node) override {
+    // Only rewrite the resolved ast when rollup or cube exist.
+    ZETASQL_ASSIGN_OR_RETURN(bool should_rewrite,
+                     ShouldRewrite(node.get(), rewriter_options_));
+    if (!should_rewrite) {
+      return std::move(node);
+    }
+
+    ResolvedAggregateScanBuilder builder = ToBuilder(std::move(node));
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto new_grouping_set_list,
+        RewriteGroupingSetList(builder.release_grouping_set_list()));
+    builder.set_grouping_set_list(std::move(new_grouping_set_list));
+    return std::move(builder).Build();
+  };
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedAggregationThresholdAggregateScan(
+      std::unique_ptr<const ResolvedAggregationThresholdAggregateScan> node)
+      override {
+    // Only rewrite the resolved ast when rollup or cube exist.
+    ZETASQL_ASSIGN_OR_RETURN(bool should_rewrite,
+                     ShouldRewrite(node.get(), rewriter_options_));
+    if (!should_rewrite) {
+      return std::move(node);
+    }
+
+    ResolvedAggregationThresholdAggregateScanBuilder builder =
+        ToBuilder(std::move(node));
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto new_grouping_set_list,
+        RewriteGroupingSetList(builder.release_grouping_set_list()));
     builder.set_grouping_set_list(std::move(new_grouping_set_list));
     return std::move(builder).Build();
   };

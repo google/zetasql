@@ -17,6 +17,7 @@
 #include "zetasql/common/utf_util.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
@@ -263,7 +264,7 @@ TEST(UtfUtilTest, ForwardNAll) {
     EXPECT_EQ(offset.value(), 1);
     offset = ForwardN(str, static_cast<int32_t>(str.length()),
                       /*num_code_points=*/2);
-    EXPECT_EQ(offset, absl::nullopt);
+    EXPECT_EQ(offset, std::nullopt);
   }
   {
     absl::string_view str = "abcd";

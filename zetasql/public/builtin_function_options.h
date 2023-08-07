@@ -47,10 +47,8 @@ struct BuiltinFunctionOptions {
   BuiltinFunctionOptions();
 
   // Construct a built-in function options object with the specified language
-  // `options`. Note: this constructor is implicit for backward compatibility
-  // reasons. Please consider the implicit form of the constructor deprecated
-  // and avoid using the implicit form.
-  BuiltinFunctionOptions(const LanguageOptions& options);  // NOLINT
+  // `options`.
+  explicit BuiltinFunctionOptions(const LanguageOptions& options);
 
   // Construct a built-in function options from a serialized form in `proto`.
   explicit BuiltinFunctionOptions(

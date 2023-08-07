@@ -34,6 +34,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
@@ -108,8 +109,8 @@ class BisonParser {
 
   // Returns the characters in the input range given by 'bison_location'. The
   // returned characters will remain valid throughout Parse().
-  absl::string_view GetInputText(
-      const zetasql_bison_parser::location& bison_location) const {
+  template <typename Location>
+  absl::string_view GetInputText(const Location& bison_location) const {
     ABSL_DCHECK_GE(bison_location.end.column, bison_location.begin.column);
     return absl::string_view(
         input_.data() + bison_location.begin.column,
@@ -119,8 +120,8 @@ class BisonParser {
   // Creates an ASTNode of type T with a unique id. Sets its location to
   // the ZetaSQL location equivalent of 'bison_location'. Stores the returned
   // pointer in allocated_ast_nodes_.
-  template <typename T>
-  T* CreateASTNode(const zetasql_bison_parser::location& bison_location) {
+  template <typename T, typename Location>
+  T* CreateASTNode(const Location& bison_location) {
     T* result = new (zetasql_base::AllocateInArena, arena_) T;
     SetNodeLocation(bison_location, result);
     allocated_ast_nodes_->push_back(std::unique_ptr<ASTNode>(result));
@@ -130,10 +131,9 @@ class BisonParser {
   // Creates an ASTNode of type T. Sets its location to the ZetaSQL location
   // equivalent of 'bison_location'. Then adds 'children' to the node, without
   // calling InitFields(). Stores the returned pointer in ast_node_pool_.
-  template <typename T>
-  T* CreateASTNode(
-      const zetasql_bison_parser::location& bison_location,
-      absl::Span<ASTNode* const> children) {
+  template <typename T, typename Location>
+  T* CreateASTNode(const Location& bison_location,
+                   absl::Span<ASTNode* const> children) {
     T* result = new (zetasql_base::AllocateInArena, arena_) T;
     SetNodeLocation(bison_location, result);
     allocated_ast_nodes_->push_back(std::unique_ptr<ASTNode>(result));
@@ -144,11 +144,10 @@ class BisonParser {
   // Same as the previous overload, but sets the start location to the start of
   // 'bison_location_start', and the end location to the end of
   // 'bison_location_end'.
-  template <typename T>
-  T* CreateASTNode(
-      const zetasql_bison_parser::location& bison_location_start,
-      const zetasql_bison_parser::location& bison_location_end,
-      absl::Span<ASTNode* const> children) {
+  template <typename T, typename Location>
+  T* CreateASTNode(const Location& bison_location_start,
+                   const Location& bison_location_end,
+                   absl::Span<ASTNode* const> children) {
     T* result = new (zetasql_base::AllocateInArena, arena_) T;
     SetNodeLocation(bison_location_start, bison_location_end, result);
     allocated_ast_nodes_->push_back(std::unique_ptr<ASTNode>(result));
@@ -157,24 +156,25 @@ class BisonParser {
   }
 
   // Creates an ASTIdentifier with text 'name' and location 'location'.
-  ASTIdentifier* MakeIdentifier(
-      const zetasql_bison_parser::location& location,
-      absl::string_view name) {
+  template <typename Location>
+  ASTIdentifier* MakeIdentifier(const Location& location,
+                                absl::string_view name) {
     auto* identifier = CreateASTNode<ASTIdentifier>(location);
     identifier->SetIdentifier(id_string_pool()->Make(name));
     return identifier;
   }
 
   // Creates an ASTIdentifier with text 'name' and location 'location'.
-  ASTLocation* MakeLocation(const zetasql_bison_parser::location& location) {
+  template <typename Location>
+  ASTLocation* MakeLocation(const Location& location) {
     auto* loc = CreateASTNode<ASTLocation>(location);
     return loc;
   }
 
   // Sets the node location of 'node' to the ZetaSQL equivalent of
   // 'bison_location'.
-  void SetNodeLocation(const zetasql_bison_parser::location& bison_location,
-                       ASTNode* node) {
+  template <typename Location>
+  void SetNodeLocation(const Location& bison_location, ASTNode* node) {
     node->set_start_location(zetasql::ParseLocationPoint::FromByteOffset(
         filename_.ToStringView(), bison_location.begin.column));
     node->set_end_location(zetasql::ParseLocationPoint::FromByteOffset(
@@ -184,10 +184,9 @@ class BisonParser {
   // Sets the node location of 'node' to the ZetaSQL equivalent of the
   // beginning of 'bison_location_start' through the end of
   // 'bison_location_end'.
-  void SetNodeLocation(
-      const zetasql_bison_parser::location& bison_location_start,
-      const zetasql_bison_parser::location& bison_location_end,
-      ASTNode* node) {
+  template <typename Location>
+  void SetNodeLocation(Location& bison_location_start,
+                       Location& bison_location_end, ASTNode* node) {
     node->set_start_location(zetasql::ParseLocationPoint::FromByteOffset(
         filename_.ToStringView(), bison_location_start.begin.column));
     node->set_end_location(zetasql::ParseLocationPoint::FromByteOffset(
@@ -204,10 +203,8 @@ class BisonParser {
 
   // Sets the start location of 'node' to the start of 'location', and returns
   // 'node'.
-  template <typename ASTNodeType>
-  ASTNodeType* WithStartLocation(
-      ASTNodeType* node,
-      const zetasql_bison_parser::location& location) {
+  template <typename ASTNodeType, typename Location>
+  ASTNodeType* WithStartLocation(ASTNodeType* node, const Location& location) {
     node->set_start_location(ParseLocationPoint::FromByteOffset(
         filename_.ToStringView(), location.begin.column));
     return node;
@@ -215,20 +212,16 @@ class BisonParser {
 
   // Sets the end location of 'node' to the end of 'location', and returns
   // 'node'.
-  template <typename ASTNodeType>
-  ASTNodeType* WithEndLocation(
-      ASTNodeType* node,
-      const zetasql_bison_parser::location& location) {
+  template <typename ASTNodeType, typename Location>
+  ASTNodeType* WithEndLocation(ASTNodeType* node, const Location& location) {
     node->set_end_location(ParseLocationPoint::FromByteOffset(
         filename_.ToStringView(), location.end.column));
     return node;
   }
 
   // Sets the location of 'node' to 'location', and returns 'node'.
-  template <typename ASTNodeType>
-  ASTNodeType* WithLocation(
-      ASTNodeType* node,
-      const zetasql_bison_parser::location& location) {
+  template <typename ASTNodeType, typename Location>
+  ASTNodeType* WithLocation(ASTNodeType* node, const Location& location) {
     node->set_start_location(ParseLocationPoint::FromByteOffset(
         filename_.ToStringView(), location.begin.column));
     node->set_end_location(ParseLocationPoint::FromByteOffset(
@@ -258,13 +251,21 @@ class BisonParser {
   }
 
   // Returns true if there is whitespace between `left` and `right`.
-  bool HasWhitespace(const zetasql_bison_parser::location& left,
-                     const zetasql_bison_parser::location& right) {
+  template <typename Location>
+  bool HasWhitespace(const Location& left, const Location& right) {
     return left.end.column != right.begin.column;
   }
 
-  absl::string_view GetFirstTokenOfNode(
-      const zetasql_bison_parser::location& bison_location) const;
+  template <typename Location>
+  absl::string_view GetFirstTokenOfNode(const Location& bison_location) const {
+    absl::string_view text = GetInputText(bison_location);
+    for (int i = 0; i < text.size(); i++) {
+      if (absl::ascii_isblank(text[i])) {
+        return text.substr(0, i);
+      }
+    }
+    return text;
+  }
 
   absl::Status GenerateWarningForFutureKeywordReservation(
       const absl::string_view keyword, const int byte_offset) {

@@ -2018,7 +2018,7 @@ DMLValueExpr::GetPrimaryKeyColumnIndexes(EvaluationContext* context) const {
   // The algebrizer can opt out of using primary key from the catalog.
   if (primary_key_type_ == nullptr) {
     return context->options().emulate_primary_keys
-               ? absl::make_optional(std::vector<int>{0})
+               ? std::make_optional(std::vector<int>{0})
                : std::optional<std::vector<int>>();
   }
   ZETASQL_RET_CHECK(!context->options().emulate_primary_keys)

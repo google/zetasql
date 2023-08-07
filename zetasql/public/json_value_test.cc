@@ -27,6 +27,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 
@@ -446,6 +447,59 @@ TEST(JSONValueTest, CopyFrom) {
   ASSERT_TRUE(copy_ref.IsInt64());
   EXPECT_EQ(kInt64Value1, copy_ref.GetInt64());
   EXPECT_FALSE(ref.NormalizedEquals(copy_ref));
+}
+
+TEST(JSONValueTest, MoveFrom) {
+  constexpr absl::string_view kInitialValue =
+      R"({"a":{"b":{"c":1}}, "d":2, "e":[3, 4, [5, 6]]})";
+  using TokenValue = std::variant<std::string, int64_t>;
+  auto verify_func = [&](const std::vector<TokenValue>& path_tokens,
+                         absl::string_view member_json_string,
+                         absl::string_view modified_original_json_string) {
+    JSONValue original_value =
+        JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef member_ref_to_move = original_value.GetRef();
+    // Fetch JSONValueRef we want to move.
+    for (auto path_token : path_tokens) {
+      if (std::holds_alternative<std::string>(path_token)) {
+        member_ref_to_move =
+            member_ref_to_move.GetMember(std::get<std::string>(path_token));
+      } else {
+        member_ref_to_move =
+            member_ref_to_move.GetArrayElement(std::get<int64_t>(path_token));
+      }
+    }
+
+    JSONValue member_value =
+        JSONValue::ParseJSONString(member_json_string).value();
+    EXPECT_TRUE(
+        member_ref_to_move.NormalizedEquals(member_value.GetConstRef()));
+    JSONValue moved_value = JSONValue::MoveFrom(member_ref_to_move);
+    EXPECT_TRUE(
+        moved_value.GetConstRef().NormalizedEquals(member_value.GetConstRef()));
+    EXPECT_TRUE(member_ref_to_move.IsNull());
+    EXPECT_TRUE(original_value.GetConstRef().NormalizedEquals(
+        JSONValue::ParseJSONString(modified_original_json_string)
+            ->GetConstRef()));
+  };
+
+  verify_func({}, kInitialValue, "null");
+  verify_func({"a"}, R"({"b":{"c":1}})",
+              R"({"a":null, "d":2, "e":[3, 4, [5, 6]]})");
+  verify_func({"a", "b"}, R"({"c":1})",
+              R"({"a":{"b":null}, "d":2, "e":[3, 4, [5, 6]]})");
+  verify_func({"a", "b", "c"}, "1",
+              R"({"a":{"b":{"c":null}}, "d":2, "e":[3, 4, [5, 6]]})");
+  verify_func({"d"}, "2",
+              R"({"a":{"b":{"c":1}}, "d":null, "e":[3, 4, [5, 6]]})");
+  verify_func({"e"}, R"([3, 4, [5, 6]])",
+              R"({"a":{"b":{"c":1}}, "d":2, "e":null})");
+  verify_func({"e", 0}, "3",
+              R"({"a":{"b":{"c":1}}, "d":2, "e":[null, 4, [5, 6]]})");
+  verify_func({"e", 2}, "[5, 6]",
+              R"({"a":{"b":{"c":1}}, "d":2, "e":[3, 4, null]})");
+  verify_func({"e", 2, 1}, "6",
+              R"({"a":{"b":{"c":1}}, "d":2, "e":[3, 4, [5, null]]})");
 }
 
 class JSONParserTest : public ::testing::TestWithParam<JSONParsingOptions> {};

@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <set>
 #include <string>
@@ -101,7 +102,7 @@ class TestInput {
   const std::string sql_;
   const std::string error_;
   const std::vector<std::string> owned_names_;
-  absl::variant<ParsedScript::StringSet, std::pair<int64_t, int64_t>>
+  std::variant<ParsedScript::StringSet, std::pair<int64_t, int64_t>>
       parameters_;
 };
 
@@ -126,7 +127,7 @@ class TestCase {
 };
 
 class ScriptValidationTest
-    : public ::testing::TestWithParam<absl::variant<TestCase, TestInput>> {
+    : public ::testing::TestWithParam<std::variant<TestCase, TestInput>> {
  public:
   void SetUp() override {
     ValueWithTypeParameter vtp;
@@ -164,7 +165,7 @@ class ScriptValidationTest
         });
     SCOPED_TRACE(script);
 
-    ParsedScript::QueryParameters parameters = absl::nullopt;
+    ParsedScript::QueryParameters parameters = std::nullopt;
 
     ParsedScript::StringSet names;
     int positionals = 0;
@@ -203,7 +204,7 @@ class ScriptValidationTest
   void CheckTestInput(const TestInput& test_input) {
     SCOPED_TRACE(test_input.sql());
 
-    ParsedScript::QueryParameters parameters = absl::nullopt;
+    ParsedScript::QueryParameters parameters = std::nullopt;
     ParsedScript::StringSet names;
     int positionals = 0;
     if (test_input.has_named_parameters()) {
@@ -246,7 +247,7 @@ class ScriptValidationTest
 };
 
 TEST_P(ScriptValidationTest, ValidateScripts) {
-  absl::variant<TestCase, TestInput> param = GetParam();
+  std::variant<TestCase, TestInput> param = GetParam();
 
   if (std::holds_alternative<TestCase>(param)) {
     CheckTestCase(std::get<TestCase>(param));
@@ -255,11 +256,11 @@ TEST_P(ScriptValidationTest, ValidateScripts) {
   }
 }
 
-std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
+std::vector<std::variant<TestCase, TestInput>> GetScripts() {
   std::vector<std::string> empty_named;
   std::pair<int64_t, int64_t> empty_pos;
 
-  std::vector<absl::variant<TestCase, TestInput>> result;
+  std::vector<std::variant<TestCase, TestInput>> result;
   // Simple test case illustrate a BREAK statement without an enclosing
   // loop. As detection of BREAK and CONTINUE statements outside of a loop
   // is implemented as part of building the control-flow graph, this is

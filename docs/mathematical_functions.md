@@ -10,6 +10,484 @@ All mathematical functions have the following behaviors:
 +  They return `NULL` if any of the input parameters is `NULL`.
 +  They return `NaN` if any of the arguments is `NaN`.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#abs"><code>ABS</code></a>
+
+</td>
+  <td>
+    Computes the absolute value of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#acos"><code>ACOS</code></a>
+
+</td>
+  <td>
+    Computes the inverse cosine of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#acosh"><code>ACOSH</code></a>
+
+</td>
+  <td>
+    Computes the inverse hyperbolic cosine of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#asin"><code>ASIN</code></a>
+
+</td>
+  <td>
+    Computes the inverse sine of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#asinh"><code>ASINH</code></a>
+
+</td>
+  <td>
+    Computes the inverse hyperbolic sine of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#atan"><code>ATAN</code></a>
+
+</td>
+  <td>
+    Computes the inverse tangent of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#atan2"><code>ATAN2</code></a>
+
+</td>
+  <td>
+    Computes the inverse tangent of <code>X/Y</code>, using the signs of
+    <code>X</code> and <code>Y</code> to determine the quadrant.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#atanh"><code>ATANH</code></a>
+
+</td>
+  <td>
+    Computes the inverse hyperbolic tangent of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#cbrt"><code>CBRT</code></a>
+
+</td>
+  <td>
+    Computes the cube root of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ceil"><code>CEIL</code></a>
+
+</td>
+  <td>
+    Gets the smallest integral value that is not less than <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ceiling"><code>CEILING</code></a>
+
+</td>
+  <td>
+    Synonym of <code>CEIL</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#cos"><code>COS</code></a>
+
+</td>
+  <td>
+    Computes the cosine of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#cosh"><code>COSH</code></a>
+
+</td>
+  <td>
+    Computes the hyperbolic cosine of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#cot"><code>COT</code></a>
+
+</td>
+  <td>
+    Computes the cotangent of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#coth"><code>COTH</code></a>
+
+</td>
+  <td>
+    Computes the hyperbolic cotangent of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#csc"><code>CSC</code></a>
+
+</td>
+  <td>
+    Computes the cosecant of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#csch"><code>CSCH</code></a>
+
+</td>
+  <td>
+    Computes the hyperbolic cosecant of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#div"><code>DIV</code></a>
+
+</td>
+  <td>
+    Divides integer <code>X</code> by integer <code>Y</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#exp"><code>EXP</code></a>
+
+</td>
+  <td>
+    Computes <code>e</code> to the power of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#floor"><code>FLOOR</code></a>
+
+</td>
+  <td>
+    Gets the largest integral value that is not greater than <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#greatest"><code>GREATEST</code></a>
+
+</td>
+  <td>
+    Gets the greatest value among <code>X1,...,XN</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ieee_divide"><code>IEEE_DIVIDE</code></a>
+
+</td>
+  <td>
+    Divides <code>X</code> by <code>Y</code>, but does not generate errors for
+    division by zero or overflow.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#is_inf"><code>IS_INF</code></a>
+
+</td>
+  <td>
+    Checks if <code>X</code> is positive or negative infinity.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#is_nan"><code>IS_NAN</code></a>
+
+</td>
+  <td>
+    Checks if <code>X</code> is a <code>NaN</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#least"><code>LEAST</code></a>
+
+</td>
+  <td>
+    Gets the least value among <code>X1,...,XN</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ln"><code>LN</code></a>
+
+</td>
+  <td>
+    Computes the natural logarithm of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#log"><code>LOG</code></a>
+
+</td>
+  <td>
+   Computes the natural logarithm of <code>X</code> or the logarithm of
+   <code>X</code> to base <code>Y</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#log10"><code>LOG10</code></a>
+
+</td>
+  <td>
+    Computes the natural logarithm of <code>X</code> to base 10.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#mod"><code>MOD</code></a>
+
+</td>
+  <td>
+    Gets the remainder of the division of <code>X</code> by <code>Y</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#pi"><code>PI</code></a>
+
+</td>
+  <td>
+    Produces the mathematical constant π as a
+    <code>DOUBLE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#pi_bignumeric"><code>PI_BIGNUMERIC</code></a>
+
+</td>
+  <td>
+    Produces the mathematical constant π as a <code>BIGNUMERIC</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#pi_numeric"><code>PI_NUMERIC</code></a>
+
+</td>
+  <td>
+    Produces the mathematical constant π as a <code>NUMERIC</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#pow"><code>POW</code></a>
+
+</td>
+  <td>
+    Produces the value of <code>X</code> raised to the power of <code>Y</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#power"><code>POWER</code></a>
+
+</td>
+  <td>
+    Synonym of <code>POW</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#rand"><code>RAND</code></a>
+
+</td>
+  <td>
+    Generates a pseudo-random value of type
+    <code>DOUBLE</code> in the range of
+    <code>[0, 1)</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#round"><code>ROUND</code></a>
+
+</td>
+  <td>
+    Rounds <code>X</code> to the nearest integer or rounds <code>X</code>
+    to <code>N</code> decimal places after the decimal point.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_add"><code>SAFE_ADD</code></a>
+
+</td>
+  <td>
+    Equivalent to the addition operator (<code>X + Y</code>), but returns
+    <code>NULL</code> if overflow occurs.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_divide"><code>SAFE_DIVIDE</code></a>
+
+</td>
+  <td>
+    Equivalent to the division operator (<code>X / Y</code>), but returns
+    <code>NULL</code> if an error occurs.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_multiply"><code>SAFE_MULTIPLY</code></a>
+
+</td>
+  <td>
+    Equivalent to the multiplication operator (<code>X * Y</code>),
+    but returns <code>NULL</code> if overflow occurs.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_negate"><code>SAFE_NEGATE</code></a>
+
+</td>
+  <td>
+    Equivalent to the unary minus operator (<code>-X</code>), but returns
+    <code>NULL</code> if overflow occurs.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_subtract"><code>SAFE_SUBTRACT</code></a>
+
+</td>
+  <td>
+    Equivalent to the subtraction operator (<code>X - Y</code>), but
+    returns <code>NULL</code> if overflow occurs.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sec"><code>SEC</code></a>
+
+</td>
+  <td>
+    Computes the secant of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sech"><code>SECH</code></a>
+
+</td>
+  <td>
+    Computes the hyperbolic secant of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sign"><code>SIGN</code></a>
+
+</td>
+  <td>
+    Produces -1 , 0, or +1 for negative, zero, and positive arguments
+    respectively.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sin"><code>SIN</code></a>
+
+</td>
+  <td>
+    Computes the sine of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sinh"><code>SINH</code></a>
+
+</td>
+  <td>
+    Computes the hyperbolic sine of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#sqrt"><code>SQRT</code></a>
+
+</td>
+  <td>
+    Computes the square root of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#tan"><code>TAN</code></a>
+
+</td>
+  <td>
+    Computes the tangent of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#tanh"><code>TANH</code></a>
+
+</td>
+  <td>
+    Computes the hyperbolic tangent of <code>X</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#trunc"><code>TRUNC</code></a>
+
+</td>
+  <td>
+    Rounds a number like <code>ROUND(X)</code> or <code>ROUND(X, N)</code>,
+    but always rounds towards zero and never overflows.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `ABS`
 
 ```

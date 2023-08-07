@@ -1136,7 +1136,7 @@ create function myfunc ( ) returns string remote with connection;
 # Non-remote function with connection after language clause.
 # It's accepted by the parser when the feature is enabled but will be excluded
 # by the analyzer.
-[language_features={{|V_1_3_REMOTE_FUNCTION}}]
+[language_features={{|V_1_3_REMOTE_FUNCTION|V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|V_1_3_REMOTE_FUNCTION,V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
 create function myfunc ( ) returns string language js with connection c;
 --
 ALTERNATION GROUP: <empty>
@@ -1145,7 +1145,10 @@ ERROR: WITH CONNECTION clause is not supported [at 1:55]
 create function myfunc ( ) returns string language js with connection c;
                                                       ^
 --
-ALTERNATION GROUP: V_1_3_REMOTE_FUNCTION
+ALTERNATION GROUPS:
+    V_1_3_REMOTE_FUNCTION
+    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    V_1_3_REMOTE_FUNCTION,V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
 --
 CreateFunctionStatement [0-71] [create function...connection c]
   FunctionDeclaration [16-26] [myfunc ( )]
@@ -1166,7 +1169,7 @@ RETURNS string LANGUAGE js WITH CONNECTION c
 ==
 
 # Non-remote function without language clause with connection.
-[language_features={{|V_1_3_REMOTE_FUNCTION}}]
+[language_features={{|V_1_3_REMOTE_FUNCTION|V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
 create function myfunc ( ) returns string with connection c;
 --
 ALTERNATION GROUP: <empty>
@@ -1175,7 +1178,9 @@ ERROR: WITH CONNECTION clause is not supported [at 1:43]
 create function myfunc ( ) returns string with connection c;
                                           ^
 --
-ALTERNATION GROUP: V_1_3_REMOTE_FUNCTION
+ALTERNATION GROUPS:
+    V_1_3_REMOTE_FUNCTION
+    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
 --
 CreateFunctionStatement [0-59] [create function...connection c]
   FunctionDeclaration [16-26] [myfunc ( )]

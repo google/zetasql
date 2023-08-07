@@ -1148,3 +1148,64 @@ options ( a=b, b=c, c=d, a=z );
 ERROR: Duplicate option specified for 'a' [at 3:26]
 options ( a=b, b=c, c=d, a=z );
                          ^
+==
+
+# LANGUAGE clause with WITH CONNECTION
+[no_java]
+[language_features={{V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,V_1_3_REMOTE_FUNCTION|V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|V_1_3_REMOTE_FUNCTION|}}]
+create function myfunc() returns string
+language javascript
+with connection connection1 as """5""";
+--
+ALTERNATION GROUPS:
+    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,V_1_3_REMOTE_FUNCTION
+    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+--
+CreateFunctionStmt
++-name_path=myfunc
++-has_explicit_return_type=TRUE
++-return_type=STRING
++-signature=() -> STRING
++-language="javascript"
++-code="5"
++-connection=
+  +-Connection(connection=connection1)
+--
+ALTERNATION GROUP: V_1_3_REMOTE_FUNCTION
+--
+ERROR: WITH CONNECTION clause should be preceded by keyword REMOTE and can't be used together with LANGUAGE clause [at 3:1]
+with connection connection1 as """5""";
+^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: WITH CONNECTION clause is not supported [at 3:1]
+with connection connection1 as """5""";
+^
+==
+
+# WITH CONNECTION, without LANGUAGE clause and REMOTE
+[no_java]
+[language_features={{V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,V_1_3_REMOTE_FUNCTION|V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|V_1_3_REMOTE_FUNCTION|}}]
+create function myfunc() returns INT64
+with connection connection1 AS ((SELECT 1));
+--
+ALTERNATION GROUPS:
+    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,V_1_3_REMOTE_FUNCTION
+    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+--
+ERROR: WITH CONNECTION clause should be preceded by keyword REMOTE or must be used with LANGUAGE clause [at 2:1]
+with connection connection1 AS ((SELECT 1));
+^
+--
+ALTERNATION GROUP: V_1_3_REMOTE_FUNCTION
+--
+ERROR: WITH CONNECTION clause should be preceded by keyword REMOTE and can't be used together with LANGUAGE clause [at 2:1]
+with connection connection1 AS ((SELECT 1));
+^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: WITH CONNECTION clause is not supported [at 2:1]
+with connection connection1 AS ((SELECT 1));
+^

@@ -474,8 +474,8 @@ FunctionSignatureMatcher::GetConcreteArguments(
       const FunctionArgumentType& signature_argument = signature.argument(i);
       if (signature_argument.kind() == ARG_TYPE_ARBITRARY) {
         // For arbitrary type arguments the type is derived from the input.
-        resolved_argument_list.emplace_back(
-            input_arguments[i].type(), signature_argument.cardinality(), 1);
+        resolved_argument_list.emplace_back(input_arguments[i].type(),
+                                            signature_argument.options(), 1);
       } else {
         std::unique_ptr<FunctionArgumentType> argument_type;
         // GetConcreteArgument may fail if templated argument's type is not

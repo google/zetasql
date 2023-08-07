@@ -58,7 +58,29 @@ static bool IsNonreservedKeywordToken(TokenKind token) {
          token < Token::SENTINEL_NONRESERVED_KW_END;
 }
 
-TokenKind ZetaSqlFlexTokenizer::ApplyTokenDisambiguation(TokenKind token) {
+// The token disambiguation rules are allowed to see a fixed-length sequence of
+// tokens produced by the lexical rules in flex_tokenzer.h and may change the
+// kind of `token` based on the kinds of the other tokens in the window.
+//
+// For now, the window available is:
+//   [prev_dispensed_token_, token, Lookahead1()]
+//
+// `prev_dispensed_token_` is the token most recently dispensed to the consuming
+//     component (usually the parser).
+// `token` is the token that is about to be dispensed to the consuming
+//     component.
+// `Lookahead1()` is the next token that will be disambiguated on the subsequent
+//     call to GetNextToken.
+//
+// USE WITH CAUTION:
+// For any given sequence of tokens, there may be many different shift/reduce
+// sequences in the parser that "accept" that token sequence. It's critical
+// when adding a token disambiguation rule that all parts of the grammar that
+// accept the sequence of tokens are identified to verify that changing the kind
+// of `token` does not break any unanticipated cases where that sequence would
+// currently be accepted.
+TokenKind ZetaSqlFlexTokenizer::ApplyTokenDisambiguation(
+    TokenKind token, const Location& location) {
   switch (mode_) {
     case BisonParserMode::kTokenizer:
     case BisonParserMode::kTokenizerPreserveComments:
@@ -78,7 +100,7 @@ TokenKind ZetaSqlFlexTokenizer::ApplyTokenDisambiguation(TokenKind token) {
       break;
   }
 
-  switch (prev_token_) {
+  switch (prev_dispensed_token_) {
     case '@':
     case Token::KW_DOUBLE_AT:
       // The only place in the grammar that '@' or KW_DOUBLE_AT appear is in
@@ -103,15 +125,74 @@ TokenKind ZetaSqlFlexTokenizer::ApplyTokenDisambiguation(TokenKind token) {
       // *all contexts*. That prevents using `@` or `@@` as other operators.
       //
       // It looks like we intended to support `SELECT @param_name`, but
-      // accidentially supported `SELECT @  param_name` as well. If we
-      // deprecate and remove the ability to put whitespace in a parameter
-      // reference, then we should probably remove this rule and instead change
-      // the lexer to directly produce tokens for parameter and system variable
-      // names directly.
+      // accidentally supported `SELECT @  param_name` as well. If we deprecate
+      // and remove the ability to put whitespace in a parameter reference, then
+      // we should probably remove this rule and instead change the lexer to
+      // directly produce tokens for parameter and system variable names
+      // directly.
       // TODO: Remove this rule and add lex parameter and system
       //     variable references as their own token kinds.
       if (IsReservedKeywordToken(token) || IsNonreservedKeywordToken(token)) {
+        // The dot-identifier mini-parser is triggered based on the value
+        // of prev_flex_token_ being identifier or non-reserved keyword. We
+        // don't want to update prev_flex_token_ from this code since it might
+        // actually reflect the lookahead token and not the current token (for
+        // the case where the lookahead is populated). The long term healthy
+        // solution for this is to pull the lexer modes forward into this layer,
+        // but for now we engage directly with them.
+        if (IsReservedKeywordToken(token) && Lookahead1(location) == '.') {
+          yy_push_state(/*DOT_IDENTIFIER*/ 1);
+        }
         return Token::IDENTIFIER;
+      }
+      break;
+    default:
+      break;
+  }
+
+  switch (token) {
+    case Token::KW_NOT:
+      // This returns a different token because returning KW_NOT would confuse
+      // the operator precedence parsing. Boolean NOT has a different
+      // precedence than NOT BETWEEN/IN/LIKE/DISTINCT.
+      switch (Lookahead1(location)) {
+        case Token::KW_BETWEEN:
+        case Token::KW_IN:
+        case Token::KW_LIKE:
+        case Token::KW_DISTINCT:
+          return Token::KW_NOT_SPECIAL;
+        default:
+          break;
+      }
+      break;
+    case Token::KW_WITH:
+      // The WITH expression uses a function-call like syntax and is followed by
+      // the open parenthesis.
+      if (Lookahead1(location) == '(') {
+        return Token::KW_WITH_STARTING_WITH_EXPRESSION;
+      }
+      break;
+    case Token::KW_EXCEPT:
+      // EXCEPT is used in two locations of the language. And when the parser is
+      // exploding the rules it detects that two rules can be used for the same
+      // syntax.
+      //
+      // This rule generates a special token for an EXCEPT that is followed by a
+      // hint, ALL or DISTINCT which is distinctly the set operator use.
+      switch (Lookahead1(location)) {
+        case '(':
+          // This is the SELECT * EXCEPT (column...) case.
+          return Token::KW_EXCEPT;
+        case Token::KW_ALL:
+        case Token::KW_DISTINCT:
+        case Token::KW_OPEN_HINT:
+        case Token::KW_OPEN_INTEGER_HINT:
+          // This is the {query} EXCEPT {opt_hint} ALL|DISTINCT {query} case.
+          return Token::KW_EXCEPT_IN_SET_OP;
+        default:
+          SetOverrideError(
+              location, "EXCEPT must be followed by ALL, DISTINCT, or \"(\"");
+          break;
       }
       break;
     default:
@@ -121,15 +202,36 @@ TokenKind ZetaSqlFlexTokenizer::ApplyTokenDisambiguation(TokenKind token) {
   return token;
 }
 
+int ZetaSqlFlexTokenizer::Lookahead1(const Location& current_token_location) {
+  if (!lookahead_1_.has_value()) {
+    lookahead_1_ = {.token = 0, .token_location = current_token_location};
+    prev_flex_token_ = GetNextTokenFlexImpl(&lookahead_1_->token_location);
+    lookahead_1_->token = prev_flex_token_;
+  }
+  return lookahead_1_->token;
+}
+
 // Returns the next token id, returning its location in 'yylloc'. On input,
 // 'yylloc' must be the location of the previous token that was returned.
-TokenKind ZetaSqlFlexTokenizer::GetNextTokenFlex(Location* yylloc) {
-  TokenKind token = GetNextTokenFlexImpl(yylloc);
-  token = ApplyTokenDisambiguation(token);
+int ZetaSqlFlexTokenizer::GetNextTokenFlex(Location* yylloc) {
+  TokenKind token = 0;
+  if (lookahead_1_.has_value()) {
+    // Get the next token from the lookahead buffer and advance the buffer. If
+    // force_terminate_ was set, we still need the location from the buffer,
+    // with Token::YYEOF as the token.
+    token = force_terminate_ ? Token::YYEOF : lookahead_1_->token;
+    *yylloc = lookahead_1_->token_location;
+    lookahead_1_.reset();
+  } else {
+    // The lookahead buffer is empty, so get a token from the underlying lexer.
+    prev_flex_token_ = GetNextTokenFlexImpl(yylloc);
+    token = prev_flex_token_;
+  }
+  token = ApplyTokenDisambiguation(token, *yylloc);
   if (override_error_.ok()) {
     num_lexical_tokens_++;
   }
-  prev_token_ = token;
+  prev_dispensed_token_ = token;
   return token;
 }
 
@@ -146,6 +248,14 @@ absl::Status ZetaSqlFlexTokenizer::GetNextToken(ParseLocationRange* location,
       ParseLocationPoint::FromByteOffset(filename_,
                                          bison_location.end.column));
   return override_error_;
+}
+
+void ZetaSqlFlexTokenizer::SetForceTerminate() {
+  force_terminate_ = true;
+  // Ensure that the lookahead buffer immediately reflects the termination.
+  if (lookahead_1_.has_value()) {
+    lookahead_1_->token = Token::YYEOF;
+  }
 }
 
 bool ZetaSqlFlexTokenizer::IsDotGeneralizedIdentifierPrefixToken(

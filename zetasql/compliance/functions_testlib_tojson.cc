@@ -54,7 +54,7 @@ constexpr absl::StatusCode kOutOfRange = absl::StatusCode::kOutOfRange;
 void AddArrayStructAndProtoTestCases(bool is_to_json,
                                      std::vector<FunctionTestCall>& all_tests) {
   std::string function_name = is_to_json ? "to_json" : "to_json_string";
-  auto json_parse_constructor = [](const std::string& input) {
+  auto json_parse_constructor = [](absl::string_view input) {
     return values::Json(JSONValue::ParseJSONString(input).value());
   };
 

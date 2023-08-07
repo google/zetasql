@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <istream>
 #include <memory>
+#include <optional>
 #include <stack>
 #include <vector>
 
@@ -77,7 +78,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
 
   // Ensures that the next token returned will be EOF, even if we're not at the
   // end of the input.
-  void SetForceTerminate() { force_terminate_ = true; }
+  void SetForceTerminate();
 
   // Some sorts of statements need to change the mode after the parser consumes
   // the preamble of the statement.  DEFINE MACRO is an example, it wants to
@@ -93,6 +94,9 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   int64_t num_lexical_tokens() const { return num_lexical_tokens_; }
 
  private:
+  // This friend is used by the unit test to help test internals.
+  friend class TokenTestThief;
+
   void SetOverrideError(const Location& yylloc,
                         absl::string_view error_message);
 
@@ -101,10 +105,17 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // Returns the next token id, returning its location in 'yylloc'.
   TokenKind GetNextTokenFlexImpl(Location* yylloc);
 
-  // Applies a set of rules based on `token` and `prev_token_` and if any rule
-  // matches, returns the token kind specified by the rule. Otherwise when no
-  // rule matches, returns `token`.
-  TokenKind ApplyTokenDisambiguation(TokenKind token);
+  // If the N+1 token is already buffered we simply return the token value from
+  // the buffer. Otherwise we read the next token from `GetNextTokenFlexImpl`
+  // and put it in the lookahead buffer before returning it.
+  int Lookahead1(const Location& current_token_location);
+
+  // Applies a set of rules based on previous and successive token kinds and if
+  // any rule matches, returns the token kind specified by the rule.  Otherwise
+  // when no rule matches, returns `token`. `location` is used when requesting
+  // Lookahead tokens and also to generate error messages for
+  // `SetOverrideError`.
+  TokenKind ApplyTokenDisambiguation(TokenKind token, const Location& location);
 
   // This is called by flex when it is wedged.
   void LexerError(const char* msg) override;
@@ -139,9 +150,11 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // to determine which mode the bison parser should run in.
   bool is_first_token_ = true;
 
-  // The code for the previous token that was returned. This is used to take
-  // action in tokenizer rules based on context.
-  TokenKind prev_token_ = 0;
+  // The kind of the most recently generated token from the flex layer.
+  TokenKind prev_flex_token_ = 0;
+  // The kind of the most recently dispensed token to the consuming component
+  // (usually the last token dispensed to the parser).
+  TokenKind prev_dispensed_token_ = 0;
 
   // The (optional) filename from which the statement is being parsed.
   absl::string_view filename_;
@@ -177,6 +190,19 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
 
   // Count of lexical tokens returned
   int64_t num_lexical_tokens_ = 0;
+
+  // The lookahead_N_ fields implement the token lookahead buffer. There are a
+  // fixed number of fields here, each represented by an optional, rather than a
+  // deque or vector because, ideally we only do token disambiguation on small
+  // windows (e.g. no more than two or three lookaheads).
+
+  // A token in the lookahead buffer.
+  struct TokenInfo {
+    TokenKind token;
+    Location token_location;
+  };
+  // The lookahead buffer slot for token N+1.
+  std::optional<TokenInfo> lookahead_1_;
 };
 
 }  // namespace parser

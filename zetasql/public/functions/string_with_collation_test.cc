@@ -512,10 +512,9 @@ TEST(LikeWithCollationMatchTest, MatchTest) {
       SCOPED_TRACE(
           absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
                            params.pattern, params.input));
-      ZETASQL_ASSERT_OK_AND_ASSIGN(
-          bool result,
-          LikeWithUtf8WithCollation(params.input, params.pattern, *collator,
-                                    /*allow_underscore=*/true));
+      ZETASQL_ASSERT_OK_AND_ASSIGN(bool result,
+                           LikeUtf8WithCollationAllowUnderscore(
+                               params.input, params.pattern, *collator));
       EXPECT_EQ(params.expected_outcome, result)
           << params.input << " LIKE " << params.pattern;
       if (!absl::StrContains(absl::string_view(params.pattern), '%')) {
@@ -530,10 +529,9 @@ TEST(LikeWithCollationMatchTest, MatchTest) {
   for (const LikeMatchTestParams& params : LikeWithCollationMatchTestCases()) {
     SCOPED_TRACE(absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
                                   params.pattern, params.input));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(
-        bool result,
-        LikeWithUtf8WithCollation(params.input, params.pattern, *collator,
-                                  /*allow_underscore=*/true));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(bool result,
+                         LikeUtf8WithCollationAllowUnderscore(
+                             params.input, params.pattern, *collator));
     EXPECT_EQ(params.expected_outcome, result)
         << params.input << " LIKE " << params.pattern;
     if (!absl::StrContains(absl::string_view(params.pattern), '%')) {
@@ -547,10 +545,9 @@ TEST(LikeWithCollationMatchTest, MatchTest) {
   for (const LikeMatchTestParams& params : LikeWithUnderscoreTestCases()) {
     SCOPED_TRACE(absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
                                   params.pattern, params.input));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(
-        bool result,
-        LikeWithUtf8WithCollation(params.input, params.pattern, *collator,
-                                  /*allow_underscore=*/true));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(bool result,
+                         LikeUtf8WithCollationAllowUnderscore(
+                             params.input, params.pattern, *collator));
     EXPECT_EQ(params.expected_outcome, result)
         << params.input << " LIKE " << params.pattern;
   }
@@ -569,15 +566,14 @@ TEST(LikeWithCollationMatchTest, BinaryMatchTest) {
           absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
                            pattern.string_value(), text.string_value()));
       if (!params.status().ok()) {
-        EXPECT_THAT(LikeWithUtf8WithCollation(text.string_value(),
-                                              pattern.string_value(), *collator,
-                                              /*allow_underscore=*/true),
+        EXPECT_THAT(LikeUtf8WithCollationAllowUnderscore(
+                        text.string_value(), pattern.string_value(), *collator),
                     zetasql_base::testing::StatusIs(params.status().code()));
       } else {
-        ZETASQL_ASSERT_OK_AND_ASSIGN(bool result,
-                             LikeWithUtf8WithCollation(
-                                 text.string_value(), pattern.string_value(),
-                                 *collator, /*allow_underscore=*/true));
+        ZETASQL_ASSERT_OK_AND_ASSIGN(
+            bool result,
+            LikeUtf8WithCollationAllowUnderscore(
+                text.string_value(), pattern.string_value(), *collator));
         EXPECT_EQ(params.result().bool_value(), result)
             << text.string_value() << " LIKE " << pattern.string_value();
       }
@@ -588,8 +584,7 @@ TEST(LikeWithCollationMatchTest, BinaryMatchTest) {
 TEST(LikeWithCollationMatchTest, BadPatternUTF8) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator("und:ci"));
-  EXPECT_THAT(LikeWithUtf8WithCollation("", "\xC2", *collator,
-                                        /*allow_underscore=*/true),
+  EXPECT_THAT(LikeUtf8WithCollationAllowUnderscore("", "\xC2", *collator),
               zetasql_base::testing::StatusIs(
                   absl::StatusCode::kOutOfRange,
                   testing::HasSubstr("The second operand of LIKE operator is "
@@ -599,19 +594,17 @@ TEST(LikeWithCollationMatchTest, BadPatternUTF8) {
 TEST(LikeWithCollationMatchTest, BadPatternEscape) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator("und:ci"));
-  EXPECT_THAT(
-      LikeWithUtf8WithCollation("", "\\", *collator, /*allow_underscore=*/true),
-      zetasql_base::testing::StatusIs(
-          absl::StatusCode::kOutOfRange,
-          testing::HasSubstr("LIKE pattern ends with a backslash")));
+  EXPECT_THAT(LikeUtf8WithCollationAllowUnderscore("", "\\", *collator),
+              zetasql_base::testing::StatusIs(
+                  absl::StatusCode::kOutOfRange,
+                  testing::HasSubstr("LIKE pattern ends with a backslash")));
 }
 
 TEST(LikeWithCollationMatchTest, UnderscoreNotAllowedWhenFeatureOff) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator("und:ci"));
   EXPECT_THAT(
-      LikeWithUtf8WithCollation(" ", "_", *collator,
-                                /*allow_underscore=*/false),
+      LikeUtf8WithCollation(" ", "_", *collator),
       zetasql_base::testing::StatusIs(
           absl::StatusCode::kOutOfRange,
           testing::HasSubstr("LIKE pattern has '_' which is not "
@@ -622,8 +615,7 @@ TEST(LikeWithCollationMatchTest, UnderscoreOnlyAllowedForUndci) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator("und:cs"));
   EXPECT_THAT(
-      LikeWithUtf8WithCollation(" ", "_", *collator,
-                                /*allow_underscore=*/true),
+      LikeUtf8WithCollationAllowUnderscore(" ", "_", *collator),
       zetasql_base::testing::StatusIs(
           absl::StatusCode::kOutOfRange,
           testing::HasSubstr("LIKE pattern has '_' which is not "

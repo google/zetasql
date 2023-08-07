@@ -19,21 +19,45 @@
 
 #include <stddef.h>
 
-#include "zetasql/analyzer/name_scope.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {
 
+// An enum that represents the result of testing whether two expressions are
+// same.
+enum class TestIsSameExpressionForGroupByResult {
+  // Two expressions are considered equal.
+  kEqual,
+  // Two expressions are considered different.
+  kNotEqual,
+  // It's unknown whether two expressions are equal or not. For now, this only
+  // happens when the expression kind is not supported for comparison, but is
+  // the same, and expression output type is the same.
+  kUnknown,
+};
+
 // Checks whether two expressions are equal for the purpose of allowing
-// SELECT expr FROM ... GROUP BY expr
+// SELECT expr FROM ... GROUP BY expr, and group by expression deduplication.
+// This is a shorthand of TestIsSameExpressionForGroupBy function to return a
+// bool result instead. The function treats the testing result kUnknown value as
+// if the two expressions are not equal.
+absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
+                                                const ResolvedExpr* expr2);
+
+// Checks whether two expressions are equal for the purpose of allowing
+// SELECT expr FROM ... GROUP BY expr. This is also used by group-by
+// expressions deduplication.
 // Comparison is done by traversing the ResolvedExpr tree and making sure all
 // the nodes are the same, except that volatile functions (i.e. RAND()) are
 // never considered equal.
-// This function is conservative, i.e. if some nodes or some properties are
-// not explicitly checked by it - expressions are considered not the same.
-absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
-                                                const ResolvedExpr* expr2);
+// The comparison result will be equal or not-equal if two expressions are
+// completely checked. If some nodes or properties are not listed in the switch
+// cases and not checked, the result will be unknown. Function callers can
+// handle the unknown cases separately from the known-false cases.
+absl::StatusOr<TestIsSameExpressionForGroupByResult>
+TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
+                               const ResolvedExpr* expr2);
 
 // Checks whether the expression references any non-local and non-correlated
 // column.

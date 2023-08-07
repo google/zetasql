@@ -32,6 +32,7 @@
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -85,7 +86,7 @@ class ProtoHelperTest : public ::testing::Test {
   }
 
   absl::Status GetFileDescriptorSetContainingFile(
-      const std::string& filename,
+      absl::string_view filename,
       google::protobuf::FileDescriptorSet* file_descriptor_set) {
     file_descriptor_set->Clear();
     const google::protobuf::FileDescriptor* file = pool_->FindFileByName(filename);

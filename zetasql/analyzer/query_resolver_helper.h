@@ -243,7 +243,7 @@ struct QueryGroupByAndAggregateInfo {
 struct SelectColumnState {
   explicit SelectColumnState(
       const ASTExpression* ast_expr_in, IdString alias_in, bool is_explicit_in,
-      bool has_aggregation_in, bool has_analytic_in,
+      bool has_aggregation_in, bool has_analytic_in, bool has_volatile_in,
       std::unique_ptr<const ResolvedExpr> resolved_expr_in)
       : ast_expr(ast_expr_in),
         alias(alias_in),
@@ -251,7 +251,8 @@ struct SelectColumnState {
         select_list_position(-1),
         resolved_expr(std::move(resolved_expr_in)),
         has_aggregation(has_aggregation_in),
-        has_analytic(has_analytic_in) {}
+        has_analytic(has_analytic_in),
+        has_volatile(has_volatile_in) {}
 
   SelectColumnState(const SelectColumnState&) = delete;
   SelectColumnState& operator=(const SelectColumnState&) = delete;
@@ -311,6 +312,9 @@ struct SelectColumnState {
   // True if this expression includes analytic functions.
   bool has_analytic = false;
 
+  // True if this expression includes any volatile function.
+  bool has_volatile = false;
+
   // If true, this expression is used as a GROUP BY key.
   bool is_group_by_column = false;
 
@@ -345,7 +349,7 @@ class SelectColumnStateList {
   // (broken link).
   void AddSelectColumn(const ASTExpression* ast_expr, IdString alias,
                        bool is_explicit, bool has_aggregation,
-                       bool has_analytic,
+                       bool has_analytic, bool has_volatile,
                        std::unique_ptr<const ResolvedExpr> resolved_expr);
 
   // Add an already created SelectColumnState. If save_mapping is true, saves a

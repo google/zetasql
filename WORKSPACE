@@ -39,9 +39,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_jvm_external",
-    sha256 = "f36441aa876c4f6427bfb2d1f2d723b48e9d930b62662bf723ddfb8fc80f0140",
-    strip_prefix = "rules_jvm_external-4.1",
-    urls = ["https://github.com/bazelbuild/rules_jvm_external/archive/4.1.zip"],
+    sha256 = "b17d7388feb9bfa7f2fa09031b32707df529f26c91ab9e5d909eb1676badd9a6",
+    strip_prefix = "rules_jvm_external-4.5",
+    urls = ["https://github.com/bazelbuild/rules_jvm_external/archive/4.5.zip"],
 )
 
 # gRPC Java

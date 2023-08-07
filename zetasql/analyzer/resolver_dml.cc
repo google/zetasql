@@ -40,6 +40,7 @@
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
+#include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
@@ -388,6 +389,47 @@ absl::Status Resolver::ResolveInsertQuery(
   return absl::OkStatus();
 }
 
+class GeneratedColumnCycleDetector : public ResolvedASTVisitor {
+ public:
+  explicit GeneratedColumnCycleDetector(const Table* table,
+                                        CycleDetector* cycle_detector)
+      : table_(table), cycle_detector_(cycle_detector) {}
+
+ protected:
+  absl::Status DefaultVisit(const ResolvedNode* node) override {
+    // TODO: Add checks for ResolvedCatalogColumnRef here whenever
+    // it becomes relevant.
+    if (node->Is<ResolvedExpressionColumn>()) {
+      std::string column_name = node->GetAs<ResolvedExpressionColumn>()->name();
+      const Column* column = table_->FindColumnByName(column_name);
+      ZETASQL_RET_CHECK_NE(column, nullptr);
+      if (column->HasGeneratedExpression()) {
+        ZETASQL_RET_CHECK(column->GetExpression().has_value());
+        CycleDetector::ObjectInfo object(column->FullName(), column,
+                                         cycle_detector_);
+        absl::Status status = object.DetectCycle("generated column");
+        if (!status.ok()) {
+          const std::vector<std::string>& cycle_names =
+              cycle_detector_->ObjectNames();
+          return MakeSqlError()
+                 << "Recursive dependencies detected while evaluating "
+                    "generated column expression values for "
+                 << column->FullName()
+                 << ". The expression indicates the column depends on "
+                    "itself. Columns forming the cycle : "
+                 << absl::StrJoin(cycle_names, ", ");
+        }
+        const ResolvedExpr* resolved_expr =
+            column->GetExpression()->GetResolvedExpression();
+        ZETASQL_RETURN_IF_ERROR(resolved_expr->Accept(this));
+      }
+    }
+    return ResolvedASTVisitor::DefaultVisit(node);
+  }
+  const Table* table_;
+  CycleDetector* cycle_detector_;
+};
+
 absl::Status Resolver::ResolveInsertStatement(
     const ASTInsertStatement* ast_statement,
     std::unique_ptr<ResolvedInsertStmt>* output) {
@@ -409,6 +451,25 @@ absl::Status Resolver::ResolveInsertStatement(
     if (!zetasql_base::InsertIfNotPresent(&table_scan_columns, column.name_id(),
                                  column)) {
       zetasql_base::InsertIfNotPresent(&ambiguous_column_names, column.name_id());
+    }
+  }
+
+  // Check for cycles for generated columns in the table.
+  for (auto const& [resolved_column, catalog_column] :
+       resolved_columns_from_table_scans_) {
+    if (catalog_column->HasGeneratedExpression()) {
+      ZETASQL_RET_CHECK(catalog_column->GetExpression().has_value());
+      CycleDetector* cycle_detector =
+          analyzer_options_.find_options().cycle_detector();
+      ZETASQL_RET_CHECK(cycle_detector != nullptr)
+          << "Cycle detector needs to be set in analyzer options";
+      GeneratedColumnCycleDetector detector(resolved_table_scan->table(),
+                                            cycle_detector);
+      CycleDetector::ObjectInfo object(catalog_column->FullName(),
+                                       catalog_column, cycle_detector);
+      const ResolvedExpr* resolved_expr =
+          catalog_column->GetExpression()->GetResolvedExpression();
+      ZETASQL_RETURN_IF_ERROR(resolved_expr->Accept(&detector));
     }
   }
 
@@ -448,7 +509,7 @@ absl::Status Resolver::ResolveInsertStatement(
     for (auto const& [resolved_column, catalog_column] :
          resolved_columns_from_table_scans_) {
       if (catalog_column->IsWritableColumn() &&
-          catalog_column->HasDefaultValue()) {
+          catalog_column->HasDefaultExpression()) {
         RecordColumnAccess(resolved_column, ResolvedStatement::WRITE);
       }
     }

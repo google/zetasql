@@ -477,6 +477,12 @@ JSONValue JSONValue::CopyFrom(JSONValueConstRef value) {
   return copy;
 }
 
+JSONValue JSONValue::MoveFrom(JSONValueRef value) {
+  JSONValue moved_json;
+  moved_json.impl_->value = std::move(value.impl_->value);
+  return moved_json;
+}
+
 JSONValue::JSONValue() : impl_(std::make_unique<Impl>()) {}
 
 JSONValue::JSONValue(int64_t value) : impl_(new Impl{value}) {}

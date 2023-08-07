@@ -1670,7 +1670,8 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
     // (3) We still haven't found a matching name. See if we can find it in
     // function arguments (for CREATE FUNCTION statements only).
     ZETASQL_RETURN_IF_ERROR(MaybeResolvePathExpressionAsFunctionArgumentRef(
-        first_name, path_parse_location, &resolved_expr, &num_names_consumed));
+        first_name, path_expr.first_name()->GetParseLocationRange(),
+        &resolved_expr, &num_names_consumed));
   }
 
   if (num_names_consumed == 0) {
@@ -7353,11 +7354,6 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
     return absl::OkStatus();
   }
 
-  if (resolved_agg_call->function()->Is<SQLFunctionInterface>() ||
-      resolved_agg_call->function()->Is<TemplatedSQLFunction>()) {
-    analyzer_output_properties_.MarkRelevant(REWRITE_INLINE_SQL_UDAS);
-  }
-
   // If this <ast_function_call> is the top level function call in
   // <expr_resolution_info> and it has an alias, then use that alias.
   // Otherwise create an internal alias for this expression.
@@ -7955,6 +7951,10 @@ absl::Status Resolver::ResolveFunctionCallImpl(
        function->Is<TemplatedSQLFunction>()) &&
       !function->IsAggregate()) {
     analyzer_output_properties_.MarkRelevant(REWRITE_INLINE_SQL_FUNCTIONS);
+  }
+
+  if (function->function_options().volatility == FunctionEnums::VOLATILE) {
+    expr_resolution_info->has_volatile = true;
   }
 
   // A "flatten" function allows the child to flatten.

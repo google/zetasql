@@ -614,7 +614,6 @@ class AnalyzerOptions {
     return data_->parse_location_record_type;
   }
   // Set this to true to record parse locations in resolved AST nodes,
-  ABSL_DEPRECATED("Inline me!")
   void set_record_parse_locations(bool value) {
     data_->parse_location_record_type =
         (value ? PARSE_LOCATION_RECORD_CODE_SEARCH

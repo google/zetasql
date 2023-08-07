@@ -17,6 +17,7 @@
 #include "zetasql/scripting/script_executor.h"
 
 #include <memory>
+#include <optional>
 
 #include "zetasql/parser/parser.h"
 #include "zetasql/scripting/error_helpers.h"
@@ -42,7 +43,7 @@ ParsedScript::QueryParameters GetQueryParameters(
       return static_cast<int64_t>(
           analyzer_options.positional_query_parameters().size());
     default:
-      return absl::nullopt;
+      return std::nullopt;
   }
 }
 }  // namespace

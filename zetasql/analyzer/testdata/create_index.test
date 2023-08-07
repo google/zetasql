@@ -857,7 +857,7 @@ create index i1 on KeyValue(Key) options(o=1+'2');
                                            ^
 ==
 
-create {{|or replace}} {{|unique}} {{|search}} index {{|if not exists}} i1 on KeyValue(Key)
+create {{|or replace}} {{|unique}} {{|search|vector}} index {{|if not exists}} i1 on KeyValue(Key)
 options()
 --
 ALTERNATION GROUP: <empty>
@@ -914,6 +914,37 @@ CreateIndexStmt
 | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 +-is_unique=FALSE
 +-is_search=TRUE
++-index_item_list=
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-descending=FALSE
+--
+ALTERNATION GROUP: vector,
+--
+CreateIndexStmt
++-name_path=i1
++-table_name_path=KeyValue
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
++-is_unique=FALSE
++-is_vector=TRUE
++-index_item_list=
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-descending=FALSE
+--
+ALTERNATION GROUP: vector,if not exists
+--
+CreateIndexStmt
++-name_path=i1
++-create_mode=CREATE_IF_NOT_EXISTS
++-table_name_path=KeyValue
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
++-is_unique=FALSE
++-is_vector=TRUE
 +-index_item_list=
   +-IndexItem
     +-column_ref=
@@ -980,6 +1011,37 @@ CreateIndexStmt
     | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-descending=FALSE
 --
+ALTERNATION GROUP: unique,vector,
+--
+CreateIndexStmt
++-name_path=i1
++-table_name_path=KeyValue
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
++-is_unique=TRUE
++-is_vector=TRUE
++-index_item_list=
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-descending=FALSE
+--
+ALTERNATION GROUP: unique,vector,if not exists
+--
+CreateIndexStmt
++-name_path=i1
++-create_mode=CREATE_IF_NOT_EXISTS
++-table_name_path=KeyValue
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
++-is_unique=TRUE
++-is_vector=TRUE
++-index_item_list=
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-descending=FALSE
+--
 ALTERNATION GROUP: or replace,,,
 --
 CreateIndexStmt
@@ -1023,6 +1085,28 @@ ERROR: CREATE INDEX cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
 create or replace  search index if not exists i1 on KeyValue(Key)
 ^
 --
+ALTERNATION GROUP: or replace,,vector,
+--
+CreateIndexStmt
++-name_path=i1
++-create_mode=CREATE_OR_REPLACE
++-table_name_path=KeyValue
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
++-is_unique=FALSE
++-is_vector=TRUE
++-index_item_list=
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-descending=FALSE
+--
+ALTERNATION GROUP: or replace,,vector,if not exists
+--
+ERROR: CREATE INDEX cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+create or replace  vector index if not exists i1 on KeyValue(Key)
+^
+--
 ALTERNATION GROUP: or replace,unique,,
 --
 CreateIndexStmt
@@ -1064,6 +1148,28 @@ ALTERNATION GROUP: or replace,unique,search,if not exists
 --
 ERROR: CREATE INDEX cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
 create or replace unique search index if not exists i1 on KeyValue(Key)
+^
+--
+ALTERNATION GROUP: or replace,unique,vector,
+--
+CreateIndexStmt
++-name_path=i1
++-create_mode=CREATE_OR_REPLACE
++-table_name_path=KeyValue
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
++-is_unique=TRUE
++-is_vector=TRUE
++-index_item_list=
+  +-IndexItem
+    +-column_ref=
+    | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-descending=FALSE
+--
+ALTERNATION GROUP: or replace,unique,vector,if not exists
+--
+ERROR: CREATE INDEX cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+create or replace unique vector index if not exists i1 on KeyValue(Key)
 ^
 ==
 

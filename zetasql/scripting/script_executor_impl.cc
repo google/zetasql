@@ -91,10 +91,10 @@ absl::Status CheckConstraintStatus(const absl::Status& constraint_status,
 }
 
 ParsedScript::QueryParameters GetQueryParameters(
-    const std::optional<absl::variant<ParameterValueList, ParameterValueMap>>&
+    const std::optional<std::variant<ParameterValueList, ParameterValueMap>>&
         params) {
   if (!params.has_value()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
   if (std::holds_alternative<ParameterValueMap>(*params)) {
     ParsedScript::StringSet parameter_names;
@@ -407,7 +407,10 @@ bool ScriptExecutorImpl::IsComplete() const {
 absl::Status ScriptExecutorImpl::ExecuteNext() {
   absl::Status status = ExecuteNextImpl();
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options_.error_message_mode(), CurrentScript()->script_text(), status);
+      options_.error_message_mode(),
+      /*keep_error_location_payload=*/options_.error_message_mode() ==
+          ERROR_MESSAGE_WITH_PAYLOAD,
+      CurrentScript()->script_text(), status);
 }
 
 absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
@@ -1462,13 +1465,13 @@ absl::Status ScriptExecutorImpl::UpdateAnalyzerOptionParameters(
 }
 
 absl::StatusOr<
-    std::optional<absl::variant<ParameterValueList, ParameterValueMap>>>
+    std::optional<std::variant<ParameterValueList, ParameterValueMap>>>
 ScriptExecutorImpl::EvaluateDynamicParams(
     const ASTExecuteUsingClause* using_clause,
     VariableSizesMap* variable_sizes_map) {
   // TODO: Refactor this into parsed_script.cc
   const ASTNode* curr_ast_node = callstack_.back().current_node()->ast_node();
-  std::optional<absl::variant<ParameterValueList, ParameterValueMap>>
+  std::optional<std::variant<ParameterValueList, ParameterValueMap>>
       stack_params;
   if (using_clause == nullptr) {
     return stack_params;
@@ -1565,7 +1568,7 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicIntoStatement(
     ZETASQL_RET_CHECK(it != variables->end());
     Value* value = &it->second;
     if (has_row) {
-      Coercer coercer(type_factory_, time_zone_, &options_.language_options());
+      Coercer coercer(type_factory_, &options_.language_options());
       SignatureMatchResult unused;
       if (coercer.AssignableTo(InputArgumentType(iterator->GetValue(i).type()),
                                value->type(),
@@ -1986,7 +1989,7 @@ absl::Status ScriptExecutorImpl::SetState(
           ResetIteratorSizes(next_node, for_loop_stack));
     }
 
-    std::optional<absl::variant<ParameterValueList, ParameterValueMap>>
+    std::optional<std::variant<ParameterValueList, ParameterValueMap>>
         new_parameters;
     ZETASQL_RETURN_IF_ERROR(DeserializeParametersProto(
         stack_frame_state.parameters(), &new_parameters, &descriptor_pool_,
@@ -2341,7 +2344,7 @@ bool ScriptExecutorImpl::CoercesTo(const Type* from_type,
                                    const Type* to_type) const {
   TypeFactory type_factory;
   SignatureMatchResult unused;
-  Coercer coercer(&type_factory, time_zone_, &options_.language_options());
+  Coercer coercer(&type_factory, &options_.language_options());
   return coercer.CoercesTo(InputArgumentType(from_type), to_type,
                            /*is_explicit=*/false, &unused);
 }
@@ -2476,7 +2479,7 @@ absl::Status ScriptExecutorImpl::AdvanceInternal(
         return ExitProcedure(true).status();
       }
     }
-    ZETASQL_RETURN_IF_ERROR(ExecuteSideEffects(edge, absl::nullopt));
+    ZETASQL_RETURN_IF_ERROR(ExecuteSideEffects(edge, std::nullopt));
     ZETASQL_ASSIGN_OR_RETURN(keep_going, UpdateCurrentLocation(edge));
 
     // Even if we had a condition initially, the next iteration of the loop

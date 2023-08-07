@@ -1021,6 +1021,20 @@ static const EnumType* GetDifferentialPrivacyReportFormatEnumType() {
   return s_differential_privacy_report_format_enum_type;
 }
 
+static const EnumType* GetDifferentialPrivacyGroupSelectionStrategyEnumType() {
+  static const EnumType*
+      s_differential_privacy_group_selection_strategy_enum_type = [] {
+        const EnumType* enum_type;
+        ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
+            s_type_factory(),
+            functions::DifferentialPrivacyEnums::
+                GroupSelectionStrategy_descriptor(),
+            &enum_type, {}));
+        return enum_type;
+      }();
+  return s_differential_privacy_group_selection_strategy_enum_type;
+}
+
 static const EnumType* GetRangeSessionizeModeEnumType() {
   static const EnumType* s_range_sessionize_option_enum_type = [] {
     const EnumType* enum_type;
@@ -1196,6 +1210,9 @@ const EnumType* RoundingModeEnumType() { return s_rounding_mode_enum_type(); }
 const EnumType* ArrayFindModeEnumType() { return GetArrayFindModeEnumType(); }
 const EnumType* DifferentialPrivacyReportFormatEnumType() {
   return GetDifferentialPrivacyReportFormatEnumType();
+}
+const EnumType* DifferentialPrivacyGroupSelectionStrategyEnumType() {
+  return GetDifferentialPrivacyGroupSelectionStrategyEnumType();
 }
 const EnumType* RangeSessionizeModeEnumType() {
   return GetRangeSessionizeModeEnumType();

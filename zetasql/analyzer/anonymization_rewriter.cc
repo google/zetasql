@@ -89,11 +89,12 @@
 namespace zetasql {
 namespace {
 
-struct BoundingSpec;
+struct PrivacyOptionSpec;
 struct WithEntryRewriteState;
 struct RewritePerUserTransformResult;
 struct RewriteInnerAggregateListResult;
 struct UidColumnState;
+class OuterAggregateListRewriterVisitor;
 
 // Used for generating correct error messages for SELECT WITH ANONYMIZATION and
 // SELECT WITH DIFFERENTIAL_PRIVACY.
@@ -218,20 +219,20 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   ProjectOrderByForSampledAggregation(std::unique_ptr<ResolvedScan> node,
                                       const ResolvedColumn& order_by_column);
 
-  // Rewrites the node contained in rewritten_per_user_transform,
+  // Rewrites the node contained in `rewritten_per_user_transform`,
   // pre-aggregating each user's contributions to each group.
   //
-  // If bounding_spec says to bound the number of groups to which a privacy
-  // unit can contribute, then this method will insert a SampleScan to do
-  // so.
+  // If `privacy_option_spec` says to bound the number of groups to which a
+  // privacy unit can contribute, then this method will insert a `SampleScan` to
+  // do so.
   template <class NodeType>
   absl::StatusOr<std::unique_ptr<NodeType>> BoundGroupsContributedToInputScan(
       const NodeType* original_input_scan,
       RewritePerUserTransformResult rewritten_per_user_transform,
-      BoundingSpec bounding_spec);
+      PrivacyOptionSpec privacy_option_spec);
 
   // Rewrites the node contained in rewritten_per_user_transform, inserting a
-  // SampleScan to bound the number of rows that a user can contribute.
+  // `SampleScan` to bound the number of rows that a user can contribute.
   template <class NodeType>
   absl::StatusOr<std::unique_ptr<NodeType>> BoundRowsContributedToInputScan(
       const NodeType* original_input_scan,
@@ -257,9 +258,34 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   MakeGroupSelectionThresholdFunctionColumn(
       const ResolvedDifferentialPrivacyAggregateScan* scan_node);
 
-  // Creates a new ResolvedComputedColumn that counts distinct user IDs, appends
-  // it to the output argument aggregate_list, and returns an expression that
-  // refers to the newly created column.
+  // Ensures that the number of distinct privacy ids per group is counted
+  // somewhere in the query. It's checked if the noisy count of distinct privacy
+  // ids is already (implicitly) part of the output. If so, the function returns
+  // a column reference to that output.  If not, a new column containing the
+  // number of distinct privacy ids per group is created. A reference to that
+  // column is returned.
+  template <class NodeType>
+  absl::StatusOr<std::unique_ptr<ResolvedExpr>>
+  IdentifyOrAddNoisyCountDistinctPrivacyIdsColumnToAggregateList(
+      const NodeType* original_input_scan,
+      const OuterAggregateListRewriterVisitor& outer_rewriter_visitor,
+      std::vector<std::unique_ptr<ResolvedComputedColumn>>&
+          outer_aggregate_list);
+  // Returns the expression that should be added to the DP aggregate
+  // scan as the `group_selection_threshold_expr`.
+  // As a side effect, this function may add additional columns to the
+  // `outer_aggregate_list` if they are required to compute the
+  // `group_selection_threshold_expr`.
+  template <typename NodeType>
+  absl::StatusOr<std::unique_ptr<ResolvedExpr>> AddGroupSelectionThresholding(
+      const NodeType* original_input_scan,
+      const OuterAggregateListRewriterVisitor& outer_rewriter_visitor,
+      std::vector<std::unique_ptr<ResolvedComputedColumn>>&
+          outer_aggregate_list);
+
+  // Creates a new `ResolvedComputedColumn` that counts distinct user IDs,
+  // appends it to the output argument `aggregate_list`, and returns an
+  // expression that refers to the newly created column.
   template <class NodeType>
   absl::StatusOr<std::unique_ptr<ResolvedExpr>>
   CreateCountDistinctPrivacyIdsColumn(
@@ -2879,50 +2905,82 @@ enum ContributionBoundingStrategy {
   BOUNDING_MAX_ROWS,
 };
 
-struct BoundingSpec {
+struct PrivacyOptionSpec {
   ContributionBoundingStrategy strategy;
 
   // The maximum number of groups a privacy unit can contribute to.
   //
-  // Only enforced if strategy is BOUNDING_MAX_GROUPS. If nullopt, then a
+  // Only enforced if strategy is `BOUNDING_MAX_GROUPS`. If nullopt, then a
   // default value will be used.
   std::optional<int64_t> max_groups_contributed;
 
   // The maximum number of rows a privacy unit can contribute to the dataset.
   //
-  // Only enforced if strategy is BOUNDING_MAX_ROWS. If nullopt, then a default
-  // value will be used.
+  // Only enforced if strategy is `BOUNDING_MAX_ROWS`. If nullopt, then a
+  // default value will be used.
   std::optional<int64_t> max_rows_contributed;
 
-  static absl::StatusOr<BoundingSpec> ForBounds(
-      std::optional<Value> max_groups_contributed,
-      std::optional<Value> max_rows_contributed) {
-    // This condition was already checked in the resolver.
-    ZETASQL_RET_CHECK(!(max_groups_contributed.has_value() &&
-                max_rows_contributed.has_value()))
-        << "MAX_GROUPS_CONTRIBUTED and MAX_ROWS_CONTRIBUTED are mutually "
-           "exclusive";
-    // should_disable_bounding is true iff one of the contribution bounds is
-    // explicitly set to NULL.
-    bool should_disable_bounding =
-        (max_groups_contributed ? max_groups_contributed->is_null() : false) ||
-        (max_rows_contributed ? max_rows_contributed->is_null() : false);
+  // Factory method that extracts (and validates) the privacy options from the
+  // raw options of the differential private or anonymized aggregate scan.
+  template <class NodeType>
+  static absl::StatusOr<PrivacyOptionSpec> FromScanOptions(
+      const std::vector<std::unique_ptr<const ResolvedOption>>& scan_options);
+};
 
-    if (should_disable_bounding) {
-      return BoundingSpec{.strategy = BOUNDING_NONE};
-    } else if (max_rows_contributed) {
-      return BoundingSpec{
-          .strategy = BOUNDING_MAX_ROWS,
-          .max_rows_contributed = max_rows_contributed->int64_value()};
-    } else if (max_groups_contributed) {
-      return BoundingSpec{
-          .strategy = BOUNDING_MAX_GROUPS,
-          .max_groups_contributed = max_groups_contributed->int64_value()};
-    } else {
-      return BoundingSpec{.strategy = BOUNDING_MAX_GROUPS};
+template <class NodeType>
+absl::StatusOr<PrivacyOptionSpec> PrivacyOptionSpec::FromScanOptions(
+    const std::vector<std::unique_ptr<const ResolvedOption>>& scan_options) {
+  std::optional<Value> max_groups_contributed;
+  std::optional<Value> max_rows_contributed;
+  for (const auto& option : scan_options) {
+    if (DPNodeSpecificData<NodeType>::IsMaxGroupsContributedOption(
+            option->name())) {
+      // This condition was already checked in the resolver.
+      ZETASQL_RET_CHECK(!max_groups_contributed.has_value())
+          << DPNodeSpecificData<NodeType>::kMaxGroupsContributedErrorPrefix
+          << " can only be set once";
+      ZETASQL_ASSIGN_OR_RETURN(
+          max_groups_contributed,
+          ValidatePositiveInt32Option(
+              *option,
+              DPNodeSpecificData<NodeType>::kMaxGroupsContributedErrorPrefix));
+    } else if (zetasql_base::CaseEqual(option->name(), "max_rows_contributed")) {
+      ZETASQL_RET_CHECK(!max_rows_contributed.has_value())
+          << "max_rows_contributed can only be set once";
+      ZETASQL_ASSIGN_OR_RETURN(
+          max_rows_contributed,
+          ValidatePositiveInt32Option(*option, "Option MAX_ROWS_CONTRIBUTED"));
     }
   }
-};
+
+  PrivacyOptionSpec privacy_option_spec;
+  // This condition was already checked in the resolver.
+  ZETASQL_RET_CHECK(
+      !(max_groups_contributed.has_value() && max_rows_contributed.has_value()))
+      << "MAX_GROUPS_CONTRIBUTED and MAX_ROWS_CONTRIBUTED are mutually "
+         "exclusive";
+  // should_disable_bounding is true iff one of the contribution bounds is
+  // explicitly set to NULL.
+  bool should_disable_bounding =
+      (max_groups_contributed ? max_groups_contributed->is_null() : false) ||
+      (max_rows_contributed ? max_rows_contributed->is_null() : false);
+
+  if (should_disable_bounding) {
+    privacy_option_spec.strategy = BOUNDING_NONE;
+  } else if (max_rows_contributed) {
+    privacy_option_spec.strategy = BOUNDING_MAX_ROWS;
+    privacy_option_spec.max_rows_contributed =
+        max_rows_contributed->int64_value();
+  } else if (max_groups_contributed) {
+    privacy_option_spec.strategy = BOUNDING_MAX_GROUPS;
+    privacy_option_spec.max_groups_contributed =
+        max_groups_contributed->int64_value();
+  } else {
+    privacy_option_spec.strategy = BOUNDING_MAX_GROUPS;
+  }
+
+  return privacy_option_spec;
+}
 
 template <class NodeType>
 absl::StatusOr<std::unique_ptr<ResolvedExpr>>
@@ -3241,11 +3299,43 @@ class BoundGroupsAggregateFunctionCallResolver final
 };
 
 template <class NodeType>
+absl::StatusOr<std::unique_ptr<ResolvedExpr>>
+RewriterVisitor::IdentifyOrAddNoisyCountDistinctPrivacyIdsColumnToAggregateList(
+    const NodeType* original_input_scan,
+    const OuterAggregateListRewriterVisitor& outer_rewriter_visitor,
+    std::vector<std::unique_ptr<ResolvedComputedColumn>>&
+        outer_aggregate_list) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ResolvedExpr> noisy_count_distinct_privacy_ids_column,
+      ExtractGroupSelectionThresholdExpr<NodeType>(
+          outer_rewriter_visitor.GetCountDistinctPrivacyIdsColumn()));
+  if (noisy_count_distinct_privacy_ids_column == nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(noisy_count_distinct_privacy_ids_column,
+                     CreateCountDistinctPrivacyIdsColumn(original_input_scan,
+                                                         outer_aggregate_list));
+  }
+  return noisy_count_distinct_privacy_ids_column;
+}
+template <typename NodeType>
+absl::StatusOr<std::unique_ptr<ResolvedExpr>>
+RewriterVisitor::AddGroupSelectionThresholding(
+    const NodeType* original_input_scan,
+    const OuterAggregateListRewriterVisitor& outer_rewriter_visitor,
+    std::vector<std::unique_ptr<ResolvedComputedColumn>>&
+        outer_aggregate_list) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ResolvedExpr> noisy_count_distinct_privacy_ids_expr,
+      IdentifyOrAddNoisyCountDistinctPrivacyIdsColumnToAggregateList(
+          original_input_scan, outer_rewriter_visitor, outer_aggregate_list));
+  return noisy_count_distinct_privacy_ids_expr;
+}
+
+template <class NodeType>
 absl::StatusOr<std::unique_ptr<NodeType>>
 RewriterVisitor::BoundGroupsContributedToInputScan(
     const NodeType* original_input_scan,
     RewritePerUserTransformResult rewritten_per_user_transform,
-    BoundingSpec bounding_spec) {
+    PrivacyOptionSpec privacy_option_spec) {
   auto [rewritten_scan, inner_uid_column] =
       std::move(rewritten_per_user_transform);
   const ResolvedColumn inner_uid_resolved_column =
@@ -3275,13 +3365,8 @@ RewriterVisitor::BoundGroupsContributedToInputScan(
 
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedExpr> group_selection_threshold_expr,
-      ExtractGroupSelectionThresholdExpr<NodeType>(
-          outer_rewriter_visitor.GetCountDistinctPrivacyIdsColumn()));
-  if (group_selection_threshold_expr == nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(group_selection_threshold_expr,
-                     CreateCountDistinctPrivacyIdsColumn(original_input_scan,
-                                                         outer_aggregate_list));
-  }
+      AddGroupSelectionThresholding(original_input_scan, outer_rewriter_visitor,
+                                    outer_aggregate_list));
 
   // GROUP BY columns in the cross-user scan are always simple column
   // references to the intermediate columns. Any computed columns are handled
@@ -3310,14 +3395,14 @@ RewriterVisitor::BoundGroupsContributedToInputScan(
     resolved_anonymization_options.push_back(std::move(option_copy));
   }
 
-  if (bounding_spec.strategy == BOUNDING_MAX_GROUPS) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        rewritten_scan,
-        AddCrossPartitionSampleScan(
-            std::move(rewritten_scan), bounding_spec.max_groups_contributed,
-            DPNodeSpecificData<
-                NodeType>::kDefaultMaxGroupsContributedOptionName,
-            uid_column, resolved_anonymization_options));
+  if (privacy_option_spec.strategy == BOUNDING_MAX_GROUPS) {
+    ZETASQL_ASSIGN_OR_RETURN(rewritten_scan,
+                     AddCrossPartitionSampleScan(
+                         std::move(rewritten_scan),
+                         privacy_option_spec.max_groups_contributed,
+                         DPNodeSpecificData<
+                             NodeType>::kDefaultMaxGroupsContributedOptionName,
+                         uid_column, resolved_anonymization_options));
   }
 
   return CreateAggregateScan(original_input_scan, std::move(rewritten_scan),
@@ -3331,29 +3416,9 @@ template <class NodeType>
 absl::Status
 RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
     const NodeType* node) {
-  // Look for max_groups_contributed in the options.
-  std::optional<Value> max_groups_contributed;
-  std::optional<Value> max_rows_contributed;
-  for (const auto& option : GetOptions(node)) {
-    if (DPNodeSpecificData<NodeType>::IsMaxGroupsContributedOption(
-            option->name())) {
-      // This condition was already checked in the resolver.
-      ZETASQL_RET_CHECK(!max_groups_contributed.has_value())
-          << DPNodeSpecificData<NodeType>::kMaxGroupsContributedErrorPrefix
-          << " can only be set once";
-      ZETASQL_ASSIGN_OR_RETURN(
-          max_groups_contributed,
-          ValidatePositiveInt32Option(
-              *option,
-              DPNodeSpecificData<NodeType>::kMaxGroupsContributedErrorPrefix));
-    } else if (zetasql_base::CaseEqual(option->name(), "max_rows_contributed")) {
-      ZETASQL_RET_CHECK(!max_rows_contributed.has_value())
-          << "max_rows_contributed can only be set once";
-      ZETASQL_ASSIGN_OR_RETURN(
-          max_rows_contributed,
-          ValidatePositiveInt32Option(*option, "Option MAX_ROWS_CONTRIBUTED"));
-    }
-  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      PrivacyOptionSpec privacy_options_spec,
+      PrivacyOptionSpec::FromScanOptions<NodeType>(GetOptions(node)));
 
   ZETASQL_ASSIGN_OR_RETURN(std::optional<const ResolvedExpr*> options_uid_column,
                    ExtractUidColumnFromOptions(node));
@@ -3363,24 +3428,22 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
                        node, DPNodeSpecificData<NodeType>::kSelectWithModeName,
                        options_uid_column));
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      BoundingSpec bounding_spec,
-      BoundingSpec::ForBounds(max_groups_contributed, max_rows_contributed));
   std::unique_ptr<NodeType> result;
-  if (bounding_spec.strategy == BOUNDING_MAX_ROWS) {
-    ZETASQL_RET_CHECK(bounding_spec.max_rows_contributed.has_value())
+  if (privacy_options_spec.strategy == BOUNDING_MAX_ROWS) {
+    ZETASQL_RET_CHECK(privacy_options_spec.max_rows_contributed.has_value())
         << "There is no way to bound max rows without explicitly specifying "
            "max_rows_contributed, since the default contribution bounding "
            "strategy is BOUNDING_MAX_GROUPS.";
-    ZETASQL_ASSIGN_OR_RETURN(result, BoundRowsContributedToInputScan(
-                                 node, std::move(rewrite_per_user_result),
-                                 bounding_spec.max_rows_contributed.value()));
+    ZETASQL_ASSIGN_OR_RETURN(result,
+                     BoundRowsContributedToInputScan(
+                         node, std::move(rewrite_per_user_result),
+                         privacy_options_spec.max_rows_contributed.value()));
   } else {
-    // Note that BoundGroupsContributedToInputScan also handles the case where
+    // Note that `BoundGroupsContributedToInputScan` also handles the case where
     // no bounding is applied.
-    ZETASQL_ASSIGN_OR_RETURN(
-        result, BoundGroupsContributedToInputScan(
-                    node, std::move(rewrite_per_user_result), bounding_spec));
+    ZETASQL_ASSIGN_OR_RETURN(result, BoundGroupsContributedToInputScan(
+                                 node, std::move(rewrite_per_user_result),
+                                 privacy_options_spec));
   }
 
   ZETASQL_RETURN_IF_ERROR(AttachExtraNodeFields(*node, *result));

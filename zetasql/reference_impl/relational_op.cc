@@ -335,7 +335,14 @@ EvaluatorTableScanOp::IntersectColumnFilters(
   // represent an 'in_set' consisting of all values with absl::nullopt.
   Value lower_bound;
   Value upper_bound;
-  std::optional<absl::flat_hash_set<Value>> in_set;
+
+  struct SqlLessThan {
+    bool operator()(const Value& v1, const Value& v2) const {
+      return v1.SqlLessThan(v2) == values::True();
+    }
+  };
+
+  std::optional<absl::btree_set<Value, SqlLessThan>> in_set;
 
   for (const std::unique_ptr<ColumnFilter>& filter : filters) {
     // Intersect 'filter' with the state we have for its kind.
@@ -360,17 +367,18 @@ EvaluatorTableScanOp::IntersectColumnFilters(
           // Nothing matches.
           lower_bound = Value();
           upper_bound = Value();
-          in_set = absl::flat_hash_set<Value>();
+          in_set = absl::btree_set<Value, SqlLessThan>();
           break;
         }
         break;
       case ColumnFilter::kInList: {
-        absl::flat_hash_set<Value> new_in_set(filter->in_list().begin(),
-                                              filter->in_list().end());
+        absl::btree_set<Value, SqlLessThan> new_in_set(
+            filter->in_list().begin(), filter->in_list().end());
         if (!in_set.has_value()) {
           in_set = std::move(new_in_set);
         } else {
-          absl::flat_hash_set<Value> old_in_set = std::move(in_set.value());
+          absl::btree_set<Value, SqlLessThan> old_in_set =
+              std::move(in_set.value());
           in_set.value().clear();
 
           const auto* set1 = &old_in_set;
@@ -379,7 +387,14 @@ EvaluatorTableScanOp::IntersectColumnFilters(
             std::swap(set1, set2);
           }
           for (const Value& value : *set1) {
-            if (set2->contains(value)) {
+            ZETASQL_RET_CHECK(value.is_valid());
+            // It's ok to let NaN and Inf into the lists.
+            // Inf is benign when it comes to equality because Inf = Inf returns
+            // true. NaN, while it may be spurious in this list, will never
+            // match any row coming out anyway, so it's just a perf price. NULL
+            // could also be let in, but it's trivial to detect here and remove
+            // it early, without any type checks (unlike NaN).
+            if (!value.is_null() && set2->contains(value)) {
               ZETASQL_RET_CHECK(in_set.value().insert(value).second);
             }
           }
@@ -404,7 +419,8 @@ EvaluatorTableScanOp::IntersectColumnFilters(
            value.SqlLessThan(lower_bound) == values::True()) ||
           (upper_bound.is_valid() &&
            upper_bound.SqlLessThan(value) == values::True())) {
-        in_set.value().erase(current);
+        i = in_set.value().erase(current);
+        continue;
       }
     }
 
@@ -1614,7 +1630,7 @@ class LimitTupleIterator : public TupleIterator {
 
     // Don't return more than 'count_' tuples from 'iter_'.
     if (next_iter_row_number_ - offset_ >= count_) {
-      Finish(absl::nullopt);
+      Finish(std::nullopt);
       return nullptr;
     }
 
@@ -2631,7 +2647,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
 
   absl::Status ResetForLeftInput(const Tuple* left_input) override {
     if (left_input == nullptr) {
-      matching_right_tuple_list_ = absl::nullopt;
+      matching_right_tuple_list_ = std::nullopt;
     } else {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleData> key,
                        CreateTupleMapKey(params_, *left_input->data,

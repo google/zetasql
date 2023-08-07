@@ -6688,3 +6688,73 @@ GROUP BY JSON_VALUE(json_col.C)
 ERROR: SELECT list expression references json_col.c which is neither grouped nor aggregated [at 1:29]
 SELECT Count(*), JSON_VALUE(json_col.c)
                             ^
+
+==
+
+[language_features=V_1_3_PROTO_DEFAULT_IF_NULL]
+SELECT
+  PROTO_DEFAULT_IF_NULL(KitchenSink.int32_val)
+FROM TestTable
+GROUP BY PROTO_DEFAULT_IF_NULL(KitchenSink.int32_val)
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#4 AS `$col1` [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.$groupbycol1#4]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.$groupbycol1#4]
+        +-input_scan=
+        | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
+        +-group_by_list=
+          +-$groupbycol1#4 :=
+            +-GetProtoField
+              +-type=INT32
+              +-expr=
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              +-field_descriptor=int32_val
+              +-default_value=77
+              +-return_default_value_when_unset=TRUE
+==
+
+[language_features=V_1_3_PROTO_DEFAULT_IF_NULL,V_1_1_ORDER_BY_IN_AGGREGATE]
+SELECT
+  ARRAY_AGG(
+    DISTINCT PROTO_DEFAULT_IF_NULL(KitchenSink.int32_val)
+    ORDER BY PROTO_DEFAULT_IF_NULL(KitchenSink.int32_val))
+FROM TestTable
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#5 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#5]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#5]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[TestTable.KitchenSink#3, $orderby.$orderbycol1#4]
+        |   +-expr_list=
+        |   | +-$orderbycol1#4 :=
+        |   |   +-GetProtoField
+        |   |     +-type=INT32
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |     +-field_descriptor=int32_val
+        |   |     +-default_value=77
+        |   |     +-return_default_value_when_unset=TRUE
+        |   +-input_scan=
+        |     +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
+        +-aggregate_list=
+          +-$agg1#5 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
+              +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#4)
+              +-distinct=TRUE
+              +-order_by_item_list=
+                +-OrderByItem
+                  +-column_ref=
+                    +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#4)

@@ -120,7 +120,7 @@ static Value MakeProtoValue(const google::protobuf::Message* msg) {
 }
 
 static std::string ParametersWithSeparator(int num_parameters,
-                                           const std::string& separator) {
+                                           absl::string_view separator) {
   std::vector<std::string> arg_str;
   arg_str.reserve(num_parameters);
   for (int i = 0; i < num_parameters; i++) {
@@ -443,17 +443,20 @@ ComplianceCodebasedTests::~ComplianceCodebasedTests() {}
 
 void ComplianceCodebasedTests::RunStatementTests(
     const std::vector<QueryParamsWithResult>& statement_tests,
-    const std::string& sql_string) {
+    absl::string_view sql_string) {
   return RunStatementTestsCustom(
       statement_tests,
-      [sql_string](const QueryParamsWithResult& p) { return sql_string; });
+      [sql_string = std::string(sql_string)](const QueryParamsWithResult& p) {
+        return sql_string;
+      });
 }
 
 void ComplianceCodebasedTests::RunFunctionTestsInfix(
     const std::vector<QueryParamsWithResult>& function_tests,
-    const std::string& operator_name) {
+    absl::string_view operator_name) {
   return RunStatementTestsCustom(
-      function_tests, [operator_name](const QueryParamsWithResult& p) {
+      function_tests, [operator_name = std::string(operator_name)](
+                          const QueryParamsWithResult& p) {
         return ParametersWithSeparator(p.num_params(),
                                        absl::StrCat(" ", operator_name, " "));
       });
@@ -486,9 +489,10 @@ void ComplianceCodebasedTests::RunFunctionTestsInOperatorUnnestArray(
 
 void ComplianceCodebasedTests::RunFunctionTestsPrefix(
     const std::vector<QueryParamsWithResult>& function_tests,
-    const std::string& function_name) {
+    absl::string_view function_name) {
   return RunStatementTestsCustom(
-      function_tests, [function_name](const QueryParamsWithResult& p) {
+      function_tests, [function_name = std::string(function_name)](
+                          const QueryParamsWithResult& p) {
         return absl::StrCat(function_name, "(",
                             ParametersWithSeparator(p.num_params(), ", "), ")");
       });
@@ -541,11 +545,11 @@ std::vector<FunctionTestCall> ComplianceCodebasedTests::AddSafeFunctionCalls(
 // "safe_error_mode__.*" without excluding tests for function that actually
 // start with "SAFE_".
 static std::string AddPrefixForSafeFunctionCalls(
-    const std::string& function_name) {
+    absl::string_view function_name) {
   if (absl::StartsWith(function_name, "safe.")) {
     return absl::StrCat("safe_error_mode__", function_name);
   }
-  return function_name;
+  return std::string(function_name);
 }
 
 void ComplianceCodebasedTests::RunFunctionCalls(
@@ -564,7 +568,7 @@ void ComplianceCodebasedTests::RunFunctionCalls(
 
 void ComplianceCodebasedTests::RunFunctionCalls(
     const std::vector<QueryParamsWithResult>& test_cases,
-    const std::string& function_name) {
+    absl::string_view function_name) {
   std::vector<FunctionTestCall> function_test_calls;
   function_test_calls.reserve(test_cases.size());
   for (const QueryParamsWithResult& test_case : test_cases) {
@@ -625,7 +629,7 @@ void ComplianceCodebasedTests::RunStatementTestsCustom(
 }
 
 void ComplianceCodebasedTests::RunStatementOnFeatures(
-    const std::string& sql, const QueryParamsWithResult& params) {
+    absl::string_view sql, const QueryParamsWithResult& params) {
   if (!DriverCanRunTests()) {
     return;
   }
@@ -2582,7 +2586,7 @@ WrapProtoFieldTestCasesForCivilTime(
 
 void ComplianceCodebasedTests::TestProtoFieldImpl(
     const Value& null_value, const Value& empty_value,
-    const Value& filled_value, const std::string& proto_name,
+    const Value& filled_value, absl::string_view proto_name,
     const std::string& field_name, const ValueConstructor& expected_default,
     const ValueConstructor& expected_filled_value,
     const absl::Status& expected_status, const TestProtoFieldOptions& options) {
@@ -3319,7 +3323,7 @@ TEST_F(ComplianceCodebasedTests, TablesampleRepeatableTests) {
     return;
   }
 
-  auto test_query_is_repeatable = [&](const std::string& query) {
+  auto test_query_is_repeatable = [&](absl::string_view query) {
     constexpr int kNumIterations = 10;
     std::vector<absl::StatusOr<ComplianceTestCaseResult>> results;
     results.reserve(kNumIterations);

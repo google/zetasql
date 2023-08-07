@@ -2472,9 +2472,8 @@ FROM example;
  *--------------+--------+----------+------------+------------+-------*/
 ```
 
-### `REGEXP_MATCH`
-
-<p class="caution"><strong>Deprecated.</strong> Use <a href="#regexp_contains">REGEXP_CONTAINS</a>.</p>
+### `REGEXP_MATCH` (Deprecated) 
+<a id="regexp_match"></a>
 
 ```sql
 REGEXP_MATCH(value, regexp)
@@ -2485,6 +2484,10 @@ REGEXP_MATCH(value, regexp)
 Returns `TRUE` if `value` is a full match for the regular expression, `regexp`.
 
 If the `regexp` argument is invalid, the function returns an error.
+
+This function is deprecated. When possible, use
+[`REGEXP_CONTAINS`][regexp-contains] to find a partial match for a
+regular expression.
 
 Note: ZetaSQL provides regular expression support using the
 [re2][string-link-to-re2] library; see that documentation for its
@@ -2521,6 +2524,8 @@ FROM email_addresses;
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
+[regexp-contains]: https://github.com/google/zetasql/blob/master/docs/string_functions.md#regexp_contains
 
 ### `REGEXP_REPLACE`
 

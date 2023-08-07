@@ -651,9 +651,16 @@ const EnumType* RoundingModeEnumType();
 const EnumType* ArrayFindModeEnumType();
 
 // Accessor for the ZetaSQL enum Type
-// (differential_privacy::DifferentialPrivacyEnums::ReportFormat) that
+// (functions::DifferentialPrivacyEnums::ReportFormat) that
 // represents the report output format for differential privacy functions.
+// This is an opaque enum type.
 const EnumType* DifferentialPrivacyReportFormatEnumType();
+
+// Accessor for the enum type
+// (functions::DifferencialPrivacyEnums::GroupSelectionStrategy) that represents
+// different group selection strategies.
+// This is an opaque enum type.
+const EnumType* DifferentialPrivacyGroupSelectionStrategyEnumType();
 
 // Accessor for the enum type (functions::ArrayZipEnums::ArrayZipMode)
 // that represents the array zip mode to be used as an optional argument of the

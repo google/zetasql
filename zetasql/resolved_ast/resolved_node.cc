@@ -667,6 +667,21 @@ std::string ResolvedImportStmt::GetImportKindString() const {
   return ImportKindToString(import_kind_);
 }
 
+std::string ResolvedDropIndexStmt::IndexTypeToString(IndexType index_type) {
+  switch (index_type) {
+    case INDEX_SEARCH:
+      return "INDEX_SEARCH";
+    case INDEX_VECTOR:
+      return "INDEX_VECTOR";
+    case INDEX_DEFAULT:
+      return "INDEX";
+  }
+}
+
+std::string ResolvedDropIndexStmt::GetIndexTypeString() const {
+  return IndexTypeToString(index_type_);
+}
+
 absl::StatusOr<TypeParameters> ResolvedColumnAnnotations::GetFullTypeParameters(
     const Type* type) const {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();

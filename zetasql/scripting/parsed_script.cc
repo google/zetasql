@@ -443,8 +443,10 @@ absl::Status ParsedScript::GatherInformationAndRunChecksInternal() {
 
 absl::Status ParsedScript::GatherInformationAndRunChecks() {
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      error_message_mode(), script_text(),
-      GatherInformationAndRunChecksInternal());
+      error_message_mode(),
+      /*keep_error_location_payload=*/error_message_mode() ==
+          ERROR_MESSAGE_WITH_PAYLOAD,
+      script_text(), GatherInformationAndRunChecksInternal());
 }
 
 ParsedScript::ParsedScript(
@@ -468,6 +470,8 @@ absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateInternal(
     const VariableWithTypeParameterMap& predefined_variable_names) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ParseScript(script_string, parser_options, error_message_mode,
+                              /*keep_error_location_payload=*/
+                              error_message_mode == ERROR_MESSAGE_WITH_PAYLOAD,
                               &parser_output));
   const ASTScript* ast_script = parser_output->script();
   std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
@@ -597,8 +601,10 @@ ParsedScript::StringSet ParsedScript::GetAllNamedParameters() const {
 absl::Status ParsedScript::CheckQueryParameters(
     const ParsedScript::QueryParameters& parameters) const {
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      error_message_mode(), script_text(),
-      CheckQueryParametersInternal(parameters));
+      error_message_mode(),
+      /*keep_error_location_payload=*/error_message_mode() ==
+          ERROR_MESSAGE_WITH_PAYLOAD,
+      script_text(), CheckQueryParametersInternal(parameters));
 }
 
 absl::Status ParsedScript::CheckQueryParametersInternal(
@@ -627,7 +633,7 @@ absl::Status ParsedScript::CheckQueryParametersInternal(
     const ParsedScript::StringSet* known_named_parameters = nullptr;
     if (parameters.has_value()) {
       known_named_parameters =
-          absl::get_if<ParsedScript::StringSet>(&parameters.value());
+          std::get_if<ParsedScript::StringSet>(&parameters.value());
     }
     IdStringPool pool;
     for (absl::string_view parsed_name : named_parameters) {

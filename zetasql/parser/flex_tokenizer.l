@@ -130,7 +130,7 @@ constexpr char ::zetasql::parser::ZetaSqlFlexTokenizer::kEofSentinelInput[];
 %}
 
 %option c++ 8bit noyywrap nounput case-insensitive never-interactive
-%option nodefault warn stack ecs
+%option nodefault warn stack full
 
 /* These are some basic regex definitions that are used in the lexer rules
    below.
@@ -473,26 +473,7 @@ enforced { return BisonParserImpl::token::KW_ENFORCED; }
 enum { return BisonParserImpl::token::KW_ENUM; }
 error { return BisonParserImpl::token::KW_ERROR; }
 escape { return BisonParserImpl::token::KW_ESCAPE; }
-except/{opt_whitespace}"(" { return BisonParserImpl::token::KW_EXCEPT; }
-except/{whitespace}(all|distinct|"@") {
-  if (mode_ == BisonParserMode::kTokenizer ||
-      mode_ == BisonParserMode::kTokenizerPreserveComments ||
-      mode_ == BisonParserMode::kMacroBody) {
-    return BisonParserImpl::token::KW_EXCEPT;
-  }
-  return BisonParserImpl::token::KW_EXCEPT_IN_SET_OP;
-}
-except {
-  if (mode_ == BisonParserMode::kTokenizer ||
-      mode_ == BisonParserMode::kTokenizerPreserveComments ||
-      mode_ == BisonParserMode::kMacroBody) {
-    // In raw tokenization mode, this may be legal.
-    return BisonParserImpl::token::KW_EXCEPT;
-  }
-  SetOverrideError(*yylloc,
-                   "EXCEPT must be followed by ALL, DISTINCT, or \"(\"");
-  yyterminate();
-}
+except { return BisonParserImpl::token::KW_EXCEPT; }
 exception { return BisonParserImpl::token::KW_EXCEPTION; }
 exclude { return BisonParserImpl::token::KW_EXCLUDE; }
 execute { return BisonParserImpl::token::KW_EXECUTE; }
@@ -583,23 +564,6 @@ natural { return BisonParserImpl::token::KW_NATURAL; }
 new { return BisonParserImpl::token::KW_NEW; }
 no { return BisonParserImpl::token::KW_NO; }
 not { return BisonParserImpl::token::KW_NOT; }
- /* This returns a different token because returning KW_NOT would confuse the
-    operator precedence parsing. Boolean NOT has a different precedence than
-    NOT BETWEEN/IN/LIKE/DISTINCT. The final character at the end is intended to
-    avoid cases like "NOT Info.foo" being interpreted as having a NOT for IN.
-    This unfortunately doesn't match at EOF, so "NOT IN" at the very end of the
-    file will cause bad error messages. There is no situation where that is
-    valid syntax, so there will never be any rejections as a result.
- */
-not{whitespace}(between|in|like|distinct)[^A-Z_0-9] {
-  SET_RETURN_PREFIX_LENGTH(3);
-  if (mode_ == BisonParserMode::kTokenizer ||
-      mode_ == BisonParserMode::kTokenizerPreserveComments ||
-      mode_ == BisonParserMode::kMacroBody) {
-    return BisonParserImpl::token::KW_NOT;
-  }
-  return BisonParserImpl::token::KW_NOT_SPECIAL;
-}
 null { return BisonParserImpl::token::KW_NULL; }
 nulls { return BisonParserImpl::token::KW_NULLS; }
 numeric { return BisonParserImpl::token::KW_NUMERIC; }
@@ -718,6 +682,7 @@ update { return BisonParserImpl::token::KW_UPDATE; }
 using { return BisonParserImpl::token::KW_USING; }
 value { return BisonParserImpl::token::KW_VALUE; }
 values { return BisonParserImpl::token::KW_VALUES; }
+vector { return BisonParserImpl::token::KW_VECTOR; }
 view { return BisonParserImpl::token::KW_VIEW; }
 views { return BisonParserImpl::token::KW_VIEWS; }
 volatile { return BisonParserImpl::token::KW_VOLATILE; }
@@ -726,9 +691,6 @@ when { return BisonParserImpl::token::KW_WHEN; }
 where { return BisonParserImpl::token::KW_WHERE; }
 while { return BisonParserImpl::token::KW_WHILE; }
 window { return BisonParserImpl::token::KW_WINDOW; }
-with/{opt_whitespace}"(" {
-  return BisonParserImpl::token::KW_WITH_STARTING_WITH_EXPRESSION;
-}
 with { return BisonParserImpl::token::KW_WITH; }
 within { return BisonParserImpl::token::KW_WITHIN; }
 write { return BisonParserImpl::token::KW_WRITE; }
@@ -807,7 +769,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   // is an identifier or unreserved keyword, then we should tokenize this
   // as "identifier.".
   if (YYText()[0] == '.' &&
-      IsDotGeneralizedIdentifierPrefixToken(prev_token_)) {
+      IsDotGeneralizedIdentifierPrefixToken(prev_flex_token_)) {
     yy_push_state(DOT_IDENTIFIER);
     SET_RETURN_PREFIX_LENGTH(1);
     return '.';
@@ -839,7 +801,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   // is an identifier or unreserved keyword, then we should tokenize this
   // as "identifier.".
   if (YYText()[0] == '.' &&
-      IsDotGeneralizedIdentifierPrefixToken(prev_token_)) {
+      IsDotGeneralizedIdentifierPrefixToken(prev_flex_token_)) {
     yy_push_state(DOT_IDENTIFIER);
     SET_RETURN_PREFIX_LENGTH(1);
     return '.';
@@ -910,8 +872,8 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 "<="                      { return BisonParserImpl::token::KW_LESS_EQUALS; }
  /* Don't recognize these in ARRAY<> or STRUCT<> context. */
 "<>"                      {
-  if (prev_token_ == BisonParserImpl::token::KW_ARRAY ||
-      prev_token_ == BisonParserImpl::token::KW_STRUCT) {
+  if (prev_flex_token_ == BisonParserImpl::token::KW_ARRAY ||
+      prev_flex_token_ == BisonParserImpl::token::KW_STRUCT) {
     // Match only the '<', and move to the same state that that production would
     // have moved to.
     yy_push_state(IN_ARRAY_OR_STRUCT_TYPE);
@@ -929,8 +891,8 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   return BisonParserImpl::token::KW_LAMBDA_ARROW;
 }
 "<"                       {
-  if (prev_token_ == BisonParserImpl::token::KW_ARRAY ||
-      prev_token_ == BisonParserImpl::token::KW_STRUCT) {
+  if (prev_flex_token_ == BisonParserImpl::token::KW_ARRAY ||
+      prev_flex_token_ == BisonParserImpl::token::KW_STRUCT) {
     // Switch to a mode that does not recognize >>. This only works as long as
     // there are no legal "independent" < and > inside array or struct types
     // (i.e., without ARRAY or STRUCT preceding) in the grammar. If there are,
@@ -972,7 +934,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 "@"                       { return '@'; }
 "@@"                      { return BisonParserImpl::token::KW_DOUBLE_AT; }
 "." {
-  if (IsDotGeneralizedIdentifierPrefixToken(prev_token_) ) {
+  if (IsDotGeneralizedIdentifierPrefixToken(prev_flex_token_) ) {
     // When an identifier or unreserved keyword is followed by a dot, always
     // move to DOT_IDENTIFIER mode. This can recognize keywords as an
     // identifier.

@@ -53,6 +53,11 @@ of bazel we test with, but other versions may work), simply run:
 
 ```bazel build ...```
 
+If your Mac build fails due the python error
+ `ModuleNotFoundError: no module named 'google.protobuf'`, run
+ `pip install protobuf==<version>` to install python protobuf first. The
+ protobuf version can be found in the zetasql_deps_step_2.bzl file.
+
 ## How to add as a Dependency in bazel
 See the (WORKSPACE) file, as it is a little unusual.
 

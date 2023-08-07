@@ -57,7 +57,7 @@ std::optional<int> TupleSchema::FindIndexForVariable(
     const VariableId& variable) const {
   auto iter = vars_to_idxs_.find(variable);
   if (iter == vars_to_idxs_.end()) {
-    return absl::nullopt;
+    return std::nullopt;
   } else {
     return *iter;
   }

@@ -234,8 +234,8 @@ class Algebrizer {
   // ResolvedColumnRef, a ResolvedParameter, or a ResolvedExpressionColumn.
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGetProtoFieldOfPath(
       const ResolvedExpr* column_or_param_expr,
-      const std::vector<absl::variant<const ResolvedGetProtoField*,
-                                      const ResolvedGetStructField*>>& path);
+      const std::vector<std::variant<const ResolvedGetProtoField*,
+                                     const ResolvedGetStructField*>>& path);
 
   // Algebrize specific expressions.
   absl::StatusOr<std::unique_ptr<AggregateArg>>
@@ -780,13 +780,13 @@ class Algebrizer {
 
     std::string DebugString() const {
       if (std::holds_alternative<int>(position_or_name_)) {
-        return absl::StrCat("$", *absl::get_if<int>(&position_or_name_));
+        return absl::StrCat("$", *std::get_if<int>(&position_or_name_));
       }
-      return absl::StrCat("$", *absl::get_if<std::string>(&position_or_name_));
+      return absl::StrCat("$", *std::get_if<std::string>(&position_or_name_));
     }
 
    private:
-    absl::variant<int, std::string> position_or_name_;
+    std::variant<int, std::string> position_or_name_;
   };
 
   // Represents a column or a parameter (or a ResolvedExpressionColumn, which in
@@ -815,18 +815,18 @@ class Algebrizer {
 
     std::string DebugString() const {
       if (std::holds_alternative<ResolvedColumn>(column_or_param_)) {
-        return absl::get_if<ResolvedColumn>(&column_or_param_)->DebugString();
+        return std::get_if<ResolvedColumn>(&column_or_param_)->DebugString();
       }
       if (std::holds_alternative<Parameter>(column_or_param_)) {
-        return absl::get_if<Parameter>(&column_or_param_)->DebugString();
+        return std::get_if<Parameter>(&column_or_param_)->DebugString();
       }
-      return *absl::get_if<std::string>(&column_or_param_);
+      return *std::get_if<std::string>(&column_or_param_);
     }
 
    private:
     // Stores a ResolvedColumn, a Parameter (for a ResolvedParameter), or the
     // name of a ResolvedExpressionColumn.
-    using StorageType = absl::variant<ResolvedColumn, Parameter, std::string>;
+    using StorageType = std::variant<ResolvedColumn, Parameter, std::string>;
     StorageType column_or_param_;
   };
 

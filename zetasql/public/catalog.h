@@ -936,19 +936,61 @@ class Column {
   // See: (broken link).
   virtual bool CanUpdateUnwritableToDefault() const { return false; }
 
-  // Returns true if the column has a default value, false otherwise.
-  virtual bool HasDefaultValue() const { return false; }
+  // The class defines the attributes of generated or default expression of a
+  // column if they exist. It provides
+  // 1. The kind of expression as default or generated.
+  // 2. The string representation of the expression.
+  // 3. The analyzed expression.
+  class ExpressionAttributes {
+   public:
+    enum class ExpressionKind {
+      DEFAULT,
+      GENERATED,
+    };
+    ExpressionAttributes(const ExpressionKind expression_kind,
+                         const std::string& expression_string,
+                         const ResolvedExpr* resolved_expression)
+        : expression_kind_(expression_kind),
+          expression_string_(expression_string),
+          resolved_expression_(resolved_expression) {}
+    ExpressionKind GetExpressionKind() const { return expression_kind_; }
+    const std::string& GetExpressionString() const {
+      return expression_string_;
+    }
+    const ResolvedExpr* GetResolvedExpression() const {
+      ABSL_DCHECK(resolved_expression_ != nullptr);
+      return resolved_expression_;
+    }
 
-  // Returns a string representation of the default expression if the column has
-  // a default value.
-  virtual std::optional<std::string> ExpressionString() const {
+   private:
+    // This class uses implicitly defined copy assignment operator. Hence, the
+    // members are not declared as consts.
+    ExpressionKind expression_kind_;
+    std::string expression_string_;
+    const ResolvedExpr* resolved_expression_;  // not owned
+  };
+
+  // Returns ExpressionAttributes if a column has default or generated
+  // Expression.
+  virtual std::optional<const ExpressionAttributes> GetExpression() const {
     return std::nullopt;
   }
 
-  // Returns the analyzed default expression if the column has a default value.
-  // The pointer is not owned by the column, ownership is not transferred
-  // through this function.
-  virtual const ResolvedExpr* Expression() const { return nullptr; }
+  // Returns true if the column has a default expression, false otherwise.
+  bool HasDefaultExpression() const {
+    const auto& expression = GetExpression();
+    if (!expression.has_value()) return false;
+    return expression->GetExpressionKind() ==
+           ExpressionAttributes::ExpressionKind::DEFAULT;
+  }
+
+  // Returns true if the column has a generated expression, false otherwise.
+  bool HasGeneratedExpression() const {
+    const auto& expression = GetExpression();
+    if (!expression.has_value()) return false;
+    return expression->GetExpressionKind() ==
+           ExpressionAttributes::ExpressionKind::GENERATED;
+  }
 
   // Returns whether or not this Column is a specific column interface or
   // implementation.

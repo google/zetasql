@@ -65,7 +65,7 @@ std::vector<FunctionTestCall> GetStringConcatTests() {
 
 // Tests or SUBSTR() function.
 std::vector<FunctionTestCall> GetFunctionTestsSubstr(
-    const std::string& function_name) {
+    absl::string_view function_name) {
   std::vector<FunctionTestCall> results = {
       // substr(string, pos) -> string
       {function_name, {NullString(), 0ll}, NullString()},

@@ -110,6 +110,12 @@ enum class ImportType {
   kProto,
 };
 
+enum class IndexTypeKeywords {
+  kNone,
+  kSearch,
+  kVector,
+};
+
 // This node is used for temporarily aggregating together components of an
 // identifier that are separated by various characters, such as slash ("/"),
 // dash ("-"), and colon (":") to enable supporting table paths of the form:
@@ -177,9 +183,10 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   // concatenate the components of each sublist together to form a single
   // identifier and return a list of these identifiers, which can be used to
   // build an ASTPathExpression.
+  template <typename Location>
   static inline absl::StatusOr<std::vector<zetasql::ASTNode*>> BuildPathParts(
-      const zetasql_bison_parser::location& bison_location,
-      PathParts raw_parts, zetasql::parser::BisonParser* parser) {
+      const Location& bison_location, PathParts raw_parts,
+      zetasql::parser::BisonParser* parser) {
     if (raw_parts.empty()) {
       return absl::InvalidArgumentError(
           "Internal error: Empty slashed path expression");
@@ -231,20 +238,22 @@ inline ASTNodeType* WithExtraChildren(
 
 // Returns the first location in 'locations' that is not empty. If none of the
 // locations are nonempty, returns the first location.
-inline zetasql_bison_parser::location FirstNonEmptyLocation(
-    absl::Span<const zetasql_bison_parser::location> locations) {
-  for (const zetasql_bison_parser::location& location : locations) {
-    if (location.begin.column != location.end.column) {
-      return location;
-    }
+template <typename Location>
+inline Location FirstNonEmptyLocation(const Location& a, const Location& b) {
+  if (a.begin.column != a.end.column) {
+    return a;
   }
-  return locations[0];
+  if (b.begin.column != b.end.column) {
+    return b;
+  }
+  return a;
 }
 
-inline zetasql_bison_parser::location NonEmptyRangeLocation(
-    absl::Span<const zetasql_bison_parser::location> locations) {
-  std::optional<zetasql_bison_parser::location> range;
-  for (const zetasql_bison_parser::location& location : locations) {
+template <typename Location, typename... MoreLocations>
+inline Location NonEmptyRangeLocation(const Location& first_location,
+                                      const MoreLocations&... locations) {
+  std::optional<Location> range;
+  for (const Location& location : {first_location, locations...}) {
     if (location.begin.column != location.end.column) {
       if (!range.has_value()) {
         range = location;
@@ -261,7 +270,7 @@ inline zetasql_bison_parser::location NonEmptyRangeLocation(
   if (range.has_value()) {
     return *range;
   }
-  return locations[0];
+  return first_location;
 }
 inline bool IsUnparenthesizedNotExpression(zetasql::ASTNode* node) {
   using zetasql::ASTUnaryExpression;

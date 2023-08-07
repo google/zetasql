@@ -67,7 +67,7 @@
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/clock.h"
 
-using ::absl::nullopt;
+using ::std::nullopt;
 
 using ::testing::_;
 using ::testing::ContainsRegex;

@@ -337,6 +337,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"using", KW_USING, kReserved},
     {"value", KW_VALUE},
     {"values", KW_VALUES},
+    {"vector", KW_VECTOR},
     {"view", KW_VIEW},
     {"views", KW_VIEWS},
     {"volatile", KW_VOLATILE},

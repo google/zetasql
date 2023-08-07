@@ -327,6 +327,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     const std::vector<NamedArgumentInfo>& named_arguments,
     int num_repeated_args_repetitions,
     bool always_include_omitted_named_arguments_in_index_mapping,
+    bool show_mismatch_details,
     std::vector<ArgIndexEntry>* index_mapping) const {
   // Make sure the language feature is enabled.
   if (!named_arguments.empty() &&
@@ -384,8 +385,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     }
     // Make sure the provided argument name exists in the function signature.
     if (!argument_names_from_signature_options.contains(provided_arg_name)) {
-      if (resolver_->analyzer_options()
-              .show_function_signature_mismatch_details()) {
+      if (show_mismatch_details) {
         return absl::StrCat("Named argument ",
                             ToAlwaysQuotedIdentifierLiteral(provided_arg_name),
                             " does not exist in signature");
@@ -402,8 +402,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
         argument_names_from_signature_options[provided_arg_name];
     ZETASQL_RET_CHECK(argument_options != nullptr);
     if (argument_options->named_argument_kind() == kPositionalOnly) {
-      if (resolver_->analyzer_options()
-              .show_function_signature_mismatch_details()) {
+      if (show_mismatch_details) {
         return absl::StrCat("Argument ",
                             ToAlwaysQuotedIdentifierLiteral(provided_arg_name),
                             " must by supplied by position, not by name");
@@ -462,8 +461,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       // for this positional argument that also appears later as a named
       // argument in the function call.
       if (!signature_arg_name.empty() && named_argument_call_index != nullptr) {
-        if (resolver_->analyzer_options()
-                .show_function_signature_mismatch_details()) {
+        if (show_mismatch_details) {
           return absl::StrCat(
               "Named argument ",
               ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
@@ -483,8 +481,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       // name positionally when the options require that it must be named.
       if (!signature_arg_name.empty() &&
           arg_type.options().named_argument_kind() == kNamedOnly) {
-        if (resolver_->analyzer_options()
-                .show_function_signature_mismatch_details()) {
+        if (show_mismatch_details) {
           return absl::StrCat(
               "Positional argument at ", call_arg_index + 1,
               " is invalid because argument ",
@@ -537,8 +534,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
                << " is missing repeated arguments.";
       }
       if (arg_type.required()) {
-        if (resolver_->analyzer_options()
-                .show_function_signature_mismatch_details()) {
+        if (show_mismatch_details) {
           return !signature_arg_name.empty()
                      ? absl::StrCat(
                            "Required named argument ",
@@ -784,8 +780,7 @@ FunctionResolver::GenerateErrorMessageWithSupportedSignatures(
   if (!show_detailed_messages) {
     supported_signatures = function->GetSupportedSignaturesUserFacingText(
         resolver_->language(), print_style, &num_signatures,
-        resolver_->analyzer_options()
-            .show_function_signature_mismatch_details());
+        show_detailed_messages);
   } else {
     ZETASQL_ASSIGN_OR_RETURN(supported_signatures, GetSupportedSignaturesWithMessage(
                                                function, *mismatch_errors,
@@ -842,6 +837,7 @@ FunctionResolver::FindMatchingSignature(
   SignatureMatchResult best_result;
   std::vector<FunctionArgumentOverride> best_result_arg_overrides;
   bool seen_matched_signature_with_lambda = false;
+  bool show_mismatch_details = mismatch_errors != nullptr;
 
   ZETASQL_VLOG(6) << "FindMatchingSignature for function: "
           << function->DebugString(/*verbose=*/true) << "\n  for arguments: "
@@ -852,7 +848,7 @@ FunctionResolver::FindMatchingSignature(
   const int num_provided_args = static_cast<int>(arg_locations_in.size());
   const int num_signatures = function->NumSignatures();
   std::vector<InputArgumentType> original_input_arguments = *input_arguments;
-  if (mismatch_errors != nullptr) {
+  if (show_mismatch_details) {
     mismatch_errors->reserve(num_signatures);
   }
   for (const FunctionSignature& signature : function->signatures()) {
@@ -863,7 +859,7 @@ FunctionResolver::FindMatchingSignature(
     // the internal signature will be matched.
     if (signature.IsInternal() && !arg_locations_in.empty() &&
         arg_locations_in[0]->node_kind() != FakeASTNode::kConcreteNodeKind) {
-      if (mismatch_errors != nullptr) {
+      if (show_mismatch_details) {
         mismatch_errors->push_back("Internal error");
       }
       continue;
@@ -890,7 +886,7 @@ FunctionResolver::FindMatchingSignature(
                 FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
         return MakeSqlErrorAt(ast_location) << error_message;
       }
-      if (mismatch_errors != nullptr) {
+      if (show_mismatch_details) {
         ZETASQL_RET_CHECK(!signature_match_result.mismatch_message().empty());
         mismatch_errors->push_back(signature_match_result.mismatch_message());
       }
@@ -903,14 +899,13 @@ FunctionResolver::FindMatchingSignature(
             function->FullName(), signature, ast_location, arg_locations_in,
             named_arguments, repetitions,
             /*always_include_omitted_named_arguments_in_index_mapping=*/true,
-            &arg_index_mapping);
+            show_mismatch_details, &arg_index_mapping);
     // NOTE: Some errors means the call will match no signature providing the
     // same named argument twice) while others means this signature mismatches
     // (for example providing unknown argument name for a signature). This is
     // better handled below when show_function_signature_mismatch_details is
     // enabled.
-    if (!resolver_->analyzer_options()
-             .show_function_signature_mismatch_details()) {
+    if (!show_mismatch_details) {
       if (!mismatch_message_or.ok()) {
         // If <status> was not ok then the given signature is not a match.
         // If there are additional signatures then we will proceed to the next
@@ -929,7 +924,7 @@ FunctionResolver::FindMatchingSignature(
         return mismatch_message_or.status();
       }
       // Record the mismatch message when it's set.
-      if (!mismatch_message_or.value().empty()) {
+      if (!mismatch_message_or.value().empty() && show_mismatch_details) {
         mismatch_errors->push_back(mismatch_message_or.value());
         continue;
       }
@@ -952,7 +947,7 @@ FunctionResolver::FindMatchingSignature(
                          &result_concrete_signature, &signature_match_result,
                          &arg_index_mapping, &sig_arg_overrides));
     if (!is_match) {
-      if (mismatch_errors != nullptr) {
+      if (show_mismatch_details) {
         mismatch_errors->push_back(signature_match_result.mismatch_message());
       }
       continue;
@@ -966,7 +961,7 @@ FunctionResolver::FindMatchingSignature(
       // If this signature has argument constraints and they are not
       // satisfied then ignore the signature.
       // TODO: reveal constraint details.
-      if (mismatch_errors != nullptr) {
+      if (show_mismatch_details) {
         mismatch_errors->push_back("Argument constraints are not satisfied");
       }
       continue;
@@ -1624,7 +1619,12 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   std::unique_ptr<const FunctionSignature> result_signature;
   std::vector<FunctionArgumentOverride> arg_overrides;
   std::vector<ArgIndexEntry> arg_reorder_index_mapping;
+  // When function has SupportedSignaturesCallback which returns list of
+  // signatures in one string, we cannot interleave signatures and mismatch
+  // errors.
+  // TODO: better support SupportedSignaturesCallback.
   bool show_mismatch_details =
+      function->GetSupportedSignaturesCallback() == nullptr &&
       resolver_->analyzer_options().show_function_signature_mismatch_details();
   auto mismatch_errors = show_mismatch_details
                              ? std::make_unique<std::vector<std::string>>()
@@ -1650,7 +1650,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
             named_arguments.empty()
                 ? FunctionArgumentType::NamePrintingStyle::kIfNamedOnly
                 : FunctionArgumentType::NamePrintingStyle::kIfNotPositionalOnly,
-            show_mismatch_details ? mismatch_errors.get() : nullptr));
+            mismatch_errors.get()));
     return MakeSqlErrorAtNode(ast_location, include_leftmost_child)
            << error_message;
   }

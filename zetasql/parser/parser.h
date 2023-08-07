@@ -69,9 +69,6 @@ class ParserOptions {
   // then the parser APIs will create a new IdStringPool for every query that is
   // parsed. WARNING: If this is set, calling Parse functions concurrently with
   // the same ParserOptions is not allowed.
-  void set_id_string_pool(const std::shared_ptr<IdStringPool>& id_string_pool) {
-    id_string_pool_ = id_string_pool;
-  }
   std::shared_ptr<IdStringPool> id_string_pool() const {
     return id_string_pool_;
   }

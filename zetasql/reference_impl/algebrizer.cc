@@ -1085,8 +1085,8 @@ static ProtoFieldAccessInfo CreateProtoFieldAccessInfo(
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeGetProtoField(
     const ResolvedGetProtoField* get_proto_field) {
   // Represent 'get_proto_field' as 'base_expression'.'path[0]'.'path[1]'. ...
-  std::vector<absl::variant<const ResolvedGetProtoField*,
-                            const ResolvedGetStructField*>>
+  std::vector<
+      std::variant<const ResolvedGetProtoField*, const ResolvedGetStructField*>>
       path;
   const ResolvedExpr* base_expression = get_proto_field;
   while (base_expression->node_kind() == RESOLVED_GET_PROTO_FIELD ||
@@ -1162,12 +1162,12 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeGetProtoField(
   bool first = true;
   for (const ResolvedGetProtoField* get_proto_field : proto_field_path) {
     ZETASQL_ASSIGN_OR_RETURN(ProtoFieldRegistry * registry,
-                     AddProtoFieldRegistry(/*id=*/absl::nullopt));
+                     AddProtoFieldRegistry(/*id=*/std::nullopt));
 
     ZETASQL_ASSIGN_OR_RETURN(
         const ProtoFieldReader* field_reader,
         AddProtoFieldReader(
-            /*id=*/absl::nullopt, CreateProtoFieldAccessInfo(*get_proto_field),
+            /*id=*/std::nullopt, CreateProtoFieldAccessInfo(*get_proto_field),
             registry));
 
     ZETASQL_ASSIGN_OR_RETURN(
@@ -1208,8 +1208,8 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFlattenedArg(
 absl::StatusOr<std::unique_ptr<ValueExpr>>
 Algebrizer::AlgebrizeGetProtoFieldOfPath(
     const ResolvedExpr* column_or_param_expr,
-    const std::vector<absl::variant<const ResolvedGetProtoField*,
-                                    const ResolvedGetStructField*>>& path) {
+    const std::vector<std::variant<const ResolvedGetProtoField*,
+                                   const ResolvedGetStructField*>>& path) {
   SharedProtoFieldPath column_and_field_path;
   switch (column_or_param_expr->node_kind()) {
     case RESOLVED_COLUMN_REF:
@@ -4534,7 +4534,7 @@ absl::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizePivotScan(
         // argument of STRING_AGG() is one such example). For simplicity, we
         // take the clone approach for all constant expressions, whether needed
         // or not.
-        pivot_expr_arg_vars.back().push_back(absl::nullopt);
+        pivot_expr_arg_vars.back().push_back(std::nullopt);
       } else {
         VariableId arg_var = variable_gen_->GetNewVariableName("pivot");
         ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> algebrized_arg,
@@ -4615,7 +4615,7 @@ absl::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizePivotScan(
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateArg> aggregator,
                      AlgebrizeAggregateFnWithAlgebrizedArguments(
                          agg_result_var,
-                         /*anonymization_options=*/absl::nullopt,
+                         /*anonymization_options=*/std::nullopt,
                          /*filter=*/std::move(algebrized_compare), pivot_expr,
                          std::move(algebrized_arguments),
                          /*group_rows_subquery=*/nullptr));
@@ -5336,12 +5336,13 @@ absl::Status Algebrizer::AlgebrizeDefaultExpressions(
   for (int i = 0; i < table_scan->column_index_list_size(); ++i) {
     const Column* column = table->GetColumn(table_scan->column_index_list(i));
     const ResolvedColumn& resolved_column = table_scan->column_list(i);
-    if (column->HasDefaultValue() && column->Expression() != nullptr) {
+    if (column->HasDefaultExpression()) {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value_expr,
-                       AlgebrizeExpression(column->Expression()));
-      const auto ret = column_expr_map->emplace(resolved_column.column_id(),
-                                                std::move(value_expr));
-      ZETASQL_RET_CHECK(ret.second);
+                       AlgebrizeExpression(
+                           column->GetExpression()->GetResolvedExpression()));
+      const auto& [iterator, is_inserted] = column_expr_map->emplace(
+          resolved_column.column_id(), std::move(value_expr));
+      ZETASQL_RET_CHECK(is_inserted);
     }
   }
 

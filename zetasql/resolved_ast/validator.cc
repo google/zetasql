@@ -2893,9 +2893,9 @@ absl::Status Validator::ValidateResolvedStatementInternal(
       status = ValidateResolvedDropRowAccessPolicyStmt(
           statement->GetAs<ResolvedDropRowAccessPolicyStmt>());
       break;
-    case RESOLVED_DROP_SEARCH_INDEX_STMT:
-      status = ValidateResolvedDropSearchIndexStmt(
-          statement->GetAs<ResolvedDropSearchIndexStmt>());
+    case RESOLVED_DROP_INDEX_STMT:
+      status = ValidateResolvedDropIndexStmt(
+          statement->GetAs<ResolvedDropIndexStmt>());
       break;
     case RESOLVED_GRANT_STMT:
       status = ValidateResolvedGrantStmt(
@@ -3063,6 +3063,9 @@ absl::Status Validator::ValidateResolvedIndexStmt(
           index_unnest_column->array_offset_column()->column());
     }
   }
+
+  // is_search and is_vector are mutually exclusive.
+  VALIDATOR_RET_CHECK(!stmt->is_search() || !stmt->is_vector());
 
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedComputedColumnList(
       visible_columns,
@@ -3800,7 +3803,11 @@ absl::Status Validator::ValidateResolvedCreateFunctionStmt(
   }
 
   if (stmt->connection() != nullptr) {
-    VALIDATOR_RET_CHECK(stmt->is_remote());
+    VALIDATOR_RET_CHECK(
+        stmt->is_remote() ||
+        (language_options_.LanguageFeatureEnabled(
+             FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION) &&
+         !stmt->language().empty()));
   }
 
   ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
@@ -4185,8 +4192,8 @@ absl::Status Validator::ValidateResolvedDropRowAccessPolicyStmt(
   return absl::OkStatus();
 }
 
-absl::Status Validator::ValidateResolvedDropSearchIndexStmt(
-    const ResolvedDropSearchIndexStmt* stmt) {
+absl::Status Validator::ValidateResolvedDropIndexStmt(
+    const ResolvedDropIndexStmt* stmt) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   return absl::OkStatus();
 }

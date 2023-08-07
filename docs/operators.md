@@ -241,6 +241,17 @@ statement.
       <td>Value does [not] match the pattern specified</td>
       <td>Binary</td>
     </tr>
+
+  <tr>
+    <td>&nbsp;</td>
+    <td>Quantified LIKE</td>
+    <td><code>STRING</code> and <code>BYTES</code></td>
+    <td>
+      Checks a search value for matches against several patterns.
+    </td>
+    <td>Binary</td>
+  </tr>
+
     <tr>
       <td>&nbsp;</td>
       <td><code>[NOT] BETWEEN</code></td>
@@ -2207,9 +2218,9 @@ This operator supports [collation][collation], but caveats apply:
 
         For example there are three ways to produce German sharp `ß`:
 
-        +`\u1E9E`
-        + `\U00DF`
-        + `ss`
+        +   `\u1E9E`
+        +   `\U00DF`
+        +   `ss`
 
         `\u1E9E` and `\U00DF` are considered equal but differ in tertiary.
         They are considered equal with `und:ci` collation but different from
@@ -2261,6 +2272,26 @@ SELECT NULL LIKE 'a%';
 ```sql
 -- Produces an error
 SELECT 'apple' LIKE NULL;
+```
+
+The following example illustrates how to search multiple patterns in an array
+to find a match with the `LIKE` operator:
+
+```sql
+WITH Words AS
+ (SELECT 'Intend with clarity.' as value UNION ALL
+  SELECT 'Secure with intention.' UNION ALL
+  SELECT 'Clarity and security.')
+SELECT value
+FROM Words
+WHERE ARRAY_INCLUDES(['%ity%', '%and%'], pattern->(Words.value LIKE pattern));
+
+/*------------------------+
+ | value                  |
+ +------------------------+
+ | Intend with clarity.   |
+ | Clarity and security.  |
+ +------------------------*/
 ```
 
 The following examples illustrate how collation can be used with the `LIKE`
@@ -2378,6 +2409,352 @@ is ignored.
 ```sql
 -- Returns TRUE
 COLLATE('\u0083', 'und:ci') LIKE '';
+```
+
+### Quantified `LIKE` operator 
+<a id="like_operator_quantified"></a>
+
+The quantified `LIKE` operator supports the following syntax:
+
+```sql
+search_value [NOT] LIKE quantifier patterns
+
+quantifier:
+ { ANY | SOME | ALL }
+
+patterns:
+  {
+    pattern_expression_list
+    | pattern_subquery
+    | pattern_array
+  }
+
+pattern_expression_list:
+  (expression[, ...])
+
+pattern_subquery:
+  (subquery)
+
+pattern_array:
+  UNNEST(array_expression)
+```
+
+**Description**
+
+Checks `search_value` for matches against several patterns. Each comparison is
+case-sensitive. Wildcard searches are supported.
+[Semantic rules][semantic-rules-quant-like] apply, but in general, `LIKE`
+returns `TRUE` if a matching pattern is found, `FALSE` if a matching pattern
+is not found, or otherwise `NULL`. `NOT LIKE` returns `FALSE` if a
+matching pattern is found, `TRUE` if a matching pattern is not found, or
+otherwise `NULL`.
+
++ `search_value`: The value to search for matching patterns. This value can be a
+  `STRING` or `BYTES` type.
++ `patterns`: The patterns to look for in the search value. Each pattern must
+  resolve to the same type as `search_value`.
+
+  + `pattern_expression_list`: A list of one or more patterns that match the
+    `search_value` type.
+
+  + `pattern_subquery`: A [subquery][operators-subqueries] that returns
+    a single column with the same type as `search_value`.
+
+  + `pattern_array`: An [`UNNEST`][operators-link-to-unnest]
+    operation that returns a column of values with
+    the same type as `search_value` from an array expression.
+
+  The regular expressions that are supported by the
+  [`LIKE` operator][like-operator] are also supported by `patterns` in the
+  [quantified `LIKE` operator][like-operator].
++ `quantifier`: Condition for pattern matching.
+
+  + `ANY`: Checks if the set of patterns contains at least one pattern that
+    matches the search value.
+
+  + `SOME`: Synonym for `ANY`.
+
+  + `ALL`: Checks if every pattern in the set of patterns matches the
+    search value.
+
+**Collation caveats**
+
+[Collation][collation] is supported, but with the following caveats:
+
++ The collation caveats that apply to the [`LIKE` operator][like-operator] also
+  apply to the quantified `LIKE` operator.
++ If a collation-supported input contains no collation specification or an
+  empty collation specification and another input contains an explicitly defined
+  collation, the explicitly defined collation is used for all of the inputs.
++ All inputs with a non-empty, explicitly defined collation specification must
+  have the same type of collation specification, otherwise an error is thrown.
+
+<a id="semantic_rules_quant_like"></a>
+
+**Semantics rules**
+
+When using the quantified `LIKE` operator with `ANY` or `SOME`, the
+following semantics apply in this order:
+
++ Returns `FALSE` if `patterns` is empty.
++ Returns `NULL` if `search_value` is `NULL`.
++ Returns `TRUE` if `search_value` matches at least one value in `patterns`.
++ Returns `NULL` if a pattern in `patterns` is `NULL` and other patterns
+  in `patterns` don't match.
++ Returns `FALSE`.
+
+When using the quantified `LIKE` operator with `ALL`, the following semantics
+apply in this order:
+
++ For `pattern_subquery`, returns `TRUE` if `patterns` is empty.
++ For `pattern_array`, returns `FALSE` if `patterns` is empty.
++ Returns `NULL` if `search_value` is `NULL`.
++ Returns `TRUE` if `search_value` matches all values in `patterns`.
++ Returns `NULL` if a pattern in `patterns` is `NULL` and other patterns
+  in `patterns` don't match.
++ Returns `FALSE`.
+
+When using the quantified `NOT LIKE` operator with `ANY` or `SOME`, the
+following semantics apply in this order:
+
++ For `pattern_subquery`, returns `TRUE` if `patterns` is empty.
++ For `pattern_array`, returns `TRUE` if `patterns` is empty.
++ Returns `NULL` if `search_value` is `NULL`.
++ Returns `FALSE` if `search_value` matches at least one value in `patterns`.
++ Returns `NULL` if a pattern in `patterns` is `NULL` and other patterns
+  in `patterns` don't match.
++ Returns `TRUE`.
+
+When using the quantified `NOT LIKE` operator with `ALL`, the following
+semantics apply in this order:
+
++ For `pattern_subquery`, returns `FALSE` if `patterns` is empty.
++ For `pattern_array`, returns `TRUE` if `patterns` is empty.
++ Returns `NULL` if `search_value` is `NULL`.
++ Returns `FALSE` if `search_value` matches all values in `patterns`.
++ Returns `NULL` if a pattern in `patterns` is `NULL` and other patterns
+  in `patterns` don't match.
++ Returns `TRUE`.
+
+**Return Data Type**
+
+`BOOL`
+
+**Examples**
+
+The following example checks to see if the `Intend%` or `%intention%`
+pattern exists in a value and produces that value if either pattern is found:
+
+```sql
+WITH Words AS
+ (SELECT 'Intend with clarity.' as value UNION ALL
+  SELECT 'Secure with intention.' UNION ALL
+  SELECT 'Clarity and security.')
+SELECT * FROM Words WHERE value LIKE ANY ('Intend%', '%intention%');
+
+/*------------------------+
+ | value                  |
+ +------------------------+
+ | Intend with clarity.   |
+ | Secure with intention. |
+ +------------------------*/
+```
+
+The following example checks to see if the `%ity%`
+pattern exists in a value and produces that value if the pattern is found.
+
+Example with `LIKE ALL`:
+
+```sql
+WITH Words AS
+ (SELECT 'Intend with clarity.' as value UNION ALL
+  SELECT 'Secure with intention.' UNION ALL
+  SELECT 'Clarity and security.')
+SELECT * FROM Words WHERE value LIKE ALL ('%ity%');
+
+/*-----------------------+
+ | value                 |
+ +-----------------------+
+ | Intend with clarity.  |
+ | Clarity and security. |
+ +-----------------------*/
+```
+
+The following example checks to see if the `%ity%`
+pattern exists in a value produces that value if the pattern
+is not found:
+
+```sql
+WITH Words AS
+ (SELECT 'Intend with clarity.' as value UNION ALL
+  SELECT 'Secure with intention.' UNION ALL
+  SELECT 'Clarity and security.')
+SELECT * FROM Words WHERE value NOT LIKE ('%ity%');
+
+/*------------------------+
+ | value                  |
+ +------------------------+
+ | Secure with intention. |
+ +------------------------*/
+```
+
+You can use a subquery as an expression in `patterns`. For example:
+
+```sql
+WITH Words AS
+ (SELECT 'Intend with clarity.' as value UNION ALL
+  SELECT 'Secure with intention.' UNION ALL
+  SELECT 'Clarity and security.')
+SELECT * FROM Words WHERE value LIKE ANY ((SELECT '%ion%'), '%and%');
+
+/*------------------------+
+ | value                  |
+ +------------------------+
+ | Secure with intention. |
+ | Clarity and security.  |
+ +------------------------*/
+```
+
+You can pass in a subquery for `patterns`. For example:
+
+```sql
+WITH Words AS
+ (SELECT 'Intend with clarity.' as value UNION ALL
+  SELECT 'Secure with intention.' UNION ALL
+  SELECT 'Clarity and security.')
+SELECT * FROM Words WHERE value LIKE ANY (SELECT '%with%');
+
+/*------------------------+
+ | value                  |
+ +------------------------+
+ | Intend with clarity.   |
+ | Secure with intention. |
+ +------------------------*/
+```
+
+You can pass in an array for `patterns`. For example:
+
+```sql
+WITH Words AS
+ (SELECT 'Intend with clarity.' as value UNION ALL
+  SELECT 'Secure with intention.' UNION ALL
+  SELECT 'Clarity and security.')
+SELECT * FROM Words WHERE value LIKE ANY UNNEST(['%ion%', '%and%']);
+
+/*------------------------+
+ | value                  |
+ +------------------------+
+ | Secure with intention. |
+ | Clarity and security.  |
+ +------------------------*/
+```
+
+You can pass in an array and subquery for `patterns`. For example:
+
+```sql
+WITH Words AS
+ (SELECT 'Intend with clarity.' as value UNION ALL
+  SELECT 'Secure with intention.' UNION ALL
+  SELECT 'Clarity and security.')
+SELECT *
+FROM Words
+WHERE
+  value LIKE ANY UNNEST(ARRAY(SELECT e FROM UNNEST(['%ion%', '%and%']) AS e));
+
+/*------------------------+
+ | value                  |
+ +------------------------+
+ | Secure with intention. |
+ | Clarity and security.  |
+ +------------------------*/
+```
+
+The following queries illustrate some of the semantic rules for the
+quantified `LIKE` operator:
+
+```sql
+-- Returns NULL
+SELECT NULL LIKE ANY ('a', 'b')
+```
+
+```sql
+-- Returns NULL
+SELECT NULL LIKE SOME ('a', 'b')
+```
+
+```sql
+-- Returns NULL
+SELECT NULL LIKE ALL ('a', 'b')
+```
+
+```sql
+-- Returns TRUE
+SELECT 'a' LIKE ANY ('a', NULL)
+```
+
+```sql
+-- Returns TRUE
+SELECT 'a' LIKE SOME ('a', NULL)
+```
+
+```sql
+-- Returns NULL
+SELECT 'a' LIKE ANY ('b', NULL)
+```
+
+```sql
+-- Returns NULL
+SELECT 'a' LIKE SOME ('b', NULL)
+```
+
+```sql
+-- Returns NULL
+SELECT 'a' LIKE ALL ('a', NULL)
+```
+
+```sql
+-- Returns FALSE
+SELECT 'a' LIKE ALL ('b', NULL)
+```
+
+```sql
+-- Returns TRUE
+SELECT 'a' LIKE ANY ('a', 'b')
+```
+
+```sql
+-- Returns TRUE
+SELECT 'a' LIKE SOME ('a', 'b')
+```
+
+```sql
+-- Returns FALSE
+SELECT 'a' LIKE ALL ('a', 'b')
+```
+
+```sql
+-- Returns TRUE
+SELECT 'abc' LIKE ANY ('a', '%a%')
+```
+
+```sql
+-- Returns TRUE
+SELECT COLLATE('a', 'und:ci') LIKE ALL ('a', 'A')
+```
+
+```sql
+-- Returns TRUE
+SELECT 'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A')
+```
+
+```sql
+-- Returns TRUE
+SELECT 'a' LIKE ALL ('%A%', COLLATE('a', 'und:ci'))
+```
+
+```sql
+-- Produces an error
+SELECT b'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A')
 ```
 
 ### `NEW` operator 
@@ -2591,6 +2968,12 @@ FROM UNNEST([
 [field-access-operator]: #field_access_operator
 
 [struct-subscript-operator]: #struct_subscript_operator
+
+[like-operator]: #like_operator
+
+[semantic-rules-quant-like]: #semantic_rules_quant_like
+
+[reg-expressions-quant-like]: #reg_expressions_quant_like
 
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
 

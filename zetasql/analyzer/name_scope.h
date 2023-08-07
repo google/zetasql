@@ -135,6 +135,16 @@ class ValidFieldInfoMap {
 
   void Clear();
 
+  // Find the entry in `name_path_list` whose name path is the
+  // longest prefix of `path_names`. If no entry is found returns false.
+  // If a matching entry is found, returns true along with the matching
+  // entry's target column in `resolved_column` and the entry's name path
+  // size in `name_at`.
+  static bool FindLongestMatchingPathIfAny(
+      const ValidNamePathList& name_path_list,
+      const std::vector<IdString>& path_names, ResolvedColumn* resolved_column,
+      int* name_at);
+
   const ResolvedColumnToValidNamePathsMap& map() const {
     return column_to_valid_name_paths_map_;
   }

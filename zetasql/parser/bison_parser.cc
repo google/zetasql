@@ -493,16 +493,5 @@ absl::Status BisonParser::Parse(
   return MakeSqlErrorAtPoint(error_location) << error_message;
 }
 
-absl::string_view BisonParser::GetFirstTokenOfNode(
-    const zetasql_bison_parser::location& bison_location) const {
-  absl::string_view text = GetInputText(bison_location);
-  for (int i = 0; i < text.size(); i++) {
-    if (absl::ascii_isblank(text[i])) {
-      return text.substr(0, i);
-    }
-  }
-  return text;
-}
-
 }  // namespace parser
 }  // namespace zetasql

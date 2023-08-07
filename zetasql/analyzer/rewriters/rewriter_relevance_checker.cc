@@ -80,15 +80,6 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
-  absl::Status VisitResolvedAggregateFunctionCall(
-      const ResolvedAggregateFunctionCall* node) override {
-    if (node->function()->Is<SQLFunctionInterface>() ||
-        node->function()->Is<TemplatedSQLFunction>()) {
-      applicable_rewrites_->insert(REWRITE_INLINE_SQL_UDAS);
-    }
-    return DefaultVisit(node);
-  }
-
   absl::Status VisitResolvedFunctionCall(
       const ResolvedFunctionCall* node) override {
     // Identify functions that have rewriting configured in their function
@@ -177,6 +168,21 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedAggregateScan(
       const ResolvedAggregateScan* node) override {
+    ZETASQL_RETURN_IF_ERROR(VisitResolvedAggregateScanBasePrivate(node));
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedAggregationThresholdAggregateScan(
+      const ResolvedAggregationThresholdAggregateScan* node) override {
+    ZETASQL_RETURN_IF_ERROR(VisitResolvedAggregateScanBasePrivate(node));
+    return DefaultVisit(node);
+  }
+
+ private:
+  absl::btree_set<ResolvedASTRewrite>* applicable_rewrites_;
+
+  absl::Status VisitResolvedAggregateScanBasePrivate(
+      const ResolvedAggregateScanBase* node) {
     for (const std::unique_ptr<const ResolvedGroupingSetBase>&
              grouping_set_base : node->grouping_set_list()) {
       if (grouping_set_base->Is<ResolvedRollup>() ||
@@ -185,11 +191,19 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
         break;
       }
     }
-    return DefaultVisit(node);
-  }
+    for (const auto& aggregate_comp_col : node->aggregate_list()) {
+      const auto& aggregate_expr = aggregate_comp_col->expr();
+      ZETASQL_RET_CHECK(aggregate_expr->Is<ResolvedAggregateFunctionCall>());
+      const auto& aggregate_func_call =
+          aggregate_expr->GetAs<ResolvedAggregateFunctionCall>();
+      if (aggregate_func_call->function()->Is<SQLFunctionInterface>() ||
+          aggregate_func_call->function()->Is<TemplatedSQLFunction>()) {
+        applicable_rewrites_->insert(REWRITE_INLINE_SQL_UDAS);
+      }
+    }
 
- private:
-  absl::btree_set<ResolvedASTRewrite>* applicable_rewrites_;
+    return absl::OkStatus();
+  }
 };
 
 absl::StatusOr<absl::btree_set<ResolvedASTRewrite>> FindRelevantRewriters(

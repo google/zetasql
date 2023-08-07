@@ -290,6 +290,11 @@ enum LanguageFeature {
   FEATURE_DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED = 95
       [(language_feature_options).in_development = true];
 
+  // Enables the group_selection_strategy=PUBLIC_GROUPS option. See
+  // (broken link).
+  FEATURE_DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS = 100
+      [(language_feature_options).in_development = true];
+
   // Enables SELECT WITH AGGREGATION_THRESHOLD syntax,
   // see: (broken link).
   FEATURE_AGGREGATION_THRESHOLD = 92;
@@ -1080,6 +1085,13 @@ enum LanguageFeature {
   // Enables PI, PI_NUMERIC, and PI_BIGNUMERIC function signatures, rewriters,
   // and end to end testing.
   FEATURE_V_1_4_PI_FUNCTIONS = 14029;
+
+  // Supporting CREATE FUNCTION LANGUAGE x WITH CONNECTION connection_name.
+  // (broken link)
+  // TODO: Remove "in_development" when language with connection is
+  // launched.
+  FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION = 14030
+      [(language_feature_options).in_development = true];
 
   // EXPERIMENTAL FEATURES -
   //    Do not add features in this section. Use the in_development annotation

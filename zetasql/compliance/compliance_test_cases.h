@@ -37,6 +37,7 @@
 #include "gtest/gtest.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -96,13 +97,13 @@ class ComplianceCodebasedTests : public SQLTestBase {
   // etc.
   void RunStatementTests(
       const std::vector<QueryParamsWithResult>& statement_tests,
-      const std::string& sql_string);
+      absl::string_view sql_string);
 
   // Takes 'operator_name' as input and creates a sql string of the kind @p0
   // op_name @p1 ... op_name @pn.
   void RunFunctionTestsInfix(
       const std::vector<QueryParamsWithResult>& function_tests,
-      const std::string& operator_name);
+      absl::string_view operator_name);
 
   // Creates a sql string of the kind @p0 IN (@p1, @p2, ...)
   void RunFunctionTestsInOperator(
@@ -116,7 +117,7 @@ class ComplianceCodebasedTests : public SQLTestBase {
   // function_name(@p0, @p1, ..., @pn).
   void RunFunctionTestsPrefix(
       const std::vector<QueryParamsWithResult>& function_tests,
-      const std::string& function_name);
+      absl::string_view function_name);
 
   // Return the original vector of tests, extended with an additional
   // SAFE-mode function call for each case that returns an error.
@@ -137,7 +138,7 @@ class ComplianceCodebasedTests : public SQLTestBase {
   // Same as above, but creates FunctionTestCall from the provided
   // QueryParamsWithResults and function_name.
   void RunFunctionCalls(const std::vector<QueryParamsWithResult>& test_cases,
-                        const std::string& function_name);
+                        absl::string_view function_name);
 
   // Runs the given normalize function tests.
   // function_name(@p0 [, mode]).
@@ -176,7 +177,7 @@ class ComplianceCodebasedTests : public SQLTestBase {
       const QueryParamsWithResult::FeatureSet& features);
 
   // Runs a statement with required and/or prohibited features.
-  void RunStatementOnFeatures(const std::string& sql,
+  void RunStatementOnFeatures(absl::string_view sql,
                               const QueryParamsWithResult& params);
 
   // Default TestDatabase used by many tests.
@@ -212,7 +213,7 @@ class ComplianceCodebasedTests : public SQLTestBase {
   //   options - behavior modifiers defined in the options class above
   void TestProtoFieldImpl(
       const Value& null_value, const Value& empty_value,
-      const Value& filled_value, const std::string& proto_name,
+      const Value& filled_value, absl::string_view proto_name,
       const std::string& field_name, const ValueConstructor& expected_default,
       const ValueConstructor& expected_filled_value,
       const absl::Status& expected_status = absl::OkStatus(),

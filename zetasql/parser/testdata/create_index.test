@@ -244,7 +244,8 @@ create index i1 on t1();
                       ^
 ==
 
-create {{|or replace}} {{|unique}} {{|search}} index {{|if not exists}} i1 on t1 (a)
+create {{|or replace}} {{|unique}} {{|search|vector}} index
+{{|if not exists}} i1 on t1 (a)
 options()
 --
 ALTERNATION GROUP: <empty>
@@ -311,6 +312,38 @@ CreateIndexStatement(SEARCH) [0-58] [create   search...options()]
 CREATE SEARCH INDEX IF NOT EXISTS i1 ON t1(a)
 OPTIONS()
 --
+ALTERNATION GROUP: vector,
+--
+CreateIndexStatement(VECTOR) [0-45] [create   vector...options()]
+  PathExpression [23-25] [i1]
+    Identifier(i1) [23-25] [i1]
+  PathExpression [29-31] [t1]
+    Identifier(t1) [29-31] [t1]
+  IndexItemList [32-35] [(a)]
+    OrderingExpression(ASC) [33-34] [a]
+      PathExpression [33-34] [a]
+        Identifier(a) [33-34] [a]
+  OptionsList [43-45] [()]
+--
+CREATE VECTOR INDEX i1 ON t1(a)
+OPTIONS()
+--
+ALTERNATION GROUP: vector,if not exists
+--
+CreateIndexStatement(VECTOR) [0-58] [create   vector...options()]
+  PathExpression [36-38] [i1]
+    Identifier(i1) [36-38] [i1]
+  PathExpression [42-44] [t1]
+    Identifier(t1) [42-44] [t1]
+  IndexItemList [45-48] [(a)]
+    OrderingExpression(ASC) [46-47] [a]
+      PathExpression [46-47] [a]
+        Identifier(a) [46-47] [a]
+  OptionsList [56-58] [()]
+--
+CREATE VECTOR INDEX IF NOT EXISTS i1 ON t1(a)
+OPTIONS()
+--
 ALTERNATION GROUP: unique,,
 --
 CreateIndexStatement(UNIQUE) [0-45] [create  unique...options()]
@@ -373,6 +406,38 @@ CreateIndexStatement(UNIQUE,SEARCH) [0-64] [create  unique...options()]
   OptionsList [62-64] [()]
 --
 CREATE UNIQUE SEARCH INDEX IF NOT EXISTS i1 ON t1(a)
+OPTIONS()
+--
+ALTERNATION GROUP: unique,vector,
+--
+CreateIndexStatement(UNIQUE,VECTOR) [0-51] [create  unique...options()]
+  PathExpression [29-31] [i1]
+    Identifier(i1) [29-31] [i1]
+  PathExpression [35-37] [t1]
+    Identifier(t1) [35-37] [t1]
+  IndexItemList [38-41] [(a)]
+    OrderingExpression(ASC) [39-40] [a]
+      PathExpression [39-40] [a]
+        Identifier(a) [39-40] [a]
+  OptionsList [49-51] [()]
+--
+CREATE UNIQUE VECTOR INDEX i1 ON t1(a)
+OPTIONS()
+--
+ALTERNATION GROUP: unique,vector,if not exists
+--
+CreateIndexStatement(UNIQUE,VECTOR) [0-64] [create  unique...options()]
+  PathExpression [42-44] [i1]
+    Identifier(i1) [42-44] [i1]
+  PathExpression [48-50] [t1]
+    Identifier(t1) [48-50] [t1]
+  IndexItemList [51-54] [(a)]
+    OrderingExpression(ASC) [52-53] [a]
+      PathExpression [52-53] [a]
+        Identifier(a) [52-53] [a]
+  OptionsList [62-64] [()]
+--
+CREATE UNIQUE VECTOR INDEX IF NOT EXISTS i1 ON t1(a)
 OPTIONS()
 --
 ALTERNATION GROUP: or replace,,,
@@ -439,6 +504,38 @@ CreateIndexStatement(SEARCH) [0-68] [create or...options()]
 CREATE OR REPLACE SEARCH INDEX IF NOT EXISTS i1 ON t1(a)
 OPTIONS()
 --
+ALTERNATION GROUP: or replace,,vector,
+--
+CreateIndexStatement(VECTOR) [0-55] [create or...options()]
+  PathExpression [33-35] [i1]
+    Identifier(i1) [33-35] [i1]
+  PathExpression [39-41] [t1]
+    Identifier(t1) [39-41] [t1]
+  IndexItemList [42-45] [(a)]
+    OrderingExpression(ASC) [43-44] [a]
+      PathExpression [43-44] [a]
+        Identifier(a) [43-44] [a]
+  OptionsList [53-55] [()]
+--
+CREATE OR REPLACE VECTOR INDEX i1 ON t1(a)
+OPTIONS()
+--
+ALTERNATION GROUP: or replace,,vector,if not exists
+--
+CreateIndexStatement(VECTOR) [0-68] [create or...options()]
+  PathExpression [46-48] [i1]
+    Identifier(i1) [46-48] [i1]
+  PathExpression [52-54] [t1]
+    Identifier(t1) [52-54] [t1]
+  IndexItemList [55-58] [(a)]
+    OrderingExpression(ASC) [56-57] [a]
+      PathExpression [56-57] [a]
+        Identifier(a) [56-57] [a]
+  OptionsList [66-68] [()]
+--
+CREATE OR REPLACE VECTOR INDEX IF NOT EXISTS i1 ON t1(a)
+OPTIONS()
+--
 ALTERNATION GROUP: or replace,unique,,
 --
 CreateIndexStatement(UNIQUE) [0-55] [create or...options()]
@@ -501,6 +598,38 @@ CreateIndexStatement(UNIQUE,SEARCH) [0-74] [create or...options()]
   OptionsList [72-74] [()]
 --
 CREATE OR REPLACE UNIQUE SEARCH INDEX IF NOT EXISTS i1 ON t1(a)
+OPTIONS()
+--
+ALTERNATION GROUP: or replace,unique,vector,
+--
+CreateIndexStatement(UNIQUE,VECTOR) [0-61] [create or...options()]
+  PathExpression [39-41] [i1]
+    Identifier(i1) [39-41] [i1]
+  PathExpression [45-47] [t1]
+    Identifier(t1) [45-47] [t1]
+  IndexItemList [48-51] [(a)]
+    OrderingExpression(ASC) [49-50] [a]
+      PathExpression [49-50] [a]
+        Identifier(a) [49-50] [a]
+  OptionsList [59-61] [()]
+--
+CREATE OR REPLACE UNIQUE VECTOR INDEX i1 ON t1(a)
+OPTIONS()
+--
+ALTERNATION GROUP: or replace,unique,vector,if not exists
+--
+CreateIndexStatement(UNIQUE,VECTOR) [0-74] [create or...options()]
+  PathExpression [52-54] [i1]
+    Identifier(i1) [52-54] [i1]
+  PathExpression [58-60] [t1]
+    Identifier(t1) [58-60] [t1]
+  IndexItemList [61-64] [(a)]
+    OrderingExpression(ASC) [62-63] [a]
+      PathExpression [62-63] [a]
+        Identifier(a) [62-63] [a]
+  OptionsList [72-74] [()]
+--
+CREATE OR REPLACE UNIQUE VECTOR INDEX IF NOT EXISTS i1 ON t1(a)
 OPTIONS()
 ==
 
@@ -1151,3 +1280,37 @@ CREATE SEARCH INDEX i1 ON t1 (* EXCEPT a) OPTIONS();
 ERROR: Syntax error: Unexpected "*" [at 1:31]
 CREATE SEARCH INDEX i1 ON t1 (* EXCEPT a) OPTIONS();
                               ^
+
+==
+
+# Specify both VECTOR and SEARCH
+create {{|or replace}} search vector index on t1(a)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected keyword INDEX but got keyword VECTOR [at 1:16]
+create  search vector index on t1(a)
+               ^
+--
+ALTERNATION GROUP: or replace
+--
+ERROR: Syntax error: Expected keyword INDEX but got keyword VECTOR [at 1:26]
+create or replace search vector index on t1(a)
+                         ^
+==
+
+# Specify both VECTOR and SEARCH
+create {{|or replace}} vector search index on i1 on t1(a);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected keyword INDEX but got keyword SEARCH [at 1:16]
+create  vector search index on i1 on t1(a);
+               ^
+--
+ALTERNATION GROUP: or replace
+--
+ERROR: Syntax error: Expected keyword INDEX but got keyword SEARCH [at 1:26]
+create or replace vector search index on i1 on t1(a);
+                         ^
+==

@@ -7,6 +7,187 @@
 ZetaSQL supports the following functions, which can retrieve and
 transform JSON data.
 
+### Categories
+
+The JSON functions are grouped into the following categories based on their
+behavior:
+
+<table>
+  <thead>
+    <tr>
+      <td>Category</td>
+      <td width='300px'>Functions</td>
+      <td>Description</td>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><a id="extractors"></a>
+        
+        Standard extractors
+        
+      </td>
+      <td>
+        
+        <a href="#json_query"><code>JSON_QUERY</code></a><br>
+        <a href="#json_value"><code>JSON_VALUE</code></a><br>
+        
+        
+        <a href="#json_query_array"><code>JSON_QUERY_ARRAY</code></a><br>
+        
+        
+        <a href="#json_value_array"><code>JSON_VALUE_ARRAY</code></a><br>
+        
+      </td>
+      <td>
+        Functions that extract JSON data.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td><a id="extractors_legacy"></a>
+        
+        Legacy extractors
+        
+      </td>
+      <td>
+        
+        <a href="#json_extract"><code>JSON_EXTRACT</code></a><br>
+        <a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a><br>
+        
+        
+        
+        <a href="#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a><br>
+        
+      </td>
+      <td>
+        Functions that extract JSON data.<br>
+        
+        While these functions are supported by ZetaSQL, we recommend
+        using the <a href="#extractors">standard extractor functions</a>.
+        
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td><a id="lax_converters"></a>Lax converters</td>
+      <td>
+        
+        <a href="#lax_bool"><code>LAX_BOOL</code></a><br>
+        
+        
+        <a href="#lax_double"><code>LAX_DOUBLE</code></a><br>
+        
+        
+        <a href="#lax_int64"><code>LAX_INT64</code></a><br>
+        
+        
+        <a href="#lax_string"><code>LAX_STRING</code></a><br>
+        
+      </td>
+      <td>
+        Functions that flexibly convert a JSON value to a scalar SQL value
+        without returning errors.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td><a id="converters"></a>Converters</td>
+      <td>
+        
+        <a href="#bool_for_json"><code>BOOL</code></a><br>
+        
+        
+        <a href="#double_for_json"><code>DOUBLE</code></a><br>
+        
+        
+        <a href="#int64_for_json"><code>INT64</code></a><br>
+        
+        
+        <a href="#string_for_json"><code>STRING</code></a><br>
+        
+      </td>
+      <td>
+        Functions that convert a JSON value to a scalar SQL value.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td><a id="other_converters"></a>Other converters</td>
+      <td>
+        
+        <a href="#parse_json"><code>PARSE_JSON</code></a><br>
+        
+        
+        <a href="#to_json"><code>TO_JSON</code></a><br>
+        
+        
+        <a href="#to_json_string"><code>TO_JSON_STRING</code></a><br>
+        
+      </td>
+      <td>
+        Other conversion functions from or to JSON.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td><a id="constructors"></a>Constructors</td>
+      <td>
+        <a href="#json_array"><code>JSON_ARRAY</code></a><br>
+        <a href="#json_object"><code>JSON_OBJECT</code></a><br>
+      </td>
+      <td>
+        Functions that create JSON.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td><a id="mutators"></a>Mutators</td>
+      <td>
+        
+        <a href="#json_array_append"><code>JSON_ARRAY_APPEND</code></a><br>
+        
+        
+        <a href="#json_array_insert"><code>JSON_ARRAY_INSERT</code></a><br>
+        
+        
+        <a href="#json_remove"><code>JSON_REMOVE</code></a><br>
+        
+        
+        <a href="#json_set"><code>JSON_SET</code></a><br>
+        
+        
+        <a href="#json_strip_nulls"><code>JSON_STRIP_NULLS</code></a><br>
+        
+      </td>
+      <td>
+        Functions that mutate existing JSON.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td><a id="accessors"></a>Accessors</td>
+      <td>
+        
+        <a href="#json_type"><code>JSON_TYPE</code></a><br>
+        
+      </td>
+      <td>
+        Functions that provide access to JSON properties.
+      </td>
+    </tr>
+    
+  </tbody>
+</table>
+
 ### Function list
 
 <table>
@@ -52,6 +233,27 @@ transform JSON data.
 </tr>
 
 <tr>
+  <td><a href="#json_array"><code>JSON_ARRAY</code></a>
+
+</td>
+  <td>Creates a JSON array.</td>
+</tr>
+
+<tr>
+  <td><a href="#json_array_append"><code>JSON_ARRAY_APPEND</code></a>
+
+</td>
+  <td>Appends JSON data to the end of a JSON array.</td>
+</tr>
+
+<tr>
+  <td><a href="#json_array_insert"><code>JSON_ARRAY_INSERT</code></a>
+
+</td>
+  <td>Inserts JSON data into a JSON array.</td>
+</tr>
+
+<tr>
   <td><a href="#json_extract"><code>JSON_EXTRACT</code></a>
 
 </td>
@@ -75,6 +277,13 @@ transform JSON data.
     Extracts a JSON scalar value and converts it to a SQL
     <code>STRING</code> value.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#json_object"><code>JSON_OBJECT</code></a>
+
+</td>
+  <td>Creates a JSON object.</td>
 </tr>
 
 <tr>
@@ -106,6 +315,27 @@ transform JSON data.
 </tr>
 
 <tr>
+  <td><a href="#json_remove"><code>JSON_REMOVE</code></a>
+
+</td>
+  <td>Produces JSON with the specified JSON data removed.</td>
+</tr>
+
+<tr>
+  <td><a href="#json_set"><code>JSON_SET</code></a>
+
+</td>
+  <td>Inserts or replaces JSON data.</td>
+</tr>
+
+<tr>
+  <td><a href="#json_strip_nulls"><code>JSON_STRIP_NULLS</code></a>
+
+</td>
+  <td>Removes JSON nulls from JSON objects and JSON arrays.</td>
+</tr>
+
+<tr>
   <td><a href="#json_type"><code>JSON_TYPE</code></a>
 
 </td>
@@ -132,6 +362,46 @@ transform JSON data.
   <td>
     Extracts a JSON array of scalar values and converts it to a SQL
     <code>ARRAY&lt;STRING&gt;</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_bool"><code>LAX_BOOL</code></a>
+
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>BOOL</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td>
+  
+  <a href="#lax_double"><code>LAX_DOUBLE</code></a>
+
+  
+  </td>
+  <td>
+    Attempts to convert a JSON value to a
+    SQL <code>DOUBLE</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_int64"><code>LAX_INT64</code></a>
+
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>INT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_string"><code>LAX_STRING</code></a>
+
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>STRING</code> value.
   </td>
 </tr>
 
@@ -192,7 +462,7 @@ Arguments:
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"name": "sky", "color" : "blue"}'
+    JSON '{"name": "sky", "color": "blue"}'
     ```
 
     If the expression is SQL `NULL`, the function returns SQL
@@ -229,7 +499,7 @@ The following examples show how invalid requests are handled:
 ```sql
 -- An error is thrown if JSON is not of type bool.
 SELECT BOOL(JSON '123') AS result; -- Throws an error
-SELECT BOOL(JSON 'null') AS result; -- Throw an error
+SELECT BOOL(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
 ```
 
@@ -250,7 +520,7 @@ Arguments:
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"name": "sky", "color" : "blue"}'
+    JSON '{"name": "sky", "color": "blue"}'
     ```
 
     If the expression is SQL `NULL`, the
@@ -263,10 +533,9 @@ Arguments:
 
     +   `exact`: The function fails if the result cannot be represented as a
         `DOUBLE` without loss of precision.
-    +   `round`: The numeric value stored in JSON will be rounded to
+    +   `round` (default): The numeric value stored in JSON will be rounded to
         `DOUBLE`. If such rounding is not possible,
-        the function fails. This is the default value if the argument is not
-        specified.
+        the function fails.
 
 **Return type**
 
@@ -401,6 +670,473 @@ SELECT INT64(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 ```
 
+### `JSON_ARRAY`
+
+```sql
+JSON_ARRAY([value][, ...])
+```
+
+**Description**
+
+Creates a JSON array from zero or more SQL values.
+
+Arguments:
+
++   `value`: A [JSON encoding-supported][json-encodings] value to add
+    to a JSON array.
+
+**Return type**
+
+`JSON`
+
+**Examples**
+
+You can create an empty JSON array. For example:
+
+```sql
+SELECT JSON_ARRAY() AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | []        |
+ *-----------*/
+```
+
+The following query creates a JSON array with one value in it:
+
+```sql
+SELECT JSON_ARRAY(10) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | [10]      |
+ *-----------*/
+```
+
+You can create a JSON array with an empty JSON array in it. For example:
+
+```sql
+SELECT JSON_ARRAY([]) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | [[]]      |
+ *-----------*/
+```
+
+```sql
+SELECT JSON_ARRAY(10, 'foo', NULL) AS json_data
+
+/*-----------------*
+ | json_data       |
+ +-----------------+
+ | [10,"foo",null] |
+ *-----------------*/
+```
+
+```sql
+SELECT JSON_ARRAY(STRUCT(10 AS a, 'foo' AS b)) AS json_data
+
+/*----------------------*
+ | json_data            |
+ +----------------------+
+ | [{"a":10,"b":"foo"}] |
+ *----------------------*/
+```
+
+```sql
+SELECT JSON_ARRAY(10, ['foo', 'bar'], [20, 30]) AS json_data
+
+/*----------------------------*
+ | json_data                  |
+ +----------------------------+
+ | [10,["foo","bar"],[20,30]] |
+ *----------------------------*/
+```
+
+```sql
+SELECT JSON_ARRAY(10, [JSON '20', JSON '"foo"']) AS json_data
+
+/*-----------------*
+ | json_data       |
+ +-----------------+
+ | [10,[20,"foo"]] |
+ *-----------------*/
+```
+
+### `JSON_ARRAY_APPEND`
+
+```sql
+JSON_ARRAY_APPEND(
+  json_expr,
+  json_path_value_pair[, ...]
+  [, append_each_element=>{ TRUE | FALSE }]
+)
+
+json_path_value_pair:
+  json_path, value
+```
+
+Appends JSON data to the end of a JSON array.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    ```
++   `json_path_value_pair`: A value and the [JSONPath][JSONPath-format] for
+    that value. This includes:
+
+    +   `json_path`: Append `value` at this [JSONPath][JSONPath-format]
+        in `json_expr`.
+
+    +   `value`: A [JSON encoding-supported][json-encodings] value to
+        append.
++   `append_each_element`: An optional, mandatory named argument.
+
+    +   If `TRUE` (default), and `value` is a SQL array,
+        appends each element individually.
+
+    +   If `FALSE,` and `value` is a SQL array, appends
+        the array as one element.
+
+Details:
+
++   Path value pairs are evaluated left to right. The JSON produced by
+    evaluating one pair becomes the JSON against which the next pair
+    is evaluated.
++   The operation is ignored if the path points to a JSON non-array value that
+    is not a JSON null.
++   If `json_path` points to a JSON null, the JSON null is replaced by a
+    JSON array that contains `value`.
++   If the path exists but has an incompatible type at any given path token,
+    the path value pair operation is ignored.
++   The function applies all path value pair append operations even if an
+    individual path value pair operation is invalid. For invalid operations,
+    the operation is ignored and the function continues to process the rest of
+    the path value pairs.
++   If `json_expr` or `append_each_element` is SQL `NULL`, the function
+    returns SQL `NULL`.
+
+**Return type**
+
+`JSON`
+
+**Examples**
+
+In the following example, path `$` is matched and appends `1`.
+
+```sql
+SELECT JSON_ARRAY_APPEND(JSON '["a", "b", "c"]', '$', 1) AS json_data
+
+/*-----------------*
+ | json_data       |
+ +-----------------+
+ | ["a","b","c",1] |
+ *-----------------*/
+```
+
+In the following example, `append_each_element` defaults to `TRUE`, so
+`[1, 2]` is appended as individual elements.
+
+```sql
+SELECT JSON_ARRAY_APPEND(JSON '["a", "b", "c"]', '$', [1, 2]) AS json_data
+
+/*-------------------*
+ | json_data         |
+ +-------------------+
+ | ["a","b","c",1,2] |
+ *-------------------*/
+```
+
+In the following example, `append_each_element` is `FALSE`, so
+`[1, 2]` is appended as one element.
+
+```sql
+SELECT JSON_ARRAY_APPEND(
+  JSON '["a", "b", "c"]',
+  '$', [1, 2],
+  append_each_element=>FALSE) AS json_data
+
+/*---------------------*
+ | json_data           |
+ +---------------------+
+ | ["a","b","c",[1,2]] |
+ *---------------------*/
+```
+
+In the following example, `append_each_element` is `FALSE`, so
+`[1, 2]` and `[3, 4]` are each appended as one element.
+
+```sql
+SELECT JSON_ARRAY_APPEND(
+  JSON '["a", ["b"], "c"]',
+  '$[1]', [1, 2],
+  '$[1][1]', [3, 4],
+  append_each_element=>FALSE) AS json_data
+
+/*-----------------------------*
+ | json_data                   |
+ +-----------------------------+
+ | ["a",["b",[1,2,[3,4]]],"c"] |
+ *-----------------------------*/
+```
+
+In the following example, the first path `$[1]` appends `[1, 2]` as single
+elements, and then the second path `$[1][1]` is not a valid path to an array,
+so the second operation is ignored.
+
+```sql
+SELECT JSON_ARRAY_APPEND(
+  JSON '["a", ["b"], "c"]',
+  '$[1]', [1, 2],
+  '$[1][1]', [3, 4]) AS json_data
+
+/*---------------------*
+ | json_data           |
+ +---------------------+
+ | ["a",["b",1,2],"c"] |
+ *---------------------*/
+```
+
+In the following example, path `$.a` is matched and appends `2`.
+
+```sql
+SELECT JSON_ARRAY_APPEND(JSON '{"a": [1]}', '$.a', 2) AS json_data
+
+/*-------------*
+ | json_data   |
+ +-------------+
+ | {"a":[1,2]} |
+ *-------------*/
+```
+
+In the following example, a value is appended into a JSON null.
+
+```sql
+SELECT JSON_ARRAY_APPEND(JSON '{"a": null}', '$.a', 10)
+
+/*------------*
+ | json_data  |
+ +------------+
+ | {"a":[10]} |
+ *------------*/
+```
+
+In the following example, path `$.a` is not an array, so the operation is
+ignored.
+
+```sql
+SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.a', 2) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"a":1}   |
+ *-----------*/
+```
+
+In the following example, path `$.b` does not exist, so the operation is
+ignored.
+
+```sql
+SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.b', 2) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"a":1}   |
+ *-----------*/
+```
+
+### `JSON_ARRAY_INSERT`
+
+```sql
+JSON_ARRAY_INSERT(
+  json_expr,
+  json_path_value_pair[, ...]
+  [, insert_each_element=>{ TRUE | FALSE }]
+)
+
+json_path_value_pair:
+  json_path, value
+```
+
+Produces a new JSON value that is created by inserting JSON data into
+a JSON array.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    ```
++   `json_path_value_pair`: A value and the [JSONPath][JSONPath-format] for
+    that value. This includes:
+
+    +   `json_path`: Insert `value` at this [JSONPath][JSONPath-format]
+        in `json_expr`.
+
+    +   `value`: A [JSON encoding-supported][json-encodings] value to
+        insert.
++   `insert_each_element`: An optional, mandatory named argument.
+
+    +   If `TRUE` (default), and `value` is a SQL array,
+        inserts each element individually.
+
+    +   If `FALSE,` and `value` is a SQL array, inserts
+        the array as one element.
+
+Details:
+
++   Path value pairs are evaluated left to right. The JSON produced by
+    evaluating one pair becomes the JSON against which the next pair
+    is evaluated.
++   The operation is ignored if the path points to a JSON non-array value that
+    is not a JSON null.
++   If `json_path` points to a JSON null, the JSON null is replaced by a
+    JSON array of the appropriate size and padded on the left with JSON nulls.
++   If the path exists but has an incompatible type at any given path token,
+    the path value pair operator is ignored.
++   The function applies all path value pair append operations even if an
+    individual path value pair operation is invalid. For invalid operations,
+    the operation is ignored and the function continues to process the rest of
+    the path value pairs.
++   If the array index in `json_path` is larger than the size of the array, the
+    function extends the length of the array to the index, fills in
+    the array with JSON nulls, then adds `value` at the index.
++   If `json_expr`, `json_path`, or `insert_each_element` is SQL `NULL`, the
+    function returns SQL `NULL`.
+
+**Return type**
+
+`JSON`
+
+**Examples**
+
+In the following example, path `$[1]` is matched and inserts `1`.
+
+```sql
+SELECT JSON_ARRAY_INSERT(JSON '["a", ["b", "c"], "d"]', '$[1]', 1) AS json_data
+
+/*-----------------------*
+ | json_data             |
+ +-----------------------+
+ | ["a",1,["b","c"],"d"] |
+ *-----------------------*/
+```
+
+In the following example, path `$[1][0]` is matched and inserts `1`.
+
+```sql
+SELECT JSON_ARRAY_INSERT(JSON '["a", ["b", "c"], "d"]', '$[1][0]', 1) AS json_data
+
+/*-----------------------*
+ | json_data             |
+ +-----------------------+
+ | ["a",[1,"b","c"],"d"] |
+ *-----------------------*/
+```
+
+In the following example, `insert_each_element` defaults to `TRUE`, so
+`[1, 2]` is inserted as individual elements.
+
+```sql
+SELECT JSON_ARRAY_INSERT(JSON '["a", "b", "c"]', '$[1]', [1, 2]) AS json_data
+
+/*-------------------*
+ | json_data         |
+ +-------------------+
+ | ["a",1,2,"b","c"] |
+ *-------------------*/
+```
+
+In the following example, `insert_each_element` is `FALSE`, so `[1, 2]` is
+inserted as one element.
+
+```sql
+SELECT JSON_ARRAY_INSERT(
+  JSON '["a", "b", "c"]',
+  '$[1]', [1, 2],
+  insert_each_element=>FALSE) AS json_data
+
+/*---------------------*
+ | json_data           |
+ +---------------------+
+ | ["a",[1,2],"b","c"] |
+ *---------------------*/
+```
+
+In the following example, path `$[7]` is larger than the length of the
+matched array, so the array is extended with JSON nulls and `"e"` is inserted at
+the end of the array.
+
+```sql
+SELECT JSON_ARRAY_INSERT(JSON '["a", "b", "c", "d"]', '$[7]', "e") AS json_data
+
+/*--------------------------------------*
+ | json_data                            |
+ +--------------------------------------+
+ | ["a","b","c","d",null,null,null,"e"] |
+ *--------------------------------------*/
+```
+
+In the following example, path `$.a` is an object, so the operation is ignored.
+
+```sql
+SELECT JSON_ARRAY_INSERT(JSON '{"a": {}}', '$.a[0]', 2) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"a":{}}  |
+ *-----------*/
+```
+
+In the following example, path `$` does not specify a valid array position,
+so the operation is ignored.
+
+```sql
+SELECT JSON_ARRAY_INSERT(JSON '[1, 2]', '$', 3) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | [1,2]     |
+ *-----------*/
+```
+
+In the following example, a value is inserted into a JSON null.
+
+```sql
+SELECT JSON_ARRAY_INSERT(JSON '{"a": null}', '$.a[2]', 10) AS json_data
+
+/*----------------------*
+ | json_data            |
+ +----------------------+
+ | {"a":[null,null,10]} |
+ *----------------------*/
+```
+
+In the following example, the operation is ignored because you can't insert
+data into a JSON number.
+
+```sql
+SELECT JSON_ARRAY_INSERT(JSON '1', '$[0]', 'r1') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | 1         |
+ *-----------*/
+```
+
 ### `JSON_EXTRACT`
 
 Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
@@ -425,7 +1161,7 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 
     Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
@@ -437,7 +1173,7 @@ Arguments:
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 
     Extracts a JSON `null` when a JSON `null` is encountered.
@@ -462,7 +1198,7 @@ In the following example, JSON data is extracted and returned as JSON.
 
 ```sql
 SELECT
-  JSON_EXTRACT(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
+  JSON_EXTRACT(JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}', '$.class')
   AS json_data;
 
 /*-----------------------------------*
@@ -478,9 +1214,9 @@ JSON-formatted strings.
 ```sql
 SELECT JSON_EXTRACT(json_text, '$') AS json_text_string
 FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  '{"class": {"students": [{"name": "Jane"}]}}',
+  '{"class": {"students": []}}',
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
 /*-----------------------------------------------------------*
@@ -495,9 +1231,9 @@ FROM UNNEST([
 ```sql
 SELECT JSON_EXTRACT(json_text, '$.class.students[0]') AS first_student
 FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  '{"class": {"students": [{"name": "Jane"}]}}',
+  '{"class": {"students": []}}',
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
 /*-----------------*
@@ -512,28 +1248,28 @@ FROM UNNEST([
 ```sql
 SELECT JSON_EXTRACT(json_text, '$.class.students[1].name') AS second_student_name
 FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  '{"class": {"students": [{"name": "Jane"}]}}',
+  '{"class": {"students": []}}',
+  '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-/*-------------------*
- | second_student    |
- +-------------------+
- | NULL              |
- | NULL              |
- | NULL              |
- | "Jamie"           |
- *-------------------*/
+/*----------------*
+ | second_student |
+ +----------------+
+ | NULL           |
+ | NULL           |
+ | NULL           |
+ | "Jamie"        |
+ *----------------*/
 ```
 
 ```sql
 SELECT JSON_EXTRACT(json_text, "$.class['students']") AS student_names
 FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  '{"class": {"students": [{"name": "Jane"}]}}',
+  '{"class": {"students": []}}',
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
 /*------------------------------------*
@@ -546,13 +1282,13 @@ FROM UNNEST([
 ```
 
 ```sql
-SELECT JSON_EXTRACT('{"a":null}', "$.a"); -- Returns a SQL NULL
-SELECT JSON_EXTRACT('{"a":null}', "$.b"); -- Returns a SQL NULL
+SELECT JSON_EXTRACT('{"a": null}', "$.a"); -- Returns a SQL NULL
+SELECT JSON_EXTRACT('{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
 ```sql
-SELECT JSON_EXTRACT(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
-SELECT JSON_EXTRACT(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+SELECT JSON_EXTRACT(JSON '{"a": null}', "$.a"); -- Returns a JSON 'null'
+SELECT JSON_EXTRACT(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
 [json-query]: #json_query
@@ -588,12 +1324,12 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
     you want to obtain from the input. If this optional parameter is not
@@ -616,7 +1352,7 @@ For details, see [Differences between the JSON and JSON-formatted STRING types][
 In the following example, `age` is extracted.
 
 ```sql
-SELECT JSON_EXTRACT_SCALAR(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+SELECT JSON_EXTRACT_SCALAR(JSON '{"name": "Jakob", "age": "6" }', '$.age') AS scalar_age;
 
 /*------------*
  | scalar_age |
@@ -629,10 +1365,10 @@ The following example compares how results are returned for the `JSON_EXTRACT`
 and `JSON_EXTRACT_SCALAR` functions.
 
 ```sql
-SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
-  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
-  JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
-  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+SELECT JSON_EXTRACT('{"name": "Jakob", "age": "6" }', '$.name') AS json_name,
+  JSON_EXTRACT_SCALAR('{"name": "Jakob", "age": "6" }', '$.name') AS scalar_name,
+  JSON_EXTRACT('{"name": "Jakob", "age": "6" }', '$.age') AS json_age,
+  JSON_EXTRACT_SCALAR('{"name": "Jakob", "age": "6" }', '$.age') AS scalar_age;
 
 /*-----------+-------------+----------+------------*
  | json_name | scalar_name | json_age | scalar_age |
@@ -671,6 +1407,263 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 
 [differences-json-and-string]: #differences_json_and_string
 
+### `JSON_OBJECT`
+
++   [Signature 1](#json_object_signature1):
+    `JSON_OBJECT([json_key, json_value][, ...])`
++   [Signature 2](#json_object_signature2):
+    `JSON_OBJECT(json_key_array, json_value_array)`
+
+#### Signature 1 
+<a id="json_object_signature1"></a>
+
+```sql
+JSON_OBJECT([json_key, json_value][, ...])
+```
+
+**Description**
+
+Creates a JSON object, using key value pairs.
+
+Arguments:
+
++   `json_key`: A `STRING` value that represents a key.
++   `json_value`: A [JSON encoding-supported][json-encodings] value.
+
+Details:
+
++   If two keys are passed in with the same name, only the first key value pair
+    is preserved.
++   The order of key value pairs is not preserved.
++   If `json_key` is `NULL`, an error is produced.
+
+**Return type**
+
+`JSON`
+
+**Examples**
+
+You can create an empty JSON object by passing in no JSON keys and values.
+For example:
+
+```sql
+SELECT JSON_OBJECT() AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {}        |
+ *-----------*/
+```
+
+You can create a JSON object by passing in key value pairs. For example:
+
+```sql
+SELECT JSON_OBJECT('foo', 10, 'bar', TRUE) AS json_data
+
+/*-----------------------*
+ | json_data             |
+ +-----------------------+
+ | {"bar":true,"foo":10} |
+ *-----------------------*/
+```
+
+```sql
+SELECT JSON_OBJECT('foo', 10, 'bar', ['a', 'b']) AS json_data
+
+/*----------------------------*
+ | json_data                  |
+ +----------------------------+
+ | {"bar":["a","b"],"foo":10} |
+ *----------------------------*/
+```
+
+```sql
+SELECT JSON_OBJECT('a', NULL, 'b', JSON 'null') AS json_data
+
+/*---------------------*
+ | json_data           |
+ +---------------------+
+ | {"a":null,"b":null} |
+ *---------------------*/
+```
+
+```sql
+SELECT JSON_OBJECT('a', 10, 'a', 'foo') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"a":10}  |
+ *-----------*/
+```
+
+```sql
+WITH Items AS (SELECT 'hello' AS key, 'world' AS value)
+SELECT JSON_OBJECT(key, value) AS json_data FROM Items
+
+/*-------------------*
+ | json_data         |
+ +-------------------+
+ | {"hello":"world"} |
+ *-------------------*/
+```
+
+An error is produced if a SQL `NULL` is passed in for a JSON key.
+
+```sql
+-- Error: A key cannot be NULL.
+SELECT JSON_OBJECT(NULL, 1) AS json_data
+```
+
+An error is produced if the number of JSON keys and JSON values don't match:
+
+```sql
+-- Error: No matching signature for function JSON_OBJECT for argument types:
+-- STRING, INT64, STRING
+SELECT JSON_OBJECT('a', 1, 'b') AS json_data
+```
+
+#### Signature 2 
+<a id="json_object_signature2"></a>
+
+```sql
+JSON_OBJECT(json_key_array, json_value_array)
+```
+
+Creates a JSON object, using an array of keys and values.
+
+Arguments:
+
++   `json_key_array`: An array of zero or more `STRING` keys.
++   `json_value_array`: An array of zero or more
+    [JSON encoding-supported][json-encodings] values.
+
+Details:
+
++   If two keys are passed in with the same name, only the first key value pair
+    is preserved.
++   The order of key value pairs is not preserved.
++   The number of keys must match the number of values, otherwise an error is
+    produced.
++   If any argument is `NULL`, an error is produced.
++   If a key in `json_key_array` is `NULL`, an error is produced.
+
+**Return type**
+
+`JSON`
+
+**Examples**
+
+You can create an empty JSON object by passing in an empty array of
+keys and values. For example:
+
+```sql
+SELECT JSON_OBJECT(CAST([] AS ARRAY<STRING>), []) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {}        |
+ *-----------*/
+```
+
+You can create a JSON object by passing in an array of keys and an array of
+values. For example:
+
+```sql
+SELECT JSON_OBJECT(['a', 'b'], [10, NULL]) AS json_data
+
+/*-------------------*
+ | json_data         |
+ +-------------------+
+ | {"a":10,"b":null} |
+ *-------------------*/
+```
+
+```sql
+SELECT JSON_OBJECT(['a', 'b'], [JSON '10', JSON '"foo"']) AS json_data
+
+/*--------------------*
+ | json_data          |
+ +--------------------+
+ | {"a":10,"b":"foo"} |
+ *--------------------*/
+```
+
+```sql
+SELECT
+  JSON_OBJECT(
+    ['a', 'b'],
+    [STRUCT(10 AS id, 'Red' AS color), STRUCT(20 AS id, 'Blue' AS color)])
+    AS json_data
+
+/*------------------------------------------------------------*
+ | json_data                                                  |
+ +------------------------------------------------------------+
+ | {"a":{"color":"Red","id":10},"b":{"color":"Blue","id":20}} |
+ *------------------------------------------------------------*/
+```
+
+```sql
+SELECT
+  JSON_OBJECT(
+    ['a', 'b'],
+    [TO_JSON(10), TO_JSON(['foo', 'bar'])])
+    AS json_data
+
+/*----------------------------*
+ | json_data                  |
+ +----------------------------+
+ | {"a":10,"b":["foo","bar"]} |
+ *----------------------------*/
+```
+
+The following query groups by `id` and then creates an array of keys and
+values from the rows with the same `id`:
+
+```sql
+WITH
+  Fruits AS (
+    SELECT 0 AS id, 'color' AS json_key, 'red' AS json_value UNION ALL
+    SELECT 0, 'fruit', 'apple' UNION ALL
+    SELECT 1, 'fruit', 'banana' UNION ALL
+    SELECT 1, 'ripe', 'true'
+  )
+SELECT JSON_OBJECT(ARRAY_AGG(json_key), ARRAY_AGG(json_value)) AS json_data
+FROM Fruits
+GROUP BY id
+
+/*----------------------------------*
+ | json_data                        |
+ +----------------------------------+
+ | {"color":"red","fruit":"apple"}  |
+ | {"fruit":"banana","ripe":"true"} |
+ *----------------------------------*/
+```
+
+An error is produced if the size of the JSON keys and values arrays don't
+match:
+
+```sql
+-- Error: The number of keys and values must match.
+SELECT JSON_OBJECT(['a', 'b'], [10]) AS json_data
+```
+
+An error is produced if the array of JSON keys or JSON values is a SQL `NULL`.
+
+```sql
+-- Error: The keys array cannot be NULL.
+SELECT JSON_OBJECT(CAST(NULL AS ARRAY<STRING>), [10, 20]) AS json_data
+```
+
+```sql
+-- Error: The values array cannot be NULL.
+SELECT JSON_OBJECT(['a', 'b'], CAST(NULL AS ARRAY<INT64>)) AS json_data
+```
+
+[json-encodings]: #json_encodings
+
 ### `JSON_QUERY`
 
 ```sql
@@ -694,7 +1687,7 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 
     Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
@@ -706,7 +1699,7 @@ Arguments:
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 
     Extracts a JSON `null` when a JSON `null` is encountered.
@@ -731,7 +1724,7 @@ In the following example, JSON data is extracted and returned as JSON.
 
 ```sql
 SELECT
-  JSON_QUERY(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
+  JSON_QUERY(JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}', '$.class')
   AS json_data;
 
 /*-----------------------------------*
@@ -747,9 +1740,9 @@ JSON-formatted strings.
 ```sql
 SELECT JSON_QUERY(json_text, '$') AS json_text_string
 FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  '{"class": {"students": [{"name": "Jane"}]}}',
+  '{"class": {"students": []}}',
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
 /*-----------------------------------------------------------*
@@ -764,9 +1757,9 @@ FROM UNNEST([
 ```sql
 SELECT JSON_QUERY(json_text, '$.class.students[0]') AS first_student
 FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  '{"class": {"students": [{"name": "Jane"}]}}',
+  '{"class": {"students": []}}',
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
 /*-----------------*
@@ -781,28 +1774,28 @@ FROM UNNEST([
 ```sql
 SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
 FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  '{"class": {"students": [{"name": "Jane"}]}}',
+  '{"class": {"students": []}}',
+  '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-/*-------------------*
- | second_student    |
- +-------------------+
- | NULL              |
- | NULL              |
- | NULL              |
- | "Jamie"           |
- *-------------------*/
+/*----------------*
+ | second_student |
+ +----------------+
+ | NULL           |
+ | NULL           |
+ | NULL           |
+ | "Jamie"        |
+ *----------------*/
 ```
 
 ```sql
 SELECT JSON_QUERY(json_text, '$.class."students"') AS student_names
 FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  '{"class": {"students": [{"name": "Jane"}]}}',
+  '{"class": {"students": []}}',
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
 /*------------------------------------*
@@ -815,13 +1808,13 @@ FROM UNNEST([
 ```
 
 ```sql
-SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
-SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
+SELECT JSON_QUERY('{"a": null}', "$.a"); -- Returns a SQL NULL
+SELECT JSON_QUERY('{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
 ```sql
-SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
-SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+SELECT JSON_QUERY(JSON '{"a": null}', "$.a"); -- Returns a JSON 'null'
+SELECT JSON_QUERY(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
 [JSONPath-format]: #JSONPath_format
@@ -851,12 +1844,12 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
     you want to obtain from the input. If this optional parameter is not
@@ -877,7 +1870,7 @@ This extracts items in JSON to an array of `JSON` values:
 
 ```sql
 SELECT JSON_QUERY_ARRAY(
-  JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
+  JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
   ) AS json_array;
 
 /*---------------------------------*
@@ -890,7 +1883,7 @@ SELECT JSON_QUERY_ARRAY(
 This extracts the items in a JSON-formatted string to a string array:
 
 ```sql
-SELECT JSON_QUERY_ARRAY('[1,2,3]') AS string_array;
+SELECT JSON_QUERY_ARRAY('[1, 2, 3]') AS string_array;
 
 /*--------------*
  | string_array |
@@ -905,7 +1898,7 @@ This extracts a string array and converts it to an integer array:
 SELECT ARRAY(
   SELECT CAST(integer_element AS INT64)
   FROM UNNEST(
-    JSON_QUERY_ARRAY('[1,2,3]','$')
+    JSON_QUERY_ARRAY('[1, 2, 3]','$')
   ) AS integer_element
 ) AS integer_array;
 
@@ -920,7 +1913,7 @@ This extracts string values in a JSON-formatted string to an array:
 
 ```sql
 -- Doesn't strip the double quotes
-SELECT JSON_QUERY_ARRAY('["apples","oranges","grapes"]', '$') AS string_array;
+SELECT JSON_QUERY_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
 
 /*---------------------------------*
  | string_array                    |
@@ -931,7 +1924,7 @@ SELECT JSON_QUERY_ARRAY('["apples","oranges","grapes"]', '$') AS string_array;
 -- Strips the double quotes
 SELECT ARRAY(
   SELECT JSON_VALUE(string_element, '$')
-  FROM UNNEST(JSON_QUERY_ARRAY('["apples","oranges","grapes"]','$')) AS string_element
+  FROM UNNEST(JSON_QUERY_ARRAY('["apples", "oranges", "grapes"]', '$')) AS string_element
 ) AS string_array;
 
 /*---------------------------*
@@ -945,7 +1938,7 @@ This extracts only the items in the `fruit` property to an array:
 
 ```sql
 SELECT JSON_QUERY_ARRAY(
-  '{"fruit":[{"apples":5,"oranges":10},{"apples":2,"oranges":4}],"vegetables":[{"lettuce":7,"kale": 8}]}',
+  '{"fruit": [{"apples": 5, "oranges": 10}, {"apples": 2, "oranges": 4}], "vegetables": [{"lettuce": 7, "kale": 8}]}',
   '$.fruit'
 ) AS string_array;
 
@@ -959,9 +1952,9 @@ SELECT JSON_QUERY_ARRAY(
 These are equivalent:
 
 ```sql
-SELECT JSON_QUERY_ARRAY('{"fruits":["apples","oranges","grapes"]}','$.fruits') AS string_array;
+SELECT JSON_QUERY_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
 
-SELECT JSON_QUERY_ARRAY('{"fruits":["apples","oranges","grapes"]}','$."fruits"') AS string_array;
+SELECT JSON_QUERY_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$."fruits"') AS string_array;
 
 -- The queries above produce the following result:
 /*---------------------------------*
@@ -988,10 +1981,10 @@ The following examples show how invalid requests and empty arrays are handled:
 
 ```sql
 -- An error is returned if you provide an invalid JSONPath.
-SELECT JSON_QUERY_ARRAY('["foo","bar","baz"]','INVALID_JSONPath') AS result;
+SELECT JSON_QUERY_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
 
 -- If the JSONPath does not refer to an array, then NULL is returned.
-SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.a') AS result;
+SELECT JSON_QUERY_ARRAY('{"a": "foo"}', '$.a') AS result;
 
 /*--------*
  | result |
@@ -1000,7 +1993,7 @@ SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.a') AS result;
  *--------*/
 
 -- If a key that does not exist is specified, then the result is NULL.
-SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.b') AS result;
+SELECT JSON_QUERY_ARRAY('{"a": "foo"}', '$.b') AS result;
 
 /*--------*
  | result |
@@ -1009,7 +2002,7 @@ SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.b') AS result;
  *--------*/
 
 -- Empty arrays in JSON-formatted strings are supported.
-SELECT JSON_QUERY_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
+SELECT JSON_QUERY_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
 /*--------*
  | result |
@@ -1021,6 +2014,599 @@ SELECT JSON_QUERY_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 [JSONPath-format]: #JSONPath_format
 
 [differences-json-and-string]: #differences_json_and_string
+
+### `JSON_REMOVE`
+
+```sql
+JSON_REMOVE(json_expr, json_path[, ...])
+```
+
+Produces a new SQL `JSON` value with the specified JSON data removed.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    ```
++   `json_path`: Remove data at this [JSONPath][JSONPath-format] in `json_expr`.
+
+Details:
+
++   Paths are evaluated left to right. The JSON produced by evaluating the
+    first path is the JSON for the next path.
++   The operation ignores non-existent paths and continue processing the rest
+    of the paths.
++   For each path, the entire matched JSON subtree is deleted.
++   If the path matches a JSON object key, this function deletes the
+    key value pair.
++   If the path matches an array element, this function deletes the specific
+    element from the matched array.
++   If removing the path results in an empty JSON object or empty JSON array,
+    the empty structure is preserved.
++   If `json_expr` or `json_path` is SQL `NULL`, the function returns
+    SQL `NULL`.
++   If `json_path` is `$`, an error is produced.
+
+**Return type**
+
+`JSON`
+
+**Examples**
+
+In the following example, the path `$[1]` is matched and removes
+`["b", "c"]`.
+
+```sql
+SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | ["a","d"] |
+ *-----------*/
+```
+
+You can use the field access operator to pass JSON data into this function.
+For example:
+
+```sql
+WITH T AS (SELECT JSON '{"a": {"b": 10, "c": 20}}' AS data)
+SELECT JSON_REMOVE(data.a, '$.b') AS json_data FROM T
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"c":20}  |
+ *-----------*/
+```
+
+In the following example, the first path `$[1]` is matched and removes
+`["b", "c"]`. Then, the second path `$[1]` is matched and removes `"d"`.
+
+```sql
+SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | ["a"]     |
+ *-----------*/
+```
+
+The structure of an empty array is preserved when all elements are deleted
+from it. For example:
+
+```sql
+SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]', '$[0]') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | []        |
+ *-----------*/
+```
+
+In the following example, the path `$.a.b.c` is matched and removes the
+`"c":"d"` key value pair from the JSON object.
+
+```sql
+SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b.c') AS json_data
+
+/*----------------*
+ | json_data      |
+ +----------------+
+ | {"a":{"b":{}}} |
+ *----------------*/
+```
+
+In the following example, the path `$.a.b` is matched and removes the
+`"b": {"c":"d"}` key value pair from the JSON object.
+
+```sql
+SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"a":{}}  |
+ *-----------*/
+```
+
+In the following example, the path `$.b` is not valid, so the operation makes
+no changes.
+
+```sql
+SELECT JSON_REMOVE(JSON '{"a": 1}', '$.b') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"a":1}   |
+ *-----------*/
+```
+
+In the following example, path `$.a.b` and `$.b` don't exist, so those
+operations are ignored, but the others are processed.
+
+```sql
+SELECT JSON_REMOVE(JSON '{"a": [1, 2, 3]}', '$.a[0]', '$.a.b', '$.b', '$.a[0]') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"a":[3]} |
+ *-----------*/
+```
+
+If you pass in `$` as the path, an error is produced. For example:
+
+```sql
+-- Error: The JSONPath cannot be '$'
+SELECT JSON_REMOVE(JSON '{}', '$') AS json_data
+```
+
+In the following example, the operation is ignored because you can't remove
+data from a JSON null.
+
+```sql
+SELECT JSON_REMOVE(JSON 'null', '$.a.b') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | null      |
+ *-----------*/
+```
+
+### `JSON_SET`
+
+```sql
+JSON_SET(
+  json_expr,
+  json_path_value_pair[, ...]
+)
+
+json_path_value_pair:
+  json_path, value
+```
+
+Produces a new SQL `JSON` value with the specified JSON data inserted
+or replaced.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    ```
++   `json_path_value_pair`: A value and the [JSONPath][JSONPath-format] for
+    that value. This includes:
+
+    +   `json_path`: Insert or replace `value` at this [JSONPath][JSONPath-format]
+        in `json_expr`.
+
+    +   `value`: A [JSON encoding-supported][json-encodings] value to
+        insert.
+
+Details:
+
++   Path value pairs are evaluated left to right. The JSON produced by
+    evaluating one pair becomes the JSON against which the next pair
+    is evaluated.
++   If a path doesn't exist, the remainder of the path is recursively created.
++   If a matched path has an existing value, it overwrites the existing data
+    with `value`.
++   This function applies all path value pair set operations even if an
+    individual path value pair operation is invalid. For invalid operations,
+    the operation is ignored and the function continues to process the rest
+    of the path value pairs.
++   If the path exists but has an incompatible type at any given path
+    token, no update happens for that specific path value pair.
++   If the matched path prefix points to a JSON null, the remainder of the
+    path is recursively created, and `value` is inserted.
++   If a path token points to a JSON array and the specified
+    index is _larger_ than the size of the array, pads the JSON array with
+    JSON nulls, recursively creates the remainder of the path at the specified
+    index, and inserts the path value pair.
++   If a matched path points to a JSON array and the specified index is
+    _less than_ the length of the array, replaces the existing JSON array value
+    at index with `value`.
++   If `json_expr` or `json_path` is SQL `NULL`, the function returns
+    SQL `NULL`.
+
+**Return type**
+
+`JSON`
+
+**Examples**
+
+In the following example, the path `$` matches the entire `JSON` value
+and replaces it with `{"b": 2, "c": 3}`.
+
+```sql
+SELECT JSON_SET(JSON '{"a": 1}', '$', JSON '{"b": 2, "c": 3}') AS json_data
+
+/*---------------*
+ | json_data     |
+ +---------------+
+ | {"b":2,"c":3} |
+ *---------------*/
+```
+
+In the following example, the path `$.a` is matched, but `$.a.b` does not
+exist, so the new path and the value are inserted.
+
+```sql
+SELECT JSON_SET(JSON '{"a": {}}', '$.a.b', 100) AS json_data
+
+/*-----------------*
+ | json_data       |
+ +-----------------+
+ | {"a":{"b":100}} |
+ *-----------------*/
+```
+
+In the following example, the path prefix `$` points to a JSON null, so the
+remainder of the path is created for the value `100`.
+
+```sql
+SELECT JSON_SET(JSON 'null', '$.a.b', 100) AS json_data
+
+/*-----------------*
+ | json_data       |
+ +-----------------+
+ | {"a":{"b":100}} |
+ *-----------------*/
+```
+
+In the following example, the path `$.a.c` implies that the value at `$.a` is
+a JSON object but it's not. This part of the operation is ignored, but the other
+parts of the operation are completed successfully.
+
+```sql
+SELECT JSON_SET(
+  JSON '{"a": 1}',
+  '$.b', 2,
+  '$.a.c', 100,
+  '$.d', 3) AS json_data
+
+/*---------------------*
+ | json_data           |
+ +---------------------+
+ | {"a":1,"b":2,"d":3} |
+ *---------------------*/
+```
+
+In the following example, the path `$.a[2]` implies that the value for `$.a` is
+an array, but it's not, so the operation is ignored for that value.
+
+```sql
+SELECT JSON_SET(
+  JSON '{"a": 1}',
+  '$.a[2]', 100,
+  '$.b', 2) AS json_data
+
+/*---------------*
+ | json_data     |
+ +---------------+
+ | {"a":1,"b":2} |
+ *---------------*/
+```
+
+In the following example, the path `$[1]` is matched and replaces the
+array element value with `foo`.
+
+```sql
+SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1]', "foo") AS json_data
+
+/*-----------------*
+ | json_data       |
+ +-----------------+
+ | ["a","foo","d"] |
+ *-----------------*/
+```
+
+In the following example, the path `$[1][0]` is matched and replaces the
+array element value with `foo`.
+
+```sql
+SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][0]', "foo") AS json_data
+
+/*-----------------------*
+ | json_data             |
+ +-----------------------+
+ | ["a",["foo","c"],"d"] |
+ *-----------------------*/
+```
+
+In the following example, the path prefix `$` points to a JSON null, so the
+remainder of the path is created. The resulting array is padded with
+JSON nulls and appended with `foo`.
+
+```sql
+SELECT JSON_SET(JSON 'null', '$[0][3]', "foo")
+
+/*--------------------------*
+ | json_data                |
+ +--------------------------+
+ | [[null,null,null,"foo"]] |
+ *--------------------------*/
+```
+
+In the following example, the path `$[1]` is matched, the matched array is
+extended since `$[1][4]` is larger than the existing array, and then `foo` is
+inserted in the array.
+
+```sql
+SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][4]', "foo") AS json_data
+
+/*-------------------------------------*
+ | json_data                           |
+ +-------------------------------------+
+ | ["a",["b","c",null,null,"foo"],"d"] |
+ *-------------------------------------*/
+```
+
+In the following example, the path `$[1][0][0]` implies that the value of
+`$[1][0]` is an array, but it is not, so the operation is ignored.
+
+```sql
+SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][0][0]', "foo") AS json_data
+
+/*---------------------*
+ | json_data           |
+ +---------------------+
+ | ["a",["b","c"],"d"] |
+ *---------------------*/
+```
+
+In the following example, the path `$[1][2]` is larger than the length of
+the matched array. The array length is extended and the remainder of the path
+is recursively created. The operation continues to the path `$[1][2][1]`
+and inserts `foo`.
+
+```sql
+SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][2][1]', "foo") AS json_data
+
+/*----------------------------------*
+ | json_data                        |
+ +----------------------------------+
+ | ["a",["b","c",[null,"foo"]],"d"] |
+ *----------------------------------*/
+```
+
+In the following example, because the `JSON` object is empty, key `b` is
+inserted, and the remainder of the path is recursively created.
+
+```sql
+SELECT JSON_SET(JSON '{}', '$.b[2].d', 100) AS json_data
+
+/*-----------------------------*
+ | json_data                   |
+ +-----------------------------+
+ | {"b":[null,null,{"d":100}]} |
+ *-----------------------------*/
+```
+
+In the following example, multiple values are set.
+
+```sql
+SELECT JSON_SET(
+  JSON '{"a": 1, "b": {"c":3}, "d": [4]}',
+  '$.a', 'v1',
+  '$.b.e', 'v2',
+  '$.d[2]', 'v3') AS json_data
+
+/*---------------------------------------------------*
+ | json_data                                         |
+ +---------------------------------------------------+
+ | {"a":"v1","b":{"c":3,"e":"v2"},"d":[4,null,"v3"]} |
+ *---------------------------------------------------*/
+```
+
+### `JSON_STRIP_NULLS`
+
+```sql
+JSON_STRIP_NULLS(
+  json_expr
+  [, json_path]
+  [, include_arrays => { TRUE | FALSE }]
+  [, remove_empty => { TRUE | FALSE }]
+)
+```
+
+Recursively removes JSON nulls from JSON objects and JSON arrays.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    ```
++   `json_path`: Remove JSON nulls at this [JSONPath][JSONPath-format] for
+    `json_expr`.
++   `include_arrays`: An optional, mandatory named argument that is either
+     `TRUE` (default) or `FALSE`. If `TRUE` or omitted, the function removes
+     JSON nulls from JSON arrays. If `FALSE`, does not.
++   `remove_empty`: An optional, mandatory named argument that is either
+     `TRUE` or `FALSE` (default). If `TRUE`, the function removes empty
+     JSON objects after JSON nulls are removed. If `FALSE` or omitted, does not.
+
+    If `remove_empty` is `TRUE` and `include_arrays` is `TRUE` or omitted,
+    the function additionally removes empty JSON arrays.
+
+Details:
+
++   If a value is a JSON null, the associated key value pair is removed.
++   If `remove_empty` is set to `TRUE`, the function recursively removes empty
+    containers after JSON nulls are removed.
++   If the function generates JSON with nothing in it, the function returns a
+    JSON null.
++   If any argument is SQL `NULL`, the function returns SQL `NULL`.
++   If `json_path` is not provided, all JSON nulls are removed from `json_expr`.
+
+**Return type**
+
+`JSON`
+
+**Examples**
+
+In the following example, all JSON nulls are removed.
+
+```sql
+SELECT JSON_STRIP_NULLS(JSON '{"a": null, "b": "c"}') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"b":"c"} |
+ *-----------*/
+```
+
+In the following example, all JSON nulls are removed from a JSON array.
+
+```sql
+SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null]') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | [1,2]     |
+ *-----------*/
+```
+
+In the following example, `include_arrays` is set as `FALSE` so that JSON nulls
+are not removed from JSON arrays.
+
+```sql
+SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null]', include_arrays=>FALSE) AS json_data
+
+/*-----------------*
+ | json_data       |
+ +-----------------+
+ | [1,null,2,null] |
+ *-----------------*/
+```
+
+In the following example, `remove_empty` is omitted and defaults to
+`FALSE`, and the empty structures are retained.
+
+```sql
+SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null, [null]]') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | [1,2,[]]  |
+ *-----------*/
+```
+
+In the following example, `remove_empty` is set as `TRUE`, and the
+empty structures are removed.
+
+```sql
+SELECT JSON_STRIP_NULLS(
+  JSON '[1, null, 2, null, [null]]',
+  remove_empty=>TRUE) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | [1,2]     |
+ *-----------*/
+```
+
+In the following examples, `remove_empty` is set as `TRUE`, and the
+empty structures are removed. Because no JSON data is left the function
+returns JSON null.
+
+```sql
+SELECT JSON_STRIP_NULLS(JSON '{"a": null}', remove_empty=>TRUE) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | null      |
+ *-----------*/
+```
+
+```sql
+SELECT JSON_STRIP_NULLS(JSON '{"a": [null]}', remove_empty=>TRUE) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | null      |
+ *-----------*/
+```
+
+In the following example, empty structures are removed for JSON objects,
+but not JSON arrays.
+
+```sql
+SELECT JSON_STRIP_NULLS(
+  JSON '{"a": {"b": {"c": null}}, "d": [null], "e": [], "f": 1}',
+  include_arrays=>FALSE,
+  remove_empty=>TRUE) AS json_data
+
+/*---------------------------*
+ | json_data                 |
+ +---------------------------+
+ | {"d":[null],"e":[],"f":1} |
+ *---------------------------*/
+```
+
+In the following example, empty structures are removed for both JSON objects,
+and JSON arrays.
+
+```sql
+SELECT JSON_STRIP_NULLS(
+  JSON '{"a": {"b": {"c": null}}, "d": [null], "e": [], "f": 1}',
+  remove_empty=>TRUE) AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | {"f":1}   |
+ *-----------*/
+```
+
+In the following example, because no JSON data is left, the function returns a
+JSON null.
+
+```sql
+SELECT JSON_STRIP_NULLS(JSON 'null') AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | null      |
+ *-----------*/
+```
 
 ### `JSON_TYPE` 
 <a id="json_type"></a>
@@ -1040,7 +2626,7 @@ Arguments:
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"name": "sky", "color" : "blue"}'
+    JSON '{"name": "sky", "color": "blue"}'
     ```
 
     If this expression is SQL `NULL`, the function returns SQL `NULL`. If the
@@ -1105,12 +2691,12 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
     you want to obtain from the input. If this optional parameter is not
@@ -1133,7 +2719,7 @@ For details, see [Differences between the JSON and JSON-formatted STRING types][
 In the following example, JSON data is extracted and returned as a scalar value.
 
 ```sql
-SELECT JSON_VALUE(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+SELECT JSON_VALUE(JSON '{"name": "Jakob", "age": "6" }', '$.age') AS scalar_age;
 
 /*------------*
  | scalar_age |
@@ -1146,10 +2732,10 @@ The following example compares how results are returned for the `JSON_QUERY`
 and `JSON_VALUE` functions.
 
 ```sql
-SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
-  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
-  JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
-  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+SELECT JSON_QUERY('{"name": "Jakob", "age": "6"}', '$.name') AS json_name,
+  JSON_VALUE('{"name": "Jakob", "age": "6"}', '$.name') AS scalar_name,
+  JSON_QUERY('{"name": "Jakob", "age": "6"}', '$.age') AS json_age,
+  JSON_VALUE('{"name": "Jakob", "age": "6"}', '$.age') AS scalar_age;
 
 /*-----------+-------------+----------+------------*
  | json_name | scalar_name | json_age | scalar_age |
@@ -1213,12 +2799,12 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
     you want to obtain from the input. If this optional parameter is not
@@ -1245,7 +2831,7 @@ This extracts items in JSON to a string array:
 
 ```sql
 SELECT JSON_VALUE_ARRAY(
-  JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
+  JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
   ) AS string_array;
 
 /*---------------------------*
@@ -1259,8 +2845,8 @@ The following example compares how results are returned for the
 `JSON_QUERY_ARRAY` and `JSON_VALUE_ARRAY` functions.
 
 ```sql
-SELECT JSON_QUERY_ARRAY('["apples","oranges"]') AS json_array,
-       JSON_VALUE_ARRAY('["apples","oranges"]') AS string_array;
+SELECT JSON_QUERY_ARRAY('["apples", "oranges"]') AS json_array,
+       JSON_VALUE_ARRAY('["apples", "oranges"]') AS string_array;
 
 /*-----------------------+-------------------*
  | json_array            | string_array      |
@@ -1273,7 +2859,7 @@ This extracts the items in a JSON-formatted string to a string array:
 
 ```sql
 -- Strips the double quotes
-SELECT JSON_VALUE_ARRAY('["foo","bar","baz"]','$') AS string_array;
+SELECT JSON_VALUE_ARRAY('["foo", "bar", "baz"]', '$') AS string_array;
 
 /*-----------------*
  | string_array    |
@@ -1288,7 +2874,7 @@ This extracts a string array and converts it to an integer array:
 SELECT ARRAY(
   SELECT CAST(integer_element AS INT64)
   FROM UNNEST(
-    JSON_VALUE_ARRAY('[1,2,3]','$')
+    JSON_VALUE_ARRAY('[1, 2, 3]', '$')
   ) AS integer_element
 ) AS integer_array;
 
@@ -1302,8 +2888,8 @@ SELECT ARRAY(
 These are equivalent:
 
 ```sql
-SELECT JSON_VALUE_ARRAY('{"fruits":["apples","oranges","grapes"]}','$.fruits') AS string_array;
-SELECT JSON_VALUE_ARRAY('{"fruits":["apples","oranges","grapes"]}','$."fruits"') AS string_array;
+SELECT JSON_VALUE_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
+SELECT JSON_VALUE_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$."fruits"') AS string_array;
 
 -- The queries above produce the following result:
 /*---------------------------*
@@ -1331,10 +2917,10 @@ handled:
 
 ```sql
 -- An error is thrown if you provide an invalid JSONPath.
-SELECT JSON_VALUE_ARRAY('["foo","bar","baz"]','INVALID_JSONPath') AS result;
+SELECT JSON_VALUE_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
 
 -- If the JSON-formatted string is invalid, then NULL is returned.
-SELECT JSON_VALUE_ARRAY('}}','$') AS result;
+SELECT JSON_VALUE_ARRAY('}}', '$') AS result;
 
 /*--------*
  | result |
@@ -1343,7 +2929,7 @@ SELECT JSON_VALUE_ARRAY('}}','$') AS result;
  *--------*/
 
 -- If the JSON document is NULL, then NULL is returned.
-SELECT JSON_VALUE_ARRAY(NULL,'$') AS result;
+SELECT JSON_VALUE_ARRAY(NULL, '$') AS result;
 
 /*--------*
  | result |
@@ -1352,7 +2938,7 @@ SELECT JSON_VALUE_ARRAY(NULL,'$') AS result;
  *--------*/
 
 -- If a JSONPath does not match anything, then the output is NULL.
-SELECT JSON_VALUE_ARRAY('{"a":["foo","bar","baz"]}','$.b') AS result;
+SELECT JSON_VALUE_ARRAY('{"a": ["foo", "bar", "baz"]}', '$.b') AS result;
 
 /*--------*
  | result |
@@ -1361,7 +2947,7 @@ SELECT JSON_VALUE_ARRAY('{"a":["foo","bar","baz"]}','$.b') AS result;
  *--------*/
 
 -- If a JSONPath matches an object that is not an array, then the output is NULL.
-SELECT JSON_VALUE_ARRAY('{"a":"foo"}','$') AS result;
+SELECT JSON_VALUE_ARRAY('{"a": "foo"}', '$') AS result;
 
 /*--------*
  | result |
@@ -1370,7 +2956,7 @@ SELECT JSON_VALUE_ARRAY('{"a":"foo"}','$') AS result;
  *--------*/
 
 -- If a JSONPath matches an array of non-scalar objects, then the output is NULL.
-SELECT JSON_VALUE_ARRAY('{"a":[{"b":"foo","c":1},{"b":"bar","c":2}],"d":"baz"}','$.a') AS result;
+SELECT JSON_VALUE_ARRAY('{"a": [{"b": "foo", "c": 1}, {"b": "bar", "c": 2}], "d": "baz"}', '$.a') AS result;
 
 /*--------*
  | result |
@@ -1380,7 +2966,7 @@ SELECT JSON_VALUE_ARRAY('{"a":[{"b":"foo","c":1},{"b":"bar","c":2}],"d":"baz"}',
 
 -- If a JSONPath matches an array of mixed scalar and non-scalar objects,
 -- then the output is NULL.
-SELECT JSON_VALUE_ARRAY('{"a":[10, {"b": 20}]','$.a') AS result;
+SELECT JSON_VALUE_ARRAY('{"a": [10, {"b": 20}]', '$.a') AS result;
 
 /*--------*
  | result |
@@ -1389,7 +2975,7 @@ SELECT JSON_VALUE_ARRAY('{"a":[10, {"b": 20}]','$.a') AS result;
  *--------*/
 
 -- If a JSONPath matches an empty JSON array, then the output is an empty array instead of NULL.
-SELECT JSON_VALUE_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
+SELECT JSON_VALUE_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
 /*--------*
  | result |
@@ -1413,6 +2999,732 @@ SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 
 [differences-json-and-string]: #differences_json_and_string
 
+### `LAX_BOOL` 
+<a id="lax_bool"></a>
+
+```sql
+LAX_BOOL(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `BOOL` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON 'true'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>BOOL</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      If the JSON boolean is <code>true</code>, returns <code>TRUE</code>.
+      Otherwise, returns <code>FALSE</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string is <code>'true'</code>, returns <code>TRUE</code>.
+      If the JSON string is <code>'false'</code>, returns <code>FALSE</code>.
+      If the JSON string is any other value or has whitespace in it,
+      returns <code>NULL</code>.
+      This conversion is case-insensitive.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      If the JSON number is a representation of <code>0</code>,
+      returns <code>FALSE</code>. Otherwise, returns <code>TRUE</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+Example with input that is a JSON boolean:
+
+```sql
+SELECT LAX_BOOL(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | true   |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_BOOL(JSON '"true"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | TRUE   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_BOOL(JSON '"true "') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_BOOL(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_BOOL(JSON '10') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | TRUE   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_BOOL(JSON '0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | FALSE  |
+ *--------*/
+```
+
+```sql
+SELECT LAX_BOOL(JSON '0.0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | FALSE  |
+ *--------*/
+```
+
+```sql
+SELECT LAX_BOOL(JSON '-1.1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | TRUE   |
+ *--------*/
+```
+
+### `LAX_DOUBLE` 
+<a id="lax_double"></a>
+
+```sql
+LAX_DOUBLE(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a
+SQL `DOUBLE` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '9.8'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>DOUBLE</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      <code>NULL</code>
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as a
+      <code>BIGNUMERIC</code> value, and then safe casts the result as a
+      <code>DOUBLE</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as a
+      <code>DOUBLE</code> value.
+      Large JSON numbers are rounded.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_DOUBLE(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 9.8    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '9') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 9.0    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '9007199254740993') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | 9007199254740992.0 |
+ *--------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1e+100 |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_DOUBLE(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_DOUBLE(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10.0   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1.1    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110.0  |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '"9007199254740993"') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | 9007199254740992.0 |
+ *--------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1.5    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '"NaN"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NaN    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '"Inf"') AS result;
+
+/*----------*
+ | result   |
+ +----------+
+ | Infinity |
+ *----------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '"-InfiNiTY"') AS result;
+
+/*-----------*
+ | result    |
+ +-----------+
+ | -Infinity |
+ *-----------*/
+```
+
+```sql
+SELECT LAX_DOUBLE(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_INT64` 
+<a id="lax_int64"></a>
+
+```sql
+LAX_INT64(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `INT64` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>INT64</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      If the JSON boolean is <code>true</code>, returns <code>1</code>.
+      If <code>false</code>, returns <code>0</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as a
+      <code>BIGNUMERIC</code> value, and then safe casts the results as an
+      <code>INT64</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as an <code>INT64</code> value.
+      If the JSON number can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_INT64(JSON '10') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '10.0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '1.1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '3.5') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 4      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '1.1e2') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_INT64(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_INT64(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 2      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '"1e100"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_STRING` 
+<a id="lax_string"></a>
+
+```sql
+LAX_STRING(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `STRING` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '"name"'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>STRING</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      If the JSON boolean is <code>true</code>, returns <code>'true'</code>.
+      If <code>false</code>, returns <code>'false'</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      Returns the JSON string as a <code>STRING<code> value.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Returns the JSON number as a <code>STRING<code> value.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_STRING(JSON '"purple"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | purple |
+ *--------*/
+```
+
+```sql
+SELECT LAX_STRING(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_STRING(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | true   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_STRING(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | false  |
+ *--------*/
+```
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_STRING(JSON '10.0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_STRING(JSON '10') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_STRING(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1e+100 |
+ *--------*/
+```
+
 ### `PARSE_JSON`
 
 ```sql
@@ -1428,24 +3740,22 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    '{"class": {"students": [{"name": "Jane"}]}}'
     ```
 +   `wide_number_mode`: Optional mandatory-named argument that determines how to
     handle numbers that cannot be stored in a `JSON` value without the loss of
     precision. If used, `wide_number_mode` must include one of these values:
 
-    +   `exact`: Only accept numbers that can be stored without loss of
-        precision. If a number that cannot be stored without loss of precision
-        is encountered, the function throws an error.
+    +   `exact` (default): Only accept numbers that can be stored without loss
+        of precision. If a number that cannot be stored without loss of
+        precision is encountered, the function throws an error.
     +   `round`: If a number that cannot be stored without loss of precision is
         encountered, attempt to round it to a number that can be stored without
         loss of precision. If the number cannot be rounded, the function throws
         an error.
 
-    If `wide_number_mode` is not used, the function implicitly includes
-    `wide_number_mode=>'exact'`. If a number appears in a JSON object or array,
-    the `wide_number_mode` argument is applied to the number in the object or
-    array.
+    If a number appears in a JSON object or array, the `wide_number_mode`
+    argument is applied to the number in the object or array.
 
 Numbers from the following domains can be stored in JSON without loss of
 precision:
@@ -1462,7 +3772,7 @@ precision:
 In the following example, a JSON-formatted string is converted to `JSON`.
 
 ```sql
-SELECT PARSE_JSON('{"coordinates":[10,20],"id":1}') AS json_data;
+SELECT PARSE_JSON('{"coordinates": [10, 20], "id": 1}') AS json_data;
 
 /*--------------------------------*
  | json_data                      |
@@ -1478,20 +3788,20 @@ The following queries fail because:
   explicitly in the second query.
 
 ```sql
-SELECT PARSE_JSON('{"id":922337203685477580701}') AS json_data; -- fails
-SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'exact') AS json_data; -- fails
+SELECT PARSE_JSON('{"id": 922337203685477580701}') AS json_data; -- fails
+SELECT PARSE_JSON('{"id": 922337203685477580701}', wide_number_mode=>'exact') AS json_data; -- fails
 ```
 
 The following query rounds the number to a number that can be stored in JSON.
 
 ```sql
-SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'round') AS json_data;
+SELECT PARSE_JSON('{"id": 922337203685477580701}', wide_number_mode=>'round') AS json_data;
 
-/*--------------------------------*
- | json_data                      |
- +--------------------------------+
- | {"id":9.223372036854776e+20}   |
- *--------------------------------*/
+/*------------------------------*
+ | json_data                    |
+ +------------------------------+
+ | {"id":9.223372036854776e+20} |
+ *------------------------------*/
 ```
 
 ### `STRING` 
@@ -1510,7 +3820,7 @@ Arguments:
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"name": "sky", "color" : "blue"}'
+    JSON '{"name": "sky", "color": "blue"}'
     ```
 
     If this expression is SQL `NULL`, the function returns SQL
@@ -1566,15 +3876,15 @@ Arguments:
 +   `sql_value`: The SQL value to convert to a JSON value. You can review the
     ZetaSQL data types that this function supports and their
     JSON encodings [here][json-encodings].
-+   `stringify_wide_numbers`: Optional mandatory-named argument.
++   `stringify_wide_numbers`: Optional mandatory-named argument that is either
+    `TRUE` or `FALSE` (default).
 
-    If this argument is `TRUE`, numeric values outside
-    of the `DOUBLE` type domain are encoded as strings.
-
-    If this argument is not used or is `FALSE`, numeric values outside
-    of the `DOUBLE` type domain are not encoded
-    as strings, but are stored as JSON numbers. If a numerical value cannot be
-    stored in JSON without loss of precision, an error is thrown.
+    +   If `TRUE`, numeric values outside of the
+        `DOUBLE` type domain are encoded as strings.
+    +   If `FALSE` (default), numeric values outside of the
+    `DOUBLE` type domain are not encoded as strings,
+    but are stored as JSON numbers. If a numerical value cannot be stored in
+    JSON without loss of precision, an error is thrown.
 
     The following numerical data types are affected by the
     `stringify_wide_numbers` argument:
@@ -1602,9 +3912,9 @@ In the following example, the query converts rows in a table to JSON values.
 
 ```sql
 With CoordinatesTable AS (
-    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
-    (SELECT 3 AS id, [50,60] AS coordinates))
+    (SELECT 1 AS id, [10, 20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30, 40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50, 60] AS coordinates))
 SELECT TO_JSON(t) AS json_objects
 FROM CoordinatesTable AS t;
 
@@ -1711,9 +4021,9 @@ Convert rows in a table to JSON-formatted strings.
 
 ```sql
 With CoordinatesTable AS (
-    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
-    (SELECT 3 AS id, [50,60] AS coordinates))
+    (SELECT 1 AS id, [10, 20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30, 40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50, 60] AS coordinates))
 SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
 FROM CoordinatesTable AS t;
 
@@ -1730,8 +4040,8 @@ Convert rows in a table to JSON-formatted strings that are easy to read.
 
 ```sql
 With CoordinatesTable AS (
-    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates))
+    (SELECT 1 AS id, [10, 20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30, 40] AS coordinates))
 SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
 FROM CoordinatesTable AS t;
 
@@ -1761,10 +4071,17 @@ FROM CoordinatesTable AS t;
 ### JSON encodings 
 <a id="json_encodings"></a>
 
-The following table includes common encodings that are used when a
-SQL value is encoded as JSON value with
-the `TO_JSON_STRING`
-or `TO_JSON` function.
+You can encode a SQL value as a JSON value with the following functions:
+
++ `TO_JSON_STRING`
++ `TO_JSON`
++ `JSON_SET` (uses `TO_JSON` encoding)
++ `JSON_ARRAY` (uses `TO_JSON` encoding)
++ `JSON_ARRAY_APPEND` (uses `TO_JSON` encoding)
++ `JSON_ARRAY_INSERT` (uses `TO_JSON` encoding)
++ `JSON_OBJECT` (uses `TO_JSON` encoding)
+
+The following SQL to JSON encodings are supported:
 
 <table>
   <thead>
@@ -2266,7 +4583,7 @@ operators:
     <tr>
       <td><code>[]</code></td>
       <td>
-        Subscript operator. If the JSON object is an array, you can use
+        Subscript operator. If the object is a JSON array, you can use
         brackets to specify the array index.
       </td>
       <td>
@@ -2284,6 +4601,33 @@ operators:
         </p>
       </td>
     </tr>
+
+    <tr>
+      <td>
+        <code>[][]</code><br />
+        <code>[][][]...</code>
+      </td>
+      <td>
+        Child subscript operator. If the object is a JSON array within
+        an array, you can use as many additional brackets as you need
+        to specify the child array index.
+      </td>
+      <td>
+        <p>
+          JSON-formatted string:<br />
+          <code>'{"a": [["b", "c"], "d"], "e":"f"}'</code>
+        </p>
+        <p>
+          JSON path:<br />
+          <code>"$.a[0][1]"</code>
+        </p>
+        <p>
+          JSON result:<br />
+          <code>"c"</code>
+        </p>
+      </td>
+    </tr>
+
   </tbody>
 </table>
 
