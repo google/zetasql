@@ -32,6 +32,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/base/case.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -158,7 +159,7 @@ bool Formatter::LastTokenIsSeparator() {
     return zetasql_base::ContainsKey(kNonWordSperarator, buffer_.back());
   }
 
-  int last_token_index = buffer_.size() - 1;
+  ssize_t last_token_index = buffer_.size() - 1;
   while (last_token_index >= 0 && isalnum(buffer_[last_token_index])) {
     --last_token_index;
   }
@@ -205,6 +206,7 @@ void Unparser::UnparseLeafNode(const ASTLeaf* leaf_node) {
   print(leaf_node->image());
 }
 
+// NOLINTNEXTLINE(google-default-arguments)
 void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
                                             const std::string& separator,
                                             bool break_line) {
@@ -214,6 +216,7 @@ void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
 
 // Unparse children of <node> from indices in the range [<begin>, <end>)
 // putting <separator> between them.
+// NOLINTNEXTLINE(google-default-arguments)
 void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
                                             int begin, int end,
                                             const std::string& separator,
@@ -464,6 +467,12 @@ void Unparser::visitASTCreateFunctionStatement(
   if (node->with_connection_clause() != nullptr) {
     node->with_connection_clause()->Accept(this, data);
   }
+  // TODO Improve the readability of the "OPTIONS" and "AS" clauses
+  if (node->options_list() != nullptr) {
+    println("OPTIONS");
+    Formatter::Indenter indenter(&formatter_);
+    node->options_list()->Accept(this, data);
+  }
   if (node->code() != nullptr) {
     print("AS");
     node->code()->Accept(this, data);
@@ -475,11 +484,6 @@ void Unparser::visitASTCreateFunctionStatement(
     }
     println();
     println(")");
-  }
-  if (node->options_list() != nullptr) {
-    println("OPTIONS");
-    Formatter::Indenter indenter(&formatter_);
-    node->options_list()->Accept(this, data);
   }
 }
 
@@ -511,14 +515,15 @@ void Unparser::visitASTCreateTableFunctionStatement(
   if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
     print(node->GetSqlForSqlSecurity());
   }
+  if (node->language() != nullptr) {
+    print("LANGUAGE");
+    node->language()->Accept(this, data);
+  }
+  // TODO Improve the readability of the "OPTIONS" and "AS" clauses
   if (node->options_list() != nullptr) {
     println("OPTIONS");
     Formatter::Indenter indenter(&formatter_);
     node->options_list()->Accept(this, data);
-  }
-  if (node->language() != nullptr) {
-    print("LANGUAGE");
-    node->language()->Accept(this, data);
   }
   if (node->code() != nullptr) {
     print("AS");
@@ -2527,7 +2532,7 @@ void Unparser::visitASTOptionsList(const ASTOptionsList* node, void* data) {
 }
 
 void Unparser::visitASTOptionsEntry(const ASTOptionsEntry* node, void* data) {
-  UnparseChildrenWithSeparator(node, data, "=");
+  UnparseChildrenWithSeparator(node, data, node->GetSQLForOperator());
 }
 
 void Unparser::visitASTMaxLiteral(const ASTMaxLiteral* node, void* data) {

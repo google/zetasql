@@ -450,7 +450,43 @@ RETURNS string LANGUAGE testlang AS """ return
 """
 ==
 
-# Function with options.
+# Function attributes in preferred order, compatible with CREATE TABLE FUNCTION.
+create function fn( s string )
+returns string language testlang
+options ( a=b, bruce=lee )
+as "return 'a';";
+--
+CreateFunctionStatement [0-107] [create function...return 'a';"]
+  FunctionDeclaration [16-30] [fn( s string )]
+    PathExpression [16-18] [fn]
+      Identifier(fn) [16-18] [fn]
+    FunctionParameters [18-30] [( s string )]
+      FunctionParameter [20-28] [s string]
+        Identifier(s) [20-21] [s]
+        SimpleType [22-28] [string]
+          PathExpression [22-28] [string]
+            Identifier(string) [22-28] [string]
+  SimpleType [39-45] [string]
+    PathExpression [39-45] [string]
+      Identifier(string) [39-45] [string]
+  Identifier(testlang) [55-63] [testlang]
+  StringLiteral("return 'a';") [94-107] ["return 'a';"]
+  OptionsList [72-90] [( a=b, bruce=lee )]
+    OptionsEntry [74-77] [a=b]
+      Identifier(a) [74-75] [a]
+      PathExpression [76-77] [b]
+        Identifier(b) [76-77] [b]
+    OptionsEntry [79-88] [bruce=lee]
+      Identifier(bruce) [79-84] [bruce]
+      PathExpression [85-88] [lee]
+        Identifier(lee) [85-88] [lee]
+--
+CREATE FUNCTION fn(s string)
+RETURNS string LANGUAGE testlang OPTIONS
+  (a = b, bruce = lee) AS "return 'a';"
+==
+
+# Function attributes in deprecated order.
 create function fn( s string )
 returns string language testlang as "return 'a';"
 options ( a=b, bruce=lee ) ;
@@ -481,8 +517,30 @@ CreateFunctionStatement [0-107] [create function...bruce=lee )]
         Identifier(lee) [102-105] [lee]
 --
 CREATE FUNCTION fn(s string)
-RETURNS string LANGUAGE testlang AS "return 'a';" OPTIONS
-  (a = b, bruce = lee)
+RETURNS string LANGUAGE testlang OPTIONS
+  (a = b, bruce = lee) AS "return 'a';"
+==
+
+# Function with no optional attributes or body.
+create function fn( s string )
+returns string;
+--
+CreateFunctionStatement [0-45] [create function...turns string]
+  FunctionDeclaration [16-30] [fn( s string )]
+    PathExpression [16-18] [fn]
+      Identifier(fn) [16-18] [fn]
+    FunctionParameters [18-30] [( s string )]
+      FunctionParameter [20-28] [s string]
+        Identifier(s) [20-21] [s]
+        SimpleType [22-28] [string]
+          PathExpression [22-28] [string]
+            Identifier(string) [22-28] [string]
+  SimpleType [39-45] [string]
+    PathExpression [39-45] [string]
+      Identifier(string) [39-45] [string]
+--
+CREATE FUNCTION fn(s string)
+RETURNS string
 ==
 
 # Invalid but parseable node : argument name not given.  Missing argument
@@ -1391,34 +1449,6 @@ CREATE FUNCTION myfunc()
 RETURNS int REMOTE AS (
   5
 )
-==
-
-# AS clause after OPTIONS clause is allowed for remote function in parser.
-# This combination will be excluded in analyzer.
-create function myfunc ( ) returns int remote options(a=b) AS (5) ;
---
-CreateFunctionStatement [0-65] [create function...=b) AS (5)]
-  FunctionDeclaration [16-26] [myfunc ( )]
-    PathExpression [16-22] [myfunc]
-      Identifier(myfunc) [16-22] [myfunc]
-    FunctionParameters [23-26] [( )]
-  SimpleType [35-38] [int]
-    PathExpression [35-38] [int]
-      Identifier(int) [35-38] [int]
-  SqlFunctionBody [62-65] [(5)]
-    IntLiteral(5) [63-64] [5]
-  OptionsList [53-58] [(a=b)]
-    OptionsEntry [54-57] [a=b]
-      Identifier(a) [54-55] [a]
-      PathExpression [56-57] [b]
-        Identifier(b) [56-57] [b]
---
-CREATE FUNCTION myfunc()
-RETURNS int REMOTE AS (
-  5
-)
-OPTIONS
-  (a = b)
 ==
 
 # Remote keyword used in alternative position.

@@ -16,9 +16,16 @@
 
 #include "zetasql/resolved_ast/resolved_ast_helper.h"
 
+#include <vector>
+
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -86,6 +93,84 @@ CollectFreeColumnRefs(const ResolvedNode& node) {
   ColumnRefCollectorUnowned column_ref_collector(column_refs);
   ZETASQL_RETURN_IF_ERROR(node.Accept(&column_ref_collector));
   return column_refs;
+}
+
+// Record node to parent mappings if they are potentially on a subtree that
+// represents path expression.
+class ColumnRefParentPointerCollector : public ResolvedASTVisitor {
+ public:
+  explicit ColumnRefParentPointerCollector(
+      const absl::flat_hash_set<ResolvedColumn>& column_ids,
+      absl::flat_hash_set<const ResolvedColumnRef*>& matched_column_refs)
+      : target_column_ids_(column_ids),
+        matched_column_refs_(matched_column_refs) {}
+
+  const ParentPointerMap& GetParentPointerMap() const {
+    return node_to_parent_;
+  }
+
+  const absl::flat_hash_set<const ResolvedColumnRef*>& GetMatchedColumnRefs()
+      const {
+    return matched_column_refs_;
+  }
+
+ protected:
+  const ResolvedNode* parent() const {
+    if (parent_stack_.empty()) {
+      return nullptr;
+    }
+    return parent_stack_.back();
+  }
+
+  absl::Status DefaultVisit(const ResolvedNode* node) override {
+    parent_stack_.push_back(node);
+    absl::Status status = node->ChildrenAccept(this);
+    parent_stack_.pop_back();
+    return status;
+  }
+
+  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
+    if (target_column_ids_.contains(node->column())) {
+      node_to_parent_.emplace(node, parent());
+      matched_column_refs_.insert(node);
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitResolvedGetStructField(
+      const ResolvedGetStructField* node) override {
+    node_to_parent_.emplace(node, parent());
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedGetProtoField(
+      const ResolvedGetProtoField* node) override {
+    node_to_parent_.emplace(node, parent());
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedGetJsonField(
+      const ResolvedGetJsonField* node) override {
+    node_to_parent_.emplace(node, parent());
+    return DefaultVisit(node);
+  }
+
+ private:
+  std::vector<const ResolvedNode*> parent_stack_;
+  ParentPointerMap node_to_parent_;
+  const absl::flat_hash_set<ResolvedColumn>& target_column_ids_;
+  absl::flat_hash_set<const ResolvedColumnRef*>& matched_column_refs_;
+};
+
+absl::StatusOr<ParentPointerMap>
+CollectParentPointersOfUnboundedFieldAccessPaths(
+    const ResolvedExpr& expr,
+    const absl::flat_hash_set<ResolvedColumn>& free_columns,
+    absl::flat_hash_set<const ResolvedColumnRef*>& matched_column_refs) {
+  ColumnRefParentPointerCollector parent_pointer_collector(free_columns,
+                                                           matched_column_refs);
+  ZETASQL_RETURN_IF_ERROR(expr.Accept(&parent_pointer_collector));
+  return parent_pointer_collector.GetParentPointerMap();
 }
 
 const ResolvedComputedColumn* FindProjectComputedColumn(

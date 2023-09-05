@@ -16,6 +16,201 @@ NOTE: These functions return a runtime error if overflow occurs; result
 values are bounded by the defined [`DATE` range][data-types-link-to-date_type]
 and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#current_timestamp"><code>CURRENT_TIMESTAMP</code></a>
+
+</td>
+  <td>
+    Returns the current date and time as a <code>TIMESTAMP</code> object.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts part of a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_timestamp"><code>FORMAT_TIMESTAMP</code></a>
+
+</td>
+  <td>
+    Formats a <code>TIMESTAMP</code> value according to the specified
+    format string.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_timestamp"><code>PARSE_TIMESTAMP</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string"><code>STRING</code></a>
+
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp"><code>TIMESTAMP</code></a>
+
+</td>
+  <td>
+    Constructs a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_add"><code>TIMESTAMP_ADD</code></a>
+
+</td>
+  <td>
+    Adds a specified time interval to a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_diff"><code>TIMESTAMP_DIFF</code></a>
+
+</td>
+  <td>
+    Gets the number of intervals between two <code>TIMESTAMP</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_from_unix_micros"><code>TIMESTAMP_FROM_UNIX_MICROS</code></a>
+
+</td>
+  <td>
+    Similar to <code>TIMESTAMP_MICROS</code>, except that additionally, a
+    <code>TIMESTAMP</code> value can be passed in.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_from_unix_millis"><code>TIMESTAMP_FROM_UNIX_MILLIS</code></a>
+
+</td>
+  <td>
+    Similar to <code>TIMESTAMP_MILLIS</code>, except that additionally, a
+    <code>TIMESTAMP</code> value can be passed in.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_from_unix_seconds"><code>TIMESTAMP_FROM_UNIX_SECONDS</code></a>
+
+</td>
+  <td>
+    Similar to <code>TIMESTAMP_SECONDS</code>, except that additionally, a
+    <code>TIMESTAMP</code> value can be passed in.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_micros"><code>TIMESTAMP_MICROS</code></a>
+
+</td>
+  <td>
+    Converts the number of microseconds since
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_millis"><code>TIMESTAMP_MILLIS</code></a>
+
+</td>
+  <td>
+    Converts the number of milliseconds since
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_seconds"><code>TIMESTAMP_SECONDS</code></a>
+
+</td>
+  <td>
+    Converts the number of seconds since
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_sub"><code>TIMESTAMP_SUB</code></a>
+
+</td>
+  <td>
+    Subtracts a specified time interval from a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_trunc"><code>TIMESTAMP_TRUNC</code></a>
+
+</td>
+  <td>
+    Truncates a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_micros"><code>UNIX_MICROS</code></a>
+
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to the number of microseconds since
+    1970-01-01 00:00:00 UTC.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_millis"><code>UNIX_MILLIS</code></a>
+
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to the number of milliseconds
+    since 1970-01-01 00:00:00 UTC.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_seconds"><code>UNIX_SECONDS</code></a>
+
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to the number of seconds since
+    1970-01-01 00:00:00 UTC.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CURRENT_TIMESTAMP`
 
 ```sql

@@ -360,6 +360,10 @@ SignatureArgumentKind RelatedTemplatedKind(SignatureArgumentKind kind) {
       return ARG_TYPE_ANY_1;
     case ARG_ARRAY_TYPE_ANY_2:
       return ARG_TYPE_ANY_2;
+    case ARG_TYPE_ANY_3:
+      return ARG_ARRAY_TYPE_ANY_3;
+    case ARG_ARRAY_TYPE_ANY_3:
+      return ARG_TYPE_ANY_3;
     case ARG_RANGE_TYPE_ANY:
       return ARG_TYPE_ANY_1;
     default:
@@ -691,7 +695,8 @@ bool SignatureArgumentCountMatches(
 namespace {
 
 bool IsArgKind_ARRAY_ANY_K(SignatureArgumentKind kind) {
-  return kind == ARG_ARRAY_TYPE_ANY_1 || kind == ARG_ARRAY_TYPE_ANY_2;
+  return kind == ARG_ARRAY_TYPE_ANY_1 || kind == ARG_ARRAY_TYPE_ANY_2 ||
+         kind == ARG_ARRAY_TYPE_ANY_3;
 }
 
 // Shorthand for making resolved function argument with lambda.
@@ -1576,7 +1581,8 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   // corresponding templated types match.
   std::vector<std::pair<SignatureArgumentKind, SignatureArgumentKind>> kinds(
       {{ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
-       {ARG_TYPE_ANY_2, ARG_ARRAY_TYPE_ANY_2}});
+       {ARG_TYPE_ANY_2, ARG_ARRAY_TYPE_ANY_2},
+       {ARG_TYPE_ANY_3, ARG_ARRAY_TYPE_ANY_3}});
   for (const auto& kind : kinds) {
     const Type** arg_type =
         zetasql_base::FindOrNull(resolved_templated_arguments, kind.first);

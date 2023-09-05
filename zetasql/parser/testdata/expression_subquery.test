@@ -52,7 +52,7 @@ FROM
 # These don't parse as functions.
 select EXISTS(1)
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got integer literal "1" [at 1:15]
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:15]
 select EXISTS(1)
               ^
 ==
@@ -60,7 +60,7 @@ select EXISTS(1)
 select ARRAY(1+2)
 --
 
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got integer literal "1" [at 1:14]
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:14]
 select ARRAY(1+2)
              ^
 ==

@@ -309,9 +309,12 @@ bool ValidFieldInfoMap::FindLongestMatchingPathIfAny(
   return found;
 }
 
+const char* const NameScope::kDefaultProblemString =
+    "neither grouped nor aggregated";
+
 absl::Status NameScope::LookupNamePath(
     const PathExpressionSpan& path_expr, const char* clause_name,
-    bool is_post_distinct, bool in_strict_mode,
+    const char* problem_string, bool in_strict_mode,
     CorrelatedColumnsSetList* correlated_columns_sets, int* num_names_consumed,
     NameTarget* target_out) const {
   const IdString first_name = path_expr.GetFirstIdString();
@@ -434,8 +437,7 @@ absl::Status NameScope::LookupNamePath(
                    << (strlen(clause_name) == 0 ? "An" : clause_name)
                    << " expression references "
                    << path_expr.ToIdentifierPathString() << " which is "
-                   << (is_post_distinct ? "not visible after SELECT DISTINCT"
-                                        : "neither grouped nor aggregated");
+                   << problem_string;
           }
           // Build a new name target for the ResolvedColumn that matched
           // the longest path, and update 'num_names_consumed' to identify
@@ -470,8 +472,7 @@ absl::Status NameScope::LookupNamePath(
                          ? "table alias "
                          : "column ")
                  << path_expr.ToIdentifierPathString() << " which is "
-                 << (is_post_distinct ? "not visible after SELECT DISTINCT"
-                                      : "neither grouped nor aggregated");
+                 << problem_string;
         }
         break;
       }

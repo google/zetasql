@@ -31,6 +31,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/base/varsetter.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/analyzer/expr_matching_helpers.h"
 #include "zetasql/analyzer/filter_fields_path_validator.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
@@ -359,6 +360,29 @@ absl::Status Validator::ValidateResolvedFilterField(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateArgumentAliases(
+    const FunctionSignature& signature,
+    const std::vector<std::unique_ptr<const ResolvedFunctionArgument>>&
+        arguments) {
+  VALIDATOR_RET_CHECK_EQ(arguments.size(), signature.NumConcreteArguments());
+  for (int i = 0; i < arguments.size(); i++) {
+    FunctionEnums::ArgumentAliasKind alias_kind =
+        signature.ConcreteArgument(i).options().argument_alias_kind();
+    VALIDATOR_RET_CHECK_NE(alias_kind,
+                           FunctionEnums::ARGUMENT_ALIAS_KIND_UNSPECIFIED);
+    if (!arguments[i]->argument_alias().empty()) {
+      // If the argument has an alias in the function call, it must support
+      // aliases in the signature.
+      //
+      // Note we cannot validate the other direction: if the argument supports
+      // aliases, its alias may still be empty because the resolver generates an
+      // empty string as alias for it.
+      VALIDATOR_RET_CHECK_EQ(alias_kind, FunctionEnums::ARGUMENT_ALIASED);
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedFunctionCallBase(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
@@ -436,6 +460,12 @@ absl::Status Validator::ValidateResolvedFunctionCallBase(
 
   VALIDATOR_RET_CHECK(resolved_function_call->collation_list().size() <= 1);
 
+  if (!resolved_function_call->generic_argument_list().empty()) {
+    // Only functions that use `generic_argument_list` can have argument
+    // aliases.
+    ZETASQL_RETURN_IF_ERROR(ValidateArgumentAliases(
+        signature, resolved_function_call->generic_argument_list()));
+  }
   return absl::OkStatus();
 }
 
@@ -456,7 +486,8 @@ absl::Status Validator::ValidateStandaloneResolvedExpr(
     }
     return InternalErrorBuilder()
            << "Resolved AST validation failed: " << status.message() << "\n"
-           << expr->DebugString({{error_context_, "(validation failed here)"}});
+           << expr->DebugString(ResolvedNode::DebugStringConfig{
+                  {{error_context_, "(validation failed here)"}}, false});
   }
   return absl::OkStatus();
 }
@@ -578,6 +609,10 @@ absl::Status Validator::ValidateResolvedExpr(
                                      expr->GetAs<ResolvedFlatten>());
     case RESOLVED_FLATTENED_ARG:
       return ValidateResolvedFlattenedArg(expr->GetAs<ResolvedFlattenedArg>());
+    case RESOLVED_GET_PROTO_ONEOF:
+      return ValidateResolvedGetProtoOneof(
+          visible_columns, visible_parameters,
+          expr->GetAs<ResolvedGetProtoOneof>());
     case RESOLVED_SUBQUERY_EXPR:
       return ValidateResolvedSubqueryExpr(visible_columns, visible_parameters,
                                           expr->GetAs<ResolvedSubqueryExpr>());
@@ -1018,6 +1053,28 @@ absl::Status Validator::ValidateResolvedReplaceField(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedGetProtoOneof(
+    const std::set<ResolvedColumn>& visible_columns,
+    const std::set<ResolvedColumn>& visible_parameters,
+    const ResolvedGetProtoOneof* get_proto_oneof) {
+  PushErrorContext push(this, get_proto_oneof);
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
+                                       get_proto_oneof->expr()));
+  VALIDATOR_RET_CHECK(get_proto_oneof->expr()->type()->IsProto());
+  VALIDATOR_RET_CHECK(get_proto_oneof->type()->IsString());
+  VALIDATOR_RET_CHECK_EQ(
+      get_proto_oneof->expr()->type()->AsProto()->descriptor()->full_name(),
+      get_proto_oneof->oneof_descriptor()->containing_type()->full_name())
+      << "Mismatched proto message "
+      << get_proto_oneof->expr()->type()->DebugString() << " and oneof "
+      << get_proto_oneof->oneof_descriptor()->full_name();
+  VALIDATOR_RET_CHECK_NE(
+      get_proto_oneof->expr()->type()->AsProto()->descriptor()->FindOneofByName(
+          get_proto_oneof->oneof_descriptor()->name()),
+      nullptr);
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedInlineLambda(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
@@ -1184,6 +1241,11 @@ absl::Status Validator::ValidateResolvedComputedColumn(
       << computed_column->DebugString()  // includes newline
       << "column: " << computed_column->column().DebugString()
       << " type: " << computed_column->column().type()->DebugString();
+
+  // TODO: Enable this check.
+  // VALIDATOR_RET_CHECK(AnnotationMap::HasEqualAnnotations(
+  //     computed_column->column().annotated_type().annotation_map,
+  //     expr->annotated_type().annotation_map, CollationAnnotation::GetId()));
   // TODO: Add a more general check to handle any ResolvedExpr
   // (not just RESOLVED_COLUMN_REF).  The ResolvedExpr should not
   // reference the ResolvedColumn to be computed.
@@ -1422,11 +1484,39 @@ absl::Status Validator::ValidateResolvedJoinScan(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateTableNameArrayPathArrayScan(
+    const ResolvedArrayScan* node) {
+  VALIDATOR_RET_CHECK(node->input_scan() != nullptr);
+  VALIDATOR_RET_CHECK(node->input_scan()->node_kind() == RESOLVED_TABLE_SCAN);
+  VALIDATOR_RET_CHECK(!node->is_outer());
+  VALIDATOR_RET_CHECK(node->array_offset_column() == nullptr);
+  VALIDATOR_RET_CHECK(node->join_expr() == nullptr);
+
+  // Check if the underlying column reference of array_expr is uncorrelated.
+  // If we cannot find a column ref, it is not the shape we want.
+  int unused_column_id;
+  VALIDATOR_RET_CHECK(ContainsTableArrayNamePathWithFreeColumnRef(
+      node->array_expr(), &unused_column_id));
+  bool outputs_element_column = node->column_list_size() == 1 &&
+                                node->column_list(0) == node->element_column();
+
+  // ResolvedArrayScan might not have output column_list if array element
+  // column does not show up in the final select list and gets pruned in
+  // the resolved AST.
+  VALIDATOR_RET_CHECK(node->column_list_size() == 0 || outputs_element_column);
+
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedArrayScan(
     const ResolvedArrayScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
+
+  if (scan->node_source() == kNodeSourceSingleTableArrayNamePath) {
+    ZETASQL_RETURN_IF_ERROR(ValidateTableNameArrayPathArrayScan(scan));
+  }
 
   std::set<ResolvedColumn> visible_columns;
   if (nullptr != scan->input_scan()) {
@@ -3021,8 +3111,8 @@ absl::Status Validator::ValidateResolvedStatementInternal(
     }
     return ::zetasql_base::InternalErrorBuilder()
            << "Resolved AST validation failed: " << status.message() << "\n"
-           << statement->DebugString(
-                  {{error_context_, "(validation failed here)"}});
+           << statement->DebugString(ResolvedNode::DebugStringConfig{
+                  {{error_context_, "(validation failed here)"}}, false});
   }
   return absl::OkStatus();
 }
@@ -5435,6 +5525,10 @@ absl::Status Validator::ValidateResolvedFunctionArgument(
     ++fields_set;
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedInlineLambda(
         visible_columns, visible_parameters, resolved_arg->inline_lambda()));
+  }
+  if (!resolved_arg->argument_alias().empty()) {
+    // For now only `expr`-typed arguments can have aliases.
+    VALIDATOR_RET_CHECK(resolved_arg->expr() != nullptr);
   }
   VALIDATOR_RET_CHECK_EQ(1, fields_set)
       << "ResolvedTVFArgument should have exactly one field set";

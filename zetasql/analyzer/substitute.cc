@@ -34,6 +34,8 @@
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
@@ -243,7 +245,8 @@ class ExpressionSubstitutor {
       absl::string_view expression,
       const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
       const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
-          lambdas);
+          lambdas,
+      AnnotatedType target_type);
 
  private:
   // Sets up the catalog with injected lambda functions.
@@ -330,7 +333,8 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
     absl::string_view expression,
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
-        lambdas) {
+        lambdas,
+    AnnotatedType target_type) {
   // Set up catalog with function signatures added for each named lambda.
   if (!lambdas.empty()) {
     ZETASQL_RETURN_IF_ERROR(SetupLambdasCatalog(lambdas));
@@ -422,8 +426,8 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
   };
   InternalAnalyzerOptions::SetValidateResolvedAST(options_, false);
   std::unique_ptr<AnalyzerOutput> output;
-  ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(sql, options_, catalog_,
-                                            &type_factory_, nullptr, &output))
+  ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(
+      sql, options_, catalog_, &type_factory_, target_type, &output))
       << "while parsing substitution sql: " << sql;
   ZETASQL_VLOG(1) << "Initial ast: " << output->resolved_expr()->DebugString();
 
@@ -567,7 +571,8 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
     absl::string_view expression,
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
-        lambdas) {
+        lambdas,
+    AnnotatedType target_type) {
   constexpr absl::string_view arenas_msg =
       "AnalyzeSubstitute: All arenas and the column sequence number must be "
       "set on the input options, and they must be the same arenas used to "
@@ -586,7 +591,7 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
   options.set_enabled_rewrites({});
   return ExpressionSubstitutor(std::move(options), catalog, &column_factory,
                                type_factory)
-      .Substitute(expression, variables, lambdas);
+      .Substitute(expression, variables, lambdas, target_type);
 }
 
 }  // namespace zetasql

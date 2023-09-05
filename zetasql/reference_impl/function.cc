@@ -19,6 +19,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <any>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -49,6 +50,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/collator.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/bitcast.h"
 #include "zetasql/public/functions/bitwise.h"
@@ -57,10 +59,15 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
+#include "zetasql/public/functions/distance.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/reference_impl/operator.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_format.h"
+#include "absl/strings/substitute.h"
+#include "absl/time/civil_time.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "zetasql/public/functions/string_format.h"
@@ -831,6 +838,8 @@ FunctionMap::FunctionMap() {
                      "Extract");
     RegisterFunction(FunctionKind::kExtractDatetimeFrom, "$extract_datetime",
                      "Extract");
+    RegisterFunction(FunctionKind::kExtractOneofCase, "$extract_oneof_case",
+                     "ExtractOneofCase");
     RegisterFunction(FunctionKind::kFormatDate, "format_date", "Format_date");
     RegisterFunction(FunctionKind::kFormatDatetime, "format_datetime",
                      "Format_datetime");
@@ -975,6 +984,8 @@ FunctionMap::FunctionMap() {
                      "RangeIntersect");
     RegisterFunction(FunctionKind::kGenerateRangeArray, "generate_range_array",
                      "GenerateRangeArray");
+    RegisterFunction(FunctionKind::kRangeContains, "range_contains",
+                     "RangeContains");
     RegisterFunction(FunctionKind::kArraySum, "array_sum", "ArraySum");
     RegisterFunction(FunctionKind::kArrayAvg, "array_avg", "ArrayAvg");
     RegisterFunction(FunctionKind::kArrayOffset, "array_offset", "ArrayOffset");
@@ -983,6 +994,12 @@ FunctionMap::FunctionMap() {
                      "ArrayOffsets");
     RegisterFunction(FunctionKind::kArrayFindAll, "array_find_all",
                      "ArrayFindAll");
+    RegisterFunction(FunctionKind::kCosineDistance, "cosine_distance",
+                     "CosineDistance");
+    RegisterFunction(FunctionKind::kEuclideanDistance, "euclidean_distance",
+                     "EuclideanDistance");
+    RegisterFunction(FunctionKind::kEditDistance, "edit_distance",
+                     "EditDistance");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -1687,6 +1704,110 @@ static absl::Status ValidateSupportedTypes(
   return absl::OkStatus();
 }
 
+static absl::Status CheckVectorDistanceInputType(
+    const std::vector<const Type*>& input_types) {
+  ZETASQL_RET_CHECK_EQ(input_types.size(), 2) << absl::Substitute(
+      "input type size must be exactly 2 but got $0", input_types.size());
+
+  for (int i = 0; i < input_types.size(); ++i) {
+    ZETASQL_RET_CHECK(input_types[i]->IsArray()) << "both input types must be array";
+  }
+  if (input_types[0]->AsArray()->element_type()->IsDouble()) {
+    ZETASQL_RET_CHECK(input_types[1]->AsArray()->element_type()->IsDouble())
+        << "array element type must be both DOUBLE";
+    return absl::OkStatus();
+  }
+
+  for (int i = 0; i < input_types.size(); ++i) {
+    ZETASQL_RET_CHECK(input_types[i]->AsArray()->element_type()->IsStruct())
+        << "array element type must be struct";
+    ZETASQL_RET_CHECK_EQ(
+        input_types[i]->AsArray()->element_type()->AsStruct()->num_fields(), 2)
+        << "array struct element type must have exactly 2 fields";
+    ZETASQL_RET_CHECK(input_types[i]
+                  ->AsArray()
+                  ->element_type()
+                  ->AsStruct()
+                  ->fields()[1]
+                  .type->IsDouble())
+        << "array struct 2nd element type must be DOUBLE";
+  }
+  auto key_type0 =
+      input_types[0]->AsArray()->element_type()->AsStruct()->fields()[0].type;
+  auto key_type1 =
+      input_types[1]->AsArray()->element_type()->AsStruct()->fields()[0].type;
+  ZETASQL_RET_CHECK_EQ(key_type0, key_type1) << "key types must be the same";
+
+  return absl::OkStatus();
+}
+
+static absl::StatusOr<std::unique_ptr<SimpleBuiltinScalarFunction>>
+CreateCosineDistanceFunction(std::vector<const Type*>& input_types,
+                             const Type* output_type) {
+  ZETASQL_RET_CHECK_OK(CheckVectorDistanceInputType(input_types));
+
+  bool is_array_double = input_types[0]->AsArray()->element_type()->IsDouble();
+  if (is_array_double) {
+    return std::make_unique<CosineDistanceFunctionDense>(
+        FunctionKind::kCosineDistance, output_type);
+  }
+
+  bool is_int64 = input_types[0]
+                      ->AsArray()
+                      ->element_type()
+                      ->AsStruct()
+                      ->field(0)
+                      .type->IsInt64();
+  if (is_int64) {
+    return std::make_unique<CosineDistanceFunctionSparseInt64Key>(
+        FunctionKind::kCosineDistance, output_type);
+  }
+
+  bool is_string = input_types[0]
+                       ->AsArray()
+                       ->element_type()
+                       ->AsStruct()
+                       ->field(0)
+                       .type->IsString();
+  ZETASQL_RET_CHECK(is_string) << "input type must be either STRUCT with INT64 index "
+                          "field or STRING index field";
+  return std::make_unique<CosineDistanceFunctionSparseStringKey>(
+      FunctionKind::kCosineDistance, output_type);
+}
+
+static absl::StatusOr<std::unique_ptr<SimpleBuiltinScalarFunction>>
+CreateEuclideanDistanceFunction(std::vector<const Type*>& input_types,
+                                const Type* output_type) {
+  ZETASQL_RET_CHECK_OK(CheckVectorDistanceInputType(input_types));
+  bool is_array_double = input_types[0]->AsArray()->element_type()->IsDouble();
+  if (is_array_double) {
+    return std::make_unique<EuclideanDistanceFunctionDense>(
+        FunctionKind::kEuclideanDistance, output_type);
+  }
+
+  bool is_int64 = input_types[0]
+                      ->AsArray()
+                      ->element_type()
+                      ->AsStruct()
+                      ->field(0)
+                      .type->IsInt64();
+  if (is_int64) {
+    return std::make_unique<EuclideanDistanceFunctionSparseInt64Key>(
+        FunctionKind::kEuclideanDistance, output_type);
+  }
+
+  bool is_string = input_types[0]
+                       ->AsArray()
+                       ->element_type()
+                       ->AsStruct()
+                       ->field(0)
+                       .type->IsString();
+  ZETASQL_RET_CHECK(is_string) << "input type must be either STRUCT with INT64 index "
+                          "field or STRING index field";
+  return std::make_unique<EuclideanDistanceFunctionSparseStringKey>(
+      FunctionKind::kEuclideanDistance, output_type);
+}
+
 absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
 BuiltinScalarFunction::CreateCast(
     const LanguageOptions& language_options, const Type* output_type,
@@ -2181,7 +2302,20 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kRangeOverlaps:
     case FunctionKind::kRangeIntersect:
     case FunctionKind::kGenerateRangeArray:
+    case FunctionKind::kRangeContains:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
+    case FunctionKind::kCosineDistance: {
+      ZETASQL_ASSIGN_OR_RETURN(auto f,
+                       CreateCosineDistanceFunction(input_types, output_type));
+      return f.release();
+    }
+    case FunctionKind::kEuclideanDistance: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          auto f, CreateEuclideanDistanceFunction(input_types, output_type));
+      return f.release();
+    }
+    case FunctionKind::kEditDistance:
+      return new EditDistanceFunction(kind, output_type);
     default:
       ZETASQL_RET_CHECK_FAIL() << BuiltinFunctionCatalog::GetDebugNameByKind(kind)
                        << " is not a scalar function";
@@ -5014,6 +5148,132 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   std::unique_ptr<::differential_privacy::Algorithm<int64_t>> dp_int64_;
   // An output array for Min, Max.
   Value min_max_out_array_;
+};
+
+// Accumulator implementation for user defined aggregates
+class UserDefinedAggregateAccumulator : public AggregateAccumulator {
+ public:
+  static absl::StatusOr<std::unique_ptr<UserDefinedAggregateAccumulator>>
+  Create(std::unique_ptr<AggregateFunctionEvaluator> aggregator,
+         const Type* output_type, int num_input_fields) {
+    auto accumulator = absl::WrapUnique(new UserDefinedAggregateAccumulator(
+        std::move(aggregator), output_type, num_input_fields));
+
+    ZETASQL_RETURN_IF_ERROR(accumulator->Reset());
+    return accumulator;
+  }
+
+  absl::Status Reset() final { return aggregator_->Reset(); }
+
+  bool Accumulate(const Value& value, bool* stop_accumulation,
+                  absl::Status* status) override {
+    ABSL_DCHECK(status != nullptr);
+    // The format of 'value' depends on the number of aggregate function
+    // arguments as follows:
+    // -Nullary functions: 'value' is an empty struct, so we will pass in an
+    // empty span.
+    // -Unary functions: 'value' is the same type as the function argument
+    // -N-ary functions: 'value' is a struct with n fields for n function
+    // arguments and the type of each field corresponds to the types of the
+    // function arguments.
+    std::vector<const Value*> args;
+    switch (num_input_fields_) {
+      case 0: {
+        break;
+      }
+      case 1: {
+        args.push_back(&value);
+        break;
+      }
+      default: {
+        for (const Value& arg : value.fields()) {
+          args.push_back(&arg);
+        }
+        break;
+      }
+    }
+
+    absl::Status accumulate_status =
+        aggregator_->Accumulate(absl::MakeSpan(args), stop_accumulation);
+    if (!accumulate_status.ok()) {
+      if (status != nullptr) {
+        status->Update(accumulate_status);
+      }
+      return false;
+    }
+    return true;
+  }
+
+  absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+    // inputs_in_defined_order is only relevant to compliance testing and
+    // RQG therefore we can omit this in the public interface.
+    ZETASQL_ASSIGN_OR_RETURN(Value result, aggregator_->GetFinalResult());
+
+    // Check that the final result value is valid and consistent with the
+    // expected output type. Since equality check on types can be expensive,
+    // the type equality check is performed in debug mode only.
+    bool invalid = !result.is_valid() ||
+                   (ZETASQL_DEBUG_MODE && !output_type_->Equals(result.type()));
+    ZETASQL_RET_CHECK(!invalid) << "User-defined aggregate function "
+                        << "returned a bad result: " << result.DebugString(true)
+                        << "\n"
+                        << "Expected value of type: "
+                        << output_type_->DebugString();
+    return result;
+  }
+
+ private:
+  explicit UserDefinedAggregateAccumulator(
+      std::unique_ptr<AggregateFunctionEvaluator> aggregator,
+      const Type* output_type, int num_input_fields)
+      : aggregator_(std::move(aggregator)),
+        output_type_(output_type),
+        num_input_fields_(num_input_fields) {}
+
+  std::unique_ptr<AggregateFunctionEvaluator> aggregator_;
+  const Type* output_type_;
+  int num_input_fields_;
+};
+
+class UserDefinedAggregateFunction : public AggregateFunctionBody {
+ public:
+  UserDefinedAggregateFunction(
+      AggregateFunctionEvaluatorFactory evaluator_factory,
+      const FunctionSignature& function_signature, const Type* output_type,
+      int num_input_fields, const Type* input_type,
+      absl::string_view function_name, bool ignores_null = true)
+      : AggregateFunctionBody(output_type, num_input_fields, input_type,
+                              ignores_null),
+        evaluator_factory_(evaluator_factory),
+        function_signature_(function_signature),
+        function_name_(function_name),
+        output_type_(output_type) {}
+
+  UserDefinedAggregateFunction(const UserDefinedAggregateFunction&) = delete;
+  UserDefinedAggregateFunction& operator=(const UserDefinedAggregateFunction&) =
+      delete;
+
+  std::string debug_name() const override { return function_name_; }
+
+  absl::StatusOr<std::unique_ptr<AggregateAccumulator>> CreateAccumulator(
+      absl::Span<const Value> args, CollatorList collator_list,
+      EvaluationContext* context) const override {
+    auto status_or_evaluator = evaluator_factory_(function_signature_);
+    ZETASQL_RETURN_IF_ERROR(status_or_evaluator.status());
+    std::unique_ptr<AggregateFunctionEvaluator> evaluator =
+        std::move(status_or_evaluator.value());
+    // This should never happen because we already check for null evaluator
+    // in the algebrizer.
+    ZETASQL_RET_CHECK(evaluator != nullptr);
+    return UserDefinedAggregateAccumulator::Create(
+        std::move(evaluator), output_type_, num_input_fields());
+  }
+
+ private:
+  AggregateFunctionEvaluatorFactory evaluator_factory_;
+  const FunctionSignature& function_signature_;
+  const std::string function_name_;
+  const Type* output_type_;
 };
 
 template <typename T>
@@ -8460,8 +8720,7 @@ absl::StatusOr<Value> MakeProtoFunction::Eval(
     EvaluationContext* context) const {
   ABSL_CHECK_EQ(args.size(), fields_.size());
   absl::Cord proto_cord;
-  std::string bytes_str;
-  google::protobuf::io::StringOutputStream cord_output(&bytes_str);
+  google::protobuf::io::CordOutputStream cord_output;
   {
     ProtoUtil::WriteFieldOptions write_field_options{
         .allow_null_map_keys =
@@ -8479,7 +8738,7 @@ absl::StatusOr<Value> MakeProtoFunction::Eval(
       }
     }
   }
-  proto_cord = absl::Cord(bytes_str);
+  proto_cord = cord_output.Consume();
   return Value::Proto(output_type()->AsProto(), proto_cord);
 }
 
@@ -8622,7 +8881,7 @@ absl::StatusOr<Value> FilterFieldsFunction::Eval(
     InitializeRequiredFields(mutable_root_message.get());
   }
   return Value::Proto(args[0].type()->AsProto(),
-                      absl::Cord(mutable_root_message->SerializeAsString()));
+                      mutable_root_message->SerializeAsCord());
 }
 
 // Sets the proto field denoted by <path> to <new_field_value>. The first proto
@@ -8705,7 +8964,7 @@ static absl::StatusOr<Value> ReplaceProtoFields(
   }
 
   return Value::Proto(parent_proto.type()->AsProto(),
-                      absl::Cord(mutable_root_message->SerializeAsString()));
+                      mutable_root_message->SerializeAsCord());
 }
 
 // Sets the field denoted by <path> to <new_field_value>. <path_index>
@@ -9940,6 +10199,24 @@ absl::StatusOr<Value> CollateFunction::Eval(
   return args[0];
 }
 
+absl::StatusOr<Value> ExtractOneofCaseFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  if (args[0].is_null()) {
+    return Value::NullString();
+  }
+
+  google::protobuf::DynamicMessageFactory factory;
+  auto root_message = absl::WrapUnique(args[0].ToMessage(&factory));
+  const google::protobuf::Reflection* reflection = root_message->GetReflection();
+  const google::protobuf::FieldDescriptor* set_oneof_field =
+      reflection->GetOneofFieldDescriptor(*root_message, oneof_desc_);
+  if (set_oneof_field == nullptr) {
+    return Value::String("");
+  }
+  return Value::String(set_oneof_field->name());
+}
+
 absl::StatusOr<Value> RandFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
@@ -10795,7 +11072,6 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
     return Value::Null(output_type());
   }
 
-  static constexpr absl::CivilSecond kDefaultOrigin(1950, 1, 1, 0, 0, 0);
   switch (FCT(kind(), args[0].type_kind())) {
     case FCT(FunctionKind::kTimestampBucket, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kDateTimeBucket, TYPE_TIMESTAMP):
@@ -10808,7 +11084,8 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
         ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2], context));
         origin = args[2].ToTime();
       } else {
-        origin = absl::FromCivil(kDefaultOrigin, context->GetDefaultTimeZone());
+        origin = absl::FromCivil(functions::kDefaultTimeBucketOrigin,
+                                 context->GetDefaultTimeZone());
       }
       ZETASQL_RETURN_IF_ERROR(functions::TimestampBucket(
           args[0].ToTime(), args[1].interval_value(), origin,
@@ -10819,7 +11096,6 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
     case FCT(FunctionKind::kTimestampBucket, TYPE_DATETIME):
     case FCT(FunctionKind::kDateTimeBucket, TYPE_DATETIME):
     case FCT(FunctionKind::kDateBucket, TYPE_DATETIME): {
-      static constexpr absl::CivilSecond kDefaultOrigin(1950, 1, 1, 0, 0, 0);
       ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
       ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[1], context));
       DatetimeValue result;
@@ -10828,7 +11104,8 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
         ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2], context));
         origin = args[2].datetime_value();
       } else {
-        origin = DatetimeValue::FromCivilSecondAndMicros(kDefaultOrigin, 0);
+        origin = DatetimeValue::FromCivilSecondAndMicros(
+            functions::kDefaultTimeBucketOrigin, 0);
       }
       ZETASQL_RETURN_IF_ERROR(functions::DatetimeBucket(
           args[0].datetime_value(), args[1].interval_value(), origin,
@@ -10838,7 +11115,6 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
     case FCT(FunctionKind::kTimestampBucket, TYPE_DATE):
     case FCT(FunctionKind::kDateTimeBucket, TYPE_DATE):
     case FCT(FunctionKind::kDateBucket, TYPE_DATE): {
-      static constexpr absl::CivilDay kDefaultOrigin(1950, 1, 1);
       ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
       ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[1], context));
       int32_t result;
@@ -10847,8 +11123,9 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
         ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2], context));
         origin = args[2].date_value();
       } else {
-        ZETASQL_ASSIGN_OR_RETURN(origin,
-                         functions::ConvertCivilDayToDate(kDefaultOrigin));
+        ZETASQL_ASSIGN_OR_RETURN(
+            origin, functions::ConvertCivilDayToDate(
+                        absl::CivilDay(functions::kDefaultTimeBucketOrigin)));
       }
       ZETASQL_RETURN_IF_ERROR(functions::DateBucket(
           args[0].date_value(), args[1].interval_value(), origin, &result));
@@ -10913,6 +11190,146 @@ absl::Status ValidateMicrosPrecision(const Value& value,
   //    Maybe refactor this into a generic visitor which collects refs to the
   //    the interesting values and a then a separate checking pass.
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
+MakeUserDefinedAggregateFunction(
+    AggregateFunctionEvaluatorFactory evaluator_factory,
+    const FunctionSignature& function_signature, TypeFactory* type_factory,
+    absl::string_view function_name, bool ignores_null) {
+  ZETASQL_RET_CHECK(function_signature.result_type().IsConcrete());
+  int num_input_fields =
+      static_cast<int>(function_signature.arguments().size());
+  ZETASQL_RET_CHECK_EQ(function_signature.NumConcreteArguments(), num_input_fields);
+  const Type* input_type;
+  switch (num_input_fields) {
+    case 0:
+      input_type = types::EmptyStructType();
+      break;
+    case 1:
+      input_type = function_signature.ConcreteArgumentType(0);
+      break;
+    default: {
+      std::vector<StructType::StructField> fields;
+      fields.reserve(num_input_fields);
+      for (int i = 0; i < num_input_fields; ++i) {
+        fields.push_back({"", function_signature.ConcreteArgumentType(i)});
+      }
+      const StructType* struct_type;
+      ZETASQL_RET_CHECK_OK(type_factory->MakeStructType(fields, &struct_type));
+      input_type = struct_type;
+      break;
+    }
+  }
+  return std::make_unique<UserDefinedAggregateFunction>(
+      evaluator_factory, function_signature,
+      function_signature.result_type().type(), num_input_fields, input_type,
+      function_name, ignores_null);
+}
+
+static ::zetasql_base::StatusBuilder DistanceFunctionResultConverter(
+    const absl::Status& original_status) {
+  if (!original_status.ok()) {
+    return ::zetasql_base::OutOfRangeErrorBuilder() << original_status.message();
+  }
+  return ::zetasql_base::StatusBuilder(original_status);
+}
+
+absl::StatusOr<Value> CosineDistanceFunctionDense::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  ZETASQL_ASSIGN_OR_RETURN(Value result,
+                   functions::CosineDistanceDense(args[0], args[1]),
+                   _.With(&DistanceFunctionResultConverter));
+  return result;
+}
+
+absl::StatusOr<Value> CosineDistanceFunctionSparseInt64Key::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  ZETASQL_ASSIGN_OR_RETURN(Value result,
+                   functions::CosineDistanceSparseInt64Key(args[0], args[1]),
+                   _.With(&DistanceFunctionResultConverter));
+  return result;
+}
+
+absl::StatusOr<Value> CosineDistanceFunctionSparseStringKey::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  ZETASQL_ASSIGN_OR_RETURN(Value result,
+                   functions::CosineDistanceSparseStringKey(args[0], args[1]),
+                   _.With(&DistanceFunctionResultConverter));
+  return result;
+}
+
+absl::StatusOr<Value> EuclideanDistanceFunctionDense::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  ZETASQL_ASSIGN_OR_RETURN(Value result,
+                   functions::EuclideanDistanceDense(args[0], args[1]),
+                   _.With(&DistanceFunctionResultConverter));
+  return result;
+}
+
+absl::StatusOr<Value> EuclideanDistanceFunctionSparseInt64Key::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  ZETASQL_ASSIGN_OR_RETURN(Value result,
+                   functions::EuclideanDistanceSparseInt64Key(args[0], args[1]),
+                   _.With(&DistanceFunctionResultConverter));
+  return result;
+}
+
+absl::StatusOr<Value> EuclideanDistanceFunctionSparseStringKey::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      Value result,
+      functions::EuclideanDistanceSparseStringKey(args[0], args[1]),
+      _.With(&DistanceFunctionResultConverter));
+  return result;
+}
+
+absl::StatusOr<Value> EditDistanceFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_GE(args.size(), 2);
+  ZETASQL_RET_CHECK_LE(args.size(), 3);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      Value result,
+      functions::EditDistance(
+          args[0], args[1],
+          args.size() > 2 ? std::make_optional(args[2]) : std::nullopt),
+      _.With(&DistanceFunctionResultConverter));
+  return result;
 }
 
 }  // namespace zetasql

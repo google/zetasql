@@ -22,6 +22,7 @@
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/container/flat_hash_map.h"
@@ -37,7 +38,7 @@ namespace zetasql {
 // Returns a ResolvedExpr that incorporates 'expressions', 'variables' and
 // 'lambdas' into a single tree. The SQL is analyzed with 'options', 'catalog',
 // and 'type_factory'. In the resulting resolved AST, we project the variable
-// subsitutions so that they only appear once in the resulting AST, rather than
+// substitutions so that they only appear once in the resulting AST, rather than
 // appearing everywhere where they are referenced.
 //
 // For this node to reasonably be incorporated into a valid parent AST,
@@ -61,6 +62,9 @@ namespace zetasql {
 // argument references in the lambda body. For example a named lambda such as
 //     mylambda(element, offset)
 // with mylambda as '(e, i)->e+i', will be equivalent to: 'element + offset'.
+//
+// `target_type` may be specified to coerce the expression when it is analyzed
+// to the specified type.
 //
 // Note about naming of lambdas: there is built in protection against naming
 // conflicts between the lambdas supplied to AnalyzeSubstitute and existing
@@ -97,7 +101,9 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
     absl::string_view expression,
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
-        lambdas = {});
+        lambdas = {},
+    AnnotatedType target_type = AnnotatedType(/*type=*/nullptr,
+                                              /*annotation_map=*/nullptr));
 
 // Helper function which translates errors returned by AnalyzeSubstitute() into
 // internal errors. This function is intended for rewriters who expect their

@@ -178,20 +178,6 @@ absl::Status ParseIdentifierPath(absl::string_view str,
                                  const LanguageOptions& language_options,
                                  std::vector<std::string>* out);
 
-// Similar to the above function, but treats only unconditionally reserved
-// keywords as reserved.
-//
-// This function exists for backward compatibility with existing callers that
-// predated conditionally reserved keywords. New callers should pass in a
-// LanguageOptions instead.
-#ifndef SWIG
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status ParseIdentifierPath(absl::string_view str,
-                                        std::vector<std::string>* out) {
-  return ParseIdentifierPath(str, LanguageOptions(), out);
-}
-#endif  // SWIG
-
 // Return true if the string is a ZetaSQL keyword.
 // Note: The set of strings for which this function returns true may increase
 // over time as new keywords get added to the ZetaSQL language.

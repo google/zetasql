@@ -94,7 +94,7 @@ InternalErrorLocation MakeInternalErrorLocation(
       GetErrorLocationPoint(
           ast_node, include_leftmost_child).ToInternalErrorLocation();
   if (!filename.empty()) {
-    internal_error_location.set_filename(std::string(filename));
+    internal_error_location.set_filename(filename);
   }
   return internal_error_location;
 }

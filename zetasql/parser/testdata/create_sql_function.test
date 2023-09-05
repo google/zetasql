@@ -209,11 +209,10 @@ CreateFunctionStatement [0-77] [create function...bruce=lee )]
         Identifier(lee) [72-75] [lee]
 --
 CREATE FUNCTION mypackage.myfunc()
-AS (
+OPTIONS
+  (a = b, bruce = lee) AS (
   42
 )
-OPTIONS
-  (a = b, bruce = lee)
 ==
 
 # Function with options before body.
@@ -240,11 +239,10 @@ CreateFunctionStatement [0-77] [create function...as ( 42 )]
         Identifier(lee) [60-63] [lee]
 --
 CREATE FUNCTION mypackage.myfunc()
-AS (
+OPTIONS
+  (a = b, bruce = lee) AS (
   42
 )
-OPTIONS
-  (a = b, bruce = lee)
 ==
 
 # Inferred return type with statement.

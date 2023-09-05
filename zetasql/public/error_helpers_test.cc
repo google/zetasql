@@ -498,7 +498,9 @@ static void RunTests(
       const ErrorMessageMode mode = map_entry.first;
       const std::string& expected_error_string = map_entry.second;
       absl::Status adjusted_status =
-          MaybeUpdateErrorFromPayload(mode, test_case.query, test_case.status);
+          MaybeUpdateErrorFromPayload(mode, /*keep_error_location_payload=*/
+                                      mode == ERROR_MESSAGE_WITH_PAYLOAD,
+                                      test_case.query, test_case.status);
       const std::string test_string = absl::StrCat(
           "mode: ", ErrorMessageMode_Name(mode),
           "\ninput status: ", internal::StatusToString(test_case.status),
@@ -556,7 +558,9 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
   for (const ErrorMessageMode mode :
            zetasql_base::EnumerateEnumValues<ErrorMessageMode>()) {
     ZETASQL_EXPECT_OK(MaybeUpdateErrorFromPayload(
-        static_cast<ErrorMessageMode>(mode), dummy_query, ok));
+        static_cast<ErrorMessageMode>(mode), /*keep_error_location_payload=*/
+        static_cast<ErrorMessageMode>(mode) == ERROR_MESSAGE_WITH_PAYLOAD,
+        dummy_query, ok));
   }
   std::vector<UpdateErrorFromPayloadTestCase> test_cases;
 

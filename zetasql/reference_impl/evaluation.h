@@ -31,6 +31,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/base/case.h"
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
@@ -131,6 +132,13 @@ class EvaluationContext {
   const EvaluationOptions& options() const { return options_; }
 
   MemoryAccountant* memory_accountant() { return &memory_accountant_; }
+
+  // Returns the `value` associated with `arg_name` or an invalid Value.
+  Value GetFunctionArgumentRef(std::string arg_name);
+  // Makes the given `value` accessible under `arg_name`. Fails if there is
+  // already an existing key `arg_name` in the underlying map. This is used
+  // in the execution of user defined entities.
+  absl::Status AddFunctionArgumentRef(std::string arg_name, Value value);
 
   // Returns the contents of table 'table_name' or Value::Invalid().
   Value GetTableAsArray(absl::string_view table_name) {
@@ -358,6 +366,10 @@ class EvaluationContext {
   void set_active_group_rows(const TupleDataDeque* group_rows) {
     active_group_rows_ = group_rows;
   }
+
+  // UDF argument references
+  std::map<std::string, Value, zetasql_base::CaseLess>
+      udf_argument_references_;
 
  private:
   void LazilyInitializeDefaultTimeZone() {

@@ -103,11 +103,22 @@ class InternalValue {
   }
 
   static std::string FormatInternal(const Value& x,
-                                    bool include_array_ordereness) {
-    return x.FormatInternal(
-        {.force_type_at_top_level = true,
-         .include_array_ordereness = include_array_ordereness,
-         .indent = 0});
+                                    bool include_array_ordereness
+  ) {
+    return x.FormatInternal({
+        .force_type_at_top_level = true,
+        .include_array_ordereness = include_array_ordereness,
+        .indent = 0,
+    });
+  }
+
+  // Reexport FormatValueContentOptions for code that has visibility to this
+  // class.
+  using FormatValueContentOptions = Type::FormatValueContentOptions;
+
+  static std::string FormatInternal(const Value& x,
+                                    const FormatValueContentOptions& options) {
+    return x.FormatInternal(options);
   }
 
   // Returns true if `val` contains in its nested structure an array with two

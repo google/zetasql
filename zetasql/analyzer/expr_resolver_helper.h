@@ -383,6 +383,11 @@ class ResolvedTVFArg {
   std::shared_ptr<const NameList> name_list_;
 };
 
+// Computes the default alias to use for an expression.
+// This comes from the final identifier used in a path expression.
+// Returns empty string if this node doesn't have a default alias.
+IdString GetAliasForExpression(const ASTNode* node);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_EXPR_RESOLVER_HELPER_H_

@@ -23,35 +23,34 @@
 #include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/message.h"
 #include "gtest/gtest.h"
+#include "absl/base/macros.h"
 #include "absl/flags/flag.h"
 #include "absl/strings/cord.h"
 
 namespace zetasql {
 
+ABSL_DEPRECATED("Inline me!")
 inline absl::Cord SerializeToCord(const google::protobuf::Message& pb) {
   absl::Cord bytes;
-  std::string bytes_str;
-  ABSL_CHECK(pb.SerializeToString(&bytes_str));
-  bytes = absl::Cord(bytes_str);
+  ABSL_CHECK(pb.SerializeToCord(&bytes));
   return bytes;
 }
 
+ABSL_DEPRECATED("Inline me!")
 inline absl::Cord SerializePartialToCord(const google::protobuf::Message& pb) {
   absl::Cord bytes;
-  std::string bytes_str;
-  ABSL_CHECK(pb.SerializePartialToString(&bytes_str));
-  bytes = absl::Cord(bytes_str);
+  ABSL_CHECK(pb.SerializePartialToCord(&bytes));
   return bytes;
 }
 
+ABSL_DEPRECATED("Inline me!")
 inline bool ParseFromCord(absl::Cord bytes, google::protobuf::Message* pb) {
-  std::string bytes_str(bytes);
-  return pb->ParseFromString(std::string(bytes));
+  return pb->ParseFromCord(bytes);
 }
 
+ABSL_DEPRECATED("Inline me!")
 inline bool ParsePartialFromCord(absl::Cord bytes, google::protobuf::Message* pb) {
-  std::string bytes_str(bytes);
-  return pb->ParsePartialFromString(std::string(bytes_str));
+  return pb->ParsePartialFromCord(bytes);
 }
 
 inline std::unique_ptr<google::protobuf::compiler::DiskSourceTree>

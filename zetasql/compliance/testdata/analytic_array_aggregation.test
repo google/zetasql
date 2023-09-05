@@ -554,6 +554,193 @@ ARRAY<STRUCT<
 ]
 ==
 
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=array_agg_with_null_RANGE_date_analytic]
+SELECT row_id, date_range_val, ARRAY_AGG(date_range_val) OVER test_window
+FROM (SELECT 1 row_id, CAST(NULL as RANGE<DATE>) date_range_val UNION ALL
+      SELECT 2, RANGE<DATE> "[2020-01-01, 2020-12-31)" UNION ALL
+      SELECT 3, RANGE<DATE> "[2020-01-01, UNBOUNDED)"  UNION ALL
+      SELECT 4, RANGE<DATE> "[UNBOUNDED, 2020-12-31)"  UNION ALL
+      SELECT 5, RANGE<DATE> "[UNBOUNDED, UNBOUNDED)")
+WINDOW test_window AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        date_range_val RANGE<DATE>,
+        ARRAY<>
+      >>
+[unknown order:
+  {1,
+   NULL,
+   ARRAY<RANGE<DATE>>[unknown order:
+     NULL,
+     [2020-01-01, 2020-12-31)
+   ]},
+  {2,
+   [2020-01-01, 2020-12-31),
+   ARRAY<RANGE<DATE>>[unknown order:
+     NULL,
+     [2020-01-01, 2020-12-31),
+     [2020-01-01, NULL)
+   ]},
+  {3,
+   [2020-01-01, NULL),
+   ARRAY<RANGE<DATE>>[unknown order:
+     [2020-01-01, 2020-12-31),
+     [2020-01-01, NULL),
+     [NULL, 2020-12-31)
+   ]},
+  {4,
+   [NULL, 2020-12-31),
+   ARRAY<RANGE<DATE>>[unknown order:
+     [2020-01-01, NULL),
+     [NULL, 2020-12-31),
+     [NULL, NULL)
+   ]},
+  {
+    5,
+    [NULL, NULL),
+    ARRAY<RANGE<DATE>>[unknown order:[NULL, 2020-12-31), [NULL, NULL)]
+  }
+]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=array_agg_with_null_RANGE_datetime_analytic]
+SELECT row_id, datetime_range_val, ARRAY_AGG(datetime_range_val) OVER test_window
+FROM (SELECT 1 row_id, CAST(NULL as RANGE<DATETIME>) datetime_range_val UNION ALL
+      SELECT 2, RANGE<DATETIME> "[2020-01-01 12:00:00, 2020-12-31 14:00:00)" UNION ALL
+      SELECT 3, RANGE<DATETIME> "[2020-01-01 12:00:00, UNBOUNDED)"  UNION ALL
+      SELECT 4, RANGE<DATETIME> "[UNBOUNDED, 2020-12-31 14:00:00)"  UNION ALL
+      SELECT 5, RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)")
+WINDOW test_window AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        datetime_range_val RANGE<DATETIME>,
+        ARRAY<>
+      >>
+[unknown order:{1,
+                NULL,
+                ARRAY<RANGE<DATETIME>>[unknown order:
+                  NULL,
+                  [2020-01-01 12:00:00, 2020-12-31 14:00:00)
+                ]},
+               {2,
+                [2020-01-01 12:00:00, 2020-12-31 14:00:00),
+                ARRAY<RANGE<DATETIME>>[unknown order:
+                  NULL,
+                  [2020-01-01 12:00:00, 2020-12-31 14:00:00),
+                  [2020-01-01 12:00:00, NULL)
+                ]},
+               {3,
+                [2020-01-01 12:00:00, NULL),
+                ARRAY<RANGE<DATETIME>>[unknown order:
+                  [2020-01-01 12:00:00, 2020-12-31 14:00:00),
+                  [2020-01-01 12:00:00, NULL),
+                  [NULL, 2020-12-31 14:00:00)
+                ]},
+               {4,
+                [NULL, 2020-12-31 14:00:00),
+                ARRAY<RANGE<DATETIME>>[unknown order:
+                  [2020-01-01 12:00:00, NULL),
+                  [NULL, 2020-12-31 14:00:00),
+                  [NULL, NULL)
+                ]},
+               {5,
+                [NULL, NULL),
+                ARRAY<RANGE<DATETIME>>[unknown order:
+                  [NULL, 2020-12-31 14:00:00),
+                  [NULL, NULL)
+                ]}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=array_agg_with_null_RANGE_timestamp_analytic]
+SELECT row_id, timestamp_range_val, ARRAY_AGG(timestamp_range_val) OVER test_window
+FROM (SELECT 1 row_id, CAST(NULL as RANGE<TIMESTAMP>) timestamp_range_val UNION ALL
+      SELECT 2, RANGE<TIMESTAMP> "[2020-01-01 12:00:00+02, 2020-12-31 14:00:00+04)" UNION ALL
+      SELECT 3, RANGE<TIMESTAMP> "[2020-01-01 12:00:00+02, UNBOUNDED)"  UNION ALL
+      SELECT 4, RANGE<TIMESTAMP> "[UNBOUNDED, 2020-12-31 14:00:00+04)"  UNION ALL
+      SELECT 5, RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)")
+WINDOW test_window AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        timestamp_range_val RANGE<TIMESTAMP>,
+        ARRAY<>
+      >>
+[unknown order:{1,
+                NULL,
+                ARRAY<RANGE<TIMESTAMP>>[unknown order:
+                  NULL,
+                  [
+                    2020-01-01 10:00:00+00,
+                    2020-12-31 10:00:00+00
+                  )
+                ]},
+               {2,
+                [
+                  2020-01-01 10:00:00+00,
+                  2020-12-31 10:00:00+00
+                ),
+                ARRAY<RANGE<TIMESTAMP>>[unknown order:
+                  NULL,
+                  [
+                    2020-01-01 10:00:00+00,
+                    2020-12-31 10:00:00+00
+                  ),
+                  [
+                    2020-01-01 10:00:00+00,
+                    NULL
+                  )
+                ]},
+               {3,
+                [
+                  2020-01-01 10:00:00+00,
+                  NULL
+                ),
+                ARRAY<RANGE<TIMESTAMP>>[unknown order:
+                  [
+                    2020-01-01 10:00:00+00,
+                    2020-12-31 10:00:00+00
+                  ),
+                  [
+                    2020-01-01 10:00:00+00,
+                    NULL
+                  ),
+                  [
+                    NULL,
+                    2020-12-31 10:00:00+00
+                  )
+                ]},
+               {4,
+                [
+                  NULL,
+                  2020-12-31 10:00:00+00
+                ),
+                ARRAY<RANGE<TIMESTAMP>>[unknown order:
+                  [
+                    2020-01-01 10:00:00+00,
+                    NULL
+                  ),
+                  [
+                    NULL,
+                    2020-12-31 10:00:00+00
+                  ),
+                  [NULL, NULL)
+                ]},
+               {5,
+                [NULL, NULL),
+                ARRAY<RANGE<TIMESTAMP>>[unknown order:
+                  [
+                    NULL,
+                    2020-12-31 10:00:00+00
+                  ),
+                  [NULL, NULL)
+                ]}]
+==
+
 # ARRAY_AGG queries without nulls
 
 [name=array_agg_without_null_BOOL_analytic]
@@ -1058,3 +1245,163 @@ ARRAY<STRUCT<
      -1.23000000000000000000000000000000000001
    ]}
 ]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=array_agg_without_null_RANGE_date_analytic]
+SELECT row_id, date_range_val, ARRAY_AGG(date_range_val) OVER test_window
+FROM (SELECT 1 row_id, RANGE<DATE> "[2020-01-01, 2020-12-31)" date_range_val UNION ALL
+      SELECT 2, RANGE<DATE> "[2020-01-01, UNBOUNDED)"  UNION ALL
+      SELECT 3, RANGE<DATE> "[UNBOUNDED, 2020-12-31)"  UNION ALL
+      SELECT 4, RANGE<DATE> "[UNBOUNDED, UNBOUNDED)")
+WINDOW test_window AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        date_range_val RANGE<DATE>,
+        ARRAY<>
+      >>
+[unknown order:
+  {1,
+   [2020-01-01, 2020-12-31),
+   ARRAY<RANGE<DATE>>[unknown order:
+     [2020-01-01, 2020-12-31),
+     [2020-01-01, NULL)
+   ]},
+  {2,
+   [2020-01-01, NULL),
+   ARRAY<RANGE<DATE>>[unknown order:
+     [2020-01-01, 2020-12-31),
+     [2020-01-01, NULL),
+     [NULL, 2020-12-31)
+   ]},
+  {3,
+   [NULL, 2020-12-31),
+   ARRAY<RANGE<DATE>>[unknown order:
+     [2020-01-01, NULL),
+     [NULL, 2020-12-31),
+     [NULL, NULL)
+   ]},
+  {
+    4,
+    [NULL, NULL),
+    ARRAY<RANGE<DATE>>[unknown order:[NULL, 2020-12-31), [NULL, NULL)]
+  }
+]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=array_agg_without_null_RANGE_datetime_analytic]
+SELECT row_id, datetime_range_val, ARRAY_AGG(datetime_range_val) OVER test_window
+FROM (SELECT 1 row_id, RANGE<DATETIME> "[2020-01-01 12:00:00, 2020-12-31 14:00:00)" datetime_range_val UNION ALL
+      SELECT 2, RANGE<DATETIME> "[2020-01-01 12:00:00, UNBOUNDED)"  UNION ALL
+      SELECT 3, RANGE<DATETIME> "[UNBOUNDED, 2020-12-31 14:00:00)"  UNION ALL
+      SELECT 4, RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)")
+WINDOW test_window AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        datetime_range_val RANGE<DATETIME>,
+        ARRAY<>
+      >>
+[unknown order:{1,
+                [2020-01-01 12:00:00, 2020-12-31 14:00:00),
+                ARRAY<RANGE<DATETIME>>[unknown order:
+                  [2020-01-01 12:00:00, 2020-12-31 14:00:00),
+                  [2020-01-01 12:00:00, NULL)
+                ]},
+               {2,
+                [2020-01-01 12:00:00, NULL),
+                ARRAY<RANGE<DATETIME>>[unknown order:
+                  [2020-01-01 12:00:00, 2020-12-31 14:00:00),
+                  [2020-01-01 12:00:00, NULL),
+                  [NULL, 2020-12-31 14:00:00)
+                ]},
+               {3,
+                [NULL, 2020-12-31 14:00:00),
+                ARRAY<RANGE<DATETIME>>[unknown order:
+                  [2020-01-01 12:00:00, NULL),
+                  [NULL, 2020-12-31 14:00:00),
+                  [NULL, NULL)
+                ]},
+               {4,
+                [NULL, NULL),
+                ARRAY<RANGE<DATETIME>>[unknown order:
+                  [NULL, 2020-12-31 14:00:00),
+                  [NULL, NULL)
+                ]}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=array_agg_without_null_RANGE_timestamp_analytic]
+SELECT row_id, timestamp_range_val, ARRAY_AGG(timestamp_range_val) OVER test_window
+FROM (SELECT 1 row_id, RANGE<TIMESTAMP> "[2020-01-01 12:00:00+02, 2020-12-31 14:00:00+04)" timestamp_range_val UNION ALL
+      SELECT 2, RANGE<TIMESTAMP> "[2020-01-01 12:00:00+02, UNBOUNDED)"  UNION ALL
+      SELECT 3, RANGE<TIMESTAMP> "[UNBOUNDED, 2020-12-31 14:00:00+04)"  UNION ALL
+      SELECT 4, RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)")
+WINDOW test_window AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        timestamp_range_val RANGE<TIMESTAMP>,
+        ARRAY<>
+      >>
+[unknown order:{1,
+                [
+                  2020-01-01 10:00:00+00,
+                  2020-12-31 10:00:00+00
+                ),
+                ARRAY<RANGE<TIMESTAMP>>[unknown order:
+                  [
+                    2020-01-01 10:00:00+00,
+                    2020-12-31 10:00:00+00
+                  ),
+                  [
+                    2020-01-01 10:00:00+00,
+                    NULL
+                  )
+                ]},
+               {2,
+                [
+                  2020-01-01 10:00:00+00,
+                  NULL
+                ),
+                ARRAY<RANGE<TIMESTAMP>>[unknown order:
+                  [
+                    2020-01-01 10:00:00+00,
+                    2020-12-31 10:00:00+00
+                  ),
+                  [
+                    2020-01-01 10:00:00+00,
+                    NULL
+                  ),
+                  [
+                    NULL,
+                    2020-12-31 10:00:00+00
+                  )
+                ]},
+               {3,
+                [
+                  NULL,
+                  2020-12-31 10:00:00+00
+                ),
+                ARRAY<RANGE<TIMESTAMP>>[unknown order:
+                  [
+                    2020-01-01 10:00:00+00,
+                    NULL
+                  ),
+                  [
+                    NULL,
+                    2020-12-31 10:00:00+00
+                  ),
+                  [NULL, NULL)
+                ]},
+               {4,
+                [NULL, NULL),
+                ARRAY<RANGE<TIMESTAMP>>[unknown order:
+                  [
+                    NULL,
+                    2020-12-31 10:00:00+00
+                  ),
+                  [NULL, NULL)
+                ]}]

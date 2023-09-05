@@ -648,13 +648,13 @@ ERROR: Table-valued function tvf_one_relation_one_model_arg_with_fixed_output ar
 select * from tvf_optional_scalar_optional_model_named_table(1.0,
                                                              foobar=>(SELECT 1))
 --
-ERROR: No matching signature for tvf_optional_scalar_optional_model_named_table for argument types: DOUBLE, NULL, TABLE<$col1 INT64>. Supported signature: TVF_OPTIONAL_SCALAR_OPTIONAL_MODEL_NAMED_TABLE([ANY], [MODEL], [TABLE]) [at 1:15]
+ERROR: No matching signature for tvf_optional_scalar_optional_model_named_table for argument types: DOUBLE, NULL, TABLE<INT64>. Supported signature: TVF_OPTIONAL_SCALAR_OPTIONAL_MODEL_NAMED_TABLE([ANY], [MODEL], [TABLE]) [at 1:15]
 select * from tvf_optional_scalar_optional_model_named_table(1.0,
               ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_optional_scalar_optional_model_named_table
-  Argument types: DOUBLE, NULL, TABLE<$col1 INT64>
+  Argument types: DOUBLE, NULL, TABLE<INT64>
   Signature: TVF_OPTIONAL_SCALAR_OPTIONAL_MODEL_NAMED_TABLE([ANY], [MODEL], [foobar => TABLE])
     Argument 2: expected MODEL, found NULL [at 1:15]
 select * from tvf_optional_scalar_optional_model_named_table(1.0,
@@ -689,13 +689,13 @@ select * from tvf_model_optional_table_named_struct(model onedoublemodel,
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_scalar_optional_model_named_table(1.0, foobar=>(SELECT 1))
 --
-ERROR: No matching signature for tvf_scalar_optional_model_named_table for argument types: DOUBLE, NULL, TABLE<$col1 INT64>. Supported signature: TVF_SCALAR_OPTIONAL_MODEL_NAMED_TABLE(ANY, [MODEL], [TABLE]) [at 1:15]
+ERROR: No matching signature for tvf_scalar_optional_model_named_table for argument types: DOUBLE, NULL, TABLE<INT64>. Supported signature: TVF_SCALAR_OPTIONAL_MODEL_NAMED_TABLE(ANY, [MODEL], [TABLE]) [at 1:15]
 select * from tvf_scalar_optional_model_named_table(1.0, foobar=>(SELECT 1))
               ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_scalar_optional_model_named_table
-  Argument types: DOUBLE, NULL, TABLE<$col1 INT64>
+  Argument types: DOUBLE, NULL, TABLE<INT64>
   Signature: TVF_SCALAR_OPTIONAL_MODEL_NAMED_TABLE(ANY, [MODEL], [foobar => TABLE])
     Argument 2: expected MODEL, found NULL [at 1:15]
 select * from tvf_scalar_optional_model_named_table(1.0, foobar=>(SELECT 1))
@@ -710,13 +710,13 @@ select * from tvf_scalar_optional_model_named_table(1.0, foobar=>(SELECT 1))
 select * from tvf_optional_scalar_named_model_named_table(1.0,
                                                           barfoo=>(SELECT 1))
 --
-ERROR: No matching signature for tvf_optional_scalar_named_model_named_table for argument types: DOUBLE, NULL, TABLE<$col1 INT64>. Supported signature: TVF_OPTIONAL_SCALAR_NAMED_MODEL_NAMED_TABLE([ANY], [MODEL], [TABLE]) [at 1:15]
+ERROR: No matching signature for tvf_optional_scalar_named_model_named_table for argument types: DOUBLE, NULL, TABLE<INT64>. Supported signature: TVF_OPTIONAL_SCALAR_NAMED_MODEL_NAMED_TABLE([ANY], [MODEL], [TABLE]) [at 1:15]
 select * from tvf_optional_scalar_named_model_named_table(1.0,
               ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_optional_scalar_named_model_named_table
-  Argument types: DOUBLE, NULL, TABLE<$col1 INT64>
+  Argument types: DOUBLE, NULL, TABLE<INT64>
   Signature: TVF_OPTIONAL_SCALAR_NAMED_MODEL_NAMED_TABLE([ANY], [foobar => MODEL], [barfoo => TABLE])
     Named argument `foobar`: expected MODEL, found NULL [at 1:15]
 select * from tvf_optional_scalar_named_model_named_table(1.0,

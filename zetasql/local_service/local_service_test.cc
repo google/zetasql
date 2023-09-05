@@ -1195,7 +1195,7 @@ TypeProto MakeTestEnumTypeProto(int file_descriptor_pool_index) {
 AnalyzerOptionsProto::QueryParameterProto MakeInt64QueryParameter(
     absl::string_view parameter_name, int descriptor_pool_index) {
   AnalyzerOptionsProto::QueryParameterProto proto;
-  proto.set_name(std::string(parameter_name));
+  proto.set_name(parameter_name);
   *proto.mutable_type() = MakeInt64TypeProto(descriptor_pool_index);
   return proto;
 }
@@ -1203,7 +1203,7 @@ AnalyzerOptionsProto::QueryParameterProto MakeInt64QueryParameter(
 AnalyzerOptionsProto::QueryParameterProto MakeTestEnumQueryParameter(
     absl::string_view parameter_name, int descriptor_pool_index) {
   AnalyzerOptionsProto::QueryParameterProto proto;
-  proto.set_name(std::string(parameter_name));
+  proto.set_name(parameter_name);
   *proto.mutable_type() = MakeTestEnumTypeProto(descriptor_pool_index);
   return proto;
 }
@@ -1211,7 +1211,7 @@ AnalyzerOptionsProto::QueryParameterProto MakeTestEnumQueryParameter(
 EvaluateRequest::Parameter MakeInt64ValueParameter(absl::string_view name,
                                                    int64_t v) {
   EvaluateRequest::Parameter parameter;
-  parameter.set_name(std::string(name));
+  parameter.set_name(name);
   google::protobuf::Int64Value value;
   value.set_value(v);
 
@@ -1226,7 +1226,7 @@ EvaluateRequest::Parameter MakeInt64ValueParameter(absl::string_view name,
 EvaluateRequest::Parameter MakeTestEnumParameter(absl::string_view name,
                                                  zetasql_test__::TestEnum v) {
   EvaluateRequest::Parameter parameter;
-  parameter.set_name(std::string(name));
+  parameter.set_name(name);
 
   TypeFactory factory;
   const EnumType* type;
@@ -1546,7 +1546,7 @@ void ExpectValueIsKitchenSink3(
     const ValueProto& value,
     const zetasql_test__::Proto3KitchenSink& expected) {
   zetasql_test__::Proto3KitchenSink actual;
-  ASSERT_TRUE(ParseFromCord(absl::Cord(value.proto_value()), &actual));
+  ASSERT_TRUE(actual.ParseFromCord(absl::Cord(value.proto_value())));
   EXPECT_THAT(actual, EqualsProto(expected));
 }
 

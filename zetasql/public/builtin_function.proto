@@ -50,9 +50,9 @@ enum FunctionSignatureId {
   // 1700-1799 Net functions                  (NextId: 1716)
   // 1800-1899 More time functions            (NextId: 1864)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
-  // 2000-2199 Geography functions            (NextId: 2090)
+  // 2000-2199 Geography functions            (NextId: 2091)
   // 2200-2231 Anonymization functions        (NextId: 2232)
-  // 2300-2499 Numeric & more math functions  (NextId: 2345)
+  // 2300-2499 Numeric & more math functions  (NextId: 2352)
   // 2500-2599 Array and proto map functions  (NextId: 2552)
   // 2600-2699 More misc functions.           (NextId: 2622)
   // 2700-2799 Aggregate functions II         (NextId: 2746)
@@ -1043,6 +1043,7 @@ enum FunctionSignatureId {
   FN_ST_AZIMUTH = 2080;
   FN_ST_ANGLE = 2081;
   FN_ST_LINE_LOCATE_POINT = 2089;
+  FN_ST_HAUSDORFF_DISTANCE = 2090;
 
   // Parsers/formatters
   FN_ST_GEOG_FROM_TEXT = 2050;
@@ -1282,4 +1283,24 @@ enum FunctionSignatureId {
   FN_RANGE_CONTAINS_RANGE = 2919;
   // range_contains(range<T>, T) -> bool
   FN_RANGE_CONTAINS_ELEMENT = 2920;
+
+  // cosine_distance(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
+  FN_COSINE_DISTANCE_DENSE_DOUBLE = 2345;
+  // cosine_distance(array<struct<INT64, DOUBLE>>, array<struct<INT64, DOUBLE>>)
+  // -> DOUBLE
+  FN_COSINE_DISTANCE_SPARSE_INT64 = 2346;
+  // cosine_distance(array<struct<STRING, DOUBLE>>, array<struct<STRING,
+  // DOUBLE>>) -> DOUBLE
+  FN_COSINE_DISTANCE_SPARSE_STRING = 2347;
+
+  // euclidean_distance(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
+  FN_EUCLIDEAN_DISTANCE_DENSE_DOUBLE = 2348;
+  // euclidean_distance(array<struct<INT64, DOUBLE>>, array<struct<INT64,
+  // DOUBLE>>) -> DOUBLE
+  FN_EUCLIDEAN_DISTANCE_SPARSE_INT64 = 2349;
+  // euclidean_distance(array<struct<STRING, DOUBLE>>, array<struct<STRING,
+  // DOUBLE>>) -> DOUBLE
+  FN_EUCLIDEAN_DISTANCE_SPARSE_STRING = 2350;
+  // edit_distance(STRING, STRING[, INT64]) -> INT64
+  FN_EDIT_DISTANCE = 2351;
 }

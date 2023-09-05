@@ -33,11 +33,11 @@ class StringErrorCollectorTest : public ::testing::Test {
   }
 
   void RecordError(int line, int column, const std::string& message) {
-    test_collector_->AddError(line, column, message);
+    test_collector_->RecordError(line, column, message);
   }
 
   void RecordWarning(int line, int column, const std::string& message) {
-    test_collector_->AddWarning(line, column, message);
+    test_collector_->RecordWarning(line, column, message);
   }
 
   std::string error_string_;

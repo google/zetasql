@@ -16,15 +16,24 @@
 
 #include "zetasql/public/types/collation.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/public/collation.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {

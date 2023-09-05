@@ -129,6 +129,8 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
 
   bool AreMacrosEnabled() const;
 
+  bool AreAlterArrayOptionsEnabled() const;
+
   // EOF sentinel input. This is appended to the input and used as a sentinel in
   // the tokenizer. The reason for doing this is that some tokenizer rules
   // try to match trailing context of the form [^...] where "..." is a set of

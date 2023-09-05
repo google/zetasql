@@ -1423,7 +1423,7 @@ JSON_OBJECT([json_key, json_value][, ...])
 
 **Description**
 
-Creates a JSON object, using key value pairs.
+Creates a JSON object, using key-value pairs.
 
 Arguments:
 
@@ -1432,9 +1432,9 @@ Arguments:
 
 Details:
 
-+   If two keys are passed in with the same name, only the first key value pair
++   If two keys are passed in with the same name, only the first key-value pair
     is preserved.
-+   The order of key value pairs is not preserved.
++   The order of key-value pairs is not preserved.
 +   If `json_key` is `NULL`, an error is produced.
 
 **Return type**
@@ -1456,7 +1456,7 @@ SELECT JSON_OBJECT() AS json_data
  *-----------*/
 ```
 
-You can create a JSON object by passing in key value pairs. For example:
+You can create a JSON object by passing in key-value pairs. For example:
 
 ```sql
 SELECT JSON_OBJECT('foo', 10, 'bar', TRUE) AS json_data
@@ -1541,9 +1541,9 @@ Arguments:
 
 Details:
 
-+   If two keys are passed in with the same name, only the first key value pair
++   If two keys are passed in with the same name, only the first key-value pair
     is preserved.
-+   The order of key value pairs is not preserved.
++   The order of key-value pairs is not preserved.
 +   The number of keys must match the number of values, otherwise an error is
     produced.
 +   If any argument is `NULL`, an error is produced.
@@ -2040,7 +2040,7 @@ Details:
     of the paths.
 +   For each path, the entire matched JSON subtree is deleted.
 +   If the path matches a JSON object key, this function deletes the
-    key value pair.
+    key-value pair.
 +   If the path matches an array element, this function deletes the specific
     element from the matched array.
 +   If removing the path results in an empty JSON object or empty JSON array,
@@ -2109,7 +2109,7 @@ SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]', '$[0]') AS jso
 ```
 
 In the following example, the path `$.a.b.c` is matched and removes the
-`"c":"d"` key value pair from the JSON object.
+`"c":"d"` key-value pair from the JSON object.
 
 ```sql
 SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b.c') AS json_data
@@ -2122,7 +2122,7 @@ SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b.c') AS json_data
 ```
 
 In the following example, the path `$.a.b` is matched and removes the
-`"b": {"c":"d"}` key value pair from the JSON object.
+`"b": {"c":"d"}` key-value pair from the JSON object.
 
 ```sql
 SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b') AS json_data
@@ -2461,7 +2461,7 @@ Arguments:
 
 Details:
 
-+   If a value is a JSON null, the associated key value pair is removed.
++   If a value is a JSON null, the associated key-value pair is removed.
 +   If `remove_empty` is set to `TRUE`, the function recursively removes empty
     containers after JSON nulls are removed.
 +   If the function generates JSON with nothing in it, the function returns a

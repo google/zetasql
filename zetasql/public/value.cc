@@ -500,7 +500,7 @@ google::protobuf::Message* Value::ToMessage(
   ABSL_CHECK(!is_null());
   std::unique_ptr<google::protobuf::Message> m(
       message_factory->GetPrototype(type()->AsProto()->descriptor())->New());
-  const bool success = m->ParsePartialFromString(std::string(ToCord()));
+  const bool success = m->ParsePartialFromCord(ToCord());
   if (!success && return_null_on_error) return nullptr;
   return m.release();
 }

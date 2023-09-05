@@ -23,6 +23,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/arena_allocator.h"
@@ -110,6 +111,15 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
       }
     }
     return -1;
+  }
+
+  // Swap the positions of any 2 children of this ASTNode.
+  bool SwapChildren(int idx_a, int idx_b) {
+    if (idx_a >= children_.size() || idx_b >= children_.size()) {
+      return false;
+    }
+    std::swap(children_[idx_a], children_[idx_b]);
+    return true;
   }
 
   // Returns whether or not this node is a specific node type.

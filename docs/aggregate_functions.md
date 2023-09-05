@@ -24,7 +24,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns an expression for some row.
+    Gets an expression for some row.
   </td>
 </tr>
 
@@ -33,7 +33,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns an array of values.
+    Gets an array of values.
   </td>
 </tr>
 
@@ -51,7 +51,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the average of non-<code>NULL</code> values.
+    Gets the average of non-<code>NULL</code> values.
   </td>
 </tr>
 
@@ -87,7 +87,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the number of rows in the input, or the number of rows with an
+    Gets the number of rows in the input, or the number of rows with an
     expression evaluated to any value other than <code>NULL</code>.
   </td>
 </tr>
@@ -97,7 +97,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the count of <code>TRUE</code> values for an expression.
+    Gets the count of <code>TRUE</code> values for an expression.
   </td>
 </tr>
 
@@ -106,7 +106,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the logical AND of all non-<code>NULL</code> expressions.
+    Gets the logical AND of all non-<code>NULL</code> expressions.
   </td>
 </tr>
 
@@ -115,7 +115,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the logical OR of all non-<code>NULL</code> expressions.
+    Gets the logical OR of all non-<code>NULL</code> expressions.
   </td>
 </tr>
 
@@ -124,7 +124,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the maximum non-<code>NULL</code> value.
+    Gets the maximum non-<code>NULL</code> value.
   </td>
 </tr>
 
@@ -133,7 +133,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the minimum non-<code>NULL</code> value.
+    Gets the minimum non-<code>NULL</code> value.
   </td>
 </tr>
 
@@ -142,8 +142,8 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns a <code>STRING</code> or <code>BYTES</code> value obtained by
-    concatenating non-<code>NULL</code> values.
+    Concatenates non-<code>NULL</code> <code>STRING</code> or
+    <code>BYTES</code> values.
   </td>
 </tr>
 
@@ -152,7 +152,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the sum of non-<code>NULL</code> values.
+    Gets the sum of non-<code>NULL</code> values.
   </td>
 </tr>
 

@@ -110,10 +110,58 @@ class AnalyzerTestCase;
 //       - if true, fill in AllowedHintsAndOptions in AnalyzerOptions with a
 //         set of allowed hint/option names. (False by default)
 //   use_database
-//       - must be either "SampleCatalog" (default) to use the standard catalog
-//         defined in sample_catalog.cc, or "SpecialCatalog" to use a hardcoded
-//         catalog defined in special_catalog.cc to test anonymous / duplicated
-//         column names.
+//       - must be one of:
+//           "SampleCatalog" [default]: the standard catalog, which includes
+//                           builtin functions, as well as many additional
+//                           catalog objects. Modified by 'language_features'
+//                           and 'product_mode'. Defined in
+//                           https://github.com/google/zetasql/blob/master/zetasql/testdata/sample_catalog.cc
+//           "SpecialCatalog": a hardcoded catalog for testing differential
+//                            privacy. Defined in
+//                            https://github.com/google/zetasql/blob/master/zetasql/testdata/special_catalog.h
+//           <database_name>: the name of a catalog previously created
+//                            with [prepare_database].
+//
+//   prepare_database
+//       - This allows a DDL statement to be evaluated and added to the named
+//         database. That named database can then be referenced in a subsequent
+//         'use_database' option.
+//         Example:
+//           ==
+//           [prepare_database=database1]
+//           CREATE FUNCTION Add2(x int64_t) as (x + 2);
+//           --
+//           <Resulting Resolved AST>
+//           ==
+//           [use_database=database1]
+//           select Add2(5);
+//           --
+//           <resulting resolved ast>
+//           ==
+//       - 'use_database' may be used in combination with prepare_database in a
+//            single statement to change the 'base' catalog used in the new
+//            database. As stated above, the base database may be modified
+//            by language options. Example:
+//           ==
+//           [prepare_database=database2]
+//           [use_database=database1]
+//           [language_features]
+//           CREATE FUNCTION Add4(x int64_t) as Add2(Add2(x));
+//           --
+//           <Resulting Resolved AST>
+//           ==
+//           [use_database=datdabase2]
+//           select Add2(5), Add4(7);
+//           --
+//           <resulting resolved ast>
+//           ==
+//       - Multiple statements may use the same prepare_database to add multiple
+//           objects to the same catalog. However, such statements must be
+//           sequentially adjacent, and only the first may be contain
+//           a 'use_catalog' option.
+//       - The following statements are currently supported:
+//         CREATE [AGGREGATE] FUNCTION
+//
 //   error_message_mode
 //       - "with_payload", "one_line", or "multi_line_with_caret".
 //         Maps to ErrorMessageMode analyzer option.
@@ -153,6 +201,7 @@ extern const char* const kSupportedStatementKinds;
 extern const char* const kTestExtractTableNames;
 extern const char* const kUnparserPositionalParameterMode;
 extern const char* const kUseDatabase;
+extern const char* const kPrepareDatabase;
 extern const char* const kRunDeserializer;
 extern const char* const kUseHintsAllowlist;
 extern const char* const kUseSharedIdSequence;

@@ -281,6 +281,16 @@ ARRAY<STRUCT<
 ]
 ==
 
+[labels=bug_in_reference_impl]
+[name=pivot_conditional_evaluation]
+SELECT IF(SUM(pivot_min_100) >= 0, SUM(pivot_min_100), SUM(1/pivot_min_100)) FROM (SELECT x, y, z FROM t1)
+  PIVOT(
+    MIN(z - 1000) AS pivot_min,
+    MAX(z - 1000) AS pivot_max
+    FOR y IN (100, 101, 103 AS yy103yy, NULL, NULL AS yyNULLyy));
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
 [required_features=V_1_3_PIVOT,V_1_1_ORDER_BY_IN_AGGREGATE]
 [name=pivot_string_agg_with_delimiter]
 SELECT * FROM (SELECT rowid, x, y, z FROM t1)

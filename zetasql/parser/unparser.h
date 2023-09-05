@@ -107,7 +107,7 @@ class Formatter {
 
   // The length of indentation at the beginning of buffer_. We have to save it
   // in a variable since indentation_ is dynamically changing.
-  int indentation_length_in_buffer_;
+  size_t indentation_length_in_buffer_;
 
   // Unparsed result, not owned.
   std::string* unparsed_;
@@ -118,7 +118,7 @@ class Unparser : public ParseTreeVisitor {
   explicit Unparser(std::string* unparsed) : formatter_(unparsed) {}
   Unparser(const Unparser&) = delete;
   Unparser& operator=(const Unparser&) = delete;
-  ~Unparser() override {}
+  ~Unparser() override = default;
 
   virtual void defaultVisit(const ASTNode* node, void* data) {
     ABSL_LOG(FATAL) << "Unimplemented node: " << node->SingleNodeDebugString();
@@ -780,9 +780,11 @@ class Unparser : public ParseTreeVisitor {
 
  protected:
   // Set break_line to true if you want to print each child on a separate line.
+  // NOLINTNEXTLINE(google-default-arguments)
   virtual void UnparseChildrenWithSeparator(const ASTNode* node, void* data,
                                             const std::string& separator,
                                             bool break_line = false);
+  // NOLINTNEXTLINE(google-default-arguments)
   virtual void UnparseChildrenWithSeparator(const ASTNode* node, void* data,
                                             int begin, int end,
                                             const std::string& separator,

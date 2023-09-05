@@ -69,7 +69,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Checks to see if there is an element in the array that is
+    Checks if there is an element in the array that is
     equal to a search value.
   </td>
 </tr>
@@ -79,7 +79,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Checks to see if all search values are in an array.
+    Checks if all search values are in an array.
   </td>
 </tr>
 
@@ -88,7 +88,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Checks to see if any search values are in an array.
+    Checks if any search values are in an array.
   </td>
 </tr>
 
@@ -97,7 +97,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Checks to see if an array contains no repeated elements.
+    Checks if an array contains no repeated elements.
   </td>
 </tr>
 
@@ -151,7 +151,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Returns an array containing zero or more consecutive elements from an
+    Produces an array containing zero or more consecutive elements from an
     input array.
   </td>
 </tr>

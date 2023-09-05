@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -54,6 +55,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -389,46 +391,78 @@ absl::Status Resolver::ResolveInsertQuery(
   return absl::OkStatus();
 }
 
-class GeneratedColumnCycleDetector : public ResolvedASTVisitor {
- public:
-  explicit GeneratedColumnCycleDetector(const Table* table,
-                                        CycleDetector* cycle_detector)
-      : table_(table), cycle_detector_(cycle_detector) {}
-
- protected:
-  absl::Status DefaultVisit(const ResolvedNode* node) override {
-    // TODO: Add checks for ResolvedCatalogColumnRef here whenever
-    // it becomes relevant.
-    if (node->Is<ResolvedExpressionColumn>()) {
-      std::string column_name = node->GetAs<ResolvedExpressionColumn>()->name();
-      const Column* column = table_->FindColumnByName(column_name);
-      ZETASQL_RET_CHECK_NE(column, nullptr);
-      if (column->HasGeneratedExpression()) {
-        ZETASQL_RET_CHECK(column->GetExpression().has_value());
-        CycleDetector::ObjectInfo object(column->FullName(), column,
-                                         cycle_detector_);
-        absl::Status status = object.DetectCycle("generated column");
-        if (!status.ok()) {
-          const std::vector<std::string>& cycle_names =
-              cycle_detector_->ObjectNames();
-          return MakeSqlError()
-                 << "Recursive dependencies detected while evaluating "
-                    "generated column expression values for "
-                 << column->FullName()
-                 << ". The expression indicates the column depends on "
-                    "itself. Columns forming the cycle : "
-                 << absl::StrJoin(cycle_names, ", ");
-        }
-        const ResolvedExpr* resolved_expr =
-            column->GetExpression()->GetResolvedExpression();
-        ZETASQL_RETURN_IF_ERROR(resolved_expr->Accept(this));
-      }
+absl::Status
+Resolver::GeneratedColumnTopoSorter::TopologicallySortGeneratedColumns() {
+  for (int generated_column_index : generated_columns_) {
+    if (visited_columns_.contains(generated_column_index)) {
+      continue;
     }
-    return ResolvedASTVisitor::DefaultVisit(node);
+    const Column* generated_column = table_->GetColumn(generated_column_index);
+    ZETASQL_RET_CHECK(generated_column != nullptr);
+    ZETASQL_RET_CHECK(generated_column->HasGeneratedExpression());
+    ZETASQL_RET_CHECK(generated_column->GetExpression().has_value());
+    CycleDetector::ObjectInfo object(generated_column->FullName(),
+                                     generated_column, cycle_detector_);
+    const ResolvedExpr* resolved_expr =
+        generated_column->GetExpression()->GetResolvedExpression();
+    ZETASQL_RETURN_IF_ERROR(resolved_expr->Accept(this));
+    visited_columns_.insert(generated_column_index);
+    topologically_sorted_generated_columns_.push_back(generated_column_index);
   }
-  const Table* table_;
-  CycleDetector* cycle_detector_;
-};
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::GeneratedColumnTopoSorter::DefaultVisit(
+    const ResolvedNode* node) {
+  // TODO: Add checks for ResolvedCatalogColumnRef here whenever
+  // it becomes relevant.
+  if (node->Is<ResolvedExpressionColumn>()) {
+    std::string column_name = node->GetAs<ResolvedExpressionColumn>()->name();
+    const Column* column = table_->FindColumnByName(column_name);
+    bool duplicate = false;
+    int column_index = -1;
+    Resolver::FindColumnIndex(table_, column_name, &column_index, &duplicate);
+    ZETASQL_RET_CHECK(column != nullptr);
+    ZETASQL_RET_CHECK_GE(column_index, 0);
+    ZETASQL_RET_CHECK(!duplicate);
+    if (column->HasGeneratedExpression()) {
+      if (visited_columns_.contains(column_index)) {
+        return absl::OkStatus();
+      }
+      ZETASQL_RET_CHECK(column->GetExpression().has_value());
+      CycleDetector::ObjectInfo object(column->FullName(), column,
+                                       cycle_detector_);
+      absl::Status status = object.DetectCycle("generated column");
+      if (!status.ok()) {
+        const std::vector<std::string>& cycle_names =
+            cycle_detector_->ObjectNames();
+        return MakeSqlError()
+               << "Recursive dependencies detected while evaluating "
+                  "generated column expression values for "
+               << column->FullName()
+               << ". The expression indicates the column depends on "
+                  "itself. Columns forming the cycle : "
+               << absl::StrJoin(cycle_names, ", ");
+      }
+      ZETASQL_RETURN_IF_ERROR(
+          column->GetExpression()->GetResolvedExpression()->Accept(this));
+      visited_columns_.insert(column_index);
+      topologically_sorted_generated_columns_.push_back(column_index);
+    }
+  }
+  return ResolvedASTVisitor::DefaultVisit(node);
+}
+
+absl::Status Resolver::TopologicallySortGeneratedColumns(
+    std::vector<int>& generated_columns, const Table* table,
+    CycleDetector* cycle_detector,
+    std::vector<int>& out_topologically_sorted_generated_columns) {
+  GeneratedColumnTopoSorter sorter(table, cycle_detector, generated_columns);
+  ZETASQL_RETURN_IF_ERROR(sorter.TopologicallySortGeneratedColumns());
+  out_topologically_sorted_generated_columns =
+      sorter.release_topologically_sorted_generated_columns();
+  return absl::OkStatus();
+}
 
 absl::Status Resolver::ResolveInsertStatement(
     const ASTInsertStatement* ast_statement,
@@ -454,24 +488,28 @@ absl::Status Resolver::ResolveInsertStatement(
     }
   }
 
-  // Check for cycles for generated columns in the table.
+  // Check cycles and topologically sort generated columns.
+  std::vector<int> generated_columns;
   for (auto const& [resolved_column, catalog_column] :
        resolved_columns_from_table_scans_) {
     if (catalog_column->HasGeneratedExpression()) {
-      ZETASQL_RET_CHECK(catalog_column->GetExpression().has_value());
-      CycleDetector* cycle_detector =
-          analyzer_options_.find_options().cycle_detector();
-      ZETASQL_RET_CHECK(cycle_detector != nullptr)
-          << "Cycle detector needs to be set in analyzer options";
-      GeneratedColumnCycleDetector detector(resolved_table_scan->table(),
-                                            cycle_detector);
-      CycleDetector::ObjectInfo object(catalog_column->FullName(),
-                                       catalog_column, cycle_detector);
-      const ResolvedExpr* resolved_expr =
-          catalog_column->GetExpression()->GetResolvedExpression();
-      ZETASQL_RETURN_IF_ERROR(resolved_expr->Accept(&detector));
+      int column_index = -1;
+      bool duplicate = false;
+      FindColumnIndex(resolved_table_scan->table(), catalog_column->Name(),
+                      &column_index, &duplicate);
+      ZETASQL_RET_CHECK_GE(column_index, 0);
+      ZETASQL_RET_CHECK(!duplicate);
+      generated_columns.push_back(column_index);
     }
   }
+  CycleDetector* cycle_detector =
+      analyzer_options_.find_options().cycle_detector();
+  ZETASQL_RET_CHECK(cycle_detector != nullptr)
+      << "Cycle detector needs to be set in analyzer options";
+  std::vector<int> topologically_sorted_generated_columns;
+  ZETASQL_RETURN_IF_ERROR(TopologicallySortGeneratedColumns(
+      generated_columns, resolved_table_scan->table(), cycle_detector,
+      topologically_sorted_generated_columns));
 
   ResolvedColumnList insert_columns;
   IdStringHashSetCase visited_column_names;
@@ -551,10 +589,10 @@ absl::Status Resolver::ResolveInsertStatement(
   // inserting into.
   RecordColumnAccess(insert_columns, ResolvedStatement::WRITE);
 
-  return ResolveInsertStatementImpl(ast_statement, target_alias, name_list,
-                                    std::move(resolved_table_scan),
-                                    insert_columns,
-                                    /*nested_scope=*/nullptr, output);
+  return ResolveInsertStatementImpl(
+      ast_statement, target_alias, name_list, std::move(resolved_table_scan),
+      insert_columns,
+      /*nested_scope=*/nullptr, topologically_sorted_generated_columns, output);
 }
 
 absl::Status Resolver::ResolveInsertStatementImpl(
@@ -562,6 +600,7 @@ absl::Status Resolver::ResolveInsertStatementImpl(
     const std::shared_ptr<const NameList>& target_name_list,
     std::unique_ptr<const ResolvedTableScan> resolved_table_scan,
     const ResolvedColumnList& insert_columns, const NameScope* nested_scope,
+    std::vector<int> topologically_sorted_generated_column_index_list,
     std::unique_ptr<ResolvedInsertStmt>* output) {
   ResolvedInsertStmt::InsertMode insert_mode;
   switch (ast_statement->insert_mode()) {
@@ -649,14 +688,14 @@ absl::Status Resolver::ResolveInsertStatementImpl(
   // element_column field of the enclosing UPDATE, and
   // ResolvedInsertStmt.insert_columns is implicit.
   ZETASQL_RET_CHECK(!is_nested || insert_columns.size() == 1);
-  const ResolvedColumnList& resolved_insert_columns =
-      is_nested ? ResolvedColumnList() : insert_columns;
   *output = MakeResolvedInsertStmt(
       std::move(resolved_table_scan), insert_mode,
       std::move(resolved_assert_rows_modified),
-      std::move(resolved_returning_clause), resolved_insert_columns,
+      std::move(resolved_returning_clause),
+      is_nested ? ResolvedColumnList() : insert_columns,
       std::move(query_parameter_list), std::move(resolved_query),
-      query_output_column_list, std::move(row_list));
+      query_output_column_list, std::move(row_list),
+      topologically_sorted_generated_column_index_list);
 
   return absl::OkStatus();
 }
@@ -1564,7 +1603,9 @@ absl::Status Resolver::MergeWithUpdateItem(
       ZETASQL_RETURN_IF_ERROR(ResolveInsertStatementImpl(
           ast_input_update_item->insert_statement(), target_alias,
           /*target_name_list=*/nullptr, /*table_scan=*/nullptr, insert_columns,
-          nested_dml_scope, &resolved_stmt));
+          nested_dml_scope,
+          /*topologically_sorted_generated_column_index_list=*/{},
+          &resolved_stmt));
       resolved_update_item.add_insert_list(std::move(resolved_stmt));
     }
   }
@@ -2054,7 +2095,6 @@ absl::Status Resolver::ResolveReturningClause(
   query_resolution_info->set_is_resolving_returning_clause();
 
   ZETASQL_RETURN_IF_ERROR(ResolveSelectListExprsFirstPass(select_list, from_scan_scope,
-                                                  /*has_from_clause=*/true,
                                                   from_clause_name_list,
                                                   query_resolution_info.get()));
 

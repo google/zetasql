@@ -6,15 +6,15 @@ SELECT concat("Hello" AS str1, " World!" AS str2)
                       ^
 ==
 
-# The detection of illegal function call argument alias is currently done before
-# the signature is resolved.
-SELECT ARRAY_FIND(x AS arr1)
+[language_features=V_1_4_ARRAY_FIND_FUNCTIONS]
+SELECT ARRAY_FIND([1, 2] AS arr1, 1)
 --
-ERROR: Unexpected function call argument alias found at ARRAY_FIND [at 1:21]
-SELECT ARRAY_FIND(x AS arr1)
-                    ^
+ERROR: Unexpected function call argument alias found at ARRAY_FIND [at 1:26]
+SELECT ARRAY_FIND([1, 2] AS arr1, 1)
+                         ^
 ==
 
+# STRUCT subscript access does not support argument aliases.
 SELECT s1[OFFSET(1 AS offset)]
 FROM (SELECT AS STRUCT 1 AS a, 2 AS b) s1
 --
@@ -40,6 +40,7 @@ SELECT SUM(x AS agg)
              ^
 ==
 
+[language_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT SAFE.CONCAT("HELLO", " WORLD" AS str2)
 --
 ERROR: Unexpected function call argument alias found at SAFE.CONCAT [at 1:38]
@@ -47,3 +48,452 @@ SELECT SAFE.CONCAT("HELLO", " WORLD" AS str2)
                                      ^
 ==
 
+# Date functions do not allow argument aliases.
+SELECT DATE('1999-01-01' AS date_alias);
+--
+ERROR: Unexpected function call argument alias found at DATE [at 1:26]
+SELECT DATE('1999-01-01' AS date_alias);
+                         ^
+==
+
+# Proto extraction does not allow argument aliases.
+[language_features=V_1_3_EXTRACT_FROM_PROTO]
+SELECT EXTRACT(FIELD(int32_val AS alias) from KitchenSink)
+from TestTable
+--
+ERROR: Unexpected function call argument alias found at FIELD [at 1:32]
+SELECT EXTRACT(FIELD(int32_val AS alias) from KitchenSink)
+                               ^
+==
+
+# Analytic function that does not support argument aliases.
+[language_features=ANALYTIC_FUNCTIONS]
+SELECT COUNT(DISTINCT (int64 + 1) AS int64) OVER ()
+FROM SimpleTypes
+--
+ERROR: Unexpected function call argument alias found at COUNT [at 1:35]
+SELECT COUNT(DISTINCT (int64 + 1) AS int64) OVER ()
+                                  ^
+==
+
+# Array subscript access does not support argument aliases.
+SELECT [1, 2][OFFSET(1 AS offset_alias)]
+--
+ERROR: Unexpected function call argument alias found at OFFSET [at 1:24]
+SELECT [1, 2][OFFSET(1 AS offset_alias)]
+                       ^
+==
+
+# Array subscript access without wrappers does not support argument aliases
+# (disallowed by the grammar).
+SELECT [1, 2][0 AS offset_alias]
+--
+ERROR: Syntax error: Unexpected keyword AS [at 1:17]
+SELECT [1, 2][0 AS offset_alias]
+                ^
+==
+
+# Non-array subscript access does not support argument aliases.
+SELECT "ABC"[OFFSET(0 AS offset_alias)]
+--
+ERROR: Unexpected function call argument alias found at OFFSET [at 1:23]
+SELECT "ABC"[OFFSET(0 AS offset_alias)]
+                      ^
+==
+
+# The grammar does not allow TVFs to have argument aliases.
+SELECT *
+FROM tvf_one_relation_arg_with_fixed_output(
+  (SELECT 1 AS A, 2 AS B) AS relation_alias
+)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:27]
+  (SELECT 1 AS A, 2 AS B) AS relation_alias
+                          ^
+==
+
+# The grammar does not allow procedure calls to have argument aliases.
+call nested_catalog.nested_procedure(1 AS alias)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 1:40]
+call nested_catalog.nested_procedure(1 AS alias)
+                                       ^
+==
+
+# Currently alias validation for functions in nested catalogs is missing, see
+# b/297937314.
+# TODO: Fix the bug and update the test output.
+select KLL_QUANTILES.extract_int64(b"" AS sketch, 2)
+--
+ERROR: Unexpected function call argument alias found at KLL_QUANTILES.extract_int64 [at 1:40]
+select KLL_QUANTILES.extract_int64(b"" AS sketch, 2)
+                                       ^
+==
+
+# TODO: The aliases in the following test cases are not stored in
+# the resolved asts or restored by the sqlbuilder yet; they will be addressed in
+# a follow up CL.
+# Optional argument not provided.
+SELECT fn_for_argument_alias(TRUE AS alias1, FALSE)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_for_argument_alias(BOOL, BOOL, optional(0) STRING) -> BOOL)
+    |     +-Literal(type=BOOL, value=true)
+    |     +-Literal(type=BOOL, value=false)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Optional argument provided w/o alias.
+SELECT fn_for_argument_alias(TRUE AS alias1, FALSE, "STRING")
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_for_argument_alias(BOOL, BOOL, optional(1) STRING) -> BOOL)
+    |     +-Literal(type=BOOL, value=true)
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=STRING, value="STRING")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Optional argument provided with alias.
+SELECT fn_for_argument_alias(TRUE AS alias1, FALSE, "STRING" AS alias2)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_for_argument_alias(BOOL, BOOL, optional(1) STRING) -> BOOL)
+    |     +-Literal(type=BOOL, value=true)
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=STRING, value="STRING")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# NON-ALIASED arguments cannot have aliases.
+SELECT fn_for_argument_alias(TRUE AS alias1, FALSE AS alias_disallowed, "STRING" AS alias2)
+--
+ERROR: Unexpected function call argument alias found at fn_for_argument_alias [at 1:52]
+SELECT fn_for_argument_alias(TRUE AS alias1, FALSE AS alias_disallowed, "STRI...
+                                                   ^
+==
+
+# Repeated argument 0 ocurrences.
+SELECT fn_for_argument_alias("STRING" AS alias1, FALSE)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(0) INT64) -> BOOL)
+    |     +-Literal(type=STRING, value="STRING")
+    |     +-Literal(type=BOOL, value=false)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Repeated argument one ocurrence w/o alias.
+SELECT fn_for_argument_alias("STRING" AS alias1, FALSE, 1)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(1) INT64) -> BOOL)
+    |     +-Literal(type=STRING, value="STRING")
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Repeated argument one ocurrence with alias.
+SELECT fn_for_argument_alias("STRING" AS alias1, FALSE, 1 AS alias2)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(1) INT64) -> BOOL)
+    |     +-Literal(type=STRING, value="STRING")
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Repeated argument two occurrences both with aliases.
+SELECT fn_for_argument_alias("STRING" AS alias1, FALSE, 1 AS alias2, 2 AS alias3)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(2) INT64) -> BOOL)
+    |     +-Literal(type=STRING, value="STRING")
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Repeated argument two occurrences first with alias.
+SELECT fn_for_argument_alias("STRING" AS alias1, FALSE, 1 AS alias2, 2)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(2) INT64) -> BOOL)
+    |     +-Literal(type=STRING, value="STRING")
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Repeated argument two occurrences second with alias.
+SELECT fn_for_argument_alias("STRING" AS alias1, FALSE, 1, 2 AS alias2)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(2) INT64) -> BOOL)
+    |     +-Literal(type=STRING, value="STRING")
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Aliases are not allowed on NON-ALIASED arguments.
+SELECT fn_for_argument_alias("STRING" AS alias1, FALSE AS alias_disallowed, 1, 2 AS alias2)
+--
+ERROR: Unexpected function call argument alias found at fn_for_argument_alias [at 1:56]
+...fn_for_argument_alias("STRING" AS alias1, FALSE AS alias_disallowed, 1, 2 ...
+                                                   ^
+==
+
+# Argument aliases on aggregate functions: ok to not provide an alias for the
+# aliased argument.
+SELECT aggregate_fn_for_argument_alias(key, value)
+FROM keyvalue
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(sample_functions:aggregate_fn_for_argument_alias(INT64, STRING) -> INT64)
+              +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+              +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+==
+
+# Argument aliases on aggregate functions: ok to provide an alias for the
+# aliased argument.
+SELECT aggregate_fn_for_argument_alias(key AS alias, value)
+FROM keyvalue
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(sample_functions:aggregate_fn_for_argument_alias(INT64, STRING) -> INT64)
+              +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+              +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+==
+
+# Argument aliases on aggregate functions: errors when an alias is provided for
+# the non-aliased argument.
+SELECT aggregate_fn_for_argument_alias(key, value AS invalid_alias)
+FROM keyvalue
+--
+ERROR: Unexpected function call argument alias found at aggregate_fn_for_argument_alias [at 1:51]
+SELECT aggregate_fn_for_argument_alias(key, value AS invalid_alias)
+                                                  ^
+==
+
+[language_features=ANALYTIC_FUNCTIONS]
+# Argument aliases on analytic functions: ok to not provide an alias for the
+# aliased argument.
+SELECT analytic_fn_for_argument_alias(key, value) over (ORDER BY key)
+FROM keyvalue
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(sample_functions:analytic_fn_for_argument_alias(INT64, STRING) -> INT64)
+                  +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                  +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+==
+
+[language_features=ANALYTIC_FUNCTIONS]
+# Argument aliases on analytic functions: ok to provide an alias for the aliased
+# argument.
+SELECT analytic_fn_for_argument_alias(key AS alias, value) over (ORDER BY key)
+FROM keyvalue
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(sample_functions:analytic_fn_for_argument_alias(INT64, STRING) -> INT64)
+                  +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                  +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+==
+
+[language_features=ANALYTIC_FUNCTIONS]
+# Argument aliases on analytic functions: cannot provide an alias for the
+# non-aliased argument.
+SELECT analytic_fn_for_argument_alias(key, value AS invalid_alias) over (ORDER BY key)
+FROM keyvalue
+--
+ERROR: Unexpected function call argument alias found at analytic_fn_for_argument_alias [at 3:50]
+SELECT analytic_fn_for_argument_alias(key, value AS invalid_alias) over (ORDE...
+                                                 ^
+==
+
+# Functions with argument aliases in nested catalog: ok to not provide an alias
+# for the aliased argument.
+SELECT nested_catalog.fn_for_argument_alias(1, "string")
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:nested_catalog.fn_for_argument_alias(INT64, STRING) -> INT64)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=STRING, value="string")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Functions with argument aliases in nested catalog: ok to provide an alias for
+# the aliased argument.
+SELECT nested_catalog.fn_for_argument_alias(1 AS alias, "string")
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:nested_catalog.fn_for_argument_alias(INT64, STRING) -> INT64)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=STRING, value="string")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Functions with argument aliases in nested catalog: errors when an alias is
+# provided for the non-aliased argument.
+SELECT nested_catalog.fn_for_argument_alias(1 AS alias, "string" AS invalid_alias)
+--
+ERROR: Unexpected function call argument alias found at nested_catalog.fn_for_argument_alias [at 1:66]
+...fn_for_argument_alias(1 AS alias, "string" AS invalid_alias)
+                                              ^

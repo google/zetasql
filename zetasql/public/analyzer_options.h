@@ -191,7 +191,10 @@ struct AllowedHintsAndOptions {
           {"kappa", {types::Int64Type()}},  // TODO remove kappa
           {"max_groups_contributed",
            {types::Int64Type()}},  // Synonym for kappa
-          {"max_rows_contributed", {types::Int64Type()}}};
+          {"max_rows_contributed", {types::Int64Type()}},
+          {"group_selection_strategy",
+           {types::DifferentialPrivacyGroupSelectionStrategyEnumType()}},
+  };
 
   // Options allowed in ResolvedDifferentialPrivacyAggregateScan.
   absl::flat_hash_map<std::string, AllowedOptionProperties>
@@ -202,7 +205,10 @@ struct AllowedHintsAndOptions {
           {"max_rows_contributed", {types::Int64Type()}},
           {"privacy_unit_column",
            {nullptr, AllowedHintsAndOptionsProto::OptionProto::
-                         FROM_NAME_SCOPE_IDENTIFIER}}};
+                         FROM_NAME_SCOPE_IDENTIFIER}},
+          {"group_selection_strategy",
+           {types::DifferentialPrivacyGroupSelectionStrategyEnumType()}},
+  };
 
  private:
   absl::Status AddHintImpl(absl::string_view qualifier, absl::string_view name,
@@ -746,8 +752,13 @@ class AnalyzerOptions {
     // This is meant to match an unfortunate behavior introduced with the
     // rewriter framework.
     // This mode is meant to be temporary.
-    // This is the default (and only) mode.
-    LEGACY_FIELDS_ACCESSED_MODE
+    // This is the default mode.
+    LEGACY_FIELDS_ACCESSED_MODE,
+
+    // The analyzer is guaranteed to clear fields prior to returning. This
+    // includes calls to pre_rewrite_callback.
+    // This is the preferred mode.
+    CLEAR_FIELDS
   };
 
   void set_fields_accessed_mode(FieldsAccessedMode mode) const {

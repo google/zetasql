@@ -106,6 +106,9 @@ message FunctionArgumentTypeOptionsProto {
   // and deserialization must consult that field in case `argument_name` is
   // non-empty and this field is not set.
   optional FunctionEnums.NamedArgumentKind named_argument_kind = 25;
+  // Indicates whether aliases are supported for a function argument.
+  optional FunctionEnums.ArgumentAliasKind argument_alias_kind = 26
+      [default = ARGUMENT_NON_ALIASED];
 }
 
 message ArgumentTypeLambdaProto {

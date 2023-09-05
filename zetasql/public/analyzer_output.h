@@ -220,6 +220,15 @@ class AnalyzerOutput {
   // if the IdStringPool is still alive.
   const ResolvedExpr* resolved_expr() const { return expr_.get(); }
 
+  // Will return either resolved_statement() or resolved_expr() depending on
+  // which is set, or nullptr if neither.
+  const ResolvedNode* resolved_node() const {
+    if (resolved_statement() != nullptr) {
+      return resolved_statement();
+    }
+    return resolved_expr();
+  }
+
   // These are warnings for use of deprecated features.
   // The statuses will have code INVALID_ARGUMENT and will include a location,
   // when possible. They will also have DeprecationWarning protos attached to

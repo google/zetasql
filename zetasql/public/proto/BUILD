@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Placeholder: load py_proto_library
+
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 filegroup(

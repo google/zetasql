@@ -330,6 +330,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedPrivilege(const ResolvedPrivilege* node) override;
   absl::Status VisitResolvedAggregateHavingModifier(
       const ResolvedAggregateHavingModifier* node) override;
+  absl::Status VisitResolvedGetProtoOneof(
+      const ResolvedGetProtoOneof* node) override;
 
   // Visit methods for types of ResolvedScan.
   absl::Status VisitResolvedAnalyticScan(

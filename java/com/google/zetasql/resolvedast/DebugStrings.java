@@ -192,6 +192,11 @@ class DebugStrings {
     return descriptor.isExtension() ? "[" + descriptor.getFullName() + "]" : descriptor.getName();
   }
 
+  static String toStringImpl(ZetaSQLOneofDescriptor field) {
+    OneofDescriptor descriptor = field.getDescriptor();
+    return descriptor.getName();
+  }
+
   static String toStringImpl(ResolvedColumn column) {
     return column.debugString();
   }

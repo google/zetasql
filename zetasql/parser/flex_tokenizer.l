@@ -348,7 +348,7 @@ comment               ({cs_comment}|{dash_comment}|{pound_comment})
   *   force-emits the IDENTIFIER token, even if a keyword is present.
  */
 {identifier}{opt_whitespace}[:]{opt_whitespace}(begin|while|loop|repeat|for) {
-  // We have a label declaration, so force a LABEL token even if it
+  // We have a label declaration, so force a SCRIPT_LABEL token even if it
   // matches a non-reserved keyword. Note that label names cannot be handled in
   // the grammar via the keyword_as_identifier rule, due to reduce/reduce
   // conflicts.
@@ -360,7 +360,7 @@ comment               ({cs_comment}|{dash_comment}|{pound_comment})
                      "' may not be used as a label name without backquotes"));
     yyterminate();
   } else {
-    return zetasql_bison_parser::BisonParserImpl::token::LABEL;
+    return zetasql_bison_parser::BisonParserImpl::token::SCRIPT_LABEL;
   }
 }
 
@@ -590,6 +590,7 @@ private { return BisonParserImpl::token::KW_PRIVATE; }
 privilege { return BisonParserImpl::token::KW_PRIVILEGE; }
 privileges { return BisonParserImpl::token::KW_PRIVILEGES; }
 procedure { return BisonParserImpl::token::KW_PROCEDURE; }
+project { return BisonParserImpl::token::KW_PROJECT; }
 proto { return BisonParserImpl::token::KW_PROTO; }
 public { return BisonParserImpl::token::KW_PUBLIC; }
 qualify {
@@ -865,6 +866,20 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 ","                       { return ','; }
 
 "="                       { return '='; }
+"+="                      {
+    if (AreAlterArrayOptionsEnabled()) {
+      return BisonParserImpl::token::KW_ADD_ASSIGN;
+    }
+    SetOverrideError(*yylloc, "Syntax error: Invalid operator \"+=\"");
+    yyterminate();
+  }
+"-="                      {
+    if (AreAlterArrayOptionsEnabled()) {
+      return BisonParserImpl::token::KW_SUB_ASSIGN;
+    }
+    SetOverrideError(*yylloc, "Syntax error: Invalid operator \"-=\"");
+    yyterminate();
+  }
 "!="                      {
   return BisonParserImpl::token::KW_NOT_EQUALS_C_STYLE;
 }
@@ -943,8 +958,6 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   return '.';
 }
 
- /* The JavaCC Tokenizer recognized this as a token, even though the language
-    does not use it anywhere. This is here to maintain compatibility. */
 ":"                       { return ':'; }
 
 ";"{opt_whitespace}       {

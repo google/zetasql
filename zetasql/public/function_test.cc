@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/function_signature_testutil.h"
 #include "zetasql/common/testing/proto_matchers.h"  
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/testing/testing_proto_util.h"
@@ -39,6 +40,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -210,14 +212,23 @@ TEST(SimpleFunctionTests, WindowSupportTests) {
   EXPECT_FALSE(analytic_function.RequiresWindowOrdering());
 }
 
-TEST(SimpleFunctionTests,
-     LambdaMultipleSignaturePossiblyMatchingSameCallTests) {
+class AnyAndRelatedTypeSimpleFunctionTests
+    : public ::testing::TestWithParam<SignatureArgumentKindGroup> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    AnyAndArrayTypeSimpleFunction, AnyAndRelatedTypeSimpleFunctionTests,
+    ::testing::ValuesIn(GetRelatedSignatureArgumentGroup()));
+
+TEST_P(AnyAndRelatedTypeSimpleFunctionTests,
+       LambdaMultipleSignaturePossiblyMatchingSameCallTests) {
+  const SignatureArgumentKind any_kind = GetParam().kind;
+  const SignatureArgumentKind array_kind = GetParam().array_kind;
+
   const Type* bool_type = zetasql::types::Int64Type();
   const Type* int64_type = zetasql::types::Int64Type();
   const FunctionSignature sig1{
-      ARG_ARRAY_TYPE_ANY_1,
-      {ARG_TYPE_ANY_1,
-       FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
+      array_kind,
+      {any_kind, FunctionArgumentType::Lambda({any_kind}, bool_type)},
       /*context_id=*/-1};
   const FunctionSignature sig2{
       int64_type,
@@ -271,6 +282,8 @@ class FunctionSerializationTests : public ::testing::Test {
               argument2.options().uses_array_element_for_collation());
     EXPECT_EQ(argument1.options().procedure_argument_mode(),
               argument2.options().procedure_argument_mode());
+    EXPECT_EQ(argument1.options().argument_alias_kind(),
+              argument2.options().argument_alias_kind());
   }
 
   static void ExpectEqualsIgnoringCallbacks(
@@ -672,6 +685,8 @@ TEST_F(FunctionSerializationTests,
   EXPECT_TRUE(result->argument(7).GetDefault().value().type()->IsBytes());
 }
 
+// TODO: Update this test case to test ANY_K and ARRAY_ANY_K for k
+// = 4, 5.
 TEST_F(FunctionSerializationTests,
        CheckSignatureSerializationAndDeserializationWithTemplatedDefaultValue) {
   TypeFactory type_factory;
@@ -683,6 +698,8 @@ TEST_F(FunctionSerializationTests,
       type_factory.MakeArrayType(types::DoubleType(), &array_double_type));
   const ArrayType* array_proto_type = nullptr;
   ZETASQL_ASSERT_OK(type_factory.MakeArrayType(proto_type, &array_proto_type));
+  const ArrayType* array_int64_type = nullptr;
+  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(types::Int64Type(), &array_int64_type));
   ParseLocationRangeProto proto_value;
   proto_value.set_filename("abc.sql");
   proto_value.set_start(734);
@@ -721,6 +738,17 @@ TEST_F(FunctionSerializationTests,
         FunctionArgumentTypeOptions()
             .set_argument_name("arg_proto_arr_null", kPositionalOrNamed)
             .set_cardinality(FunctionEnums::OPTIONAL)
+            .set_default(values::Null(array_proto_type))},
+       {ARG_TYPE_ANY_3, FunctionArgumentTypeOptions()
+                            .set_argument_name("arg_any_3_empty_int64_array",
+                                               kPositionalOrNamed)
+                            .set_cardinality(FunctionEnums::OPTIONAL)
+                            .set_default(values::EmptyArray(array_int64_type))},
+       {ARG_ARRAY_TYPE_ANY_3,
+        FunctionArgumentTypeOptions()
+            .set_argument_name("arg_array_any_3_proto_arr_null",
+                               kPositionalOrNamed)
+            .set_cardinality(FunctionEnums::OPTIONAL)
             .set_default(values::Null(array_proto_type))}},
       /*context_id=*/-1);
 
@@ -742,7 +770,7 @@ TEST_F(FunctionSerializationTests,
                                                         &factory, pools)));
   ExpectEqualsIgnoringCallbacks(templated_signature, *result);
 
-  ASSERT_EQ(result->arguments().size(), 6);
+  ASSERT_EQ(result->arguments().size(), 8);
 
   ASSERT_TRUE(result->argument(0).options().has_argument_name());
   EXPECT_EQ(result->argument(0).options().argument_name(), "arg_any");
@@ -774,6 +802,18 @@ TEST_F(FunctionSerializationTests,
             "arg_proto_arr_null");
   EXPECT_TRUE(result->argument(5).GetDefault().value().is_null());
   EXPECT_TRUE(result->argument(5).GetDefault().value().type()->Equals(
+      array_proto_type));
+
+  ASSERT_TRUE(result->argument(6).options().has_argument_name());
+  EXPECT_EQ(result->argument(6).options().argument_name(),
+            "arg_any_3_empty_int64_array");
+  EXPECT_TRUE(result->argument(6).GetDefault().value().empty());
+
+  ASSERT_TRUE(result->argument(7).options().has_argument_name());
+  EXPECT_EQ(result->argument(7).options().argument_name(),
+            "arg_array_any_3_proto_arr_null");
+  EXPECT_TRUE(result->argument(7).GetDefault().value().is_null());
+  EXPECT_TRUE(result->argument(7).GetDefault().value().type()->Equals(
       array_proto_type));
 }
 
@@ -822,23 +862,69 @@ TEST_F(FunctionSerializationTests,
   }
 }
 
+class AnyTypeFunctionSerializationTests
+    : public FunctionSerializationTests,
+      public ::testing::WithParamInterface<SignatureArgumentKindGroup> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    AnyTypeSerialization, AnyTypeFunctionSerializationTests,
+    ::testing::ValuesIn(GetRelatedSignatureArgumentGroup()));
+
 // Test serialization and deserialization of array element type comparison
 // constraint signal in the function argument type options.
-TEST_F(FunctionSerializationTests,
+TEST_P(AnyTypeFunctionSerializationTests,
        SerializationAndDeserializationArrayElementTypeConstraint) {
-  FunctionArgumentTypeOptions options1;
-  options1.set_array_element_must_support_equality();
-  FunctionArgumentType argument_type1(ARG_ARRAY_TYPE_ANY_1, options1);
-  CheckSerializationAndDeserialization(argument_type1);
+  const SignatureArgumentKind any_kind = GetParam().kind;
 
-  FunctionArgumentTypeOptions options2;
-  options2.set_array_element_must_support_ordering();
-  FunctionArgumentType argument_type2(ARG_ARRAY_TYPE_ANY_2, options2);
-  CheckSerializationAndDeserialization(argument_type2);
+  // array_element_must_support_equality
+  {
+    FunctionArgumentTypeOptions options;
+    options.set_array_element_must_support_equality();
+    FunctionArgumentType argument_type(any_kind, options);
+    CheckSerializationAndDeserialization(argument_type);
+  }
 
-  options2.set_array_element_must_support_grouping();
-  FunctionArgumentType argument_type3(ARG_ARRAY_TYPE_ANY_2, options2);
-  CheckSerializationAndDeserialization(argument_type3);
+  // array_element_must_support_ordering
+  {
+    FunctionArgumentTypeOptions options;
+    options.set_array_element_must_support_ordering();
+    FunctionArgumentType argument_type(any_kind, options);
+    CheckSerializationAndDeserialization(argument_type);
+  }
+
+  // array_element_must_support_grouping
+  {
+    FunctionArgumentTypeOptions options;
+    options.set_array_element_must_support_grouping();
+    FunctionArgumentType argument_type(any_kind, options);
+    CheckSerializationAndDeserialization(argument_type);
+  }
+  // Mixed constraints.
+  {
+    FunctionArgumentTypeOptions options;
+    options.set_array_element_must_support_equality();
+    options.set_array_element_must_support_ordering();
+    options.set_array_element_must_support_grouping();
+    FunctionArgumentType argument_type(any_kind, options);
+    CheckSerializationAndDeserialization(argument_type);
+  }
+}
+
+// Test serialization and deserialization of `argument_alias_kind`.
+TEST_F(FunctionSerializationTests,
+       SerializationAndDeserializationArgumentAliasKind) {
+  {
+    FunctionArgumentTypeOptions options;
+    options.set_argument_alias_kind(FunctionEnums::ARGUMENT_ALIASED);
+    FunctionArgumentType argument_type(ARG_ARRAY_TYPE_ANY_1, options);
+    CheckSerializationAndDeserialization(argument_type);
+  }
+  {
+    FunctionArgumentTypeOptions options;
+    options.set_argument_alias_kind(FunctionEnums::ARGUMENT_NON_ALIASED);
+    FunctionArgumentType argument_type(ARG_ARRAY_TYPE_ANY_1, options);
+    CheckSerializationAndDeserialization(argument_type);
+  }
 }
 
 }  // namespace zetasql

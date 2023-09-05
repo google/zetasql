@@ -107,17 +107,11 @@ const google::protobuf::Descriptor* ProtoType::descriptor() const {
 }
 
 const google::protobuf::FieldDescriptor* ProtoType::map_key() const {
-  // This is the same as Descriptor::map_key() in descriptor.h in the latest
-  // release. However, ZetaSQL is not currently importing the current protobuf
-  // release.
-  return descriptor()->FindFieldByNumber(1);
+  return descriptor()->map_key();
 }
 
 const google::protobuf::FieldDescriptor* ProtoType::map_value() const {
-  // This is the same as Descriptor::map_value() in descriptor.h in the latest
-  // release. However, ZetaSQL is not currently importing the current protobuf
-  // release.
-  return descriptor()->FindFieldByNumber(2);
+  return descriptor()->map_value();
 }
 
 absl::Status ProtoType::SerializeToProtoAndDistinctFileDescriptorsImpl(
@@ -693,8 +687,13 @@ bool ProtoType::ValueContentEquals(
 
   std::unique_ptr<google::protobuf::Message> x_msg = absl::WrapUnique(prototype->New());
   std::unique_ptr<google::protobuf::Message> y_msg = absl::WrapUnique(prototype->New());
-  if (!x_msg->ParsePartialFromString(std::string(x_value)) ||
-      !y_msg->ParsePartialFromString(std::string(y_value))) {
+  if (!x_msg->ParsePartialFromCord(x_value) ||
+      !y_msg->ParsePartialFromCord(y_value)) {
+    if (options.reason != nullptr) {
+      absl::StrAppend(
+          options.reason,
+          "Failed to parse a proto message that resides in compared value");
+    }
     return false;
   }
   google::protobuf::util::MessageDifferencer differencer;
@@ -737,8 +736,7 @@ std::string ProtoType::FormatValueContent(
   google::protobuf::DynamicMessageFactory message_factory;
   std::unique_ptr<google::protobuf::Message> message(
       message_factory.GetPrototype(descriptor())->New());
-  const bool success =
-  message->ParsePartialFromString(std::string(GetCordValue(value)));
+  const bool success = message->ParsePartialFromCord(GetCordValue(value));
 
   if (options.mode == FormatValueContentOptions::Mode::kDebug) {
     if (!success) {
@@ -765,8 +763,7 @@ std::string ProtoType::FormatValueContent(
 
 absl::Status ProtoType::SerializeValueContent(const ValueContent& value,
                                               ValueProto* value_proto) const {
-  value_proto->set_proto_value(std::string(GetCordValue(value)));
-
+  value_proto->set_proto_value(GetCordValue(value));
   return absl::OkStatus();
 }
 
@@ -775,9 +772,7 @@ absl::Status ProtoType::DeserializeValueContent(const ValueProto& value_proto,
   if (!value_proto.has_proto_value()) {
     return TypeMismatchError(value_proto);
   }
-  value->set(new internal::ProtoRep(this,
-  absl::Cord(value_proto.proto_value())));
-
+  value->set(new internal::ProtoRep(this, value_proto.proto_value()));
   return absl::OkStatus();
 }
 

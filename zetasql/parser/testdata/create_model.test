@@ -497,7 +497,7 @@ with tt as (select * from KeyValue)
 create model t3 as
 select * from tt
 --
-ERROR: Syntax error: Expected "(" or "," or keyword SELECT but got keyword CREATE [at 2:1]
+ERROR: Syntax error: Unexpected keyword CREATE [at 2:1]
 create model t3 as
 ^
 ==
@@ -613,7 +613,7 @@ SELECT
 create model t4 options(x=y) as
 with t1 as (select 1)
 --
-ERROR: Syntax error: Expected "(" or "," or keyword SELECT but got end of statement [at 2:22]
+ERROR: Syntax error: Unexpected end of statement [at 2:22]
 with t1 as (select 1)
                      ^
 ==
@@ -1378,7 +1378,7 @@ as
   a1 as (select * from t1)
   a2 as (select * from t2)
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "a1" [at 3:3]
+ERROR: Syntax error: Unexpected identifier "a1" [at 3:3]
   a1 as (select * from t1)
   ^
 ==
@@ -1392,7 +1392,7 @@ as
   (a2 as (select * from t2))
 )
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "a1" [at 4:4]
+ERROR: Syntax error: Unexpected identifier "a1" [at 4:4]
   (a1 as (select * from t1)),
    ^
 ==
@@ -1421,7 +1421,7 @@ as
   )
 )
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "a1" [at 5:5]
+ERROR: Syntax error: Unexpected identifier "a1" [at 5:5]
     a1 as (select * from t1),
     ^
 ==

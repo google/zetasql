@@ -623,6 +623,11 @@ FunctionEvaluatorFactory Function::GetFunctionEvaluatorFactory() const {
   return function_options_.function_evaluator_factory;
 }
 
+AggregateFunctionEvaluatorFactory
+Function::GetAggregateFunctionEvaluatorFactory() const {
+  return function_options_.aggregate_function_evaluator_factory;
+}
+
 absl::Status Function::CheckWindowSupportOptions() const {
   if (IsScalar() && SupportsOverClause()) {
     return MakeSqlError() << "Scalar functions cannot support OVER clause";

@@ -31,6 +31,7 @@ cc_library(
     hdrs = ["testing_proto_util.h"],
     deps = [
         "//zetasql/base:path",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest",

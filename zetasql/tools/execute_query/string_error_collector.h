@@ -53,10 +53,10 @@ class StringErrorCollector : public google::protobuf::io::ErrorCollector {
   StringErrorCollector(std::string* error_text, bool one_indexing);
 
   // Implementation of google::protobuf::io::ErrorCollector::AddError.
-  void AddError(int line, int column, const std::string& message) override;
+  void RecordError(int line, int column, absl::string_view message) override;
 
   // Implementation of google::protobuf::io::ErrorCollector::AddWarning.
-  void AddWarning(int line, int column, const std::string& message) override;
+  void RecordWarning(int line, int column, absl::string_view message) override;
 
  private:
   std::string* const error_text_;

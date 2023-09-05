@@ -6,6 +6,101 @@
 
 ZetaSQL supports the following time functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#current_time"><code>CURRENT_TIME</code></a>
+
+</td>
+  <td>
+    Returns the current time as a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts part of a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_time"><code>FORMAT_TIME</code></a>
+
+</td>
+  <td>
+    Formats a <code>TIME</code> value according to the specified format string.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_time"><code>PARSE_TIME</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time"><code>TIME</code></a>
+
+</td>
+  <td>
+    Constructs a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time_add"><code>TIME_ADD</code></a>
+
+</td>
+  <td>
+    Adds a specified time interval to a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time_diff"><code>TIME_DIFF</code></a>
+
+</td>
+  <td>
+    Gets the number of intervals between two <code>TIME</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time_sub"><code>TIME_SUB</code></a>
+
+</td>
+  <td>
+    Subtracts a specified time interval from a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time_trunc"><code>TIME_TRUNC</code></a>
+
+</td>
+  <td>
+    Truncates a <code>TIME</code> value.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CURRENT_TIME`
 
 ```sql

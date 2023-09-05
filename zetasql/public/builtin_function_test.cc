@@ -935,8 +935,8 @@ TEST(SimpleFunctionTests,
   options.EnableMaximumLanguageFeatures();
   options.set_product_mode(PRODUCT_INTERNAL);
 
-  ZETASQL_EXPECT_OK(
-      GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
+  ZETASQL_EXPECT_OK(GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(options),
+                                        type_factory, functions, types));
 
   for (const auto& function_entry : functions) {
     const Function* function = function_entry.second.get();

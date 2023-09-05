@@ -6,8 +6,181 @@
 
 ZetaSQL supports the following Net functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#netformat_ip"><code>NET.FORMAT_IP</code></a>
+
+</td>
+  <td>
+    (Deprecated) Converts an
+    IPv4 address from an <code>INT64</code> value to a
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netformat_packed_ip"><code>NET.FORMAT_PACKED_IP</code></a>
+
+</td>
+  <td>
+    (Deprecated) Converts an
+    IPv4 or IPv6 address from a <code>BYTES</code> value to a
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nethost"><code>NET.HOST</code></a>
+
+</td>
+  <td>
+   Gets the hostname from a URL.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_from_string"><code>NET.IP_FROM_STRING</code></a>
+
+</td>
+  <td>
+    Converts an IPv4 or IPv6 address from a <code>STRING</code> value to
+    a <code>BYTES</code> value in network byte order.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_in_net"><code>NET.IP_IN_NET</code></a>
+
+</td>
+  <td>
+    Checks if an IP address is in a subnet.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_net_mask"><code>NET.IP_NET_MASK</code></a>
+
+</td>
+  <td>
+    Gets a network mask.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_to_string"><code>NET.IP_TO_STRING</code></a>
+
+</td>
+  <td>
+    Converts an IPv4 or IPv6 address from a <code>BYTES</code> value in
+    network byte order to a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_trunc"><code>NET.IP_TRUNC</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code>  IPv4 or IPv6 address in
+    network byte order to a <code>BYTES</code> subnet address.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netipv4_from_int64"><code>NET.IPV4_FROM_INT64</code></a>
+
+</td>
+  <td>
+    Converts an IPv4 address from an <code>INT64</code> value to a
+    <code>BYTES</code> value in network byte order.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netipv4_to_int64"><code>NET.IPV4_TO_INT64</code></a>
+
+</td>
+  <td>
+    Converts an IPv4 address from a <code>BYTES</code> value in network
+    byte order to an <code>INT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netmake_net"><code>NET.MAKE_NET</code></a>
+
+</td>
+  <td>
+    Takes a IPv4 or IPv6 address and the prefix length, and produces a
+    CIDR subnet.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netparse_ip"><code>NET.PARSE_IP</code></a>
+
+</td>
+  <td>
+    (Deprecated) Converts an
+    IPv4 address from a <code>STRING</code> value to an
+    <code>INT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netparse_packed_ip"><code>NET.PARSE_PACKED_IP</code></a>
+
+</td>
+  <td>
+    (Deprecated) Converts an
+    IPv4 or IPv6 address from a <code>STRING</code> value to a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netpublic_suffix"><code>NET.PUBLIC_SUFFIX</code></a>
+
+</td>
+  <td>
+    Gets the public suffix from a URL.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netreg_domain"><code>NET.REG_DOMAIN</code></a>
+
+</td>
+  <td>
+    Gets the registered or registrable domain from a URL.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netsafe_ip_from_string"><code>NET.SAFE_IP_FROM_STRING</code></a>
+
+</td>
+  <td>
+    Similar to the <code>NET.IP_FROM_STRING</code>, but returns
+    <code>NULL</code> instead of producing an error if the input is invalid.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `NET.FORMAT_IP` (DEPRECATED) 
-<a id="net_format_ip_dep"></a>
+<a id="net_format_ip"></a>
 
 ```
 NET.FORMAT_IP(integer)
@@ -28,7 +201,7 @@ STRING
 [net-link-to-ipv4-from-int64]: #netipv4_from_int64
 
 ### `NET.FORMAT_PACKED_IP` (DEPRECATED) 
-<a id="net_format_packed_ip_dep"></a>
+<a id="net_format_packed_ip"></a>
 
 ```
 NET.FORMAT_PACKED_IP(bytes_value)
@@ -438,7 +611,7 @@ STRING
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
 ### `NET.PARSE_IP` (DEPRECATED) 
-<a id="net_parse_ip_dep"></a>
+<a id="net_parse_ip"></a>
 
 ```
 NET.PARSE_IP(addr_str)
@@ -460,7 +633,7 @@ INT64
 [net-link-to-ipv4-to-int64]: #netipv4_to_int64
 
 ### `NET.PARSE_PACKED_IP` (DEPRECATED) 
-<a id="net_parse_packed_ip_dep"></a>
+<a id="net_parse_packed_ip"></a>
 
 ```
 NET.PARSE_PACKED_IP(addr_str)

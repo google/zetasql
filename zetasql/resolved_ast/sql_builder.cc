@@ -51,6 +51,7 @@
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/expr_matching_helpers.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/annotation/collation.h"
@@ -66,6 +67,7 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/resolved_ast/node_sources.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -2335,11 +2337,15 @@ absl::Status SQLBuilder::VisitResolvedTVFScan(const ResolvedTVFScan* node) {
                    argument->argument_column_list(0).column_id());
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                        ProcessNode(scan));
+      ZETASQL_RET_CHECK(result->query_expression != nullptr);
+      ZETASQL_RETURN_IF_ERROR(AddSelectListIfNeeded(scan->column_list(),
+                                            result->query_expression.get()));
       const std::string column_alias = zetasql_base::FindWithDefault(
           computed_column_alias_, scan->column_list(0).column_id());
       ZETASQL_RET_CHECK(!column_alias.empty())
-          << "scan: " << scan->DebugString() << "\n\n computed_column_alias_: "
-          << ComputedColumnAliasDebugString();
+          << "\nfor column: " << scan->column_list(0).DebugString()
+          << "\nscan: " << scan->DebugString()
+          << "\ncomputed_column_alias_: " << ComputedColumnAliasDebugString();
       argument_list.push_back(absl::StrCat("(SELECT AS VALUE ", column_alias,
                                            " FROM (", result->GetSQL(), "))"));
     } else {
@@ -2358,6 +2364,9 @@ absl::Status SQLBuilder::VisitResolvedTVFScan(const ResolvedTVFScan* node) {
       // used when we generated the input scan SELECT list.
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                        ProcessNode(scan));
+      ZETASQL_RET_CHECK(result->query_expression != nullptr);
+      ZETASQL_RETURN_IF_ERROR(AddSelectListIfNeeded(scan->column_list(),
+                                            result->query_expression.get()));
       std::map<int, std::string> column_id_to_alias;
       const std::vector<std::pair<std::string, std::string>>& select_list =
           result->query_expression->SelectList();
@@ -2794,89 +2803,16 @@ absl::Status SQLBuilder::VisitResolvedColumnHolder(
   return absl::OkStatus();
 }
 
-namespace {
-
-// Detect if the node contains exactly one ColumnRef, and if so, that ColumnRef
-// has the field is_correlated=FALSE and the path to that node only involves
-// node type ResolvedFlatten, ResolvedGetProtoField, ResolvedGetStructField, or
-// ResolvedGetJsonField.
-// Returns false as long as the condition is not satisfied, for example, we
-// couldn't find ColumnRef at all.
-// Returns true when the ColumnRef is found and set the `column_id` to the found
-// column.
-bool ContainsCorrectNodePathToNoncorrelatedColumnRef(const ResolvedExpr* node,
-                                                     int* column_id) {
-  if (node->node_kind() == RESOLVED_COLUMN_REF) {
-    if (node->GetAs<ResolvedColumnRef>()->is_correlated()) {
-      return false;
-    }
-    *column_id = node->GetAs<ResolvedColumnRef>()->column().column_id();
-    return true;
-  }
-  if (node->node_kind() == RESOLVED_FLATTEN) {
-    return ContainsCorrectNodePathToNoncorrelatedColumnRef(
-        node->GetAs<ResolvedFlatten>()->expr(), column_id);
-  }
-  if (node->node_kind() == RESOLVED_GET_PROTO_FIELD) {
-    return ContainsCorrectNodePathToNoncorrelatedColumnRef(
-        node->GetAs<ResolvedGetProtoField>()->expr(), column_id);
-  }
-  if (node->node_kind() == RESOLVED_GET_STRUCT_FIELD) {
-    return ContainsCorrectNodePathToNoncorrelatedColumnRef(
-        node->GetAs<ResolvedGetStructField>()->expr(), column_id);
-  }
-  if (node->node_kind() == RESOLVED_GET_JSON_FIELD) {
-    return ContainsCorrectNodePathToNoncorrelatedColumnRef(
-        node->GetAs<ResolvedGetJsonField>()->expr(), column_id);
-  }
-  return false;
-}
-
-// Detect if the scan is a unique shape of implicit UNNEST with singleton
-// table name array path expression. The query shape is controlled by language
-// feature FEATURE_V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH and looks like:
-//   `FROM table.array_path`
-// When the shape is detected, return true and set the `column_id` that
-// represents the "table.column" parts from the table name array path
-// expression. It always shows up in the ResolvedColumnRef seen when traversing
-// ResolvedArrayScan::array_expr(). We will use this id to look up the
-// corresponding Column in ResolvedArrayScan::input_scan(), which will always be
-// a ResolvedTableScan.
-// Note that, we should not trust the column order that shows up in the
-// ResolvedTableScan, because it is valid to scan additional columns that are
-// not used to compute array_expr.
-bool IsTableNameArrayPathArrayScan(const ResolvedArrayScan* node,
-                                   int* column_id) {
-  // Check if the top level column reference is uncorrelated. Top level means
-  // the first ResolvedColumnRef showed up in the array_expr resolved ast.
-  // If we cannot find a column ref, it is not the shape we want.
-  bool contains_uncorrelated_column_ref =
-      ContainsCorrectNodePathToNoncorrelatedColumnRef(node->array_expr(),
-                                                      column_id);
-  bool outputs_element_column =
-      node->column_list_size() == 1 &&
-      node->column_list(0).column_id() == node->element_column().column_id();
-  return node->input_scan() != nullptr &&
-         node->input_scan()->node_kind() == RESOLVED_TABLE_SCAN &&
-         contains_uncorrelated_column_ref &&
-         // ResolvedArrayScan might not have output column_list if array element
-         // column does not show up in the final select list and gets pruned in
-         // the resolved AST shape.
-         (node->column_list_size() == 0 || outputs_element_column) &&
-         !node->is_outer() && node->array_offset_column() == nullptr &&
-         node->join_expr() == nullptr;
-}
-
-}  // namespace
-
 absl::Status SQLBuilder::VisitResolvedArrayScan(const ResolvedArrayScan* node) {
-  int table_column_id;
-  bool is_table_name_array_path =
-      IsTableNameArrayPathArrayScan(node, &table_column_id);
   std::unique_ptr<QueryExpression> query_expression(new QueryExpression);
   std::string from;
-
+  bool is_table_name_array_path =
+      node->node_source() == kNodeSourceSingleTableArrayNamePath;
   if (is_table_name_array_path) {
+    int table_column_id;
+    ZETASQL_RET_CHECK(ContainsTableArrayNamePathWithFreeColumnRef(node->array_expr(),
+                                                          &table_column_id));
+
     // Adding "table_name.column_name" to the table name array path expression.
     std::string table_column_name;
     const ResolvedTableScan* table_scan =
@@ -2887,6 +2823,7 @@ absl::Status SQLBuilder::VisitResolvedArrayScan(const ResolvedArrayScan* node) {
       if (table_column_id == column_list[i].column_id()) {
         const int column_index = table_scan->column_index_list(i);
         table_column_name = table->GetColumn(column_index)->FullName();
+        break;
       }
     }
     absl::StrAppend(&from, table_column_name);
@@ -3583,7 +3520,7 @@ static std::optional<const ResolvedRecursiveScan*> MaybeGetRecursiveScan(
         query = query->GetAs<ResolvedWithScan>()->query();
         break;
       default:
-        return absl::nullopt;
+        return std::nullopt;
     }
   }
 }
@@ -6596,6 +6533,19 @@ absl::Status SQLBuilder::VisitResolvedAggregateHavingModifier(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                    ProcessNode(node->having_expr()));
   absl::StrAppend(&sql, result->GetSQL());
+  PushQueryFragment(node, sql);
+  return absl::OkStatus();
+}
+
+absl::Status SQLBuilder::VisitResolvedGetProtoOneof(
+    const ResolvedGetProtoOneof* node) {
+  std::string sql("EXTRACT(ONEOF_CASE(");
+  absl::StrAppend(&sql, node->oneof_descriptor()->name(), ") FROM ");
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
+                   ProcessNode(node->expr()));
+  absl::StrAppend(&sql, result->GetSQL(), ")");
+
   PushQueryFragment(node, sql);
   return absl::OkStatus();
 }

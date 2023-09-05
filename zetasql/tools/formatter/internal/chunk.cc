@@ -2147,32 +2147,6 @@ void MarkAllDdlKeywords(const TokensView& tokens_view) {
   }
 }
 
-// Marks all keywords inside CASE operators.
-void MarkAllCaseKeywords(const TokensView& tokens_view) {
-  const std::vector<Token*>& tokens = tokens_view.WithoutComments();
-  int inside_case = 0;
-  for (int t = 0; t < tokens.size(); ++t) {
-    if (tokens[t]->GetKeyword() == "CASE") {
-      ++inside_case;
-      continue;
-    }
-    if (inside_case == 0) {
-      continue;  // Not inside a CASE operator.
-    }
-    if (tokens[t]->GetKeyword() == "END") {
-      --inside_case;
-      tokens[t]->SetType(Token::Type::CASE_KEYWORD);
-      continue;
-    }
-
-    static const auto* case_keywords =
-        new zetasql_base::flat_set<absl::string_view>({"WHEN", "THEN", "ELSE"});
-    if (case_keywords->contains(tokens[t]->GetKeyword())) {
-      tokens[t]->SetType(Token::Type::CASE_KEYWORD);
-    }
-  }
-}
-
 // Marks all slashed identifiers supported by ZetaSQL grammar for table names.
 // The slashed identifier always starts with '/' and may contain dashes ('-'),
 // colons (':') and dots.
@@ -2370,7 +2344,6 @@ void AnnotateTokens(const TokensView& tokens,
   MarkUnquotedPaths(tokens);
   MarkAllTopLevelValuesClauses(tokens);
   MarkAllDdlKeywords(tokens);
-  MarkAllCaseKeywords(tokens);
   MarkAllKeywordsUsedAsParams(tokens);
   MarkAllProtoBrackets(tokens);
   MarkAllSlashedIdentifiers(tokens);

@@ -45,7 +45,9 @@ namespace zetasql {
 namespace {
 
 Value ProtoToValue(const ProtoType* type, const google::protobuf::Message& msg) {
-  return Value::Proto(type, SerializeToCord(msg));
+  absl::Cord bytes;
+  ABSL_CHECK(msg.SerializeToCord(&bytes));
+  return Value::Proto(type, bytes);
 }
 
 }  // namespace

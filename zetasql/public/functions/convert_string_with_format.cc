@@ -18,7 +18,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -1373,7 +1375,9 @@ absl::StatusOr<HexNumber> GenerateHexNumber(const Value& v) {
       break;
     case TYPE_INT64:
       negative = v.int64_value() < 0;
-      value = std::abs(v.int64_value());
+      value = (v.int64_value() != std::numeric_limits<int64_t>::min())
+                  ? std::abs(v.int64_value())
+                  : std::numeric_limits<int64_t>::max() + 1ULL;
       break;
     case TYPE_UINT64:
       value = v.uint64_value();

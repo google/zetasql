@@ -165,7 +165,7 @@ SELECT 1 NOT DISTINCT FROM 2;
 # Syntax error
 SELECT 1 IS NOT DISTINCT 2;
 --
-ERROR: Syntax error: Expected keyword FROM but got integer literal "2" [at 1:26]
+ERROR: Syntax error: Unexpected integer literal "2" [at 1:26]
 SELECT 1 IS NOT DISTINCT 2;
                          ^
 ==

@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/function_signature_testutil.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/error_location.pb.h"
@@ -114,18 +115,27 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
                 FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
                 /*print_template_details=*/true));
 
-  FunctionArgumentType any_type(ARG_TYPE_ANY_1);
-  ASSERT_FALSE(any_type.IsConcrete());
-  ASSERT_THAT(any_type.type(), IsNull());
-  ASSERT_EQ(ARG_TYPE_ANY_1, any_type.kind());
-  ASSERT_FALSE(any_type.repeated());
-
-  FunctionArgumentType array_of_any_type(
-      ARG_ARRAY_TYPE_ANY_1);
-  ASSERT_FALSE(array_of_any_type.IsConcrete());
-  ASSERT_THAT(array_of_any_type.type(), IsNull());
-  ASSERT_EQ(ARG_ARRAY_TYPE_ANY_1, array_of_any_type.kind());
-  ASSERT_FALSE(array_of_any_type.repeated());
+  // Tests for ARG_TYPE_ANY_<K> and ARG_ARRAY_TYPE_ANY_<K>
+  {
+    for (const SignatureArgumentKindGroup& group :
+         GetRelatedSignatureArgumentGroup()) {
+      SignatureArgumentKind arg_any_kind = group.kind;
+      FunctionArgumentType any_type(arg_any_kind);
+      ASSERT_FALSE(any_type.IsConcrete());
+      ASSERT_THAT(any_type.type(), IsNull());
+      ASSERT_EQ(arg_any_kind, any_type.kind());
+      ASSERT_FALSE(any_type.repeated());
+    }
+    for (const SignatureArgumentKindGroup& group :
+         GetRelatedSignatureArgumentGroup()) {
+      SignatureArgumentKind arg_array_any_kind = group.array_kind;
+      FunctionArgumentType array_of_any_type(arg_array_any_kind);
+      ASSERT_FALSE(array_of_any_type.IsConcrete());
+      ASSERT_THAT(array_of_any_type.type(), IsNull());
+      ASSERT_EQ(arg_array_any_kind, array_of_any_type.kind());
+      ASSERT_FALSE(array_of_any_type.repeated());
+    }
+  }
 
   FunctionArgumentType proto_any_type(ARG_PROTO_ANY);
   ASSERT_FALSE(proto_any_type.IsConcrete());
@@ -1665,13 +1675,15 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
     // values.
     enum_size += SignatureArgumentKind_IsValid(i);
   }
-  ASSERT_EQ(20, enum_size);
+  ASSERT_EQ(22, enum_size);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
   templated_kinds.insert(ARG_TYPE_ANY_2);
+  templated_kinds.insert(ARG_TYPE_ANY_3);
   templated_kinds.insert(ARG_ARRAY_TYPE_ANY_1);
   templated_kinds.insert(ARG_ARRAY_TYPE_ANY_2);
+  templated_kinds.insert(ARG_ARRAY_TYPE_ANY_3);
   templated_kinds.insert(ARG_PROTO_MAP_ANY);
   templated_kinds.insert(ARG_PROTO_MAP_KEY_ANY);
   templated_kinds.insert(ARG_PROTO_MAP_VALUE_ANY);

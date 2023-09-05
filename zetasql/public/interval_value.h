@@ -21,13 +21,10 @@
 #include <ostream>
 #include <string>
 
-#include "zetasql/common/errors.h"
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/functions/datetime.pb.h"
-#include <cstdint>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_join.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -406,9 +403,10 @@ class IntervalValue final {
     if (ABSL_PREDICT_TRUE(value <= max && value >= min)) {
       return absl::OkStatus();
     }
-    return MakeEvalError() << "Interval field " << field_name << " '"
-                           << absl::int128(value) << "' is out of range "
-                           << absl::int128(min) << " to " << absl::int128(max);
+    return ::zetasql_base::OutOfRangeErrorBuilder()
+           << "Interval field " << field_name << " '" << absl::int128(value)
+           << "' is out of range " << absl::int128(min) << " to "
+           << absl::int128(max);
   }
 
   static absl::Status ValidateMonths(int64_t months) {

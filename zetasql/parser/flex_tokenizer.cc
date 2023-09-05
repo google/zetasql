@@ -358,5 +358,10 @@ void ZetaSqlFlexTokenizer::PopBisonParserMode() {
   restore_modes_.pop();
 }
 
+bool ZetaSqlFlexTokenizer::AreAlterArrayOptionsEnabled() const {
+  return language_options_.LanguageFeatureEnabled(
+      FEATURE_ENABLE_ALTER_ARRAY_OPTIONS);
+}
+
 }  // namespace parser
 }  // namespace zetasql

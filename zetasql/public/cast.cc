@@ -397,9 +397,7 @@ absl::StatusOr<Value> DoMapEntryCast(const Value& from_value,
                                          message));
 
   absl::Cord bytes;
-  std::string bytes_str;
-  ABSL_CHECK(message->SerializeToString(&bytes_str));
-  bytes = absl::Cord(bytes_str);
+  ABSL_CHECK(message->SerializeToCord(&bytes));
   return Value::Proto(to_proto_type, bytes);
 }
 
@@ -948,9 +946,7 @@ absl::StatusOr<Value> CastContext::CastValue(
       // fields are present.  If we want to allow missing required fields
       // We could use SerializePartialToCord().
       absl::Cord cord_value;
-      std::string string_value;
-      bool is_valid = message->SerializeToString(&string_value);
-      cord_value = absl::Cord(string_value);
+      bool is_valid = message->SerializeToCord(&cord_value);
       if (!is_valid) {
         // TODO: This does not seem reachable given that we just
         // successfully parsed the string to a valid message.
@@ -1158,7 +1154,7 @@ absl::StatusOr<Value> CastContext::CastValue(
       google::protobuf::DynamicMessageFactory msg_factory;
       std::unique_ptr<google::protobuf::Message> message(
           msg_factory.GetPrototype(v.type()->AsProto()->descriptor())->New());
-      bool is_valid = message->ParsePartialFromString(std::string(v.ToCord()));
+      bool is_valid = message->ParsePartialFromCord(v.ToCord());
       if (!is_valid) {
         std::string display_bytes =
             PrettyTruncateUTF8(ToBytesLiteral(std::string(v.ToCord())),

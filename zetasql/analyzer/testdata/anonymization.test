@@ -1030,7 +1030,7 @@ QueryStmt
 select with anonymization int64
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: SELECT WITH ANONYMIZATION queries require GROUP BY or aggregation, but neither was present [at 1:27]
+ERROR: You must use GROUP BY or aggregation function in a SELECT WITH ANONYMIZATION query, but it was absent [at 1:27]
 select with anonymization int64
                           ^
 ==

@@ -116,7 +116,9 @@ static Value MakeProtoValue(const google::protobuf::Message* msg) {
   const ProtoType* proto_type;
   ZETASQL_CHECK_OK(test_values::static_type_factory()->MakeProtoType(
       msg->GetDescriptor(), &proto_type));
-  return Value::Proto(proto_type, SerializeToCord(*msg));
+  absl::Cord bytes;
+  ABSL_CHECK(msg->SerializeToCord(&bytes));
+  return Value::Proto(proto_type, bytes);
 }
 
 static std::string ParametersWithSeparator(int num_parameters,
@@ -2477,6 +2479,13 @@ SHARDED_TEST_F(ComplianceCodebasedTests, GenerateRangeArray, 1) {
       Shard(GetFunctionTestsGenerateDatetimeRangeArrayExtras()), sql_string_fn);
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, RangeContains, 1) {
+  SetNamePrefix("RangeContains");
+  RunFunctionTestsCustom(
+      Shard(GetFunctionTestsRangeContains()),
+      [](const FunctionTestCall& f) { return "range_contains(@p0, @p1)"; });
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalUnaryMinus, 1) {
   SetNamePrefix("IntervalUnaryMinus");
   RunStatementTests(Shard(GetFunctionTestsIntervalUnaryMinus()), "-@p0");
@@ -2559,6 +2568,34 @@ SHARDED_TEST_F(ComplianceCodebasedTests, JustifyInterval, 1) {
     return absl::Substitute("CAST($0(@p0) AS STRING)", f.function_name);
   };
   RunFunctionTestsCustom(Shard(GetFunctionTestsJustifyInterval()), fn);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsCosineDistance, 1) {
+  SetNamePrefix("CosineDistance");
+  RunFunctionCalls(Shard(GetFunctionTestsCosineDistance()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsEuclideanDistance, 1) {
+  SetNamePrefix("EuclideanDistance");
+  RunFunctionCalls(Shard(GetFunctionTestsEuclideanDistance()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestEditDistance, 1) {
+  SetNamePrefix("EditDistance");
+  auto edit_distance_fn = [](const FunctionTestCall& f) {
+    if (f.params.params().size() == 2) {
+      return absl::Substitute("$0(@p0, @p1)", f.function_name);
+    }
+    return absl::Substitute("$0(@p0, @p1, max_distance=>@p2)", f.function_name);
+  };
+
+  std::vector<FunctionTestCall> tests = GetFunctionTestsEditDistance();
+  for (auto& test_case : tests) {
+    if (test_case.params.params().size() == 3) {
+      test_case.params.AddRequiredFeature(FEATURE_NAMED_ARGUMENTS);
+    }
+  }
+  RunFunctionTestsCustom(Shard(tests), edit_distance_fn);
 }
 
 // Wrap the proto field test cases with civil time typed values. If the type of
@@ -3273,7 +3310,9 @@ TEST_F(ComplianceCodebasedTests, TestRecursiveProto) {
   zetasql_test__::RecursiveMessage* innermost_message = &message;
   Value proto_value;
   for (int i = 0; i < kDepth; i++) {
-    proto_value = Value::Proto(proto_type, SerializeToCord(message));
+    absl::Cord bytes;
+    ABSL_CHECK(message.SerializeToCord(&bytes));
+    proto_value = Value::Proto(proto_type, bytes);
     RunStatementTests({QueryParamsWithResult({ValueConstructor(proto_value), i},
                                              ValueConstructor(proto_value))},
                       "@p0");
@@ -3281,15 +3320,18 @@ TEST_F(ComplianceCodebasedTests, TestRecursiveProto) {
     innermost_message->set_int64_field(i);
     innermost_message = innermost_message->mutable_recursive_msg();
   }
-  proto_value = Value::Proto(proto_type, SerializeToCord(message));
+  absl::Cord bytes_3611;
+  ABSL_CHECK(message.SerializeToCord(&bytes_3611));
+  proto_value = Value::Proto(proto_type, bytes_3611);
 
   // Select message subfields.
   SetNamePrefix("TestRecursiveProto_SubMessage");
   std::string field_refs;
   innermost_message = &message;
   for (int i = 0; i < kDepth; i++) {
-    Value field_value =
-        Value::Proto(proto_type, SerializeToCord(*innermost_message));
+    absl::Cord bytes;
+    ABSL_CHECK(innermost_message->SerializeToCord(&bytes));
+    Value field_value = Value::Proto(proto_type, bytes);
     RunStatementTests({QueryParamsWithResult({ValueConstructor(proto_value), i},
                                              ValueConstructor(field_value))},
                       absl::StrCat("@p0", field_refs));

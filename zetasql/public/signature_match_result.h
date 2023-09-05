@@ -74,7 +74,7 @@ class SignatureMatchResult {
     allow_mismatch_message_ = allow;
   }
 
-  // The message about why the siganture doesn't match the function call.
+  // The message about why the signature doesn't match the function call.
   std::string mismatch_message() const { return mismatch_message_; }
   void set_mismatch_message(absl::string_view message) {
     ABSL_DCHECK(allow_mismatch_message_) << message;
@@ -82,7 +82,7 @@ class SignatureMatchResult {
     mismatch_message_ = message;
   }
 
-  // Error message for why TVF siganture doesn't match the function call.
+  // Error message for why TVF signature doesn't match the function call.
   // If we use mismatch_message_ for tvf, the existing tvf error message will be
   // changed to include detail about all mismatch cases even if we don't enable
   // the detailed mismatch error behavior.

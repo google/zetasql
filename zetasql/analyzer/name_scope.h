@@ -598,11 +598,12 @@ class NameScope {
   // This limitation will be removed in a subsequent CL.
   //
   // 'in_strict_mode' identifies whether unqualified names are valid
-  // to access.  'clause_name' and 'is_post_distinct' are only used for
+  // to access.  'clause_name' and 'problem_string' are only used for
   // error messaging.
+  static const char* const kDefaultProblemString;
   absl::Status LookupNamePath(const PathExpressionSpan& path_expr,
-                              const char* clause_name, bool is_post_distinct,
-                              bool in_strict_mode,
+                              const char* clause_name,
+                              const char* problem_string, bool in_strict_mode,
                               CorrelatedColumnsSetList* correlated_columns_sets,
                               int* num_names_consumed,
                               NameTarget* target_out) const;

@@ -1486,3 +1486,10 @@ ALTERNATION GROUP: @{a=b} DISTINCT AS foo
 ERROR: Syntax error: SELECT list must not be empty [at 1:31]
 select @{a=b} DISTINCT AS foo from t
                               ^
+==
+
+from Table
+--
+ERROR: Syntax error: Unexpected FROM [at 1:1]
+from Table
+^

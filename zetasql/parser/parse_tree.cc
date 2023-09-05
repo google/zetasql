@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <functional>
 #include <limits>
+#include <optional>
 #include <queue>
 #include <set>
 #include <stack>
@@ -202,7 +203,7 @@ void ASTNode::Dumper::Dump() {
 
 std::string ASTNode::DebugString(int max_depth) const {
   std::string out;
-  Dumper(this, "\n", max_depth, absl::nullopt, &out).Dump();
+  Dumper(this, "\n", max_depth, std::nullopt, &out).Dump();
   return out;
 }
 
@@ -1617,6 +1618,19 @@ absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
       return "VIEW";
     default:
       return "<INVALID SCHEMA OBJECT KIND>";
+  }
+}
+
+std::string ASTOptionsEntry::GetSQLForOperator() const {
+  switch (assignment_op_) {
+    case NOT_SET:
+      return "<UNKNOWN OPERATOR>";
+    case ASSIGN:
+      return "=";
+    case ADD_ASSIGN:
+      return "+=";
+    case SUB_ASSIGN:
+      return "-=";
   }
 }
 

@@ -14,17 +14,14 @@
 // limitations under the License.
 //
 
-#include <ctype.h>
 
-#include <algorithm>
-#include <memory>
-#include <set>
+#include <cstdint>
+#include <initializer_list>
+#include <limits>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "google/protobuf/timestamp.pb.h"
 #include "google/protobuf/wrappers.pb.h"
 #include "google/type/date.pb.h"
@@ -34,6 +31,7 @@
 #include "zetasql/proto/anon_output_with_report.pb.h"
 #include "zetasql/public/anon_function.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
@@ -44,14 +42,17 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -401,6 +402,19 @@ void GetStringFunctions(TypeFactory* type_factory,
               return absl::OkStatus();
             }));
   }
+
+  InsertFunction(
+      functions, options, "edit_distance", SCALAR,
+      {{int64_type,
+        {string_type,
+         string_type,
+         {int64_type, FunctionArgumentTypeOptions()
+                          .set_cardinality(FunctionEnums::OPTIONAL)
+                          .set_argument_name("max_distance", kNamedOnly)
+                          .set_default(values::Int64(
+                              std::numeric_limits<int64_t>::max()))}},
+        FN_EDIT_DISTANCE}},
+      FunctionOptions());
 }
 
 void GetRegexFunctions(TypeFactory* type_factory,
@@ -490,7 +504,7 @@ void GetRegexFunctions(TypeFactory* type_factory,
                    FN_REGEXP_EXTRACT_ALL_BYTES}});
 }
 
-void GetProto3ConversionFunctions(
+absl::Status GetProto3ConversionFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   const Function::Mode SCALAR = Function::SCALAR;
@@ -504,40 +518,40 @@ void GetProto3ConversionFunctions(
   const Type* string_type = type_factory->get_string();
   const Type* bytes_type = type_factory->get_bytes();
   const Type* proto_timestamp_type = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::Timestamp::descriptor(), &proto_timestamp_type));
   const Type* proto_date_type = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(google::type::Date::descriptor(),
-                                       &proto_date_type));
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(google::type::Date::descriptor(),
+                                              &proto_date_type));
   const Type* proto_time_of_day_type = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(google::type::TimeOfDay::descriptor(),
-                                       &proto_time_of_day_type));
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
+      google::type::TimeOfDay::descriptor(), &proto_time_of_day_type));
   const Type* proto_double_wrapper = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::DoubleValue::descriptor(), &proto_double_wrapper));
   const Type* proto_float_wrapper = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::FloatValue::descriptor(), &proto_float_wrapper));
   const Type* proto_int64_wrapper = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::Int64Value::descriptor(), &proto_int64_wrapper));
   const Type* proto_uint64_wrapper = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::UInt64Value::descriptor(), &proto_uint64_wrapper));
   const Type* proto_int32_wrapper = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::Int32Value::descriptor(), &proto_int32_wrapper));
   const Type* proto_uint32_wrapper = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::UInt32Value::descriptor(), &proto_uint32_wrapper));
   const Type* proto_bool_wrapper = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::BoolValue::descriptor(), &proto_bool_wrapper));
   const Type* proto_string_wrapper = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::StringValue::descriptor(), &proto_string_wrapper));
   const Type* proto_bytes_wrapper = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::BytesValue::descriptor(), &proto_bytes_wrapper));
   const Type* timestamp_type = type_factory->get_timestamp();
   const Type* time_type = type_factory->get_time();
@@ -630,6 +644,7 @@ void GetProto3ConversionFunctions(
 
   InsertFunction(functions, options, "to_proto", SCALAR, to_proto_signatures,
                  FunctionOptions().set_allow_external_usage(false));
+  return absl::OkStatus();
 }
 
 void GetErrorHandlingFunctions(TypeFactory* type_factory,
@@ -730,9 +745,12 @@ void GetConditionalFunctions(TypeFactory* type_factory,
       {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_IFNULL}});
 
   // NULLIF(expr1, expr2): NULL if expr1 = expr2, otherwise returns expr1.
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "nullif", SCALAR,
-      {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NULLIF}},
+      {{ARG_TYPE_ANY_1,
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+        FN_NULLIF,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
       FunctionOptions().set_post_resolution_argument_constraint(
           absl::bind_front(&CheckArgumentsSupportEquality, "NULLIF")));
 
@@ -815,6 +833,61 @@ void GetConditionalFunctions(TypeFactory* type_factory,
           .set_get_sql_callback(&CaseNoValueFunctionSQL)
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForCaseNoValueFunction));
+}
+
+absl::Status GetDistanceFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  const Type* double_type = type_factory->get_double();
+
+  const Function::Mode SCALAR = Function::SCALAR;
+
+  std::vector<zetasql::StructType::StructField> input_struct_fields_int64 = {
+      {"key", types::Int64Type()}, {"value", types::DoubleType()}};
+
+  const zetasql::StructType* struct_int64 = nullptr;
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory->MakeStructType({input_struct_fields_int64}, &struct_int64));
+  const ArrayType* array_struct_int64_key_type;
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory->MakeArrayType(struct_int64, &array_struct_int64_key_type));
+
+  std::vector<zetasql::StructType::StructField> input_struct_fields_string = {
+      {"key", types::StringType()}, {"value", types::DoubleType()}};
+  const zetasql::StructType* struct_string = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType({input_struct_fields_string},
+                                               &struct_string));
+  const ArrayType* array_struct_string_key_type;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(struct_string,
+                                              &array_struct_string_key_type));
+  zetasql::FunctionOptions function_options;
+  std::vector<FunctionSignatureOnHeap> cosine_signatures = {
+      {double_type,
+       {types::DoubleArrayType(), types::DoubleArrayType()},
+       FN_COSINE_DISTANCE_DENSE_DOUBLE},
+      {double_type,
+       {array_struct_int64_key_type, array_struct_int64_key_type},
+       FN_COSINE_DISTANCE_SPARSE_INT64},
+      {double_type,
+       {array_struct_string_key_type, array_struct_string_key_type},
+       FN_COSINE_DISTANCE_SPARSE_STRING}};
+
+  InsertFunction(functions, options, "cosine_distance", SCALAR,
+                 cosine_signatures, function_options);
+
+  std::vector<FunctionSignatureOnHeap> euclidean_signatures = {
+      {double_type,
+       {types::DoubleArrayType(), types::DoubleArrayType()},
+       FN_EUCLIDEAN_DISTANCE_DENSE_DOUBLE},
+      {double_type,
+       {array_struct_int64_key_type, array_struct_int64_key_type},
+       FN_EUCLIDEAN_DISTANCE_SPARSE_INT64},
+      {double_type,
+       {array_struct_string_key_type, array_struct_string_key_type},
+       FN_EUCLIDEAN_DISTANCE_SPARSE_STRING}};
+  InsertFunction(functions, options, "euclidean_distance", SCALAR,
+                 euclidean_signatures, function_options);
+  return absl::OkStatus();
 }
 
 void GetMiscellaneousFunctions(TypeFactory* type_factory,
@@ -2889,6 +2962,14 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                          {geography_type, geography_type, geography_type},
                          FN_ST_ANGLE}},
                        geography_required);
+  InsertFunction(functions, options, "st_hausdorffdistance", SCALAR,
+                 {{double_type,
+                   {geography_type,
+                    geography_type,
+                    {bool_type, arg_with_mandatory_name_and_default_value(
+                                    "directed", Value::Bool(false))}},
+                   FN_ST_HAUSDORFF_DISTANCE}},
+                 geography_and_named_arg_required);
 
   // Parsers/Formatters
   InsertSimpleFunction(functions, options, "st_astext", SCALAR,
@@ -3460,7 +3541,7 @@ void GetAnonFunctions(TypeFactory* type_factory,
           "avg"));
 }
 
-void GetDifferentialPrivacyFunctions(
+absl::Status GetDifferentialPrivacyFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions, NameToTypeMap* types) {
   const Type* int64_type = type_factory->get_int64();
@@ -3470,28 +3551,29 @@ void GetDifferentialPrivacyFunctions(
   const Type* double_array_type = types::DoubleArrayType();
   const Type* json_type = types::JsonType();
   const Type* report_proto_type = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       functions::DifferentialPrivacyOutputWithReport::descriptor(),
       &report_proto_type));
   const Type* report_format_type =
       types::DifferentialPrivacyReportFormatEnumType();
 
-  ZETASQL_CHECK_OK(InsertType(types, options, report_format_type));
+  ZETASQL_RETURN_IF_ERROR(InsertType(types, options, report_format_type));
   // Creates a pair of same types for contribution bounds. First field is lower
   // bound and second is upper bound. Struct field name is omitted intentionally
   // because the user syntax for struct constructor does not allow "AS
   // field_name" and the struct is not usable in actual query.
-  auto make_pair_type = [&type_factory](const Type* t) {
+  auto make_pair_type =
+      [&type_factory](const Type* t) -> absl::StatusOr<const Type*> {
     const std::vector<StructField> pair_fields{{"", t}, {"", t}};
     const Type* pair_type = nullptr;
-    ZETASQL_CHECK_OK(type_factory->MakeStructType(pair_fields, &pair_type));
+    ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(pair_fields, &pair_type));
     return pair_type;
   };
 
-  const Type* int64_pair_type = make_pair_type(int64_type);
-  const Type* uint64_pair_type = make_pair_type(uint64_type);
-  const Type* double_pair_type = make_pair_type(double_type);
-  const Type* numeric_pair_type = make_pair_type(numeric_type);
+  ZETASQL_ASSIGN_OR_RETURN(const Type* int64_pair_type, make_pair_type(int64_type));
+  ZETASQL_ASSIGN_OR_RETURN(const Type* uint64_pair_type, make_pair_type(uint64_type));
+  ZETASQL_ASSIGN_OR_RETURN(const Type* double_pair_type, make_pair_type(double_type));
+  ZETASQL_ASSIGN_OR_RETURN(const Type* numeric_pair_type, make_pair_type(numeric_type));
 
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
@@ -4000,6 +4082,7 @@ void GetDifferentialPrivacyFunctions(
               .set_supported_signatures_callback(supported_signatures_function)
               .set_sql_name("approx_quantiles"),
           "array_agg"));
+  return absl::OkStatus();
 }
 
 void GetTypeOfFunction(TypeFactory* type_factory,

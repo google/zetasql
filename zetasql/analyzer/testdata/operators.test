@@ -1,3 +1,5 @@
+[default also_show_signature_mismatch_details]
+
 select 1 from SimpleTypes
 where int32 = 5
    or int64 = 6
@@ -1095,6 +1097,22 @@ where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2
 ERROR: No matching signature for operator >> for argument types: UINT64, UINT64. Supported signatures: INT32 >> INT64; INT64 >> INT64; UINT32 >> INT64; UINT64 >> INT64; BYTES >> INT64 [at 2:29]
 where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2
                             ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator >>
+  Argument types: UINT64, UINT64
+  Signature: INT32 >> INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT32
+  Signature: INT64 >> INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT32 >> INT64
+    Argument 1: Unable to coerce type UINT64 to expected type UINT32
+  Signature: UINT64 >> INT64
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: BYTES >> INT64
+    Argument 1: Unable to coerce type UINT64 to expected type BYTES [at 2:29]
+where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2
+                            ^
 ==
 
 select * from TestTable
@@ -1387,6 +1405,22 @@ where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2;
 ERROR: No matching signature for operator >> for argument types: UINT64, UINT64. Supported signatures: INT32 >> INT64; INT64 >> INT64; UINT32 >> INT64; UINT64 >> INT64; BYTES >> INT64 [at 2:29]
 where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2;
                             ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator >>
+  Argument types: UINT64, UINT64
+  Signature: INT32 >> INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT32
+  Signature: INT64 >> INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT32 >> INT64
+    Argument 1: Unable to coerce type UINT64 to expected type UINT32
+  Signature: UINT64 >> INT64
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: BYTES >> INT64
+    Argument 1: Unable to coerce type UINT64 to expected type BYTES [at 2:29]
+where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2;
+                            ^
 ==
 
 # Bitwise operations are only defined on integers and BYTES.
@@ -1449,6 +1483,18 @@ select TestStruct>>2 from ComplexTypes;
 select 1 + '1';
 --
 ERROR: No matching signature for operator + for argument types: INT64, STRING. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select 1 + '1';
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: INT64, STRING
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 2: Unable to coerce type STRING to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument 2: Unable to coerce type STRING to expected type DOUBLE [at 1:8]
 select 1 + '1';
        ^
 ==
@@ -1597,12 +1643,40 @@ from SimpleTypes
 ERROR: No matching signature for operator - for argument types: UINT32. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:8]
 select -uint32
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: UINT32
+  Signature: -(INT32)
+    Argument 1: Unable to coerce type UINT32 to expected type INT32
+  Signature: -(INT64)
+    Argument 1: Unable to coerce type UINT32 to expected type INT64
+  Signature: -(FLOAT)
+    Argument 1: Unable to coerce type UINT32 to expected type FLOAT
+  Signature: -(DOUBLE)
+    Argument 1: Unable to coerce type UINT32 to expected type DOUBLE [at 1:8]
+select -uint32
+       ^
 ==
 
 select -uint64
 from SimpleTypes
 --
 ERROR: No matching signature for operator - for argument types: UINT64. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:8]
+select -uint64
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: UINT64
+  Signature: -(INT32)
+    Argument 1: Unable to coerce type UINT64 to expected type INT32
+  Signature: -(INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: -(FLOAT)
+    Argument 1: Unable to coerce type UINT64 to expected type FLOAT
+  Signature: -(DOUBLE)
+    Argument 1: Unable to coerce type UINT64 to expected type DOUBLE [at 1:8]
 select -uint64
        ^
 ==
@@ -1642,6 +1716,20 @@ QueryStmt
 select -bool from SimpleTypes
 --
 ERROR: No matching signature for operator - for argument types: BOOL. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:8]
+select -bool from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: BOOL
+  Signature: -(INT32)
+    Argument 1: Unable to coerce type BOOL to expected type INT32
+  Signature: -(INT64)
+    Argument 1: Unable to coerce type BOOL to expected type INT64
+  Signature: -(FLOAT)
+    Argument 1: Unable to coerce type BOOL to expected type FLOAT
+  Signature: -(DOUBLE)
+    Argument 1: Unable to coerce type BOOL to expected type DOUBLE [at 1:8]
 select -bool from SimpleTypes
        ^
 ==
@@ -1805,6 +1893,14 @@ select NOT 0
 ERROR: No matching signature for operator NOT for argument types: INT64. Supported signature: NOT (BOOL) [at 1:8]
 select NOT 0
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator NOT
+  Argument types: INT64
+  Signature: NOT (BOOL)
+    Argument 1: Unable to coerce type INT64 to expected type BOOL [at 1:8]
+select NOT 0
+       ^
 ==
 
 select 'abc' {{<|<=|>|>=|=|!=|LIKE}} b'abc'
@@ -1815,9 +1911,31 @@ ERROR: No matching signature for operator < for argument types: STRING, BYTES. S
 select 'abc' < b'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator < for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 < T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 < UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 < INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
+select 'abc' < b'abc'
+       ^
+--
 ALTERNATION GROUP: <=
 --
 ERROR: No matching signature for operator <= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:8]
+select 'abc' <= b'abc'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator <= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 <= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 <= UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 <= INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
 select 'abc' <= b'abc'
        ^
 --
@@ -1827,9 +1945,31 @@ ERROR: No matching signature for operator > for argument types: STRING, BYTES. S
 select 'abc' > b'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator > for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 > T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 > UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 > INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
+select 'abc' > b'abc'
+       ^
+--
 ALTERNATION GROUP: >=
 --
 ERROR: No matching signature for operator >= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:8]
+select 'abc' >= b'abc'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator >= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 >= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 >= UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 >= INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
 select 'abc' >= b'abc'
        ^
 --
@@ -1839,15 +1979,46 @@ ERROR: No matching signature for operator = for argument types: STRING, BYTES. S
 select 'abc' = b'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
+select 'abc' = b'abc'
+       ^
+--
 ALTERNATION GROUP: !=
 --
 ERROR: No matching signature for operator != for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
 select 'abc' != b'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator != for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 != T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 != UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 != INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
+select 'abc' != b'abc'
+       ^
+--
 ALTERNATION GROUP: LIKE
 --
 ERROR: No matching signature for operator LIKE for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:8]
+select 'abc' LIKE b'abc'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator LIKE for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: STRING LIKE STRING
+    Argument 2: Unable to coerce type BYTES to expected type STRING
+  Signature: BYTES LIKE BYTES
+    Argument 1: Unable to coerce type STRING to expected type BYTES [at 1:8]
 select 'abc' LIKE b'abc'
        ^
 ==
@@ -1860,9 +2031,31 @@ ERROR: No matching signature for operator < for argument types: BYTES, STRING. S
 select b'abc' < 'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 < T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 < UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 < INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select b'abc' < 'abc'
+       ^
+--
 ALTERNATION GROUP: <=
 --
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:8]
+select b'abc' <= 'abc'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 <= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 <= UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 <= INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
 select b'abc' <= 'abc'
        ^
 --
@@ -1872,9 +2065,31 @@ ERROR: No matching signature for operator > for argument types: BYTES, STRING. S
 select b'abc' > 'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 > T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 > UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 > INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select b'abc' > 'abc'
+       ^
+--
 ALTERNATION GROUP: >=
 --
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:8]
+select b'abc' >= 'abc'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 >= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 >= UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 >= INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
 select b'abc' >= 'abc'
        ^
 --
@@ -1884,15 +2099,46 @@ ERROR: No matching signature for operator = for argument types: BYTES, STRING. S
 select b'abc' = 'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select b'abc' = 'abc'
+       ^
+--
 ALTERNATION GROUP: !=
 --
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
 select b'abc' != 'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 != T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 != UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 != INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select b'abc' != 'abc'
+       ^
+--
 ALTERNATION GROUP: LIKE
 --
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:8]
+select b'abc' LIKE 'abc'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: STRING LIKE STRING
+    Argument 1: Unable to coerce type BYTES to expected type STRING
+  Signature: BYTES LIKE BYTES
+    Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:8]
 select b'abc' LIKE 'abc'
        ^
 ==
@@ -1905,9 +2151,31 @@ ERROR: No matching signature for operator < for argument types: BYTES, STRING. S
 select bytes < 'abc' from SimpleTypes
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 < T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 < UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 < INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select bytes < 'abc' from SimpleTypes
+       ^
+--
 ALTERNATION GROUP: <=
 --
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:8]
+select bytes <= 'abc' from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 <= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 <= UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 <= INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
 select bytes <= 'abc' from SimpleTypes
        ^
 --
@@ -1917,9 +2185,31 @@ ERROR: No matching signature for operator > for argument types: BYTES, STRING. S
 select bytes > 'abc' from SimpleTypes
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 > T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 > UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 > INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select bytes > 'abc' from SimpleTypes
+       ^
+--
 ALTERNATION GROUP: >=
 --
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:8]
+select bytes >= 'abc' from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 >= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 >= UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 >= INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
 select bytes >= 'abc' from SimpleTypes
        ^
 --
@@ -1929,15 +2219,46 @@ ERROR: No matching signature for operator = for argument types: BYTES, STRING. S
 select bytes = 'abc' from SimpleTypes
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select bytes = 'abc' from SimpleTypes
+       ^
+--
 ALTERNATION GROUP: !=
 --
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
 select bytes != 'abc' from SimpleTypes
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 != T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 != UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 != INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select bytes != 'abc' from SimpleTypes
+       ^
+--
 ALTERNATION GROUP: LIKE
 --
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:8]
+select bytes LIKE 'abc' from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: STRING LIKE STRING
+    Argument 1: Unable to coerce type BYTES to expected type STRING
+  Signature: BYTES LIKE BYTES
+    Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:8]
 select bytes LIKE 'abc' from SimpleTypes
        ^
 ==
@@ -1950,9 +2271,31 @@ ERROR: No matching signature for operator < for argument types: BYTES, STRING. S
 select bytes from SimpleTypes where bytes < 'abc'
                                     ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 < T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 < UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 < INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
+select bytes from SimpleTypes where bytes < 'abc'
+                                    ^
+--
 ALTERNATION GROUP: <=
 --
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:37]
+select bytes from SimpleTypes where bytes <= 'abc'
+                                    ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 <= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 <= UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 <= INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
 select bytes from SimpleTypes where bytes <= 'abc'
                                     ^
 --
@@ -1962,9 +2305,31 @@ ERROR: No matching signature for operator > for argument types: BYTES, STRING. S
 select bytes from SimpleTypes where bytes > 'abc'
                                     ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 > T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 > UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 > INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
+select bytes from SimpleTypes where bytes > 'abc'
+                                    ^
+--
 ALTERNATION GROUP: >=
 --
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:37]
+select bytes from SimpleTypes where bytes >= 'abc'
+                                    ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 >= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 >= UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 >= INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
 select bytes from SimpleTypes where bytes >= 'abc'
                                     ^
 --
@@ -1974,15 +2339,46 @@ ERROR: No matching signature for operator = for argument types: BYTES, STRING. S
 select bytes from SimpleTypes where bytes = 'abc'
                                     ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
+select bytes from SimpleTypes where bytes = 'abc'
+                                    ^
+--
 ALTERNATION GROUP: !=
 --
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:37]
 select bytes from SimpleTypes where bytes != 'abc'
                                     ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 != T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 != UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 != INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
+select bytes from SimpleTypes where bytes != 'abc'
+                                    ^
+--
 ALTERNATION GROUP: LIKE
 --
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:37]
+select bytes from SimpleTypes where bytes LIKE 'abc'
+                                    ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: STRING LIKE STRING
+    Argument 1: Unable to coerce type BYTES to expected type STRING
+  Signature: BYTES LIKE BYTES
+    Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:37]
 select bytes from SimpleTypes where bytes LIKE 'abc'
                                     ^
 ==
@@ -1995,9 +2391,31 @@ ERROR: No matching signature for operator < for argument types: BYTES, STRING. S
 select @test_param_bytes < 'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 < T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 < UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 < INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select @test_param_bytes < 'abc'
+       ^
+--
 ALTERNATION GROUP: <=
 --
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:8]
+select @test_param_bytes <= 'abc'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 <= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 <= UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 <= INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
 select @test_param_bytes <= 'abc'
        ^
 --
@@ -2007,9 +2425,31 @@ ERROR: No matching signature for operator > for argument types: BYTES, STRING. S
 select @test_param_bytes > 'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 > T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 > UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 > INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select @test_param_bytes > 'abc'
+       ^
+--
 ALTERNATION GROUP: >=
 --
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:8]
+select @test_param_bytes >= 'abc'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 >= T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 >= UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 >= INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
 select @test_param_bytes >= 'abc'
        ^
 --
@@ -2019,15 +2459,46 @@ ERROR: No matching signature for operator = for argument types: BYTES, STRING. S
 select @test_param_bytes = 'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select @test_param_bytes = 'abc'
+       ^
+--
 ALTERNATION GROUP: !=
 --
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
 select @test_param_bytes != 'abc'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 != T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 != UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 != INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
+select @test_param_bytes != 'abc'
+       ^
+--
 ALTERNATION GROUP: LIKE
 --
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:8]
+select @test_param_bytes LIKE 'abc'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: STRING LIKE STRING
+    Argument 1: Unable to coerce type BYTES to expected type STRING
+  Signature: BYTES LIKE BYTES
+    Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:8]
 select @test_param_bytes LIKE 'abc'
        ^
 ==
@@ -2256,9 +2727,33 @@ ERROR: No matching signature for operator IS NOT DISTINCT FROM for argument type
 SELECT 'test' IS NOT DISTINCT FROM 2;
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator IS NOT DISTINCT FROM
+  Argument types: STRING, INT64
+  Signature: T1 IS NOT DISTINCT FROM T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 IS NOT DISTINCT FROM UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 IS NOT DISTINCT FROM INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
+SELECT 'test' IS NOT DISTINCT FROM 2;
+       ^
+--
 ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for operator IS DISTINCT FROM for argument types: STRING, INT64. Supported signatures: ANY IS DISTINCT FROM ANY; INT64 IS DISTINCT FROM UINT64; UINT64 IS DISTINCT FROM INT64 [at 1:8]
+SELECT 'test' IS  DISTINCT FROM 2;
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator IS DISTINCT FROM
+  Argument types: STRING, INT64
+  Signature: T1 IS DISTINCT FROM T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 IS DISTINCT FROM UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 IS DISTINCT FROM INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
 SELECT 'test' IS  DISTINCT FROM 2;
        ^
 ==

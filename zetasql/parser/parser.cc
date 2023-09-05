@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -77,8 +78,8 @@ ParserOutput::ParserOutput(
     std::shared_ptr<IdStringPool> id_string_pool,
     std::shared_ptr<zetasql_base::UnsafeArena> arena,
     std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes,
-    absl::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
-                  std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
+    std::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
+                 std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
         node,
     std::unique_ptr<std::vector<absl::Status>> warnings,
     ParserRuntimeInfo runtime_info)

@@ -2544,10 +2544,7 @@ CreateTableFunctionStmt
 |           +-argument_list=
 |           | +-FunctionArgument
 |           |   +-scan=
-|           |   | +-ProjectScan
-|           |   |   +-column_list=[t.col#2]
-|           |   |   +-input_scan=
-|           |   |     +-WithRefScan(column_list=[t.col#2], with_query_name="t")
+|           |   | +-WithRefScan(column_list=[t.col#2], with_query_name="t")
 |           |   +-argument_column_list=[t.col#2]
 |           +-column_index_list=[0, 1]
 +-output_column_list=
@@ -3103,7 +3100,7 @@ ERROR: Table not found: x [at 3:19]
 create table function myfunc (  )
   language testlang ;
 --
-ERROR: Non-SQL functions must specify a return type [at 1:1]
+ERROR: TVF whose language is testlang must specify a return type, only REMOTE TVF and SQL TVF can omit return type [at 1:1]
 create table function myfunc (  )
 ^
 ==
@@ -3458,6 +3455,42 @@ CreateTableFunctionStmt
 +-sql_security=SQL_SECURITY_INVOKER
 ==
 
+create {{PUBLIC|PRIVATE|TEMP|}} table function myfunc ( )
+{{returns table<string>|}} language remote;
+--
+ALTERNATION GROUPS:
+    PUBLIC,returns table<string>
+    PUBLIC,
+--
+ERROR: CREATE TABLE FUNCTION with PUBLIC or PRIVATE modifiers is not supported [at 1:1]
+create PUBLIC table function myfunc ( )
+^
+--
+ALTERNATION GROUPS:
+    PRIVATE,returns table<string>
+    PRIVATE,
+--
+ERROR: CREATE TABLE FUNCTION with PUBLIC or PRIVATE modifiers is not supported [at 1:1]
+create PRIVATE table function myfunc ( )
+^
+--
+ALTERNATION GROUP: TEMP,returns table<string>
+--
+CreateTableFunctionStmt(name_path=myfunc, create_scope=CREATE_TEMP, signature=() -> TABLE<STRING>, has_explicit_return_schema=TRUE, language="remote", is_value_table=TRUE)
+--
+ALTERNATION GROUP: TEMP,
+--
+CreateTableFunctionStmt(name_path=myfunc, create_scope=CREATE_TEMP, signature=() -> ANY TABLE, language="remote")
+--
+ALTERNATION GROUP: returns table<string>
+--
+CreateTableFunctionStmt(name_path=myfunc, signature=() -> TABLE<STRING>, has_explicit_return_schema=TRUE, language="remote", is_value_table=TRUE)
+--
+ALTERNATION GROUP: <empty>
+--
+CreateTableFunctionStmt(name_path=myfunc, signature=() -> ANY TABLE, language="remote")
+==
+
 # Query parameter is disallowed in function body
 create table function f(x int64) returns table<string> as select @test_param_string;
 --
@@ -3479,7 +3512,7 @@ create table function f(x int64) returns table<string> as select ?;
 create table function f(t table<col int64>)
 as table t;
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH or string literal but got keyword TABLE [at 2:4]
+ERROR: Syntax error: Unexpected keyword TABLE [at 2:4]
 as table t;
    ^
 ==

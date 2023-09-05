@@ -23,22 +23,25 @@
 #include <string>
 #include <utility>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"  
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -279,8 +282,7 @@ static absl::Status UpdateErrorFromPayload(absl::Status status,
       status.GetPayload(kErrorMessageModeUrl);
   if (applied_mode_payload.has_value()) {
     ErrorMessageModeForPayload mode_already_applied;
-    mode_already_applied.ParseFromString(
-        std::string(applied_mode_payload.value()));
+    mode_already_applied.ParseFromCord(applied_mode_payload.value());
     ZETASQL_RET_CHECK_EQ(mode_already_applied.mode(), mode);
     return status;
   }
@@ -317,8 +319,7 @@ static absl::Status UpdateErrorFromPayload(absl::Status status,
     new_status.SetPayload(type_url, payload);});
   ErrorMessageModeForPayload mode_wrapper;
   mode_wrapper.set_mode(mode);
-  new_status.SetPayload(kErrorMessageModeUrl,
-                        absl::Cord(mode_wrapper.SerializeAsString()));
+  new_status.SetPayload(kErrorMessageModeUrl, mode_wrapper.SerializeAsCord());
   if (!keep_error_location_payload) {
     ClearErrorLocation(&new_status);
   }

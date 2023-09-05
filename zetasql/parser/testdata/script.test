@@ -151,7 +151,7 @@ SELECT
 # Error: standalone expressions not allowed
 7
 --
-ERROR: Syntax error: Expected end of input but got integer literal "7" [at 1:1]
+ERROR: Syntax error: Unexpected integer literal "7" [at 1:1]
 7
 ^
 ==

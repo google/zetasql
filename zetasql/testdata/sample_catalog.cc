@@ -51,6 +51,7 @@
 #include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -315,6 +316,22 @@ static absl::StatusOr<const Type*> ComputeResultTypeFromStringArgumentValue(
   }
   // Use INT64 as return type if not overridden.
   return type_factory->get_int64();
+}
+
+static absl::StatusOr<const Type*> ComputeResultTypeCallbackToStruct(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options) {
+  const StructType* struct_type;
+  std::vector<StructType::StructField> struct_fields;
+  struct_fields.reserve(arguments.size());
+  for (int i = 0; i < arguments.size(); ++i) {
+    struct_fields.push_back({absl::StrCat("field", i), arguments[i].type()});
+  }
+  ZETASQL_CHECK_OK(
+      type_factory->MakeStructType(std::move(struct_fields), &struct_type));
+  return struct_type;
 }
 
 void SampleCatalog::LoadCatalog(const LanguageOptions& language_options) {
@@ -1584,6 +1601,20 @@ void SampleCatalog::LoadNestedCatalogs() {
       new Function(function_name_path, "sample_functions",
                    Function::SCALAR, {signature});
   nested_catalog->AddOwnedFunction(function);
+
+  // A scalar function with argument alias support in the nested catalog.
+  {
+    FunctionArgumentType aliased(
+        ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_alias_kind(
+                            FunctionEnums::ARGUMENT_ALIASED));
+    FunctionArgumentType non_aliased(ARG_TYPE_ANY_2);
+    std::vector<FunctionSignature> signatures = {
+        {types_->get_int64(), {aliased, non_aliased}, /*context_id=*/-1}};
+    Function* function = new Function(
+        std::vector<std::string>{"nested_catalog", "fn_for_argument_alias"},
+        "sample_functions", Function::SCALAR, signatures);
+    nested_catalog->AddOwnedFunction(function);
+  }
   // Add a procedure to the nested catalog:
   //   nested_catalog.nested_procedure(<int64_t>) -> <int64_t>
   Procedure* procedure =
@@ -2666,6 +2697,140 @@ void SampleCatalog::LoadFunctions() {
                             {named_rounding_mode},
                             /*context_id=*/-1});
     catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // Function with non-concrete return type but with a
+  // ComputeResultTypeCallback. Calling this function should not cause function
+  // resolver to complain the signature is not concrete.
+  {
+    auto function = std::make_unique<Function>(
+        "non_concrete_return_type_with_compute_result_type_callback",
+        "sample_functions", mode,
+        FunctionOptions().set_compute_result_type_callback(
+            &ComputeResultTypeCallbackToStruct));
+    const FunctionArgumentType positional(ARG_TYPE_ANY_1);
+    function->AddSignature({ARG_TYPE_ARBITRARY,
+                            {positional, positional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // Arguments and return type are both ARG_TYPE_ANY_3.
+  {
+    auto function = std::make_unique<Function>("fn_with_arg_type_any_3",
+                                               "sample_functions", mode);
+    const FunctionArgumentType positional(ARG_TYPE_ANY_3);
+    function->AddSignature({ARG_TYPE_ANY_3,
+                            {positional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // ARG_TYPE_ANY_3 arguments + ARRAY_ARG_TYPE_ANY_3 result.
+  {
+    auto function = std::make_unique<Function>("fn_arg_type_any_3_array_result",
+                                               "sample_functions", mode);
+    const FunctionArgumentType optional(
+        ARG_TYPE_ANY_3, FunctionArgumentTypeOptions()
+                            .set_cardinality(FunctionArgumentType::OPTIONAL)
+                            .set_argument_name("o1", kPositionalOrNamed));
+    function->AddSignature({ARG_ARRAY_TYPE_ANY_3,
+                            {optional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // ARG_ARRAY_TYPE_ANY_3 arguments + ARG_TYPE_ANY_3 result.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_arg_type_array_any_3_result_type_any_3", "sample_functions", mode);
+    const FunctionArgumentType named_optional(
+        ARG_ARRAY_TYPE_ANY_3,
+        FunctionArgumentTypeOptions()
+            .set_cardinality(FunctionArgumentType::OPTIONAL)
+            .set_argument_name("o1", kNamedOnly));
+    function->AddSignature({ARG_TYPE_ANY_3,
+                            {named_optional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // ARG_ARRAY_TYPE_ANY_3 arguments + ARG_ARRAY_TYPE_ANY_3 result.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_repeated_array_any_3_return_type_array_any_3", "sample_functions",
+        mode);
+    const FunctionArgumentType repeated(
+        ARG_ARRAY_TYPE_ANY_3, FunctionArgumentTypeOptions().set_cardinality(
+                                  FunctionArgumentType::REPEATED));
+    function->AddSignature({ARG_ARRAY_TYPE_ANY_3,
+                            {repeated},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // Regular non-aggregate function with argument alias support.
+  {
+    auto function = std::make_unique<Function>("fn_for_argument_alias",
+                                               "sample_functions", mode);
+    // Signature with alias on an optional argument.
+    const FunctionArgumentType aliased_1(
+        types_->get_bool(),
+        FunctionArgumentTypeOptions().set_argument_alias_kind(
+            FunctionEnums::ARGUMENT_ALIASED));
+    const FunctionArgumentType non_aliased_1(types_->get_bool());
+    const FunctionArgumentType optional_arg(
+        types_->get_string(),
+        FunctionArgumentTypeOptions()
+            .set_cardinality(FunctionArgumentType::OPTIONAL)
+            .set_argument_alias_kind(FunctionEnums::ARGUMENT_ALIASED));
+    function->AddSignature({types_->get_bool(),
+                            {aliased_1, non_aliased_1, optional_arg},
+                            /*context_id=*/-1});
+
+    // Signature with alias on a repeated argument.
+    const FunctionArgumentType aliased_2(
+        types_->get_string(),
+        FunctionArgumentTypeOptions().set_argument_alias_kind(
+            FunctionEnums::ARGUMENT_ALIASED));
+    const FunctionArgumentType non_aliased_2(types_->get_bool());
+    const FunctionArgumentType repeated(
+        types_->get_int64(),
+        FunctionArgumentTypeOptions()
+            .set_cardinality(FunctionArgumentType::REPEATED)
+            .set_argument_alias_kind(FunctionEnums::ARGUMENT_ALIASED));
+    function->AddSignature({types_->get_bool(),
+                            {aliased_2, non_aliased_2, repeated},
+                            /*context_id=*/-1});
+
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Aggregate function with argument alias support.
+  {
+    FunctionArgumentType aliased(
+        ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_alias_kind(
+                            FunctionEnums::ARGUMENT_ALIASED));
+    FunctionArgumentType non_aliased(ARG_TYPE_ANY_2);
+    std::vector<FunctionSignature> function_signatures = {
+        {types_->get_int64(), {aliased, non_aliased}, /*context_id=*/-1}};
+    function =
+        new Function("aggregate_fn_for_argument_alias", "sample_functions",
+                     Function::AGGREGATE, function_signatures);
+    catalog_->AddOwnedFunction(function);
+  }
+  // Analytic functions with argument alias support.
+  {
+    FunctionArgumentType aliased(
+        ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_alias_kind(
+                            FunctionEnums::ARGUMENT_ALIASED));
+    FunctionArgumentType non_aliased(ARG_TYPE_ANY_2);
+    std::vector<FunctionSignature> function_signatures = {
+        {types_->get_int64(), {aliased, non_aliased}, /*context_id=*/-1}};
+    catalog_->AddOwnedFunction(
+        new Function("analytic_fn_for_argument_alias", "sample_functions",
+                     Function::ANALYTIC, function_signatures,
+                     FunctionOptions(FunctionOptions::ORDER_REQUIRED,
+                                     /*window_framing_support_in=*/false)));
   }
 }  // NOLINT(readability/fn_size)
 
@@ -4971,6 +5136,26 @@ void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
           context_id++),
       output_schema_two_types));
+
+  // Add a TVF with two table arguments which are both named-only.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_two_named_only_tables"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("table1", kNamedOnly)
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("table2", kNamedOnly)
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
 }
 
 // Add a SQL table function to catalog starting from a full create table
@@ -6323,6 +6508,14 @@ void SampleCatalog::AddSqlDefinedFunctionFromCreate(
 }
 
 void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
+  LoadScalarSqlFunctions(language_options);
+  LoadDeepScalarSqlFunctions(language_options);
+  LoadScalarSqlFunctionTemplates(language_options);
+  LoadAggregateSqlFunctions(language_options);
+}
+
+void SampleCatalog::LoadScalarSqlFunctions(
+    const LanguageOptions& language_options) {
   AddSqlDefinedFunctionFromCreate(
       R"( CREATE FUNCTION NullaryPi() RETURNS FLOAT64 AS (3.141597); )",
       language_options);
@@ -6398,6 +6591,29 @@ void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
            AS (ARRAY_TRANSFORM([1, 2, 3], e->e = a)); )",
       language_options);
 
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION scalar_function_definer_rights() SQL SECURITY DEFINER
+              AS ((SELECT COUNT(*) FROM KeyValue)); )",
+      language_options,
+      /*inline_sql_functions=*/true);
+}
+
+void SampleCatalog::LoadDeepScalarSqlFunctions(
+    const LanguageOptions& language_options) {
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION CallsPi0() AS (NullaryPi());)", language_options,
+      /*inline_sql_functions=*/false);
+
+  for (int i = 0; i < 25; ++i) {
+    AddSqlDefinedFunctionFromCreate(
+        absl::StrCat("CREATE FUNCTION CallsPi", i + 1, "() AS (CallsPi", i,
+                     "());"),
+        language_options, /*inline_sql_functions=*/false);
+  }
+}
+
+void SampleCatalog::LoadScalarSqlFunctionTemplates(
+    const LanguageOptions& language_options) {
   // This function is logically equivalent to ARRAY_REVERSE
   AddSqlDefinedFunctionFromCreate(
       R"(  CREATE FUNCTION REVERSE_ARRAY(input_arr ANY TYPE)
@@ -6419,30 +6635,16 @@ void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
       language_options);
 
   AddSqlDefinedFunctionFromCreate(
-      R"( CREATE FUNCTION CallsPi0() AS (NullaryPi());)", language_options,
-      /*inline_sql_functions=*/false);
-
-  for (int i = 0; i < 25; ++i) {
-    AddSqlDefinedFunctionFromCreate(
-        absl::StrCat("CREATE FUNCTION CallsPi", i + 1, "() AS (CallsPi", i,
-                     "());"),
-        language_options, /*inline_sql_functions=*/false);
-  }
-
-  AddSqlDefinedFunctionFromCreate(
-      R"( CREATE FUNCTION scalar_function_definer_rights() SQL SECURITY DEFINER
-              AS ((SELECT COUNT(*) FROM KeyValue)); )",
-      language_options,
-      /*inline_sql_functions=*/true);
-
-  AddSqlDefinedFunctionFromCreate(
       R"sql(CREATE TEMP FUNCTION b290673529(thing_id ANY TYPE) RETURNS BOOL
             AS (
                thing_id IN (SELECT thing_id FROM (SELECT 1 AS thing_id))
             );
         )sql",
       language_options, /*inline_sql_functions=*/false);
+}
 
+void SampleCatalog::LoadAggregateSqlFunctions(
+    const LanguageOptions& language_options) {
   AddSqlDefinedFunctionFromCreate(
       R"sql( CREATE AGGREGATE FUNCTION NotAggregate() AS (1 + 1);)sql",
       language_options);

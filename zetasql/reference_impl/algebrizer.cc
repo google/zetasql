@@ -40,20 +40,26 @@
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/functions/json.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/sql_function.h"
+#include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
+#include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/operator.h"
+#include "zetasql/reference_impl/parameters.h"
 #include "zetasql/reference_impl/proto_util.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/type_helpers.h"
+#include "zetasql/reference_impl/variable_generator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
@@ -65,6 +71,7 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -325,7 +332,7 @@ absl::Status GetCollatedFunctionNameAndArguments(
              function_name == "array_max" || function_name == "array_offset" ||
              function_name == "array_find" ||
              function_name == "array_offsets" ||
-             function_name == "array_find_all") {
+             function_name == "array_find_all" || function_name == "nullif") {
     // For function $case_with_value and $in_array we do not make changes to its
     // arguments or function name here. The arguments may be transformed at a
     // later stage.
@@ -341,6 +348,26 @@ absl::Status GetCollatedFunctionNameAndArguments(
 }
 
 }  // namespace
+
+struct EvaluatorState {
+  std::shared_ptr<ValueExpr> algebrized_tree;
+  std::vector<std::string> argument_names;
+};
+
+absl::StatusOr<EvaluatorState> MakeUdfEvaluator(
+    const ResolvedExpr* expr, std::vector<std::string> argument_names,
+    LanguageOptions language_options, AlgebrizerOptions algebrizer_options,
+    TypeFactory* type_factory) {
+  Parameters parameter_variables;
+  ParameterMap column_map;
+  SystemVariablesAlgebrizerMap algebrizer_system_variables;
+  std::unique_ptr<ValueExpr> algebrized_tree;
+  ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeExpression(
+      language_options, algebrizer_options, type_factory, expr,
+      &algebrized_tree, &parameter_variables, &column_map,
+      &algebrizer_system_variables));
+  return EvaluatorState{std::move(algebrized_tree), argument_names};
+}
 
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
     const ResolvedFunctionCall* function_call) {
@@ -373,18 +400,89 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
 
   // User-defined functions.
   if (!function_call->function()->IsZetaSQLBuiltin()) {
+    FunctionEvaluator evaluator;
     auto callback = function_call->function()->GetFunctionEvaluatorFactory();
-    if (callback == nullptr) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "User-defined function " << name << " has no evaluator. "
-             << "Use FunctionOptions to supply one.";
-    }
-    auto status_or_evaluator = callback(function_call->signature());
-    ZETASQL_RETURN_IF_ERROR(status_or_evaluator.status());
-    auto evaluator = status_or_evaluator.value();
-    if (evaluator == nullptr) {
-      return ::zetasql_base::InternalErrorBuilder()
-             << "NULL evaluator returned for user-defined function " << name;
+    if (callback != nullptr) {
+      // An evaluator is already defined for this function.
+      auto status_or_evaluator = callback(function_call->signature());
+      ZETASQL_RETURN_IF_ERROR(status_or_evaluator.status());
+      evaluator = status_or_evaluator.value();
+      if (evaluator == nullptr) {
+        return ::zetasql_base::InternalErrorBuilder()
+               << "NULL evaluator returned for user-defined function " << name;
+      }
+    } else {
+      // Extract the function body ResolvedAST and argument names
+      const ResolvedExpr* expr;
+      std::vector<std::string> argument_names;
+      if (!function_call->function()->Is<SQLFunction>() &&
+          !function_call->function()->Is<TemplatedSQLFunction>()) {
+        return ::zetasql_base::InvalidArgumentErrorBuilder()
+               << "User-defined function " << name << " has no evaluator. "
+               << "Use FunctionOptions to supply one.";
+      }
+      // Non templated UDF
+      if (function_call->function()->Is<SQLFunction>()) {
+        const SQLFunction* sql_function =
+            function_call->function()->GetAs<SQLFunction>();
+        expr = sql_function->FunctionExpression();
+        for (const std::string& arg_name : sql_function->GetArgumentNames()) {
+          argument_names.push_back(arg_name);
+        }
+      }
+
+      // Templated UDF
+      if (function_call->function()->Is<TemplatedSQLFunction>()) {
+        const TemplatedSQLFunction* templated_sql_function =
+            function_call->function()->GetAs<TemplatedSQLFunction>();
+        ZETASQL_RET_CHECK(function_call->function_call_info()
+                      ->Is<TemplatedSQLFunctionCall>());
+        expr = function_call->function_call_info()
+                   ->GetAs<TemplatedSQLFunctionCall>()
+                   ->expr();
+        for (const std::string& arg_name :
+             templated_sql_function->GetArgumentNames()) {
+          argument_names.push_back(arg_name);
+        }
+      }
+      // Create an evaluator that executes this UDF by algebrizing the UDF
+      // function body `expr`, then evaluating the result using an
+      // EvaluationContext that contains mapped function argument references
+      // by name according to `argument_names`.
+      const LanguageOptions& language_options = this->language_options_;
+      const AlgebrizerOptions& algebrizer_options = this->algebrizer_options_;
+      TypeFactory* type_factory = this->type_factory_;
+      FunctionEvaluator udf_evaluator(
+          [evaluator_state =
+               MakeUdfEvaluator(expr, argument_names, language_options,
+                                algebrizer_options, type_factory)](
+              const absl::Span<const Value> args) -> absl::StatusOr<Value> {
+            ZETASQL_ASSIGN_OR_RETURN(EvaluatorState state, evaluator_state);
+            // Create an empty EvaluationContext and populate the map with
+            // argument <name, Value*> pairs.
+            EvaluationContext context((EvaluationOptions()));
+            ZETASQL_RET_CHECK(state.argument_names.size() == args.size());
+            if (!args.empty()) {
+              for (int i = 0; i < state.argument_names.size(); ++i) {
+                ZETASQL_RETURN_IF_ERROR(context.AddFunctionArgumentRef(
+                    state.argument_names[i], args[i]));
+              }
+            }
+
+            // Evaluate the algebrized tree and return the result, or
+            // propagate the error status.
+            TupleSlot result;
+            absl::Status status;
+            ZETASQL_RETURN_IF_ERROR(state.algebrized_tree->SetSchemasForEvaluation({}));
+            if (!state.algebrized_tree->EvalSimple(
+                    /*params=*/{}, &context, &result, &status)) {
+              ZETASQL_RET_CHECK(!status.ok());
+              return status;
+              ZETASQL_RET_CHECK(status.ok());
+            }
+            return result.value();
+          });
+      evaluator = udf_evaluator;
     }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> function_call,
                      ScalarFunctionCallExpr::Create(
@@ -427,7 +525,8 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
   } else if (name == "ifnull" || name == "zeroifnull") {
     return AlgebrizeIfNull(function_call->type(), std::move(arguments));
   } else if (name == "nullif" || name == "nullifzero") {
-    return AlgebrizeNullIf(function_call->type(), std::move(arguments));
+    return AlgebrizeNullIf(function_call->type(), std::move(arguments),
+                           function_call->collation_list());
   } else if (name == "nulliferror") {
     return CreateNullIfErrorExpr(std::move(arguments));
   } else if (name == "coalesce") {
@@ -677,7 +776,8 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIfNull(
 
 // NullIf(v0, v1) = WithExpr(x:=v0, IfExpr(x=v1, NULL, x))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeNullIf(
-    const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
+    const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args,
+    const std::vector<ResolvedCollation>& collation_list) {
   // If NullIfZero is being invoked, we augment args with the value 0 based on
   // the appropriate type.
   // NullIfZero = NullIf(v0, 0)
@@ -694,6 +794,16 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeNullIf(
   std::vector<std::unique_ptr<ValueExpr>> equal_args;
   equal_args.push_back(std::move(deref_x));
   equal_args.push_back(std::move(args[1]));
+
+  if (!collation_list.empty()) {
+    std::string collated_function_name;
+    std::vector<std::unique_ptr<ValueExpr>> collated_equal_args;
+    ZETASQL_RETURN_IF_ERROR(GetCollatedFunctionNameAndArguments(
+        "$equal", std::move(equal_args), collation_list, language_options_,
+        &collated_function_name, &collated_equal_args));
+    ZETASQL_RET_CHECK_EQ(collated_function_name, "$equal");
+    equal_args = std::move(collated_equal_args);
+  }
 
   ZETASQL_ASSIGN_OR_RETURN(auto equal, BuiltinScalarFunction::CreateCall(
                                    FunctionKind::kEqual, language_options_,
@@ -890,30 +1000,30 @@ Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
     }
   }
 
-  const Type* type = aggregate_function->type();
-  if (!aggregate_function->function()->IsZetaSQLBuiltin()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "User-defined aggregate functions are unsupported: " << name;
-  }
-
   FunctionKind kind;
   int num_input_fields;
-  if (name == "$count_star") {
-    kind = FunctionKind::kCount;
-    num_input_fields = 0;
-  } else {
-    ZETASQL_ASSIGN_OR_RETURN(kind, BuiltinFunctionCatalog::GetKindByName(name));
-    switch (kind) {
-      case FunctionKind::kApproxTopSum:
-      case FunctionKind::kCorr:
-      case FunctionKind::kCovarPop:
-      case FunctionKind::kCovarSamp:
-        num_input_fields = 2;
-        break;
-      default:
-        num_input_fields = 1;
-        break;
+  if (aggregate_function->function()->IsZetaSQLBuiltin()) {
+    if (name == "$count_star") {
+      kind = FunctionKind::kCount;
+      num_input_fields = 0;
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(kind, BuiltinFunctionCatalog::GetKindByName(name));
+      switch (kind) {
+        case FunctionKind::kApproxTopSum:
+        case FunctionKind::kCorr:
+        case FunctionKind::kCovarPop:
+        case FunctionKind::kCovarSamp:
+          num_input_fields = 2;
+          break;
+        default:
+          num_input_fields = 1;
+          break;
+      }
     }
+  } else {
+    // User defined functions
+    kind = FunctionKind::kInvalid;
+    num_input_fields = static_cast<int>(arguments.size());
   }
   ZETASQL_RET_CHECK_LE(num_input_fields, arguments.size()) << name;
 
@@ -979,19 +1089,46 @@ Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
     }
   }
 
-  std::unique_ptr<BuiltinAggregateFunction> function;
+  std::unique_ptr<AggregateFunctionBody> function;
+  const Type* type = aggregate_function->type();
   switch (kind) {
+    case FunctionKind::kInvalid: {
+      // User defined functions
+      auto callback = aggregate_function->function()
+                          ->GetAggregateFunctionEvaluatorFactory();
+      ZETASQL_RET_CHECK(callback != nullptr) << "User-defined aggregate function "
+                                     << name << " has no aggregate evaluator. "
+                                     << "Use FunctionOptions to supply one.";
+
+      // Check the evaluator against the function signature to make sure it's
+      // not null.
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateFunctionEvaluator> evaluator,
+                       callback(aggregate_function->signature()));
+      ZETASQL_RET_CHECK(evaluator != nullptr)
+          << "NULL evaluator returned for user-defined aggregate function "
+          << name;
+
+      ZETASQL_ASSIGN_OR_RETURN(
+          function,
+          MakeUserDefinedAggregateFunction(
+              callback, aggregate_function->signature(), type_factory_, name,
+              /*ignores_null=*/evaluator->IgnoresNulls()));
+      break;
+    }
     case FunctionKind::kCorr:
     case FunctionKind::kCovarPop:
     case FunctionKind::kCovarSamp:
-      function = std::make_unique<BinaryStatFunction>(kind, type, input_type);
-      break;
-    default:
+      {
+        function = std::make_unique<BinaryStatFunction>(kind, type, input_type);
+        break;
+      }
+    default: {
       ZETASQL_RET_CHECK(aggregate_function->function()->IsZetaSQLBuiltin());
       function = std::make_unique<BuiltinAggregateFunction>(
           kind, type, num_input_fields, input_type,
           IgnoresNullArguments(aggregate_function));
       break;
+    }
   }
 
   const AggregateArg::Distinctness distinctness =
@@ -1613,6 +1750,19 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpression(
           val_op, AlgebrizeGetProtoField(expr->GetAs<ResolvedGetProtoField>()));
       break;
     }
+    case RESOLVED_GET_PROTO_ONEOF: {
+      auto get_proto_oneof = expr->GetAs<ResolvedGetProtoOneof>();
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> input_proto,
+                       AlgebrizeExpression(get_proto_oneof->expr()));
+      std::vector<std::unique_ptr<ValueExpr>> arguments;
+      arguments.push_back(std::move(input_proto));
+      ZETASQL_ASSIGN_OR_RETURN(
+          val_op, ScalarFunctionCallExpr::Create(
+                      std::make_unique<ExtractOneofCaseFunction>(
+                          expr->type(), get_proto_oneof->oneof_descriptor()),
+                      std::move(arguments)));
+      break;
+    }
     case RESOLVED_FLATTEN: {
       ZETASQL_ASSIGN_OR_RETURN(val_op,
                        AlgebrizeFlatten(expr->GetAs<ResolvedFlatten>()));
@@ -1755,6 +1905,13 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpression(
                                    std::make_unique<ReplaceFieldsFunction>(
                                        expr->type(), field_paths),
                                    std::move(arguments)));
+      break;
+    }
+    case RESOLVED_ARGUMENT_REF: {
+      const ResolvedArgumentRef* argument_ref =
+          expr->GetAs<ResolvedArgumentRef>();
+      ZETASQL_ASSIGN_OR_RETURN(val_op, CreateFunctionArgumentRefExpr(
+                                   argument_ref->name(), expr->type()));
       break;
     }
     default:
@@ -3143,9 +3300,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeResolvedCollation(
   ResolvedCollationProto proto;
   ZETASQL_RETURN_IF_ERROR(collation.Serialize(&proto));
   absl::Cord cord;
-  std::string cord_str;
-  ZETASQL_RET_CHECK(proto.SerializePartialToString(&cord_str));
-  cord = absl::Cord(cord_str);
+  ZETASQL_RET_CHECK(proto.SerializePartialToCord(&cord));
   Value resolved_collation_proto_value = Value::Proto(proto_type, cord);
   return ConstExpr::Create(resolved_collation_proto_value);
 }
@@ -3153,62 +3308,8 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeResolvedCollation(
 
 absl::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizeAggregateScan(
     const ResolvedAggregateScan* aggregate_scan) {
-  // Algebrize the relational input of the aggregate.
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
-                   AlgebrizeScan(aggregate_scan->input_scan()));
-  // Build the list of grouping keys.
-  std::vector<std::unique_ptr<KeyArg>> keys;
-  ZETASQL_RET_CHECK(aggregate_scan->collation_list().empty() ||
-            aggregate_scan->collation_list().size() ==
-                aggregate_scan->group_by_list_size())
-      << "collation_list must be empty or has the same size as group_by_list";
-  for (int i = 0; i < aggregate_scan->group_by_list_size(); ++i) {
-    const ResolvedComputedColumn* key_expr = aggregate_scan->group_by_list(i);
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> key,
-                     AlgebrizeExpression(key_expr->expr()));
-    const VariableId key_variable_name =
-        column_to_variable_->AssignNewVariableToColumn(key_expr->column());
-    keys.push_back(std::make_unique<KeyArg>(key_variable_name, std::move(key)));
-    if (!aggregate_scan->collation_list().empty() &&
-        !aggregate_scan->collation_list(i).Empty()) {
-      std::unique_ptr<ValueExpr> group_by_collation;
-      ZETASQL_ASSIGN_OR_RETURN(group_by_collation,
-                       AlgebrizeResolvedCollation(
-                           aggregate_scan->collation_list(i), type_factory_));
-      keys.back()->set_collation(std::move(group_by_collation));
-    }
-  }
-
-  // Build the set of output columns.
-  absl::flat_hash_set<ResolvedColumn> output_columns;
-  output_columns.reserve(aggregate_scan->column_list_size());
-  for (const ResolvedColumn& column : aggregate_scan->column_list()) {
-    ZETASQL_RET_CHECK(output_columns.insert(column).second) << column.DebugString();
-  }
-
-  // Build the list of aggregate functions.
-  std::vector<std::unique_ptr<AggregateArg>> aggregators;
-  for (const std::unique_ptr<const ResolvedComputedColumn>& agg_expr :
-       aggregate_scan->aggregate_list()) {
-    const ResolvedColumn& column = agg_expr->column();
-    // Sanity check that all aggregate functions appear in the output column
-    // list, so that we don't accidentally return an aggregate function that
-    // the analyzer pruned from the scan. (If it did that, it should have
-    // pruned the aggregate function as well.)
-    ZETASQL_RET_CHECK(output_columns.contains(column)) << column.DebugString();
-
-    // Add the aggregate function to the output.
-    const VariableId agg_variable_name =
-        column_to_variable_->AssignNewVariableToColumn(column);
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<AggregateArg> agg,
-        AlgebrizeAggregateFn(agg_variable_name,
-                             std::optional<AnonymizationOptions>(),
-                             /*filter=*/nullptr, agg_expr->expr()));
-    aggregators.push_back(std::move(agg));
-  }
-  return AggregateOp::Create(std::move(keys), std::move(aggregators),
-                             std::move(input));
+  return AlgebrizeAggregateScanBase(aggregate_scan,
+                                    /*anonymization_options=*/std::nullopt);
 }
 
 namespace {
@@ -3256,6 +3357,14 @@ absl::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
           << "Anonymization option MAX_ROWS_CONTRIBUTED can only be set once";
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
       anonymization_options.max_rows_contributed =
+          option->value()->GetAs<ResolvedLiteral>()->value();
+    } else if (absl::AsciiStrToLower(option->name()) ==
+               "group_selection_strategy") {
+      ZETASQL_RET_CHECK(!anonymization_options.group_selection_strategy.has_value())
+          << "Anonymization option group_selection_strategy can only be set "
+             "once";
+      ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+      anonymization_options.group_selection_strategy =
           option->value()->GetAs<ResolvedLiteral>()->value();
     } else {
       return zetasql_base::InvalidArgumentErrorBuilder()
@@ -3338,6 +3447,14 @@ absl::StatusOr<AnonymizationOptions> GetDifferentialPrivacyOptions(
       ZETASQL_RET_CHECK(!anonymization_options.max_rows_contributed.has_value())
           << "Anonymization option MAX_ROWS_CONTRIBUTED can only be set once";
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+    } else if (absl::AsciiStrToLower(option->name()) ==
+               "group_selection_strategy") {
+      ZETASQL_RET_CHECK(!anonymization_options.group_selection_strategy.has_value())
+          << "Differential privacy option group_selection_strategy can only be "
+             "set once";
+      ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+      anonymization_options.group_selection_strategy =
+          option->value()->GetAs<ResolvedLiteral>()->value();
     } else {
       return zetasql_base::InvalidArgumentErrorBuilder()
              << "Unknown or invalid differential privacy option found: "
@@ -3458,22 +3575,41 @@ Algebrizer::AlgebrizeGroupSelectionThresholdExpression(
   return algebrized_conjuncts;
 }
 
-absl::StatusOr<std::unique_ptr<RelationalOp>>
-Algebrizer::AlgebrizeAnonymizedAggregateScanBase(
+absl::StatusOr<std::unique_ptr<AggregateOp>>
+Algebrizer::AlgebrizeAggregateScanBase(
     const ResolvedAggregateScanBase* aggregate_scan,
-    const AnonymizationOptions& anonymization_options) {
+    std::optional<AnonymizationOptions> anonymization_options) {
+  if (aggregate_scan->grouping_set_list_size() != 0) {
+    return absl::UnimplementedError(
+        "GROUPING SETS, CUBE, and ROLLUP are not implemented.");
+  }
+  if (aggregate_scan->grouping_call_list_size() != 0) {
+    return absl::UnimplementedError("GROUPING function is not implemented.");
+  }
+  // Algebrize the relational input of the aggregate.
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
                    AlgebrizeScan(aggregate_scan->input_scan()));
-
   // Build the list of grouping keys.
   std::vector<std::unique_ptr<KeyArg>> keys;
-  for (const std::unique_ptr<const ResolvedComputedColumn>& key_expr :
-       aggregate_scan->group_by_list()) {
+  ZETASQL_RET_CHECK(aggregate_scan->collation_list().empty() ||
+            aggregate_scan->collation_list().size() ==
+                aggregate_scan->group_by_list_size())
+      << "collation_list must be empty or has the same size as group_by_list";
+  for (int i = 0; i < aggregate_scan->group_by_list_size(); ++i) {
+    const ResolvedComputedColumn* key_expr = aggregate_scan->group_by_list(i);
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> key,
                      AlgebrizeExpression(key_expr->expr()));
     const VariableId key_variable_name =
         column_to_variable_->AssignNewVariableToColumn(key_expr->column());
     keys.push_back(std::make_unique<KeyArg>(key_variable_name, std::move(key)));
+    if (!aggregate_scan->collation_list().empty() &&
+        !aggregate_scan->collation_list(i).Empty()) {
+      std::unique_ptr<ValueExpr> group_by_collation;
+      ZETASQL_ASSIGN_OR_RETURN(group_by_collation,
+                       AlgebrizeResolvedCollation(
+                           aggregate_scan->collation_list(i), type_factory_));
+      keys.back()->set_collation(std::move(group_by_collation));
+    }
   }
 
   // Build the set of output columns.
@@ -3488,6 +3624,13 @@ Algebrizer::AlgebrizeAnonymizedAggregateScanBase(
   for (const std::unique_ptr<const ResolvedComputedColumn>& agg_expr :
        aggregate_scan->aggregate_list()) {
     const ResolvedColumn& column = agg_expr->column();
+    if (!anonymization_options.has_value()) {
+      // Sanity check that all aggregate functions appear in the output column
+      // list, so that we don't accidentally return an aggregate function that
+      // the analyzer pruned from the scan. (If it did that, it should have
+      // pruned the aggregate function as well.)
+      ZETASQL_RET_CHECK(output_columns.contains(column)) << column.DebugString();
+    }
 
     // Add the aggregate function to the output.
     const VariableId agg_variable_name =
@@ -3502,19 +3645,56 @@ Algebrizer::AlgebrizeAnonymizedAggregateScanBase(
                              std::move(input));
 }
 
+namespace {
+
+absl::StatusOr<functions::DifferentialPrivacyEnums::GroupSelectionStrategy>
+GetGroupSelectionStrategy(const AnonymizationOptions& anonymization_options) {
+  if (!anonymization_options.group_selection_strategy.has_value()) {
+    // The current default is LAPLACE_THRESHOLD.
+    return functions::DifferentialPrivacyEnums::LAPLACE_THRESHOLD;
+  }
+  ZETASQL_RET_CHECK(anonymization_options.group_selection_strategy->type()->IsEnum());
+  const int enum_value =
+      anonymization_options.group_selection_strategy->enum_value();
+  ZETASQL_RET_CHECK(functions::DifferentialPrivacyEnums::GroupSelectionStrategy_IsValid(
+      enum_value));
+  return static_cast<
+      functions::DifferentialPrivacyEnums::GroupSelectionStrategy>(enum_value);
+}
+
+}  // namespace
+
 absl::StatusOr<std::unique_ptr<RelationalOp>>
 Algebrizer::AlgebrizeAnonymizedAggregateScan(
     const ResolvedAnonymizedAggregateScan* aggregate_scan) {
   ZETASQL_ASSIGN_OR_RETURN(AnonymizationOptions anonymization_options,
                    GetAnonymizationOptions(aggregate_scan));
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> relation_op,
-                   AlgebrizeAnonymizedAggregateScanBase(aggregate_scan,
-                                                        anonymization_options));
-
   ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<std::unique_ptr<ValueExpr>> algebrized_conjuncts,
-      AlgebrizeGroupSelectionThresholdExpression(
-          aggregate_scan->k_threshold_expr(), anonymization_options));
+      std::unique_ptr<AggregateOp> relation_op,
+      AlgebrizeAggregateScanBase(aggregate_scan, anonymization_options));
+
+  std::vector<std::unique_ptr<ValueExpr>> algebrized_conjuncts;
+  ZETASQL_ASSIGN_OR_RETURN(
+      const functions::DifferentialPrivacyEnums::GroupSelectionStrategy
+          group_selection_strategy,
+      GetGroupSelectionStrategy(anonymization_options));
+  switch (group_selection_strategy) {
+    case functions::DifferentialPrivacyEnums::LAPLACE_THRESHOLD: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          algebrized_conjuncts,
+          AlgebrizeGroupSelectionThresholdExpression(
+              aggregate_scan->k_threshold_expr(), anonymization_options));
+      break;
+    }
+    case functions::DifferentialPrivacyEnums::PUBLIC_GROUPS:
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL()
+          << "Group selection strategy "
+          << functions::DifferentialPrivacyEnums::GroupSelectionStrategy_Name(
+                 group_selection_strategy)
+          << " is not implemented";
+  }
   return ApplyAlgebrizedFilterConjuncts(std::move(relation_op),
                                         std::move(algebrized_conjuncts));
 }
@@ -3524,14 +3704,32 @@ Algebrizer::AlgebrizeDifferentialPrivacyAggregateScan(
     const ResolvedDifferentialPrivacyAggregateScan* aggregate_scan) {
   ZETASQL_ASSIGN_OR_RETURN(AnonymizationOptions anonymization_options,
                    GetDifferentialPrivacyOptions(aggregate_scan));
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> relation_op,
-                   AlgebrizeAnonymizedAggregateScanBase(aggregate_scan,
-                                                        anonymization_options));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<AggregateOp> relation_op,
+      AlgebrizeAggregateScanBase(aggregate_scan, anonymization_options));
 
-  ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ValueExpr>> algebrized_conjuncts,
-                   AlgebrizeGroupSelectionThresholdExpression(
-                       aggregate_scan->group_selection_threshold_expr(),
-                       anonymization_options));
+  std::vector<std::unique_ptr<ValueExpr>> algebrized_conjuncts;
+  ZETASQL_ASSIGN_OR_RETURN(
+      const functions::DifferentialPrivacyEnums::GroupSelectionStrategy
+          group_selection_strategy,
+      GetGroupSelectionStrategy(anonymization_options));
+  switch (group_selection_strategy) {
+    case functions::DifferentialPrivacyEnums::LAPLACE_THRESHOLD: {
+      ZETASQL_ASSIGN_OR_RETURN(algebrized_conjuncts,
+                       AlgebrizeGroupSelectionThresholdExpression(
+                           aggregate_scan->group_selection_threshold_expr(),
+                           anonymization_options));
+      break;
+    }
+    case functions::DifferentialPrivacyEnums::PUBLIC_GROUPS:
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL()
+          << "Group selection strategy "
+          << functions::DifferentialPrivacyEnums::GroupSelectionStrategy_Name(
+                 group_selection_strategy)
+          << " is not implemented";
+  }
   return ApplyAlgebrizedFilterConjuncts(std::move(relation_op),
                                         std::move(algebrized_conjuncts));
 }

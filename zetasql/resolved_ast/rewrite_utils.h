@@ -340,6 +340,30 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> left_expr,
       std::unique_ptr<const ResolvedExpr> right_expr);
 
+  // Construct a ResolvedFunctionCall for <left_expr> >= <right_expr>.
+  //
+  // Requires: Both `left_expr` and `right_expr` must be order-able types. The
+  // types of `left_expr` and `right_expr` can be different if the exact
+  // signature is available in the `catalog`.
+  //
+  // The signature for the built-in function "$greater_or_equal" must be
+  // available in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> GreaterOrEqual(
+      std::unique_ptr<const ResolvedExpr> left_expr,
+      std::unique_ptr<const ResolvedExpr> right_expr);
+
+  // Construct a ResolvedFunctionCall for `minuend` - `subtrahend`.
+  //
+  // Requires: `minuend` and `subtrahend` must be of types compatible with one
+  // of the function signatures of the built-in function "$subtract" present in
+  // the `catalog`.
+  //
+  // The signature for the built-in function "$subtract" must be available in
+  // `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Subtract(
+      std::unique_ptr<const ResolvedExpr> minuend,
+      std::unique_ptr<const ResolvedExpr> subtrahend);
+
   // Construct a ResolvedFunctionCall for
   //  expressions[0] AND expressions[1] AND ... AND expressions[N-1]
   // where N is the number of expressions.

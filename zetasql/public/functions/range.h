@@ -17,17 +17,22 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_RANGE_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_RANGE_H_
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <optional>
+#include <string>
 #include <type_traits>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
 #include "absl/base/optimization.h"
-#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "zetasql/base/endian.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -302,6 +307,120 @@ absl::Status DatetimeRangeArrayGenerator::Generate(
 }
 
 }  // namespace functions
+
+template <typename T>
+struct RangeBoundaries {
+  std::optional<T> start;
+  std::optional<T> end;
+};
+
+// Serializes RANGE value with element type T and appends the result to the
+// provided bytes argument.
+template <typename T>
+void SerializeRangeAndAppendToBytes(const RangeBoundaries<T>& range_boundaries,
+                                    std::string* bytes);
+
+// Deserializes RANGE<T> from bytes and returns range boundaries.
+// The number of bytes would be written to "bytes_read" if it is not null
+// Size of "bytes" can be longer than the size of the encoded range value
+template <typename T>
+absl::StatusOr<RangeBoundaries<T>> DeserializeRangeFromBytes(
+    absl::string_view bytes, size_t* bytes_read = nullptr);
+
+// Given a string_view that starts with encoded range, returns how many bytes
+// the encoded range occupies. It's ok for provided string_view to be longer
+// than encoded range
+template <typename T>
+absl::StatusOr<size_t> GetEncodedRangeSize(absl::string_view bytes);
+
+namespace internal {
+
+constexpr uint8_t kHasBoundedStartMask = 0x01;
+constexpr uint8_t kHasBoundedEndMask = 0x02;
+
+template <typename T>
+size_t GetEncodedRangeSizeFromHeader(uint8_t header) {
+  size_t num_bounds = (header & internal::kHasBoundedStartMask) +
+                      ((header & internal::kHasBoundedEndMask) >> 1);
+  return sizeof(header) + num_bounds * sizeof(T);
+}
+
+}  // namespace internal
+
+template <typename T>
+void SerializeRangeAndAppendToBytes(const RangeBoundaries<T>& range_boundaries,
+                                    std::string* bytes) {
+  // Currently serialized format is only defined for int32_t and int64_t.
+  static_assert(std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>);
+
+  uint8_t header = 0x00;
+  if (range_boundaries.start) {
+    header |= internal::kHasBoundedStartMask;
+  }
+  if (range_boundaries.end) {
+    header |= internal::kHasBoundedEndMask;
+  }
+
+  // Allocate a buffer that can fit any of the serialized values.
+  char buf[std::max(sizeof(T), sizeof(uint8_t))];
+
+  zetasql_base::LittleEndian::Store<uint8_t>(header, buf);
+  bytes->append(buf, sizeof(uint8_t));
+  if (range_boundaries.start) {
+    zetasql_base::LittleEndian::Store<T>(*range_boundaries.start, buf);
+    bytes->append(buf, sizeof(T));
+  }
+  if (range_boundaries.end) {
+    zetasql_base::LittleEndian::Store<T>(*range_boundaries.end, buf);
+    bytes->append(buf, sizeof(T));
+  }
+}
+
+template <typename T>
+absl::StatusOr<RangeBoundaries<T>> DeserializeRangeFromBytes(
+    absl::string_view bytes, size_t* bytes_read) {
+  // Currently serialized format is only defined for int32_t and int64_t.
+  static_assert(std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>);
+
+  const char* data = reinterpret_cast<const char*>(bytes.data());
+  // Read the header.
+  uint8_t header = zetasql_base::LittleEndian::Load<uint8_t>(bytes.data());
+  data += sizeof(header);
+  const size_t encoded_range_size =
+      internal::GetEncodedRangeSizeFromHeader<T>(header);
+  if (ABSL_PREDICT_FALSE(bytes.size() < encoded_range_size)) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Too few bytes to read RANGE content (needed %d; got %d)",
+        encoded_range_size, bytes.size()));
+  }
+
+  std::optional<T> start, end;
+  if (header & internal::kHasBoundedStartMask) {
+    start = zetasql_base::LittleEndian::Load<T>(data);
+    data += sizeof(T);
+  }
+  if (header & internal::kHasBoundedEndMask) {
+    end = zetasql_base::LittleEndian::Load<T>(data);
+    data += sizeof(T);
+  }
+
+  if (bytes_read != nullptr) {
+    *bytes_read = encoded_range_size;
+  }
+  return RangeBoundaries<T>{start, end};
+}
+
+template <typename T>
+absl::StatusOr<size_t> GetEncodedRangeSize(absl::string_view bytes) {
+  if (ABSL_PREDICT_FALSE(bytes.size() < sizeof(uint8_t))) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Too few bytes to determine encoded RANGE size (needed %d; got "
+        "%d)",
+        sizeof(uint8_t), bytes.size()));
+  }
+  uint8_t header = zetasql_base::LittleEndian::Load<uint8_t>(bytes.data());
+  return internal::GetEncodedRangeSizeFromHeader<T>(header);
+}
 
 }  // namespace zetasql
 

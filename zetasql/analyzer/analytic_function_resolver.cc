@@ -1146,8 +1146,7 @@ absl::Status AnalyticFunctionResolver::AddColumnForWindowExpression(
     resolved_column_ref = resolver_->CopyColumnRef(
         window_expr_info->resolved_expr->GetAs<ResolvedColumnRef>());
   } else {
-    IdString alias =
-        resolver_->GetAliasForExpression(window_expr_info->ast_location);
+    IdString alias = GetAliasForExpression(window_expr_info->ast_location);
     if (alias.empty()) {
       alias = column_alias;
     }

@@ -1,3 +1,5 @@
+[default also_show_signature_mismatch_details]
+
 select 'a' IN ('a', 'b', 'c');
 --
 QueryStmt

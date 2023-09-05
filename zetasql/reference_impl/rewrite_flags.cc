@@ -43,7 +43,6 @@ static const RewriteSet& MinimalRewrites() {
       // both implementations.
       // clang-format off
       // (broken link) start
-      REWRITE_INLINE_SQL_FUNCTIONS,
       REWRITE_INLINE_SQL_TVFS,
       REWRITE_INLINE_SQL_UDAS,
       REWRITE_INLINE_SQL_VIEWS,

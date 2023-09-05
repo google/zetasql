@@ -50,7 +50,8 @@ static AnalyzerOptions MakeAnalyzerOptions() {
 static std::unique_ptr<SimpleCatalog> MakeSimpleCatalog(
     const AnalyzerOptions& analyzer_options) {
   auto catalog = std::make_unique<SimpleCatalog>("function_builder_catalog");
-  catalog->AddZetaSQLFunctions(analyzer_options.language());
+  catalog->AddBuiltinFunctions(
+      BuiltinFunctionOptions(analyzer_options.language()));
   return catalog;
 }
 

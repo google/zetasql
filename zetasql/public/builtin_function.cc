@@ -144,13 +144,14 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   GetAggregateFunctions(&type_factory, options, &functions);
   GetApproxFunctions(&type_factory, options, &functions);
   GetStatisticalFunctions(&type_factory, options, &functions);
-  GetBooleanFunctions(&type_factory, options, &functions);
+  ZETASQL_RETURN_IF_ERROR(GetBooleanFunctions(&type_factory, options, &functions));
   GetLogicFunctions(&type_factory, options, &functions);
   GetStringFunctions(&type_factory, options, &functions);
   GetRegexFunctions(&type_factory, options, &functions);
   GetErrorHandlingFunctions(&type_factory, options, &functions);
   GetConditionalFunctions(&type_factory, options, &functions);
   GetMiscellaneousFunctions(&type_factory, options, &functions);
+  ZETASQL_RETURN_IF_ERROR(GetDistanceFunctions(&type_factory, options, &functions));
   GetArrayMiscFunctions(&type_factory, options, &functions);
   GetArrayAggregationFunctions(&type_factory, options, &functions);
   GetSubscriptFunctions(&type_factory, options, &functions);
@@ -159,7 +160,8 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   GetHllCountFunctions(&type_factory, options, &functions);
   GetD3ACountFunctions(&type_factory, options, &functions);
   GetKllQuantilesFunctions(&type_factory, options, &functions);
-  GetProto3ConversionFunctions(&type_factory, options, &functions);
+  ZETASQL_RETURN_IF_ERROR(
+      GetProto3ConversionFunctions(&type_factory, options, &functions));
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_ANALYTIC_FUNCTIONS)) {
     GetAnalyticFunctions(&type_factory, options, &functions);
@@ -177,7 +179,8 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   }
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_DIFFERENTIAL_PRIVACY)) {
-    GetDifferentialPrivacyFunctions(&type_factory, options, &functions, &types);
+    ZETASQL_RETURN_IF_ERROR(GetDifferentialPrivacyFunctions(&type_factory, options,
+                                                    &functions, &types));
   }
   GetTypeOfFunction(&type_factory, options, &functions);
   GetFilterFieldsFunction(&type_factory, options, &functions);

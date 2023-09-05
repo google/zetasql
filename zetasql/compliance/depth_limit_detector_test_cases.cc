@@ -206,6 +206,7 @@ LanguageOptions DepthLimitDetectorTestCaseLanguageOptions(
   zetasql::LanguageOptions language_options;
   language_options.SetEnabledLanguageFeatures(
       depth_case.depth_limit_required_features);
+  language_options.SetSupportsAllStatementKinds();
   return language_options;
 }
 
@@ -423,6 +424,16 @@ AllDepthLimitDetectorTestCases() {
                {
                    LanguageFeature::FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS,
                }},
+          {.depth_limit_test_case_name = "nested_struct_to_json_string",
+           .depth_limit_template = {"SELECT TO_JSON_STRING((SELECT ",
+                                    R({"STRUCT(["}), R({"] AS f)"}),
+                                    ")) as s"}},
+          {.depth_limit_test_case_name = "deep_json_extract_string_array",
+           .depth_limit_template = {"SELECT JSON_EXTRACT_STRING_ARRAY('",
+                                    R({"{f:["}), "7", R({"]}"}), "', '$",
+                                    R({".f[0]"}), "') AS j"},
+           .depth_limit_required_features =
+               {LanguageFeature::FEATURE_JSON_ARRAY_FUNCTIONS}},
           {
               .depth_limit_test_case_name = "nested_join_unnest",
               .depth_limit_template =
@@ -495,6 +506,14 @@ AllDepthLimitDetectorTestCases() {
                                           ")"})},
               .depth_limit_max_depth =
                   10000,  // As the reference implementations gets very slow
+          },
+          {
+              .depth_limit_test_case_name =
+                  "create_table_minus_one_default_column",
+              .depth_limit_template = {"CREATE TABLE t (c DOUBLE DEFAULT (",
+                                       R({"-1"}), "))"},
+              .depth_limit_required_features =
+                  {LanguageFeature::FEATURE_V_1_3_COLUMN_DEFAULT_VALUE},
           },
           {
               .depth_limit_test_case_name = "select_many_columns",

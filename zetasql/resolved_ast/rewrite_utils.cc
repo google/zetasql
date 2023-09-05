@@ -27,8 +27,10 @@
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
@@ -37,6 +39,8 @@
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/ret_check.h"
@@ -570,6 +574,103 @@ FunctionCallBuilder::Equal(std::unique_ptr<const ResolvedExpr> left_expr,
       .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
       .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
       .Build();
+}
+
+namespace {
+absl::StatusOr<FunctionSignature> GetBinaryFunctionSignatureFromArgumentTypes(
+    const Function* function, const Type* left_expr_type,
+    const Type* right_expr_type) {
+  // Go through the list of possible function signatures and check if a
+  // signature with 2 arguments that match the types `left_expr_type` and
+  // `right_expr_type` is present. If so, return the signature. Otherwise return
+  // an error.
+  for (const FunctionSignature& signature : function->signatures()) {
+    FunctionArgumentTypeList function_argument_type_list =
+        signature.arguments();
+    if (function_argument_type_list.size() != 2) {
+      continue;
+    }
+    if (function_argument_type_list[0].type() == nullptr ||
+        function_argument_type_list[1].type() == nullptr) {
+      // Types can be null, if they are unspecified (e.g. ANY).
+      // Such types are ignored here since an exact match is desired.
+      continue;
+    }
+    if (left_expr_type->Equals(function_argument_type_list[0].type()) &&
+        right_expr_type->Equals(function_argument_type_list[1].type())) {
+      return signature;
+    }
+  }
+  ZETASQL_RET_CHECK_FAIL() << "No builtin function with name " << function->Name()
+                   << " and argument types " << left_expr_type->DebugString()
+                   << " and " << right_expr_type->DebugString() << " available";
+}
+}  // namespace
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::GreaterOrEqual(
+    std::unique_ptr<const ResolvedExpr> left_expr,
+    std::unique_ptr<const ResolvedExpr> right_expr) {
+  ZETASQL_RET_CHECK_NE(left_expr.get(), nullptr);
+  ZETASQL_RET_CHECK_NE(right_expr.get(), nullptr);
+
+  std::string unused_type_description;
+  ZETASQL_RET_CHECK(left_expr->type()->SupportsOrdering(analyzer_options_.language(),
+                                                &unused_type_description))
+      << "GreaterOrEqual called for non-order-able type "
+      << left_expr->type()->DebugString();
+  ZETASQL_RET_CHECK(right_expr->type()->SupportsOrdering(analyzer_options_.language(),
+                                                 &unused_type_description))
+      << "GreaterOrEqual called for non-order-able type "
+      << right_expr->type()->DebugString();
+
+  const Function* greater_or_equal_function = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("$greater_or_equal",
+                                                &greater_or_equal_function));
+  std::unique_ptr<FunctionSignature> signature;
+  if (!left_expr->type()->Equals(right_expr->type())) {
+    // Unequal types can happen, but are only supported if the respective
+    // function signature can be found in the catalog. An example of this is the
+    // signature FunctionSignatureId::FN_GREATER_OR_EQUAL_INT64_UINT64.
+    ZETASQL_ASSIGN_OR_RETURN(
+        FunctionSignature unequal_types_signature,
+        GetBinaryFunctionSignatureFromArgumentTypes(
+            greater_or_equal_function, left_expr->type(), right_expr->type()));
+    signature = std::make_unique<FunctionSignature>(unequal_types_signature);
+  } else {
+    signature = std::make_unique<FunctionSignature>(
+        FunctionSignature({types::BoolType(), 1},
+                          {{left_expr->type(), 1}, {right_expr->type(), 1}},
+                          FN_GREATER_OR_EQUAL));
+  }
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
+  arguments.emplace_back(std::move(left_expr));
+  arguments.emplace_back(std::move(right_expr));
+
+  return MakeResolvedFunctionCall(
+      signature->result_type().type(), greater_or_equal_function, *signature,
+      std::move(arguments), ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::Subtract(std::unique_ptr<const ResolvedExpr> minuend,
+                              std::unique_ptr<const ResolvedExpr> subtrahend) {
+  ZETASQL_RET_CHECK_NE(minuend.get(), nullptr);
+  ZETASQL_RET_CHECK_NE(subtrahend.get(), nullptr);
+  const Function* subtract_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("$subtract", &subtract_fn));
+  ZETASQL_ASSIGN_OR_RETURN(FunctionSignature signature,
+                   GetBinaryFunctionSignatureFromArgumentTypes(
+                       subtract_fn, minuend->type(), subtrahend->type()));
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
+  arguments.emplace_back(std::move(minuend));
+  arguments.emplace_back(std::move(subtrahend));
+
+  return MakeResolvedFunctionCall(signature.result_type().type(), subtract_fn,
+                                  signature, std::move(arguments),
+                                  ResolvedFunctionCall::DEFAULT_ERROR_MODE);
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>

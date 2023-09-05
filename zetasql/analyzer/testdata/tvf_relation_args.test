@@ -1437,6 +1437,17 @@ QueryStmt
         +-column_index_list=[0, 1]
 ==
 
+# Coercion of NULL literals doesn't work. This would be nice...
+# We aren't passing expected types into the table subquery arguments.
+select *
+from tvf_one_relation_arg_int64_string_input_columns(
+(select NULL int64, NULL string))
+--
+ERROR: Invalid type INT64 for column "string STRING" of argument 1 of TVF_ONE_RELATION_ARG_INT64_STRING_INPUT_COLUMNS(TABLE<int64 INT64, string STRING>) [at 3:1]
+(select NULL int64, NULL string))
+^
+==
+
 # The query calls a TVF that has one relation argument with a required schema
 # of one int64 column and one string column, and the provided columns contain
 # one extra column that is not specified in the signature, but that is okay.
@@ -2304,6 +2315,18 @@ QueryStmt
         |   |         +-TableScan(column_list=SimpleTypes.[string#24, date#29], table=SimpleTypes, column_index_list=[4, 9])
         |   +-argument_column_list=SimpleTypes.[date#29, string#24]
         +-column_index_list=[0, 1]
+==
+
+# Literal coercion on the date does not happen.
+# This would be nice.
+select column_bool, column_bytes
+from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
+    (select string, uint64 from simpletypes),
+    (select string, "2011-01-01" AS `date` from simpletypes))
+--
+ERROR: Invalid type STRING for column "date DATE" of argument 2 of TVF_TWO_RELATION_ARGS_UINT64_STRING_AND_DATE_STRING_INPUT_COLUMNS(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) [at 4:5]
+    (select string, "2011-01-01" AS `date` from simpletypes))
+    ^
 ==
 
 # A TVF accepts one relation argument with a required int64 value table, and
@@ -4242,24 +4265,21 @@ QueryStmt
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
-        |   | +-ProjectScan
+        |   | +-TVFScan
         |   |   +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
-        |   |   +-input_scan=
-        |   |     +-TVFScan
-        |   |       +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
-        |   |       +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |   |       +-signature=(TABLE<$col1 BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        |   |       +-argument_list=
-        |   |       | +-FunctionArgument
-        |   |       |   +-scan=
-        |   |       |   | +-ProjectScan
-        |   |       |   |   +-column_list=[$subquery1.$col1#1]
-        |   |       |   |   +-expr_list=
-        |   |       |   |   | +-$col1#1 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
-        |   |       |   |   +-input_scan=
-        |   |       |   |     +-SingleRowScan
-        |   |       |   +-argument_column_list=[$subquery1.$col1#1]
-        |   |       +-column_index_list=[0, 1]
+        |   |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |   |   +-signature=(TABLE<$col1 BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-scan=
+        |   |   |   | +-ProjectScan
+        |   |   |   |   +-column_list=[$subquery1.$col1#1]
+        |   |   |   |   +-expr_list=
+        |   |   |   |   | +-$col1#1 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+        |   |   |   |   +-input_scan=
+        |   |   |   |     +-SingleRowScan
+        |   |   |   +-argument_column_list=[$subquery1.$col1#1]
+        |   |   +-column_index_list=[0, 1]
         |   +-argument_column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
         +-column_index_list=[0, 1]
 ==
@@ -4286,19 +4306,16 @@ QueryStmt
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
-        |   | +-ProjectScan
+        |   | +-TVFScan
         |   |   +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#3, column_bytes#4]
-        |   |   +-input_scan=
-        |   |     +-TVFScan
-        |   |       +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#3, column_bytes#4]
-        |   |       +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |   |       +-signature=(TABLE<Key INT64, Value STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        |   |       +-argument_list=
-        |   |       | +-FunctionArgument
-        |   |       |   +-scan=
-        |   |       |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-        |   |       |   +-argument_column_list=KeyValue.[Key#1, Value#2]
-        |   |       +-column_index_list=[0, 1]
+        |   |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |   |   +-signature=(TABLE<Key INT64, Value STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-scan=
+        |   |   |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        |   |   |   +-argument_column_list=KeyValue.[Key#1, Value#2]
+        |   |   +-column_index_list=[0, 1]
         |   +-argument_column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#3, column_bytes#4]
         +-column_index_list=[0, 1]
 ==
@@ -4324,22 +4341,19 @@ QueryStmt
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
-        |   | +-ProjectScan
+        |   | +-TVFScan
         |   |   +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#3, column_bytes#4]
-        |   |   +-input_scan=
-        |   |     +-TVFScan
-        |   |       +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#3, column_bytes#4]
-        |   |       +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |   |       +-signature=(TABLE<INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        |   |       +-argument_list=
-        |   |       | +-FunctionArgument
-        |   |       |   +-scan=
-        |   |       |   | +-ProjectScan
-        |   |       |   |   +-column_list=[KeyValue.Key#1]
-        |   |       |   |   +-input_scan=
-        |   |       |   |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-        |   |       |   +-argument_column_list=[KeyValue.Key#1]
-        |   |       +-column_index_list=[0, 1]
+        |   |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |   |   +-signature=(TABLE<INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-scan=
+        |   |   |   | +-ProjectScan
+        |   |   |   |   +-column_list=[KeyValue.Key#1]
+        |   |   |   |   +-input_scan=
+        |   |   |   |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        |   |   |   +-argument_column_list=[KeyValue.Key#1]
+        |   |   +-column_index_list=[0, 1]
         |   +-argument_column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#3, column_bytes#4]
         +-column_index_list=[0, 1]
 ==
@@ -4365,36 +4379,30 @@ QueryStmt
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
-        |   | +-ProjectScan
+        |   | +-TVFScan
         |   |   +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#4, column_bytes#5]
-        |   |   +-input_scan=
-        |   |     +-TVFScan
-        |   |       +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#4, column_bytes#5]
-        |   |       +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |   |       +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        |   |       +-argument_list=
-        |   |       | +-FunctionArgument
-        |   |       |   +-scan=
-        |   |       |   | +-ProjectScan
-        |   |       |   |   +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
-        |   |       |   |   +-input_scan=
-        |   |       |   |     +-TVFScan
-        |   |       |   |       +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
-        |   |       |   |       +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |   |       |   |       +-signature=(TABLE<$col1 BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        |   |       |   |       +-argument_list=
-        |   |       |   |       | +-FunctionArgument
-        |   |       |   |       |   +-scan=
-        |   |       |   |       |   | +-ProjectScan
-        |   |       |   |       |   |   +-column_list=[$subquery1.$col1#1]
-        |   |       |   |       |   |   +-expr_list=
-        |   |       |   |       |   |   | +-$col1#1 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
-        |   |       |   |       |   |   +-input_scan=
-        |   |       |   |       |   |     +-SingleRowScan
-        |   |       |   |       |   +-argument_column_list=[$subquery1.$col1#1]
-        |   |       |   |       +-column_index_list=[0, 1]
-        |   |       |   +-argument_column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
-        |   |       +-column_index_list=[0, 1]
+        |   |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |   |   +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-scan=
+        |   |   |   | +-TVFScan
+        |   |   |   |   +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
+        |   |   |   |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |   |   |   |   +-signature=(TABLE<$col1 BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |   |   |   |   +-argument_list=
+        |   |   |   |   | +-FunctionArgument
+        |   |   |   |   |   +-scan=
+        |   |   |   |   |   | +-ProjectScan
+        |   |   |   |   |   |   +-column_list=[$subquery1.$col1#1]
+        |   |   |   |   |   |   +-expr_list=
+        |   |   |   |   |   |   | +-$col1#1 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+        |   |   |   |   |   |   +-input_scan=
+        |   |   |   |   |   |     +-SingleRowScan
+        |   |   |   |   |   +-argument_column_list=[$subquery1.$col1#1]
+        |   |   |   |   +-column_index_list=[0, 1]
+        |   |   |   +-argument_column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
+        |   |   +-column_index_list=[0, 1]
         |   +-argument_column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#4, column_bytes#5]
         +-column_index_list=[0, 1]
 ==
@@ -4419,10 +4427,7 @@ QueryStmt
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=[tvf_call_tvf_templated_select_one.x#1]
-        |   |   +-input_scan=
-        |   |     +-TVFScan(column_list=[tvf_call_tvf_templated_select_one.x#1], tvf=tvf_call_tvf_templated_select_one(() -> ANY TABLE), signature=() -> TABLE<x INT64>, column_index_list=[0])
+        |   | +-TVFScan(column_list=[tvf_call_tvf_templated_select_one.x#1], tvf=tvf_call_tvf_templated_select_one(() -> ANY TABLE), signature=() -> TABLE<x INT64>, column_index_list=[0])
         |   +-argument_column_list=[tvf_call_tvf_templated_select_one.x#1]
         +-column_index_list=[0, 1]
 
@@ -4549,45 +4554,39 @@ QueryStmt
         +-argument_list=
         | +-FunctionArgument
         | | +-scan=
-        | | | +-ProjectScan
+        | | | +-TVFScan
         | | |   +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
-        | | |   +-input_scan=
-        | | |     +-TVFScan
-        | | |       +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
-        | | |       +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        | | |       +-signature=(TABLE<$col1 BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        | | |       +-argument_list=
-        | | |       | +-FunctionArgument
-        | | |       |   +-scan=
-        | | |       |   | +-ProjectScan
-        | | |       |   |   +-column_list=[$subquery1.$col1#1]
-        | | |       |   |   +-expr_list=
-        | | |       |   |   | +-$col1#1 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
-        | | |       |   |   +-input_scan=
-        | | |       |   |     +-SingleRowScan
-        | | |       |   +-argument_column_list=[$subquery1.$col1#1]
-        | | |       +-column_index_list=[0, 1]
+        | | |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        | | |   +-signature=(TABLE<$col1 BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        | | |   +-argument_list=
+        | | |   | +-FunctionArgument
+        | | |   |   +-scan=
+        | | |   |   | +-ProjectScan
+        | | |   |   |   +-column_list=[$subquery1.$col1#1]
+        | | |   |   |   +-expr_list=
+        | | |   |   |   | +-$col1#1 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+        | | |   |   |   +-input_scan=
+        | | |   |   |     +-SingleRowScan
+        | | |   |   +-argument_column_list=[$subquery1.$col1#1]
+        | | |   +-column_index_list=[0, 1]
         | | +-argument_column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#2, column_bytes#3]
         | +-FunctionArgument
         |   +-scan=
-        |   | +-ProjectScan
+        |   | +-TVFScan
         |   |   +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#5, column_bytes#6]
-        |   |   +-input_scan=
-        |   |     +-TVFScan
-        |   |       +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#5, column_bytes#6]
-        |   |       +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |   |       +-signature=(TABLE<$col1 BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        |   |       +-argument_list=
-        |   |       | +-FunctionArgument
-        |   |       |   +-scan=
-        |   |       |   | +-ProjectScan
-        |   |       |   |   +-column_list=[$subquery2.$col1#4]
-        |   |       |   |   +-expr_list=
-        |   |       |   |   | +-$col1#4 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
-        |   |       |   |   +-input_scan=
-        |   |       |   |     +-SingleRowScan
-        |   |       |   +-argument_column_list=[$subquery2.$col1#4]
-        |   |       +-column_index_list=[0, 1]
+        |   |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |   |   +-signature=(TABLE<$col1 BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-scan=
+        |   |   |   | +-ProjectScan
+        |   |   |   |   +-column_list=[$subquery2.$col1#4]
+        |   |   |   |   +-expr_list=
+        |   |   |   |   | +-$col1#4 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+        |   |   |   |   +-input_scan=
+        |   |   |   |     +-SingleRowScan
+        |   |   |   +-argument_column_list=[$subquery2.$col1#4]
+        |   |   +-column_index_list=[0, 1]
         |   +-argument_column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#5, column_bytes#6]
         +-column_index_list=[0]
         +-alias="mytvf"
@@ -4857,10 +4856,7 @@ QueryStmt
             +-argument_list=
             | +-FunctionArgument
             |   +-scan=
-            |   | +-ProjectScan
-            |   |   +-column_list=[w.val#2]
-            |   |   +-input_scan=
-            |   |     +-WithRefScan(column_list=[w.val#2], with_query_name="w")
+            |   | +-WithRefScan(column_list=[w.val#2], with_query_name="w")
             |   +-argument_column_list=[w.val#2]
             +-column_index_list=[0]
             +-alias="mytvf"
@@ -4897,10 +4893,7 @@ QueryStmt
             +-argument_list=
             | +-FunctionArgument
             |   +-scan=
-            |   | +-ProjectScan
-            |   |   +-column_list=[w.$value_column#3]
-            |   |   +-input_scan=
-            |   |     +-WithRefScan(column_list=[w.$value_column#3], with_query_name="w")
+            |   | +-WithRefScan(column_list=[w.$value_column#3], with_query_name="w")
             |   +-argument_column_list=[w.$value_column#3]
             +-column_index_list=[1]
             +-alias="mytvf"
@@ -4937,10 +4930,7 @@ QueryStmt
             +-argument_list=
             | +-FunctionArgument
             |   +-scan=
-            |   | +-ProjectScan
-            |   |   +-column_list=[w.t#2]
-            |   |   +-input_scan=
-            |   |     +-WithRefScan(column_list=[w.t#2], with_query_name="w")
+            |   | +-WithRefScan(column_list=[w.t#2], with_query_name="w")
             |   +-argument_column_list=[w.t#2]
             +-column_index_list=[0]
             +-alias="mytvf"
@@ -4979,10 +4969,7 @@ QueryStmt
             +-argument_list=
             | +-FunctionArgument
             |   +-scan=
-            |   | +-ProjectScan
-            |   |   +-column_list=[keyvalue.result#2]
-            |   |   +-input_scan=
-            |   |     +-WithRefScan(column_list=[keyvalue.result#2], with_query_name="keyvalue")
+            |   | +-WithRefScan(column_list=[keyvalue.result#2], with_query_name="keyvalue")
             |   +-argument_column_list=[keyvalue.result#2]
             +-column_index_list=[0]
             +-alias="mytvf"
@@ -5023,10 +5010,7 @@ QueryStmt
                 +-argument_list=
                 | +-FunctionArgument
                 |   +-scan=
-                |   | +-ProjectScan
-                |   |   +-column_list=[w.key#3]
-                |   |   +-input_scan=
-                |   |     +-WithRefScan(column_list=[w.key#3], with_query_name="w")
+                |   | +-WithRefScan(column_list=[w.key#3], with_query_name="w")
                 |   +-argument_column_list=[w.key#3]
                 +-column_index_list=[0, 1]
 ==
@@ -5079,10 +5063,7 @@ QueryStmt
                             +-argument_list=
                             | +-FunctionArgument
                             |   +-scan=
-                            |   | +-ProjectScan
-                            |   |   +-column_list=[w.key#3]
-                            |   |   +-input_scan=
-                            |   |     +-WithRefScan(column_list=[w.key#3], with_query_name="w")
+                            |   | +-WithRefScan(column_list=[w.key#3], with_query_name="w")
                             |   +-argument_column_list=[w.key#3]
                             +-column_index_list=[0, 1]
 ==
@@ -5122,10 +5103,7 @@ QueryStmt
                 +-argument_list=
                 | +-FunctionArgument
                 |   +-scan=
-                |   | +-ProjectScan
-                |   |   +-column_list=[w.value#3]
-                |   |   +-input_scan=
-                |   |     +-WithRefScan(column_list=[w.value#3], with_query_name="w")
+                |   | +-WithRefScan(column_list=[w.value#3], with_query_name="w")
                 |   +-argument_column_list=[w.value#3]
                 +-column_index_list=[0, 1]
 ==
@@ -5201,17 +5179,11 @@ QueryStmt
                     +-argument_list=
                     | +-FunctionArgument
                     | | +-scan=
-                    | | | +-ProjectScan
-                    | | |   +-column_list=[w1.key#5]
-                    | | |   +-input_scan=
-                    | | |     +-WithRefScan(column_list=[w1.key#5], with_query_name="w1")
+                    | | | +-WithRefScan(column_list=[w1.key#5], with_query_name="w1")
                     | | +-argument_column_list=[w1.key#5]
                     | +-FunctionArgument
                     |   +-scan=
-                    |   | +-ProjectScan
-                    |   |   +-column_list=[w2.value#6]
-                    |   |   +-input_scan=
-                    |   |     +-WithRefScan(column_list=[w2.value#6], with_query_name="w2")
+                    |   | +-WithRefScan(column_list=[w2.value#6], with_query_name="w2")
                     |   +-argument_column_list=[w2.value#6]
                     +-column_index_list=[0]
 ==
@@ -5255,10 +5227,7 @@ QueryStmt
         |             +-argument_list=
         |             | +-FunctionArgument
         |             |   +-scan=
-        |             |   | +-ProjectScan
-        |             |   |   +-column_list=[w.key#3]
-        |             |   |   +-input_scan=
-        |             |   |     +-WithRefScan(column_list=[w.key#3], with_query_name="w")
+        |             |   | +-WithRefScan(column_list=[w.key#3], with_query_name="w")
         |             |   +-argument_column_list=[w.key#3]
         |             +-column_index_list=[1]
         +-input_scan=
@@ -5309,10 +5278,7 @@ QueryStmt
                         +-argument_list=
                         | +-FunctionArgument
                         |   +-scan=
-                        |   | +-ProjectScan
-                        |   |   +-column_list=[w.key#5]
-                        |   |   +-input_scan=
-                        |   |     +-WithRefScan(column_list=[w.key#5], with_query_name="w")
+                        |   | +-WithRefScan(column_list=[w.key#5], with_query_name="w")
                         |   +-argument_column_list=[w.key#5]
                         +-column_index_list=[0, 1]
 ==
@@ -5866,10 +5832,7 @@ QueryStmt
             |   +-argument_list=
             |   | +-FunctionArgument
             |   |   +-scan=
-            |   |   | +-ProjectScan
-            |   |   |   +-column_list=t.[a#3, b#4]
-            |   |   |   +-input_scan=
-            |   |   |     +-WithRefScan(column_list=t.[a#3, b#4], with_query_name="t")
+            |   |   | +-WithRefScan(column_list=t.[a#3, b#4], with_query_name="t")
             |   |   +-argument_column_list=t.[a#3, b#4]
             |   +-column_index_list=[0, 1]
             |   +-alias="t0"
@@ -6294,6 +6257,84 @@ QueryStmt
         +-column_index_list=[0, 1]
 ==
 
+# Call a TVF that only takes named-only table args, with no args.
+# Calling it without enabling NAMED_ARGUMENTS is allowed if we don't pass any.
+SELECT *
+FROM tvf_two_named_only_tables()
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_named_only_tables.column_bool#1 AS column_bool [BOOL]
+| +-tvf_two_named_only_tables.column_bytes#2 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_named_only_tables.[column_bool#1, column_bytes#2]
+    +-input_scan=
+      +-TVFScan(column_list=tvf_two_named_only_tables.[column_bool#1, column_bytes#2], tvf=tvf_two_named_only_tables((optional ANY TABLE table1, optional ANY TABLE table2) -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+==
+
+# Call a TVF that only takes named-only table args, with one table.
+# TODO: Fix this query since it should work. We should not inject a
+# NULL for missing arguments without defaults.
+[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+SELECT *
+FROM tvf_two_named_only_tables(table2=>(select 2 x))
+--
+ERROR: No matching signature for tvf_two_named_only_tables for argument types: NULL, TABLE<x INT64>. Supported signature: TVF_TWO_NAMED_ONLY_TABLES([TABLE], [TABLE]) [at 2:6]
+FROM tvf_two_named_only_tables(table2=>(select 2 x))
+     ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_two_named_only_tables
+  Argument types: NULL, TABLE<x INT64>
+  Signature: TVF_TWO_NAMED_ONLY_TABLES([table1 => TABLE], [table2 => TABLE])
+    Named argument `table1`: expected TABLE, found NULL [at 2:6]
+FROM tvf_two_named_only_tables(table2=>(select 2 x))
+     ^
+==
+
+# Call a TVF that only takes named-only table args, with two tables.
+# TODO: SQLBuilder turned off due to lack of support for mandatory
+# argument names.
+[no_run_unparser]
+[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+SELECT *
+FROM tvf_two_named_only_tables(table2=>(select 2 x), table1=>(select 1 x))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_named_only_tables.column_bool#3 AS column_bool [BOOL]
+| +-tvf_two_named_only_tables.column_bytes#4 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_named_only_tables.[column_bool#3, column_bytes#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_named_only_tables.[column_bool#3, column_bytes#4]
+        +-tvf=tvf_two_named_only_tables((optional ANY TABLE table1, optional ANY TABLE table2) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<x INT64>, TABLE<x INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery2.x#2]
+        | | |   +-expr_list=
+        | | |   | +-x#2 := Literal(type=INT64, value=1)
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery2.x#2]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery1.x#1]
+        |   |   +-expr_list=
+        |   |   | +-x#1 := Literal(type=INT64, value=2)
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=[$subquery1.x#1]
+        +-column_index_list=[0, 1]
+==
+
 ################################################################################
 #
 # Negative test cases
@@ -6367,13 +6408,13 @@ select * from tvf_one_relation_arg_output_schema_is_input_schema(keyvalue)
 # only passes one relation argument.
 select column_bytes from tvf_one_relation_arg_one_int64_arg((select 1, 2))
 --
-ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg for argument types: TABLE<$col1 INT64, $col2 INT64>. Supported signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64) [at 1:26]
+ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg for argument types: TABLE<INT64, INT64>. Supported signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64) [at 1:26]
 select column_bytes from tvf_one_relation_arg_one_int64_arg((select 1, 2))
                          ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg
-  Argument types: TABLE<$col1 INT64, $col2 INT64>
+  Argument types: TABLE<INT64, INT64>
   Signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64)
     Signature requires at least 2 arguments, found 1 argument [at 1:26]
 select column_bytes from tvf_one_relation_arg_one_int64_arg((select 1, 2))
@@ -6414,13 +6455,13 @@ select column_bytes from tvf_one_relation_arg_one_int64_arg(1, 2)
 select column_bytes from tvf_one_relation_arg_one_int64_arg(
     (select 1, 2), 3, 4)
 --
-ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg for argument types: TABLE<$col1 INT64, $col2 INT64>, INT64, INT64. Supported signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64) [at 1:26]
+ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg for argument types: TABLE<INT64, INT64>, INT64, INT64. Supported signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64) [at 1:26]
 select column_bytes from tvf_one_relation_arg_one_int64_arg(
                          ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_relation_arg_one_int64_arg
-  Argument types: TABLE<$col1 INT64, $col2 INT64>, INT64, INT64
+  Argument types: TABLE<INT64, INT64>, INT64, INT64
   Signature: TVF_ONE_RELATION_ARG_ONE_INT64_ARG(TABLE, INT64)
     Signature accepts at most 2 arguments, found 3 arguments [at 1:26]
 select column_bytes from tvf_one_relation_arg_one_int64_arg(
@@ -6451,13 +6492,13 @@ select column_bytes from tvf_one_relation_arg_repeating_int64_args(1, 2, 3)
 select column_bytes from tvf_one_relation_arg_repeating_int64_args(
     (select 1, 2), "abc")
 --
-ERROR: No matching signature for tvf_one_relation_arg_repeating_int64_args for argument types: TABLE<$col1 INT64, $col2 INT64>, STRING. Supported signature: TVF_ONE_RELATION_ARG_REPEATING_INT64_ARGS(TABLE, [INT64, ...]) [at 1:26]
+ERROR: No matching signature for tvf_one_relation_arg_repeating_int64_args for argument types: TABLE<INT64, INT64>, STRING. Supported signature: TVF_ONE_RELATION_ARG_REPEATING_INT64_ARGS(TABLE, [INT64, ...]) [at 1:26]
 select column_bytes from tvf_one_relation_arg_repeating_int64_args(
                          ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_relation_arg_repeating_int64_args
-  Argument types: TABLE<$col1 INT64, $col2 INT64>, STRING
+  Argument types: TABLE<INT64, INT64>, STRING
   Signature: TVF_ONE_RELATION_ARG_REPEATING_INT64_ARGS(TABLE, [INT64, ...])
     Argument 2: Unable to coerce type STRING to expected type INT64 [at 1:26]
 select column_bytes from tvf_one_relation_arg_repeating_int64_args(
@@ -6490,13 +6531,13 @@ ERROR: Scalar subquery cannot have more than one column unless using SELECT AS S
 select column_bytes from tvf_one_relation_arg_repeating_any_one_type_args(
     (select 1, 2), 3, "abc")
 --
-ERROR: No matching signature for tvf_one_relation_arg_repeating_any_one_type_args for argument types: TABLE<$col1 INT64, $col2 INT64>, INT64, STRING. Supported signature: TVF_ONE_RELATION_ARG_REPEATING_ANY_ONE_TYPE_ARGS(TABLE, [ANY, ...]) [at 1:26]
+ERROR: No matching signature for tvf_one_relation_arg_repeating_any_one_type_args for argument types: TABLE<INT64, INT64>, INT64, STRING. Supported signature: TVF_ONE_RELATION_ARG_REPEATING_ANY_ONE_TYPE_ARGS(TABLE, [ANY, ...]) [at 1:26]
 select column_bytes from tvf_one_relation_arg_repeating_any_one_type_args(
                          ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_relation_arg_repeating_any_one_type_args
-  Argument types: TABLE<$col1 INT64, $col2 INT64>, INT64, STRING
+  Argument types: TABLE<INT64, INT64>, INT64, STRING
   Signature: TVF_ONE_RELATION_ARG_REPEATING_ANY_ONE_TYPE_ARGS(TABLE, [T1, ...])
     Unable to find common supertype for templated argument <T1> [at 1:26]
 select column_bytes from tvf_one_relation_arg_repeating_any_one_type_args(
@@ -7288,13 +7329,13 @@ from tvf_one_relation_arg_with_fixed_output(nested_catalog.KeyValue) as mytvf
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_optional_table_optional_scalar_named_table(foobar=>(select 1))
 --
-ERROR: No matching signature for tvf_optional_table_optional_scalar_named_table for argument types: NULL, NULL, TABLE<$col1 INT64>. Supported signature: TVF_OPTIONAL_TABLE_OPTIONAL_SCALAR_NAMED_TABLE([TABLE], [ANY], [TABLE]) [at 1:15]
+ERROR: No matching signature for tvf_optional_table_optional_scalar_named_table for argument types: NULL, NULL, TABLE<INT64>. Supported signature: TVF_OPTIONAL_TABLE_OPTIONAL_SCALAR_NAMED_TABLE([TABLE], [ANY], [TABLE]) [at 1:15]
 select * from tvf_optional_table_optional_scalar_named_table(foobar=>(select 1))
               ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_optional_table_optional_scalar_named_table
-  Argument types: NULL, NULL, TABLE<$col1 INT64>
+  Argument types: NULL, NULL, TABLE<INT64>
   Signature: TVF_OPTIONAL_TABLE_OPTIONAL_SCALAR_NAMED_TABLE([TABLE], [ANY], [foobar => TABLE])
     Argument 1: expected TABLE, found NULL [at 1:15]
 select * from tvf_optional_table_optional_scalar_named_table(foobar=>(select 1))
@@ -7308,13 +7349,13 @@ select * from tvf_optional_table_optional_scalar_named_table(foobar=>(select 1))
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
 --
-ERROR: No matching signature for tvf_optional_scalar_named_tables for argument types: NULL, TABLE<$col1 INT64>, NULL. Supported signature: TVF_OPTIONAL_SCALAR_NAMED_TABLES([ANY], [TABLE], [TABLE]) [at 1:15]
+ERROR: No matching signature for tvf_optional_scalar_named_tables for argument types: NULL, TABLE<INT64>, NULL. Supported signature: TVF_OPTIONAL_SCALAR_NAMED_TABLES([ANY], [TABLE], [TABLE]) [at 1:15]
 select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
               ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_optional_scalar_named_tables
-  Argument types: NULL, TABLE<$col1 INT64>, NULL
+  Argument types: NULL, TABLE<INT64>, NULL
   Signature: TVF_OPTIONAL_SCALAR_NAMED_TABLES([ANY], [foobar => TABLE], [barfoo => TABLE])
     Argument 3: expected TABLE, found NULL [at 1:15]
 select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
@@ -7325,13 +7366,13 @@ select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_named_struct_named_table(barfoo=>(select 1))
 --
-ERROR: No matching signature for tvf_named_struct_named_table for argument types: NULL, TABLE<$col1 INT64>. Supported signature: TVF_NAMED_STRUCT_NAMED_TABLE([STRUCT], [TABLE]) [at 1:15]
+ERROR: No matching signature for tvf_named_struct_named_table for argument types: NULL, TABLE<INT64>. Supported signature: TVF_NAMED_STRUCT_NAMED_TABLE([STRUCT], [TABLE]) [at 1:15]
 select * from tvf_named_struct_named_table(barfoo=>(select 1))
               ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_named_struct_named_table
-  Argument types: NULL, TABLE<$col1 INT64>
+  Argument types: NULL, TABLE<INT64>
   Signature: TVF_NAMED_STRUCT_NAMED_TABLE([foobar => STRUCT], [barfoo => TABLE])
     Unable to determine type for untyped null for argument kind <struct> [at 1:15]
 select * from tvf_named_struct_named_table(barfoo=>(select 1))
@@ -7344,13 +7385,13 @@ select * from tvf_named_struct_named_table(barfoo=>(select 1))
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_named_proto_named_table(barfoo=>(select 1))
 --
-ERROR: No matching signature for tvf_named_proto_named_table for argument types: NULL, TABLE<$col1 INT64>. Supported signature: TVF_NAMED_PROTO_NAMED_TABLE([PROTO], [TABLE]) [at 1:15]
+ERROR: No matching signature for tvf_named_proto_named_table for argument types: NULL, TABLE<INT64>. Supported signature: TVF_NAMED_PROTO_NAMED_TABLE([PROTO], [TABLE]) [at 1:15]
 select * from tvf_named_proto_named_table(barfoo=>(select 1))
               ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_named_proto_named_table
-  Argument types: NULL, TABLE<$col1 INT64>
+  Argument types: NULL, TABLE<INT64>
   Signature: TVF_NAMED_PROTO_NAMED_TABLE([foobar => PROTO], [barfoo => TABLE])
     Unable to determine type for untyped null for argument kind <proto> [at 1:15]
 select * from tvf_named_proto_named_table(barfoo=>(select 1))
@@ -7394,13 +7435,13 @@ select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table2=>(select '2'),
                                                           table3=>(select '3'))
 --
-ERROR: No matching signature for tvf_required_named_optional_required_tables for argument types: TABLE<$col1 STRING>, TABLE<$col1 STRING>, TABLE<$col1 STRING>, NULL. Supported signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, TABLE, [TABLE], [TABLE]) [at 1:15]
+ERROR: No matching signature for tvf_required_named_optional_required_tables for argument types: TABLE<STRING>, TABLE<STRING>, TABLE<STRING>, NULL. Supported signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, TABLE, [TABLE], [TABLE]) [at 1:15]
 select * from tvf_required_named_optional_required_tables((select '1'),
               ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_required_named_optional_required_tables
-  Argument types: TABLE<$col1 STRING>, TABLE<$col1 STRING>, TABLE<$col1 STRING>, NULL
+  Argument types: TABLE<STRING>, TABLE<STRING>, TABLE<STRING>, NULL
   Signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, table2 => TABLE, [table3 => TABLE], [table4 => TABLE])
     Argument 4: expected TABLE, found NULL [at 1:15]
 select * from tvf_required_named_optional_required_tables((select '1'),
@@ -7419,13 +7460,13 @@ select * from tvf_required_named_optional_required_tables((select '1'),
 select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table2=>(select '2'))
 --
-ERROR: No matching signature for tvf_required_named_optional_required_tables for argument types: TABLE<$col1 STRING>, TABLE<$col1 STRING>, NULL, NULL. Supported signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, TABLE, [TABLE], [TABLE]) [at 1:15]
+ERROR: No matching signature for tvf_required_named_optional_required_tables for argument types: TABLE<STRING>, TABLE<STRING>, NULL, NULL. Supported signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, TABLE, [TABLE], [TABLE]) [at 1:15]
 select * from tvf_required_named_optional_required_tables((select '1'),
               ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for tvf_required_named_optional_required_tables
-  Argument types: TABLE<$col1 STRING>, TABLE<$col1 STRING>, NULL, NULL
+  Argument types: TABLE<STRING>, TABLE<STRING>, NULL, NULL
   Signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, table2 => TABLE, [table3 => TABLE], [table4 => TABLE])
     Argument 3: expected TABLE, found NULL [at 1:15]
 select * from tvf_required_named_optional_required_tables((select '1'),

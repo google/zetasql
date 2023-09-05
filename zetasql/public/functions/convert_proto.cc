@@ -30,13 +30,12 @@
 namespace zetasql {
 namespace functions {
 
-static bool ProtoToStringInternal(const google::protobuf::Message* value,
-                                  std::string* out, bool multiline,
-                                  absl::Status* error) {
+static bool ProtoToStringInternal(const google::protobuf::Message* value, absl::Cord* out,
+                                  bool multiline, absl::Status* error) {
   google::protobuf::TextFormat::Printer printer;
   printer.SetUseUtf8StringEscaping(true);
   printer.SetSingleLineMode(!multiline);
-  google::protobuf::io::StringOutputStream stream(out);
+  google::protobuf::io::CordOutputStream stream(std::move(*out));
   if (!printer.Print(*value, &stream)) {
     // This can happen (e.g.) when the algorithm thinks it is out of buffer
     // space. Generally it is unexpected here.
@@ -47,19 +46,10 @@ static bool ProtoToStringInternal(const google::protobuf::Message* value,
   }
   // The "SingleLineMode" sometimes puts an extra space at the end of the
   // printed proto.
-  if (absl::EndsWith(*out, " ")) {
-    out->resize(out->size() - 1);
+  *out = stream.Consume();
+  if (out->EndsWith(" ")) {
+    out->RemoveSuffix(1);
   }
-  return true;
-}
-
-static bool ProtoToStringInternal(const google::protobuf::Message* value, absl::Cord* out,
-                                  bool multiline, absl::Status* error) {
-  std::string str_out;
-  if (!ProtoToStringInternal(value, &str_out, multiline, error)) {
-    return false;
-  }
-  *out = absl::Cord(str_out);
   return true;
 }
 
@@ -82,8 +72,7 @@ bool StringToProto(const absl::string_view value, google::protobuf::Message* out
     Proto2ErrorCollector& operator=(const Proto2ErrorCollector&) = delete;
     ~Proto2ErrorCollector() final = default;
 
-          void AddError(int line, int column, const std::string& message) final
-         {
+    void RecordError(int line, int column, absl::string_view message) final {
       *error_ = ::zetasql_base::OutOfRangeErrorBuilder()
                 << "Error parsing proto: " << message << " [" << line + 1 << ":"
                 << column + 1 << "]";
@@ -96,7 +85,7 @@ bool StringToProto(const absl::string_view value, google::protobuf::Message* out
   google::protobuf::TextFormat::Parser parser;
   Proto2ErrorCollector error_collector(error);
   parser.RecordErrorsTo(&error_collector);
-  return parser.ParseFromString(std::string(value), out);
+  return parser.ParseFromString(value, out);
 }
 
 }  // namespace functions

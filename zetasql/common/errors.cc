@@ -19,15 +19,21 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/proto/internal_error_location.pb.h"
+#include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "google/protobuf/repeated_ptr_field.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -54,7 +60,7 @@ ErrorSource MakeErrorSource(const absl::Status& status, std::string_view text,
   ABSL_DCHECK(!HasInternalErrorLocation(status));
 
   ErrorSource error_source;
-  error_source.set_error_message(std::string(status.message()));
+  error_source.set_error_message(status.message());
   ErrorLocation status_error_location;
   if (GetErrorLocation(status, &status_error_location)) {
     *error_source.mutable_error_location() = status_error_location;
@@ -92,7 +98,7 @@ absl::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarning(
       << "Deprecation statuses must have code INVALID_ARGUMENT";
 
   FreestandingDeprecationWarning warning;
-  warning.set_message(std::string(from_status.message()));
+  warning.set_message(from_status.message());
 
   ZETASQL_RET_CHECK(internal::HasPayload(from_status))
       << "Deprecation statuses must have payloads";

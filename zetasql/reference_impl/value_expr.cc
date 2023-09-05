@@ -39,6 +39,7 @@
 #include "zetasql/public/proto_value_conversion.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
@@ -82,6 +83,60 @@ namespace zetasql {
 // -------------------------------------------------------
 
 ValueExpr::~ValueExpr() {}
+
+// -------------------------------------------------------
+// FunctionArgumentRefExpr
+// -------------------------------------------------------
+
+class FunctionArgumentRefExpr final : public ValueExpr {
+ public:
+  FunctionArgumentRefExpr(const FunctionArgumentRefExpr&) = delete;
+  FunctionArgumentRefExpr& operator=(const FunctionArgumentRefExpr&) = delete;
+
+  FunctionArgumentRefExpr(const std::string& arg_name, const Type* type)
+      : ValueExpr(type), arg_name_(arg_name) {}
+
+  const std::string& arg_name() const { return arg_name_; }
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override {
+    return absl::OkStatus();
+  }
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override {
+    const Value& val = context->GetFunctionArgumentRef(arg_name());
+    if (!val.is_valid()) {
+      *status = zetasql_base::InternalErrorBuilder()
+                << "Function argument ref not found: " << arg_name();
+      return false;
+    }
+    if (!output_type()->Equals(val.type())) {
+      *status = zetasql_base::InternalErrorBuilder()
+                << "Unexpected function argument reference type " << arg_name()
+                << "Actual: " << val.type()->DebugString() << "\n"
+                << "Expected: " << output_type()->DebugString();
+      return false;
+    }
+
+    result->SetValue(val);
+    return true;
+  }
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override {
+    return absl::StrCat("FunctionArgumentRefExpr(", arg_name(), ")");
+  }
+
+ private:
+  const std::string arg_name_;
+};
+
+absl::StatusOr<std::unique_ptr<ValueExpr>> CreateFunctionArgumentRefExpr(
+    const std::string& arg_name, const Type* type) {
+  return std::make_unique<FunctionArgumentRefExpr>(arg_name, type);
+}
 
 // -------------------------------------------------------
 // TableAsArrayExpr
@@ -2594,7 +2649,7 @@ absl::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewProtoValue(
                                &message_factory, new_message.get()));
   }
   return Value::Proto(original_value.type()->AsProto(),
-                      absl::Cord(new_message->SerializeAsString()));
+                      new_message->SerializeAsCord());
 }
 
 DMLUpdateValueExpr::DMLUpdateValueExpr(

@@ -18,22 +18,28 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <memory>
 #include <tuple>
 #include <utility>
 #include <vector>
 
+#include "zetasql/analyzer/name_scope.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_helper.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -229,6 +235,50 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
   return TestIsSameExpressionForGroupByResult::kEqual;
 }
 
+bool GetSourceColumnAndNamePath(const ResolvedExpr* resolved_expr,
+                                ResolvedColumn target_column,
+                                ResolvedColumn* source_column,
+                                bool* is_correlated, ValidNamePath* name_path,
+                                IdStringPool* id_string_pool) {
+  *source_column = ResolvedColumn();
+  *is_correlated = false;
+  while (resolved_expr->node_kind() == RESOLVED_GET_PROTO_FIELD) {
+    const ResolvedGetProtoField* get_proto_field =
+        resolved_expr->GetAs<ResolvedGetProtoField>();
+    // NOTE - The ResolvedGetProtoField has a get_has_bit() function
+    // that identifies whether this expression fetches the field value, or
+    // a boolean that indicates if the value was present.  If get_has_bit()
+    // is true, by convention the name of that pseudocolumn is the field
+    // name with the prefix 'has_'.
+    if (get_proto_field->get_has_bit()) {
+      name_path->mutable_name_path()->push_back(id_string_pool->Make(
+          absl::StrCat("has_", get_proto_field->field_descriptor()->name())));
+    } else {
+      name_path->mutable_name_path()->push_back(
+          id_string_pool->Make(get_proto_field->field_descriptor()->name()));
+    }
+    resolved_expr = get_proto_field->expr();
+  }
+  while (resolved_expr->node_kind() == RESOLVED_GET_STRUCT_FIELD) {
+    const ResolvedGetStructField* get_struct_field =
+        resolved_expr->GetAs<ResolvedGetStructField>();
+    const StructType* struct_type =
+        get_struct_field->expr()->type()->AsStruct();
+    name_path->mutable_name_path()->push_back(id_string_pool->Make(
+        struct_type->field(get_struct_field->field_idx()).name));
+    resolved_expr = get_struct_field->expr();
+  }
+  std::reverse(name_path->mutable_name_path()->begin(),
+               name_path->mutable_name_path()->end());
+  if (resolved_expr->node_kind() == RESOLVED_COLUMN_REF) {
+    *source_column = resolved_expr->GetAs<ResolvedColumnRef>()->column();
+    *is_correlated = resolved_expr->GetAs<ResolvedColumnRef>()->is_correlated();
+    name_path->set_target_column(target_column);
+    return true;
+  }
+  return false;
+}
+
 size_t FieldPathHash(const ResolvedExpr* expr) {
   ABSL_DCHECK(expr != nullptr);
   switch (expr->node_kind()) {
@@ -267,6 +317,228 @@ absl::StatusOr<bool> ExprReferencesNonCorrelatedColumn(
     if (!column_ref->is_correlated()) {
       return true;
     }
+  }
+  return false;
+}
+
+static bool IsProtoOrStructFieldAccess(const ResolvedNode* node) {
+  return node->node_kind() == RESOLVED_GET_PROTO_FIELD ||
+         node->node_kind() == RESOLVED_GET_STRUCT_FIELD;
+}
+
+// Returns true if the `column_ref_list` contains a equal pointer to
+// `column_ref`.
+static bool ContainsColumnReference(
+    const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+        column_ref_list,
+    const ResolvedColumnRef* column_ref) {
+  for (const auto& param : column_ref_list) {
+    if (param.get() == column_ref) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Returns true if column reference `child` is defined in the `parameter_list`
+// of its parent node.
+// REQUIRES: `child` is a key in `parent_pointer_map`.
+static bool IsInParameterListOfParent(
+    const ResolvedColumnRef* child,
+    const ParentPointerMap& parent_pointer_map) {
+  const ResolvedNode* parent = parent_pointer_map.find(child)->second;
+  if (parent->node_kind() == RESOLVED_SUBQUERY_EXPR) {
+    const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+        parameter_list =
+            parent->GetAs<ResolvedSubqueryExpr>()->parameter_list();
+    if (ContainsColumnReference(parameter_list, child)) {
+      return true;
+    }
+  }
+  if (parent->node_kind() == RESOLVED_INLINE_LAMBDA) {
+    const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+        parameter_list =
+            parent->GetAs<ResolvedInlineLambda>()->parameter_list();
+    if (ContainsColumnReference(parameter_list, child)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Returns true and populate `name_path` if we are able to find a path
+// expression that starts from `column_ref` using the child node to parent node
+// relationships provided by `parent_pointer_map`. Otherwise:
+// - If `parent_pointer_map` is illegal, or the given `column_ref` does exist in
+// the `parent_pointer_map`, the function returns an error.
+// - If the given node shows up in the parameter_list of its parent node, it's
+// not possible to obtain a field path, it returns false and does not set
+// `name_path`.
+//
+// `column_ref`: The starting node to reverse traverse the resolved ast.
+// `parent_pointer_map`: Contains all the reverse pointers from the child node
+//     to its parent node collected from the same resolved ast.
+// `name_path`: The longest name path that can be restored.
+// `id_string_pool`: It is used to allocate IdStrings that is used internally.
+static absl::StatusOr<bool> GetLongestProtoOrStructNamePathForPrefixMatching(
+    const ResolvedColumnRef* column_ref,
+    const ParentPointerMap& parent_pointer_map, ValidNamePath* name_path,
+    IdStringPool* id_string_pool) {
+  // Try to obtain parent node of input column ref.
+  auto it = parent_pointer_map.find(column_ref);
+  ZETASQL_RET_CHECK(it != parent_pointer_map.end())
+      << "column_ref does not exist in the parent_pointer_map";
+  const ResolvedNode* parent = it->second;
+
+  // We do not find a valid parent, so the path is the column ref itself.
+  if (parent == nullptr) {
+    name_path->set_name_path({});
+    name_path->set_target_column(column_ref->column());
+    return true;
+  }
+
+  // When the parent node is ResolvedSubqueryExpr or ResolvedInlineLambda, it
+  // does not belong to a reverse pointer path of a path expression. Ignore it.
+  if (IsInParameterListOfParent(column_ref, parent_pointer_map)) {
+    return false;
+  }
+
+  // If the parent node of the column ref does not belong to a groupable path
+  // expression, the path is the column ref itself.
+  if (!IsProtoOrStructFieldAccess(parent)) {
+    name_path->set_name_path({});
+    name_path->set_target_column(column_ref->column());
+    return true;
+  }
+
+  // `parent` pointer should always point to a node in a reverse pointer path
+  // of a path expression.
+  const ResolvedExpr* path_start = parent->GetAs<ResolvedExpr>();
+  while (true) {
+    auto it = parent_pointer_map.find(path_start);
+    if (it != parent_pointer_map.end() && it->second != nullptr &&
+        IsProtoOrStructFieldAccess(it->second)) {
+      path_start = it->second->GetAs<ResolvedExpr>();
+      continue;
+    }
+    break;
+  }
+  ResolvedColumn unused_source_column;
+  bool unused_is_correlated;
+  // This should always returns true, otherwise there is bug in the original
+  // tree of which we built parent pointer map on top or the logic of building
+  // the parent pointer map.
+  //
+  // If `valid_name_path` comes out of any anonymous struct, it would contain
+  // empty name in the name path. This case will make this function returns
+  // true temporarily, but the `valid_name_path` is not expected to be useful.
+  bool found = GetSourceColumnAndNamePath(
+      path_start, column_ref->column(), &unused_source_column,
+      &unused_is_correlated, name_path, id_string_pool);
+  ZETASQL_RET_CHECK(found) << "could not restore a valid name path out of the parent "
+                      "node found in the parent_pointer_map";
+  return found;
+}
+
+// Returns true if the `valid_field_map` contains an entry of the `column`, and
+// a prefix of `name_path` exists in the value list of `column`.
+static bool FieldInfoMapContainsColumnAndNamePathPrefix(
+    const ValidFieldInfoMap& valid_field_map, const ResolvedColumn& column,
+    const ValidNamePath& name_path) {
+  const ValidNamePathList* valid_name_path_list;
+  bool has_name_path_list =
+      valid_field_map.LookupNamePathList(column, &valid_name_path_list);
+  if (!has_name_path_list) {
+    return false;
+  }
+
+  ResolvedColumn unused_target_column;
+  int unused_prefix_length;
+  return ValidFieldInfoMap::FindLongestMatchingPathIfAny(
+      *valid_name_path_list, name_path.name_path(), &unused_target_column,
+      &unused_prefix_length);
+}
+
+absl::StatusOr<bool> AllPathsInExprHaveExpectedPrefixes(
+    const ResolvedExpr& expr, const ValidFieldInfoMap& expected_prefixes,
+    IdStringPool* id_string_pool) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      absl::flat_hash_set<const ResolvedColumnRef*> free_column_refs,
+      CollectFreeColumnRefs(expr));
+
+  // Record the column ids of all the unbounded ColumnRefs that might reference
+  // the current FROM clause scope.
+  absl::flat_hash_set<ResolvedColumn> free_column_ids;
+  for (const ResolvedColumnRef* column_ref : free_column_refs) {
+    if (!column_ref->is_correlated()) {
+      free_column_ids.insert(column_ref->column());
+    }
+  }
+
+  // Build a parent pointer map out of the input expression and obtain all the
+  // starting nodes in the tree so that we can reverse traverse the tree to
+  // obtain field paths out of those references to the free columns.
+  absl::flat_hash_set<const ResolvedColumnRef*> matched_column_refs;
+
+  ZETASQL_ASSIGN_OR_RETURN(const ParentPointerMap parent_pointer_map,
+                   CollectParentPointersOfUnboundedFieldAccessPaths(
+                       expr, free_column_ids, matched_column_refs));
+
+  // For each starting node, try to get its field path.
+  // If we can't get a field path, this just means the column ref does not
+  // belong to a valid path expression, so just ignore this column ref.
+  //
+  // Otherwise, check if the field path has any prefix in `valid_field_map`. If
+  // there is no prefix in the map, it probably references a column in the FROM
+  // scope and its field path is not already considered a post-GROUP BY column,
+  // so the function returns false. Only if all column refs that are not skipped
+  // successfully find their prefix in `valid_field_map` will the function
+  // returns true.
+  //
+  // Note that, a column ref with no field access parent node contains an
+  // empty field path and is a valid path.
+  for (const ResolvedColumnRef* column_ref : matched_column_refs) {
+    ValidNamePath name_path;
+    ZETASQL_ASSIGN_OR_RETURN(
+        bool found_name_path,
+        GetLongestProtoOrStructNamePathForPrefixMatching(
+            column_ref, parent_pointer_map, &name_path, id_string_pool));
+    if (!found_name_path) {
+      continue;
+    }
+
+    if (!FieldInfoMapContainsColumnAndNamePathPrefix(
+            expected_prefixes, column_ref->column(), name_path)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool ContainsTableArrayNamePathWithFreeColumnRef(const ResolvedExpr* node,
+                                                 int* column_id) {
+  if (node->node_kind() == RESOLVED_COLUMN_REF) {
+    if (node->GetAs<ResolvedColumnRef>()->is_correlated()) {
+      return false;
+    }
+    *column_id = node->GetAs<ResolvedColumnRef>()->column().column_id();
+    return true;
+  }
+  if (node->node_kind() == RESOLVED_FLATTEN) {
+    return ContainsTableArrayNamePathWithFreeColumnRef(
+        node->GetAs<ResolvedFlatten>()->expr(), column_id);
+  }
+  if (node->node_kind() == RESOLVED_GET_PROTO_FIELD) {
+    return ContainsTableArrayNamePathWithFreeColumnRef(
+        node->GetAs<ResolvedGetProtoField>()->expr(), column_id);
+  }
+  if (node->node_kind() == RESOLVED_GET_STRUCT_FIELD) {
+    return ContainsTableArrayNamePathWithFreeColumnRef(
+        node->GetAs<ResolvedGetStructField>()->expr(), column_id);
+  }
+  if (node->node_kind() == RESOLVED_GET_JSON_FIELD) {
+    return ContainsTableArrayNamePathWithFreeColumnRef(
+        node->GetAs<ResolvedGetJsonField>()->expr(), column_id);
   }
   return false;
 }

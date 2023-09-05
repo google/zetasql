@@ -2,6 +2,7 @@
 # (broken link) for details.
 
 [default product_mode=external]
+[default also_show_signature_mismatch_details]
 select cast(1 as bool);
 --
 QueryStmt
@@ -303,9 +304,31 @@ ERROR: No matching signature for operator + for argument types: INT64, STRING. S
 select 1 + '2'
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: INT64, STRING
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 2: Unable to coerce type STRING to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument 2: Unable to coerce type STRING to expected type DOUBLE [at 1:8]
+select 1 + '2'
+       ^
+--
 ALTERNATION GROUP: external
 --
 ERROR: No matching signature for operator + for argument types: INT64, STRING. Supported signatures: INT64 + INT64; FLOAT64 + FLOAT64 [at 1:8]
+select 1 + '2'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: INT64, STRING
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type STRING to expected type INT64
+  Signature: FLOAT64 + FLOAT64
+    Argument 2: Unable to coerce type STRING to expected type FLOAT64 [at 1:8]
 select 1 + '2'
        ^
 ==

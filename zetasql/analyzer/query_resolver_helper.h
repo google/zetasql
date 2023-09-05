@@ -64,6 +64,15 @@ enum class GroupingSetKind {
   kCube,
 };
 
+// An enum that describes special query forms within ASTSelect which modify
+// certain other behaviors during SELECT resolving.
+enum class SelectForm {
+  // A normal SELECT query.
+  kClassic,
+  // A no-FROM-clause SELECT query.
+  kNoFrom,
+};
+
 struct GroupingSetInfo {
   // It contains a list of grouping set item in the current grouping set.
   // Each grouping set item is stored as a list of computed columns to
@@ -388,13 +397,6 @@ class SelectColumnStateList {
   const std::vector<std::unique_ptr<SelectColumnState>>&
   select_column_state_list() const;
 
-  // Returns a list of output ResolvedColumns, one ResolvedColumn per
-  // <select_column_state_list_> entry.  Currently only used when creating an
-  // OrderByScan and subsequent ProjectScan, ensuring that all SELECT list
-  // columns are produced by those scans.  For those callers, all
-  // ResolvedColumns in the list are initialized.
-  const ResolvedColumnList resolved_column_list() const;
-
   // Returns the number of SelectColumnStates.
   size_t Size() const;
 
@@ -491,6 +493,13 @@ class QueryResolutionInfo {
   absl::Status GetAndRemoveSelectListColumnsWithoutAnalytic(
       std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
           select_columns_without_analytic_out);
+
+  // Returns a list of output ResolvedColumns to use as the column_list
+  // on final scans.  Currently only used when creating an
+  // OrderByScan and subsequent ProjectScan, ensuring that all SELECT list
+  // columns are produced by those scans.  For those callers, all
+  // ResolvedColumns in the list are initialized.
+  ResolvedColumnList GetResolvedColumnList() const;
 
   // Returns whether or not the query includes a GROUP BY clause or
   // aggregation functions.
@@ -679,10 +688,19 @@ class QueryResolutionInfo {
     group_by_info_.has_group_by = has_group_by;
   }
 
+  void set_select_form(SelectForm form) { select_form_ = form; }
+  SelectForm select_form() const { return select_form_; }
+
+  const char* SelectFormClauseName() const;
+
+  // Tests for conditions that depend on SelectForm.
+  bool SelectFormAllowsSelectStar() const;
+  bool SelectFormAllowsAggregation() const;
+  bool SelectFormAllowsAnalytic() const;
+
   void set_select_with_mode(SelectWithMode select_with_mode) {
     select_with_mode_ = select_with_mode;
   }
-
   SelectWithMode select_with_mode() const { return select_with_mode_; }
 
   void set_has_having(bool has_having) { has_having_ = has_having; }
@@ -791,18 +809,20 @@ class QueryResolutionInfo {
 
   QueryGroupByAndAggregateInfo group_by_info_;
 
+  // Indicates if we're resolving a special form of ASTSelect, like
+  // a no-FROM-clause query.
+  SelectForm select_form_ = SelectForm::kClassic;
+
   // Select mode defined by SELECT WITH <identifier> clause.
   SelectWithMode select_with_mode_ = SelectWithMode::NONE;
 
   // HAVING information.
-
   bool has_having_ = false;
 
   // QUALIFY information.
   bool has_qualify_ = false;
 
   // ORDER BY information.
-
   bool has_order_by_ = false;
 
   // List of ORDER BY information.
@@ -823,7 +843,7 @@ class QueryResolutionInfo {
   std::unique_ptr<AnalyticFunctionResolver> analytic_resolver_;
 
   // The output NameList of the FROM clause of this query.  Currently used for
-  // WITH GROUP ROWS aggregate processing, as the GROUP_ROWS() TVF  within the
+  // WITH GROUP ROWS aggregate processing, as the GROUP_ROWS() TVF within the
   // GROUP ROWS subquery produces this NameList as its result.
   std::shared_ptr<const NameList> from_clause_name_list_ = nullptr;
 };

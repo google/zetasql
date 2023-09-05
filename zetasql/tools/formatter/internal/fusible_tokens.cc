@@ -103,8 +103,8 @@ FusibleMatchVector FindLongestFusibleMatch(
                 !tokens[match_pos]->Is(next_group.type)) ||
                tokens[match_pos]->IsOneOf(
                    {Token::Type::KEYWORD_AS_IDENTIFIER_FRAGMENT,
-                    Token::Type::COMPLEX_TOKEN_CONTINUATION,
-                    Token::Type::CASE_KEYWORD})) {
+                    Token::Type::COMPLEX_TOKEN_CONTINUATION}) ||
+               tokens[match_pos]->IsCaseExprKeyword()) {
       // No match.
       continue;
     }

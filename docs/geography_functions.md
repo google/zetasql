@@ -461,7 +461,7 @@ behavior:
 
 </td>
   <td>
-    Checks to see if two <code>GEOGRAPHY</code> values represent the same
+    Checks if two <code>GEOGRAPHY</code> values represent the same
     <code>GEOGRAPHY</code> value.
   </td>
 </tr>
@@ -598,7 +598,7 @@ behavior:
 
 </td>
   <td>
-    Checks to see if at least one point appears in two <code>GEOGRAPHY</code>
+    Checks if at least one point appears in two <code>GEOGRAPHY</code>
     values.
   </td>
 </tr>

@@ -475,6 +475,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   // All GEOGRAPHY STLIB errors converted from S2Error.
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "[stlib]"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented, "[stlib]"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kResourceExhausted, "[stlib]"));
   // Unimplemented functions
   // TODO: implement
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(

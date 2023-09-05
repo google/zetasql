@@ -50,7 +50,7 @@ bool AbslParseFlag(absl::string_view text, ParameterFlag* flag,
                    std::string* err) {
   AnalyzerOptions analyzer_options;
   auto catalog = std::make_unique<SimpleCatalog>("test");
-  catalog->AddZetaSQLFunctions(
+  catalog->AddBuiltinFunctions(
       ZetaSQLBuiltinFunctionOptions(analyzer_options.language()));
 
   return ParseQueryParameterFlag(text, analyzer_options, catalog.get(),
@@ -377,7 +377,7 @@ class QueryParameterParsingTest : public ::testing::Test {
  protected:
   void CreateCatalog() {
     catalog_ = std::make_unique<SimpleCatalog>("test");
-    catalog_->AddZetaSQLFunctions(
+    catalog_->AddBuiltinFunctions(
         ZetaSQLBuiltinFunctionOptions(analyzer_options_.language()));
   }
 
@@ -465,7 +465,7 @@ TEST_F(QueryParameterParsingTest, ProtoTypeParam) {
   // Serialized proto bytes are not easy to read, so add a more human-friendly
   // assertion that the query parameter proto is as expected.
   zetasql_test__::KitchenSinkPB kitchen_sink_pb;
-  ASSERT_TRUE(ParseFromCord(flag.map.at("ks").ToCord(), &kitchen_sink_pb));
+  ASSERT_TRUE(kitchen_sink_pb.ParseFromCord(flag.map.at("ks").ToCord()));
   ASSERT_THAT(kitchen_sink_pb, testing::EqualsProto(
                                    R"pb(
                                      int64_key_1: 1 int64_key_2: 2

@@ -730,7 +730,7 @@ SELECT
       GROUP BY f3)
 FROM T GROUP BY f1;
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got ")" [at 2:26]
+ERROR: Syntax error: Unexpected ")" [at 2:26]
   AVG(x) WITH GROUP_ROWS()
                          ^
 

@@ -29,8 +29,11 @@ namespace zetasql {
 // populate the `node_source` of the added ProjectScan with this constant.
 // SQLBuilder will try to generate a query using CORRESPONDING, expecting this
 // ProjectScan is only used to match columns.
-constexpr char kNodeSourceResolverSetOperationCorresponding[] =
+inline constexpr char kNodeSourceResolverSetOperationCorresponding[] =
     "resolver_set_operation_corresponding";
+
+inline constexpr char kNodeSourceSingleTableArrayNamePath[] =
+    "single_table_array_name_path";
 
 }  // namespace zetasql
 

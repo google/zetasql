@@ -84,6 +84,7 @@ QueryStmt
     | +-$col1#5 := Literal(type=INT64, value=1)
     +-input_scan=
       +-ArrayScan
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[StructWithKitchenSinkTable.t#3], table=StructWithKitchenSinkTable, column_index_list=[2], alias="StructWithKitchenSinkTable")
         +-array_expr=
@@ -105,6 +106,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.e#4]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[StructWithKitchenSinkTable.t#3], table=StructWithKitchenSinkTable, column_index_list=[2], alias="StructWithKitchenSinkTable")
         +-array_expr=
@@ -144,6 +146,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.repeated_int32_val#4]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
         +-array_expr=
@@ -172,6 +175,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.ri#4]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="TestTable")
         +-array_expr=
@@ -203,6 +207,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.nested_repeated_int64#4]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
         +-array_expr=
@@ -234,6 +239,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.nested_repeated_int64#4]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
         +-array_expr=
@@ -279,6 +285,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.nested_repeated_value#4]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
         +-array_expr=
@@ -328,6 +335,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.ProtoArray#18]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
         +-array_expr=
@@ -348,6 +356,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.json_field#18]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.JsonArray#17], table=ArrayTypes, column_index_list=[16])
         +-array_expr=
@@ -381,6 +390,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.has_int32_val1#18]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
         +-array_expr=
@@ -408,6 +418,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.int32_val1#18]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
         +-array_expr=
@@ -449,6 +460,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.value#4]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="TestTable")
         +-array_expr=
@@ -520,6 +532,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.value#2]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="RecursivePBTable")
         +-array_expr=
@@ -675,6 +688,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.Value#18]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="ArrayTypes")
         +-array_expr=
@@ -737,6 +751,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.int32_val1#18]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
         +-array_expr=
@@ -881,6 +896,7 @@ QueryStmt
         +-input_scan=
           +-ArrayScan
             +-column_list=[$array.original_alias#4]
+            +-node_source="single_table_array_name_path"
             +-input_scan=
             | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="TestTable")
             +-array_expr=

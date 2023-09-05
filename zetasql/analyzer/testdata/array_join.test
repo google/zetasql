@@ -215,6 +215,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.ri#4]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="TestTable")
         +-array_expr=
@@ -1830,3 +1831,4 @@ ERROR: Unrecognized name: arr2 [at 19:26]
   FULL OUTER JOIN UNNEST(arr2) AS r
                          ^
 ==
+

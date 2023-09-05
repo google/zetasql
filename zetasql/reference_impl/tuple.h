@@ -263,10 +263,15 @@ class TupleSlot {
   // ProtoFieldValueMap stored in that entry to determine the value of field2.
   using SharedProtoState = std::optional<ProtoFieldValueMap>;
 
-  // For performance reasons, we only store SharedProtoState for PROTOs and
-  // STRUCTs (which may contain protos).
+  // For performance reasons, we only store SharedProtoState for PROTOs and:
+  // - STRUCTs
+  // which may contain protos.
+  // TODO check why ARRAY isn't in this list.
+  // TODO see whether can-contain-proto is something Type itself
+  // should indicate.
   static bool ShouldStoreSharedProtoStateFor(TypeKind kind) {
-    return kind == TYPE_PROTO || kind == TYPE_STRUCT;
+    return kind == TYPE_PROTO ||
+           kind == TYPE_STRUCT;
   }
 
   TupleSlot() {}

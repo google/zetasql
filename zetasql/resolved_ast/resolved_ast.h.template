@@ -241,8 +241,8 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
       ResolvedNode::ConstructorOverload::NEW_CONSTRUCTOR;
 
 # for field in node.fields
- bool {{field.name}}_accessed() const {
-   return accessed_ & {{field.bitmap}};
+  bool {{field.name}}_accessed() const {
+    return accessed_ & {{field.bitmap}};
  }
 # endfor
 

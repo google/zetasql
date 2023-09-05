@@ -78,7 +78,13 @@ This syntax consists of the following components:
   omitted.
 + `function_body`: The SQL expression that defines the function body.
 
+You can create a public or privately-scoped
+UDF in a module. To learn more,
+see [Modules][modules].
+
 [quoted-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#quoted_literals
+
+[modules]: https://github.com/google/zetasql/blob/master/docs/modules.md
 
 ### Call a SQL UDF
 
@@ -259,7 +265,13 @@ This syntax consists of the following components:
   To learn more about the different types of quoted string literals you can
   use, see [Formats for quoted literals][quoted-literals].
 
+You can create a public or privately-scoped
+UDF in a module. To learn more,
+see [Modules][modules].
+
 [quoted-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#quoted_literals
+
+[modules]: https://github.com/google/zetasql/blob/master/docs/modules.md
 
 ### Call a JavaScript UDF
 
@@ -807,7 +819,13 @@ This syntax consists of the following components:
   To learn more about the different types of quoted string literals you can
   use, see [Formats for quoted literals][quoted-literals].
 
+You can create a public or privately-scoped
+UDF in a module. To learn more,
+see [Modules][modules].
+
 [quoted-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#quoted_literals
+
+[modules]: https://github.com/google/zetasql/blob/master/docs/modules.md
 
 ### Call a Lua UDF
 

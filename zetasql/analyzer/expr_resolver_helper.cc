@@ -23,6 +23,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
@@ -161,6 +162,10 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
         }
       }
       return true;
+    }
+
+    case RESOLVED_GET_PROTO_ONEOF: {
+      return IsConstantExpression(expr->GetAs<ResolvedGetProtoOneof>()->expr());
     }
 
     case RESOLVED_MAKE_STRUCT: {
@@ -318,6 +323,18 @@ std::string ExprResolutionInfo::DebugString() const {
       (query_resolution_info != nullptr ? query_resolution_info->DebugString()
                                         : "NULL"));
   return debugstring;
+}
+
+IdString GetAliasForExpression(const ASTNode* node) {
+  if (node->node_kind() == AST_IDENTIFIER) {
+    return node->GetAsOrDie<ASTIdentifier>()->GetAsIdString();
+  } else if (node->node_kind() == AST_PATH_EXPRESSION) {
+    return node->GetAsOrDie<ASTPathExpression>()->last_name()->GetAsIdString();
+  } else if (node->node_kind() == AST_DOT_IDENTIFIER) {
+    return node->GetAsOrDie<ASTDotIdentifier>()->name()->GetAsIdString();
+  } else {
+    return IdString();
+  }
 }
 
 }  // namespace zetasql

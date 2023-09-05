@@ -1,19 +1,19 @@
 select abc from T
 UNION ALL
 select 5
-UNION ALL
+UNION DISTINCT
 select null from T2
 --
-QueryStatement [0-66] [select abc...null from T2]
-  Query [0-66] [select abc...null from T2]
-    SetOperation(UNION ALL) [0-66] [select abc...null from T2]
-      SetOperationMetadataList [17-46] [UNION ALL select 5 UNION ALL]
+QueryStatement [0-71] [select abc...null from T2]
+  Query [0-71] [select abc...null from T2]
+    SetOperation(UNION ALL) [0-71] [select abc...null from T2]
+      SetOperationMetadataList [17-51] [UNION ALL...UNION DISTINCT]
         SetOperationMetadata [17-27] [UNION ALL]
           SetOperationType [18-23] [UNION]
           SetOperationAllOrDistinct [24-27] [ALL]
-        SetOperationMetadata [36-46] [UNION ALL]
+        SetOperationMetadata [36-51] [UNION DISTINCT]
           SetOperationType [37-42] [UNION]
-          SetOperationAllOrDistinct [43-46] [ALL]
+          SetOperationAllOrDistinct [43-51] [DISTINCT]
       Select [0-17] [select abc from T]
         SelectList [7-10] [abc]
           SelectColumn [7-10] [abc]
@@ -27,14 +27,14 @@ QueryStatement [0-66] [select abc...null from T2]
         SelectList [35-36] [5]
           SelectColumn [35-36] [5]
             IntLiteral(5) [35-36] [5]
-      Select [47-66] [select null from T2]
-        SelectList [54-58] [null]
-          SelectColumn [54-58] [null]
-            NullLiteral(null) [54-58] [null]
-        FromClause [59-66] [from T2]
-          TablePathExpression [64-66] [T2]
-            PathExpression [64-66] [T2]
-              Identifier(T2) [64-66] [T2]
+      Select [52-71] [select null from T2]
+        SelectList [59-63] [null]
+          SelectColumn [59-63] [null]
+            NullLiteral(null) [59-63] [null]
+        FromClause [64-71] [from T2]
+          TablePathExpression [69-71] [T2]
+            PathExpression [69-71] [T2]
+              Identifier(T2) [69-71] [T2]
 --
 SELECT
   abc
@@ -43,7 +43,7 @@ FROM
 UNION ALL
 SELECT
   5
-UNION ALL
+UNION DISTINCT
 SELECT
   null
 FROM

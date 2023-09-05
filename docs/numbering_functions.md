@@ -13,6 +13,75 @@ Numbering functions assign integer values to each row based on their position
 within the specified window. The `OVER` clause syntax varies across
 numbering functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#cume_dist"><code>CUME_DIST</code></a>
+
+</td>
+  <td>
+    Gets the cumulative distribution (relative position (0,1]) of each row
+    within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dense_rank"><code>DENSE_RANK</code></a>
+
+</td>
+  <td>
+    Gets the dense rank (1-based, no gaps) of each row within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ntile"><code>NTILE</code></a>
+
+</td>
+  <td>
+    Gets the quantile bucket number (1-based) of each row within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#percent_rank"><code>PERCENT_RANK</code></a>
+
+</td>
+  <td>
+    Gets the percentile rank (from 0 to 1) of each row within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#rank"><code>RANK</code></a>
+
+</td>
+  <td>
+    Gets the rank (1-based) of each row within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#row_number"><code>ROW_NUMBER</code></a>
+
+</td>
+  <td>
+    Gets the sequential row number (1-based) of each row within a window.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CUME_DIST`
 
 ```sql

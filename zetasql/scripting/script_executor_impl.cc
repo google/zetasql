@@ -327,7 +327,7 @@ absl::StatusOr<ScriptException> ScriptExecutorImpl::SetupNewException(
   ScriptException exception = internal::GetPayload<ScriptException>(status);
   if (!exception.has_message()) {
     // Use the absl::Status message as the default
-    exception.set_message(std::string(status.message()));
+    exception.set_message(status.message());
   }
 
   if (exception.has_internal()) {

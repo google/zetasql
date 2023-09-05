@@ -213,7 +213,8 @@ class ResolvedASTDeepCopyVisitorTest : public ::testing::Test {
 
   void SetUp() override {
     // Must add ZetaSQL functions or the catalog will not be parsed properly.
-    catalog_.AddZetaSQLFunctions();
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
 
     // All tests will use this catalog, which defines the schema of the tables
     // that we are running SQL queries on. Set up a schema for all queries.

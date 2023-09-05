@@ -6,6 +6,30 @@
 
 ZetaSQL supports the following security functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#session_user"><code>SESSION_USER</code></a>
+
+</td>
+  <td>
+    Get the email address or principal identifier of the user that is running
+    the query.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `SESSION_USER`
 
 ```

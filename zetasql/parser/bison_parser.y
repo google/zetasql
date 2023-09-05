@@ -269,6 +269,7 @@
       templated_parameter_kind;
   zetasql::ASTBinaryExpression::Op binary_op;
   zetasql::ASTUnaryExpression::Op unary_op;
+  zetasql::ASTOptionsEntry::AssignmentOp options_assignment_op;
   zetasql::ASTJoin::JoinType join_type;
   zetasql::ASTJoin::JoinHint join_hint;
   zetasql::ASTSampleSize::Unit sample_size_unit;
@@ -346,6 +347,14 @@
     zetasql::ASTWithConnectionClause* with_connection_clause;
   } language_or_remote_with_connection;
   struct {
+    zetasql::ASTIdentifier* language;
+    zetasql::ASTNode* options;
+  } language_options_set;
+  struct {
+    zetasql::ASTNode* options;
+    zetasql::ASTNode* body;
+  } options_body_set;
+  struct {
     zetasql::ASTScript* body;
     zetasql::ASTIdentifier* language;
     zetasql::ASTNode* code;
@@ -387,7 +396,7 @@
 //   other cases.
 // - (Unreserved) Keywords don't need to be recognized as labels since
 //   flex_tokenizer.l takes care of that.
-%token LABEL "label"
+%token SCRIPT_LABEL
 
 // Comments. They are only returned if the tokenizer is run in a special comment
 // preserving mode. They are not returned by the tokenizer when used with the
@@ -403,6 +412,8 @@
 %token '(' "("
 %token ')' ")"
 %token '=' "="
+%token KW_ADD_ASSIGN "+="
+%token KW_SUB_ASSIGN "-="
 %token KW_NOT_EQUALS_C_STYLE "!="
 %token KW_NOT_EQUALS_SQL_STYLE "<>"
 %token '<' "<"
@@ -454,7 +465,7 @@
 %left "OR"
 %left "AND"
 %precedence UNARY_NOT_PRECEDENCE
-%nonassoc "=" "<>" ">" "<" ">=" "<=" "!=" "LIKE" "IN" "DISTINCT" "BETWEEN" "IS" "NOT_SPECIAL"
+%nonassoc "=" "<>" ">" "<" ">=" "<=" "!=" "LIKE" "IN" "DISTINCT" "BETWEEN" "IS" "NOT_SPECIAL" "+=" "-="
 %left "|"
 %left "^"
 %left "&"
@@ -732,6 +743,7 @@ using namespace zetasql::parser_internal;
 %token KW_PRIVILEGE "PRIVILEGE"
 %token KW_PRIVILEGES "PRIVILEGES"
 %token KW_PROCEDURE "PROCEDURE"
+%token KW_PROJECT "PROJECT"
 %token KW_PUBLIC "PUBLIC"
 %token KW_QUALIFY_NONRESERVED
 %token KW_RAISE "RAISE"
@@ -903,6 +915,7 @@ using namespace zetasql::parser_internal;
 %type <expression> expression_maybe_parenthesized
 %type <node> expression_with_opt_alias
 %type <node> unnest_expression_prefix
+%type <node> generic_entity_type_unchecked
 %type <node> generic_entity_type
 %type <node> generic_sub_entity_type
 %type <identifier> sub_entity_type_identifier
@@ -1084,6 +1097,7 @@ using namespace zetasql::parser_internal;
 %type <node> opt_on_path_expression
 %type <node> opt_foreign_key_actions
 %type <node> opt_from_clause
+%type <node> from_clause
 %type <expression> opt_from_path_expression
 %type <node> opt_function_parameters
 %type <node> opt_function_returns
@@ -1099,15 +1113,21 @@ using namespace zetasql::parser_internal;
 %type <node> opt_index_storing_list
 %type <node> opt_index_unnest_expression_list
 %type <node> opt_input_output_clause
+%type <identifier> language
 %type <identifier> opt_language
 %type <language_or_remote_with_connection> opt_language_or_remote_with_connection
+%type <language_options_set> unordered_language_options
+%type <options_body_set> unordered_options_body
 %type <node> opt_like_string_literal
 %type <node> opt_like_path_expression
+%type <node> limit_offset_clause
 %type <node> opt_limit_offset_clause
 %type <node> opt_on_or_using_clause_list
 %type <node> on_or_using_clause_list
 %type <node> on_or_using_clause
+%type <node> opt_on_or_using_clause
 %type <expression> on_path_expression
+%type <node> options
 %type <node> opt_options_list
 %type <node> opt_order_by_clause
 %type <node> opt_over_clause
@@ -1157,6 +1177,7 @@ using namespace zetasql::parser_internal;
 %type <node> options_list
 %type <node> options_list_prefix
 %type <node> order_by_clause_prefix
+%type <node> order_by_clause
 %type <node> ordering_expression
 %type <expression> named_parameter_expression
 %type <expression> parameter_expression
@@ -1213,6 +1234,7 @@ using namespace zetasql::parser_internal;
 %type <node> sample_size
 %type <expression> sample_size_value
 %type <node> select
+%type <node> select_clause
 %type <node> select_column
 %type <node> select_list
 %type <node> select_list_prefix
@@ -1269,6 +1291,7 @@ using namespace zetasql::parser_internal;
 %type <node> transaction_mode
 %type <node> transaction_mode_list
 %type <node> truncate_statement
+%type <node> tvf_with_suffixes
 %type <node> tvf
 %type <node> tvf_argument
 %type <node> tvf_prefix
@@ -1298,6 +1321,7 @@ using namespace zetasql::parser_internal;
 %type <node> window_frame_bound
 %type <node> window_specification
 %type <node> with_clause
+%type <node> opt_with_clause
 %type <node> with_clause_with_trailing_comma
 %type <node> with_connection_clause
 %type <node> aliased_query
@@ -1362,6 +1386,7 @@ using namespace zetasql::parser_internal;
 
 %type <binary_op> additive_operator
 %type <binary_op> comparative_operator
+%type <options_assignment_op> options_assignment_operator
 %type <join_hint> join_hint
 %type <join_type> join_type
 %type <opt_unpivot_nulls_filter> opt_unpivot_nulls_filter
@@ -2224,61 +2249,50 @@ create_database_statement:
       }
     ;
 
+unordered_options_body:
+    options opt_as_sql_function_body_or_string[body]
+      {
+        $$.options = $options;
+        $$.body = $body;
+      }
+    | as_sql_function_body_or_string[body] opt_options_list[options]
+      {
+        if ($options != nullptr) {
+          parser->AddWarning(parser->GenerateWarning(
+              "The preferred style places the OPTIONS clause before the "
+              "function body.",
+              (@options).begin.column));
+        }
+        $$.options = $options;
+        $$.body = $body;
+      }
+    | %empty
+      {
+        $$.options = nullptr;
+        $$.body = nullptr;
+      }
+    ;
+
 create_function_statement:
+    // The preferred style is LANGUAGE OPTIONS BODY but LANGUAGE BODY OPTIONS
+    // is allowed for backwards compatibility (with a deprecation warning).
     "CREATE" opt_or_replace opt_create_scope opt_aggregate
         "FUNCTION" opt_if_not_exists function_declaration opt_function_returns
         opt_sql_security_clause opt_determinism_level
-        opt_language_or_remote_with_connection
-        as_sql_function_body_or_string opt_options_list
+        opt_language_or_remote_with_connection[language]
+        unordered_options_body[uob]
       {
-        auto* create =
-            MAKE_NODE(ASTCreateFunctionStatement, @$,
-                      {$7, $8, $11.language, $11.with_connection_clause, $12,
-                       $13});
-        create->set_is_or_replace($2);
-        create->set_scope($3);
-        create->set_is_aggregate($4);
-        create->set_is_if_not_exists($6);
-        create->set_sql_security($9);
-        create->set_determinism_level($10);
-        create->set_is_remote($11.is_remote);
-        $$ = create;
-      }
-    | "CREATE" opt_or_replace opt_create_scope opt_aggregate
-        "FUNCTION" opt_if_not_exists function_declaration opt_function_returns
-        opt_sql_security_clause opt_determinism_level
-        opt_language_or_remote_with_connection "OPTIONS" options_list
-        opt_as_sql_function_body_or_string
-      {
-        auto* create =
-            MAKE_NODE(ASTCreateFunctionStatement, @$,
-                      {$7, $8, $11.language, $11.with_connection_clause, $14,
-                       $13});
-        create->set_is_or_replace($2);
-        create->set_scope($3);
-        create->set_is_aggregate($4);
-        create->set_is_if_not_exists($6);
-        create->set_sql_security($9);
-        create->set_determinism_level($10);
-        create->set_is_remote($11.is_remote);
-        $$ = create;
-      }
-    | "CREATE" opt_or_replace opt_create_scope opt_aggregate
-        "FUNCTION" opt_if_not_exists function_declaration opt_function_returns
-        opt_sql_security_clause opt_determinism_level
-        opt_language_or_remote_with_connection
-      {
-        auto* create =
-            MAKE_NODE(ASTCreateFunctionStatement, @$,
-                      {$7, $8, $11.language, $11.with_connection_clause,
-                       nullptr, nullptr});
-        create->set_is_or_replace($2);
-        create->set_scope($3);
-        create->set_is_aggregate($4);
-        create->set_is_if_not_exists($6);
-        create->set_sql_security($9);
-        create->set_determinism_level($10);
-        create->set_is_remote($11.is_remote);
+        auto* create = MAKE_NODE(
+            ASTCreateFunctionStatement, @$,
+            {$function_declaration, $opt_function_returns, $language.language,
+             $language.with_connection_clause, $uob.body, $uob.options});
+        create->set_is_or_replace($opt_or_replace);
+        create->set_scope($opt_create_scope);
+        create->set_is_aggregate($opt_aggregate);
+        create->set_is_if_not_exists($opt_if_not_exists);
+        create->set_sql_security($opt_sql_security_clause);
+        create->set_determinism_level($opt_determinism_level);
+        create->set_is_remote($language.is_remote);
         $$ = create;
       }
     ;
@@ -2497,11 +2511,17 @@ opt_determinism_level:
       {$$ = zetasql::ASTCreateFunctionStmtBase::DETERMINISM_UNSPECIFIED;}
     ;
 
-
-opt_language:
+language:
     "LANGUAGE" identifier
       {
         $$ = $2;
+      }
+    ;
+
+opt_language:
+    language
+      {
+        $$ = $language;
       }
     | %empty
       {
@@ -2896,32 +2916,60 @@ create_snapshot_table_statement:
       }
     ;
 
+unordered_language_options:
+    language opt_options_list[options]
+      {
+        $$.language = $language;
+        $$.options = $options;
+      }
+    | options opt_language[language]
+      {
+        // This production is deprecated (with no warning YET).
+        $$.language = $language;
+        $$.options = $options;
+      }
+    | %empty
+      {
+        $$.language = nullptr;
+        $$.options = nullptr;
+      }
+    ;
+
 // This rule encounters a shift/reduce conflict with 'create_table_statement'
 // as noted in AMBIGUOUS CASE 3 in the file-level comment. The syntax of this
 // rule and 'create_table_statement' must be kept the same until the "TABLE"
 // keyword, so that parser can choose between these two rules based on the
 // "FUNCTION" keyword conflict.
 create_table_function_statement:
+    // The preferred style is LANGUAGE OPTIONS but OPTIONS LANGUAGE is allowed
+    // for backwards compatibility (no deprecation warning YET).
     "CREATE" opt_or_replace opt_create_scope "TABLE" "FUNCTION"
-    opt_if_not_exists path_expression opt_function_parameters opt_returns
-    opt_sql_security_clause opt_options_list opt_language opt_as_query_or_string
+        opt_if_not_exists path_expression opt_function_parameters opt_returns
+        opt_sql_security_clause
+        unordered_language_options[ulo]
+        opt_as_query_or_string[body]
       {
-        if ($8 == nullptr) {
+        if ($opt_function_parameters == nullptr) {
             // Missing function argument list.
-            YYERROR_AND_ABORT_AT(@8, "Syntax error: Expected (");
+          YYERROR_AND_ABORT_AT(@opt_function_parameters,
+                               "Syntax error: Expected (");
         }
-        if ($9 != nullptr  &&
-            $9->node_kind() != zetasql::AST_TVF_SCHEMA) {
-          YYERROR_AND_ABORT_AT(@9, "Syntax error: Expected keyword TABLE");
+        if ($opt_returns != nullptr  &&
+            $opt_returns->node_kind() != zetasql::AST_TVF_SCHEMA) {
+          YYERROR_AND_ABORT_AT(@opt_returns,
+                               "Syntax error: Expected keyword TABLE");
         }
         // Build the create table function statement.
-        auto* fn_decl = MAKE_NODE(ASTFunctionDeclaration, @7, @8, {$7, $8});
-        auto* create = MAKE_NODE(ASTCreateTableFunctionStatement, @$,
-                                 {fn_decl, $9, $11, $12, $13});
-        create->set_is_or_replace($2);
-        create->set_scope($3);
-        create->set_is_if_not_exists($6);
-        create->set_sql_security($10);
+        auto* fn_decl = MAKE_NODE(ASTFunctionDeclaration, @path_expression,
+                                  @opt_function_parameters,
+                                  {$path_expression, $opt_function_parameters});
+        auto* create = MAKE_NODE(
+            ASTCreateTableFunctionStatement, @$,
+            {fn_decl, $opt_returns, $ulo.options, $ulo.language, $body});
+        create->set_is_or_replace($opt_or_replace);
+        create->set_scope($opt_create_scope);
+        create->set_is_if_not_exists($opt_if_not_exists);
+        create->set_sql_security($opt_sql_security_clause);
         $$ = create;
       }
     ;
@@ -3057,8 +3105,22 @@ aux_load_data_statement:
       }
     ;
 
-generic_entity_type:
+generic_entity_type_unchecked:
     IDENTIFIER
+      {
+        // It is by design that we don't want to support backtick quoted
+        // entity type. Backtick is kept as part of entity type name, and will
+        // be rejected by engine later.
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+      }
+    | "PROJECT"
+      {
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));;
+      }
+    ;
+
+generic_entity_type:
+    generic_entity_type_unchecked
       {
         std::string entity_type(parser->GetInputText(@1));
         if (!parser->language_options().
@@ -3066,10 +3128,7 @@ generic_entity_type:
           YYERROR_AND_ABORT_AT(@1, absl::StrCat(
                                entity_type, " is not a supported object type"));
         }
-        // It is by design that we don't want to support backtick quoted
-        // entity type. Backtick is kept as part of entity type name, and will
-        // be rejected by engine later.
-        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+        $$ = $1;
       }
     ;
 
@@ -4347,6 +4406,10 @@ parenthesized_query:
       }
   ;
 
+select_or_from_keyword:
+    "SELECT" | "FROM"
+  ;
+
 query:
     // We don't use an opt_with_clause for the first element because it causes
     // shift/reduce conflicts.
@@ -4357,13 +4420,13 @@ query:
         $$ = MAKE_NODE(ASTQuery, @$,
            {$with_clause, $query_primary, $order_by, $offset});
       }
-    | with_clause_with_trailing_comma "SELECT"
+    | with_clause_with_trailing_comma select_or_from_keyword
       {
         // TODO: Consider pointing the error location at the comma
         // instead of at the SELECT.
         YYERROR_AND_ABORT_AT(@2,
                              "Syntax error: Trailing comma after the WITH "
-                             "clause before the SELECT clause is not allowed");
+                             "clause before the main query is not allowed");
       }
     | query_primary_or_set_operation[query_primary]
       opt_order_by_clause[order_by]
@@ -4381,6 +4444,10 @@ query:
           $$ = MAKE_NODE(ASTQuery, @$, {$query_primary, $order_by, $offset});
         }
       }
+    | opt_with_clause "FROM"
+     {
+        YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected FROM");
+     }
     ;
 
 opt_corresponding_outer_mode:
@@ -4490,15 +4557,15 @@ query_primary:
      }
     ;
 
-select:
+// This makes an ASTSelect with none of the clauses after SELECT filled in.
+select_clause:
     "SELECT" opt_hint
     opt_select_with
     opt_all_or_distinct
-    opt_select_as_clause select_list opt_from_clause opt_clauses_following_from
+    opt_select_as_clause select_list
       {
         auto* select =
-            MAKE_NODE(ASTSelect, @$, {$2, $3, $5, $6, $7, $8.where, $8.group_by,
-                                      $8.having, $8.qualify, $8.window});
+            MAKE_NODE(ASTSelect, @$, {$2, $3, $5, $6});
         select->set_distinct($4 == AllOrDistinctKeyword::kDistinct);
         $$ = select;
       }
@@ -4512,6 +4579,14 @@ select:
             "Syntax error: SELECT list must not be empty");
       }
     ;
+
+select:
+    select_clause opt_from_clause opt_clauses_following_from
+    {
+      zetasql::ASTSelect* select = static_cast<zetasql::ASTSelect*>($1);
+      $$ = WithExtraChildren(select, {$2, $3.where, $3.group_by,
+                                      $3.having, $3.qualify, $3.window});
+    }
 
 opt_select_with:
     "WITH" identifier opt_options_list
@@ -5090,7 +5165,7 @@ table_subquery:
 
 
 table_clause:
-    "TABLE" tvf
+    "TABLE" tvf_with_suffixes
       {
         $$ = MAKE_NODE(ASTTableClause, @$, {$2});
       }
@@ -5241,6 +5316,18 @@ tvf_prefix:
     ;
 
 tvf:
+    tvf_prefix_no_args ")" opt_hint
+      {
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$3});
+      }
+    | tvf_prefix ")" opt_hint
+      {
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$3});
+      }
+    ;
+
+tvf_with_suffixes:
+    // Using the `tvf` production inside these rules causes a reduce conflict.
     tvf_prefix_no_args ")" opt_hint opt_pivot_or_unpivot_clause_and_alias
     opt_sample_clause
       {
@@ -5335,7 +5422,7 @@ table_path_expression:
       };
 
 table_primary:
-    tvf
+    tvf_with_suffixes
     | table_path_expression
     | "(" join ")" opt_sample_clause
       {
@@ -5421,6 +5508,12 @@ on_or_using_clause_list:
 on_or_using_clause:
     on_clause
     | using_clause
+  ;
+
+opt_on_or_using_clause:
+    on_or_using_clause
+    | %empty { $$ = nullptr; }
+  ;
 
 // Returns the join type id. Returns 0 to indicate "just a join".
 join_type:
@@ -5545,6 +5638,11 @@ from_clause_contents:
     ;
 
 opt_from_clause:
+    from_clause
+    | %empty { $$ = nullptr; }
+;
+
+from_clause:
     "FROM" from_clause_contents
       {
         zetasql::parser::ErrorInfo error_info;
@@ -5556,7 +5654,6 @@ opt_from_clause:
 
         $$ = MAKE_NODE(ASTFromClause, @$, {node});
       }
-    | %empty { $$ = nullptr; }
     ;
 
 // The rules opt_clauses_following_from, opt_clauses_following_where and
@@ -5669,9 +5766,16 @@ grouping_item:
         auto* grouping_item = MAKE_NODE(ASTGroupingItem, @$, {});
         $$ = parser->WithEndLocation(grouping_item, @$);
       }
-    | expression
+    // Making AS optional currently causes a conflict because
+    // KW_QUALIFY_NONRESERVED can follow GROUP BY.
+    | expression opt_as_alias_with_required_as
       {
-        $$ = MAKE_NODE(ASTGroupingItem, @$, {$1});
+        if ($2 != nullptr
+           ) {
+          YYERROR_AND_ABORT_AT(
+              @2, "Syntax error: GROUP BY does not support aliases");
+        }
+        $$ = MAKE_NODE(ASTGroupingItem, @$, {$1, $2});
       }
     | rollup_list ")"
       {
@@ -5792,7 +5896,7 @@ qualify_clause_nonreserved:
       }
     ;
 
-opt_limit_offset_clause:
+limit_offset_clause:
     "LIMIT" possibly_cast_int_literal_or_parameter
     "OFFSET" possibly_cast_int_literal_or_parameter
       {
@@ -5802,6 +5906,10 @@ opt_limit_offset_clause:
       {
         $$ = MAKE_NODE(ASTLimitOffset, @$, {$2});
       }
+    ;
+
+opt_limit_offset_clause:
+    limit_offset_clause { $$ = $1; }
     | %empty { $$ = nullptr; }
     ;
 
@@ -5894,6 +6002,11 @@ with_clause:
       }
     ;
 
+opt_with_clause:
+    with_clause
+    | %empty { $$ = nullptr; }
+  ;
+
 opt_with_connection_clause:
     with_connection_clause
     | %empty { $$ = nullptr; }
@@ -5974,11 +6087,15 @@ order_by_clause_prefix:
       }
     ;
 
-opt_order_by_clause:
+order_by_clause:
     order_by_clause_prefix
       {
         $$ = parser->WithEndLocation($1, @$);
       }
+    ;
+
+opt_order_by_clause:
+    order_by_clause { $$ = $1; }
     | %empty { $$ = nullptr; }
     ;
 
@@ -6934,10 +7051,10 @@ maybe_slashed_or_dashed_path_expression:
 
 slashed_identifier_separator: "-" | "/" | ":"
 
-// Identifier or integer. LABEL is also included so that a ":" in a path
+// Identifier or integer. SCRIPT_LABEL is also included so that a ":" in a path
 // followed by begin/while/loop/repeat/for doesn't trigger the
 // script label grammar.
-identifier_or_integer: identifier | INTEGER_LITERAL | LABEL
+identifier_or_integer: identifier | INTEGER_LITERAL | SCRIPT_LABEL
 
 // An identifier that starts with a "/" and can contain non-adjacent /:-
 // separators.
@@ -8385,7 +8502,7 @@ identifier:
     ;
 
 label:
-  LABEL
+  SCRIPT_LABEL
     {
       const absl::string_view label_text = parser->GetInputText(@1);
       // The tokenizer rule already validates that the identifier is valid and
@@ -8542,6 +8659,7 @@ keyword_as_identifier:
     | "PRIVILEGE"
     | "PRIVILEGES"
     | "PROCEDURE"
+    | "PROJECT"
     | "PUBLIC"
     | KW_QUALIFY_NONRESERVED
       {
@@ -8645,10 +8763,19 @@ opt_hint:
     ;
 
 options_entry:
-    identifier_in_hints "=" expression_or_proto
+    identifier_in_hints options_assignment_operator expression_or_proto
       {
-        $$ = MAKE_NODE(ASTOptionsEntry, @$, {$1, $3});
+        auto* options_entry =
+            MAKE_NODE(ASTOptionsEntry, @1, @3, {$1, $3});
+        options_entry->set_assignment_op($2);
+        $$ = options_entry;
       }
+    ;
+
+options_assignment_operator:
+    "=" { $$ = zetasql::ASTOptionsEntry::ASSIGN; }
+    | "+=" { $$ = zetasql::ASTOptionsEntry::ADD_ASSIGN; }
+    | "-=" { $$ = zetasql::ASTOptionsEntry::SUB_ASSIGN; }
     ;
 
 expression_or_proto:
@@ -8683,8 +8810,12 @@ options_list:
       }
     ;
 
-opt_options_list:
+options:
     "OPTIONS" options_list { $$ = $2; }
+    ;
+
+opt_options_list:
+    options { $$ = $1; }
     | %empty { $$ = nullptr; }
     ;
 
@@ -10033,6 +10164,7 @@ next_statement_kind_parenthesized_select:
     "(" next_statement_kind_parenthesized_select { $$ = $2; }
     | "SELECT" { $$ = zetasql::ASTQueryStatement::kConcreteNodeKind; }
     | "WITH" { $$ = zetasql::ASTQueryStatement::kConcreteNodeKind; }
+    | "FROM" { $$ = zetasql::ASTQueryStatement::kConcreteNodeKind; }
     ;
 
 next_statement_kind_table:

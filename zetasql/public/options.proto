@@ -434,6 +434,13 @@ enum LanguageFeature {
   // TODO: remove in_development and consider enabling it.
   FEATURE_INTERVAL_TYPE = 49 [(language_feature_options).in_development = true];
 
+  // Enables support for the ONEOF_CASE pseudo-accessor in the EXTRACT function.
+  // This accessor can be used to determine which field in a proto Oneof is set.
+  // This feature has no effect unless FEATURE_V_1_3_EXTRACT_FROM_PROTO is also
+  // enabled.
+  // ((broken link))
+  FEATURE_EXTRACT_ONEOF_CASE = 50;
+
   // Enables support for the following parameterized types.
   // - STRING(L) / BYTES(L)
   // - NUMERIC(P) / NUMERIC(P, S)
@@ -596,9 +603,9 @@ enum LanguageFeature {
       [(language_feature_options).in_development = true];
 
   // This feature can be enabled to disable the OUTER JOIN of arrays.
-  // RIGHT JOIN or FULL JOIN independent arrays is producing a shape that engine
-  // should already understand. It is here to ensure there is a way to fall back
-  // to rejecting the shape in case they cause trouble.
+  // RIGHT JOIN or FULL JOIN of independent arrays is producing a shape that
+  // engines should already understand. This is here to ensure there is a way
+  // to fall back to rejecting the shape in case they cause trouble.
   FEATURE_DISABLE_OUTER_JOIN_ARRAY = 94
       [(language_feature_options) = { ideally_enabled: false }];
 
@@ -609,6 +616,13 @@ enum LanguageFeature {
   // Enables support for CREATE MATERIALIZED VIEW AS REPLICA OF ...
   // (broken link):as-replica-of
   FEATURE_CREATE_MATERIALIZED_VIEW_AS_REPLICA_OF = 97;
+
+  // Enables support for += and -= operators for updating array options.
+  // (broken link)
+  FEATURE_ENABLE_ALTER_ARRAY_OPTIONS = 102 [
+    (language_feature_options).in_development = true,
+    (language_feature_options).ideally_enabled = false
+  ];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -1091,6 +1105,27 @@ enum LanguageFeature {
   // TODO: Remove "in_development" when language with connection is
   // launched.
   FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION = 14030
+      [(language_feature_options).in_development = true];
+
+  // Enables inferring column alias for explicit UNNEST with only one argument
+  // when none of the trailing alias or column alias is used: `UNNEST(arg)`
+  // This is a breaking change because the anonymous column will be replace with
+  // inferred alias, which might break name resolution.
+  // See (broken link)
+  FEATURE_V_1_4_SINGLETON_UNNEST_INFERS_ALIAS = 14031
+      [(language_feature_options).in_development = true];
+
+  // Enables the ARRAY_ZIP function, which has both non-lambda and lambda
+  // signatures.
+  // See (broken link).
+  // TODO: Remove the "in_development" flag when the feature
+  // implementation is done.
+  FEATURE_V_1_4_ARRAY_ZIP = 14032
+      [(language_feature_options).in_development = true];
+
+  // Enables explicit UNNEST with multiple arguments in FROM clause.
+  // See (broken link)
+  FEATURE_V_1_4_MULTIWAY_UNNEST = 14033
       [(language_feature_options).in_development = true];
 
   // EXPERIMENTAL FEATURES -

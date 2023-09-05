@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
+import com.google.zetasql.DescriptorPool.ZetaSQLOneofDescriptor;
 import com.google.zetasql.FieldDescriptorRefProto;
 import com.google.zetasql.FileDescriptorSetsBuilder;
 import com.google.zetasql.Function;
@@ -81,6 +82,32 @@ public class DeserializationHelperTest {
     assertThat(field).isNotNull();
     assertThat(field.getDescriptor().getName()).isEqualTo("double_value");
 
+    assertThat(TestAccess.getDescriptorPools(fileDescriptorSetsBuilder))
+        .containsExactly(field.getDescriptorPool());
+  }
+
+  @Test
+  public void testDeserializeOneofDescriptor() {
+    TypeFactory factory = TypeFactory.nonUniqueNames();
+    SimpleCatalog catalog = new SimpleCatalog("foo", factory);
+    catalog.addType("ZetaSQLValue", factory.createProtoType(ValueProto.class));
+
+    FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+    catalog.serialize(fileDescriptorSetsBuilder);
+
+    OneofDescriptorRefProto oneofRef =
+        OneofDescriptorRefProto.newBuilder()
+            .setIndex(0)
+            .setContainingProto(ProtoTypeProto.newBuilder().setProtoName("zetasql.ValueProto"))
+            .build();
+
+    DeserializationHelper helper =
+        new DeserializationHelper(
+            factory, TestAccess.getDescriptorPools(fileDescriptorSetsBuilder), catalog);
+    ZetaSQLOneofDescriptor field = helper.deserialize(oneofRef);
+    assertThat(field).isNotNull();
+    assertThat(field.getDescriptor().getName()).isEqualTo("value");
+    assertThat(field.getDescriptor().getIndex()).isEqualTo(0);
     assertThat(TestAccess.getDescriptorPools(fileDescriptorSetsBuilder))
         .containsExactly(field.getDescriptorPool());
   }
@@ -155,9 +182,7 @@ public class DeserializationHelperTest {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     SimpleCatalog catalog = new SimpleCatalog("foo", factory);
     FunctionSignatureOptionsProto options =
-        FunctionSignatureOptionsProto.newBuilder()
-            .setIsDeprecated(true)
-            .build();
+        FunctionSignatureOptionsProto.newBuilder().setIsDeprecated(true).build();
     List<FunctionArgumentType> arguments = new ArrayList<>();
     arguments.add(
         new FunctionArgumentType(
@@ -168,6 +193,12 @@ public class DeserializationHelperTest {
     arguments.add(
         new FunctionArgumentType(
             SignatureArgumentKind.ARG_TYPE_ANY_2, ArgumentCardinality.OPTIONAL, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_3, ArgumentCardinality.OPTIONAL, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_3, ArgumentCardinality.OPTIONAL, -1));
     FunctionSignature signature =
         new FunctionSignature(
             new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_2), arguments, -1, options);

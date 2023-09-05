@@ -464,10 +464,13 @@ from TestTable tt,
 [SAME AS PREVIOUS]
 ==
 
+[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
 select *
 from TestTable tt,
      UNNEST(tt.KitchenSink.nested_repeated_value) nrv,
      UNNEST(nrv.nested_repeated_int64)
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -535,11 +538,81 @@ QueryStmt
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
         +-element_column=$array.$unnest1#5
+--
+ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-TestTable.key#1 AS key [INT32]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
+| +-$query.nested_int64#6 AS nested_int64 [INT64]
+| +-$query.nested_repeated_int64#7 AS nested_repeated_int64 [ARRAY<INT64>]
+| +-$query.nested_repeated_int32#8 AS nested_repeated_int32 [ARRAY<INT32>]
+| +-$query.value#9 AS value [ARRAY<INT32>]
+| +-$array.nested_repeated_int64#5 AS nested_repeated_int64 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $query.nested_int64#6, $query.nested_repeated_int64#7, $query.nested_repeated_int32#8, $query.value#9, $array.nested_repeated_int64#5]
+    +-expr_list=
+    | +-nested_int64#6 :=
+    | | +-GetProtoField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    | |   +-field_descriptor=nested_int64
+    | |   +-default_value=88
+    | +-nested_repeated_int64#7 :=
+    | | +-GetProtoField
+    | |   +-type=ARRAY<INT64>
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    | |   +-field_descriptor=nested_repeated_int64
+    | |   +-default_value=[]
+    | +-nested_repeated_int32#8 :=
+    | | +-GetProtoField
+    | |   +-type=ARRAY<INT32>
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    | |   +-field_descriptor=nested_repeated_int32
+    | |   +-default_value=[]
+    | +-value#9 :=
+    |   +-GetProtoField
+    |     +-type=ARRAY<INT32>
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    |     +-field_descriptor=value
+    |     +-default_value=[]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.nrv#4, $array.nested_repeated_int64#5]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.nrv#4]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="tt")
+        |   +-array_expr=
+        |   | +-GetProtoField
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
+        |   |   +-expr=
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   +-field_descriptor=nested_repeated_value
+        |   |   +-default_value=[]
+        |   +-element_column=$array.nrv#4
+        +-array_expr=
+        | +-GetProtoField
+        |   +-type=ARRAY<INT64>
+        |   +-expr=
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
+        |   +-field_descriptor=nested_repeated_int64
+        |   +-default_value=[]
+        +-element_column=$array.nested_repeated_int64#5
 ==
 
 # Unlike with path expressions to reference arrays, UNNEST expressions can
 # be resolved without a table qualifier.
 # The nrv. qualifier is still needed though because nrv is a struct.
+[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
 select *
 from TestTable tt,
      UNNEST(KitchenSink.nested_repeated_value) nrv,
@@ -608,8 +681,11 @@ select (select count(*) from KitchenSink.repeated_int32_val)
                              ^
 ==
 
+[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
 select (select count(*) from UNNEST(KitchenSink.repeated_int32_val))
 from TestTable
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -644,6 +720,96 @@ QueryStmt
     |               +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
+--
+ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#6 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#6]
+    +-expr_list=
+    | +-$col1#6 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$aggregate.$agg1#5]
+    |         +-input_scan=
+    |           +-AggregateScan
+    |             +-column_list=[$aggregate.$agg1#5]
+    |             +-input_scan=
+    |             | +-ArrayScan
+    |             |   +-array_expr=
+    |             |   | +-GetProtoField
+    |             |   |   +-type=ARRAY<INT32>
+    |             |   |   +-expr=
+    |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |             |   |   +-field_descriptor=repeated_int32_val
+    |             |   |   +-default_value=[]
+    |             |   +-element_column=$array.repeated_int32_val#4
+    |             +-aggregate_list=
+    |               +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-input_scan=
+      +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
+==
+
+[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
+select * from TestTable, UNNEST(KitchenSink.repeated_int32_val)
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-TestTable.key#1 AS key [INT32]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
+| +-$array.$unnest1#4 AS `$unnest1` [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.$unnest1#4]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.$unnest1#4]
+        +-input_scan=
+        | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
+        +-array_expr=
+        | +-GetProtoField
+        |   +-type=ARRAY<INT32>
+        |   +-expr=
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   +-field_descriptor=repeated_int32_val
+        |   +-default_value=[]
+        +-element_column=$array.$unnest1#4
+--
+ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-TestTable.key#1 AS key [INT32]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
+| +-$array.repeated_int32_val#4 AS repeated_int32_val [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.repeated_int32_val#4]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.repeated_int32_val#4]
+        +-input_scan=
+        | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
+        +-array_expr=
+        | +-GetProtoField
+        |   +-type=ARRAY<INT32>
+        |   +-expr=
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   +-field_descriptor=repeated_int32_val
+        |   +-default_value=[]
+        +-element_column=$array.repeated_int32_val#4
 ==
 
 # Scoping: Column names that show up in two preceding tables will be ambiguous.
@@ -802,6 +968,56 @@ QueryStmt
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
 ==
 
+[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
+select (select nested_repeated_int64 from UNNEST(T.KitchenSink.nested_repeated_value[offset(1)].nested_repeated_int64))
+from TestTable T;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Unrecognized name: nested_repeated_int64 [at 1:16]
+select (select nested_repeated_int64 from UNNEST(T.KitchenSink.nested_repeate...
+               ^
+--
+ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$array.nested_repeated_int64#4]
+    |         +-input_scan=
+    |           +-ArrayScan
+    |             +-column_list=[$array.nested_repeated_int64#4]
+    |             +-array_expr=
+    |             | +-GetProtoField
+    |             |   +-type=ARRAY<INT64>
+    |             |   +-expr=
+    |             |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>, INT64) -> PROTO<zetasql_test__.KitchenSinkPB.Nested>)
+    |             |   |   +-GetProtoField
+    |             |   |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
+    |             |   |   | +-expr=
+    |             |   |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |             |   |   | +-field_descriptor=nested_repeated_value
+    |             |   |   | +-default_value=[]
+    |             |   |   +-Literal(type=INT64, value=1)
+    |             |   +-field_descriptor=nested_repeated_int64
+    |             |   +-default_value=[]
+    |             +-element_column=$array.nested_repeated_int64#4
+    +-input_scan=
+      +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
+==
+
 # To get to an array in a path after a array element access, we have to
 # use UNNEST or we get a parse error.
 select v
@@ -923,6 +1139,25 @@ QueryStmt
         |   +-field_descriptor=repeated_value
         |   +-default_value=[]
         +-element_column=$array.v#4
+==
+
+# When UNNEST expression is not a path expression, there is no alias to be inferred.
+[language_features=V_1_4_SINGLETON_UNNEST_INFERS_ALIAS]
+SELECT *
+FROM UNNEST([1,2])
+--
+QueryStmt
++-output_column_list=
+| +-$array.$unnest1#1 AS `$unnest1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.$unnest1#1]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[$array.$unnest1#1]
+        +-array_expr=
+        | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        +-element_column=$array.$unnest1#1
 ==
 
 # Multiple expressions in UNNEST are not implemented.

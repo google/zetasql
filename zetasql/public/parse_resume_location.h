@@ -136,8 +136,8 @@ class ParseResumeLocation {
   }
 
   void Serialize(ParseResumeLocationProto* proto) const {
-    proto->set_filename(std::string(filename_));
-    proto->set_input(std::string(input_));
+    proto->set_filename(filename_);
+    proto->set_input(input_);
     proto->set_byte_position(byte_position_);
     proto->set_allow_resume(allow_resume_);
   }

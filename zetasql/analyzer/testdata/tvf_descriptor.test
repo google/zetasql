@@ -295,3 +295,36 @@ select * from tvf_one_relation_arg_one_descriptor_resolved_names(
 ERROR: DESCRIPTOR specifies int64c, which does not exist in the table passed as argument 1 [at 2:54]
     (select cast(42 as int64) as int64a), descriptor(int64c))
                                                      ^
+==
+
+# Wrong type for DESCRIPTOR arg.
+select *
+from tvf_one_relation_arg_one_descriptor(
+    (select 42 as int64a),
+    (select 1))
+--
+ERROR: Table-valued function tvf_one_relation_arg_one_descriptor argument 2 must be a DESCRIPTOR [at 4:5]
+    (select 1))
+    ^
+==
+
+# Wrong type for DESCRIPTOR arg.
+select *
+from tvf_one_relation_arg_one_descriptor(
+    (select 42 as int64a),
+    17)
+--
+ERROR: Table-valued function tvf_one_relation_arg_one_descriptor argument 2 must be a DESCRIPTOR [at 4:5]
+    17)
+    ^
+==
+
+# Wrong type for DESCRIPTOR arg.
+select *
+from tvf_one_relation_arg_one_descriptor(
+    (select 42 as int64a),
+    model onedoublemodel)
+--
+ERROR: No matching signature for tvf_one_relation_arg_one_descriptor for argument types: TABLE<int64a INT64>, MODEL. Supported signature: TVF_ONE_RELATION_ARG_ONE_DESCRIPTOR(TABLE<int64a INT64>, DESCRIPTOR) [at 2:6]
+from tvf_one_relation_arg_one_descriptor(
+     ^

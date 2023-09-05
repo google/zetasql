@@ -55,7 +55,7 @@ TEST(RewriteResolvedAstTest, RewriterDoesNotConflictWithExpressionColumnNames) {
   ZETASQL_CHECK_OK(options.AddExpressionColumn("mapproto", map_type));
 
   SimpleCatalog catalog("catalog", &types);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   std::unique_ptr<const AnalyzerOutput> output;
   auto status = zetasql::AnalyzeExpression(
@@ -172,7 +172,7 @@ TEST(RewriteResolvedAstTest, RewriterWarnsComplextyJustOnce) {
   ZETASQL_CHECK_OK(options.AddExpressionColumn("mapproto", map_type));
 
   SimpleCatalog catalog("catalog", &types);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   std::unique_ptr<const AnalyzerOutput> output;
   auto status = zetasql::AnalyzeExpression(
@@ -199,7 +199,7 @@ TEST(RewriteResolvedAstTest, RewriteWithRewriteDetectedDisabled) {
   ZETASQL_CHECK_OK(options.AddExpressionColumn("mapproto", map_type));
 
   SimpleCatalog catalog("catalog", &types);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   std::unique_ptr<const AnalyzerOutput> output;
   auto status =

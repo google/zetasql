@@ -19,6 +19,7 @@
 
 # Arithmetic between UINT64 and signed ints is invalid.  Those error tests
 # follow this one.
+[default also_show_signature_mismatch_details]
 [language_features={{NUMERIC_TYPE|}}]
 select `int32` + `int32`,
        `int32` + `int64`,
@@ -368,6 +369,18 @@ ALTERNATION GROUP: <empty>
 ERROR: No matching signature for operator + for argument types: INT32, NUMERIC. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 6:8]
        `int32` + `numeric`,
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: INT32, NUMERIC
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type NUMERIC to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 6:8]
+       `int32` + `numeric`,
+       ^
 ==
 
 [language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|NUMERIC_TYPE|}}]
@@ -500,9 +513,35 @@ ERROR: No matching signature for operator + for argument types: INT32, BIGNUMERI
 select `int32` + `bignumeric`,
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: INT32, BIGNUMERIC
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type BIGNUMERIC to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied
+  Signature: NUMERIC + NUMERIC
+    Argument 2: Unable to coerce type BIGNUMERIC to expected type NUMERIC [at 1:8]
+select `int32` + `bignumeric`,
+       ^
+--
 ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for operator + for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select `int32` + `bignumeric`,
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: INT32, BIGNUMERIC
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type BIGNUMERIC to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select `int32` + `bignumeric`,
        ^
 ==
@@ -514,6 +553,18 @@ from SimpleTypes
 ERROR: No matching signature for operator + for argument types: INT32, UINT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
 select `int32` + `uint64`
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: INT32, UINT64
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 1:8]
+select `int32` + `uint64`
+       ^
 ==
 
 # Arithmetic between UINT64 and signed ints is invalid.
@@ -521,6 +572,18 @@ select `int64` + `uint64`
 from SimpleTypes
 --
 ERROR: No matching signature for operator + for argument types: INT64, UINT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select `int64` + `uint64`
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: INT64, UINT64
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select `int64` + `uint64`
        ^
 ==
@@ -532,6 +595,18 @@ from SimpleTypes
 ERROR: No matching signature for operator + for argument types: UINT64, INT32. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
 select `uint64` + `int32`
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: UINT64, INT32
+  Signature: INT64 + INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 2: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 1:8]
+select `uint64` + `int32`
+       ^
 ==
 
 # Arithmetic between UINT64 and signed ints is invalid.
@@ -539,6 +614,18 @@ select `uint64` + `int64`
 from SimpleTypes
 --
 ERROR: No matching signature for operator + for argument types: UINT64, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select `uint64` + `int64`
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: UINT64, INT64
+  Signature: INT64 + INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 2: Unable to coerce type INT64 to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select `uint64` + `int64`
        ^
 ==
@@ -906,6 +993,18 @@ ALTERNATION GROUP: <empty>
 ERROR: No matching signature for operator - for argument types: INT32, NUMERIC. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 6:8]
        `int32` - `numeric`,
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: INT32, NUMERIC
+  Signature: INT64 - INT64
+    Argument 2: Unable to coerce type NUMERIC to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument constraints are not satisfied [at 6:8]
+       `int32` - `numeric`,
+       ^
 ==
 
 [language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|NUMERIC_TYPE|}}]
@@ -1038,9 +1137,35 @@ ERROR: No matching signature for operator - for argument types: INT32, BIGNUMERI
 select `int32` - `bignumeric`,
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: INT32, BIGNUMERIC
+  Signature: INT64 - INT64
+    Argument 2: Unable to coerce type BIGNUMERIC to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: NUMERIC - NUMERIC
+    Argument 2: Unable to coerce type BIGNUMERIC to expected type NUMERIC
+  Signature: DOUBLE - DOUBLE
+    Argument constraints are not satisfied [at 1:8]
+select `int32` - `bignumeric`,
+       ^
+--
 ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for operator - for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
+select `int32` - `bignumeric`,
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: INT32, BIGNUMERIC
+  Signature: INT64 - INT64
+    Argument 2: Unable to coerce type BIGNUMERIC to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select `int32` - `bignumeric`,
        ^
 ==
@@ -1052,6 +1177,18 @@ from SimpleTypes
 ERROR: No matching signature for operator - for argument types: INT32, UINT64. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
 select `int32` - `uint64`
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: INT32, UINT64
+  Signature: INT64 - INT64
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument constraints are not satisfied [at 1:8]
+select `int32` - `uint64`
+       ^
 ==
 
 # Arithmetic between UINT64 and signed ints is invalid.
@@ -1059,6 +1196,18 @@ select `int64` - `uint64`
 from SimpleTypes
 --
 ERROR: No matching signature for operator - for argument types: INT64, UINT64. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
+select `int64` - `uint64`
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: INT64, UINT64
+  Signature: INT64 - INT64
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select `int64` - `uint64`
        ^
 ==
@@ -1070,6 +1219,18 @@ from SimpleTypes
 ERROR: No matching signature for operator - for argument types: UINT64, INT32. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
 select `uint64` - `int32`
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: UINT64, INT32
+  Signature: INT64 - INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 2: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument constraints are not satisfied [at 1:8]
+select `uint64` - `int32`
+       ^
 ==
 
 # Arithmetic between UINT64 and signed ints is invalid.
@@ -1077,6 +1238,18 @@ select `uint64` - `int64`
 from SimpleTypes
 --
 ERROR: No matching signature for operator - for argument types: UINT64, INT64. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
+select `uint64` - `int64`
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: UINT64, INT64
+  Signature: INT64 - INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 2: Unable to coerce type INT64 to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select `uint64` - `int64`
        ^
 ==
@@ -1444,6 +1617,18 @@ ALTERNATION GROUP: <empty>
 ERROR: No matching signature for operator * for argument types: INT32, NUMERIC. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 6:8]
        `int32` * `numeric`,
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator *
+  Argument types: INT32, NUMERIC
+  Signature: INT64 * INT64
+    Argument 2: Unable to coerce type NUMERIC to expected type INT64
+  Signature: UINT64 * UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE * DOUBLE
+    Argument constraints are not satisfied [at 6:8]
+       `int32` * `numeric`,
+       ^
 ==
 
 [language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|NUMERIC_TYPE|}}]
@@ -1576,9 +1761,35 @@ ERROR: No matching signature for operator * for argument types: INT32, BIGNUMERI
 select `int32` * `bignumeric`,
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for operator *
+  Argument types: INT32, BIGNUMERIC
+  Signature: INT64 * INT64
+    Argument 2: Unable to coerce type BIGNUMERIC to expected type INT64
+  Signature: UINT64 * UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE * DOUBLE
+    Argument constraints are not satisfied
+  Signature: NUMERIC * NUMERIC
+    Argument 2: Unable to coerce type BIGNUMERIC to expected type NUMERIC [at 1:8]
+select `int32` * `bignumeric`,
+       ^
+--
 ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for operator * for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
+select `int32` * `bignumeric`,
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator *
+  Argument types: INT32, BIGNUMERIC
+  Signature: INT64 * INT64
+    Argument 2: Unable to coerce type BIGNUMERIC to expected type INT64
+  Signature: UINT64 * UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE * DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select `int32` * `bignumeric`,
        ^
 ==
@@ -1590,6 +1801,18 @@ from SimpleTypes
 ERROR: No matching signature for operator * for argument types: INT32, UINT64. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
 select `int32` * `uint64`
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator *
+  Argument types: INT32, UINT64
+  Signature: INT64 * INT64
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 * UINT64
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE * DOUBLE
+    Argument constraints are not satisfied [at 1:8]
+select `int32` * `uint64`
+       ^
 ==
 
 # Arithmetic between UINT64 and signed ints is invalid.
@@ -1597,6 +1820,18 @@ select `int64` * `uint64`
 from SimpleTypes
 --
 ERROR: No matching signature for operator * for argument types: INT64, UINT64. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
+select `int64` * `uint64`
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator *
+  Argument types: INT64, UINT64
+  Signature: INT64 * INT64
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 * UINT64
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: DOUBLE * DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select `int64` * `uint64`
        ^
 ==
@@ -1608,6 +1843,18 @@ from SimpleTypes
 ERROR: No matching signature for operator * for argument types: UINT64, INT32. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
 select `uint64` * `int32`
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator *
+  Argument types: UINT64, INT32
+  Signature: INT64 * INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 * UINT64
+    Argument 2: Unable to coerce type INT32 to expected type UINT64
+  Signature: DOUBLE * DOUBLE
+    Argument constraints are not satisfied [at 1:8]
+select `uint64` * `int32`
+       ^
 ==
 
 # Arithmetic between UINT64 and signed ints is invalid.
@@ -1615,6 +1862,18 @@ select `uint64` * `int64`
 from SimpleTypes
 --
 ERROR: No matching signature for operator * for argument types: UINT64, INT64. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
+select `uint64` * `int64`
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator *
+  Argument types: UINT64, INT64
+  Signature: INT64 * INT64
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: UINT64 * UINT64
+    Argument 2: Unable to coerce type INT64 to expected type UINT64
+  Signature: DOUBLE * DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select `uint64` * `int64`
        ^
 ==
@@ -2833,6 +3092,18 @@ ALTERNATION GROUP: <empty>
 ERROR: No matching signature for operator + for argument types: NUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 2:8]
        numeric + 1,
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: NUMERIC, INT64
+  Signature: INT64 + INT64
+    Argument 1: Unable to coerce type NUMERIC to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type NUMERIC to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 2:8]
+       numeric + 1,
+       ^
 ==
 
 [language_features={{BIGNUMERIC_TYPE|}}]
@@ -2885,6 +3156,18 @@ QueryStmt
 ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for operator + for argument types: BIGNUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select bignumeric + 1,
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: BIGNUMERIC, INT64
+  Signature: INT64 + INT64
+    Argument 1: Unable to coerce type BIGNUMERIC to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type BIGNUMERIC to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select bignumeric + 1,
        ^
 ==
@@ -3909,6 +4192,18 @@ ALTERNATION GROUP: <empty>
 ERROR: No matching signature for operator + for argument types: NUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
 select numeric + 2000000000000,
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: NUMERIC, INT64
+  Signature: INT64 + INT64
+    Argument 1: Unable to coerce type NUMERIC to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type NUMERIC to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 1:8]
+select numeric + 2000000000000,
+       ^
 ==
 
 # Tests bignumeric column plus INT64/UINT64 literal.
@@ -3941,6 +4236,18 @@ QueryStmt
 ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for operator + for argument types: BIGNUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select bignumeric + 2000000000000,
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: BIGNUMERIC, INT64
+  Signature: INT64 + INT64
+    Argument 1: Unable to coerce type BIGNUMERIC to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type BIGNUMERIC to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument constraints are not satisfied [at 1:8]
 select bignumeric + 2000000000000,
        ^
 ==

@@ -110,6 +110,22 @@ absl::Status EvaluationContext::AddTableAsArray(
   return absl::OkStatus();
 }
 
+Value EvaluationContext::GetFunctionArgumentRef(std::string arg_name) {
+  const auto it = udf_argument_references_.find(arg_name);
+  if (it != udf_argument_references_.end()) {
+    return it->second;
+  }
+  return Value();
+}
+
+absl::Status EvaluationContext::AddFunctionArgumentRef(std::string arg_name,
+                                                       Value value) {
+  ZETASQL_RET_CHECK(value.is_valid());
+  ZETASQL_RET_CHECK(udf_argument_references_.emplace(arg_name, value).second)
+      << "AddFunctionArgumentRef: Unable to insert key " << arg_name;
+  return absl::OkStatus();
+}
+
 absl::Status EvaluationContext::VerifyNotAborted() const {
   ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
       "Out of stack space due to deeply nested evaluation");

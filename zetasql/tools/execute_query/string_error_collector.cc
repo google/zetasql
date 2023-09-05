@@ -32,15 +32,15 @@ StringErrorCollector::StringErrorCollector(std::string* error_text,
   ABSL_CHECK_NE(error_text, nullptr);
 }
 
-void StringErrorCollector::AddError(int line, int column,
-                                    const std::string& message) {
+void StringErrorCollector::RecordError(int line, int column,
+                                       absl::string_view message) {
   absl::SubstituteAndAppend(error_text_, "$0($1): $2\n", line + index_offset_,
                             column + index_offset_, message);
 }
 
-void StringErrorCollector::AddWarning(int line, int column,
-                                      const std::string& message) {
-  AddError(line, column, message);
+void StringErrorCollector::RecordWarning(int line, int column,
+                                         absl::string_view message) {
+  RecordError(line, column, message);
 }
 
 }  // namespace zetasql

@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+# Placeholder: load py_proto_library
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 package(
@@ -176,6 +177,8 @@ cc_library(
     name = "compliance_test_base",
     testonly = 1,
     data = glob(["testdata/*.test"]) + [
+        "//zetasql/public/functions:array_find_mode_proto",
+        "//zetasql/public/functions:rounding_mode_proto",
         "//zetasql/testdata:test_proto3_proto",
         "//zetasql/testdata:test_schema_proto",
         "@com_google_googleapis//google/type:date_proto",
@@ -330,6 +333,8 @@ cc_test(
     size = "large",
     srcs = ["depth_limit_detector_test_cases_test.cc"],
     data = [
+        "//zetasql/public/functions:array_find_mode_proto",
+        "//zetasql/public/functions:rounding_mode_proto",
         "//zetasql/testdata:test_proto3_proto",
         "//zetasql/testdata:test_schema_proto",
         "@com_google_googleapis//google/type:date_proto",
@@ -462,6 +467,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public:builtin_function",
+        "//zetasql/public:builtin_function_options",
         "//zetasql/public:catalog",
         "//zetasql/public:function_headers",
         "//zetasql/public:language_options",
@@ -483,6 +489,7 @@ cc_library(
         "functions_testlib_2.cc",
         "functions_testlib_cast.cc",
         "functions_testlib_common.cc",
+        "functions_testlib_distance.cc",
         "functions_testlib_format.cc",
         "functions_testlib_format_floating_point.cc",
         "functions_testlib_format_integral.cc",

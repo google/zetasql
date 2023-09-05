@@ -89,7 +89,7 @@ message ValueProto {
     Array array_value = 13;
     Struct struct_value = 14;
     // Stores a serialized protocol message.
-    bytes proto_value = 15;
+    bytes proto_value = 15 [ctype = CORD];
     google.protobuf.Timestamp timestamp_value = 16;
     Datetime datetime_value = 17;
     // Bit field encoding of hour/minute/second/nanos. See TimeValue class for

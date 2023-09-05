@@ -98,7 +98,7 @@ class JSONValueBuilder {
     return absl::OkStatus();
   }
 
-  absl::Status BeginMember(const std::string& key) {
+  absl::Status BeginMember(absl::string_view key) {
     // Skipping mode
     if (ref_stack_.back() == GetSkippingNodeMarker()) {
       return absl::OkStatus();
@@ -135,7 +135,7 @@ class JSONValueBuilder {
     return absl::OkStatus();
   }
 
-  absl::Status ParsedString(const std::string& str) {
+  absl::Status ParsedString(absl::string_view str) {
     return HandleValue(str).status();
   }
 
@@ -228,7 +228,7 @@ class JSONValueParserBase {
   // The current status of the parser.
   absl::Status status() const { return status_; }
 
-  bool parse_error(std::size_t /*unused*/, const std::string& /*unused*/,
+  bool parse_error(std::size_t /*unused*/, absl::string_view /*unused*/,
                    const nlohmann::detail::exception& ex) {
     absl::string_view error = ex.what();
     // Strip the error code specific to the nlohmann JSON library.
@@ -314,7 +314,7 @@ class JSONValueStandardParser : public JSONValueParserBase {
     return MaybeUpdateStatus(value_builder_.ParsedUInt(val));
   }
 
-  bool number_float(double val, const std::string& input_str) {
+  bool number_float(double val, absl::string_view input_str) {
     if (wide_number_mode_ == WideNumberMode::kExact) {
       auto status = CheckNumberRoundtrip(input_str, val);
       if (!status.ok()) {
@@ -379,7 +379,7 @@ class JSONValueStandardValidator : public JSONValueParserBase {
   bool boolean(bool val) { return true; }
   bool number_integer(std::int64_t val) { return true; }
   bool number_unsigned(std::uint64_t val) { return true; }
-  bool number_float(double val, const std::string& input_str) {
+  bool number_float(double val, absl::string_view input_str) {
     if (strict_number_parsing_) {
       auto status = CheckNumberRoundtrip(input_str, val);
       if (!status.ok()) {

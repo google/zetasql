@@ -1000,6 +1000,10 @@ inline bool IntervalUnaryMinus(IntervalValue in, IntervalValue* out,
   return true;
 }
 
+// "1950-01-01 00:00:00" is the default origin for time bucketing functions.
+static constexpr absl::CivilSecond kDefaultTimeBucketOrigin =
+    absl::CivilSecond(1950, 1, 1, 0, 0, 0);
+
 // Assigns <input> timestamp to a specific bucket using the specified
 // <bucket_width> INTERVAL and returns the bucket start timestamp.
 //

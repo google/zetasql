@@ -330,9 +330,9 @@ class Stats {
     }
 
     ComplianceTestCaseLabels* test_case = labels_proto_.add_test_cases();
-    test_case->set_test_name(std::string(test_name));
-    test_case->set_test_query(std::string(sql));
-    test_case->mutable_test_location()->set_file(std::string(file));
+    test_case->set_test_name(test_name);
+    test_case->set_test_query(sql);
+    test_case->mutable_test_location()->set_file(file);
     test_case->mutable_test_location()->set_line(line);
     static constexpr int kMaxParameterLiteralSize = 1000;
     std::string trunc_msg = "[TRUNCATED]";
@@ -2422,9 +2422,14 @@ std::string SQLTestBase::ToString(
     const Value& value = std::get<Value>(status.value());
     ABSL_CHECK(!value.is_null());
     ABSL_CHECK(value.is_valid());
-    result_string = InternalValue::FormatInternal(
-        value,
-        absl::GetFlag(FLAGS_zetasql_compliance_print_array_orderedness));
+    if (format_value_content_options_ == nullptr) {
+      result_string = InternalValue::FormatInternal(
+          value,
+          absl::GetFlag(FLAGS_zetasql_compliance_print_array_orderedness));
+    } else {
+      result_string =
+          InternalValue::FormatInternal(value, *format_value_content_options_);
+    }
   } else {
     result_string =
         ScriptResultToString(std::get<ScriptResult>(status.value()));
@@ -2434,6 +2439,16 @@ std::string SQLTestBase::ToString(
   ABSL_CHECK(zetasql::functions::RightTrimBytes(result_string, "\n",
                                              &trimmed_result, &ignored_status));
   return std::string(trimmed_result);
+}
+
+InternalValue::FormatValueContentOptions*
+    SQLTestBase::format_value_content_options_ = nullptr;
+
+void SQLTestBase::SetFormatValueContentOptions(
+    InternalValue::FormatValueContentOptions options) {
+  delete format_value_content_options_;
+  format_value_content_options_ =
+      new InternalValue::FormatValueContentOptions(std::move(options));
 }
 
 std::string SQLTestBase::ToString(

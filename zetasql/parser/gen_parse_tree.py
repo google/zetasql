@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 409
+NEXT_NODE_TAG_ID = 423
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -150,6 +150,10 @@ SCALAR_SCHEMA_OBJECT_KIND = EnumScalarType('SchemaObjectKind', '',
                                            'kInvalidSchemaObjectKind')
 
 SCALAR_BINARY_OP = EnumScalarType('Op', 'ASTBinaryExpression', 'NOT_SET')
+
+SCALAR_OPTIONS_ENTRY_ASSIGNMENT_OP = EnumScalarType(
+    'AssignmentOp', 'ASTOptionsEntry', 'NOT_SET'
+)
 
 SCALAR_ORDERING_SPEC = EnumScalarType('OrderingSpec', 'ASTOrderingExpression',
                                       'UNSPECIFIED')
@@ -1326,6 +1330,8 @@ def main(argv):
       comment="""
       Represents a grouping item, which is either an expression (a regular
       group by key), or a rollup list, or a cube list, or a grouping set list.
+      The item "()", meaning an empty grouping list, is represented as an
+      ASTGroupingItem with no children.
       """,
       fields=[
           Field(
@@ -1333,9 +1339,6 @@ def main(argv):
               'ASTExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
-              comment="""
-              Exactly one of expression() and rollup() will be non-NULL.
-              """,
           ),
           Field(
               'rollup',
@@ -4457,7 +4460,8 @@ def main(argv):
               'name',
               'ASTIdentifier',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'value',
               'ASTExpression',
@@ -4466,8 +4470,22 @@ def main(argv):
               comment="""
               Value may be any expression; engines can decide whether they
               support identifiers, literals, parameters, constants, etc.
-              """),
-      ])
+              """,
+          ),
+          Field(
+              'assignment_op',
+              SCALAR_OPTIONS_ENTRY_ASSIGNMENT_OP,
+              tag_id=4,
+              comment="""
+              See description of Op values in ast_enums.proto.
+              """,
+          ),
+      ],
+      extra_public_defs="""
+      // Returns name of the assignment operator in SQL.
+      std::string GetSQLForOperator() const;
+          """,
+  )
 
   gen.AddNode(
       name='ASTCreateStatement',

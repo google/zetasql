@@ -18,6 +18,7 @@
 
 #include <math.h>
 
+#include <cstdint>
 #include <limits>
 #include <map>
 #include <string>
@@ -30,6 +31,7 @@
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/format_max_output_width.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
@@ -1344,6 +1346,35 @@ TEST(Convert, FormatAsDecimal_Inf) {
 }
 
 }  // namespace internal
+
+TEST(Convert, IntegerOverflow) {
+  for (const ProductMode product_mode :
+       {ProductMode::PRODUCT_EXTERNAL, ProductMode::PRODUCT_INTERNAL}) {
+    NumericalToStringFormatter formatter(product_mode);
+
+    // int64_t min overflow is correctly handled.
+    ZETASQL_ASSERT_OK(formatter.SetFormatString("xxxxxxxxxxxxxxxx"));  // 16 x's
+    EXPECT_EQ(
+        formatter.Format(Value::Int64(std::numeric_limits<int64_t>::min()))
+            .value(),
+        "-8000000000000000");
+
+    // Non-overflow negative int64_t.
+    ZETASQL_ASSERT_OK(formatter.SetFormatString("x"));
+    EXPECT_EQ(formatter.Format(Value::Int64(-1)).value(), "-1");
+
+    // Zero case.
+    ZETASQL_ASSERT_OK(formatter.SetFormatString("x"));
+    EXPECT_EQ(formatter.Format(Value::Int64(0)).value(), " 0");
+
+    // int64_t max does not overflow.
+    ZETASQL_ASSERT_OK(formatter.SetFormatString("xxxxxxxxxxxxxxxx"));  // 16 x's
+    EXPECT_EQ(
+        formatter.Format(Value::Int64(std::numeric_limits<int64_t>::max()))
+            .value(),
+        " 7fffffffffffffff");
+  }
+}
 
 }  // namespace functions
 }  // namespace zetasql

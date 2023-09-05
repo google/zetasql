@@ -2871,7 +2871,7 @@ The concatenation operator combines multiple values into one.
 </tbody>
 </table>
 
-### `WITH` operator
+### `WITH` expression
 
 ```sql
 WITH(variable_assignment[, ...], result_expression)
@@ -2883,7 +2883,7 @@ variable_assignment:
 **Description**
 
 Create one or more variables. Each variable can be used in subsequent
-expressions within the `WITH` operator. Returns the value of
+expressions within the `WITH` expression. Returns the value of
 `result_expression`.
 
 +   `variable_assignment`: Introduces a variable. The variable name must be
@@ -2891,10 +2891,12 @@ expressions within the `WITH` operator. Returns the value of
     variables that come before it. For example, if you create variable `a`,
     then follow it with variable `b`, you can reference `a` inside of `b`'s
     expression.
+
     +   `variable_name`: The name of the variable.
+
     +   `expression`: The value to assign to the variable.
-+   `result_expression`: An expression that is the `WITH` operator's result.
-    This expression can use all the variables defined before it.
++   `result_expression`: An expression that is the `WITH` expression's result.
+    `result_expression` can use all of the variables defined before it.
 
 **Return Type**
 
@@ -2903,11 +2905,11 @@ expressions within the `WITH` operator. Returns the value of
 **Requirements and Caveats**
 
 +   A given variable may only be assigned once in a given `WITH` clause.
-+   Variables created during `WITH` may not be used in analytic or
-    aggregate function arguments. For example, `WITH(a AS ..., SUM(a))` produces
-    an error.
-+   Volatile expressions (for example,  `RAND()`) behave as if they are
-    evaluated only once.
++   Variables created during `WITH` may not be used in 
+    analytic or  aggregate function arguments. For example,
+    `WITH(a AS ..., SUM(a))` produces an error.
++   Volatile expressions (for example, `RAND()`) behave
+    as if they are evaluated only once.
 
 **Examples**
 
@@ -2916,7 +2918,7 @@ The following example first concatenates variable `a` with `b`, then variable
 
 ```sql
 SELECT WITH(a AS '123',               -- a is '123'
-            b AS CONCAT(a, '456'),    -- b is '123456
+            b AS CONCAT(a, '456'),    -- b is '123456'
             c AS '789',               -- c is '789'
             CONCAT(b, c)) AS result;  -- b + c is '123456789'
 
@@ -2941,8 +2943,8 @@ SELECT WITH(a AS RAND(), a - a);
  *---------*/
 ```
 
-Aggregate or analytic function results can be stored in variables. In this
-example, an average is computed:
+Aggregate or analytic function
+results can be stored in variables. In this example, an average is computed:
 
 ```sql
 SELECT WITH(s AS SUM(input), c AS COUNT(input), s/c)
@@ -2955,7 +2957,8 @@ FROM UNNEST([1.0, 2.0, 3.0]) AS input;
  *---------*/
 ```
 
-Variables cannot be used in aggregate or analytic function call arguments:
+Variables cannot be used in aggregate or
+analytic function call arguments:
 
 ```sql
 SELECT WITH(diff AS a - b, AVG(diff))
@@ -3424,7 +3427,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns an expression for some row.
+    Gets an expression for some row.
   </td>
 </tr>
 
@@ -3433,7 +3436,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns an array of values.
+    Gets an array of values.
   </td>
 </tr>
 
@@ -3451,7 +3454,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the average of non-<code>NULL</code> values.
+    Gets the average of non-<code>NULL</code> values.
   </td>
 </tr>
 
@@ -3487,7 +3490,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the number of rows in the input, or the number of rows with an
+    Gets the number of rows in the input, or the number of rows with an
     expression evaluated to any value other than <code>NULL</code>.
   </td>
 </tr>
@@ -3497,7 +3500,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the count of <code>TRUE</code> values for an expression.
+    Gets the count of <code>TRUE</code> values for an expression.
   </td>
 </tr>
 
@@ -3506,7 +3509,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the logical AND of all non-<code>NULL</code> expressions.
+    Gets the logical AND of all non-<code>NULL</code> expressions.
   </td>
 </tr>
 
@@ -3515,7 +3518,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the logical OR of all non-<code>NULL</code> expressions.
+    Gets the logical OR of all non-<code>NULL</code> expressions.
   </td>
 </tr>
 
@@ -3524,7 +3527,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the maximum non-<code>NULL</code> value.
+    Gets the maximum non-<code>NULL</code> value.
   </td>
 </tr>
 
@@ -3533,7 +3536,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the minimum non-<code>NULL</code> value.
+    Gets the minimum non-<code>NULL</code> value.
   </td>
 </tr>
 
@@ -3542,8 +3545,8 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns a <code>STRING</code> or <code>BYTES</code> value obtained by
-    concatenating non-<code>NULL</code> values.
+    Concatenates non-<code>NULL</code> <code>STRING</code> or
+    <code>BYTES</code> values.
   </td>
 </tr>
 
@@ -3552,7 +3555,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the sum of non-<code>NULL</code> values.
+    Gets the sum of non-<code>NULL</code> values.
   </td>
 </tr>
 
@@ -5172,7 +5175,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the Pearson coefficient of correlation of a set of number pairs.
+    Computes the Pearson coefficient of correlation of a set of number pairs.
   </td>
 </tr>
 
@@ -5181,7 +5184,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the population covariance of a set of number pairs.
+    Computes the population covariance of a set of number pairs.
   </td>
 </tr>
 
@@ -5190,7 +5193,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the sample covariance of a set of number pairs.
+    Computes the sample covariance of a set of number pairs.
   </td>
 </tr>
 
@@ -5208,7 +5211,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the population (biased) standard deviation of the values.
+    Computes the population (biased) standard deviation of the values.
   </td>
 </tr>
 
@@ -5217,7 +5220,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the sample (unbiased) standard deviation of the values.
+    Computes the sample (unbiased) standard deviation of the values.
   </td>
 </tr>
 
@@ -5226,7 +5229,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the population (biased) variance of the values.
+    Computes the population (biased) variance of the values.
   </td>
 </tr>
 
@@ -5235,7 +5238,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the sample (unbiased) variance of the values.
+    Computes the sample (unbiased) variance of the values.
   </td>
 </tr>
 
@@ -7834,7 +7837,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 </td>
   <td>
-    Returns the approximate result for <code>COUNT(DISTINCT expression)</code>.
+    Gets the approximate result for <code>COUNT(DISTINCT expression)</code>.
   </td>
 </tr>
 
@@ -7843,7 +7846,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 </td>
   <td>
-    Returns the approximate quantile boundaries.
+    Gets the approximate quantile boundaries.
   </td>
 </tr>
 
@@ -7852,7 +7855,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 </td>
   <td>
-    Returns the approximate top elements and their approximate count.
+    Gets the approximate top elements and their approximate count.
   </td>
 </tr>
 
@@ -7861,7 +7864,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 </td>
   <td>
-    Returns the approximate top elements and sum, based on the approximate sum
+    Gets the approximate top elements and sum, based on the approximate sum
     of an assigned weight.
   </td>
 </tr>
@@ -9368,6 +9371,75 @@ see [Window function calls][window-function-calls].
 Numbering functions assign integer values to each row based on their position
 within the specified window. The `OVER` clause syntax varies across
 numbering functions.
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#cume_dist"><code>CUME_DIST</code></a>
+
+</td>
+  <td>
+    Gets the cumulative distribution (relative position (0,1]) of each row
+    within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#dense_rank"><code>DENSE_RANK</code></a>
+
+</td>
+  <td>
+    Gets the dense rank (1-based, no gaps) of each row within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ntile"><code>NTILE</code></a>
+
+</td>
+  <td>
+    Gets the quantile bucket number (1-based) of each row within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#percent_rank"><code>PERCENT_RANK</code></a>
+
+</td>
+  <td>
+    Gets the percentile rank (from 0 to 1) of each row within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#rank"><code>RANK</code></a>
+
+</td>
+  <td>
+    Gets the rank (1-based) of each row within a window.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#row_number"><code>ROW_NUMBER</code></a>
+
+</td>
+  <td>
+    Gets the sequential row number (1-based) of each row within a window.
+  </td>
+</tr>
+
+  </tbody>
+</table>
 
 ### `CUME_DIST`
 
@@ -15678,6 +15750,516 @@ returned positions refer to character positions.
 All string comparisons are done byte-by-byte, without regard to Unicode
 canonical equivalence.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#ascii"><code>ASCII</code></a>
+
+</td>
+  <td>
+    Gets the ASCII code for the first character or byte in a <code>STRING</code>
+    or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#byte_length"><code>BYTE_LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the number of <code>BYTES</code> in a <code>STRING</code> or
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#char_length"><code>CHAR_LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the number of characters in a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#character_length"><code>CHARACTER_LENGTH</code></a>
+
+</td>
+  <td>
+    Synonym for <code>CHAR_LENGTH</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#chr"><code>CHR</code></a>
+
+</td>
+  <td>
+    Converts a Unicode code point to a character.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#code_points_to_bytes"><code>CODE_POINTS_TO_BYTES</code></a>
+
+</td>
+  <td>
+    Converts an array of extended ASCII code points to a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#code_points_to_string"><code>CODE_POINTS_TO_STRING</code></a>
+
+</td>
+  <td>
+    Converts an array of extended ASCII code points to a
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#collate"><code>COLLATE</code></a>
+
+</td>
+  <td>
+    Combines a <code>STRING</code> value and a collation specification into a
+    collation specification-supported <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#concat"><code>CONCAT</code></a>
+
+</td>
+  <td>
+    Concatenates one or more <code>STRING</code> or <code>BYTES</code>
+    values into a single result.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ends_with"><code>ENDS_WITH</code></a>
+
+</td>
+  <td>
+    Checks if a <code>STRING</code> or <code>BYTES</code> value is the suffix
+    of another value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_string"><code>FORMAT</code></a>
+
+</td>
+  <td>
+    Formats data and produces the results as a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_base32"><code>FROM_BASE32</code></a>
+
+</td>
+  <td>
+    Converts a base32-encoded <code>STRING</code> value into a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_base64"><code>FROM_BASE64</code></a>
+
+</td>
+  <td>
+    Converts a base64-encoded <code>STRING</code> value into a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_hex"><code>FROM_HEX</code></a>
+
+</td>
+  <td>
+    Converts a hexadecimal-encoded <code>STRING</code> value into a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#initcap"><code>INITCAP</code></a>
+
+</td>
+  <td>
+    Formats a <code>STRING</code> as proper case, which means that the first
+    character in each word is uppercase and all other characters are lowercase.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#instr"><code>INSTR</code></a>
+
+</td>
+  <td>
+    Finds the position of a subvalue inside another value, optionally starting
+    the search at a given offset or occurrence.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#left"><code>LEFT</code></a>
+
+</td>
+  <td>
+    Gets the specified leftmost portion from a <code>STRING</code> or
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#length"><code>LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the length of a <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lower"><code>LOWER</code></a>
+
+</td>
+  <td>
+    Formats alphabetic characters in a <code>STRING</code> value as
+    lowercase.
+    <br /><br />
+    Formats ASCII characters in a <code>BYTES</code> value as
+    lowercase.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lpad"><code>LPAD</code></a>
+
+</td>
+  <td>
+    Prepends a <code>STRING</code> or <code>BYTES</code> value with a pattern.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ltrim"><code>LTRIM</code></a>
+
+</td>
+  <td>
+    Identical to the <code>TRIM</code> function, but only removes leading
+    characters.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#normalize"><code>NORMALIZE</code></a>
+
+</td>
+  <td>
+    Case-sensitively normalizes the characters in a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#normalize_and_casefold"><code>NORMALIZE_AND_CASEFOLD</code></a>
+
+</td>
+  <td>
+    Case-insensitively normalizes the characters in a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#octet_length"><code>OCTET_LENGTH</code></a>
+
+</td>
+  <td>
+    Alias for <code>BYTE_LENGTH</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_contains"><code>REGEXP_CONTAINS</code></a>
+
+</td>
+  <td>
+    Checks if a value is a partial match for a regular expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_extract"><code>REGEXP_EXTRACT</code></a>
+
+</td>
+  <td>
+    Produces a substring that matches a regular expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_extract_all"><code>REGEXP_EXTRACT_ALL</code></a>
+
+</td>
+  <td>
+    Produces an array of all substrings that match a
+    regular expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_instr"><code>REGEXP_INSTR</code></a>
+
+</td>
+  <td>
+    Finds the position of a regular expression match in a value, optionally
+    starting the search at a given offset or occurrence.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_match"><code>REGEXP_MATCH</code></a>
+
+</td>
+  <td>
+    (Deprecated) Checks if a value is a full match for a regular expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_replace"><code>REGEXP_REPLACE</code></a>
+
+</td>
+  <td>
+    Produces a <code>STRING</code> value where all substrings that match a
+    regular expression are replaced with a specified value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#repeat"><code>REPEAT</code></a>
+
+</td>
+  <td>
+    Produces a <code>STRING</code> or <code>BYTES</code> value that consists of
+    an original value, repeated.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#replace"><code>REPLACE</code></a>
+
+</td>
+  <td>
+    Replaces all occurrences of a pattern with another pattern in a
+    <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#reverse"><code>REVERSE</code></a>
+
+</td>
+  <td>
+    Reverses a <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#right"><code>RIGHT</code></a>
+
+</td>
+  <td>
+    Gets the specified rightmost portion from a <code>STRING</code> or
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#rpad"><code>RPAD</code></a>
+
+</td>
+  <td>
+    Appends a <code>STRING</code> or <code>BYTES</code> value with a pattern.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#rtrim"><code>RTRIM</code></a>
+
+</td>
+  <td>
+    Identical to the <code>TRIM</code> function, but only removes trailing
+    characters.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_convert_bytes_to_string"><code>SAFE_CONVERT_BYTES_TO_STRING</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a <code>STRING</code> value and
+    replace any invalid UTF-8 characters with the Unicode replacement character,
+    <code>U+FFFD</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#soundex"><code>SOUNDEX</code></a>
+
+</td>
+  <td>
+    Gets the Soundex codes for words in a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#split"><code>SPLIT</code></a>
+
+</td>
+  <td>
+    Splits a <code>STRING</code> or <code>BYTES</code> value, using a delimiter.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#starts_with"><code>STARTS_WITH</code></a>
+
+</td>
+  <td>
+    Checks if a <code>STRING</code> or <code>BYTES</code> value is a
+    prefix of another value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#strpos"><code>STRPOS</code></a>
+
+</td>
+  <td>
+    Finds the position of the first occurrence of a subvalue inside another
+    value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#substr"><code>SUBSTR</code></a>
+
+</td>
+  <td>
+    Gets a portion of a <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#substring"><code>SUBSTRING</code></a>
+
+</td>
+  <td>Alias for <code>SUBSTR</code></td>
+</tr>
+
+<tr>
+  <td><a href="#to_base32"><code>TO_BASE32</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a
+    base32-encoded <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_base64"><code>TO_BASE64</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a
+    base64-encoded <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_code_points"><code>TO_CODE_POINTS</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> or <code>BYTES</code> value into an array of
+    extended ASCII code points.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_hex"><code>TO_HEX</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a
+    hexadecimal <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#translate"><code>TRANSLATE</code></a>
+
+</td>
+  <td>
+    Within a value, replaces each source character with the corresponding
+    target character.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#trim"><code>TRIM</code></a>
+
+</td>
+  <td>
+    Removes the specified leading and trailing Unicode code points or bytes
+    from a <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unicode"><code>UNICODE</code></a>
+
+</td>
+  <td>
+    Gets the Unicode code point for the first character in a value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#upper"><code>UPPER</code></a>
+
+</td>
+  <td>
+    Formats alphabetic characters in a <code>STRING</code> value as
+    uppercase.
+    <br /><br />
+    Formats ASCII characters in a <code>BYTES</code> value as
+    uppercase.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `ASCII`
 
 ```sql
@@ -15714,8 +16296,8 @@ BYTE_LENGTH(value)
 
 **Description**
 
-Returns the length of the `STRING` or `BYTES` value in `BYTES`,
-regardless of whether the type of the value is `STRING` or `BYTES`.
+Gets the number of `BYTES` in a `STRING` or `BYTES` value,
+regardless of whether the value is a `STRING` or `BYTES` type.
 
 **Return type**
 
@@ -15749,7 +16331,7 @@ CHAR_LENGTH(value)
 
 **Description**
 
-Returns the length of the `STRING` in characters.
+Gets the number of characters in a `STRING` value.
 
 **Return type**
 
@@ -17871,7 +18453,7 @@ Returns the first substring in `value` that matches the
 
 If the regular expression contains a capturing group (`(...)`), and there is a
 match for that capturing group, that match is returned. If there
-are multiple matches for a capturing group, the last match is returned.
+are multiple matches for a capturing group, the first match is returned.
 
 Returns an error if:
 
@@ -17963,9 +18545,7 @@ Returns an array of all substrings of `value` that match the
 if there is no match.
 
 If the regular expression contains a capturing group (`(...)`), and there is a
-match for that capturing group, that match is added to the results. If there
-are multiple matches for a capturing group, the last match is added to the
-results.
+match for that capturing group, that match is added to the results.
 
 The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
 example, using this function to extract `ana` from `banana` returns only one
@@ -18290,13 +18870,13 @@ SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
 ### `REPLACE`
 
 ```sql
-REPLACE(original_value, from_value, to_value)
+REPLACE(original_value, from_pattern, to_pattern)
 ```
 
 **Description**
 
-Replaces all occurrences of `from_value` with `to_value` in `original_value`.
-If `from_value` is empty, no replacement is made.
+Replaces all occurrences of `from_pattern` with `to_pattern` in
+`original_value`. If `from_pattern` is empty, no replacement is made.
 
 This function supports specifying [collation][collation].
 
@@ -18829,7 +19409,7 @@ SUBSTR(value, position[, length])
 
 **Description**
 
-Returns a substring of the supplied `STRING` or `BYTES` value.
+Gets a portion (substring) of the supplied `STRING` or `BYTES` value.
 
 The `position` argument is an integer specifying the starting position of the
 substring.
@@ -19084,8 +19664,8 @@ TO_CODE_POINTS(value)
 
 **Description**
 
-Takes a `STRING` or `BYTES` value and returns an array of
-`INT64`.
+Takes a `STRING` or `BYTES` value and returns an array of `INT64` values that
+represent code points or extended ASCII character values.
 
 + If `value` is a `STRING`, each element in the returned array represents a
   [code point][string-link-to-code-points-wikipedia]. Each code point falls
@@ -20884,7 +21464,7 @@ JSON_OBJECT([json_key, json_value][, ...])
 
 **Description**
 
-Creates a JSON object, using key value pairs.
+Creates a JSON object, using key-value pairs.
 
 Arguments:
 
@@ -20893,9 +21473,9 @@ Arguments:
 
 Details:
 
-+   If two keys are passed in with the same name, only the first key value pair
++   If two keys are passed in with the same name, only the first key-value pair
     is preserved.
-+   The order of key value pairs is not preserved.
++   The order of key-value pairs is not preserved.
 +   If `json_key` is `NULL`, an error is produced.
 
 **Return type**
@@ -20917,7 +21497,7 @@ SELECT JSON_OBJECT() AS json_data
  *-----------*/
 ```
 
-You can create a JSON object by passing in key value pairs. For example:
+You can create a JSON object by passing in key-value pairs. For example:
 
 ```sql
 SELECT JSON_OBJECT('foo', 10, 'bar', TRUE) AS json_data
@@ -21002,9 +21582,9 @@ Arguments:
 
 Details:
 
-+   If two keys are passed in with the same name, only the first key value pair
++   If two keys are passed in with the same name, only the first key-value pair
     is preserved.
-+   The order of key value pairs is not preserved.
++   The order of key-value pairs is not preserved.
 +   The number of keys must match the number of values, otherwise an error is
     produced.
 +   If any argument is `NULL`, an error is produced.
@@ -21501,7 +22081,7 @@ Details:
     of the paths.
 +   For each path, the entire matched JSON subtree is deleted.
 +   If the path matches a JSON object key, this function deletes the
-    key value pair.
+    key-value pair.
 +   If the path matches an array element, this function deletes the specific
     element from the matched array.
 +   If removing the path results in an empty JSON object or empty JSON array,
@@ -21570,7 +22150,7 @@ SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]', '$[0]') AS jso
 ```
 
 In the following example, the path `$.a.b.c` is matched and removes the
-`"c":"d"` key value pair from the JSON object.
+`"c":"d"` key-value pair from the JSON object.
 
 ```sql
 SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b.c') AS json_data
@@ -21583,7 +22163,7 @@ SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b.c') AS json_data
 ```
 
 In the following example, the path `$.a.b` is matched and removes the
-`"b": {"c":"d"}` key value pair from the JSON object.
+`"b": {"c":"d"}` key-value pair from the JSON object.
 
 ```sql
 SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b') AS json_data
@@ -21922,7 +22502,7 @@ Arguments:
 
 Details:
 
-+   If a value is a JSON null, the associated key value pair is removed.
++   If a value is a JSON null, the associated key-value pair is removed.
 +   If `remove_empty` is set to `TRUE`, the function recursively removes empty
     containers after JSON nulls are removed.
 +   If the function generates JSON with nothing in it, the function returns a
@@ -24267,7 +24847,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Checks to see if there is an element in the array that is
+    Checks if there is an element in the array that is
     equal to a search value.
   </td>
 </tr>
@@ -24277,7 +24857,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Checks to see if all search values are in an array.
+    Checks if all search values are in an array.
   </td>
 </tr>
 
@@ -24286,7 +24866,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Checks to see if any search values are in an array.
+    Checks if any search values are in an array.
   </td>
 </tr>
 
@@ -24295,7 +24875,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Checks to see if an array contains no repeated elements.
+    Checks if an array contains no repeated elements.
   </td>
 </tr>
 
@@ -24349,7 +24929,7 @@ ZetaSQL supports the following array functions.
 
 </td>
   <td>
-    Returns an array containing zero or more consecutive elements from an
+    Produces an array containing zero or more consecutive elements from an
     input array.
   </td>
 </tr>
@@ -27896,6 +28476,101 @@ SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
 
 ZetaSQL supports the following time functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#current_time"><code>CURRENT_TIME</code></a>
+
+</td>
+  <td>
+    Returns the current time as a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts part of a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_time"><code>FORMAT_TIME</code></a>
+
+</td>
+  <td>
+    Formats a <code>TIME</code> value according to the specified format string.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_time"><code>PARSE_TIME</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time"><code>TIME</code></a>
+
+</td>
+  <td>
+    Constructs a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time_add"><code>TIME_ADD</code></a>
+
+</td>
+  <td>
+    Adds a specified time interval to a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time_diff"><code>TIME_DIFF</code></a>
+
+</td>
+  <td>
+    Gets the number of intervals between two <code>TIME</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time_sub"><code>TIME_SUB</code></a>
+
+</td>
+  <td>
+    Subtracts a specified time interval from a <code>TIME</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time_trunc"><code>TIME_TRUNC</code></a>
+
+</td>
+  <td>
+    Truncates a <code>TIME</code> value.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CURRENT_TIME`
 
 ```sql
@@ -28334,6 +29009,201 @@ To learn more, see
 NOTE: These functions return a runtime error if overflow occurs; result
 values are bounded by the defined [`DATE` range][data-types-link-to-date_type]
 and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#current_timestamp"><code>CURRENT_TIMESTAMP</code></a>
+
+</td>
+  <td>
+    Returns the current date and time as a <code>TIMESTAMP</code> object.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts part of a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_timestamp"><code>FORMAT_TIMESTAMP</code></a>
+
+</td>
+  <td>
+    Formats a <code>TIMESTAMP</code> value according to the specified
+    format string.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_timestamp"><code>PARSE_TIMESTAMP</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string"><code>STRING</code></a>
+
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp"><code>TIMESTAMP</code></a>
+
+</td>
+  <td>
+    Constructs a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_add"><code>TIMESTAMP_ADD</code></a>
+
+</td>
+  <td>
+    Adds a specified time interval to a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_diff"><code>TIMESTAMP_DIFF</code></a>
+
+</td>
+  <td>
+    Gets the number of intervals between two <code>TIMESTAMP</code> values.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_from_unix_micros"><code>TIMESTAMP_FROM_UNIX_MICROS</code></a>
+
+</td>
+  <td>
+    Similar to <code>TIMESTAMP_MICROS</code>, except that additionally, a
+    <code>TIMESTAMP</code> value can be passed in.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_from_unix_millis"><code>TIMESTAMP_FROM_UNIX_MILLIS</code></a>
+
+</td>
+  <td>
+    Similar to <code>TIMESTAMP_MILLIS</code>, except that additionally, a
+    <code>TIMESTAMP</code> value can be passed in.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_from_unix_seconds"><code>TIMESTAMP_FROM_UNIX_SECONDS</code></a>
+
+</td>
+  <td>
+    Similar to <code>TIMESTAMP_SECONDS</code>, except that additionally, a
+    <code>TIMESTAMP</code> value can be passed in.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_micros"><code>TIMESTAMP_MICROS</code></a>
+
+</td>
+  <td>
+    Converts the number of microseconds since
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_millis"><code>TIMESTAMP_MILLIS</code></a>
+
+</td>
+  <td>
+    Converts the number of milliseconds since
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_seconds"><code>TIMESTAMP_SECONDS</code></a>
+
+</td>
+  <td>
+    Converts the number of seconds since
+    1970-01-01 00:00:00 UTC to a <code>TIMESTAMP</value>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_sub"><code>TIMESTAMP_SUB</code></a>
+
+</td>
+  <td>
+    Subtracts a specified time interval from a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_trunc"><code>TIMESTAMP_TRUNC</code></a>
+
+</td>
+  <td>
+    Truncates a <code>TIMESTAMP</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_micros"><code>UNIX_MICROS</code></a>
+
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to the number of microseconds since
+    1970-01-01 00:00:00 UTC.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_millis"><code>UNIX_MILLIS</code></a>
+
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to the number of milliseconds
+    since 1970-01-01 00:00:00 UTC.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unix_seconds"><code>UNIX_SECONDS</code></a>
+
+</td>
+  <td>
+    Converts a <code>TIMESTAMP</code> value to the number of seconds since
+    1970-01-01 00:00:00 UTC.
+  </td>
+</tr>
+
+  </tbody>
+</table>
 
 ### `CURRENT_TIMESTAMP`
 
@@ -30135,7 +31005,7 @@ behavior:
 
 </td>
   <td>
-    Checks to see if two <code>GEOGRAPHY</code> values represent the same
+    Checks if two <code>GEOGRAPHY</code> values represent the same
     <code>GEOGRAPHY</code> value.
   </td>
 </tr>
@@ -30272,7 +31142,7 @@ behavior:
 
 </td>
   <td>
-    Checks to see if at least one point appears in two <code>GEOGRAPHY</code>
+    Checks if at least one point appears in two <code>GEOGRAPHY</code>
     values.
   </td>
 </tr>
@@ -33277,6 +34147,94 @@ See [`ST_X`][st-x] for example usage.
 
 ZetaSQL supports the following protocol buffer functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#contains_key"><code>CONTAINS_KEY</code></a>
+
+</td>
+  <td>
+    Checks if a protocol buffer map field contains a given key.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#proto_extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts a value or metadata from a protocol buffer.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#filter_fields"><code>FILTER_FIELDS</code></a>
+
+</td>
+  <td>
+    Removed unwanted fields from a protocol buffer.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_proto"><code>FROM_PROTO</code></a>
+
+</td>
+  <td>
+    Converts a protocol buffer value into ZetaSQL value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#modify_map"><code>MODIFY_MAP</code></a>
+
+</td>
+  <td>
+    Modifies a protocol buffer map field.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#proto_default_if_null"><code>PROTO_DEFAULT_IF_NULL</code></a>
+
+</td>
+  <td>
+    Produces the default protocol buffer field value if the
+    protocol buffer field is <code>NULL</code>. Otherwise, returns the
+    protocol buffer field value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#replace_fields"><code>REPLACE_FIELDS</code></a>
+
+</td>
+  <td>
+    Replaces the values in one or more protocol buffer fields.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_proto"><code>TO_PROTO</code></a>
+
+</td>
+  <td>
+    Converts a ZetaSQL value into a protocol buffer value.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CONTAINS_KEY`
 
 ```sql
@@ -33500,10 +34458,13 @@ FROM AlbumList;
 ### `FILTER_FIELDS`
 
 ```sql
-FILTER_FIELDS(proto_expression, proto_field_list)
+FILTER_FIELDS(proto_expression, proto_field_list [, reset_fields_named_arg])
 
 proto_field_list:
   {+|-}proto_field_path[, ...]
+
+reset_fields_named_arg:
+  RESET_CLEARED_REQUIRED_FIELDS => { TRUE | FALSE }
 ```
 
 **Description**
@@ -33522,6 +34483,21 @@ Input values:
 + `proto_field_path`: The protocol buffer field to include or exclude.
   If the field represents an [extension][querying-proto-extensions], you can use
   syntax for that extension in the path.
++ `reset_fields_named_arg`: You can optionally add the
+ `RESET_CLEARED_REQUIRED_FIELDS` named argument.
+  If not explicitly set, `FALSE` is used implicitly.
+  If `FALSE`, you must include all protocol buffer `required` fields in the
+  `FILTER_FIELDS` function. If `TRUE`, you do not need to include all required
+  protocol buffer fields and the value of required fields
+  defaults to these values:
+
+  Type                    | Default value
+  ----------------------- | --------
+  Floating point          | `0.0`
+  Integer                 | `0`
+  Boolean                 | `FALSE`
+  String, byte            | `""`
+  Protocol buffer message | Empty message
 
 Protocol buffer field expression behavior:
 
@@ -33530,7 +34506,8 @@ Protocol buffer field expression behavior:
   fields are excluded. Or by default, when you exclude the first field, all
   other fields are included.
 + A required field in the protocol buffer cannot be excluded explicitly or
-  implicitly.
+  implicitly, unless you have the
+  `RESET_CLEARED_REQUIRED_FIELDS` named argument set as `TRUE`.
 + If a field is included, its child fields and descendants are implicitly
   included in the results.
 + If a field is excluded, its child fields and descendants are
@@ -33702,6 +34679,32 @@ SELECT FILTER_FIELDS(award_col, +year, -month) AS filtered_fields
 FROM MusicAwards
 
 -- Error
+```
+
+When `RESET_CLEARED_REQUIRED_FIELDS` is set as `TRUE`, `FILTER_FIELDS` doesn't
+need to include required fields. In the example below, `MusicAwards` has a
+required field called `year`, but this is not added as an argument for
+`FILTER_FIELDS`. `year` is added to the results with its default value, `0`.
+
+```sql
+SELECT FILTER_FIELDS(
+  award_col,
+  +month,
+  RESET_CLEARED_REQUIRED_FIELDS => TRUE) AS filtered_fields
+FROM MusicAwards;
+
+/*---------------------------------*
+ | filtered_fields                 |
+ +---------------------------------+
+ | {                               |
+ |   year: 0,                      |
+ |   month: 9                      |
+ | }                               |
+ | {                               |
+ |   year: 0,                      |
+ |   month: 12                     |
+ | }                               |
+ *---------------------------------*/
 ```
 
 [querying-proto-extensions]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#extensions
@@ -34294,6 +35297,30 @@ SELECT TO_PROTO(
 
 ZetaSQL supports the following security functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#session_user"><code>SESSION_USER</code></a>
+
+</td>
+  <td>
+    Get the email address or principal identifier of the user that is running
+    the query.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `SESSION_USER`
 
 ```
@@ -34330,8 +35357,181 @@ SELECT SESSION_USER() as user;
 
 ZetaSQL supports the following Net functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#netformat_ip"><code>NET.FORMAT_IP</code></a>
+
+</td>
+  <td>
+    (Deprecated) Converts an
+    IPv4 address from an <code>INT64</code> value to a
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netformat_packed_ip"><code>NET.FORMAT_PACKED_IP</code></a>
+
+</td>
+  <td>
+    (Deprecated) Converts an
+    IPv4 or IPv6 address from a <code>BYTES</code> value to a
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nethost"><code>NET.HOST</code></a>
+
+</td>
+  <td>
+   Gets the hostname from a URL.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_from_string"><code>NET.IP_FROM_STRING</code></a>
+
+</td>
+  <td>
+    Converts an IPv4 or IPv6 address from a <code>STRING</code> value to
+    a <code>BYTES</code> value in network byte order.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_in_net"><code>NET.IP_IN_NET</code></a>
+
+</td>
+  <td>
+    Checks if an IP address is in a subnet.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_net_mask"><code>NET.IP_NET_MASK</code></a>
+
+</td>
+  <td>
+    Gets a network mask.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_to_string"><code>NET.IP_TO_STRING</code></a>
+
+</td>
+  <td>
+    Converts an IPv4 or IPv6 address from a <code>BYTES</code> value in
+    network byte order to a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netip_trunc"><code>NET.IP_TRUNC</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code>  IPv4 or IPv6 address in
+    network byte order to a <code>BYTES</code> subnet address.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netipv4_from_int64"><code>NET.IPV4_FROM_INT64</code></a>
+
+</td>
+  <td>
+    Converts an IPv4 address from an <code>INT64</code> value to a
+    <code>BYTES</code> value in network byte order.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netipv4_to_int64"><code>NET.IPV4_TO_INT64</code></a>
+
+</td>
+  <td>
+    Converts an IPv4 address from a <code>BYTES</code> value in network
+    byte order to an <code>INT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netmake_net"><code>NET.MAKE_NET</code></a>
+
+</td>
+  <td>
+    Takes a IPv4 or IPv6 address and the prefix length, and produces a
+    CIDR subnet.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netparse_ip"><code>NET.PARSE_IP</code></a>
+
+</td>
+  <td>
+    (Deprecated) Converts an
+    IPv4 address from a <code>STRING</code> value to an
+    <code>INT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netparse_packed_ip"><code>NET.PARSE_PACKED_IP</code></a>
+
+</td>
+  <td>
+    (Deprecated) Converts an
+    IPv4 or IPv6 address from a <code>STRING</code> value to a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netpublic_suffix"><code>NET.PUBLIC_SUFFIX</code></a>
+
+</td>
+  <td>
+    Gets the public suffix from a URL.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netreg_domain"><code>NET.REG_DOMAIN</code></a>
+
+</td>
+  <td>
+    Gets the registered or registrable domain from a URL.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#netsafe_ip_from_string"><code>NET.SAFE_IP_FROM_STRING</code></a>
+
+</td>
+  <td>
+    Similar to the <code>NET.IP_FROM_STRING</code>, but returns
+    <code>NULL</code> instead of producing an error if the input is invalid.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `NET.FORMAT_IP` (DEPRECATED) 
-<a id="net_format_ip_dep"></a>
+<a id="net_format_ip"></a>
 
 ```
 NET.FORMAT_IP(integer)
@@ -34352,7 +35552,7 @@ STRING
 [net-link-to-ipv4-from-int64]: #netipv4_from_int64
 
 ### `NET.FORMAT_PACKED_IP` (DEPRECATED) 
-<a id="net_format_packed_ip_dep"></a>
+<a id="net_format_packed_ip"></a>
 
 ```
 NET.FORMAT_PACKED_IP(bytes_value)
@@ -34762,7 +35962,7 @@ STRING
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
 ### `NET.PARSE_IP` (DEPRECATED) 
-<a id="net_parse_ip_dep"></a>
+<a id="net_parse_ip"></a>
 
 ```
 NET.PARSE_IP(addr_str)
@@ -34784,7 +35984,7 @@ INT64
 [net-link-to-ipv4-to-int64]: #netipv4_to_int64
 
 ### `NET.PARSE_PACKED_IP` (DEPRECATED) 
-<a id="net_parse_packed_ip_dep"></a>
+<a id="net_parse_packed_ip"></a>
 
 ```
 NET.PARSE_PACKED_IP(addr_str)

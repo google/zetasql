@@ -1202,11 +1202,7 @@ public class Value implements Serializable {
           }
           EnumType enumType = type.asEnum();
           int n = proto.getEnumValue();
-          if (
-              enumType.getDescriptor().getFile().getSyntax() ==
-              com.google.protobuf.Descriptors.FileDescriptor.Syntax.PROTO2 && enumType
-                      .findName(n)
-                  == null) {
+          if (enumType.getDescriptor().isClosed() && enumType.findName(n) == null) {
             throw new IllegalArgumentException("Invalid value for " + enumType + ": " + n);
           }
           break;
@@ -1491,11 +1487,7 @@ public class Value implements Serializable {
   /** Returns an enum Value of given {@code type} with number value {@code v}. */
   public static Value createEnumValue(EnumType type, int v) {
     Preconditions.checkNotNull(type);
-    Preconditions.checkArgument(
-            type.getDescriptor().getFile().getSyntax() !=
-            com.google.protobuf.Descriptors.FileDescriptor.Syntax.PROTO2 || type
-                    .findName(v)
-                != null);
+    Preconditions.checkArgument(!type.getDescriptor().isClosed() || type.findName(v) != null);
     ValueProto proto = ValueProto.newBuilder().setEnumValue(v).build();
     return new Value(type, proto);
   }

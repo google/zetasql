@@ -1,6 +1,8 @@
 # SAFE_DIVIDE supports the same types as / does. These alternations should show
 # that SAFE_DIVIDE resolves the same regardless of whether the NUMERIC_TYPE
 # feature is enabled.
+[default also_show_signature_mismatch_details]
+
 [language_features={{NUMERIC_TYPE|}}]
 select safe_divide(
   {{int32|uint32|int64|uint64|1}},
@@ -676,6 +678,20 @@ ERROR: No matching signature for function SAFE_ADD for argument types: INT32, UI
 select safe_add(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_ADD
+  Argument types: INT32, UINT64
+  Signature: SAFE_ADD(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_ADD(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_ADD(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied
+  Signature: SAFE_ADD(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied [at 1:8]
+select safe_add(
+       ^
+--
 ALTERNATION GROUPS:
     NUMERIC_TYPE,int32,1
     int32,1
@@ -854,6 +870,20 @@ ERROR: No matching signature for function SAFE_ADD for argument types: INT64, UI
 select safe_add(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_ADD
+  Argument types: INT64, UINT64
+  Signature: SAFE_ADD(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_ADD(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_ADD(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied
+  Signature: SAFE_ADD(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied [at 1:8]
+select safe_add(
+       ^
+--
 ALTERNATION GROUPS:
     NUMERIC_TYPE,int64,1
     int64,1
@@ -875,6 +905,20 @@ QueryStmt
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
 --
 ERROR: No matching signature for function SAFE_ADD for argument types: UINT64, INT32. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE); SAFE_ADD(NUMERIC, NUMERIC) [at 1:8]
+select safe_add(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_ADD
+  Argument types: UINT64, INT32
+  Signature: SAFE_ADD(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_ADD(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_ADD(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied
+  Signature: SAFE_ADD(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied [at 1:8]
 select safe_add(
        ^
 --
@@ -900,6 +944,20 @@ QueryStmt
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
 --
 ERROR: No matching signature for function SAFE_ADD for argument types: UINT64, INT64. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE); SAFE_ADD(NUMERIC, NUMERIC) [at 1:8]
+select safe_add(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_ADD
+  Argument types: UINT64, INT64
+  Signature: SAFE_ADD(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_ADD(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_ADD(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied
+  Signature: SAFE_ADD(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied [at 1:8]
 select safe_add(
        ^
 --
@@ -1037,9 +1095,33 @@ ERROR: No matching signature for function SAFE_ADD for argument types: INT32, UI
 select safe_add(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_ADD
+  Argument types: INT32, UINT64
+  Signature: SAFE_ADD(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_ADD(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_ADD(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
+select safe_add(
+       ^
+--
 ALTERNATION GROUP: int64,uint64
 --
 ERROR: No matching signature for function SAFE_ADD for argument types: INT64, UINT64. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE) [at 1:8]
+select safe_add(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_ADD
+  Argument types: INT64, UINT64
+  Signature: SAFE_ADD(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_ADD(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_ADD(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
 select safe_add(
        ^
 --
@@ -1049,9 +1131,33 @@ ERROR: No matching signature for function SAFE_ADD for argument types: UINT64, I
 select safe_add(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_ADD
+  Argument types: UINT64, INT32
+  Signature: SAFE_ADD(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_ADD(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_ADD(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
+select safe_add(
+       ^
+--
 ALTERNATION GROUP: uint64,int64
 --
 ERROR: No matching signature for function SAFE_ADD for argument types: UINT64, INT64. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE) [at 1:8]
+select safe_add(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_ADD
+  Argument types: UINT64, INT64
+  Signature: SAFE_ADD(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_ADD(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_ADD(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
 select safe_add(
        ^
 ==
@@ -1233,6 +1339,20 @@ ERROR: No matching signature for function SAFE_SUBTRACT for argument types: INT3
 select safe_subtract(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_SUBTRACT
+  Argument types: INT32, UINT64
+  Signature: SAFE_SUBTRACT(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_SUBTRACT(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_SUBTRACT(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied
+  Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
+select safe_subtract(
+       ^
+--
 ALTERNATION GROUPS:
     NUMERIC_TYPE,int32,1
     int32,1
@@ -1411,6 +1531,20 @@ ERROR: No matching signature for function SAFE_SUBTRACT for argument types: INT6
 select safe_subtract(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_SUBTRACT
+  Argument types: INT64, UINT64
+  Signature: SAFE_SUBTRACT(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_SUBTRACT(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_SUBTRACT(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied
+  Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
+select safe_subtract(
+       ^
+--
 ALTERNATION GROUPS:
     NUMERIC_TYPE,int64,1
     int64,1
@@ -1432,6 +1566,20 @@ QueryStmt
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
 --
 ERROR: No matching signature for function SAFE_SUBTRACT for argument types: UINT64, INT32. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(NUMERIC, NUMERIC); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
+select safe_subtract(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_SUBTRACT
+  Argument types: UINT64, INT32
+  Signature: SAFE_SUBTRACT(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_SUBTRACT(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_SUBTRACT(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied
+  Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1457,6 +1605,20 @@ QueryStmt
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
 --
 ERROR: No matching signature for function SAFE_SUBTRACT for argument types: UINT64, INT64. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(NUMERIC, NUMERIC); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
+select safe_subtract(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_SUBTRACT
+  Argument types: UINT64, INT64
+  Signature: SAFE_SUBTRACT(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_SUBTRACT(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_SUBTRACT(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied
+  Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1594,9 +1756,33 @@ ERROR: No matching signature for function SAFE_SUBTRACT for argument types: INT3
 select safe_subtract(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_SUBTRACT
+  Argument types: INT32, UINT64
+  Signature: SAFE_SUBTRACT(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_SUBTRACT(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
+select safe_subtract(
+       ^
+--
 ALTERNATION GROUP: int64,uint64
 --
 ERROR: No matching signature for function SAFE_SUBTRACT for argument types: INT64, UINT64. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
+select safe_subtract(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_SUBTRACT
+  Argument types: INT64, UINT64
+  Signature: SAFE_SUBTRACT(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_SUBTRACT(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1606,9 +1792,33 @@ ERROR: No matching signature for function SAFE_SUBTRACT for argument types: UINT
 select safe_subtract(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_SUBTRACT
+  Argument types: UINT64, INT32
+  Signature: SAFE_SUBTRACT(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_SUBTRACT(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
+select safe_subtract(
+       ^
+--
 ALTERNATION GROUP: uint64,int64
 --
 ERROR: No matching signature for function SAFE_SUBTRACT for argument types: UINT64, INT64. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
+select safe_subtract(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_SUBTRACT
+  Argument types: UINT64, INT64
+  Signature: SAFE_SUBTRACT(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_SUBTRACT(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
 select safe_subtract(
        ^
 ==
@@ -1790,6 +2000,20 @@ ERROR: No matching signature for function SAFE_MULTIPLY for argument types: INT3
 select safe_multiply(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_MULTIPLY
+  Argument types: INT32, UINT64
+  Signature: SAFE_MULTIPLY(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_MULTIPLY(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied
+  Signature: SAFE_MULTIPLY(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied [at 1:8]
+select safe_multiply(
+       ^
+--
 ALTERNATION GROUPS:
     NUMERIC_TYPE,int32,1
     int32,1
@@ -1968,6 +2192,20 @@ ERROR: No matching signature for function SAFE_MULTIPLY for argument types: INT6
 select safe_multiply(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_MULTIPLY
+  Argument types: INT64, UINT64
+  Signature: SAFE_MULTIPLY(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_MULTIPLY(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied
+  Signature: SAFE_MULTIPLY(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied [at 1:8]
+select safe_multiply(
+       ^
+--
 ALTERNATION GROUPS:
     NUMERIC_TYPE,int64,1
     int64,1
@@ -1989,6 +2227,20 @@ QueryStmt
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
 --
 ERROR: No matching signature for function SAFE_MULTIPLY for argument types: UINT64, INT32. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE); SAFE_MULTIPLY(NUMERIC, NUMERIC) [at 1:8]
+select safe_multiply(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_MULTIPLY
+  Argument types: UINT64, INT32
+  Signature: SAFE_MULTIPLY(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_MULTIPLY(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied
+  Signature: SAFE_MULTIPLY(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2014,6 +2266,20 @@ QueryStmt
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
 --
 ERROR: No matching signature for function SAFE_MULTIPLY for argument types: UINT64, INT64. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE); SAFE_MULTIPLY(NUMERIC, NUMERIC) [at 1:8]
+select safe_multiply(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_MULTIPLY
+  Argument types: UINT64, INT64
+  Signature: SAFE_MULTIPLY(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_MULTIPLY(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied
+  Signature: SAFE_MULTIPLY(NUMERIC, NUMERIC)
+    Argument constraints are not satisfied [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2151,9 +2417,33 @@ ERROR: No matching signature for function SAFE_MULTIPLY for argument types: INT3
 select safe_multiply(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_MULTIPLY
+  Argument types: INT32, UINT64
+  Signature: SAFE_MULTIPLY(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_MULTIPLY(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
+select safe_multiply(
+       ^
+--
 ALTERNATION GROUP: int64,uint64
 --
 ERROR: No matching signature for function SAFE_MULTIPLY for argument types: INT64, UINT64. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE) [at 1:8]
+select safe_multiply(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_MULTIPLY
+  Argument types: INT64, UINT64
+  Signature: SAFE_MULTIPLY(INT64, INT64)
+    Argument 2: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_MULTIPLY(UINT64, UINT64)
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2163,9 +2453,33 @@ ERROR: No matching signature for function SAFE_MULTIPLY for argument types: UINT
 select safe_multiply(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_MULTIPLY
+  Argument types: UINT64, INT32
+  Signature: SAFE_MULTIPLY(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_MULTIPLY(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT32 to expected type UINT64
+  Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
+select safe_multiply(
+       ^
+--
 ALTERNATION GROUP: uint64,int64
 --
 ERROR: No matching signature for function SAFE_MULTIPLY for argument types: UINT64, INT64. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE) [at 1:8]
+select safe_multiply(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_MULTIPLY
+  Argument types: UINT64, INT64
+  Signature: SAFE_MULTIPLY(INT64, INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_MULTIPLY(UINT64, UINT64)
+    Argument 2: Unable to coerce type INT64 to expected type UINT64
+  Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
+    Argument constraints are not satisfied [at 1:8]
 select safe_multiply(
        ^
 ==
@@ -2385,6 +2699,20 @@ ALTERNATION GROUP: numeric
 ERROR: No matching signature for function SAFE_NEGATE for argument types: NUMERIC. Supported signatures: SAFE_NEGATE(INT32); SAFE_NEGATE(INT64); SAFE_NEGATE(FLOAT); SAFE_NEGATE(DOUBLE) [at 1:8]
 select safe_negate(numeric)
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_NEGATE
+  Argument types: NUMERIC
+  Signature: SAFE_NEGATE(INT32)
+    Argument 1: Unable to coerce type NUMERIC to expected type INT32
+  Signature: SAFE_NEGATE(INT64)
+    Argument 1: Unable to coerce type NUMERIC to expected type INT64
+  Signature: SAFE_NEGATE(FLOAT)
+    Argument 1: Unable to coerce type NUMERIC to expected type FLOAT
+  Signature: SAFE_NEGATE(DOUBLE)
+    Argument 1: Unable to coerce type NUMERIC to expected type DOUBLE [at 1:8]
+select safe_negate(numeric)
+       ^
 ==
 
 # SAFE_NEGATE is not supported for unsigned types.
@@ -2397,8 +2725,36 @@ ERROR: No matching signature for function SAFE_NEGATE for argument types: UINT32
 select safe_negate(uint32)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_NEGATE
+  Argument types: UINT32
+  Signature: SAFE_NEGATE(INT32)
+    Argument 1: Unable to coerce type UINT32 to expected type INT32
+  Signature: SAFE_NEGATE(INT64)
+    Argument 1: Unable to coerce type UINT32 to expected type INT64
+  Signature: SAFE_NEGATE(FLOAT)
+    Argument 1: Unable to coerce type UINT32 to expected type FLOAT
+  Signature: SAFE_NEGATE(DOUBLE)
+    Argument 1: Unable to coerce type UINT32 to expected type DOUBLE [at 1:8]
+select safe_negate(uint32)
+       ^
+--
 ALTERNATION GROUP: uint64
 --
 ERROR: No matching signature for function SAFE_NEGATE for argument types: UINT64. Supported signatures: SAFE_NEGATE(INT32); SAFE_NEGATE(INT64); SAFE_NEGATE(FLOAT); SAFE_NEGATE(DOUBLE) [at 1:8]
+select safe_negate(uint64)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAFE_NEGATE
+  Argument types: UINT64
+  Signature: SAFE_NEGATE(INT32)
+    Argument 1: Unable to coerce type UINT64 to expected type INT32
+  Signature: SAFE_NEGATE(INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: SAFE_NEGATE(FLOAT)
+    Argument 1: Unable to coerce type UINT64 to expected type FLOAT
+  Signature: SAFE_NEGATE(DOUBLE)
+    Argument 1: Unable to coerce type UINT64 to expected type DOUBLE [at 1:8]
 select safe_negate(uint64)
        ^

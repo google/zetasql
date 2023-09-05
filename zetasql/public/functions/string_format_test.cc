@@ -154,8 +154,9 @@ TEST_P(StringFormatTest, TestBadUtf8Values) {
 
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(proto.GetDescriptor(), &proto_type));
-  const Value bad_proto_value =
-      Value::Proto(proto_type, SerializePartialToCord(proto));
+  absl::Cord bytes;
+  ABSL_CHECK(proto.SerializePartialToCord(&bytes));
+  const Value bad_proto_value = Value::Proto(proto_type, bytes);
   TestBadValue("%p", bad_proto_value, canonicalize_zero);
   TestBadValue("%P", bad_proto_value, canonicalize_zero);
   TestBadValue("%t", bad_proto_value, canonicalize_zero);

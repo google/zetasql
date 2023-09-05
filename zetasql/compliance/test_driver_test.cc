@@ -72,7 +72,9 @@ TEST(TestDriverTest, ClassAndProtoSize) {
 
 Value KitchenSinkPBValue(const ProtoType* proto_type,
                          const KitchenSinkPB proto) {
-  return Value::Proto(proto_type, SerializeToCord(proto));
+  absl::Cord bytes;
+  ABSL_CHECK(proto.SerializeToCord(&bytes));
+  return Value::Proto(proto_type, bytes);
 }
 
 TEST(TestDriverTest, SerializeDeserializeTestDbWithProtos) {

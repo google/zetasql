@@ -438,49 +438,14 @@ absl::Status Catalog::FindConstantWithPathPrefixImpl(
 }
 
 absl::Status Catalog::FindObject(absl::Span<const std::string> path,
-                                 const Function** object,
-                                 const FindOptions& options) {
-  return FindFunction(path, object, options);
-}
-absl::Status Catalog::FindObject(absl::Span<const std::string> path,
-                                 const TableValuedFunction** object,
-                                 const FindOptions& options) {
-  return FindTableValuedFunction(path, object, options);
-}
-absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Table** object,
                                  const FindOptions& options) {
   return FindTable(path, object, options);
-}
-absl::Status Catalog::FindObject(const absl::Span<const std::string> path,
-                                 const Model** object,
-                                 const FindOptions& options) {
-  return FindModel(path, object, options);
-}
-absl::Status Catalog::FindObject(absl::Span<const std::string> path,
-                                 const Connection** object,
-                                 const FindOptions& options) {
-  return FindConnection(path, object, options);
-}
-absl::Status Catalog::FindObject(absl::Span<const std::string> path,
-                                 const Sequence** object,
-                                 const FindOptions& options) {
-  return FindSequence(path, object, options);
-}
-absl::Status Catalog::FindObject(absl::Span<const std::string> path,
-                                 const Procedure** object,
-                                 const FindOptions& options) {
-  return FindProcedure(path, object, options);
 }
 absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Type** object,
                                  const FindOptions& options) {
   return FindType(path, object, options);
-}
-absl::Status Catalog::FindObject(absl::Span<const std::string> path,
-                                 const Constant** object,
-                                 const FindOptions& options) {
-  return FindConstant(path, object, options);
 }
 
 absl::StatusOr<TypeListView> Catalog::GetExtendedTypeSuperTypes(

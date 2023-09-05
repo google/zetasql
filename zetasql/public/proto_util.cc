@@ -652,9 +652,9 @@ static bool ReadWireValue(google::protobuf::FieldDescriptor::Type field_type,
       return false;
     }
     case WireFormatLite::TYPE_MESSAGE: {
-      std::string c;
+      absl::Cord c;
       if (WireFormatLite::ReadBytes(in, &c)) {
-        *value = absl::Cord(c);
+        *value = std::move(c);
         return true;
       }
       return false;
@@ -897,8 +897,7 @@ static absl::StatusOr<Value> ReadSingularProtoField(
   absl::InlinedVector<Value, 8> elements;
   const bool is_packable = field_info.descriptor->is_packable();
   uint32_t tag_and_type;
-  std::string bytes_str(bytes);
-  google::protobuf::io::ArrayInputStream cord_stream(bytes_str.data(), bytes_str.size());
+  google::protobuf::io::CordInputStream cord_stream(&bytes);
   google::protobuf::io::CodedInputStream in(&cord_stream);
   while (0 < (tag_and_type = in.ReadTag())) {
     const int tag_number = WireFormatLite::GetTagFieldNumber(tag_and_type);
@@ -1033,9 +1032,7 @@ absl::Status ReadProtoFields(
   ZETASQL_RET_CHECK(!field_infos.empty());
   const google::protobuf::FieldDescriptor* some_field = field_infos[0]->descriptor;
     uint32_t tag_and_type;
-    std::string bytes_str(bytes);
-    google::protobuf::io::ArrayInputStream cord_stream(bytes_str.data(),
-    bytes_str.size());
+    google::protobuf::io::CordInputStream cord_stream(&bytes);
     google::protobuf::io::CodedInputStream in(&cord_stream);
     while (0 < (tag_and_type = in.ReadTag())) {
       const int tag_number = WireFormatLite::GetTagFieldNumber(tag_and_type);
@@ -1205,9 +1202,7 @@ absl::Status ProtoHasField(
     int32_t field_tag, const absl::Cord& bytes,
     bool* has_field) {
   *has_field = false;
-    std::string bytes_str(bytes);
-    google::protobuf::io::ArrayInputStream cord_stream(bytes_str.data(),
-    bytes_str.size());
+    google::protobuf::io::CordInputStream cord_stream(&bytes);
     google::protobuf::io::CodedInputStream in(&cord_stream);
     uint32_t tag_and_type;
     while (0 < (tag_and_type = in.ReadTag())) {

@@ -29,11 +29,13 @@
 #include "zetasql/public/cast.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/regexp.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
@@ -42,6 +44,7 @@
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -53,6 +56,8 @@
 namespace zetasql {
 
 enum class FunctionKind {
+  // Indicates that a function is not built-in
+  kInvalid,
   // Arithmetic functions
   kAdd,
   kSubtract,
@@ -273,6 +278,7 @@ enum class FunctionKind {
   kMakeProto,
   kReplaceFields,
   kFilterFields,
+  kExtractOneofCase,
   // Enum functions
   kEnumValueDescriptorProto,
   // String functions
@@ -449,6 +455,11 @@ enum class FunctionKind {
   kRangeOverlaps,
   kRangeIntersect,
   kGenerateRangeArray,
+  kRangeContains,
+
+  kCosineDistance,
+  kEuclideanDistance,
+  kEditDistance,
 };
 
 // Provides two utility methods to look up a built-in function name or function
@@ -643,6 +654,13 @@ class UserDefinedScalarFunction : public ScalarFunctionBody {
   FunctionEvaluator evaluator_;
   const std::string function_name_;
 };
+
+// Factory method to create a UserDefinedAggregateFunction
+absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
+MakeUserDefinedAggregateFunction(
+    AggregateFunctionEvaluatorFactory evaluator_factory,
+    const FunctionSignature& function_signature, TypeFactory* type_factory,
+    absl::string_view function_name, bool ignores_null);
 
 // Abstract built-in (non-aggregate) analytic function.
 class BuiltinAnalyticFunction : public AnalyticFunctionBody {
@@ -1579,6 +1597,26 @@ class CollateFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
+// Evaluates an EXTRACT(ONEOF_CASE(one_of) from proto) expression. The input
+// <args> vector will contain a proto value that has a Oneof described by
+// <oneof_desc_>.
+class ExtractOneofCaseFunction : public SimpleBuiltinScalarFunction {
+ public:
+  ExtractOneofCaseFunction(const Type* output_type,
+                           const google::protobuf::OneofDescriptor* oneof_desc)
+      : SimpleBuiltinScalarFunction(FunctionKind::kExtractOneofCase,
+                                    output_type),
+        oneof_desc_(oneof_desc) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+
+ private:
+  // Describes the Oneof for which the set field name will be returned.
+  const google::protobuf::OneofDescriptor* oneof_desc_;
+};
+
 class RandFunction : public SimpleBuiltinScalarFunction {
  public:
   RandFunction()
@@ -1915,6 +1953,66 @@ class PercentileDiscFunction : public BuiltinAnalyticFunction {
  private:
   bool ignore_nulls_;
   std::unique_ptr<const ZetaSqlCollator> collator_;
+};
+
+class CosineDistanceFunctionDense : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class CosineDistanceFunctionSparseInt64Key
+    : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class CosineDistanceFunctionSparseStringKey
+    : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class EuclideanDistanceFunctionDense : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class EuclideanDistanceFunctionSparseInt64Key
+    : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class EuclideanDistanceFunctionSparseStringKey
+    : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class EditDistanceFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
 };
 
 // This method is used only for setting non-deterministic output.

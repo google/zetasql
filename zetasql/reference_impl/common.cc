@@ -144,8 +144,8 @@ GetCollatorFromResolvedCollationList(
 absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
 GetCollatorFromResolvedCollationValue(const Value& collation_value) {
   ResolvedCollationProto resolved_collation_proto;
-  bool is_valid = resolved_collation_proto.ParsePartialFromString(
-      std::string(collation_value.ToCord()));
+  bool is_valid =
+      resolved_collation_proto.ParsePartialFromCord(collation_value.ToCord());
   ZETASQL_RET_CHECK(is_valid)
       << "Failed to parse collation_value to ResolvedCollation proto: "
       << collation_value.ToCord();

@@ -20,8 +20,14 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
+
+using ParentPointerMap = absl::flat_hash_map<const ResolvedNode* /*child*/,
+                                             const ResolvedNode* /*parent*/>;
 
 // A visitor which collects free ResolvedColumnRef that are referenced, but not
 // local to this expression.
@@ -56,6 +62,21 @@ class ColumnRefVisitor : public ResolvedASTVisitor {
 // defined within the tree under `node`.
 absl::StatusOr<absl::flat_hash_set<const ResolvedColumnRef*>>
 CollectFreeColumnRefs(const ResolvedNode& node);
+
+// Returns a map of parent-child relationships between ResolvedAST nodes that
+// comprise field access path expressions out of the `expr`. In particular, this
+// function is only collecting paths that begin at column references for columns
+// defined outside `expr`.
+//
+// `expr`: All parent-child relationships are edges under its resolved AST.
+// `free_columns`: The set of columns defined outside of `expr`.
+// `matched_column_refs`: The set of column refs that contain any column in
+// `free_columns`, which will also be returned by this function.
+absl::StatusOr<ParentPointerMap>
+CollectParentPointersOfUnboundedFieldAccessPaths(
+    const ResolvedExpr& expr,
+    const absl::flat_hash_set<ResolvedColumn>& free_columns,
+    absl::flat_hash_set<const ResolvedColumnRef*>& matched_column_refs);
 
 // Find the ResolvedComputedColumn in a ResolvedProjectScan producing <column>.
 // Return NULL if <column> is not computed by <project>.

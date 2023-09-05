@@ -31,6 +31,7 @@
 #include "zetasql/parser/bison_parser.bison.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/flags/flag.h"
@@ -184,7 +185,9 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   std::vector<std::string> expectations =
       absl::StrSplit(expectations_string, " or ", absl::SkipEmpty());
   for (std::string& expectation : expectations) {
-    if (expectation.size() == 1 && !isalpha(expectation[0])) {
+    // Wrap the single-character operators, "+=" and "-=" in quotes.
+    if ((expectation.size() == 1 && !isalpha(expectation[0])) ||
+        expectation == "+=" || expectation == "-=") {
       expectation = absl::StrCat("\"", expectation, "\"");
     }
 
@@ -229,6 +232,18 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   // continuations. This may be triggered by the fact that we use operator
   // precedence parsing.
   expectations_set.erase("$end");
+
+  // Avoid suggesting FROM every place a query might show up.
+  // This is usually a bad suggestion anyway.
+  expectations_set.erase("keyword FROM");
+
+  // Removes the "+=" and "-=" from the expectations set if the language feature
+  // is not enabled.
+  if (!language_options.LanguageFeatureEnabled(
+          FEATURE_ENABLE_ALTER_ARRAY_OPTIONS)) {
+    expectations_set.erase("\"+=\"");
+    expectations_set.erase("\"-=\"");
+  }
 
   // TODO: Make this conditional on the language features that are
   // enabled, and remove other elements from the expectations that are not

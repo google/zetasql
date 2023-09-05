@@ -1598,6 +1598,13 @@ bool Token::IsMacroCall() const {
   return IsIdentifier() && GetImage()[0] == '$';
 }
 
+bool Token::IsCaseExprKeyword() const {
+  static const auto* kCaseClauseKeywords =
+      new zetasql_base::flat_set<absl::string_view>({"ELSE", "END", "THEN", "WHEN"});
+  return !Is(Type::KEYWORD_AS_IDENTIFIER_FRAGMENT) &&
+         kCaseClauseKeywords->contains(GetKeyword());
+}
+
 bool Token::MayBeIdentifier() const {
   return !UsedAsKeyword() &&
          (IsIdentifier() || Is(Token::Type::KEYWORD_AS_IDENTIFIER_FRAGMENT) ||

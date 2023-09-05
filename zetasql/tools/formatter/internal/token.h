@@ -115,8 +115,6 @@ class Token : public ParseToken {
     CAST_AS,
     // Token that might be a keyword inside a DDL statement.
     DDL_KEYWORD,
-    // Marks keywords inside CASE operator (WHEN, THEN, ELSE, END).
-    CASE_KEYWORD,
     // Marks builtin-functions, some of which may be multipart, e.g.
     // D3A_COUNT.INIT()
     BUILTIN_FUNCTION,
@@ -164,6 +162,10 @@ class Token : public ParseToken {
 
   // Returns true if the current token is a macro call, e.g. $MY_MACRO.
   bool IsMacroCall() const;
+
+  // Returns true if the current token is the keyword used in a CASE expression
+  // (one of: "WHEN", "THEN", "ELSE", "END", but not "CASE" itself).
+  bool IsCaseExprKeyword() const;
 
   // Checks if the current token may be an identifier (but may be also a non
   // reserved keyword).

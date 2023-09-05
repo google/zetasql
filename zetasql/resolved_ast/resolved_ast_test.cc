@@ -225,10 +225,12 @@ FunctionCall(test_group:test(INT64, INT64, INT64) -> INT64) (test - call root)
 +-Literal(type=INT64, value=2) (test - arg 1)
 +-Literal(type=INT64, value=3)
 )",
-      absl::StrCat(absl::StrCat(
-          "\n", call->DebugString({{call->argument_list(0), "(test - arg 0)"},
-                                   {call->argument_list(1), "(test - arg 1)"},
-                                   {call.get(), "(test - call root)"}}))));
+      absl::StrCat(
+          absl::StrCat("\n", call->DebugString(ResolvedNode::DebugStringConfig{
+                                 {{call->argument_list(0), "(test - arg 0)"},
+                                  {call->argument_list(1), "(test - arg 1)"},
+                                  {call.get(), "(test - call root)"}},
+                                 false}))));
 }
 
 TEST_F(ResolvedASTTest, DebugStringAnnotationsAndPrintAccessedFunctionCall) {
@@ -270,9 +272,11 @@ QueryStmt (test - query)
     +-input_scan=
       +-SingleRowScan
 )",
-      absl::StrCat("\n", stmt->DebugString({{stmt.get(), "(test - query)"},
-                                            {stmt->output_column_list(0),
-                                             "(test - output col)"}})));
+      absl::StrCat("\n",
+                   stmt->DebugString(ResolvedNode::DebugStringConfig{
+                       {{stmt.get(), "(test - query)"},
+                        {stmt->output_column_list(0), "(test - output col)"}},
+                       false})));
 }
 
 TEST_F(ResolvedASTTest, ReleaseAndSet) {
@@ -1226,6 +1230,25 @@ TEST_F(ResolvedASTTest, ConstantDeserialization) {
   ASSERT_THAT(deserialized_constant, NotNull())
       << resolved_constant->DebugString();
   EXPECT_EQ(deserialized_constant->FullName(), constant_fullname);
+}
+
+// TODO: Remove this test case once we have analyzer tests that
+// actually produce the field.
+TEST_F(ResolvedASTTest, ResolvedFunctionArgumentAlias) {
+  // Checks the default values.
+  {
+    std::unique_ptr<ResolvedFunctionArgument> function_argument =
+        MakeResolvedFunctionArgument();
+    EXPECT_EQ(function_argument->argument_alias(), "");
+  }
+  // The alias field is correctly populated and printed.
+  {
+    std::unique_ptr<ResolvedFunctionArgument> function_argument =
+        MakeResolvedFunctionArgument();
+    function_argument->set_argument_alias("alias");
+    EXPECT_EQ(function_argument->DebugString(),
+              "FunctionArgument(argument_alias=\"alias\")\n");
+  }
 }
 
 }  // namespace zetasql

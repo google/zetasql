@@ -670,7 +670,6 @@ inline IntervalValue Value::Get<IntervalValue>() const {
 template <>
 class Value::Metadata::ContentLayout<4> {
  protected:
-  int16_t kind_;
   uint16_t is_null_ : 1;
   uint16_t preserves_order_ : 1;
   uint16_t has_type_ : 1;
@@ -682,21 +681,18 @@ class Value::Metadata::ContentLayout<4> {
 
  public:
   ContentLayout<4>(Type* type, bool is_null, bool preserves_order)
-      : kind_(TypeKind::TYPE_UNKNOWN),
-        is_null_(is_null),
+      : is_null_(is_null),
         preserves_order_(preserves_order),
         has_type_(true),
         type_(type) {}
 
   constexpr ContentLayout<4>(TypeKind kind, bool is_null, bool preserves_order,
                              int32_t value_extended_content)
-      : kind_(kind),
-        is_null_(is_null),
+      : is_null_(is_null),
         preserves_order_(preserves_order),
         has_type_(false),
         value_extended_content_(value_extended_content) {}
 
-  int16_t kind() const { return kind_; }
   const Type* type() const { return type_; }
   int32_t value_extended_content() const { return value_extended_content_; }
   bool is_null() const { return is_null_; }
@@ -867,9 +863,9 @@ inline Value Proto(const ProtoType* proto_type, absl::Cord value) {
   return Value::Proto(proto_type, std::move(value));
 }
 inline Value Proto(const ProtoType* proto_type, const google::protobuf::Message& msg) {
-  std::string bytes;
-  ABSL_CHECK(msg.SerializeToString(&bytes));
-  return Value::Proto(proto_type, absl::Cord(bytes));
+  absl::Cord bytes;
+  ABSL_CHECK(msg.SerializeToCord(&bytes));
+  return Value::Proto(proto_type, std::move(bytes));
 }
 inline Value EmptyArray(const ArrayType* type) {
   return Value::Array(type, {});

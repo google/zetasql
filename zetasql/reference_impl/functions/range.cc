@@ -23,13 +23,18 @@
 
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/range.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/reference_impl/tuple.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/time/time.h"
 #include "zetasql/base/source_location.h"
 #include "absl/types/span.h"
 #include "zetasql/base/source_location.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -47,13 +52,23 @@ bool DoTwoRangesOverlap(const Value& range1, const Value& range2) {
 }
 
 // start being null/unbounded represents -inf
+// s1 and s2 represent RANGE's start values
+// Returns a boolean whether s1 is less than s2
 bool IsStartLessThan(const Value& s1, const Value& s2) {
-  return s1.is_null() ? true : s2.is_null() ? false : s1.LessThan(s2);
+  if (s1.is_null() && s2.is_null()) return false;
+  if (s1.is_null()) return true;
+  if (s2.is_null()) return false;
+  return s1.LessThan(s2);
 }
 
 // end being null/unbounded represents +inf
+// e1 and e2 represent RANGE's end values
+// Returns a boolean whether e1 is less than e2
 bool IsEndLessThan(const Value& e1, const Value& e2) {
-  return e1.is_null() ? false : e2.is_null() ? true : e1.LessThan(e2);
+  if (e1.is_null() && e2.is_null()) return false;
+  if (e1.is_null()) return false;
+  if (e2.is_null()) return true;
+  return e1.LessThan(e2);
 }
 
 template <typename LogicalType>
@@ -335,14 +350,14 @@ absl::StatusOr<std::vector<Value>> GenerateRangeArrayFunction::EvalForElement(
 absl::StatusOr<Value> GenerateRangeArrayFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ABSL_DCHECK_GE(args.size(), 2);
-  ABSL_DCHECK_LE(args.size(), 3);
+  ZETASQL_RET_CHECK_GE(args.size(), 2);
+  ZETASQL_RET_CHECK_LE(args.size(), 3);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
 
   ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
-  ABSL_DCHECK(args[0].type()->IsRangeType());
+  ZETASQL_RET_CHECK(args[0].type()->IsRangeType());
 
   std::vector<Value> result;
   switch (args[0].type()->AsRange()->element_type()->kind()) {
@@ -375,6 +390,45 @@ absl::StatusOr<Value> GenerateRangeArrayFunction::Eval(
   }
 
   return Value::MakeArray(output_type()->AsArray(), std::move(result));
+}
+
+class RangeContainsFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit RangeContainsFunction(const Type* output_type)
+      : SimpleBuiltinScalarFunction(FunctionKind::kRangeContains, output_type) {
+  }
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+absl::StatusOr<Value> RangeContainsFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::NullBool();
+  }
+
+  ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
+  ZETASQL_RET_CHECK(args[0].type()->IsRangeType());
+
+  if (args[1].type()->IsRangeType()) {
+    // Fn 1. range_contains(range<T>, range<T>) -> bool
+    ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[1], context));
+    ZETASQL_RET_CHECK(args[0].type()->AsRange()->element_type()->Equals(
+        args[1].type()->AsRange()->element_type()));
+
+    return Value::Bool(!IsStartLessThan(args[1].start(), args[0].start()) &&
+                       !IsEndLessThan(args[0].end(), args[1].end()));
+  } else {
+    // Fn 2. range_contains(range<T>, T) -> bool
+    ZETASQL_RET_CHECK(
+        args[0].type()->AsRange()->element_type()->Equals(args[1].type()));
+
+    return Value::Bool(!IsStartLessThan(args[1], args[0].start()) &&
+                       IsEndLessThan(args[1], args[0].end()));
+  }
 }
 
 }  // namespace
@@ -419,6 +473,11 @@ void RegisterBuiltinRangeFunctions() {
       {FunctionKind::kGenerateRangeArray},
       [](FunctionKind kind, const Type* output_type) {
         return new GenerateRangeArrayFunction(output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kRangeContains},
+      [](FunctionKind kind, const Type* output_type) {
+        return new RangeContainsFunction(output_type);
       });
 }
 

@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
@@ -27,12 +28,16 @@
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
@@ -41,9 +46,11 @@
 #include "zetasql/testing/test_catalog.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -62,16 +69,20 @@ class ExpressionSubstitutorTest : public ::testing::Test {
  protected:
   void SetUp() override {
     // Setup TestTable
-    catalog_.AddZetaSQLFunctions();
-    ZETASQL_CHECK_OK(test_table_.AddColumn(&test_column_, false));
-    catalog_.AddTable(&test_table_);
-
     options_.CreateDefaultArenasIfNotSet();
     seq_.GetNext();  // Avoid column id's of 0, which are forbidden.
     options_.set_column_id_sequence_number(&seq_);
     options_.mutable_language()->EnableLanguageFeature(
         FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
+    options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_V_1_3_COLLATION_SUPPORT);
+    options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_V_1_3_ANNOTATION_FRAMEWORK);
     options_.set_record_parse_locations(true);
+
+    catalog_.AddBuiltinFunctions(BuiltinFunctionOptions(options_.language()));
+    ZETASQL_CHECK_OK(test_table_.AddColumn(&test_column_, false));
+    catalog_.AddTable(&test_table_);
 
     col1_ = ResolvedColumn(
         static_cast<int>(options_.column_id_sequence_number()->GetNext()),
@@ -599,6 +610,202 @@ TEST_F(ExpressionSubstitutorTest, LambdaNameConflictsWithExistingFunction) {
         +-input_scan=
           +-SingleRowScan
 )");
+}
+
+const StructType* MakeStructType(
+    absl::Span<const StructType::StructField> fields,
+    TypeFactory* type_factory) {
+  const StructType* struct_type;
+  ZETASQL_CHECK_OK(type_factory->MakeStructType(
+      std::vector<StructType::StructField>(fields.begin(), fields.end()),
+      &struct_type));
+  return struct_type;
+}
+
+TEST_F(ExpressionSubstitutorTest, SubstituteWithTargetStructType) {
+  // Renaming of fields in STRUCT type
+  {
+    constexpr absl::string_view input_sql = R"sql(
+  STRUCT<a INT64, b STRING>(1, "str")
+  )sql";
+
+    // Make a struct with different field names.
+    const StructType* struct_type =
+        MakeStructType({{"c", types::Int64Type()}, {"d", types::StringType()}},
+                       &type_factory_);
+
+    auto result = *AnalyzeSubstitute(
+        options_, catalog_, type_factory_, input_sql, {},
+        /*lambdas=*/{}, AnnotatedType(struct_type, /*annotation_map=*/nullptr));
+
+    EXPECT_TRUE(result->Is<ResolvedCast>());
+    EXPECT_TRUE(result->GetAs<ResolvedCast>()->type()->Equals(struct_type));
+
+    ZETASQL_VLOG(1) << result->DebugString();
+    EXPECT_EQ(result->DebugString(),
+              R"(Cast(STRUCT<a INT64, b STRING> -> STRUCT<c INT64, d STRING>)
++-SubqueryExpr
+  +-type=STRUCT<a INT64, b STRING>
+  +-subquery_type=SCALAR
+  +-subquery=
+    +-ProjectScan
+      +-column_list=[$expr_subquery.$col1#7]
+      +-expr_list=
+      | +-$col1#7 := Literal(type=STRUCT<a INT64, b STRING>, value={a:1, b:"str"}, has_explicit_type=TRUE)
+      +-input_scan=
+        +-SingleRowScan
+)");
+  }
+  // Expression does not have collation, target type has collation.
+  {
+    constexpr absl::string_view input_sql = R"sql(
+  STRUCT<a INT64, b STRING>(1, "str")
+  )sql";
+
+    const StructType* struct_type =
+        MakeStructType({{"c", types::Int64Type()}, {"d", types::StringType()}},
+                       &type_factory_);
+
+    const AnnotationMap* annotation_map_struct_with_string_ci;
+    {
+      std::unique_ptr<AnnotationMap> annotation_map =
+          AnnotationMap::Create(struct_type);
+      annotation_map->AsStructMap()
+          ->mutable_field(1)
+          ->SetAnnotation<CollationAnnotation>(SimpleValue::String("und:ci"));
+      ZETASQL_ASSERT_OK_AND_ASSIGN(
+          annotation_map_struct_with_string_ci,
+          type_factory_.TakeOwnership(std::move(annotation_map)));
+    }
+
+    auto result = *AnalyzeSubstitute(
+        options_, catalog_, type_factory_, input_sql, {},
+        /*lambdas=*/{},
+        AnnotatedType(struct_type,
+                      /*annotation_map=*/annotation_map_struct_with_string_ci));
+
+    EXPECT_TRUE(result->Is<ResolvedCast>());
+    EXPECT_TRUE(result->GetAs<ResolvedCast>()->type()->Equals(struct_type));
+
+    ZETASQL_VLOG(1) << result->DebugString();
+    EXPECT_EQ(result->DebugString(),
+              R"(Cast(STRUCT<a INT64, b STRING> -> STRUCT<c INT64, d STRING>)
++-type_annotation_map=<_,{Collation:"und:ci"}>
++-SubqueryExpr
+  +-type=STRUCT<a INT64, b STRING>
+  +-subquery_type=SCALAR
+  +-subquery=
+    +-ProjectScan
+      +-column_list=[$expr_subquery.$col1#8]
+      +-expr_list=
+      | +-$col1#8 := Literal(type=STRUCT<a INT64, b STRING>, value={a:1, b:"str"}, has_explicit_type=TRUE)
+      +-input_scan=
+        +-SingleRowScan
++-type_modifiers=collation:[_,und:ci]
+)");
+  }
+  // Expression has collation, target type does not have collation
+  {
+    constexpr absl::string_view input_sql = R"sql(
+  STRUCT(1 AS a, COLLATE("str", "und:ci") AS b)
+  )sql";
+
+    const StructType* struct_type =
+        MakeStructType({{"c", types::Int64Type()}, {"d", types::StringType()}},
+                       &type_factory_);
+
+    auto result =
+        *AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql, {},
+                           /*lambdas=*/{},
+                           AnnotatedType(struct_type,
+                                         /*annotation_map=*/nullptr));
+
+    EXPECT_TRUE(result->Is<ResolvedCast>());
+    EXPECT_TRUE(result->GetAs<ResolvedCast>()->type()->Equals(struct_type));
+
+    ZETASQL_VLOG(1) << result->DebugString();
+    EXPECT_EQ(result->DebugString(),
+              R"(Cast(STRUCT<a INT64, b STRING> -> STRUCT<c INT64, d STRING>)
++-SubqueryExpr
+  +-type=STRUCT<a INT64, b STRING>
+  +-type_annotation_map=<_,{Collation:"und:ci"}>
+  +-subquery_type=SCALAR
+  +-subquery=
+    +-ProjectScan
+      +-column_list=[$expr_subquery.$col1#9<_,{Collation:"und:ci"}>]
+      +-expr_list=
+      | +-$col1#9 :=
+      |   +-MakeStruct
+      |     +-type=STRUCT<a INT64, b STRING>
+      |     +-type_annotation_map=<_,{Collation:"und:ci"}>
+      |     +-field_list=
+      |       +-Literal(type=INT64, value=1)
+      |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+      |         +-type_annotation_map={Collation:"und:ci"}
+      |         +-Literal(type=STRING, value="str")
+      |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+      +-input_scan=
+        +-SingleRowScan
+)");
+  }
+  // Expression has collation, target type has distinct collation
+  {
+    constexpr absl::string_view input_sql = R"sql(
+  STRUCT(1 AS a, COLLATE("str", "binary") AS b)
+  )sql";
+
+    const StructType* struct_type =
+        MakeStructType({{"c", types::Int64Type()}, {"d", types::StringType()}},
+                       &type_factory_);
+
+    const AnnotationMap* annotation_map_struct_with_string_ci;
+    {
+      std::unique_ptr<AnnotationMap> annotation_map =
+          AnnotationMap::Create(struct_type);
+      annotation_map->AsStructMap()
+          ->mutable_field(1)
+          ->SetAnnotation<CollationAnnotation>(SimpleValue::String("und:ci"));
+      ZETASQL_ASSERT_OK_AND_ASSIGN(
+          annotation_map_struct_with_string_ci,
+          type_factory_.TakeOwnership(std::move(annotation_map)));
+    }
+
+    auto result = *AnalyzeSubstitute(
+        options_, catalog_, type_factory_, input_sql, {},
+        /*lambdas=*/{},
+        AnnotatedType(struct_type,
+                      /*annotation_map=*/annotation_map_struct_with_string_ci));
+
+    EXPECT_TRUE(result->Is<ResolvedCast>());
+    EXPECT_TRUE(result->GetAs<ResolvedCast>()->type()->Equals(struct_type));
+
+    ZETASQL_VLOG(1) << result->DebugString();
+    EXPECT_EQ(result->DebugString(),
+              R"(Cast(STRUCT<a INT64, b STRING> -> STRUCT<c INT64, d STRING>)
++-type_annotation_map=<_,{Collation:"und:ci"}>
++-SubqueryExpr
+  +-type=STRUCT<a INT64, b STRING>
+  +-type_annotation_map=<_,{Collation:"binary"}>
+  +-subquery_type=SCALAR
+  +-subquery=
+    +-ProjectScan
+      +-column_list=[$expr_subquery.$col1#10<_,{Collation:"binary"}>]
+      +-expr_list=
+      | +-$col1#10 :=
+      |   +-MakeStruct
+      |     +-type=STRUCT<a INT64, b STRING>
+      |     +-type_annotation_map=<_,{Collation:"binary"}>
+      |     +-field_list=
+      |       +-Literal(type=INT64, value=1)
+      |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+      |         +-type_annotation_map={Collation:"binary"}
+      |         +-Literal(type=STRING, value="str")
+      |         +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+      +-input_scan=
+        +-SingleRowScan
++-type_modifiers=collation:[_,und:ci]
+)");
+  }
 }
 
 }  // namespace

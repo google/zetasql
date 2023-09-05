@@ -24,7 +24,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the Pearson coefficient of correlation of a set of number pairs.
+    Computes the Pearson coefficient of correlation of a set of number pairs.
   </td>
 </tr>
 
@@ -33,7 +33,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the population covariance of a set of number pairs.
+    Computes the population covariance of a set of number pairs.
   </td>
 </tr>
 
@@ -42,7 +42,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the sample covariance of a set of number pairs.
+    Computes the sample covariance of a set of number pairs.
   </td>
 </tr>
 
@@ -60,7 +60,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the population (biased) standard deviation of the values.
+    Computes the population (biased) standard deviation of the values.
   </td>
 </tr>
 
@@ -69,7 +69,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the sample (unbiased) standard deviation of the values.
+    Computes the sample (unbiased) standard deviation of the values.
   </td>
 </tr>
 
@@ -78,7 +78,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the population (biased) variance of the values.
+    Computes the population (biased) variance of the values.
   </td>
 </tr>
 
@@ -87,7 +87,7 @@ To learn about the syntax for aggregate function calls, see
 
 </td>
   <td>
-    Returns the sample (unbiased) variance of the values.
+    Computes the sample (unbiased) variance of the values.
   </td>
 </tr>
 

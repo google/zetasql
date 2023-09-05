@@ -191,7 +191,9 @@ class CreateIteratorTest : public ::testing::Test {
     proto.set_int64_key_1(i);
     proto.set_int64_key_2(10 * i);
 
-    return Value::Proto(proto_type_, SerializeToCord(proto));
+    absl::Cord bytes;
+    ABSL_CHECK(proto.SerializeToCord(&bytes));
+    return Value::Proto(proto_type_, bytes);
   }
 
   const ProtoType* proto_type_ = nullptr;

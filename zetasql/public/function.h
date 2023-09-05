@@ -36,6 +36,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "absl/base/attributes.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -161,6 +162,45 @@ using FunctionEvaluator = std::function<absl::StatusOr<Value>(
 // error if one cannot be constructed.
 using FunctionEvaluatorFactory =
     std::function<absl::StatusOr<FunctionEvaluator>(const FunctionSignature&)>;
+
+// Interface that represents the evaluation of an aggregate function.
+class AggregateFunctionEvaluator {
+ public:
+  virtual ~AggregateFunctionEvaluator() = default;
+
+  // Resets the accumulation. This method will be called before any value
+  // accumulation and between groups, and should restore any state variables
+  // needed to keep track of the accumulated result to their initial values.
+  virtual absl::Status Reset() = 0;
+
+  // Accumulates 'args' which represents a single grouped row of Values.
+  // This method will be called repeatedly for each row in a group and should
+  // update any state variables necessary to track the accumulated result.
+  // On success, returns OK and populates 'stop_accumulation' with whether
+  // the caller may skip subsequent calls to Accumulate().
+  // On failure, returns the status.
+  // NULL values are ignored.
+  virtual absl::Status Accumulate(absl::Span<const Value*> args,
+                                  bool* stop_accumulation) = 0;
+
+  // Returns the final result of the accumulation, or returns an error
+  // in cases where the accumulation result is unexpected e.g. the returned
+  // value is invalid or has an unexpected type.
+  virtual absl::StatusOr<Value> GetFinalResult() = 0;
+
+  // Returns whether nulls should be ignored during function evaluation.
+  // If set to false, null handling logic should be explicitly added to
+  // Accumulate.
+  virtual bool IgnoresNulls() { return true; }
+};
+
+// Function that returns an AggregateFunctionEvaluator.
+// AggregateFunctionEvaluator implementations may be stateful, and this will
+// generate a new instance wherever one is needed for a separate group of
+// inputs.
+using AggregateFunctionEvaluatorFactory =
+    std::function<absl::StatusOr<std::unique_ptr<AggregateFunctionEvaluator>>(
+        const FunctionSignature&)>;
 
 // Options that apply to a function.
 // The setter methods here return a reference to *self so options can be
@@ -369,6 +409,20 @@ struct FunctionOptions {
   // If not nullptr, the callback is invoked to obtain an evaluator for the
   // function.
   FunctionEvaluatorFactory function_evaluator_factory = nullptr;
+
+  // Sets the evaluator factory used to associate a concrete signature of this
+  // function with an AggregateFunctionEvaluator. This method is used only for
+  // evaluating aggregate functions in the reference implementation.
+  FunctionOptions& set_aggregate_function_evaluator_factory(
+      AggregateFunctionEvaluatorFactory aggregate_fn_evaluator_factory) {
+    aggregate_function_evaluator_factory = aggregate_fn_evaluator_factory;
+    return *this;
+  }
+
+  // If not nullptr, the callback is invoked to obtain an evaluator for the
+  // aggregate function.
+  AggregateFunctionEvaluatorFactory aggregate_function_evaluator_factory =
+      nullptr;
 
   // If not nullptr, identifies additional constraints to check during function
   // resolution. For example, an argument must be a literal, it must be a simple
@@ -720,8 +774,14 @@ class Function {
   const BadArgumentErrorPrefixCallback&
   GetBadArgumentErrorPrefixCallback() const;
 
-  // Returns the factory set in <function_options_>.
+  // Returns the factory for producing a FunctionEvaluator set
+  // in <function_options_>.
   FunctionEvaluatorFactory GetFunctionEvaluatorFactory() const;
+
+  // Returns the factory for producing an AggregateFunctionEvaluator
+  // set in <function_options_>.
+  AggregateFunctionEvaluatorFactory GetAggregateFunctionEvaluatorFactory()
+      const;
 
   // Returns Status indicating whether or not the constraints for the OVER
   // clause are violated:

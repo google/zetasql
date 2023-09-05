@@ -186,6 +186,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:numeric_value",
+        "//zetasql/public:options_cc_proto",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
@@ -992,6 +993,42 @@ cc_test(
 )
 
 cc_library(
+    name = "distance",
+    srcs = ["distance.cc"],
+    hdrs = ["distance.h"],
+    deps = [
+        ":arithmetics",
+        ":math",
+        "//zetasql/base:edit_distance",
+        "//zetasql/base:status",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "distance_test",
+    srcs = ["distance_test.cc"],
+    deps = [
+        ":distance",
+        "//zetasql/base:check",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "generate_array",
     hdrs = ["generate_array.h"],
     deps = [
@@ -1224,6 +1261,7 @@ cc_library(
     deps = [
         ":date_time_util",
         "//zetasql/base:case",
+        "//zetasql/base:endian",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:errors",
@@ -1253,12 +1291,12 @@ cc_test(
         "//zetasql/public:type",
         "//zetasql/public:value",
         "//zetasql/public/types",
-        "//zetasql/public/types:timestamp_util",
         "//zetasql/testing:test_function",
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
     ],
 )

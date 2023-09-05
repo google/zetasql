@@ -165,6 +165,13 @@ class SampleCatalog {
 
   void LoadSqlFunctions(const LanguageOptions& language_options);
 
+  // Helpers for LoadSqlFunctions so that its both logically broken up and
+  // so that its less troublesome for dbg build stacks.
+  void LoadScalarSqlFunctions(const LanguageOptions& language_options);
+  void LoadDeepScalarSqlFunctions(const LanguageOptions& language_options);
+  void LoadScalarSqlFunctionTemplates(const LanguageOptions& language_options);
+  void LoadAggregateSqlFunctions(const LanguageOptions& language_options);
+
   // This can be used force linking of a proto for the generated_pool.
   // This may be required if a proto is referenced in file-based tests
   // (such as analyzer test), but not otherwise directly linked.

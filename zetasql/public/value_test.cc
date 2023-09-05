@@ -38,6 +38,7 @@
 #include "google/protobuf/text_format.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/testdata/test_proto3.pb.h"
+#include "absl/strings/str_format.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
@@ -130,7 +131,7 @@ absl::Time ParseTimeHm(absl::string_view str) {
 static Value TestGetSQL(const Value& value) {
   // Make all compiled-in proto type names visible.
   SimpleCatalog catalog("type_catalog");
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
   catalog.SetDescriptorPool(
       zetasql_test__::KitchenSinkPB::descriptor()->file()->pool());
 
@@ -1005,8 +1006,8 @@ TEST_F(ValueTest, HashCode) {
   const ArrayType* array_proto_type = GetTestArrayType(proto_type);
   const ArrayType* array_other_proto_type = GetTestArrayType(other_proto_type);
 
-  // Include all simple types and some simple examples of complex types. Complex
-  // types have additional testing in other tests.
+  // Include all simple types and some simple examples of complex types.
+  // Complex types have additional testing in other tests.
   EXPECT_TRUE(absl::VerifyTypeImplementsAbslHashCorrectly({
       // Invalid value.
       Value(),
@@ -1478,7 +1479,8 @@ TEST_F(ValueTest, AlmostEqualsStructArray) {
   // has trouble dealing with non-transitive almost-equal elements. If x_far
   // below is replaced by Value::Double(NextUnequal(3.0)), x_far becomes
   // almost equal to x_near, x_near is almost equal to x, yet x_far is not
-  // almost equal to x; and the test fails. Same is potentially true for y_far.
+  // almost equal to x; and the test fails. Same is potentially true for
+  // y_far.
   auto x_far = Value::Double(NextUnequal(NextUnequal(3.0)));
   auto y = Value::Float(7.0);
   auto y_near = Value::Float(NextAlmostEqual(7.0f));
@@ -2575,29 +2577,28 @@ TEST_F(ValueTest, Proto) {
 
   // Proto with an unknown tag.
   bytes = "";  // clear bytes;
-  std::string str_bytes;
   {
-    google::protobuf::io::StringOutputStream cord_stream(&str_bytes);
+    google::protobuf::io::CordOutputStream cord_stream;
     google::protobuf::io::CodedOutputStream out(&cord_stream);
     out.WriteVarint32(
         WireFormatLite::MakeTag(150775, WireFormatLite::WIRETYPE_VARINT));
     out.WriteVarint32(57);
     out.Trim();
+    bytes = cord_stream.Consume();
   }
-  bytes = absl::Cord(str_bytes);
   EXPECT_EQ("{150775: 57}",
             TestGetSQL(Proto(proto_type, bytes)).ShortDebugString());
 
   // Invalid proto contents is accepted without validation, but renders as
   // <unparseable>.
   {
-    google::protobuf::io::StringOutputStream cord_stream(&str_bytes);
+    google::protobuf::io::CordOutputStream cord_stream(std::move(bytes));
     google::protobuf::io::CodedOutputStream out(&cord_stream);
     out.WriteVarint32(
         WireFormatLite::MakeTag(150776, WireFormatLite::WIRETYPE_END_GROUP));
     out.Trim();
+    bytes = cord_stream.Consume();
   }
-  bytes = absl::Cord(str_bytes);
   EXPECT_EQ("Proto<zetasql_test__.KitchenSinkPB>{<unparseable>}",
             Proto(proto_type, bytes).FullDebugString());
   google::protobuf::DynamicMessageFactory message_factory;

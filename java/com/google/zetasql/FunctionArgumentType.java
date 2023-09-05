@@ -255,10 +255,14 @@ public final class FunctionArgumentType implements Serializable {
         return "<T1>";
       case ARG_TYPE_ANY_2:
         return "<T2>";
+      case ARG_TYPE_ANY_3:
+        return "<T3>";
       case ARG_ARRAY_TYPE_ANY_1:
         return "<array<T1>>";
       case ARG_ARRAY_TYPE_ANY_2:
         return "<array<T2>>";
+      case ARG_ARRAY_TYPE_ANY_3:
+        return "<array<T3>>";
       case ARG_ENUM_ANY:
         return "<enum>";
       case ARG_PROTO_MAP_ANY:
@@ -440,6 +444,9 @@ public final class FunctionArgumentType implements Serializable {
     @Nullable
     public abstract FunctionEnums.ArgumentCollationMode getArgumentCollationMode();
 
+    @Nullable
+    public abstract FunctionEnums.ArgumentAliasKind getArgumentAliasKind();
+
     @SuppressWarnings("deprecation") // Sets deprecated field for serialization compat.
     public FunctionArgumentTypeOptionsProto serialize(
         @Nullable Type argType, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
@@ -518,6 +525,10 @@ public final class FunctionArgumentType implements Serializable {
       }
       if (getArgumentCollationMode() != null) {
         builder.setArgumentCollationMode(getArgumentCollationMode());
+      }
+      if (getArgumentAliasKind() != null
+          && getArgumentAliasKind() != FunctionEnums.ArgumentAliasKind.ARGUMENT_NON_ALIASED) {
+        builder.setArgumentAliasKind(getArgumentAliasKind());
       }
       return builder.build();
     }
@@ -613,6 +624,9 @@ public final class FunctionArgumentType implements Serializable {
       if (proto.hasArgumentCollationMode()) {
         builder.setArgumentCollationMode(proto.getArgumentCollationMode());
       }
+      if (proto.hasArgumentAliasKind()) {
+        builder.setArgumentAliasKind(proto.getArgumentAliasKind());
+      }
       return builder.build();
     }
 
@@ -637,6 +651,10 @@ public final class FunctionArgumentType implements Serializable {
       }
       if (getDefault() != null) {
         options.add("default_value: " + getDefault());
+      }
+      if (getArgumentAliasKind() != null
+          && getArgumentAliasKind() != FunctionEnums.ArgumentAliasKind.ARGUMENT_NON_ALIASED) {
+        options.add("argument_alias_kind: " + getArgumentAliasKind().name());
       }
 
       if (options.isEmpty()) {
@@ -702,6 +720,9 @@ public final class FunctionArgumentType implements Serializable {
 
       public abstract Builder setArgumentCollationMode(
           FunctionEnums.ArgumentCollationMode argumentCollationMode);
+
+      public abstract Builder setArgumentAliasKind(
+          FunctionEnums.ArgumentAliasKind argumentAliasKind);
 
       abstract FunctionArgumentTypeOptions autoBuild();
 

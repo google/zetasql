@@ -36,6 +36,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
@@ -1939,18 +1940,18 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
                  required_order_allowed_frame_and_null_handling);
 }
 
-void GetBooleanFunctions(TypeFactory* type_factory,
-                         const ZetaSQLBuiltinFunctionOptions& options,
-                         NameToFunctionMap* functions) {
+absl::Status GetBooleanFunctions(TypeFactory* type_factory,
+                                 const ZetaSQLBuiltinFunctionOptions& options,
+                                 NameToFunctionMap* functions) {
   const Type* bool_type = type_factory->get_bool();
   const Type* byte_type = type_factory->get_bytes();
   const Type* int64_type = type_factory->get_int64();
   const Type* uint64_type = type_factory->get_uint64();
   const Type* string_type = type_factory->get_string();
   const ArrayType* array_string_type;
-  ZETASQL_CHECK_OK(type_factory->MakeArrayType(string_type, &array_string_type));
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(string_type, &array_string_type));
   const ArrayType* array_byte_type;
-  ZETASQL_CHECK_OK(type_factory->MakeArrayType(byte_type, &array_byte_type));
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(byte_type, &array_byte_type));
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -2286,6 +2287,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_sql_name("in unnest")
           .set_supported_signatures_callback(&EmptySupportedSignatures)
           .set_get_sql_callback(&InArrayFunctionSQL));
+  return absl::OkStatus();
 }
 
 void GetLogicFunctions(TypeFactory* type_factory,

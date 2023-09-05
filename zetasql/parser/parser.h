@@ -130,8 +130,8 @@ class ParserOutput {
       std::shared_ptr<IdStringPool> id_string_pool,
       std::shared_ptr<zetasql_base::UnsafeArena> arena,
       std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes,
-      absl::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
-                    std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
+      std::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
+                   std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
           node,
       std::unique_ptr<std::vector<absl::Status>> warnings,
       ParserRuntimeInfo info = {});
@@ -191,8 +191,8 @@ class ParserOutput {
   // This vector owns the non-root nodes in the AST.
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes_;
 
-  absl::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
-                std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
+  std::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
+               std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
       node_;
 
   std::unique_ptr<std::vector<absl::Status>> warnings_;

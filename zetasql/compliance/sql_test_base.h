@@ -76,6 +76,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/float_margin.h"
+#include "zetasql/common/internal_value.h"
 #include "zetasql/compliance/compliance_label.pb.h"
 #include "zetasql/compliance/known_error.pb.h"
 #include "zetasql/compliance/matchers.h"
@@ -630,6 +631,11 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
       const absl::StatusOr<ComplianceTestCaseResult>& expected_result,
       const FloatMargin& expected_float_margin);
 
+  // Overrides the default formatting options for the test result value content.
+  // Since ToString is static, so must be the formatting options.
+  static void SetFormatValueContentOptions(
+      InternalValue::FormatValueContentOptions options);
+
  private:
   // Accesses ValidateFirstColumnPrimaryKey
   friend class CodebasedTestsEnvironment;
@@ -916,6 +922,9 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Parses the expected results and compares them against `test_result`
   void ParseAndCompareExpectedResults(TestResults& test_result);
+
+  static InternalValue::FormatValueContentOptions*
+      format_value_content_options_;
 };
 
 }  // namespace zetasql

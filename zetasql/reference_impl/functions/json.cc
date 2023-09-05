@@ -951,10 +951,27 @@ absl::StatusOr<Value> JsonSetFunction::Eval(
   if (args[0].is_null()) {
     return Value::NullJson();
   }
+
+  // Validity verification steps:
+  // 1) Check validity of all non-null JSON paths. Return error if invalid.
+  // 2) If any JSON path is NULL return NULL.
+  // Parsing errors take precedence over NULL inputs.
+  bool paths_contain_nulls = false;
+  std::vector<std::unique_ptr<StrictJSONPathIterator>> path_iterators;
+  path_iterators.reserve(num_value_pairs);
   for (int i = 0; i < num_value_pairs; ++i) {
-    if (args[2 * i + 1].is_null()) {
-      return Value::NullJson();
+    int index = 2 * i + 1;
+    ZETASQL_RET_CHECK(args[index].type()->IsString());
+    if (args[index].is_null()) {
+      paths_contain_nulls = true;
+      continue;
     }
+    ZETASQL_ASSIGN_OR_RETURN(
+        path_iterators.emplace_back(),
+        BuildStrictJSONPathIterator(args[index].string_value(), "JSON_SET"));
+  }
+  if (paths_contain_nulls) {
+    return Value::NullJson();
   }
 
   for (int i = 0; i < num_value_pairs; ++i) {
@@ -967,12 +984,8 @@ absl::StatusOr<Value> JsonSetFunction::Eval(
   JSONValueRef ref = result.GetRef();
 
   for (int i = 0; i < num_value_pairs; ++i) {
-    ZETASQL_RET_CHECK(args[2 * i + 1].type()->IsString());
-    ZETASQL_ASSIGN_OR_RETURN(auto path_iterator,
-                     BuildStrictJSONPathIterator(args[2 * i + 1].string_value(),
-                                                 "JSON_SET"));
     if (absl::Status status = functions::JsonSet(
-            ref, *path_iterator, args[2 * i + 2], language_options,
+            ref, *path_iterators[i], args[2 * i + 2], language_options,
             /*canonicalize_zero=*/true);
         !status.ok()) {
       return MakeEvalError()

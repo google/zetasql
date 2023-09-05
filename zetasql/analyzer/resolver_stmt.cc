@@ -764,6 +764,31 @@ absl::Status Resolver::ResolveStatement(
 }
 // NOLINTEND(readability/fn_size)
 
+std::unique_ptr<const ResolvedOutputColumn> Resolver::MakeOneOutputColumn(
+    const NameList& name_list, std::string name, const ResolvedColumn& column) {
+  // Any column making it into the output cannot be pruned.
+  RecordColumnAccess(column);
+
+  // If the output is a value table, it shouldn't have a column name.
+  if (name_list.is_value_table() && !IsInternalAlias(name)) {
+    name = "$value";
+  }
+
+  return MakeResolvedOutputColumn(name, column);
+}
+
+std::vector<std::unique_ptr<const ResolvedOutputColumn>>
+Resolver::MakeOutputColumnList(const NameList& name_list) {
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
+
+  for (const NamedColumn& named_column : name_list.columns()) {
+    output_column_list.push_back(MakeOneOutputColumn(
+        name_list, named_column.name().ToString(), named_column.column()));
+  }
+
+  return output_column_list;
+}
+
 absl::Status Resolver::ResolveQueryStatement(
     const ASTQueryStatement* query_stmt,
     std::unique_ptr<ResolvedStatement>* output_stmt,
@@ -776,21 +801,7 @@ absl::Status Resolver::ResolveQueryStatement(
   // Sanity check: WITH aliases get unregistered as they go out of scope.
   ZETASQL_RET_CHECK(named_subquery_map_.empty());
 
-  // Generate the user-visible output_column_list.
-  // TODO Generate better user-visible names for anonymous columns.
-  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
-  for (const NamedColumn& named_column : (*output_name_list)->columns()) {
-    // Ownership of ResolvedOutputColumn transferred to ResolvedQueryStmt below.
-    // TODO Add IdString support to resolved AST classes like
-    // ResolvedOutputColumn so we don't have to call ToString and copy here.
-    output_column_list.push_back(MakeResolvedOutputColumn(
-        named_column.name().ToString(), named_column.column()));
-
-    // Any column making it into the output cannot be pruned.
-    RecordColumnAccess(named_column.column());
-  }
-
-  *output_stmt = MakeResolvedQueryStmt(std::move(output_column_list),
+  *output_stmt = MakeResolvedQueryStmt(MakeOutputColumnList(**output_name_list),
                                        (*output_name_list)->is_value_table(),
                                        std::move(resolved_scan));
   return absl::OkStatus();
@@ -1013,7 +1024,7 @@ absl::Status Resolver::ResolveColumnDefinitionList(
     ColumnIndexMap* column_indexes) {
   NameList column_name_list;
 
-  std::unordered_map<IdString, const ASTColumnDefinition*, IdStringHash>
+  absl::flat_hash_map<IdString, const ASTColumnDefinition*, IdStringHash>
       id_to_column_definition_map;
   absl::node_hash_map<IdString, std::unique_ptr<const ResolvedColumnDefinition>,
                       IdStringHash>
@@ -1100,8 +1111,8 @@ absl::Status Resolver::ResolveColumnDefinitionList(
 }
 
 absl::Status Resolver::ResolveColumnDefinition(
-    const std::unordered_map<IdString, const ASTColumnDefinition*,
-                             IdStringHash>& id_to_column_definition_map,
+    const absl::flat_hash_map<IdString, const ASTColumnDefinition*,
+                              IdStringHash>& id_to_column_definition_map,
     absl::node_hash_map<IdString,
                         std::unique_ptr<const ResolvedColumnDefinition>,
                         IdStringHash>* id_to_column_def_map,
@@ -2520,7 +2531,7 @@ absl::Status Resolver::ResolveWithPartitionColumns(
                  << table_element->GetNodeKindString() << " is unsupported";
           break;
         default:
-          ZETASQL_RET_CHECK(false) << "Unsupported table element "
+          ZETASQL_RET_CHECK_FAIL() << "Unsupported table element "
                            << table_element->GetNodeKindString();
       }
     }
@@ -2621,7 +2632,7 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
           has_check_constraint = true;
           break;
         default:
-          ZETASQL_RET_CHECK(false) << "Unsupported table element "
+          ZETASQL_RET_CHECK_FAIL() << "Unsupported table element "
                            << table_element->GetNodeKindString();
       }
     }
@@ -3127,9 +3138,8 @@ absl::Status Resolver::ResolveQueryAndOutputColumns(
         ZETASQL_RETURN_IF_ERROR(
             check_duplicate_column_name(query, named_column.name()));
       }
-      output_column_list->push_back(MakeResolvedOutputColumn(
-          named_column.name().ToString(), named_column.column()));
     }
+    *output_column_list = MakeOutputColumnList(*query_name_list);
   }
   if (column_definition_list != nullptr) {
     for (int i = 0; i < num_output_columns; ++i) {
@@ -3302,8 +3312,9 @@ absl::Status Resolver::ResolveAndAdaptQueryAndOutputColumns(
       query, desired_output_columns, kCreateAsCastId, query_scan,
       &output_columns));
   for (int i = 0; i < query_name_list->num_columns(); ++i) {
-    output_column_list->push_back(MakeResolvedOutputColumn(
-        column_definition_list[i]->column().name(), output_columns[i]));
+    output_column_list->push_back(MakeOneOutputColumn(
+        *query_name_list, column_definition_list[i]->column().name(),
+        output_columns[i]));
   }
   return absl::OkStatus();
 }
@@ -4101,9 +4112,13 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
     return MakeSqlErrorAt(ast_statement)
         << "Function cannot specify a LANGUAGE and include a SQL body";
   }
-  if (language != nullptr && ast_statement->return_tvf_schema() == nullptr) {
-    return MakeSqlErrorAt(ast_statement)
-        << "Non-SQL functions must specify a return type";
+  if (language != nullptr &&
+      !zetasql_base::CaseEqual(language->GetAsStringView(), "REMOTE") &&
+      ast_statement->return_tvf_schema() == nullptr) {
+    return MakeSqlErrorAt(ast_statement) << absl::Substitute(
+               "TVF whose language is $0 must specify a return type, only "
+               "REMOTE TVF and SQL TVF can omit return type",
+               language->GetAsStringView());
   }
   if (language == nullptr && code != nullptr) {
     return MakeSqlErrorAt(ast_statement)
@@ -5609,16 +5624,9 @@ absl::Status Resolver::ResolveExportDataStatement(
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(),
                                      &resolved_options));
 
-  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
-  for (int i = 0; i < query_name_list->num_columns(); ++i) {
-    const NamedColumn& named_column = query_name_list->column(i);
-    output_column_list.push_back(MakeResolvedOutputColumn(
-        named_column.name().ToString(), named_column.column()));
-  }
-
   *output = MakeResolvedExportDataStmt(
       std::move(resolved_connection), std::move(resolved_options),
-      std::move(output_column_list), query_name_list->is_value_table(),
+      MakeOutputColumnList(*query_name_list), query_name_list->is_value_table(),
       std::move(query_scan));
   return absl::OkStatus();
 }

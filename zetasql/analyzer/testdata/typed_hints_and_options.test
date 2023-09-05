@@ -813,3 +813,72 @@ CreateTableAsSelectStmt
     | +-foo#1 := Literal(type=INT64, value=1)
     +-input_scan=
       +-SingleRowScan
+==
+
+CREATE FUNCTION F(x int64) OPTIONS(int64_option = (x)) as (1);
+--
+ERROR: Unrecognized name: x [at 1:52]
+CREATE FUNCTION F(x int64) OPTIONS(int64_option = (x)) as (1);
+                                                   ^
+==
+
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+CREATE TABLE FUNCTION F(x int64) OPTIONS(int64_option = (x)) as select 1 as p;
+--
+ERROR: Unrecognized name: x [at 1:58]
+CREATE TABLE FUNCTION F(x int64) OPTIONS(int64_option = (x)) as select 1 as p;
+                                                         ^
+==
+
+CREATE FUNCTION F(x int64) as ((select @{qual.int64_hint=(x)} 1));
+--
+CreateFunctionStmt
++-name_path=F
++-return_type=INT64
++-argument_name_list=[x]
++-signature=(INT64 x) -> INT64
++-language="SQL"
++-code="(select @{qual.int64_hint=(x)} 1)"
++-function_expression=
+  +-SubqueryExpr
+    +-type=INT64
+    +-subquery_type=SCALAR
+    +-subquery=
+      +-ProjectScan
+        +-column_list=[$expr_subquery.$col1#1]
+        +-hint_list=
+        | +-qual.int64_hint := ArgumentRef(type=INT64, name="x")
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[$expr_subquery.$col1#1]
+            +-expr_list=
+            | +-$col1#1 := Literal(type=INT64, value=1)
+            +-input_scan=
+              +-SingleRowScan
+==
+
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+
+CREATE TABLE FUNCTION F(x int64) as
+select @{qual.int64_hint=(x)} 1 as p;
+--
+CreateTableFunctionStmt
++-name_path=F
++-argument_name_list=[x]
++-signature=(INT64 x) -> TABLE<p INT64>
++-language="SQL"
++-code="select @{qual.int64_hint=(x)} 1 as p"
++-query=
+| +-ProjectScan
+|   +-column_list=[$query.p#1]
+|   +-hint_list=
+|   | +-qual.int64_hint := ArgumentRef(type=INT64, name="x")
+|   +-input_scan=
+|     +-ProjectScan
+|       +-column_list=[$query.p#1]
+|       +-expr_list=
+|       | +-p#1 := Literal(type=INT64, value=1)
+|       +-input_scan=
+|         +-SingleRowScan
++-output_column_list=
+  +-$query.p#1 AS p [INT64]

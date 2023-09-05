@@ -25,6 +25,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/parser/deidentify.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/parser/parser.h"
@@ -803,6 +804,23 @@ class RunParserTest : public ::testing::Test {
     }
   }
 
+  void TestDeidentifiedConsistency(absl::string_view test_case,
+                                   absl::string_view unparsed) {
+    // The deidentified SQL should be the same independent of how many times it
+    // was unparsed or deidentified.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::string deidentified_unparsed,
+                         parser::DeidentifySQLIdentifiersAndLiterals(
+                             unparsed, *language_options_));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::string deidentified_deidentified,
+                         parser::DeidentifySQLIdentifiersAndLiterals(
+                             deidentified_unparsed, *language_options_));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::string test_case_deidentified,
+                         parser::DeidentifySQLIdentifiersAndLiterals(
+                             test_case, *language_options_));
+    EXPECT_EQ(deidentified_unparsed, test_case_deidentified);
+    EXPECT_EQ(deidentified_deidentified, test_case_deidentified);
+  }
+
   void TestUnparsing(absl::string_view test_case, absl::string_view mode,
                      const ASTNode* parsed_root, std::string* output) {
     const std::string unparsed = Unparse(parsed_root);
@@ -813,6 +831,7 @@ class RunParserTest : public ::testing::Test {
       *output = "Unparse had truncated nested expression";
       return;
     }
+
     *output = unparsed;
     const ASTNode* root2;
     std::unique_ptr<ParserOutput> parser_output;
@@ -836,6 +855,10 @@ class RunParserTest : public ::testing::Test {
           << test_case << "\nTree for original sql :\n"
           << orig_string << "\nTree for unparsed sql:\n"
           << from_unparse_string;
+    }
+
+    if (mode == "statement") {
+      TestDeidentifiedConsistency(test_case, unparsed);
     }
   }
 

@@ -79,9 +79,7 @@ class TextProtoEvaluatorTableIterator
       return false;
     }
     absl::Cord cord;
-    std::string bytes_str;
-    bool success = dynmsg->SerializeToString(&bytes_str);
-    cord = absl::Cord(bytes_str);
+    bool success = dynmsg->SerializeToCord(&cord);
     if (!success) {
       status_ = absl::InternalError("Can't serialize proto");
       return false;

@@ -241,7 +241,7 @@ REVOKE delete, `update`(col2) ON view foo FROM 'mdbgroup/bar'
 
 revoke all on view foo to 'mdbgroup/bar'
 --
-ERROR: Syntax error: Expected "." or keyword FROM but got keyword TO [at 1:24]
+ERROR: Syntax error: Expected "." but got keyword TO [at 1:24]
 revoke all on view foo to 'mdbgroup/bar'
                        ^
 ==

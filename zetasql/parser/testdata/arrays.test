@@ -199,7 +199,7 @@ SELECT
 
 select ARRAY(1, 2, 3)
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got integer literal "1" [at 1:14]
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:14]
 select ARRAY(1, 2, 3)
              ^
 ==
@@ -213,14 +213,14 @@ select ARRAY<int32>(1, 2, 3)
 
 select ARRAY(int32)[1, 2, 3]
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "int32" [at 1:14]
+ERROR: Syntax error: Unexpected identifier "int32" [at 1:14]
 select ARRAY(int32)[1, 2, 3]
              ^
 ==
 
 select ARRAY(int32)(1, 2, 3)
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "int32" [at 1:14]
+ERROR: Syntax error: Unexpected identifier "int32" [at 1:14]
 select ARRAY(int32)(1, 2, 3)
              ^
 ==

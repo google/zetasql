@@ -347,6 +347,10 @@ TEST(MakeWriterFromFlagsTest, Textproto) {
   // ExecuteQueryWriteTextproto has better tests
   std::ostringstream output;
   RunWriter("textproto", output);
+  google::protobuf::TextFormat::Parser parser;
+  parser.AllowUnknownField(true);
+  EmptyMessage msg;
+  EXPECT_TRUE(parser.ParseFromString(output.str(), &msg));
 }
 
 TEST(SetDescriptorPoolFromFlags, DescriptorPool) {
@@ -643,8 +647,8 @@ TEST(ExecuteQuery, ExecuteError) {
 TEST(ExecuteQuery, RespectEvaluatorOptions) {
   ExecuteQueryConfig config;
   config.set_tool_mode(ToolMode::kExecute);
-  config.mutable_catalog().AddZetaSQLFunctions(
-      config.analyzer_options().language());
+  config.mutable_catalog().AddBuiltinFunctions(
+      BuiltinFunctionOptions(config.analyzer_options().language()));
 
   {
     std::ostringstream output;
@@ -667,8 +671,8 @@ TEST(ExecuteQuery, RespectEvaluatorOptionsExpressions) {
   ExecuteQueryConfig config;
   config.set_tool_mode(ToolMode::kExecute);
   config.set_sql_mode(SqlMode::kExpression);
-  config.mutable_catalog().AddZetaSQLFunctions(
-      config.analyzer_options().language());
+  config.mutable_catalog().AddBuiltinFunctions(
+      BuiltinFunctionOptions(config.analyzer_options().language()));
 
   {
     std::ostringstream output;
@@ -690,8 +694,8 @@ TEST(ExecuteQuery, RespectEvaluatorOptionsExpressions) {
 TEST(ExecuteQuery, RespectQueryParameters) {
   ExecuteQueryConfig config;
   config.set_tool_mode(ToolMode::kExecute);
-  config.mutable_catalog().AddZetaSQLFunctions(
-      config.analyzer_options().language());
+  config.mutable_catalog().AddBuiltinFunctions(
+      BuiltinFunctionOptions(config.analyzer_options().language()));
   ZETASQL_ASSERT_OK(config.mutable_analyzer_options().AddQueryParameter(
       "p1", types::Int64Type()));
   config.mutable_query_parameter_values()["p1"] = values::Int64(5);
@@ -710,8 +714,8 @@ TEST(ExecuteQuery, RespectQueryParametersExpression) {
   ExecuteQueryConfig config;
   config.set_tool_mode(ToolMode::kExecute);
   config.set_sql_mode(SqlMode::kExpression);
-  config.mutable_catalog().AddZetaSQLFunctions(
-      config.analyzer_options().language());
+  config.mutable_catalog().AddBuiltinFunctions(
+      BuiltinFunctionOptions(config.analyzer_options().language()));
   ZETASQL_ASSERT_OK(config.mutable_analyzer_options().AddQueryParameter(
       "p1", types::Int64Type()));
   config.mutable_query_parameter_values()["p1"] = values::Int64(5);

@@ -68,11 +68,9 @@ ABSL_DECLARE_FLAG(bool, zetasql_print_resolved_ast);
 
 namespace zetasql {
 
-namespace {
-
 // Sets <has_default_resolution_time> to true for every table name in
 // 'table_names' if it does not have "FOR SYSTEM_TIME AS OF" expression.
-void EnsureResolutionTimeInfoForEveryTable(
+static void EnsureResolutionTimeInfoForEveryTable(
     const TableNamesSet& table_names,
     TableResolutionTimeInfoMap* table_resolution_time_info_map) {
   for (const auto& table_name : table_names) {
@@ -84,10 +82,19 @@ void EnsureResolutionTimeInfoForEveryTable(
   }
 }
 
-}  // namespace
+static absl::Status RewriteResolvedAstImpl(
+    const AnalyzerOptions& analyzer_options, absl::string_view sql,
+    Catalog* catalog, TypeFactory* type_factory,
+    AnalyzerOutput& analyzer_output) {
+  // InternalRewriteResolvedAst cannot call RegisterBuiltinRewriters because it
+  // would create a dependency cycle.
+  RegisterBuiltinRewriters();
+  return InternalRewriteResolvedAst(analyzer_options, sql, catalog,
+                                    type_factory, analyzer_output);
+}
 
 // Common post-parsing work for AnalyzeStatement() series.
-static absl::Status FinishAnalyzeStatementImpl(
+static absl::Status FinishResolveStatementImpl(
     absl::string_view sql, const ASTStatement& ast_statement,
     Resolver* resolver, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, AnalyzerRuntimeInfo* analyzer_runtime_info,
@@ -129,8 +136,11 @@ static absl::Status FinishAnalyzeStatementImpl(
     return resolver->deprecation_warnings().front();
   }
 
-  // Make sure we're starting from a clean state for CheckFieldsAccessed.
-  (*resolved_statement)->ClearFieldsAccessed();
+  if (options.fields_accessed_mode() ==
+      AnalyzerOptions::FieldsAccessedMode::LEGACY_FIELDS_ACCESSED_MODE) {
+    // In legacy mode, we maintain this exact (buggy) early call to clear.
+    (*resolved_statement)->ClearFieldsAccessed();
+  }
 
   return absl::OkStatus();
 }
@@ -251,7 +261,7 @@ static absl::Status AnalyzeStatementHelper(
     ZETASQL_RET_CHECK(options.AllArenasAreInitialized());
     std::unique_ptr<const ResolvedStatement> resolved_statement;
     Resolver resolver(catalog, type_factory, &options);
-    absl::Status status = FinishAnalyzeStatementImpl(
+    absl::Status status = FinishResolveStatementImpl(
         sql, ast_statement, &resolver, options, catalog, type_factory,
         &analyzer_runtime_info, &resolved_statement);
 
@@ -283,7 +293,12 @@ static absl::Status AnalyzeStatementHelper(
         *type_assignments, resolver.undeclared_positional_parameters(),
         resolver.max_column_id());
     ZETASQL_RETURN_IF_ERROR(
-        RewriteResolvedAst(options, sql, catalog, type_factory, **output));
+        RewriteResolvedAstImpl(options, sql, catalog, type_factory, **output));
+    if (options.fields_accessed_mode() ==
+        AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS) {
+      // Always clear fields before return.
+      AnalyzerOutputMutator(*output).resolved_node()->ClearFieldsAccessed();
+    }
   }
   AnalyzerOutputMutator(*output).mutable_runtime_info().AccumulateAll(
       analyzer_runtime_info);
@@ -371,8 +386,10 @@ absl::Status AnalyzeExpression(absl::string_view sql,
   // would create a dependency cycle.
   RegisterBuiltinRewriters();
   std::unique_ptr<AnalyzerOutput> mutable_output;
-  ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(sql, options, catalog, type_factory,
-                                            nullptr, &mutable_output));
+  ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(
+      sql, options, catalog, type_factory,
+      AnnotatedType(/*type=*/nullptr, /*annotation_map=*/nullptr),
+      &mutable_output));
   ZETASQL_ASSIGN_OR_RETURN(*output, AnalyzerOutputMutator::FinalizeAnalyzerOutput(
                                 std::move(mutable_output)));
   return absl::OkStatus();
@@ -386,8 +403,9 @@ absl::Status AnalyzeExpressionForAssignmentToType(
   // would create a dependency cycle.
   RegisterBuiltinRewriters();
   std::unique_ptr<AnalyzerOutput> mutable_output;
-  ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(sql, options, catalog, type_factory,
-                                            target_type, &mutable_output));
+  ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(
+      sql, options, catalog, type_factory,
+      AnnotatedType(target_type, /*annotation_map=*/nullptr), &mutable_output));
   ZETASQL_ASSIGN_OR_RETURN(*output, AnalyzerOutputMutator::FinalizeAnalyzerOutput(
                                 std::move(mutable_output)));
   return absl::OkStatus();
@@ -414,7 +432,8 @@ absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
   std::unique_ptr<AnalyzerOutput> mutable_output;
   const absl::Status status = InternalAnalyzeExpressionFromParserAST(
       ast_expression, /*parser_output=*/nullptr, sql, options, catalog,
-      type_factory, target_type, &mutable_output);
+      type_factory, AnnotatedType(target_type, /*annotation_map=*/nullptr),
+      &mutable_output);
   if (status.ok()) {
     ZETASQL_ASSIGN_OR_RETURN(*output, AnalyzerOutputMutator::FinalizeAnalyzerOutput(
                                   std::move(mutable_output)));
@@ -620,8 +639,9 @@ absl::Status ExtractTableNamesFromScript(absl::string_view sql,
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_RETURN_IF_ERROR(ParseScript(sql, options.GetParserOptions(),
-                              options.error_message_mode(), &parser_output));
+  ZETASQL_RETURN_IF_ERROR(
+      ParseScript(sql, options.GetParserOptions(), options.error_message_mode(),
+                  options.attach_error_location_payload(), &parser_output));
   ZETASQL_VLOG(5) << "Parsed AST:\n" << parser_output->script()->DebugString();
 
   absl::Status status = table_name_resolver::FindTableNamesInScript(
@@ -700,6 +720,10 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
         analyzer_output.undeclared_parameters(),
         analyzer_output.undeclared_positional_parameters(),
         column_factory.max_column_id());
+    if (analyzer_options.fields_accessed_mode() ==
+        AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS) {
+      AnalyzerOutputMutator(ret).resolved_node()->ClearFieldsAccessed();
+    }
   }
 
   AnalyzerRuntimeInfo::RewriterDetails& rewriter_details =
@@ -719,11 +743,15 @@ absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
                                 absl::string_view sql, Catalog* catalog,
                                 TypeFactory* type_factory,
                                 AnalyzerOutput& analyzer_output) {
-  // InternalRewriteResolvedAst cannot call RegisterBuiltinRewriters because it
-  // would create a dependency cycle.
-  RegisterBuiltinRewriters();
-  return InternalRewriteResolvedAst(analyzer_options, sql, catalog,
-                                    type_factory, analyzer_output);
+  ZETASQL_RETURN_IF_ERROR(RewriteResolvedAstImpl(analyzer_options, sql, catalog,
+                                         type_factory, analyzer_output));
+  if (analyzer_options.fields_accessed_mode() ==
+      AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS) {
+    AnalyzerOutputMutator(&analyzer_output)
+        .resolved_node()
+        ->ClearFieldsAccessed();
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

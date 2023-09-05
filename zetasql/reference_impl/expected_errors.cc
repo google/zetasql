@@ -143,6 +143,22 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       "Invalid input to JSON_OBJECT: The number of keys and values must "
       "match"));
 
+  // Expected errors for COSINE_DISTANCE, EUCLIDEAN_DISTANCE, EDIT_DISTANCE.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Array length mismatch:"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Cannot compute.*distance against zero vector"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Duplicate index.*found in the input array"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "NULL array element"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "NULL struct field"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "max_distance must be non-negative"));
+
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
 }

@@ -45,7 +45,7 @@ bool AbslParseFlag(absl::string_view text, QueryParameterFlagValue* flag,
       zetasql::GetComplianceTestDriver()->GetSupportedLanguageOptions());
 
   auto catalog = std::make_unique<SimpleCatalog>("test");
-  catalog->AddZetaSQLFunctions(
+  catalog->AddBuiltinFunctions(
       ZetaSQLBuiltinFunctionOptions(analyzer_options.language()));
 
   return internal::ParseQueryParameterFlag(

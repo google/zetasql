@@ -200,7 +200,7 @@ with tt as (select * from KeyValue)
 create table t3 as
 select * from tt
 --
-ERROR: Syntax error: Expected "(" or "," or keyword SELECT but got keyword CREATE [at 2:1]
+ERROR: Syntax error: Unexpected keyword CREATE [at 2:1]
 create table t3 as
 ^
 ==
@@ -300,7 +300,7 @@ SELECT
 create table t4 options(x=y) as
 with t1 as (select 1)
 --
-ERROR: Syntax error: Expected "(" or "," or keyword SELECT but got end of statement [at 2:22]
+ERROR: Syntax error: Unexpected end of statement [at 2:22]
 with t1 as (select 1)
                      ^
 ==
@@ -801,13 +801,13 @@ create {{|or replace}} table foo as "must be a query not a string";
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got string literal "must be a query not a string" [at 1:22]
+ERROR: Syntax error: Unexpected string literal "must be a query not a string" [at 1:22]
 create  table foo as "must be a query not a string";
                      ^
 --
 ALTERNATION GROUP: or replace
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got string literal "must be a query not a string" [at 1:32]
+ERROR: Syntax error: Unexpected string literal "must be a query not a string" [at 1:32]
 create or replace table foo as "must be a query not a string";
                                ^
 ==

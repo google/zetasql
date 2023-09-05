@@ -2127,3 +2127,77 @@ SELECT
     ORDER BY 5) AS a
 FROM
   T
+==
+
+# GROUP BY doesn't support aliases.
+select COUNT(*)
+from t
+GROUP BY x AS y
+--
+ERROR: Syntax error: GROUP BY does not support aliases [at 3:12]
+GROUP BY x AS y
+           ^
+==
+
+# GROUP BY aliases without AS.
+select COUNT(*)
+from t
+GROUP BY x y
+--
+ERROR: Syntax error: Expected end of input but got identifier "y" [at 3:12]
+GROUP BY x y
+           ^
+==
+
+# GROUPING_SETS, etc, don't support aliases.
+select COUNT(*)
+from t
+GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(x,y) AS z
+--
+ALTERNATION GROUP: ROLLUP
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:22]
+GROUP BY ROLLUP(x,y) AS z
+                     ^
+--
+ALTERNATION GROUP: CUBE
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:20]
+GROUP BY CUBE(x,y) AS z
+                   ^
+--
+ALTERNATION GROUP: GROUPING SETS
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:29]
+GROUP BY GROUPING SETS(x,y) AS z
+                            ^
+==
+
+# GROUP BY () doesn't support aliases.
+select COUNT(*)
+from t
+GROUP BY () AS z
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:13]
+GROUP BY () AS z
+            ^
+==
+
+# Aliases inside ROLLUP not allowed.
+select COUNT(*)
+from t
+GROUP BY ROLLUP(x, x+1 AS y)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:24]
+GROUP BY ROLLUP(x, x+1 AS y)
+                       ^
+==
+
+# Aliases inside GROUPING SETS not allowed.
+select COUNT(*)
+from t
+GROUP BY GROUPING SETS(x, x+1 AS y, ROLLUP(x AS y), CUBE(z AS zz))
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:31]
+GROUP BY GROUPING SETS(x, x+1 AS y, ROLLUP(x AS y), CUBE(z AS zz))
+                              ^

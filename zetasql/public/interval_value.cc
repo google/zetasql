@@ -25,25 +25,29 @@
 #include <string>
 #include <type_traits>
 
-#include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "absl/base/casts.h"
+#include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/endian.h"
 #include "re2/re2.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
 namespace {
 
-inline ::zetasql_base::StatusBuilder MakeIntervalParsingError(absl::string_view input) {
-  return MakeEvalError() << "Invalid INTERVAL value '" << input << "'";
+::zetasql_base::StatusBuilder MakeIntervalParsingError(absl::string_view input) {
+  return ::zetasql_base::OutOfRangeErrorBuilder()
+         << "Invalid INTERVAL value '" << input << "'";
 }
 
 std::string ToString(int64_t value) {
@@ -97,18 +101,66 @@ void UnalignedLoadAndAugmentPtr(T* value, const char** data) {
   *data += sizeof(T);
 }
 
+absl::Status Error(absl::string_view msg) {
+  return absl::Status(absl::StatusCode::kOutOfRange, msg);
+}
+
+std::string BinaryOverflowMessage(int64_t in1, int64_t in2,
+                                  absl::string_view operator_symbol) {
+  return absl::StrCat("int64 overflow: ", in1, operator_symbol, in2);
+}
+
 }  // namespace
+
+namespace internal {
+// Keeping Add and Multiply in a separate internal namespace, to disambiguate
+// calls.
+absl::Status Add(int64_t in1, int64_t in2, int64_t* out,
+                 absl::string_view error_msg = "") {
+  long long result;  // NOLINT(runtime/int)
+  bool has_overflow = __builtin_saddll_overflow(in1, in2, &result);
+
+  *out = static_cast<int64_t>(result);
+  if (ABSL_PREDICT_FALSE(has_overflow)) {
+    if (!error_msg.empty()) {
+      return Error(error_msg);
+    }
+
+    return Error(BinaryOverflowMessage(in1, in2, " + "));
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status Multiply(int64_t in1, int64_t in2, int64_t* out,
+                      absl::string_view error_msg = "") {
+  long long result;  // NOLINT(runtime/int)
+  bool has_overflow = __builtin_smulll_overflow(in1, in2, &result);
+  *out = static_cast<int64_t>(result);
+  if (ABSL_PREDICT_FALSE(has_overflow)) {
+    if (!error_msg.empty()) {
+      return Error(error_msg);
+    }
+
+    return Error(BinaryOverflowMessage(in1, in2, " * "));
+  }
+
+  return absl::OkStatus();
+}
+
+}  // namespace internal
 
 absl::StatusOr<IntervalValue> IntervalValue::FromYMDHMS(
     int64_t years, int64_t months, int64_t days, int64_t hours, int64_t minutes,
     int64_t seconds) {
-  absl::Status status;
   int64_t year_months;
-  if (!functions::Multiply(IntervalValue::kMonthsInYear, years, &year_months,
-                           &status)) {
+  if (absl::Status status =
+          internal::Multiply(years, IntervalValue::kMonthsInYear, &year_months);
+      !status.ok()) {
     return status;
   }
-  if (!functions::Add(months, year_months, &months, &status)) {
+  if (absl::Status status = internal::Add(months, year_months, &months);
+      !status.ok()) {
     return status;
   }
 
@@ -123,22 +175,27 @@ size_t IntervalValue::HashCode() const {
 }
 
 absl::StatusOr<IntervalValue> IntervalValue::operator*(int64_t value) const {
-  absl::Status status;
   int64_t months;
-  if (!zetasql::functions::Multiply(get_months(), value, &months, &status)) {
-    return absl::OutOfRangeError("Interval overflow during multiplication");
+  constexpr absl::string_view kOverflowErrorMsg =
+      "Interval overflow during multiplication";
+  if (absl::Status status = internal::Multiply(get_months(), value, &months,
+                                               /*error_msg=*/kOverflowErrorMsg);
+      !status.ok()) {
+    return status;
   }
 
   int64_t days;
-  if (!zetasql::functions::Multiply(get_days(), value, &days, &status)) {
-    return absl::OutOfRangeError("Interval overflow during multiplication");
+  if (absl::Status status = internal::Multiply(get_days(), value, &days,
+                                               /*error_msg=*/kOverflowErrorMsg);
+      !status.ok()) {
+    return status;
   }
 
   FixedInt<64, 3> nanos = FixedInt<64, 3>(get_nanos());
   nanos *= value;
   if (nanos > FixedInt<64, 3>(FixedInt<64, 2>::max()) ||
       nanos < FixedInt<64, 3>(FixedInt<64, 2>::min())) {
-    return absl::OutOfRangeError("Interval overflow during multiplication");
+    return absl::OutOfRangeError(kOverflowErrorMsg);
   }
   return IntervalValue::FromMonthsDaysNanos(months, days,
                                             static_cast<__int128>(nanos));
@@ -484,48 +541,55 @@ absl::StatusOr<IntervalValue> IntervalValue::ParseFromString(
 
   switch (part) {
     case functions::YEAR:
-      if (!functions::Multiply(IntervalValue::kMonthsInYear, value, &value,
-                               &status)) {
+      if (absl::Status status =
+              internal::Multiply(IntervalValue::kMonthsInYear, value, &value);
+          !status.ok()) {
         return status;
       }
       return IntervalValue::FromMonths(value);
     case functions::QUARTER:
-      if (!functions::Multiply(IntervalValue::kMonthsInQuarter, value, &value,
-                               &status)) {
+      if (absl::Status status = internal::Multiply(
+              IntervalValue::kMonthsInQuarter, value, &value);
+          !status.ok()) {
         return status;
       }
       return IntervalValue::FromMonths(value);
     case functions::MONTH:
       return IntervalValue::FromMonths(value);
     case functions::WEEK:
-      if (!functions::Multiply(IntervalValue::kDaysInWeek, value, &value,
-                               &status)) {
+      if (absl::Status status =
+              internal::Multiply(IntervalValue::kDaysInWeek, value, &value);
+          !status.ok()) {
         return status;
       }
       return IntervalValue::FromDays(value);
     case functions::DAY:
       return IntervalValue::FromDays(value);
     case functions::HOUR:
-      if (!functions::Multiply(IntervalValue::kMicrosInHour, value, &value,
-                               &status)) {
+      if (absl::Status status =
+              internal::Multiply(IntervalValue::kMicrosInHour, value, &value);
+          !status.ok()) {
         return status;
       }
       return IntervalValue::FromMicros(value);
     case functions::MINUTE:
-      if (!functions::Multiply(IntervalValue::kMicrosInMinute, value, &value,
-                               &status)) {
+      if (absl::Status status =
+              internal::Multiply(IntervalValue::kMicrosInMinute, value, &value);
+          !status.ok()) {
         return status;
       }
       return IntervalValue::FromMicros(value);
     case functions::SECOND:
-      if (!functions::Multiply(IntervalValue::kMicrosInSecond, value, &value,
-                               &status)) {
+      if (absl::Status status =
+              internal::Multiply(IntervalValue::kMicrosInSecond, value, &value);
+          !status.ok()) {
         return status;
       }
       return IntervalValue::FromMicros(value);
     default:
-      return MakeEvalError() << "Unsupported interval datetime field "
-                             << functions::DateTimestampPart_Name(part);
+      return ::zetasql_base::OutOfRangeErrorBuilder()
+             << "Unsupported interval datetime field "
+             << functions::DateTimestampPart_Name(part);
   }
 }
 
@@ -626,7 +690,7 @@ absl::StatusOr<IntervalValue> IntervalValue::ParseFromString(
         break;
 
       default:
-        return MakeEvalError()
+        return ::zetasql_base::OutOfRangeErrorBuilder()
                << "Invalid interval datetime fields: "
                << functions::DateTimestampPart_Name(from) << " TO "
                << functions::DateTimestampPart_Name(to);
@@ -697,7 +761,7 @@ absl::StatusOr<IntervalValue> IntervalValue::ParseFromString(
         break;
 
       default:
-        return MakeEvalError()
+        return ::zetasql_base::OutOfRangeErrorBuilder()
                << "Invalid interval datetime fields: "
                << functions::DateTimestampPart_Name(from) << " TO "
                << functions::DateTimestampPart_Name(to);
@@ -709,13 +773,14 @@ absl::StatusOr<IntervalValue> IntervalValue::ParseFromString(
     return MakeIntervalParsingError(input);
   }
 
-  absl::Status status;
   int64_t years_as_months;
-  if (!functions::Multiply(IntervalValue::kMonthsInYear, years,
-                           &years_as_months, &status)) {
+  if (absl::Status status = internal::Multiply(IntervalValue::kMonthsInYear,
+                                               years, &years_as_months);
+      !status.ok()) {
     return status;
   }
-  if (!functions::Add(years_as_months, months, &months, &status)) {
+  if (absl::Status status = internal::Add(years_as_months, months, &months);
+      !status.ok()) {
     return status;
   }
   bool negative_months = !sign_months.empty() && sign_months[0] == '-';
@@ -834,7 +899,6 @@ class ISO8601Parser {
       return MakeIntervalParsingError(input)
              << ": At least one datetime part must be defined in the interval";
     }
-    absl::Status status;
 
     // When true - parsing time part (after T), when false - parsing date part.
     bool in_time_part = false;
@@ -872,7 +936,10 @@ class ISO8601Parser {
       }
       // We now expect to see positive number (possibly with fractional digits)
       // followed by datetime part letter.
-      ZETASQL_RETURN_IF_ERROR(ParseNumber(input));
+      if (absl::Status status = ParseNumber(input); !status.ok()) {
+        return status;
+      }
+
       int64_t number;
       if (!absl::SimpleAtoi(digits_, &number)) {
         return MakeIntervalParsingError(input)
@@ -885,22 +952,26 @@ class ISO8601Parser {
       if (!in_time_part) {
         switch (c) {
           case 'Y':
-            if (!functions::Add(years, number, &years, &status)) {
+            if (absl::Status status = internal::Add(years, number, &years);
+                !status.ok()) {
               return status;
             }
             break;
           case 'M':
-            if (!functions::Add(months, number, &months, &status)) {
+            if (absl::Status status = internal::Add(months, number, &months);
+                !status.ok()) {
               return status;
             }
             break;
           case 'W':
-            if (!functions::Add(weeks, number, &weeks, &status)) {
+            if (absl::Status status = internal::Add(weeks, number, &weeks);
+                !status.ok()) {
               return status;
             }
             break;
           case 'D':
-            if (!functions::Add(days, number, &days, &status)) {
+            if (absl::Status status = internal::Add(days, number, &days);
+                !status.ok()) {
               return status;
             }
             break;
@@ -912,17 +983,20 @@ class ISO8601Parser {
       } else {
         switch (c) {
           case 'H':
-            if (!functions::Add(hours, number, &hours, &status)) {
+            if (absl::Status status = internal::Add(hours, number, &hours);
+                !status.ok()) {
               return status;
             }
             break;
           case 'M':
-            if (!functions::Add(minutes, number, &minutes, &status)) {
+            if (absl::Status status = internal::Add(minutes, number, &minutes);
+                !status.ok()) {
               return status;
             }
             break;
           case 'S':
-            if (!functions::Add(seconds, number, &seconds, &status)) {
+            if (absl::Status status = internal::Add(seconds, number, &seconds);
+                !status.ok()) {
               return status;
             }
             if (!decimal_point_.empty()) {
@@ -947,20 +1021,24 @@ class ISO8601Parser {
     }
 
     int64_t year_months;
-    if (!functions::Multiply(IntervalValue::kMonthsInYear, years, &year_months,
-                             &status)) {
+    if (absl::Status status = internal::Multiply(IntervalValue::kMonthsInYear,
+                                                 years, &year_months);
+        !status.ok()) {
       return status;
     }
-    if (!functions::Add(months, year_months, &months, &status)) {
+    if (absl::Status status = internal::Add(months, year_months, &months);
+        !status.ok()) {
       return status;
     }
 
     int64_t week_days;
-    if (!functions::Multiply(IntervalValue::kDaysInWeek, weeks, &week_days,
-                             &status)) {
+    if (absl::Status status =
+            internal::Multiply(IntervalValue::kDaysInWeek, weeks, &week_days);
+        !status.ok()) {
       return status;
     }
-    if (!functions::Add(days, week_days, &days, &status)) {
+    if (absl::Status status = internal::Add(days, week_days, &days);
+        !status.ok()) {
       return status;
     }
 
@@ -1048,24 +1126,25 @@ absl::StatusOr<IntervalValue> IntervalValue::FromInteger(
     case functions::SECOND:
       return IntervalValue::FromYMDHMS(0, 0, 0, 0, 0, value);
     case functions::QUARTER: {
-      absl::Status status;
-      if (!functions::Multiply(IntervalValue::kMonthsInQuarter, value, &value,
-                               &status)) {
+      if (absl::Status status = internal::Multiply(
+              IntervalValue::kMonthsInQuarter, value, &value);
+          !status.ok()) {
         return status;
       }
       return IntervalValue::FromYMDHMS(0, value, 0, 0, 0, 0);
     }
     case functions::WEEK: {
-      absl::Status status;
-      if (!functions::Multiply(IntervalValue::kDaysInWeek, value, &value,
-                               &status)) {
+      if (absl::Status status =
+              internal::Multiply(IntervalValue::kDaysInWeek, value, &value);
+          !status.ok()) {
         return status;
       }
       return IntervalValue::FromYMDHMS(0, 0, value, 0, 0, 0);
     }
     default:
-      return MakeEvalError() << "Invalid interval datetime field "
-                             << functions::DateTimestampPart_Name(part);
+      return ::zetasql_base::OutOfRangeErrorBuilder()
+             << "Invalid interval datetime field "
+             << functions::DateTimestampPart_Name(part);
   }
 }
 

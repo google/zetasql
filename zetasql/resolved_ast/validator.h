@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -261,6 +262,8 @@ class Validator {
   absl::Status ValidateResolvedArrayScan(
       const ResolvedArrayScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
+  absl::Status ValidateTableNameArrayPathArrayScan(
+      const ResolvedArrayScan* node);
   absl::Status ValidateResolvedFilterScan(
       const ResolvedFilterScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
@@ -362,6 +365,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedReplaceField* replace_field);
 
+  absl::Status ValidateResolvedGetProtoOneof(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedGetProtoOneof* get_proto_oneof);
+
   absl::Status ValidateResolvedInlineLambda(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
@@ -443,6 +451,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedFunctionCallBase* resolved_function_call);
+
+  absl::Status ValidateArgumentAliases(
+      const FunctionSignature& signature,
+      const std::vector<std::unique_ptr<const ResolvedFunctionArgument>>&
+          arguments);
 
   absl::Status ValidateOptionsList(
       const std::vector<std::unique_ptr<const ResolvedOption>>& list);

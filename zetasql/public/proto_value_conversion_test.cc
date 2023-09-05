@@ -51,6 +51,7 @@
 #include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -533,9 +534,9 @@ class SimpleErrorCollector : public DescriptorPool::ErrorCollector {
  public:
   SimpleErrorCollector() {}
 
-      void AddError(const std::string& filename, const std::string&
-      element_name, const Message* descriptor, ErrorLocation location, const
-      std::string& message) override {
+  void RecordError(absl::string_view filename, absl::string_view element_name,
+                   const Message* descriptor, ErrorLocation location,
+                   absl::string_view message) override {
     absl::StrAppend(&errors_, message);
   }
 
@@ -726,8 +727,8 @@ TEST_F(ProtoValueConversionTest, InvalidRange) {
   Value result_value;
   EXPECT_THAT(ConvertProtoMessageToStructOrArrayValue(*proto, value.type(),
                                                       &result_value),
-              StatusIs(absl::StatusCode::kOutOfRange,
-                       HasSubstr("Invalid encoded range")));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Too few bytes to read RANGE")));
 }
 
 // Verify MergeValueToProtoField using various combinations of destination proto

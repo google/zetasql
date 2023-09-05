@@ -99,6 +99,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.int64_val#4]
+        +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
         +-array_expr=

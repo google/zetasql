@@ -324,16 +324,6 @@ SelectColumnStateList::select_column_state_list() const {
   return select_column_state_list_;
 }
 
-const ResolvedColumnList SelectColumnStateList::resolved_column_list() const {
-  ResolvedColumnList resolved_column_list;
-  resolved_column_list.reserve(select_column_state_list_.size());
-  for (const std::unique_ptr<SelectColumnState>& select_column_state :
-       select_column_state_list_) {
-    resolved_column_list.push_back(select_column_state->resolved_select_column);
-  }
-  return resolved_column_list;
-}
-
 size_t SelectColumnStateList::Size() const {
   return select_column_state_list_.size();
 }
@@ -521,8 +511,53 @@ absl::Status QueryResolutionInfo::GetAndRemoveSelectListColumnsWithoutAnalytic(
   return absl::OkStatus();
 }
 
+ResolvedColumnList QueryResolutionInfo::GetResolvedColumnList() const {
+  ResolvedColumnList resolved_column_list;
+  for (const std::unique_ptr<SelectColumnState>& select_column_state :
+       select_column_state_list_->select_column_state_list()) {
+    resolved_column_list.push_back(select_column_state->resolved_select_column);
+  }
+  return resolved_column_list;
+}
+
 bool QueryResolutionInfo::HasAnalytic() const {
   return analytic_resolver_->HasAnalytic();
+}
+
+bool QueryResolutionInfo::SelectFormAllowsSelectStar() const {
+  switch (select_form_) {
+    case SelectForm::kClassic:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool QueryResolutionInfo::SelectFormAllowsAggregation() const {
+  switch (select_form_) {
+    case SelectForm::kClassic:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool QueryResolutionInfo::SelectFormAllowsAnalytic() const {
+  switch (select_form_) {
+    case SelectForm::kClassic:
+      return true;
+    default:
+      return false;
+  }
+}
+
+const char* QueryResolutionInfo::SelectFormClauseName() const {
+  switch (select_form_) {
+    case SelectForm::kClassic:
+      return "SELECT";
+    case SelectForm::kNoFrom:
+      return "SELECT without FROM clause";
+  }
 }
 
 void QueryResolutionInfo::ResetAnalyticResolver(Resolver* resolver) {

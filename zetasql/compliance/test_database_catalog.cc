@@ -26,6 +26,7 @@
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/public/builtin_function.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
@@ -35,6 +36,7 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include "google/protobuf/compiler/importer.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -54,8 +56,9 @@ absl::Status TestDatabaseCatalog::BuiltinFunctionCache::SetLanguageOptions(
     CacheEntry entry;
     // We have to call type_factory() while not holding mutex_.
     TypeFactory* type_factory = catalog->type_factory();
-    ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionsAndTypes(options, *type_factory,
-                                                entry.functions, entry.types));
+    ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(options),
+                                                *type_factory, entry.functions,
+                                                entry.types));
     cache_entry =
         &(builtins_cache_.emplace(options, std::move(entry)).first->second);
   }

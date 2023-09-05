@@ -974,13 +974,13 @@ create table t1 {{CLONE|COPY}} KeyValue AS kv;
 --
 ALTERNATION GROUP: CLONE
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "kv" [at 1:35]
+ERROR: Syntax error: Unexpected identifier "kv" [at 1:35]
 create table t1 CLONE KeyValue AS kv;
                                   ^
 --
 ALTERNATION GROUP: COPY
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "kv" [at 1:34]
+ERROR: Syntax error: Unexpected identifier "kv" [at 1:34]
 create table t1 COPY KeyValue AS kv;
                                  ^
 ==

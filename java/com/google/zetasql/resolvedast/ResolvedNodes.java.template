@@ -47,6 +47,7 @@ import com.google.zetasql.FunctionProtos.TVFSignatureProto;
 import com.google.zetasql.FunctionRefProto;
 import com.google.zetasql.FunctionSignature;
 import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
+import com.google.zetasql.DescriptorPool.ZetaSQLOneofDescriptor;
 import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
 import com.google.zetasql.ZetaSQLStrings;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
@@ -214,6 +215,23 @@ public final class ResolvedNodes {
     fieldDescriptorRef.setNumber(fieldDescriptor.getNumber());
 
     return fieldDescriptorRef.build();
+  }
+
+  static OneofDescriptorRefProto serialize(ZetaSQLOneofDescriptor descriptor,
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    OneofDescriptorRefProto.Builder oneOfDescriptorRef = OneofDescriptorRefProto.newBuilder();
+    ProtoTypeProto.Builder proto = ProtoTypeProto.newBuilder();
+    OneofDescriptor oneOfDescriptor = descriptor.getDescriptor();
+    proto.setProtoName(oneOfDescriptor.getContainingType().getFullName());
+    proto.setProtoFileName(oneOfDescriptor.getFile().getName());
+    proto.setFileDescriptorSetIndex(
+        fileDescriptorSetsBuilder.getOrAddFileDescriptorIndex(
+            oneOfDescriptor.getFile(), descriptor.getDescriptorPool()));
+
+    oneOfDescriptorRef.setContainingProto(proto.build());
+    oneOfDescriptorRef.setIndex(oneOfDescriptor.getIndex());
+
+    return oneOfDescriptorRef.build();
   }
 
   static ResolvedFunctionCallInfoProto serialize(

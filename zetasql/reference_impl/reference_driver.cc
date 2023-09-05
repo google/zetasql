@@ -42,6 +42,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/algebrizer.h"
 #include "zetasql/reference_impl/evaluation.h"
@@ -96,41 +97,16 @@ ABSL_FLAG(bool, reference_driver_enable_differential_privacy, false,
 
 namespace zetasql {
 
-ReferenceDriver::ReferenceDriver()
-    : type_factory_(new TypeFactory),
-      catalog_(type_factory_.get()),
-      default_time_zone_(GetDefaultDefaultTimeZone()),
-      statement_evaluation_timeout_(absl::Seconds(
-          absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
-  language_options_.EnableMaximumLanguageFeatures();
-  if (absl::GetFlag(FLAGS_reference_driver_enable_anonymization)) {
-    language_options_.EnableLanguageFeature(zetasql::FEATURE_ANONYMIZATION);
-  }
-  if (absl::GetFlag(FLAGS_reference_driver_enable_differential_privacy)) {
-    // Named arguments are required for Differential_privacy
-    language_options_.EnableLanguageFeature(zetasql::FEATURE_NAMED_ARGUMENTS);
-    language_options_.EnableLanguageFeature(
-        zetasql::FEATURE_DIFFERENTIAL_PRIVACY);
-    language_options_.EnableLanguageFeature(
-        zetasql::FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
-  }
-
-  language_options_.SetSupportedStatementKinds(
-      Algebrizer::GetSupportedStatementKinds());
-  if (absl::GetFlag(FLAGS_force_reference_product_mode_external)) {
-    ABSL_LOG(WARNING) << "Overriding default Reference ProductMode PRODUCT_INTERNAL "
-                    "with PRODUCT_EXTERNAL.";
-    language_options_.set_product_mode(ProductMode::PRODUCT_EXTERNAL);
-  }
-  // Optional evaluator features need to be enabled "manually" here since we do
-  // not go through the public PreparedExpression/PreparedQuery interface, which
-  // normally handles it.
-  internal::EnableFullEvaluatorFeatures();
+LanguageOptions ReferenceDriver::DefaultLanguageOptions() {
+  LanguageOptions options;
+  options.EnableMaximumLanguageFeatures();
+  options.SetSupportedStatementKinds(Algebrizer::GetSupportedStatementKinds());
+  return options;
 }
 
-ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
+ReferenceDriver::ReferenceDriver(LanguageOptions options)
     : type_factory_(new TypeFactory),
-      language_options_(options),
+      language_options_(std::move(options)),
       catalog_(type_factory_.get()),
       default_time_zone_(GetDefaultDefaultTimeZone()),
       statement_evaluation_timeout_(absl::Seconds(

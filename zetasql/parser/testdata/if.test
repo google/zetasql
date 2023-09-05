@@ -807,7 +807,7 @@ else
   select 2;
 end if
 --
-ERROR: Syntax error: Expected end of input but got keyword ELSE [at 1:1]
+ERROR: Syntax error: Unexpected keyword ELSE [at 1:1]
 else
 ^
 ==
@@ -815,7 +815,7 @@ else
 # end if without if
 end if
 --
-ERROR: Syntax error: Expected end of input but got keyword END [at 1:1]
+ERROR: Syntax error: Unexpected keyword END [at 1:1]
 end if
 ^
 ==

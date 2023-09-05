@@ -19,7 +19,10 @@
 
 #include <stddef.h>
 
+#include "zetasql/analyzer/name_scope.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {
@@ -63,6 +66,42 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
 // column.
 absl::StatusOr<bool> ExprReferencesNonCorrelatedColumn(
     const ResolvedExpr& expr);
+
+// Returns true if all path expressions in `expr`, subject to the caveats that
+// follow, have a prefix in `expected_prefixes`. The only path expressions we
+// consider in `expr` are those that start with non-correlated column references
+// that are not bound in `expr`, and only contain simple proto or simple struct
+// field accesses.
+//
+// `expr`: The expression in which we are looking for path expressions.
+// `expected_prefixes`: Contains the expected prefixes we are looking for in
+//     `expr` as field name sequences.
+// `id_string_pool`: Used to allocate IdStrings that are used internally.
+absl::StatusOr<bool> AllPathsInExprHaveExpectedPrefixes(
+    const ResolvedExpr& expr, const ValidFieldInfoMap& expected_prefixes,
+    IdStringPool* id_string_pool);
+
+// Analyzes an expression, and if it is logically a path expression (of
+// one or more names) then returns true, along with the `source_column`
+// where the path expression starts and a `name_path` that identifies the path
+// name list along with the `target_column` that the entire path expression
+// resolves to.
+// If the expression is not a path expression then sets `source_column`
+// to be uninitialized and returns false.
+// `id_string_pool` is used to allocate newly created id strings for
+// `name_path`.
+bool GetSourceColumnAndNamePath(const ResolvedExpr* resolved_expr,
+                                ResolvedColumn target_column,
+                                ResolvedColumn* source_column,
+                                bool* is_correlated, ValidNamePath* name_path,
+                                IdStringPool* id_string_pool);
+
+// Detect if the node contains an array path that works with the singleton table
+// array path implicit UNNEST feature.
+// Returns true when the ColumnRef is found and set the `column_id` to the found
+// column. Otherwise, returns false.
+bool ContainsTableArrayNamePathWithFreeColumnRef(const ResolvedExpr* node,
+                                                 int* column_id);
 
 // Hashing function for field paths, which enables faster set lookups and
 // insertions.

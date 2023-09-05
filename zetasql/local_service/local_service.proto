@@ -45,7 +45,6 @@ option java_outer_classname = "LocalService";
 // since we cannot allow random users to run queries over data accessible by
 // the (different) user that started the ZetaSql service.
 service ZetaSqlLocalService {
-
   // Prepare the sql expression in PrepareRequest with given columns and
   // parameters with zetasql::PreparedExpression and return the result
   // type as PrepareResponse. The prepared expression will be kept at server

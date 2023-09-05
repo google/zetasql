@@ -1,6 +1,8 @@
 # All the test_param_* typed parameters used in the queries could be found
 # defined in zetasql/analyzer/run_analyzer_test.cc
 
+[default also_show_signature_mismatch_details]
+
 select 1 from TestTable where KitchenSink.bool_val = @test_param_bool;
 --
 QueryStmt
@@ -85,6 +87,17 @@ QueryStmt
 select * from TestTable where @test_param_string = @test_param_bytes;
 --
 ERROR: No matching signature for operator = for argument types: STRING, BYTES. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:31]
+select * from TestTable where @test_param_string = @test_param_bytes;
+                              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: STRING, BYTES
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:31]
 select * from TestTable where @test_param_string = @test_param_bytes;
                               ^
 ==
@@ -448,9 +461,25 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32 for argum
 select fn_on_int32(@test_param_int64)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32
+  Argument types: INT64
+  Signature: FN_ON_INT32(INT32)
+    Argument 1: Unable to coerce type INT64 to expected type INT32 [at 1:8]
+select fn_on_int32(@test_param_int64)
+       ^
+--
 ALTERNATION GROUP: uint32
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT32 for argument types: INT64. Supported signature: FN_ON_UINT32(UINT32) [at 1:8]
+select fn_on_uint32(@test_param_int64)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT32
+  Argument types: INT64
+  Signature: FN_ON_UINT32(UINT32)
+    Argument 1: Unable to coerce type INT64 to expected type UINT32 [at 1:8]
 select fn_on_uint32(@test_param_int64)
        ^
 --
@@ -459,11 +488,27 @@ ALTERNATION GROUP: uint64
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT64 for argument types: INT64. Supported signature: FN_ON_UINT64(UINT64) [at 1:8]
 select fn_on_uint64(@test_param_int64)
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT64
+  Argument types: INT64
+  Signature: FN_ON_UINT64(UINT64)
+    Argument 1: Unable to coerce type INT64 to expected type UINT64 [at 1:8]
+select fn_on_uint64(@test_param_int64)
+       ^
 ==
 
 select fn_on_float(@test_param_double)
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_FLOAT for argument types: DOUBLE. Supported signature: FN_ON_FLOAT(FLOAT) [at 1:8]
+select fn_on_float(@test_param_double)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_FLOAT
+  Argument types: DOUBLE
+  Signature: FN_ON_FLOAT(FLOAT)
+    Argument 1: Unable to coerce type DOUBLE to expected type FLOAT [at 1:8]
 select fn_on_float(@test_param_double)
        ^
 ==
@@ -478,9 +523,25 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_FLOAT for argum
 select fn_on_float(@test_param_string)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_FLOAT
+  Argument types: STRING
+  Signature: FN_ON_FLOAT(FLOAT)
+    Argument 1: Unable to coerce type STRING to expected type FLOAT [at 1:8]
+select fn_on_float(@test_param_string)
+       ^
+--
 ALTERNATION GROUP: double
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_DOUBLE for argument types: STRING. Supported signature: FN_ON_DOUBLE(DOUBLE) [at 1:8]
+select fn_on_double(@test_param_string)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_DOUBLE
+  Argument types: STRING
+  Signature: FN_ON_DOUBLE(DOUBLE)
+    Argument 1: Unable to coerce type STRING to expected type DOUBLE [at 1:8]
 select fn_on_double(@test_param_string)
        ^
 --
@@ -490,9 +551,25 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argume
 select fn_on_bool(@test_param_string)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
+  Argument types: STRING
+  Signature: FN_ON_BOOL(BOOL)
+    Argument 1: Unable to coerce type STRING to expected type BOOL [at 1:8]
+select fn_on_bool(@test_param_string)
+       ^
+--
 ALTERNATION GROUP: int32
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32 for argument types: STRING. Supported signature: FN_ON_INT32(INT32) [at 1:8]
+select fn_on_int32(@test_param_string)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32
+  Argument types: STRING
+  Signature: FN_ON_INT32(INT32)
+    Argument 1: Unable to coerce type STRING to expected type INT32 [at 1:8]
 select fn_on_int32(@test_param_string)
        ^
 --
@@ -502,15 +579,39 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64 for argum
 select fn_on_int64(@test_param_string)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64
+  Argument types: STRING
+  Signature: FN_ON_INT64(INT64)
+    Argument 1: Unable to coerce type STRING to expected type INT64 [at 1:8]
+select fn_on_int64(@test_param_string)
+       ^
+--
 ALTERNATION GROUP: uint32
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT32 for argument types: STRING. Supported signature: FN_ON_UINT32(UINT32) [at 1:8]
 select fn_on_uint32(@test_param_string)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT32
+  Argument types: STRING
+  Signature: FN_ON_UINT32(UINT32)
+    Argument 1: Unable to coerce type STRING to expected type UINT32 [at 1:8]
+select fn_on_uint32(@test_param_string)
+       ^
+--
 ALTERNATION GROUP: uint64
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT64 for argument types: STRING. Supported signature: FN_ON_UINT64(UINT64) [at 1:8]
+select fn_on_uint64(@test_param_string)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT64
+  Argument types: STRING
+  Signature: FN_ON_UINT64(UINT64)
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
 select fn_on_uint64(@test_param_string)
        ^
 ==
@@ -523,9 +624,25 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argume
 select fn_on_bool(@test_param_int32)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
+  Argument types: INT32
+  Signature: FN_ON_BOOL(BOOL)
+    Argument 1: Unable to coerce type INT32 to expected type BOOL [at 1:8]
+select fn_on_bool(@test_param_int32)
+       ^
+--
 ALTERNATION GROUP: int64
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argument types: INT64. Supported signature: FN_ON_BOOL(BOOL) [at 1:8]
+select fn_on_bool(@test_param_int64)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
+  Argument types: INT64
+  Signature: FN_ON_BOOL(BOOL)
+    Argument 1: Unable to coerce type INT64 to expected type BOOL [at 1:8]
 select fn_on_bool(@test_param_int64)
        ^
 --
@@ -535,9 +652,25 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argume
 select fn_on_bool(@test_param_uint32)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
+  Argument types: UINT32
+  Signature: FN_ON_BOOL(BOOL)
+    Argument 1: Unable to coerce type UINT32 to expected type BOOL [at 1:8]
+select fn_on_bool(@test_param_uint32)
+       ^
+--
 ALTERNATION GROUP: uint64
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argument types: UINT64. Supported signature: FN_ON_BOOL(BOOL) [at 1:8]
+select fn_on_bool(@test_param_uint64)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
+  Argument types: UINT64
+  Signature: FN_ON_BOOL(BOOL)
+    Argument 1: Unable to coerce type UINT64 to expected type BOOL [at 1:8]
 select fn_on_bool(@test_param_uint64)
        ^
 ==
@@ -551,9 +684,25 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM for ar
 select fn_on_TestEnum(@test_param_uint32)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM
+  Argument types: UINT32
+  Signature: FN_ON_TESTENUM(zetasql_test__.TestEnum)
+    Argument 1: Unable to coerce type UINT32 to expected type zetasql_test__.TestEnum [at 1:8]
+select fn_on_TestEnum(@test_param_uint32)
+       ^
+--
 ALTERNATION GROUP: uint64
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM for argument types: UINT64. Supported signature: FN_ON_TESTENUM(zetasql_test__.TestEnum) [at 1:8]
+select fn_on_TestEnum(@test_param_uint64)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM
+  Argument types: UINT64
+  Signature: FN_ON_TESTENUM(zetasql_test__.TestEnum)
+    Argument 1: Unable to coerce type UINT64 to expected type zetasql_test__.TestEnum [at 1:8]
 select fn_on_TestEnum(@test_param_uint64)
        ^
 ==
@@ -591,6 +740,14 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RET
 select fn_on_int64_array_returns_int64(@test_param_array)
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64
+  Argument types: ARRAY<INT32>
+  Signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>)
+    Argument 1: Unable to coerce type ARRAY<INT32> to expected type ARRAY<INT64> [at 1:8]
+select fn_on_int64_array_returns_int64(@test_param_array)
+       ^
+--
 ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
@@ -615,6 +772,14 @@ select fn_on_int32_array_returns_int32(@test_param_array_int64)
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
 select fn_on_int32_array_returns_int32(@test_param_array_int64)
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
+  Argument types: ARRAY<INT64>
+  Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
+    Argument 1: Unable to coerce type ARRAY<INT64> to expected type ARRAY<INT32> [at 1:8]
+select fn_on_int32_array_returns_int32(@test_param_array_int64)
+       ^
 ==
 
 # Supertyping of non-empty array parameters (and literals) is now supported.
@@ -624,6 +789,14 @@ select array_concat([TestEnum], @test_param_array_int64) From EnumTable
 ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for function ARRAY_CONCAT for argument types: ARRAY<zetasql_test__.TestEnum>, ARRAY<INT64>. Supported signature: ARRAY_CONCAT(ARRAY, [ARRAY, ...]) [at 1:8]
+select array_concat([TestEnum], @test_param_array_int64) From EnumTable
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function ARRAY_CONCAT
+  Argument types: ARRAY<zetasql_test__.TestEnum>, ARRAY<INT64>
+  Signature: ARRAY_CONCAT(ARRAY<T1>, [ARRAY<T1>, ...])
+    Unable to coerce type ARRAY<INT64> to inferred array type ARRAY<zetasql_test__.TestEnum> for argument <array<T1>> [at 1:8]
 select array_concat([TestEnum], @test_param_array_int64) From EnumTable
        ^
 --
@@ -918,6 +1091,14 @@ QueryStmt
 ALTERNATION GROUP: fn_on_struct_int32_date
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_STRUCT_INT32_DATE for argument types: STRUCT<a INT32, b STRING>. Supported signature: FN_ON_STRUCT_INT32_DATE(STRUCT<a INT32, b DATE>) [at 1:8]
+select fn_on_struct_int32_date(@test_param_struct)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_STRUCT_INT32_DATE
+  Argument types: STRUCT<a INT32, b STRING>
+  Signature: FN_ON_STRUCT_INT32_DATE(STRUCT<a INT32, b DATE>)
+    Argument 1: Unable to coerce type STRUCT<a INT32, b STRING> to expected type STRUCT<a INT32, b DATE> [at 1:8]
 select fn_on_struct_int32_date(@test_param_struct)
        ^
 ==

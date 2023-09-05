@@ -2233,6 +2233,11 @@ class EnumerateOp final : public RelationalOp {
 // Value expressions
 // -------------------------------------------------------
 
+// Returns an operator that represents the value of a function argument
+// reference. This is used in the evaluation of user defined entities.
+absl::StatusOr<std::unique_ptr<ValueExpr>> CreateFunctionArgumentRefExpr(
+    const std::string& arg_name, const Type* type);
+
 // Returns the contents of a table 'table_name' as an array.
 class TableAsArrayExpr final : public ValueExpr {
  public:

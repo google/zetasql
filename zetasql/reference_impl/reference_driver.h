@@ -61,8 +61,7 @@ class ReferenceDriver : public TestDriver {
     PrimaryKeyMode primary_key_mode = PrimaryKeyMode::DEFAULT;
   };
 
-  ReferenceDriver();
-  explicit ReferenceDriver(const LanguageOptions& options);
+  explicit ReferenceDriver(LanguageOptions options = DefaultLanguageOptions());
   ReferenceDriver(const ReferenceDriver&) = delete;
   ReferenceDriver& operator=(const ReferenceDriver&) = delete;
   ~ReferenceDriver() override;
@@ -214,6 +213,9 @@ class ReferenceDriver : public TestDriver {
     Value array;
     SimpleTable* table;  // Owned by catalog_ in the ReferenceDriver
   };
+
+  // The LanguageOptions used by the zero-arg constructor.
+  static LanguageOptions DefaultLanguageOptions();
 
   absl::Status ExecuteScriptForReferenceDriverInternal(
       absl::string_view sql, const std::map<std::string, Value>& parameters,

@@ -86,6 +86,17 @@ public abstract class AbstractDeserializationHelper {
     return checkNotNull(containingMessage.findFieldByNumber(proto.getNumber()));
   }
 
+  ZetaSQLOneofDescriptor deserialize(OneofDescriptorRefProto proto) {
+    ProtoTypeProto containingMessageProto = proto.getContainingProto();
+    ZetaSQLDescriptor containingMessage =
+        checkNotNull(
+            checkNotNull(pools.get(containingMessageProto.getFileDescriptorSetIndex()))
+                .findMessageTypeByName(containingMessageProto.getProtoName()),
+            "Couldn't find pool for descriptor %s",
+            containingMessageProto.getProtoName());
+    return checkNotNull(containingMessage.findOneofByIndex(proto.getIndex()));
+  }
+
   abstract Constant deserialize(ConstantRefProto proto);
 
   abstract Function deserialize(FunctionRefProto proto);

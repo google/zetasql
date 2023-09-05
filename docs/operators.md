@@ -2859,7 +2859,7 @@ The concatenation operator combines multiple values into one.
 </tbody>
 </table>
 
-### `WITH` operator
+### `WITH` expression
 
 ```sql
 WITH(variable_assignment[, ...], result_expression)
@@ -2871,7 +2871,7 @@ variable_assignment:
 **Description**
 
 Create one or more variables. Each variable can be used in subsequent
-expressions within the `WITH` operator. Returns the value of
+expressions within the `WITH` expression. Returns the value of
 `result_expression`.
 
 +   `variable_assignment`: Introduces a variable. The variable name must be
@@ -2879,10 +2879,12 @@ expressions within the `WITH` operator. Returns the value of
     variables that come before it. For example, if you create variable `a`,
     then follow it with variable `b`, you can reference `a` inside of `b`'s
     expression.
+
     +   `variable_name`: The name of the variable.
+
     +   `expression`: The value to assign to the variable.
-+   `result_expression`: An expression that is the `WITH` operator's result.
-    This expression can use all the variables defined before it.
++   `result_expression`: An expression that is the `WITH` expression's result.
+    `result_expression` can use all of the variables defined before it.
 
 **Return Type**
 
@@ -2891,11 +2893,11 @@ expressions within the `WITH` operator. Returns the value of
 **Requirements and Caveats**
 
 +   A given variable may only be assigned once in a given `WITH` clause.
-+   Variables created during `WITH` may not be used in analytic or
-    aggregate function arguments. For example, `WITH(a AS ..., SUM(a))` produces
-    an error.
-+   Volatile expressions (for example,  `RAND()`) behave as if they are
-    evaluated only once.
++   Variables created during `WITH` may not be used in 
+    analytic or  aggregate function arguments. For example,
+    `WITH(a AS ..., SUM(a))` produces an error.
++   Volatile expressions (for example, `RAND()`) behave
+    as if they are evaluated only once.
 
 **Examples**
 
@@ -2904,7 +2906,7 @@ The following example first concatenates variable `a` with `b`, then variable
 
 ```sql
 SELECT WITH(a AS '123',               -- a is '123'
-            b AS CONCAT(a, '456'),    -- b is '123456
+            b AS CONCAT(a, '456'),    -- b is '123456'
             c AS '789',               -- c is '789'
             CONCAT(b, c)) AS result;  -- b + c is '123456789'
 
@@ -2929,8 +2931,8 @@ SELECT WITH(a AS RAND(), a - a);
  *---------*/
 ```
 
-Aggregate or analytic function results can be stored in variables. In this
-example, an average is computed:
+Aggregate or analytic function
+results can be stored in variables. In this example, an average is computed:
 
 ```sql
 SELECT WITH(s AS SUM(input), c AS COUNT(input), s/c)
@@ -2943,7 +2945,8 @@ FROM UNNEST([1.0, 2.0, 3.0]) AS input;
  *---------*/
 ```
 
-Variables cannot be used in aggregate or analytic function call arguments:
+Variables cannot be used in aggregate or
+analytic function call arguments:
 
 ```sql
 SELECT WITH(diff AS a - b, AVG(diff))

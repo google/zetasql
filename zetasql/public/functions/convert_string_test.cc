@@ -36,6 +36,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
@@ -68,7 +69,13 @@ void TestRoundtripValueHex(
                                 std::is_signed<IntT>::value,
                             IntT>::type value) {
   std::string sign = value < 0 ? "-" : "";
-  std::string hexstr = absl::StrCat(sign, "0x", absl::Hex(std::abs(value)));
+  uint64_t abs_value;
+  if (value == std::numeric_limits<IntT>::min()) {
+    abs_value = std::numeric_limits<IntT>::max() + 1ULL;
+  } else {
+    abs_value = std::abs(value);
+  }
+  std::string hexstr = absl::StrCat(sign, "0x", absl::Hex(abs_value));
   IntT hexout;
   absl::Status error;
   EXPECT_TRUE(StringToNumeric(hexstr, &hexout, &error))

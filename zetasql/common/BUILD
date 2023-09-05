@@ -51,7 +51,7 @@ cc_library(
     hdrs = ["errors.h"],
     deps = [
         ":status_payload_utils",
-        "//zetasql/base",
+        "//zetasql/base:check",
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
@@ -62,10 +62,12 @@ cc_library(
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_protobuf//:protobuf",
+        "@com_google_protobuf//:protobuf_lite",
     ],
 )
 
@@ -76,13 +78,16 @@ cc_test(
     deps = [
         ":errors",
         ":status_payload_utils",
-        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common/testing:proto_matchers",
+        "//zetasql/proto:internal_error_location_cc_proto",
+        "//zetasql/public:deprecation_warning_cc_proto",
         "//zetasql/public:error_helpers",
+        "//zetasql/public:parse_location",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -690,5 +695,15 @@ cc_test(
         "//zetasql/public:options_cc_proto",
         "//zetasql/resolved_ast",
         "//zetasql/testdata:sample_catalog",
+    ],
+)
+
+cc_library(
+    name = "function_signature_testutil",
+    testonly = True,
+    srcs = ["function_signature_testutil.cc"],
+    hdrs = ["function_signature_testutil.h"],
+    deps = [
+        "//zetasql/public:function_cc_proto",
     ],
 )

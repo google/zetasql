@@ -267,15 +267,22 @@ class BisonParser {
     return text;
   }
 
-  absl::Status GenerateWarningForFutureKeywordReservation(
-      const absl::string_view keyword, const int byte_offset) {
+  absl::Status GenerateWarning(const absl::string_view text,
+                               const int byte_offset) {
     return MakeSqlErrorAtPoint(zetasql::ParseLocationPoint::FromByteOffset(
                filename_.ToStringView(), byte_offset))
-           << absl::Substitute(
-                  "$0 is used as an identifier. $0 may become a reserved word "
-                  "in the future. To make this statement robust, add backticks "
-                  "around $0 to make the identifier unambiguous",
-                  keyword);
+           << text;
+  }
+
+  absl::Status GenerateWarningForFutureKeywordReservation(
+      const absl::string_view keyword, const int byte_offset) {
+    return GenerateWarning(
+        absl::Substitute(
+            "$0 is used as an identifier. $0 may become a reserved word "
+            "in the future. To make this statement robust, add backticks "
+            "around $0 to make the identifier unambiguous",
+            keyword),
+        byte_offset);
   }
 
   void AddWarning(const absl::Status& status) { warnings_->push_back(status); }

@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
@@ -127,10 +128,12 @@ std::string InputArgumentType::UserFacingName(ProductMode product_mode) const {
     type_strings.reserve(relation_input_schema().num_columns());
     for (const TVFRelation::Column& column :
          relation_input_schema().columns()) {
-      type_strings.push_back(column.type->ShortTypeName(product_mode));
-      if (!relation_input_schema().is_value_table()) {
-        type_strings.back() =
-            absl::StrCat(column.name, " ", type_strings.back());
+      if (!relation_input_schema().is_value_table() &&
+          !IsInternalAlias(column.name)) {
+        type_strings.push_back(absl::StrCat(
+            column.name, " ", column.type->ShortTypeName(product_mode)));
+      } else {
+        type_strings.push_back(column.type->ShortTypeName(product_mode));
       }
     }
     return absl::StrCat("TABLE<", absl::StrJoin(type_strings, ", "), ">");

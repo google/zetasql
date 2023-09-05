@@ -915,7 +915,7 @@ ON t1 = s1
 WHEN MATCHED THEN
 DELETE
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "Y" [at 2:8]
+ERROR: Syntax error: Unexpected identifier "Y" [at 2:8]
 USING (Y JOIN Z ON Y.C1 = Z.C1)
        ^
 ==

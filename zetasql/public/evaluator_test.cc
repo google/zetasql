@@ -17,6 +17,7 @@
 #include "zetasql/public/evaluator.h"
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -24,7 +25,6 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
@@ -33,10 +33,13 @@
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/evaluator_base.h"
+#include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
@@ -70,6 +73,7 @@
 #include "absl/types/span.h"
 #include "zetasql/base/stl_util.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/clock.h"
 
 extern absl::Flag<int64_t>
@@ -96,9 +100,29 @@ class UDFEvalTest : public ::testing::Test {
 
   void SetUp() override {
     catalog_ = std::make_unique<SimpleCatalog>("udf_catalog");
-    catalog_->AddZetaSQLFunctions();
+    catalog_->AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
     ZETASQL_ASSERT_OK(analyzer_options_.AddQueryParameter(
         "param", types::StringType()));
+  }
+
+  SimpleCatalog* catalog() const { return catalog_.get(); }
+
+  std::unique_ptr<SimpleCatalog> catalog_;
+  AnalyzerOptions analyzer_options_;
+  FunctionOptions function_options_;
+};
+
+class UDAEvalTest : public ::testing::Test {
+ public:
+  const int kFunctionId = 1000;
+
+  void SetUp() override {
+    catalog_ = std::make_unique<SimpleCatalog>("uda_catalog");
+    catalog_->AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
+    ZETASQL_ASSERT_OK(
+        analyzer_options_.AddQueryParameter("param", types::StringType()));
   }
 
   SimpleCatalog* catalog() const {
@@ -763,7 +787,7 @@ TEST(EvaluatorTest, PrepareExecuteAllowUndeclaredQueryParametersResolvedExpr) {
   ZETASQL_ASSERT_OK(analyzer_options.AddExpressionColumn("col", types::Int64Type()));
 
   auto catalog = std::make_unique<SimpleCatalog>("foo");
-  catalog->AddZetaSQLFunctions();
+  catalog->AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
   TypeFactory type_factory;
 
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
@@ -840,7 +864,7 @@ TEST(EvaluatorTest,
   ZETASQL_ASSERT_OK(analyzer_options.AddExpressionColumn("col", types::Int64Type()));
 
   auto catalog = std::make_unique<SimpleCatalog>("foo");
-  catalog->AddZetaSQLFunctions();
+  catalog->AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
   TypeFactory type_factory;
 
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
@@ -990,7 +1014,7 @@ TEST(EvaluatorTest, PrepareExecuteSubexpressionsWithPositionalQueryParameters) {
     ZETASQL_ASSERT_OK(analyzer_options.AddPositionalQueryParameter(param.type()));
   }
   auto catalog = std::make_unique<SimpleCatalog>("foo");
-  catalog->AddZetaSQLFunctions();
+  catalog->AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
   TypeFactory type_factory;
 
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
@@ -1030,7 +1054,7 @@ TEST(EvaluatorTest, PrepareExecuteSubexpressionsWithNamedQueryParameters) {
         entry.first, entry.second.type()));
   }
   auto catalog = std::make_unique<SimpleCatalog>("foo");
-  catalog->AddZetaSQLFunctions();
+  catalog->AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
   TypeFactory type_factory;
 
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
@@ -1707,7 +1731,8 @@ PreparedExpressionFromAST ParseToASTAndPrepareOrDie(
     TypeFactory* type_factory) {
   PreparedExpressionFromAST prepared_from_ast;
   prepared_from_ast.catalog = std::make_unique<SimpleCatalog>("foo");
-  prepared_from_ast.catalog->AddZetaSQLFunctions();
+  prepared_from_ast.catalog->AddBuiltinFunctions(
+      BuiltinFunctionOptions::AllReleasedFunctions());
 
   ZETASQL_CHECK_OK(AnalyzeExpression(sql, analyzer_options,
                              prepared_from_ast.catalog.get(), type_factory,
@@ -1922,7 +1947,7 @@ TEST(EvaluatorTest, ResolvedExprValidatedWithCorrectLanguageOptions) {
       FEATURE_V_1_1_WITH_ON_SUBQUERY);
 
   SimpleCatalog catalog("TestCatalog");
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   TypeFactory type_factory;
 
@@ -1958,6 +1983,622 @@ TEST_F(UDFEvalTest, OkUDFEvaluator) {
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options_, catalog()));
   Value result = expr.Execute({}, {{"param", Value::String("foo")}}).value();
   EXPECT_EQ(Value::Int64(4), result);
+}
+
+TEST_F(UDAEvalTest, UDAWithNoEvaluator) {
+  catalog()->AddOwnedFunction(
+      new Function("CustomSum", "udf", Function::AGGREGATE,
+                   {{types::Int64Type(), {types::Int64Type()}, kFunctionId}},
+                   function_options_));
+  PreparedQuery query(
+      "SELECT CustomSum(x) as avg FROM UNNEST([0, NULL, 2, 4, 4, 5, 8, NULL]) "
+      "as x;",
+      EvaluatorOptions());
+
+  EXPECT_THAT(query.Prepare(analyzer_options_, catalog()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("has no aggregate evaluator")));
+}
+
+TEST_F(UDAEvalTest, UDAWithNullEvaluator) {
+  AggregateFunctionEvaluatorFactory NullFactory =
+      [](const FunctionSignature& sig) { return nullptr; };
+
+  function_options_.set_aggregate_function_evaluator_factory(NullFactory);
+  catalog()->AddOwnedFunction(
+      new Function("CustomSum", "udf", Function::AGGREGATE,
+                   {{types::Int64Type(), {types::Int64Type()}, kFunctionId}},
+                   function_options_));
+  PreparedQuery query(
+      "SELECT CustomSum(x) as avg FROM UNNEST([0, NULL, 2, 4, 4, 5, 8, NULL]) "
+      "as x;",
+      EvaluatorOptions());
+
+  EXPECT_THAT(
+      query.Prepare(analyzer_options_, catalog()),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("NULL evaluator")));
+}
+
+// User defined aggregator that always returns a fixed string.
+class ReturnStringEvaluator : public AggregateFunctionEvaluator {
+ public:
+  explicit ReturnStringEvaluator(std::string my_string) : output_(my_string) {}
+  ~ReturnStringEvaluator() override = default;
+
+  absl::Status Reset() override { return absl::OkStatus(); }
+
+  absl::Status Accumulate(absl::Span<const Value*> args,
+                          bool* stop_accumulation) override {
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<Value> GetFinalResult() override {
+    return Value::String(output_);
+  }
+
+ private:
+  std::string output_ = "";
+};
+
+TEST_F(UDAEvalTest, OkUDAEvaluatorReturnString) {
+  AggregateFunctionEvaluatorFactory AggregateFn =
+      [](const FunctionSignature& sig) {
+        return std::make_unique<ReturnStringEvaluator>("foo");
+      };
+
+  function_options_.set_aggregate_function_evaluator_factory(AggregateFn);
+  {
+    catalog()->AddOwnedFunction(
+        new Function("ReturnString", "uda", Function::AGGREGATE,
+                     {{types::StringType(), {types::Int64Type()}, kFunctionId}},
+                     function_options_));
+
+    PreparedQuery query(
+        "SELECT ReturnString(x) as my_string FROM UNNEST([1,2,3]) AS x;",
+        EvaluatorOptions());
+    ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                         query.Execute());
+
+    EXPECT_EQ(1, iter->NumColumns());
+    EXPECT_EQ("my_string", iter->GetColumnName(0));
+    EXPECT_EQ("STRING", iter->GetColumnType(0)->DebugString());
+
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(String("foo"), iter->GetValue(0));
+    EXPECT_FALSE(iter->NextRow());
+    ZETASQL_EXPECT_OK(iter->Status());
+  }
+}
+
+TEST_F(UDAEvalTest, OkUDAEvaluatorReturnStringInvalidOutputType) {
+  AggregateFunctionEvaluatorFactory AggregateFn =
+      [](const FunctionSignature& sig) {
+        return std::make_unique<ReturnStringEvaluator>("bar");
+      };
+
+  function_options_.set_aggregate_function_evaluator_factory(AggregateFn);
+  // Make the function signature expect an INT64 output, which is
+  // inconsistent with the String type returned by the user defined aggregator.
+  catalog()->AddOwnedFunction(
+      new Function("ReturnString2", "uda", Function::AGGREGATE,
+                   {{types::Int64Type(), {types::Int64Type()}, kFunctionId}},
+                   function_options_));
+  PreparedQuery query(
+      "SELECT ReturnString2(x) as my_string FROM UNNEST([1,2,3]) AS x;",
+      EvaluatorOptions());
+
+  ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  EXPECT_EQ(1, iter->NumColumns());
+  EXPECT_EQ("my_string", iter->GetColumnName(0));
+  EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+
+  // Type checking on the aggregation output is only performed in debug_mode.
+  if (ZETASQL_DEBUG_MODE) {
+    ASSERT_FALSE(iter->NextRow());
+    EXPECT_THAT(iter->Status(), StatusIs(absl::StatusCode::kInternal,
+                                         HasSubstr("returned a bad result")));
+  } else {
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(String("bar"), iter->GetValue(0));
+    EXPECT_FALSE(iter->NextRow());
+    ZETASQL_EXPECT_OK(iter->Status());
+  }
+}
+
+// User defined sum aggregator that considers 0 to be 1000
+class CustomSumEvaluator : public AggregateFunctionEvaluator {
+ public:
+  CustomSumEvaluator() = default;
+  ~CustomSumEvaluator() override = default;
+
+  absl::Status Reset() override {
+    sum_ = 0;
+    return absl::OkStatus();
+  }
+
+  absl::Status Accumulate(absl::Span<const Value*> args,
+                          bool* stop_accumulation) override {
+    ZETASQL_RET_CHECK(args.size() == 1);
+    const Value value = *args[0];
+    if (!value.type()->IsInt64()) {
+      return ::zetasql_base::InternalErrorBuilder()
+             << "Trying to accumulate value which is not of type INT64.";
+    }
+    if (value.int64_value() == 0) {
+      sum_ += 1000;
+    } else {
+      sum_ += value.int64_value();
+    }
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<Value> GetFinalResult() override { return Value::Int64(sum_); }
+
+ private:
+  int sum_ = 0;
+};
+
+TEST_F(UDAEvalTest, OkUDAEvaluatorCustomSum) {
+  AggregateFunctionEvaluatorFactory AggregateFn =
+      [](const FunctionSignature& sig) {
+        return std::make_unique<CustomSumEvaluator>();
+      };
+
+  function_options_.set_aggregate_function_evaluator_factory(AggregateFn);
+  catalog()->AddOwnedFunction(
+      new Function("CustomSum", "uda", Function::AGGREGATE,
+                   {{types::Int64Type(), {types::Int64Type()}, kFunctionId}},
+                   function_options_));
+  PreparedQuery query(
+      "SELECT CustomSum(x) as total FROM UNNEST([0, NULL, 2, 4, 4, 5, 8, "
+      "0]) "
+      "as x;",
+      EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  EXPECT_EQ(1, iter->NumColumns());
+  EXPECT_EQ("total", iter->GetColumnName(0));
+  EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(2023), iter->GetValue(0));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+// User defined sum aggregator that considers NULL to be 1
+class NullSumEvaluator : public AggregateFunctionEvaluator {
+ public:
+  NullSumEvaluator() = default;
+  ~NullSumEvaluator() override = default;
+
+  absl::Status Reset() override {
+    sum_ = 0;
+    return absl::OkStatus();
+  }
+
+  absl::Status Accumulate(absl::Span<const Value*> args,
+                          bool* stop_accumulation) override {
+    ZETASQL_RET_CHECK(args.size() == 1);
+    const Value value = *args[0];
+    // Custom NULL handling
+    if (value.is_null()) {
+      sum_ += 1;
+      return absl::OkStatus();
+    }
+    if (!value.type()->IsInt64()) {
+      return ::zetasql_base::InternalErrorBuilder()
+             << "Trying to accumulate value which is not of type INT64.";
+    }
+    sum_ += value.int64_value();
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<Value> GetFinalResult() override { return Value::Int64(sum_); }
+
+  // Set IgnoreNulls() to return false so that we can add custom handling
+  // of NULL values above in Accumulate.
+  bool IgnoresNulls() override { return false; }
+
+ private:
+  int sum_ = 0;
+};
+
+TEST_F(UDAEvalTest, OkUDAEvaluatorNullSum) {
+  AggregateFunctionEvaluatorFactory AggregateFn =
+      [](const FunctionSignature& sig) {
+        return std::make_unique<NullSumEvaluator>();
+      };
+
+  function_options_.set_aggregate_function_evaluator_factory(AggregateFn);
+  catalog()->AddOwnedFunction(
+      new Function("NullSum", "uda", Function::AGGREGATE,
+                   {{types::Int64Type(), {types::Int64Type()}, kFunctionId}},
+                   function_options_));
+  PreparedQuery query(
+      "SELECT NullSum(x) as total FROM UNNEST([10, NULL, NULL, NULL]) "
+      "as x;",
+      EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  EXPECT_EQ(1, iter->NumColumns());
+  EXPECT_EQ("total", iter->GetColumnName(0));
+  EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(13), iter->GetValue(0));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+// User defined count aggregator
+class CustomCountEvaluator : public AggregateFunctionEvaluator {
+ public:
+  CustomCountEvaluator() = default;
+  ~CustomCountEvaluator() override = default;
+
+  absl::Status Reset() override {
+    count_ = 0;
+    return absl::OkStatus();
+  }
+
+  absl::Status Accumulate(absl::Span<const Value*> args,
+                          bool* stop_accumulation) override {
+    count_++;
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<Value> GetFinalResult() override {
+    return Value::Int64(count_);
+  }
+
+ private:
+  int count_ = 0;
+};
+
+TEST_F(UDAEvalTest, OkUDAEvaluatorCustomCount) {
+  // This test demonstrates some interactions between the aggregate function
+  // evaluator and some aggregate function modifiers that can be set in
+  // FunctionOptions.
+  AggregateFunctionEvaluatorFactory AggregateFn =
+      [](const FunctionSignature& sig) {
+        return std::make_unique<CustomCountEvaluator>();
+      };
+
+  function_options_.set_aggregate_function_evaluator_factory(AggregateFn);
+  function_options_.set_supports_distinct_modifier(true);
+  function_options_.set_supports_having_modifier(true);
+  catalog()->AddOwnedFunction(
+      new Function("CustomCount", "uda", Function::AGGREGATE,
+                   {{types::Int64Type(),
+                     {FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                     kFunctionId}},
+                   function_options_));
+  // Count all rows
+  {
+    PreparedQuery query(
+        R"sql(WITH Fruits AS (SELECT 'apple' AS fruit,
+        1.20 AS price UNION ALL SELECT 'banana',
+        0.50 UNION ALL SELECT 'banana', 0.60 UNION ALL SELECT 'pear',
+        3.00 UNION ALL SELECT 'grapes', 2.00 UNION ALL SELECT 'grapes', 5.00)
+        SELECT CustomCount(Fruits.fruit) as count FROM Fruits;)sql",
+        EvaluatorOptions());
+    ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                         query.Execute());
+
+    EXPECT_EQ(1, iter->NumColumns());
+    EXPECT_EQ("count", iter->GetColumnName(0));
+    EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(Int64(6), iter->GetValue(0));
+    EXPECT_FALSE(iter->NextRow());
+    ZETASQL_EXPECT_OK(iter->Status());
+  }
+  // Count rows with distinct fruit
+  {
+    PreparedQuery query(
+        R"sql(WITH Fruits AS (SELECT 'apple' AS fruit,
+        1.20 AS price UNION ALL SELECT 'banana',
+        0.50 UNION ALL SELECT 'banana', 0.60 UNION ALL SELECT 'pear',
+        3.00 UNION ALL SELECT 'grapes', 2.00 UNION ALL SELECT 'grapes', 5.00)
+        SELECT CustomCount(DISTINCT Fruits.fruit) as count FROM Fruits;)sql",
+        EvaluatorOptions());
+    ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                         query.Execute());
+
+    EXPECT_EQ(1, iter->NumColumns());
+    EXPECT_EQ("count", iter->GetColumnName(0));
+    EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(Int64(4), iter->GetValue(0));
+
+    EXPECT_FALSE(iter->NextRow());
+    ZETASQL_EXPECT_OK(iter->Status());
+  }
+  // Count rows having max price >= 3.00
+  {
+    PreparedQuery query(
+        R"sql(WITH Fruits AS (SELECT 'apple' AS fruit,
+        1.20 AS price UNION ALL SELECT 'banana',
+        0.50 UNION ALL SELECT 'banana', 0.60 UNION ALL SELECT 'pear',
+        3.00 UNION ALL SELECT 'grapes', 2.00 UNION ALL SELECT 'grapes', 5.00)
+        SELECT CustomCount(Fruits.fruit HAVING MAX(price)>=3.00) as count
+        FROM Fruits;)sql",
+        EvaluatorOptions());
+    AnalyzerOptions analyzer_options;
+    analyzer_options.mutable_language()->EnableLanguageFeature(
+        FEATURE_V_1_1_HAVING_IN_AGGREGATE);
+    ZETASQL_ASSERT_OK(query.Prepare(analyzer_options, catalog()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                         query.Execute());
+
+    EXPECT_EQ(1, iter->NumColumns());
+    EXPECT_EQ("count", iter->GetColumnName(0));
+    EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(Int64(2), iter->GetValue(0));
+
+    EXPECT_FALSE(iter->NextRow());
+    ZETASQL_EXPECT_OK(iter->Status());
+  }
+  // Count all rows, grouped by fruit
+  {
+    PreparedQuery query(
+        R"sql(WITH Fruits AS (SELECT 'apple' AS fruit,
+        1.20 AS price UNION ALL SELECT 'banana',
+        0.50 UNION ALL SELECT 'banana', 0.60 UNION ALL SELECT 'pear',
+        3.00 UNION ALL SELECT 'grapes', 2.00 UNION ALL SELECT 'grapes', 5.00)
+        SELECT fruit, CustomCount(fruit) as count FROM Fruits
+        GROUP BY fruit ORDER BY fruit;)sql",
+        EvaluatorOptions());
+    ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                         query.Execute());
+
+    EXPECT_EQ(2, iter->NumColumns());
+    EXPECT_EQ("fruit", iter->GetColumnName(0));
+    EXPECT_EQ("STRING", iter->GetColumnType(0)->DebugString());
+    EXPECT_EQ("count", iter->GetColumnName(1));
+    EXPECT_EQ("INT64", iter->GetColumnType(1)->DebugString());
+
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(String("apple"), iter->GetValue(0));
+    EXPECT_EQ(Int64(1), iter->GetValue(1));
+    EXPECT_TRUE(iter->NextRow());
+    EXPECT_EQ(String("banana"), iter->GetValue(0));
+    EXPECT_EQ(Int64(2), iter->GetValue(1));
+    EXPECT_TRUE(iter->NextRow());
+    EXPECT_EQ(String("grapes"), iter->GetValue(0));
+    EXPECT_EQ(Int64(2), iter->GetValue(1));
+    EXPECT_TRUE(iter->NextRow());
+    EXPECT_EQ(String("pear"), iter->GetValue(0));
+    EXPECT_EQ(Int64(1), iter->GetValue(1));
+
+    EXPECT_FALSE(iter->NextRow());
+    ZETASQL_EXPECT_OK(iter->Status());
+  }
+}
+
+// User defined aggregator for a nullary function.
+// Always returns a null INT64.
+// Note that 'value' for a nullary function is an empty struct.
+class NullaryAggEvaluator : public AggregateFunctionEvaluator {
+ public:
+  NullaryAggEvaluator() = default;
+  ~NullaryAggEvaluator() override = default;
+
+  absl::Status Reset() override { return absl::OkStatus(); }
+
+  absl::Status Accumulate(absl::Span<const Value*> args,
+                          bool* stop_accumulation) override {
+    ZETASQL_RET_CHECK(args.empty());
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<Value> GetFinalResult() override { return Value::NullInt64(); }
+};
+
+TEST_F(UDAEvalTest, OkUDANullaryEvaluator) {
+  AggregateFunctionEvaluatorFactory AggregateFn =
+      [](const FunctionSignature& sig) {
+        return std::make_unique<NullaryAggEvaluator>();
+      };
+
+  function_options_.set_aggregate_function_evaluator_factory(AggregateFn);
+  catalog()->AddOwnedFunction(
+      new Function("NullaryAgg", "uda", Function::AGGREGATE,
+                   {{types::Int64Type(), {}, kFunctionId}}, function_options_));
+
+  PreparedQuery query(
+      "SELECT NullaryAgg() as null_int FROM UNNEST([1,2,3]) AS x;",
+      EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  EXPECT_EQ(1, iter->NumColumns());
+  EXPECT_EQ("null_int", iter->GetColumnName(0));
+  EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(NullInt64(), iter->GetValue(0));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+// User defined aggregator for a binary function that operates on a string and
+// integer and aggregates them as a concatenated string.
+// Note that 'value' for an n-ary aggregate function is a struct type with
+// fields corresponding to each function argument, with matching types.
+class BinaryAggEvaluator : public AggregateFunctionEvaluator {
+ public:
+  BinaryAggEvaluator() = default;
+  ~BinaryAggEvaluator() override = default;
+
+  absl::Status Reset() override { return absl::OkStatus(); }
+
+  absl::Status Accumulate(absl::Span<const Value*> args,
+                          bool* stop_accumulation) override {
+    ZETASQL_RET_CHECK(args.size() == 2);
+    const Value value1 = *args[0];
+    const Value value2 = *args[1];
+    if (!value1.type()->IsString()) {
+      return absl::Status(absl::StatusCode::kInvalidArgument,
+                          "Unexpected type for first argument");
+    }
+    if (!value2.type()->IsInt64()) {
+      return absl::Status(absl::StatusCode::kInvalidArgument,
+                          "Unexpected type for second argument");
+    }
+    result_.append(absl::StrCat(value1.string_value(),
+                                std::to_string(value2.int64_value())));
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<Value> GetFinalResult() override {
+    return Value::String(result_);
+  }
+
+ private:
+  std::string result_ = "";
+};
+
+TEST_F(UDAEvalTest, OkUDABinaryEvaluator) {
+  AggregateFunctionEvaluatorFactory AggregateFn =
+      [](const FunctionSignature& sig) {
+        return std::make_unique<BinaryAggEvaluator>();
+      };
+
+  function_options_.set_aggregate_function_evaluator_factory(AggregateFn);
+  catalog()->AddOwnedFunction(
+      new Function("BinaryAgg", "uda", Function::AGGREGATE,
+                   {{types::StringType(),
+                     {types::StringType(), types::Int64Type()},
+                     kFunctionId}},
+                   function_options_));
+
+  PreparedQuery query(
+      R"sql(WITH Employees AS (SELECT 'Alice' AS name,
+        1 AS id UNION ALL SELECT 'Bob',
+        2 UNION ALL SELECT 'Eve', 3)
+        SELECT BinaryAgg(name, id) as output FROM Employees)sql",
+      EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  EXPECT_EQ(1, iter->NumColumns());
+  EXPECT_EQ("output", iter->GetColumnName(0));
+  EXPECT_EQ("STRING", iter->GetColumnType(0)->DebugString());
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(String("Alice1Bob2Eve3"), iter->GetValue(0));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(UDAEvalTest, OkUDAPolymorphicEvaluator) {
+  AggregateFunctionEvaluatorFactory AggregateFn =
+      [](const FunctionSignature& sig)
+      -> absl::StatusOr<std::unique_ptr<AggregateFunctionEvaluator>> {
+    switch (sig.ConcreteArgumentType(0)->kind()) {
+      case TYPE_INT64:
+        return std::make_unique<ReturnStringEvaluator>("foo");
+      case TYPE_STRING:
+        return std::make_unique<ReturnStringEvaluator>("bar");
+      case TYPE_BOOL:
+        return std::make_unique<ReturnStringEvaluator>("foobar");
+      default:
+        return absl::Status(absl::StatusCode::kInternal,
+                            "Beg your pardon: " + sig.DebugString());
+    }
+  };
+
+  function_options_.set_aggregate_function_evaluator_factory(AggregateFn);
+  catalog()->AddOwnedFunction(
+      new Function("PolymorphicAgg", "uda", Function::AGGREGATE,
+                   {{types::StringType(),
+                     {FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                     kFunctionId}},
+                   function_options_));
+
+  // Aggregation on int
+  {
+    PreparedQuery query(
+        "SELECT PolymorphicAgg(x) as output FROM UNNEST([1,2,3]) AS x;",
+        EvaluatorOptions());
+    ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                         query.Execute());
+
+    EXPECT_EQ(1, iter->NumColumns());
+    EXPECT_EQ("output", iter->GetColumnName(0));
+    EXPECT_EQ("STRING", iter->GetColumnType(0)->DebugString());
+
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(String("foo"), iter->GetValue(0));
+    EXPECT_FALSE(iter->NextRow());
+    ZETASQL_EXPECT_OK(iter->Status());
+  }
+  // Aggregation on string
+  {
+    PreparedQuery query(
+        "SELECT PolymorphicAgg(x) as output FROM UNNEST(['ab','cd','ef']) AS "
+        "x;",
+        EvaluatorOptions());
+    ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                         query.Execute());
+
+    EXPECT_EQ(1, iter->NumColumns());
+    EXPECT_EQ("output", iter->GetColumnName(0));
+    EXPECT_EQ("STRING", iter->GetColumnType(0)->DebugString());
+
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(String("bar"), iter->GetValue(0));
+    EXPECT_FALSE(iter->NextRow());
+    ZETASQL_EXPECT_OK(iter->Status());
+  }
+  // Aggregation on bool
+  {
+    PreparedQuery query(
+        "SELECT PolymorphicAgg(x) as output FROM UNNEST([true, false]) AS x;",
+        EvaluatorOptions());
+    ZETASQL_ASSERT_OK(query.Prepare(analyzer_options_, catalog()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                         query.Execute());
+
+    EXPECT_EQ(1, iter->NumColumns());
+    EXPECT_EQ("output", iter->GetColumnName(0));
+    EXPECT_EQ("STRING", iter->GetColumnType(0)->DebugString());
+
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(String("foobar"), iter->GetValue(0));
+    EXPECT_FALSE(iter->NextRow());
+    ZETASQL_EXPECT_OK(iter->Status());
+  }
+  // Aggregation on double
+  {
+    PreparedQuery query(
+        "SELECT PolymorphicAgg(x) as output FROM UNNEST([1.2, 2.4]) AS x;",
+        EvaluatorOptions());
+    EXPECT_THAT(
+        query.Prepare(analyzer_options_, catalog()),
+        StatusIs(absl::StatusCode::kInternal, HasSubstr("Beg your pardon")));
+  }
 }
 
 TEST_F(UDFEvalTest, OkPolymorphicUDFEvaluator) {
@@ -2277,7 +2918,7 @@ TEST(PreparedQuery, PrepareExecuteMissingQueryParameter) {
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   EvaluatorOptions evaluator_options;
   PreparedQuery query("SELECT @param + col FROM TestTable", evaluator_options);
@@ -2294,7 +2935,7 @@ TEST(PreparedQuery, PrepareExecuteAllowUndeclaredQueryParameters) {
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   EvaluatorOptions evaluator_options;
   PreparedQuery query("SELECT @param + col FROM TestTable", evaluator_options);
@@ -2321,7 +2962,7 @@ TEST(PreparedQuery, PrepareExecuteAllowUndeclaredQueryParametersResolvedStmt) {
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   AnalyzerOptions analyzer_options;
   analyzer_options.set_allow_undeclared_parameters(true);
@@ -2355,7 +2996,7 @@ TEST(PreparedQuery, PrepareExecuteMissingPositionalQueryParameter) {
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   EvaluatorOptions evaluator_options;
   PreparedQuery query("SELECT ? + col FROM TestTable", evaluator_options);
@@ -2374,7 +3015,7 @@ TEST(PreparedQuery, PrepareExecuteAllowUndeclaredPositionalQueryParameters) {
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   EvaluatorOptions evaluator_options;
   PreparedQuery query(
@@ -2405,7 +3046,7 @@ TEST(PreparedQuery,
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   AnalyzerOptions analyzer_options;
   analyzer_options.set_allow_undeclared_parameters(true);
@@ -2453,7 +3094,7 @@ TEST(PreparedQuery, ResolvedQueryValidatedWithCorrectLanguageOptions) {
       FEATURE_V_1_3_WITH_RECURSIVE);
 
   SimpleCatalog catalog("TestCatalog");
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   TypeFactory type_factory;
 
@@ -2480,7 +3121,8 @@ TEST(PreparedQuery, ResolvedQueryValidatedWithCorrectLanguageOptions) {
 class PreparedModifyTest : public ::testing::Test {
  public:
   void SetUp() override {
-    catalog_.AddZetaSQLFunctions();
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
     AddNonValueTable();
     AddValueTableInt64RowType();
 
@@ -3425,7 +4067,8 @@ TEST_F(PreparedDmlReturningTest, ExecuteWithoutReturningIterator) {
 class PreparedModifyWithDefaultColumnTest : public ::testing::Test {
  public:
   void SetUp() override {
-    catalog_.AddZetaSQLFunctions();
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
     AddTableWithDefaultColumn();
 
     analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
@@ -3699,7 +4342,7 @@ TEST(PreparedQuery, TwoIteratorsAtTheSameTime) {
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   zetasql_base::SimulatedClock clock;
   EvaluatorOptions options;
@@ -4006,7 +4649,7 @@ TEST_F(PreparedQueryTest, TopNAccumulator) {
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   PreparedQuery query(
       "select array_agg(a order by a limit 2) agg from TestTable",
@@ -4041,7 +4684,7 @@ TEST_F(PreparedQueryTest, ReadZeroColumnsWithPruningUnusedColumnsEnabled) {
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
 
   PreparedQuery query("select 1 from TestTable", EvaluatorOptions());
 
@@ -4092,7 +4735,8 @@ class PreparedQueryProtoTest : public PreparedQueryTest {
     catalog_ = std::make_unique<SimpleCatalog>("TestCatalog");
     catalog_->AddTable(table_->Name(), table_.get());
     catalog_->AddTable(table2_->Name(), table2_.get());
-    catalog_->AddZetaSQLFunctions();
+    catalog_->AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
 
     catalog_->AddType("zetasql_test__.KitchenSinkPB", proto_type_);
 
@@ -4121,7 +4765,9 @@ class PreparedQueryProtoTest : public PreparedQueryTest {
     group->add_optionalgroupnested()->set_int64_val(key * 1000 + 1);
     group->add_optionalgroupnested()->set_int64_val(key * 1000 + 2);
 
-    return Value::Proto(proto_type_, SerializeToCord(proto));
+    absl::Cord bytes;
+    ABSL_CHECK(proto.SerializeToCord(&bytes));
+    return Value::Proto(proto_type_, bytes);
   }
 
   static void PopulateNestedProto(
@@ -4326,7 +4972,9 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithNoHasBitAndHasBit) {
   nested_value.set_nested_int64(10);
   nested_value.add_nested_repeated_int64(100);
   nested_value.add_nested_repeated_int64(101);
-  absl::Cord bytes = SerializeToCord(nested_value);
+  absl::Cord bytes_4970;
+  ABSL_CHECK(nested_value.SerializeToCord(&bytes_4970));
+  absl::Cord bytes = bytes_4970;
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -4362,7 +5010,9 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithHasBitAndNoHasBit) {
   nested_value.set_nested_int64(10);
   nested_value.add_nested_repeated_int64(100);
   nested_value.add_nested_repeated_int64(101);
-  absl::Cord bytes = SerializeToCord(nested_value);
+  absl::Cord bytes_5006;
+  ABSL_CHECK(nested_value.SerializeToCord(&bytes_5006));
+  absl::Cord bytes = bytes_5006;
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -4473,7 +5123,9 @@ TEST_F(PreparedQueryProtoTest, FieldAndSubfield) {
   zetasql_test__::KitchenSinkPB_Nested nested_value;
   PopulateNestedProto(/*key=*/1, &nested_value);
 
-  absl::Cord bytes = SerializeToCord(nested_value);
+  absl::Cord bytes_5117;
+  ABSL_CHECK(nested_value.SerializeToCord(&bytes_5117));
+  absl::Cord bytes = bytes_5117;
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -4507,7 +5159,9 @@ TEST_F(PreparedQueryProtoTest, SubfieldAndField) {
 
   zetasql_test__::KitchenSinkPB_Nested nested_value;
   PopulateNestedProto(/*key=*/1, &nested_value);
-  absl::Cord bytes = SerializeToCord(nested_value);
+  absl::Cord bytes_5151;
+  ABSL_CHECK(nested_value.SerializeToCord(&bytes_5151));
+  absl::Cord bytes = bytes_5151;
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -4541,7 +5195,9 @@ TEST_F(PreparedQueryProtoTest, FieldAndSubSubField) {
 
   zetasql_test__::RewrappedNullableInt rewrapped_nullable_int;
   rewrapped_nullable_int.mutable_value()->set_value(1000);
-  absl::Cord bytes = SerializeToCord(rewrapped_nullable_int);
+  absl::Cord bytes_5185;
+  ABSL_CHECK(rewrapped_nullable_int.SerializeToCord(&bytes_5185));
+  absl::Cord bytes = bytes_5185;
 
   const ProtoType* rewrapped_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -4578,7 +5234,9 @@ TEST_F(PreparedQueryProtoTest, SubSubFieldAndField) {
 
   zetasql_test__::RewrappedNullableInt rewrapped_nullable_int;
   rewrapped_nullable_int.mutable_value()->set_value(1000);
-  absl::Cord bytes = SerializeToCord(rewrapped_nullable_int);
+  absl::Cord bytes_5222;
+  ABSL_CHECK(rewrapped_nullable_int.SerializeToCord(&bytes_5222));
+  absl::Cord bytes = bytes_5222;
 
   const ProtoType* rewrapped_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -4619,7 +5277,9 @@ TEST_F(PreparedQueryProtoTest, Complex) {
   nested_value.set_nested_int64(10);
   nested_value.add_nested_repeated_int64(100);
   nested_value.add_nested_repeated_int64(101);
-  absl::Cord bytes = SerializeToCord(nested_value);
+  absl::Cord bytes_5263;
+  ABSL_CHECK(nested_value.SerializeToCord(&bytes_5263));
+  absl::Cord bytes = bytes_5263;
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -4656,7 +5316,9 @@ TEST_F(PreparedQueryProtoTest, WithRepeatedFieldOffsets) {
 
   zetasql_test__::KitchenSinkPB_Nested nested_proto;
   nested_proto.set_nested_int64(20);
-  absl::Cord bytes = SerializeToCord(nested_proto);
+  absl::Cord bytes_5300;
+  ABSL_CHECK(nested_proto.SerializeToCord(&bytes_5300));
+  absl::Cord bytes = bytes_5300;
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -4924,9 +5586,15 @@ TEST_F(PreparedQueryProtoTest, MixedProtoAndStructFieldPaths) {
   PopulateNestedProto(/*key=*/10, &expected_nested2);
   PopulateNestedProto(/*key=*/100, &expected_nested3);
 
-  absl::Cord serialized_expected_nested1 = SerializeToCord(expected_nested1);
-  absl::Cord serialized_expected_nested2 = SerializeToCord(expected_nested2);
-  absl::Cord serialized_expected_nested3 = SerializeToCord(expected_nested3);
+  absl::Cord bytes_5568;
+  ABSL_CHECK(expected_nested1.SerializeToCord(&bytes_5568));
+  absl::Cord serialized_expected_nested1 = bytes_5568;
+  absl::Cord bytes_5569;
+  ABSL_CHECK(expected_nested2.SerializeToCord(&bytes_5569));
+  absl::Cord serialized_expected_nested2 = bytes_5569;
+  absl::Cord bytes_5570;
+  ABSL_CHECK(expected_nested3.SerializeToCord(&bytes_5570));
+  absl::Cord serialized_expected_nested3 = bytes_5570;
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(

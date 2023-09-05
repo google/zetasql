@@ -321,25 +321,9 @@ class Catalog {
   // Overloaded helper functions that forward the call to the appropriate
   // Find*() function based on the <object> argument type.
   absl::Status FindObject(absl::Span<const std::string> path,
-                          const Function** object, const FindOptions& options);
-  absl::Status FindObject(absl::Span<const std::string> path,
-                          const TableValuedFunction** object,
-                          const FindOptions& options);
-  absl::Status FindObject(absl::Span<const std::string> path,
                           const Table** object, const FindOptions& options);
   absl::Status FindObject(absl::Span<const std::string> path,
-                          const Model** object, const FindOptions& options);
-  absl::Status FindObject(absl::Span<const std::string> path,
-                          const Connection** object,
-                          const FindOptions& options);
-  absl::Status FindObject(absl::Span<const std::string> path,
-                          const Sequence** object, const FindOptions& options);
-  absl::Status FindObject(absl::Span<const std::string> path,
-                          const Procedure** object, const FindOptions& options);
-  absl::Status FindObject(absl::Span<const std::string> path,
                           const Type** object, const FindOptions& options);
-  absl::Status FindObject(absl::Span<const std::string> path,
-                          const Constant** object, const FindOptions& options);
 
   // FindConversion looks up a Conversion between from_type and to_type with the
   // given options.

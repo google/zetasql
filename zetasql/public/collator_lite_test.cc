@@ -38,6 +38,10 @@ TEST(CreateFromCollationNameLite, DefaultImplSupportsUnicodeCs) {
   EXPECT_THAT(collator->CompareUtf8("a", "b", &error), Eq(-1));
   EXPECT_THAT(error, IsOk());
 
+  absl::Cord result;
+  EXPECT_THAT(collator->GetSortKeyUtf8("a", &result), IsOk());
+  EXPECT_THAT(result, Eq("a"));
+
   EXPECT_THAT(collator->IsBinaryComparison(), Eq(true));
 }
 
@@ -50,6 +54,10 @@ TEST(CreateFromCollationNameLite, DefaultImplSupportsBinary) {
   absl::Status error;
   EXPECT_THAT(collator->CompareUtf8("a", "b", &error), Eq(-1));
   EXPECT_THAT(error, IsOk());
+
+  absl::Cord result;
+  EXPECT_THAT(collator->GetSortKeyUtf8("a", &result), IsOk());
+  EXPECT_THAT(result, Eq("a"));
 
   EXPECT_THAT(collator->IsBinaryComparison(), Eq(true));
 }

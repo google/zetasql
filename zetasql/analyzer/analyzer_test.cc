@@ -36,6 +36,7 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/function.h"
@@ -77,16 +78,21 @@
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 #include "zetasql/base/status_payload.h"
 
 namespace zetasql {
 
 using testing::_;
+using testing::ElementsAre;
 using testing::Eq;
 using testing::ExplainMatchResult;
 using testing::HasSubstr;
+using testing::IsEmpty;
 using testing::IsNull;
+using testing::MatchesRegex;
 using testing::Not;
 using zetasql_base::testing::StatusIs;
 
@@ -253,6 +259,8 @@ TEST_F(AnalyzerOptionsTest, ParserASTOwnershipTests) {
       &parser_output, options_, sql, catalog(), &type_factory_,
       &analyzer_output_owned_parser_output));
 
+  ZETASQL_EXPECT_OK(analyzer_output_owned_parser_output->resolved_statement()
+                ->CheckNoFieldsAccessed());
   // Both analyses result in the same resolved AST.
   EXPECT_EQ(analyzer_output_unowned_parser_output->resolved_statement()
               ->DebugString(),
@@ -273,6 +281,8 @@ TEST_F(AnalyzerOptionsTest, ParserASTOwnershipTests) {
   EXPECT_FALSE(AnalyzeStatementFromParserOutputOwnedOnSuccess(
       &parser_output, options_, bad_sql, catalog(), &type_factory_,
       &analyzer_output_owned_parser_output).ok());
+  ZETASQL_EXPECT_OK(analyzer_output_owned_parser_output->resolved_statement()
+                ->CheckNoFieldsAccessed());
 
   // <parser_output> retains ownership.
   EXPECT_NE(nullptr, parser_output);
@@ -474,6 +484,8 @@ TEST_F(AnalyzerOptionsTest, SetDdlPseudoColumns) {
     option_names.clear();
     ZETASQL_ASSERT_OK(AnalyzeStatement(test_case.statement, options_, catalog(),
                                &type_factory_, &output));
+    ZETASQL_EXPECT_OK(output->resolved_statement()->CheckNoFieldsAccessed());
+
     EXPECT_EQ(test_case.expected_table, table_name);
     EXPECT_THAT(option_names,
                 ::testing::ElementsAreArray(test_case.expected_options));
@@ -489,6 +501,7 @@ TEST_F(AnalyzerOptionsTest, SetDdlPseudoColumns) {
       AnalyzeStatement("CREATE TABLE T (x INT64, y STRING) "
                        "PARTITION BY _partition_date, _partition_timestamp;",
                        options_, catalog(), &type_factory_, &output));
+  ZETASQL_EXPECT_OK(output->resolved_statement()->CheckNoFieldsAccessed());
 }
 
 TEST_F(AnalyzerOptionsTest, AnalyzeStatementWithPreRewriteCallback) {
@@ -500,6 +513,10 @@ TEST_F(AnalyzerOptionsTest, AnalyzeStatementWithPreRewriteCallback) {
   std::unique_ptr<const AnalyzerOutput> output;
 
   options.SetPreRewriteCallback([](const AnalyzerOutput& output) {
+    if (absl::Status status = output.resolved_node()->CheckNoFieldsAccessed();
+        !status.ok()) {
+      return status;
+    }
     if (output.resolved_statement() != nullptr) {
       if (absl::StrContains(output.resolved_statement()->DebugString(),
                             "FlattenedArg")) {
@@ -809,7 +826,7 @@ TEST_F(AnalyzerOptionsTest, DeprecationWarnings) {
   function_options.set_is_deprecated(true);
 
   SimpleCatalog catalog("catalog");
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
   catalog.AddOwnedFunction(new Function(
       "depr1", "test_group", Function::SCALAR,
       {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, 1}}, function_options));
@@ -895,7 +912,7 @@ TEST_F(AnalyzerOptionsTest, BuiltInHiddenByNonBuiltIn) {
   SimpleCatalog catalog("catalog");
   ZetaSQLBuiltinFunctionOptions options;
   options.exclude_function_ids.insert(FN_IF);
-  catalog.AddZetaSQLFunctions(options);
+  catalog.AddBuiltinFunctions(options);
   catalog.AddOwnedFunction(
       new Function("if", "test_group", Function::SCALAR,
                    {{types::BoolType(),
@@ -937,8 +954,8 @@ class MultiFileErrorCollector
   MultiFileErrorCollector() {}
   MultiFileErrorCollector(const MultiFileErrorCollector&) = delete;
   MultiFileErrorCollector& operator=(const MultiFileErrorCollector&) = delete;
-      void AddError(const std::string& filename, int line, int column,
-                    const std::string& message) override {
+  void RecordError(absl::string_view filename, int line, int column,
+                   absl::string_view message) override {
     absl::StrAppend(&error_, "Line ", line, " Column ", column, " :", message,
                     "\n");
   }
@@ -1680,6 +1697,25 @@ TEST(AnalyzerTest, AstRewritingLegacyAccessModeRespected) {
   }
 }
 
+TEST(AnalyzerTest, AstRewritingClearAccessModeRespected) {
+  // Note: Analyzer file based tests also test this mode.
+  AnalyzerOptions options;
+  options.set_fields_accessed_mode(
+      AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS);
+  options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+  SampleCatalog catalog(options.language());
+  TypeFactory type_factory;
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  for (const bool should_rewrite : {true, false}) {
+    options.enable_rewrite(REWRITE_FLATTEN, should_rewrite);
+    ZETASQL_ASSERT_OK(AnalyzeStatement("SELECT FLATTEN([STRUCT([] AS X)].X)", options,
+                               catalog.catalog(), &type_factory, &output));
+    ZETASQL_EXPECT_OK(output->resolved_statement()->CheckNoFieldsAccessed());
+  }
+}
+
 // Test that the language_options setters and getters on AnalyzerOptions work
 // correctly and don't overwrite the options outside LanguageOptions.
 TEST(AnalyzerTest, LanguageOptions) {
@@ -1973,179 +2009,169 @@ TEST(AnalyzerTest, AnalyzeStatementsOfScript) {
                                "Unrecognized name: garbage [at 2:8]"));
 }
 
-TEST(AnalyzerTest, AnalyzeInsertStatement) {
-  // Setup catalog and table.
-  // Table ddl representation
-  // CREATE TABLE test_table (
-  // id INT64,
-  // data INT64,
-  // ) PRIMARY KEY(id);
-  SimpleCatalog catalog{"test_catalog"};
-  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
-  AnalyzerOptions analyzer_options;
-  analyzer_options.mutable_language()->SetSupportsAllStatementKinds();
-  auto test_table = std::make_unique<SimpleTable>(
-      "test_table",
-      std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
-                                            {"data", types::Int64Type()}});
-  test_table->SetContents(
-      {{values::Int64(1), values::Int64(2), values::Int64(8), values::Int64(4)},
-       {values::Int64(2), values::Int64(3), values::Int64(12),
-        values::Int64(6)}});
-  ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
-  catalog.AddOwnedTable(std::move(test_table));
+class AnalyzeGeneratedColumnTest : public testing::Test {
+ public:
+  AnalyzeGeneratedColumnTest() : catalog_("test_catalog") {}
+  void SetUp() override {
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
+    analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
+  }
+  void AddGeneratedColumnToTable(std::string column_name,
+                                 std::vector<std::string> expression_columns,
+                                 std::string generated_expr,
+                                 SimpleTable* table) {
+    AnalyzerOptions options = analyzer_options_;
+    std::unique_ptr<const AnalyzerOutput> output;
+    for (auto expression_column : expression_columns) {
+      ZETASQL_ASSERT_OK(
+          options.AddExpressionColumn(expression_column, types::Int64Type()));
+    }
+    ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr, options, &catalog_,
+                                catalog_.type_factory(), &output));
+    SimpleColumn::ExpressionAttributes expr_attributes(
+        SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
+        generated_expr, output->resolved_expr());
+    ZETASQL_ASSERT_OK(table->AddColumn(
+        new SimpleColumn(table->Name(), column_name, types::Int64Type(),
+                         {.column_expression = expr_attributes}),
+        /*is_owned=*/true));
+    outputs_.push_back(std::move(output));
+  }
+  void AddGeneratedColumnsTestTable() {
+    // Table representation
+    // CREATE TABLE test_table (
+    // A as (B+C),
+    // B as (C+1),
+    // C int64_t,
+    // D as (A+B+C),
+    // ) PRIMARY KEY(A,C)
+    auto test_table = std::make_unique<SimpleTable>(
+        "test_table", std::vector<SimpleTable::NameAndType>{});
 
-  std::string sql = "INSERT into test_table(id,data) values(3,7);";
-  std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(
-      ParseStatement(sql, analyzer_options.GetParserOptions(), &parser_output));
+    // Adding column A AS (B+C) to test_table.
+    AddGeneratedColumnToTable("A", {"B", "C"}, "B+C", test_table.get());
+    // Adding column B AS (C+1) to test_table.
+    AddGeneratedColumnToTable("B", {"C"}, "C+1", test_table.get());
+    // Adding column C int64_t to test_table.
+    ZETASQL_ASSERT_OK(test_table->AddColumn(
+        new SimpleColumn(test_table->Name(), "C", types::Int64Type()),
+        /*is_owned=*/true));
+    // Adding column D AS (A+B+C) to test_table.
+    AddGeneratedColumnToTable("D", {"A", "B", "C"}, "A+B+C", test_table.get());
+
+    test_table->SetContents({{values::Int64(3), values::Int64(2),
+                              values::Int64(1), values::Int64(6)},
+                             {values::Int64(5), values::Int64(3),
+                              values::Int64(2), values::Int64(10)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+  void AddCyclicGeneratedColumnsTable() {
+    // Setup catalog and table.
+    // Table ddl representation
+    // CREATE TABLE test_table (
+    // id INT64,
+    // data INT64,
+    // gen2 AS gen1*2,
+    // gen1 AS gen2*2,
+    // ) PRIMARY KEY(id,gen2);
+    auto test_table = std::make_unique<SimpleTable>(
+        "test_table",
+        std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
+                                              {"data", types::Int64Type()}});
+    // Adding column gen2 AS (gen1*2) to test_table.
+    AddGeneratedColumnToTable("gen2", {"gen1"}, "gen1*2", test_table.get());
+    // Adding column gen1 AS (gen2*2) to test_table.
+    AddGeneratedColumnToTable("gen1", {"gen2"}, "gen2*2", test_table.get());
+
+    test_table->SetContents({{values::Int64(1), values::Int64(2),
+                              values::Int64(8), values::Int64(4)},
+                             {values::Int64(2), values::Int64(3),
+                              values::Int64(12), values::Int64(6)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+  void AddNonGeneratedColumnsTable() {
+    auto test_table = std::make_unique<SimpleTable>(
+        "test_table",
+        std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
+                                              {"data", types::Int64Type()}});
+    test_table->SetContents({{values::Int64(1), values::Int64(2),
+                              values::Int64(8), values::Int64(4)},
+                             {values::Int64(2), values::Int64(3),
+                              values::Int64(12), values::Int64(6)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+  absl::Status GetColumnNamesFromIndices(
+      std::vector<int> indices, std::vector<std::string>& column_names) {
+    const Table* table;
+    ZETASQL_RETURN_IF_ERROR(catalog_.FindTable({"test_table"}, &table));
+    ZETASQL_RET_CHECK_NE(table, nullptr);
+    for (int index : indices) {
+      const Column* column = table->GetColumn(index);
+      ZETASQL_RET_CHECK(column != nullptr);
+      column_names.push_back(column->Name());
+    }
+    return absl::OkStatus();
+  }
+
+ protected:
+  SimpleCatalog catalog_;
+  std::vector<std::unique_ptr<const AnalyzerOutput>> outputs_;
+  AnalyzerOptions analyzer_options_;
+};
+
+TEST_F(AnalyzeGeneratedColumnTest, TopologicalOrderOfGeneratedColumns) {
+  AddGeneratedColumnsTestTable();
+  std::string sql = "INSERT into test_table(C) values(3);";
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
-  TypeFactory type_factory;
+  std::vector<std::string> topologically_sorted_columns;
 
-  // Analyze the insert statement
-  ZETASQL_EXPECT_OK(AnalyzeStatementFromParserOutputOwnedOnSuccess(
-      &parser_output, analyzer_options, sql, &catalog, &type_factory,
-      &analyzer_output));
+  ZETASQL_ASSERT_OK(AnalyzeStatement(sql, analyzer_options_, &catalog_,
+                             catalog_.type_factory(), &analyzer_output));
+  ZETASQL_ASSERT_OK(GetColumnNamesFromIndices(
+      analyzer_output->resolved_statement()
+          ->GetAs<ResolvedInsertStmt>()
+          ->topologically_sorted_generated_column_index_list(),
+      topologically_sorted_columns));
+  EXPECT_THAT(topologically_sorted_columns, ElementsAre("B", "A", "D"));
 }
 
-TEST(AnalyzerTest, AnalyzeInsertStatementWithGenColInTable) {
-  // Setup catalog and table.
-  // Table ddl representation
-  // CREATE TABLE test_table (
-  // id INT64,
-  // data INT64,
-  // gen1 AS data*2,
-  // gen2 AS gen1,
-  // ) PRIMARY KEY(id,gen1);
-  SimpleCatalog catalog{"test_catalog"};
-  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
-  AnalyzerOptions analyzer_options;
-  analyzer_options.mutable_language()->SetSupportsAllStatementKinds();
-  auto test_table = std::make_unique<SimpleTable>(
-      "test_table",
-      std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
-                                            {"data", types::Int64Type()}});
-  // Adding column gen1 AS (data*2) to test_table.
-  std::unique_ptr<const AnalyzerOutput> output1;
-  const std::string generated_expr1 = "data*2";
-  zetasql::AnalyzerOptions new_options1 = analyzer_options;
-  ZETASQL_ASSERT_OK(new_options1.AddExpressionColumn("data", types::Int64Type()));
-  ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr1, new_options1, &catalog,
-                              catalog.type_factory(), &output1));
-  SimpleColumn::ExpressionAttributes expr_attributes1(
-      SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
-      generated_expr1, output1->resolved_expr());
-  ZETASQL_ASSERT_OK(test_table->AddColumn(
-      new SimpleColumn(test_table->Name(), "gen1", types::Int64Type(),
-                       {.column_expression = expr_attributes1}),
-      /*is_owned=*/true));
-
-  // Adding column gen2 AS (gen1) to test_table.
-  std::unique_ptr<const AnalyzerOutput> output2;
-  const std::string generated_expr2 = "gen1";
-  zetasql::AnalyzerOptions new_options2 = analyzer_options;
-  ZETASQL_ASSERT_OK(new_options2.AddExpressionColumn("gen1", types::Int64Type()));
-  ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr2, new_options2, &catalog,
-                              catalog.type_factory(), &output2));
-  SimpleColumn::ExpressionAttributes expr_attributes2(
-      SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
-      generated_expr1, output1->resolved_expr());
-  ZETASQL_ASSERT_OK(test_table->AddColumn(
-      new SimpleColumn(test_table->Name(), "gen2", types::Int64Type(),
-                       {.column_expression = expr_attributes2}),
-      /*is_owned=*/true));
-  test_table->SetContents(
-      {{values::Int64(1), values::Int64(2), values::Int64(4), values::Int64(4)},
-       {values::Int64(2), values::Int64(3), values::Int64(6),
-        values::Int64(6)}});
-  ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
-  catalog.AddOwnedTable(std::move(test_table));
-
-  std::string sql = "INSERT into test_table(id,data) values(3,7);";
-  std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(
-      ParseStatement(sql, analyzer_options.GetParserOptions(), &parser_output));
+TEST_F(AnalyzeGeneratedColumnTest,
+       AnalyzeInsertStatementFailsWithCyclicGenColInTable) {
+  AddCyclicGeneratedColumnsTable();
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
-  TypeFactory type_factory;
-
-  // Analyze the insert statement.
-  ZETASQL_EXPECT_OK(AnalyzeStatementFromParserOutputOwnedOnSuccess(
-      &parser_output, analyzer_options, sql, &catalog, &type_factory,
-      &analyzer_output));
-}
-
-TEST(AnalyzerTest, AnalyzeInsertStatementFailsWithCyclicGenColInTable) {
-  // Setup catalog and table.
-  // Table ddl representation
-  // CREATE TABLE test_table (
-  // id INT64,
-  // data INT64,
-  // gen2 AS gen1*2,
-  // gen1 AS gen2*2,
-  // ) PRIMARY KEY(id,gen2);
-  SimpleCatalog catalog{"test_catalog"};
-  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
-  AnalyzerOptions analyzer_options;
-  analyzer_options.mutable_language()->SetSupportsAllStatementKinds();
-  auto test_table = std::make_unique<SimpleTable>(
-      "test_table",
-      std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
-                                            {"data", types::Int64Type()}});
-  // Adding column gen2 AS (gen1*2) to test_table.
-  std::unique_ptr<const AnalyzerOutput> output2;
-  const std::string generated_expr2 = "gen1*2";
-  zetasql::AnalyzerOptions new_options2 = analyzer_options;
-  ZETASQL_ASSERT_OK(new_options2.AddExpressionColumn("gen1", types::Int64Type()));
-  ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr2, new_options2, &catalog,
-                              catalog.type_factory(), &output2));
-  SimpleColumn::ExpressionAttributes expr_attributes2(
-      SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
-      generated_expr2, output2->resolved_expr());
-  ZETASQL_ASSERT_OK(test_table->AddColumn(
-      new SimpleColumn(test_table->Name(), "gen2", types::Int64Type(),
-                       {.column_expression = expr_attributes2}),
-      /*is_owned=*/true));
-  // Adding column gen1 AS (gen2*2) to test_table.
-  const std::string generated_expr1 = "gen2*2";
-  std::unique_ptr<const AnalyzerOutput> output1;
-  zetasql::AnalyzerOptions new_options1 = analyzer_options;
-  ZETASQL_ASSERT_OK(new_options1.AddExpressionColumn("gen2", types::Int64Type()));
-  ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr1, new_options1, &catalog,
-                              catalog.type_factory(), &output1));
-  SimpleColumn::ExpressionAttributes expr_attributes1(
-      SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
-      generated_expr1, output1->resolved_expr());
-  ZETASQL_ASSERT_OK(test_table->AddColumn(
-      new SimpleColumn(test_table->Name(), "gen1", types::Int64Type(),
-                       {.column_expression = expr_attributes1}),
-      /*is_owned=*/true));
-  test_table->SetContents(
-      {{values::Int64(1), values::Int64(2), values::Int64(8), values::Int64(4)},
-       {values::Int64(2), values::Int64(3), values::Int64(12),
-        values::Int64(6)}});
-  ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
-  catalog.AddOwnedTable(std::move(test_table));
-
   std::string sql = "INSERT into test_table(id,data) values(3,7);";
-  std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(
-      ParseStatement(sql, analyzer_options.GetParserOptions(), &parser_output));
-  std::unique_ptr<const AnalyzerOutput> analyzer_output;
-  TypeFactory type_factory;
 
   // Analyze the insert statement - this should fail as generated columns in
   // table have cycles.
   EXPECT_THAT(
-      AnalyzeStatementFromParserOutputOwnedOnSuccess(
-          &parser_output, analyzer_options, sql, &catalog, &type_factory,
-          &analyzer_output),
-      zetasql_base::testing::StatusIs(
+      AnalyzeStatement(sql, analyzer_options_, &catalog_,
+                       catalog_.type_factory(), &analyzer_output),
+      StatusIs(
           absl::StatusCode::kInvalidArgument,
-          testing::MatchesRegex(
+          MatchesRegex(
               "Recursive dependencies detected while evaluating generated "
               "column expression values for test_table.gen.. The expression "
               "indicates the column depends on itself. Columns forming the "
               "cycle : test_table.gen., test_table.gen.")));
+}
+
+TEST_F(AnalyzeGeneratedColumnTest,
+       AnalyzeInsertStatementHavingNoGenColInTable) {
+  AddNonGeneratedColumnsTable();
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  std::string sql = "INSERT into test_table(id,data) values(3,7);";
+
+  // Analyze the insert statement.
+  ZETASQL_ASSERT_OK(AnalyzeStatement(sql, analyzer_options_, &catalog_,
+                             catalog_.type_factory(), &analyzer_output));
+  EXPECT_THAT(analyzer_output->resolved_statement()
+                  ->GetAs<ResolvedInsertStmt>()
+                  ->topologically_sorted_generated_column_index_list(),
+              IsEmpty());
 }
 
 // Verify the catalog name path of the outer proto type will be carried to its

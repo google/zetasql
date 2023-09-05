@@ -541,8 +541,8 @@ absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
     owned_catalog_ = std::make_unique<SimpleCatalog>(
         "default_catalog", evaluator_options_.type_factory);
     // Add built-in functions to the catalog, using provided <options>.
-    ZETASQL_RETURN_IF_ERROR(
-        owned_catalog_->AddZetaSQLFunctionsAndTypes(options.language()));
+    ZETASQL_RETURN_IF_ERROR(owned_catalog_->AddBuiltinFunctionsAndTypes(
+        BuiltinFunctionOptions(options.language())));
     catalog = owned_catalog_.get();
   }
 

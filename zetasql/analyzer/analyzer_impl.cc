@@ -40,6 +40,7 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -65,7 +66,7 @@ namespace {
 absl::Status AnalyzeExpressionImpl(absl::string_view sql,
                                    const AnalyzerOptions& options_in,
                                    Catalog* catalog, TypeFactory* type_factory,
-                                   const Type* target_type,
+                                   AnnotatedType target_type,
                                    std::unique_ptr<AnalyzerOutput>* output) {
   output->reset();
   internal::TimedValue overall_timed_value;
@@ -96,7 +97,7 @@ absl::Status AnalyzeExpressionImpl(absl::string_view sql,
 
 absl::Status InternalAnalyzeExpression(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
-    TypeFactory* type_factory, const Type* target_type,
+    TypeFactory* type_factory, AnnotatedType target_type,
     std::unique_ptr<AnalyzerOutput>* output) {
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), options.attach_error_location_payload(),
@@ -108,7 +109,7 @@ absl::Status InternalAnalyzeExpression(
 absl::Status ConvertExprToTargetType(
     const ASTExpression& ast_expression, absl::string_view sql,
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
-    TypeFactory* type_factory, const Type* target_type,
+    TypeFactory* type_factory, AnnotatedType target_type,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
   Resolver resolver(catalog, type_factory, &analyzer_options);
   return ConvertInternalErrorLocationToExternal(
@@ -121,7 +122,7 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression,
     std::unique_ptr<ParserOutput> parser_output, absl::string_view sql,
     const AnalyzerOptions& options, Catalog* catalog, TypeFactory* type_factory,
-    const Type* target_type, std::unique_ptr<AnalyzerOutput>* output) {
+    AnnotatedType target_type, std::unique_ptr<AnalyzerOutput>* output) {
   AnalyzerRuntimeInfo analyzer_runtime_info;
   if (parser_output != nullptr) {
     // Add in the parser output, we _assume_ this is semantically part of this
@@ -142,7 +143,9 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
           resolver.ResolveStandaloneExpr(sql, &ast_expression, &resolved_expr));
       ZETASQL_VLOG(3) << "Resolved AST:\n" << resolved_expr->DebugString();
 
-      if (target_type != nullptr) {
+      if (target_type.type != nullptr ||
+          (target_type.type == nullptr &&
+           target_type.annotation_map != nullptr)) {
         ZETASQL_RETURN_IF_ERROR(ConvertExprToTargetType(ast_expression, sql, options,
                                                 catalog, type_factory,
                                                 target_type, &resolved_expr));

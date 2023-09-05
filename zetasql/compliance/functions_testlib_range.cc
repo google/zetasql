@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <cstddef>
 #include <optional>
 #include <vector>
 
@@ -52,22 +53,21 @@ bool HasDatetimeElementType(Value range) {
              TypeKind::TYPE_DATETIME;
 }
 
-void CommonInitialCheck(const Value& t1, const Value& t2, const Value& t3,
-                        const Value& t4, const Value& unbounded,
-                        const Value& null_range) {
+void CommonInitialCheck(const std::vector<Value>& values,
+                        const Value& unbounded, const Value& null_range) {
   // Verify provided values are of the same type
   // All values must be of the same type, coercion is not allowed
-  ABSL_CHECK(t1.type_kind() == t2.type_kind());
-  ABSL_CHECK(t2.type_kind() == t3.type_kind());
-  ABSL_CHECK(t3.type_kind() == t4.type_kind());
-  ABSL_CHECK(t4.type_kind() == unbounded.type_kind());
-  ABSL_CHECK(null_range.type_kind() == TypeKind::TYPE_RANGE);
-  ABSL_CHECK(unbounded.type_kind() ==
-        null_range.type()->AsRange()->element_type()->kind());
-  // Verify t1 < t2 < t3 < t4
-  ABSL_CHECK(t1.LessThan(t2));
-  ABSL_CHECK(t2.LessThan(t3));
-  ABSL_CHECK(t3.LessThan(t4));
+  ABSL_CHECK_EQ(values[0].type_kind(), unbounded.type_kind());
+  for (size_t i = 1; i < values.size(); i++) {
+    ABSL_CHECK_EQ(values[i - 1].type_kind(), values[i].type_kind());
+    ABSL_CHECK(values[i - 1].LessThan(values[i]));
+  }
+
+  // Check null_range's type and its range element type
+  ABSL_CHECK_EQ(null_range.type_kind(), TypeKind::TYPE_RANGE);
+  ABSL_CHECK_EQ(unbounded.type_kind(),
+           null_range.type()->AsRange()->element_type()->kind());
+
   // Check nulls are nulls indeed
   ABSL_CHECK(unbounded.is_null());
   ABSL_CHECK(null_range.is_null());
@@ -88,12 +88,13 @@ std::vector<FunctionTestCall> WrapFeatures(
   return wrapped_tests;
 }
 
-std::vector<FunctionTestCall> EqualityTests(const Value& t1, const Value& t2,
-                                            const Value& t3,
+std::vector<FunctionTestCall> EqualityTests(const std::vector<Value>& values,
                                             const Value& unbounded,
                                             const Value& null_range) {
-  ABSL_CHECK(t1.LessThan(t2));
-  ABSL_CHECK(t2.LessThan(t3));
+  // Verify t1 < t2 < t3 and provided values are of the same type
+  CommonInitialCheck(values, unbounded, null_range);
+  const Value &t1 = values[0], &t2 = values[1], &t3 = values[2];
+
   return {
       // Same ranges
       {"RangeEquals", {Range(t1, t2), Range(t1, t2)}, Bool(true)},
@@ -128,11 +129,14 @@ std::vector<FunctionTestCall> EqualityTests(const Value& t1, const Value& t2,
   };
 }
 
-std::vector<FunctionTestCall> ComparisonTests(const Value& t1, const Value& t2,
-                                              const Value& t3, const Value& t4,
+std::vector<FunctionTestCall> ComparisonTests(const std::vector<Value>& values,
                                               const Value& unbounded,
                                               const Value& null_range) {
-  CommonInitialCheck(t1, t2, t3, t4, unbounded, null_range);
+  // Verify t1 < t2 < t3 < t4 and provided values are of the same type
+  CommonInitialCheck(values, unbounded, null_range);
+  const Value &t1 = values[0], &t2 = values[1], &t3 = values[2],
+              &t4 = values[3];
+
   // We only add tests for "=" and "<", because the test driver automatically
   // generates all comparison functions for every test case.
   return {
@@ -229,10 +233,12 @@ std::vector<FunctionTestCall> ComparisonTests(const Value& t1, const Value& t2,
 }
 
 std::vector<FunctionTestCall> RangeOverlapsTests(
-    const Value& t1, const Value& t2, const Value& t3, const Value& t4,
-    const Value& unbounded, const Value& null_range) {
+    const std::vector<Value>& values, const Value& unbounded,
+    const Value& null_range) {
   // Verify t1 < t2 < t3 < t4 and provided values are of the same type
-  CommonInitialCheck(t1, t2, t3, t4, unbounded, null_range);
+  CommonInitialCheck(values, unbounded, null_range);
+  const Value &t1 = values[0], &t2 = values[1], &t3 = values[2],
+              &t4 = values[3];
 
   return {
       // Regular ranges
@@ -465,10 +471,12 @@ std::vector<FunctionTestCall> RangeOverlapsTests(
 }
 
 std::vector<FunctionTestCall> RangeIntersectTests(
-    const Value& t1, const Value& t2, const Value& t3, const Value& t4,
-    const Value& unbounded, const Value& null_range) {
+    const std::vector<Value>& values, const Value& unbounded,
+    const Value& null_range) {
   // Verify t1 < t2 < t3 < t4 and provided values are of the same type
-  CommonInitialCheck(t1, t2, t3, t4, unbounded, null_range);
+  CommonInitialCheck(values, unbounded, null_range);
+  const Value &t1 = values[0], &t2 = values[1], &t3 = values[2],
+              &t4 = values[3];
 
   return {
       // Regular ranges
@@ -648,6 +656,297 @@ std::vector<FunctionTestCall> RangeIntersectTests(
   };
 }
 
+std::vector<FunctionTestCall> RangeContainsTests(
+    const std::vector<Value>& values, const Value& unbounded,
+    const Value& null_range) {
+  // Verify t1 < t2 < t3 < t4 < t5 and provided values are of the same type
+  CommonInitialCheck(values, unbounded, null_range);
+  const Value &t1 = values[0], &t2 = values[1], &t3 = values[2],
+              &t4 = values[3], &t5 = values[4];
+
+  std::vector<FunctionTestCall> range_contains_tests;
+  std::vector<FunctionTestCall> range_contains_tests_with_range = {
+      // Regular ranges
+      // [___)........
+      // ........[___)
+      {"range_contains", {Range(t1, t2), Range(t3, t4)}, Bool(false)},
+      // [___)........
+      // ....[_______)
+      {"range_contains", {Range(t1, t2), Range(t2, t4)}, Bool(false)},
+      // [_______)....
+      // ....[_______)
+      {"range_contains", {Range(t1, t3), Range(t2, t4)}, Bool(false)},
+      // [_______)....
+      // ....[___)....
+      {"range_contains", {Range(t1, t3), Range(t2, t3)}, Bool(true)},
+      // [___________)
+      // ....[___)....
+      {"range_contains", {Range(t1, t4), Range(t2, t3)}, Bool(true)},
+      // ....[_______)
+      // ....[___)....
+      {"range_contains", {Range(t2, t4), Range(t2, t3)}, Bool(true)},
+      // ....[___)....
+      // ....[___)....
+      {"range_contains", {Range(t2, t3), Range(t2, t3)}, Bool(true)},
+      // ....[_______)
+      // [_______)....
+      {"range_contains", {Range(t2, t4), Range(t1, t3)}, Bool(false)},
+      // ........[___)
+      // [_______)....
+      {"range_contains", {Range(t3, t4), Range(t1, t3)}, Bool(false)},
+      // ........[___)
+      // [___)........
+      {"range_contains", {Range(t3, t4), Range(t1, t2)}, Bool(false)},
+      // First Range with unbounded start
+      // ___)........
+      // ........[___)
+      {"range_contains", {Range(unbounded, t2), Range(t3, t4)}, Bool(false)},
+      // ____)........
+      // ....[_______)
+      {"range_contains", {Range(unbounded, t2), Range(t2, t4)}, Bool(false)},
+      // _______)....
+      // ....[_______)
+      {"range_contains", {Range(unbounded, t3), Range(t2, t4)}, Bool(false)},
+      // ________)....
+      // ....[___)....
+      {"range_contains", {Range(unbounded, t3), Range(t2, t3)}, Bool(true)},
+      // ___________)
+      // ....[___)....
+      {"range_contains", {Range(unbounded, t4), Range(t2, t3)}, Bool(true)},
+      // ____________)
+      // [_______)....
+      {"range_contains", {Range(unbounded, t4), Range(t1, t3)}, Bool(true)},
+      // First Range with unbounded end
+      // [___________
+      // ........[___)
+      {"range_contains", {Range(t1, unbounded), Range(t3, t4)}, Bool(true)},
+      // ....[________
+      // ....[___)....
+      {"range_contains", {Range(t2, unbounded), Range(t2, t3)}, Bool(true)},
+      // ....[________
+      // [_______)....
+      {"range_contains", {Range(t2, unbounded), Range(t1, t3)}, Bool(false)},
+      // ........[____
+      // [_______)....
+      {"range_contains", {Range(t3, unbounded), Range(t1, t3)}, Bool(false)},
+      // ........[____
+      // [___)........
+      {"range_contains", {Range(t3, unbounded), Range(t1, t2)}, Bool(false)},
+      // Second Range with unbounded start
+      // [___)........
+      // ____________)
+      {"range_contains", {Range(t1, t2), Range(unbounded, t4)}, Bool(false)},
+      // [_______)....
+      //  _______)....
+      {"range_contains", {Range(t1, t3), Range(unbounded, t3)}, Bool(false)},
+      // [___________)
+      //  ________)...
+      {"range_contains", {Range(t1, t4), Range(unbounded, t3)}, Bool(false)},
+      // ....[_______)
+      // ________)....
+      {"range_contains", {Range(t2, t4), Range(unbounded, t3)}, Bool(false)},
+      // ........[___)
+      // ________)....
+      {"range_contains", {Range(t3, t4), Range(unbounded, t3)}, Bool(false)},
+      // ........[___)
+      // ____)........
+      {"range_contains", {Range(t3, t4), Range(unbounded, t2)}, Bool(false)},
+      // Second Range with unbounded end
+      // [___)........
+      // ........[____
+      {"range_contains", {Range(t1, t2), Range(t3, unbounded)}, Bool(false)},
+      // [___)........
+      // ....[________
+      {"range_contains", {Range(t1, t2), Range(t2, unbounded)}, Bool(false)},
+      // [_______)....
+      // ....[________
+      {"range_contains", {Range(t1, t3), Range(t2, unbounded)}, Bool(false)},
+      // ....[_______)
+      // ....[_______
+      {"range_contains", {Range(t2, t4), Range(t2, unbounded)}, Bool(false)},
+      // ....[_______)
+      // [___________
+      {"range_contains", {Range(t2, t4), Range(t1, unbounded)}, Bool(false)},
+      // First Range with unbounded start and Second Range with unbounded start
+      // ___)........
+      // ___________)
+      {"range_contains",
+       {Range(unbounded, t2), Range(unbounded, t4)},
+       Bool(false)},
+      // ________)....
+      // ________)....
+      {"range_contains",
+       {Range(unbounded, t3), Range(unbounded, t3)},
+       Bool(true)},
+      // ____________)
+      // _______)....
+      {"range_contains",
+       {Range(unbounded, t4), Range(unbounded, t3)},
+       Bool(true)},
+      // First Range with unbounded start and Second Range with unbounded end
+      // ____)........
+      // ........[____
+      {"range_contains",
+       {Range(unbounded, t2), Range(t3, unbounded)},
+       Bool(false)},
+      // ____)........
+      // ....[________
+      {"range_contains",
+       {Range(unbounded, t2), Range(t2, unbounded)},
+       Bool(false)},
+      // ________)....
+      // ....[________
+      {"range_contains",
+       {Range(unbounded, t3), Range(t2, unbounded)},
+       Bool(false)},
+      // ____________)
+      // [___________
+      {"range_contains",
+       {Range(unbounded, t4), Range(t1, unbounded)},
+       Bool(false)},
+      // First Range with unbounded end and Second Range with unbounded start
+      // [___________
+      //  ___________)
+      {"range_contains",
+       {Range(t1, unbounded), Range(unbounded, t4)},
+       Bool(false)},
+      // ....[________
+      // _______)....
+      {"range_contains",
+       {Range(t2, unbounded), Range(unbounded, t3)},
+       Bool(false)},
+      // ........[____
+      // ________)....
+      {"range_contains",
+       {Range(t3, unbounded), Range(unbounded, t3)},
+       Bool(false)},
+      // ........[____
+      // ____)........
+      {"range_contains",
+       {Range(t3, unbounded), Range(unbounded, t2)},
+       Bool(false)},
+      // First Range with unbounded end and Second Range with unbounded end
+      // [___________
+      // ........[___
+      {"range_contains",
+       {Range(t1, unbounded), Range(t3, unbounded)},
+       Bool(true)},
+      // ....[________
+      // ....[________
+      {"range_contains",
+       {Range(t2, unbounded), Range(t2, unbounded)},
+       Bool(true)},
+      // ....[________
+      // [____________
+      {"range_contains",
+       {Range(t2, unbounded), Range(t1, unbounded)},
+       Bool(false)},
+      // First Range with unbounded start and end
+      // _____________
+      // ....[___)....
+      {"range_contains",
+       {Range(unbounded, unbounded), Range(t2, t3)},
+       Bool(true)},
+      // _____________
+      // ....[________
+      {"range_contains",
+       {Range(unbounded, unbounded), Range(t2, unbounded)},
+       Bool(true)},
+      // _____________
+      // ___).........
+      {"range_contains",
+       {Range(unbounded, unbounded), Range(unbounded, t2)},
+       Bool(true)},
+      // Second Range with unbounded start and end
+      // ....[___)....
+      // _____________
+      {"range_contains",
+       {Range(t2, t3), Range(unbounded, unbounded)},
+       Bool(false)},
+      // ....[________
+      // _____________
+      {"range_contains",
+       {Range(t2, unbounded), Range(unbounded, unbounded)},
+       Bool(false)},
+      // ___).........
+      // _____________
+      {"range_contains",
+       {Range(unbounded, t2), Range(unbounded, unbounded)},
+       Bool(false)},
+      // Both Range have unbounded start and end
+      // _____________
+      // _____________
+      {"range_contains",
+       {Range(unbounded, unbounded), Range(unbounded, unbounded)},
+       Bool(true)},
+      // Null Ranges
+      {"range_contains", {null_range, Range(t2, t3)}, NullBool()},
+      {"range_contains", {null_range, Range(unbounded, t3)}, NullBool()},
+      {"range_contains", {null_range, Range(t2, unbounded)}, NullBool()},
+      {"range_contains", {null_range, Range(unbounded, unbounded)}, NullBool()},
+      {"range_contains", {Range(t2, t3), null_range}, NullBool()},
+      {"range_contains", {Range(unbounded, t3), null_range}, NullBool()},
+      {"range_contains", {Range(t2, unbounded), null_range}, NullBool()},
+      {"range_contains", {Range(unbounded, unbounded), null_range}, NullBool()},
+      {"range_contains", {null_range, null_range}, NullBool()},
+  };
+
+  std::vector<FunctionTestCall> range_contains_tests_with_value = {
+      // Regular range
+      // ...[____)....
+      // .|...........
+      {"range_contains", {Range(t2, t4), t1}, Bool(false)},
+      // ...[____)....
+      // ...|.........
+      {"range_contains", {Range(t2, t4), t2}, Bool(true)},
+      // ...[____)....
+      // ......|......
+      {"range_contains", {Range(t2, t4), t3}, Bool(true)},
+      // ...[____)....
+      // ........|....
+      {"range_contains", {Range(t2, t4), t4}, Bool(false)},
+      // ...[____)....
+      // ...........|.
+      {"range_contains", {Range(t2, t4), t5}, Bool(false)},
+      // Range with unbounded start
+      // ___)........
+      // .|..........
+      {"range_contains", {Range(unbounded, t2), t1}, Bool(true)},
+      // ___)........
+      // ...|........
+      {"range_contains", {Range(unbounded, t2), t2}, Bool(false)},
+      // ___)........
+      // ......|.....
+      {"range_contains", {Range(unbounded, t2), t3}, Bool(false)},
+      // Range with unbounded end
+      // ..[_________
+      // |...........
+      {"range_contains", {Range(t2, unbounded), t1}, Bool(false)},
+      // ..[_________
+      // ..|..........
+      {"range_contains", {Range(t2, unbounded), t2}, Bool(true)},
+      // ..[_________
+      // ......|......
+      {"range_contains", {Range(t2, unbounded), t3}, Bool(true)},
+      // Range with unbounded start and end
+      // _____________
+      // ...|..........
+      {"range_contains", {Range(unbounded, unbounded), t2}, Bool(true)},
+      // Null parameters
+      {"range_contains", {null_range, t1}, NullBool()},
+      {"range_contains", {Range(t2, t3), unbounded}, NullBool()},
+      {"range_contains", {null_range, unbounded}, NullBool()},
+  };
+
+  range_contains_tests.insert(range_contains_tests.end(),
+                              range_contains_tests_with_range.begin(),
+                              range_contains_tests_with_range.end());
+  range_contains_tests.insert(range_contains_tests.end(),
+                              range_contains_tests_with_value.begin(),
+                              range_contains_tests_with_value.end());
+  return range_contains_tests;
+}
+
 Value RangeElementFromStr(std::optional<absl::string_view> element_string,
                           const Type* element_type,
                           functions::TimestampScale scale) {
@@ -686,7 +985,8 @@ Value RangeFromStr(absl::string_view range_string, const Type* range_type,
 
 // Helper factory methods for RANGE tests
 std::vector<Value> GetIncreasingDateValues() {
-  return {Value::Date(1), Value::Date(2), Value::Date(3), Value::Date(4)};
+  return {Value::Date(1), Value::Date(2), Value::Date(3), Value::Date(4),
+          Value::Date(5)};
 }
 
 // TODO: Add test cases with nanoseconds precision.
@@ -695,7 +995,9 @@ std::vector<Value> GetIncreasingDatetimeValues() {
       Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(1, 1, 1, 1, 1, 1, 1)),
       Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(1, 1, 2, 1, 1, 1, 1)),
       Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(1, 1, 3, 1, 1, 1, 1)),
-      Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(1, 1, 4, 1, 1, 1, 1))};
+      Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(1, 1, 4, 1, 1, 1, 1)),
+      Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(1, 1, 5, 1, 1, 1, 1)),
+  };
 }
 
 // TODO: Add test cases with nanoseconds precision.
@@ -708,7 +1010,9 @@ std::vector<Value> GetIncreasingTimestampValues() {
           Value::Timestamp(absl::FromCivil(
               absl::CivilSecond(1111, 01, 03, 01, 01, 01), utc)),
           Value::Timestamp(absl::FromCivil(
-              absl::CivilSecond(1111, 01, 04, 01, 01, 01), utc))};
+              absl::CivilSecond(1111, 01, 04, 01, 01, 01), utc)),
+          Value::Timestamp(absl::FromCivil(
+              absl::CivilSecond(1111, 01, 05, 01, 01, 01), utc))};
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsRangeComparisons() {
@@ -727,29 +1031,25 @@ std::vector<FunctionTestCall> GetFunctionTestsRangeComparisons() {
   std::vector<FunctionTestCall> tests;
   // equality tests
   std::vector<FunctionTestCall> date_eq_tests =
-      EqualityTests(dates[0], dates[1], dates[2], null_date, null_date_range);
+      EqualityTests(dates, null_date, null_date_range);
   tests.insert(tests.end(), date_eq_tests.begin(), date_eq_tests.end());
   std::vector<FunctionTestCall> datetime_eq_tests =
-      EqualityTests(datetimes[0], datetimes[1], datetimes[2], null_datetime,
-                    null_datetime_range);
+      EqualityTests(datetimes, null_datetime, null_datetime_range);
   tests.insert(tests.end(), datetime_eq_tests.begin(), datetime_eq_tests.end());
   std::vector<FunctionTestCall> ts_eq_tests =
-      EqualityTests(timestamps[0], timestamps[1], timestamps[2], null_timestamp,
-                    null_timestamp_range);
+      EqualityTests(timestamps, null_timestamp, null_timestamp_range);
   tests.insert(tests.end(), ts_eq_tests.begin(), ts_eq_tests.end());
 
   // comparison tests
-  std::vector<FunctionTestCall> date_cmp_tests = ComparisonTests(
-      dates[0], dates[1], dates[2], dates[3], null_date, null_date_range);
+  std::vector<FunctionTestCall> date_cmp_tests =
+      ComparisonTests(dates, null_date, null_date_range);
   tests.insert(tests.end(), date_cmp_tests.begin(), date_cmp_tests.end());
   std::vector<FunctionTestCall> datetime_cmp_tests =
-      ComparisonTests(datetimes[0], datetimes[1], datetimes[2], datetimes[3],
-                      null_datetime, null_datetime_range);
+      ComparisonTests(datetimes, null_datetime, null_datetime_range);
   tests.insert(tests.end(), datetime_cmp_tests.begin(),
                datetime_cmp_tests.end());
   std::vector<FunctionTestCall> ts_cmp_tests =
-      ComparisonTests(timestamps[0], timestamps[1], timestamps[2],
-                      timestamps[3], null_timestamp, null_timestamp_range);
+      ComparisonTests(timestamps, null_timestamp, null_timestamp_range);
   tests.insert(tests.end(), ts_cmp_tests.begin(), ts_cmp_tests.end());
 
   return WrapFeatures(tests);
@@ -770,20 +1070,18 @@ std::vector<FunctionTestCall> GetFunctionTestsRangeOverlaps() {
 
   // range_overlaps tests
   std::vector<FunctionTestCall> tests;
-  std::vector<FunctionTestCall> date_overlaps_tests = RangeOverlapsTests(
-      dates[0], dates[1], dates[2], dates[3], null_date, null_date_range);
+  std::vector<FunctionTestCall> date_overlaps_tests =
+      RangeOverlapsTests(dates, null_date, null_date_range);
   tests.insert(tests.end(), date_overlaps_tests.begin(),
                date_overlaps_tests.end());
 
   std::vector<FunctionTestCall> datetime_overlaps_tests =
-      RangeOverlapsTests(datetimes[0], datetimes[1], datetimes[2], datetimes[3],
-                         null_datetime, null_datetime_range);
+      RangeOverlapsTests(datetimes, null_datetime, null_datetime_range);
   tests.insert(tests.end(), datetime_overlaps_tests.begin(),
                datetime_overlaps_tests.end());
 
   std::vector<FunctionTestCall> ts_overlaps_tests =
-      RangeOverlapsTests(timestamps[0], timestamps[1], timestamps[2],
-                         timestamps[3], null_timestamp, null_timestamp_range);
+      RangeOverlapsTests(timestamps, null_timestamp, null_timestamp_range);
   tests.insert(tests.end(), ts_overlaps_tests.begin(), ts_overlaps_tests.end());
 
   return WrapFeatures(tests);
@@ -804,22 +1102,52 @@ std::vector<FunctionTestCall> GetFunctionTestsRangeIntersect() {
 
   // range_intersect tests
   std::vector<FunctionTestCall> tests;
-  std::vector<FunctionTestCall> date_intersect_tests = RangeIntersectTests(
-      dates[0], dates[1], dates[2], dates[3], null_date, null_date_range);
+  std::vector<FunctionTestCall> date_intersect_tests =
+      RangeIntersectTests(dates, null_date, null_date_range);
   tests.insert(tests.end(), date_intersect_tests.begin(),
                date_intersect_tests.end());
 
   std::vector<FunctionTestCall> datetime_intersect_tests =
-      RangeIntersectTests(datetimes[0], datetimes[1], datetimes[2],
-                          datetimes[3], null_datetime, null_datetime_range);
+      RangeIntersectTests(datetimes, null_datetime, null_datetime_range);
   tests.insert(tests.end(), datetime_intersect_tests.begin(),
                datetime_intersect_tests.end());
 
   std::vector<FunctionTestCall> ts_intersect_tests =
-      RangeIntersectTests(timestamps[0], timestamps[1], timestamps[2],
-                          timestamps[3], null_timestamp, null_timestamp_range);
+      RangeIntersectTests(timestamps, null_timestamp, null_timestamp_range);
   tests.insert(tests.end(), ts_intersect_tests.begin(),
                ts_intersect_tests.end());
+
+  return WrapFeatures(tests);
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsRangeContains() {
+  const std::vector<Value>& dates = GetIncreasingDateValues();
+  const Value null_date = Value::NullDate();
+  const Value null_date_range = Value::Null(types::DateRangeType());
+
+  const std::vector<Value>& datetimes = GetIncreasingDatetimeValues();
+  const Value null_datetime = Value::NullDatetime();
+  const Value null_datetime_range = Value::Null(types::DatetimeRangeType());
+
+  const std::vector<Value>& timestamps = GetIncreasingTimestampValues();
+  const Value null_timestamp = Value::NullTimestamp();
+  const Value null_timestamp_range = Value::Null(types::TimestampRangeType());
+
+  // range_contains tests
+  std::vector<FunctionTestCall> tests;
+  std::vector<FunctionTestCall> date_contains_tests =
+      RangeContainsTests(dates, null_date, null_date_range);
+  tests.insert(tests.end(), date_contains_tests.begin(),
+               date_contains_tests.end());
+
+  std::vector<FunctionTestCall> datetime_contains_tests =
+      RangeContainsTests(datetimes, null_datetime, null_datetime_range);
+  tests.insert(tests.end(), datetime_contains_tests.begin(),
+               datetime_contains_tests.end());
+
+  std::vector<FunctionTestCall> ts_contains_tests =
+      RangeContainsTests(timestamps, null_timestamp, null_timestamp_range);
+  tests.insert(tests.end(), ts_contains_tests.begin(), ts_contains_tests.end());
 
   return WrapFeatures(tests);
 }

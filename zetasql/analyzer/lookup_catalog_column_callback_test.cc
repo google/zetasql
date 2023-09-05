@@ -35,7 +35,8 @@ class LookupCatalogColumnCallbackTest : public ::testing::Test {
  public:
   void SetUp() override {
     catalog_.AddTable(&table_);
-    catalog_.AddZetaSQLFunctions();
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
   }
 
   absl::Status Analyze(absl::string_view sql) {

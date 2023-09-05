@@ -16,7 +16,13 @@
 
 #include "zetasql/analyzer/expr_resolver_helper.h"
 
+#include <memory>
+
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/templated_sql_tvf.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -30,6 +36,40 @@ TEST(ResolvedTVFArgTest, GetScan) {
   ResolvedTVFArg arg;
   EXPECT_FALSE(arg.IsScan());
   EXPECT_THAT(arg.GetScan(), StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST(GetAliasForExpression, ASTIdentifier) {
+  ASTIdentifier identifier_node;
+  IdString identifier = IdString::MakeGlobal("foo");
+  identifier_node.SetIdentifier(identifier);
+  EXPECT_EQ(GetAliasForExpression(&identifier_node).ToString(), "foo");
+}
+
+TEST(GetAliasForExpression, ASTPathExpression) {
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(
+      ParseExpression("a.b", ParserOptions{LanguageOptions{}}, &parser_output));
+  const ASTPathExpression* path =
+      parser_output->expression()->GetAsOrDie<ASTPathExpression>();
+  EXPECT_EQ(GetAliasForExpression(path).ToString(), "b");
+}
+
+TEST(GetAliasForExpression, ASTDotIdentifier) {
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseExpression("foo[3].array", ParserOptions{LanguageOptions{}},
+                            &parser_output));
+  const ASTDotIdentifier* dot_identifier =
+      parser_output->expression()->GetAsOrDie<ASTDotIdentifier>();
+  EXPECT_EQ(GetAliasForExpression(dot_identifier).ToString(), "array");
+}
+
+// `GetAliasForExpression` does not know how to assign aliases, so an empty
+// IdString will be returned.
+TEST(GetAliasForExpression, OtherASTNodeTypes) {
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseExpression("(SELECT 1)", ParserOptions{LanguageOptions{}},
+                            &parser_output));
+  EXPECT_EQ(GetAliasForExpression(parser_output->expression()).ToString(), "");
 }
 
 }  // namespace zetasql

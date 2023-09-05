@@ -189,7 +189,7 @@ END WHILE;
 # Error (no 'end loop')
 LOOP
 --
-ERROR: Syntax error: Expected keyword END but got end of script [at 1:5]
+ERROR: Syntax error: Unexpected end of script [at 1:5]
 LOOP
     ^
 ==
@@ -198,7 +198,7 @@ LOOP
 LOOP;
 END LOOP;
 --
-ERROR: Syntax error: Expected keyword END but got ";" [at 1:5]
+ERROR: Syntax error: Unexpected ";" [at 1:5]
 LOOP;
     ^
 ==
@@ -1308,7 +1308,7 @@ DO;
   SELECT x;
 END FOR;
 --
-ERROR: Syntax error: Expected keyword END but got ";" [at 2:3]
+ERROR: Syntax error: Unexpected ";" [at 2:3]
 DO;
   ^
 ==
@@ -1330,7 +1330,7 @@ DO
   SELECT x;
 END FOR;
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got ")" [at 1:11]
+ERROR: Syntax error: Unexpected ")" [at 1:11]
 FOR x IN ()
           ^
 ==
@@ -1340,6 +1340,6 @@ FOR x IN (INSERT INTO t(z) VALUES (2))
 DO
 END FOR;
 --
-ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got keyword INSERT [at 1:11]
+ERROR: Syntax error: Unexpected keyword INSERT [at 1:11]
 FOR x IN (INSERT INTO t(z) VALUES (2))
           ^

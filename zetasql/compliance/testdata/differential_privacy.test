@@ -108,6 +108,24 @@ ARRAY<STRUCT<id INT64, uid INT64, int64_val INT64, double_val DOUBLE>>[
 ]
 ==
 
+[prepare_database]
+CREATE TABLE TestTableWithoutUid  AS
+SELECT cast(0 as int64) as int64_val,
+       cast(0.0 as double) as double_val UNION ALL
+  SELECT 1, 1.1 UNION ALL
+  SELECT 3, 3.1 UNION ALL
+  SELECT 4, 4.1 UNION ALL
+  SELECT 1234, 12.34
+--
+ARRAY<STRUCT<int64_val INT64, double_val DOUBLE>>[
+  {0, 0},
+  {1, 1.1},
+  {3, 3.1},
+  {4, 4.1},
+  {1234, 12.34}
+]
+==
+
 # epsilon = 1e20 implies that no noise is added in this case
 #
 # Since the delta is unspecified, the query produces an error (there
@@ -1657,3 +1675,70 @@ ARRAY<STRUCT<JSON>>[
     {"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":-5.99146454710798e-20,"upper_bound":5.99146454710798e-20},"value":10}}
   }
 ]
+==
+
+# Basic test with group selection strategy LAPLACE_THRESHOLD
+[name=differential_privacy_group_selection_laplace_with_delta]
+[required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=LAPLACE_THRESHOLD)
+  SUM(double_val)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<DOUBLE>>[{11}]
+==
+
+# Public groups without group by
+[name=differential_privacy_public_groups_without_group_by]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS)
+  COUNT(int64_val)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<INT64>>[{8}]
+==
+
+# Public groups with group by
+[name=differential_privacy_public_groups_with_group_by]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS)
+  int64_val, COUNT(*, contribution_bounds_per_group => (0, 1))
+FROM TestTableWithUid
+RIGHT OUTER JOIN (
+    SELECT DISTINCT int64_val FROM TestTableWithoutUid
+  ) using(int64_val)
+GROUP BY int64_val;
+--
+ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
+  {0, 0},
+  {1, 3},
+  {3, 1},
+  {4, 1},
+  {1234, 0}
+]
+==
+
+# Public groups with group by
+[name=differential_privacy_public_groups_with_group_by_and_max_groups_contributed]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS]
+[labels=anonymization]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
+  int64_val, COUNT(*, contribution_bounds_per_group => (0, 1))
+FROM TestTableWithUid
+RIGHT OUTER JOIN (
+    SELECT DISTINCT int64_val FROM TestTableWithoutUid
+  ) using(int64_val)
+GROUP BY int64_val;
+--
+ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
+  {0, 0},
+  {1, 3},
+  {3, 1},
+  {4, 1},
+  {1234, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==

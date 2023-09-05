@@ -55,16 +55,6 @@ absl::Status GetBuiltinFunctionsAndTypes(
     const BuiltinFunctionOptions& options, TypeFactory& type_factory,
     absl::flat_hash_map<std::string, std::unique_ptr<Function>>& functions,
     absl::flat_hash_map<std::string, const Type*>& types);
-// DEPRECATED - As above but taking LanguageOptions rather than
-// BuiltinFunctionOptions
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status GetBuiltinFunctionsAndTypes(
-    const LanguageOptions& options, TypeFactory& type_factory,
-    absl::flat_hash_map<std::string, std::unique_ptr<Function>>& functions,
-    absl::flat_hash_map<std::string, const Type*>& types) {
-  return GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(options),
-                                     type_factory, functions, types);
-}
 
 // Returns statically allocated collections of all released FunctionSignatures
 // and Types that are part of the ZetaSQL core library, using a reasonable

@@ -1636,6 +1636,44 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
 
   absl::string_view json_string =
       R"([[1, 2, 3], true, {"a": [1.1,[["foo"]]]}])";
+
+  // NULL array value for insertion. The insertion is ignored because
+  // `insert_each_element` = true.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult(
+                       {ParseJson(json_string), String("$[0]"),
+                        Value::Null(types::StringArrayType()), Bool(true)},
+                       ParseJson(json_string))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Successful NULL array value insertion.
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"),
+            Value::Null(types::StringArrayType()), Bool(false)},
+           ParseJson(R"([null, [1, 2, 3], true, {"a": [1.1,[["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Two inserts. The first inserts a NULL array which is ignored because
+  // `insert_each_element` = true, and the second insertion is successful.
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"),
+            Value::Null(types::StringArrayType()), String("$[0][1]"),
+            Int64Array({10, 20}), Bool(true)},
+           ParseJson(R"([[1, 10, 20, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Two inserts with a NULL array value. Both are successful inserts.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult(
+                       {ParseJson(json_string), String("$[0]"),
+                        Value::Null(types::StringArrayType()),
+                        String("$[0][1]"), Int64Array({10, 20}), Bool(false)},
+                       ParseJson(
+                           R"([[null, [10, 20]], [1, 2, 3], true,
+                              {"a": [1.1, [["foo"]]]}])"))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
   // 1 insertion
   // Negative indexing is not supported.
   tests.push_back({"json_array_insert",
@@ -2082,6 +2120,44 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
                              ParseJson(R"({"a": null, "b": [[10]]})"))});
 
   // Insertion of arrays
+  //
+  // NULL array value for appending. The operation is ignored because
+  // `append_each_element` = true.
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult(
+                       {ParseJson(json_string), String("$[0]"),
+                        Value::Null(types::DoubleArrayType()), Bool(true)},
+                       ParseJson(json_string))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Successful NULL array value append operation.
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"),
+            Value::Null(types::StringArrayType()), Bool(false)},
+           ParseJson(R"([[1, 2, 3, null], true, {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Two appends. The first append with a NULL array value is ignored because
+  // `append_each_element` = true, and the second operation is successful.
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"),
+            Value::Null(types::StringArrayType()), String("$[0]"),
+            Int64Array({10, 20}), Bool(true)},
+           ParseJson(R"([[1, 2, 3, 10, 20], true, {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Two appends with a NULL array value. Both are successful operations.
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"),
+            Value::Null(types::BoolArrayType()), String("$[0]"),
+            Int64Array({10, 20}), Bool(false)},
+           ParseJson(
+               R"([[1, 2, 3, null, [10, 20]], true, {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
   tests.push_back(
       {"json_array_append",
        QueryParamsWithResult(
@@ -2301,6 +2377,17 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
   tests.push_back(
       {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$.a"),
                                           Int64(10), String("a.b"), Int64(20)},
+                                         NullJson(), OUT_OF_RANGE)});
+
+  // Invalid and NULL JSONPaths. An error takes precedence over NULLs.
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({ParseJson(json_string), NullString(),
+                                          Int64(10), String("a.b"), Int64(20)},
+                                         NullJson(), OUT_OF_RANGE)});
+
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$a"),
+                                          Int64(10), NullString(), Int64(20)},
                                          NullJson(), OUT_OF_RANGE)});
 
   // Type mismatch

@@ -1453,7 +1453,7 @@ absl::Status {{node.name}}::CheckFieldsAccessedImpl(
  # for field in node.fields
   # if field.is_node_vector or field.is_node_ptr
   if ((accessed_ & {{field.bitmap}}) != 0) {
-   # if field.is_node_vector
+    # if field.is_node_vector
     for (const auto& it : {{field.member_name}}) {
       ZETASQL_RETURN_IF_ERROR(CheckFieldsAccessedInternal(it.get(), root));
     }
@@ -1473,14 +1473,8 @@ absl::Status {{node.name}}::CheckNoFieldsAccessed() const {
   ZETASQL_RETURN_IF_ERROR(SUPER::CheckNoFieldsAccessed());
 
  # for field in node.fields
-  # if field.is_not_ignorable
+  # if field.is_not_ignorable or field.is_ignorable_default
   if ((accessed_ & {{field.bitmap}}) != 0) {
-    return ::zetasql_base::InternalErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
-        << "({{node.name}}::{{field.name}} is accessed, but shouldn't be)";
-  }
-  # endif
-  # if field.is_ignorable_default
-  if ((accessed_ & {{field.bitmap}}) != 0 ) {
     return ::zetasql_base::InternalErrorBuilder(zetasql_base::SourceLocation::current()).LogError()
         << "({{node.name}}::{{field.name}} is accessed, but shouldn't be)";
   }
@@ -1490,7 +1484,7 @@ absl::Status {{node.name}}::CheckNoFieldsAccessed() const {
  # for field in node.fields
   # if field.is_node_vector or field.is_node_ptr
   if ((accessed_ & {{field.bitmap}}) != 0) {
-   # if field.is_node_vector
+    # if field.is_node_vector
     for (const auto& it : {{field.member_name}}) {
       ZETASQL_RETURN_IF_ERROR(it->CheckNoFieldsAccessed());
     }

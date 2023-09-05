@@ -3518,6 +3518,27 @@ TEST(JsonRemoveTest, EmptyObjectAndArrayAreNotCleaned) {
   }
 }
 
+TEST(JsonInsertArrayTest, NullArrayValues) {
+  constexpr absl::string_view kInitialValue = R"(["foo", null])";
+
+  auto test_fn = [&kInitialValue](bool insert_each_element,
+                                  absl::string_view expected_output) {
+    JSONValue json = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = json.GetRef();
+    auto path_iter = ParseJSONPath("$[0]");
+    ZETASQL_ASSERT_OK(JsonInsertArrayElement(
+        ref, *path_iter, Value::Null(types::StringArrayType()),
+        LanguageOptions(),
+        /*canonicalize_zero=*/true, insert_each_element));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  test_fn(true, kInitialValue);
+  test_fn(false, R"([null, "foo", null])");
+}
+
 TEST(JsonInsertArrayTest, NoOp) {
   constexpr absl::string_view kInitialValue =
       R"(["foo", null, {"a": true, "b": [1.1, false, []]}, 10])";
@@ -3756,6 +3777,27 @@ TEST(JsonInsertArrayTest, MaxArraySizeExceeded) {
     EXPECT_THAT(
         ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
   }
+}
+
+TEST(JsonAppendArrayTest, NullArrayValue) {
+  constexpr absl::string_view kInitialValue = R"(["foo", null])";
+
+  auto test_fn = [&kInitialValue](bool insert_each_element,
+                                  absl::string_view expected_output) {
+    JSONValue json = JSONValue::ParseJSONString(kInitialValue).value();
+    JSONValueRef ref = json.GetRef();
+    auto path_iter = ParseJSONPath("$");
+    ZETASQL_ASSERT_OK(JsonAppendArrayElement(
+        ref, *path_iter, Value::Null(types::DoubleArrayType()),
+        LanguageOptions(),
+        /*canonicalize_zero=*/true, insert_each_element));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  test_fn(true, kInitialValue);
+  test_fn(false, R"(["foo", null, null])");
 }
 
 TEST(JsonAppendArrayTest, NoOp) {

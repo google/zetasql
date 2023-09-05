@@ -228,7 +228,7 @@ TEST(RewriteUtilsTest, SortUniqueColumnRefs) {
 
 TEST(RewriteUtilsTest, SafePreconditionWithIferrorOverride) {
   SimpleCatalog catalog("test_catalog");
-  catalog.AddZetaSQLFunctions();
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
   AnalyzerOptions analyzer_options;
 
   ZETASQL_EXPECT_OK(
@@ -278,7 +278,7 @@ TEST(RewriteUtilsTest, SafePreconditionWithIferrorLookupFailure) {
   class ErrorThrowingCatalog : public SimpleCatalog {
    public:
     ErrorThrowingCatalog() : SimpleCatalog("error_throwing_catalog") {
-      AddZetaSQLFunctions();
+      AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
     }
     absl::Status GetFunction(
         const std::string& name, const Function** function,
@@ -309,7 +309,8 @@ class FunctionCallBuilderTest : public ::testing::Test {
       : analyzer_options_(MakeAnalyzerOptions()),
         catalog_("function_builder_catalog"),
         fn_builder_(analyzer_options_, catalog_, type_factory_) {
-    catalog_.AddZetaSQLFunctions(analyzer_options_.language());
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions(analyzer_options_.language()));
   }
 
   AnalyzerOptions analyzer_options_;
@@ -505,6 +506,150 @@ TEST_F(FunctionCallBuilderTest, EqualArgumentTypeDoesNotSupportEqualityTest) {
               StatusIs(absl::StatusCode::kInternal));
 }
 
+TEST_F(FunctionCallBuilderTest, GreaterOrEqualForStringsTest) {
+  std::unique_ptr<ResolvedExpr> input1 =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("string1"),
+                          /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("string2"),
+                          /*has_explicit_type=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.GreaterOrEqual(std::move(input1), std::move(input2)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$greater_or_equal(STRING, STRING) -> BOOL)
++-Literal(type=STRING, value="string1", has_explicit_type=TRUE)
++-Literal(type=STRING, value="string2", has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, GreaterOrEqualForInt64Test) {
+  std::unique_ptr<ResolvedExpr> input1 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1),
+                          /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(2),
+                          /*has_explicit_type=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.GreaterOrEqual(std::move(input1), std::move(input2)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$greater_or_equal(INT64, INT64) -> BOOL)
++-Literal(type=INT64, value=1, has_explicit_type=TRUE)
++-Literal(type=INT64, value=2, has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest,
+       GreaterOrEqualRefusesToCompareStringsAndIntegers) {
+  std::unique_ptr<ResolvedExpr> input1 = MakeResolvedLiteral(
+      types::StringType(), Value::StringValue("some_string"),
+      /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(2),
+                          /*has_explicit_type=*/true);
+
+  EXPECT_THAT(fn_builder_.GreaterOrEqual(std::move(input1), std::move(input2)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(FunctionCallBuilderTest, GreaterOrEqualRefusesToCompareInt32AndInt64) {
+  std::unique_ptr<ResolvedExpr> input1 =
+      MakeResolvedLiteral(types::Int32Type(), Value::Int32(1),
+                          /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(2),
+                          /*has_explicit_type=*/true);
+
+  EXPECT_THAT(fn_builder_.GreaterOrEqual(std::move(input1), std::move(input2)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(FunctionCallBuilderTest,
+       GreaterOrEqualCanCompareSignedAndUnsignedInt64) {
+  std::unique_ptr<ResolvedExpr> input1 =
+      MakeResolvedLiteral(types::Uint64Type(), Value::Uint64(1),
+                          /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(2),
+                          /*has_explicit_type=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.GreaterOrEqual(std::move(input1), std::move(input2)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$greater_or_equal(UINT64, INT64) -> BOOL)
++-Literal(type=UINT64, value=1, has_explicit_type=TRUE)
++-Literal(type=INT64, value=2, has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, GreaterOrEqualTypeDoesNotSupportOrdering) {
+  std::unique_ptr<ResolvedExpr> input1 = MakeResolvedLiteral(
+      types::JsonType(), Value::NullJson(), /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 = MakeResolvedLiteral(
+      types::JsonType(), Value::NullJson(), /*has_explicit_type=*/true);
+
+  EXPECT_THAT(fn_builder_.GreaterOrEqual(std::move(input1), std::move(input2)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(FunctionCallBuilderTest, SubtractionTestForInt64) {
+  // Int64 - Int64 is a built-in signature type in the `SimpleCatalog`.
+  std::unique_ptr<ResolvedExpr> input1 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1),
+                          /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(2),
+                          /*has_explicit_type=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.Subtract(std::move(input1), std::move(input2)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
++-Literal(type=INT64, value=1, has_explicit_type=TRUE)
++-Literal(type=INT64, value=2, has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, SubtractionTestForDateMinusInt64) {
+  // Datetime - Int64 is a built-in signature type in the `SimpleCatalog`.
+  std::unique_ptr<ResolvedExpr> input1 = MakeResolvedLiteral(
+      types::DateType(), Value::Date(/*3rd Nov. 1992*/ 8342),
+      /*has_explicit_type=*/true);
+
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(10),
+                          /*has_explicit_type=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.Subtract(std::move(input1), std::move(input2)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$subtract(DATE, INT64) -> DATE)
++-Literal(type=DATE, value=1992-11-03, has_explicit_type=TRUE)
++-Literal(type=INT64, value=10, has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest,
+       SubtractRefusesToWorkOnSignedAndUnsignedIntegers) {
+  // Int64 - Uint64 is *not* a built-in function in `SimpleCatalog`.
+  std::unique_ptr<ResolvedExpr> input1 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1),
+                          /*has_explicit_type=*/true);
+
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::Uint64Type(), Value::Uint64(1),
+                          /*has_explicit_type=*/true);
+
+  EXPECT_THAT(fn_builder_.Subtract(std::move(input1), std::move(input2)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
 TEST_F(FunctionCallBuilderTest, AndTest) {
   std::vector<std::unique_ptr<const ResolvedExpr>> expressions;
   std::unique_ptr<ResolvedExpr> input = MakeResolvedLiteral(
@@ -573,7 +718,8 @@ class LikeAnyAllSubqueryScanBuilderTest
         scan_builder_(&analyzer_options_, &catalog_, &column_factory_,
                       &type_factory_) {
     analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
-    catalog_.AddZetaSQLFunctions();
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
   }
 
   zetasql_base::SequenceNumber sequence_;

@@ -48,11 +48,12 @@
 #include "gtest/gtest_prod.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -99,6 +100,7 @@ struct AnonymizationOptions {
   std::optional<Value> max_groups_contributed;     // int64_t Value
   std::optional<Value> max_rows_contributed;       // int64_t Value
   std::optional<Value> group_selection_threshold;  // int64_t Value
+  std::optional<Value> group_selection_strategy;   // enum Value
 };
 
 class Algebrizer {
@@ -412,10 +414,9 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<FilterOp>> AlgebrizeNullFilterForUnpivotScan(
       const ResolvedUnpivotScan* unpivot_scan,
       std::unique_ptr<RelationalOp> input);
-  absl::StatusOr<std::unique_ptr<RelationalOp>>
-  AlgebrizeAnonymizedAggregateScanBase(
+  absl::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizeAggregateScanBase(
       const ResolvedAggregateScanBase* aggregate_scan,
-      const AnonymizationOptions& anonymization_options);
+      std::optional<AnonymizationOptions> anonymization_options);
   absl::StatusOr<std::unique_ptr<RelationalOp>>
   AlgebrizeAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* aggregate_scan);
@@ -673,7 +674,8 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeIfNull(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeNullIf(
-      const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
+      const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args,
+      const std::vector<ResolvedCollation>& collation_list);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCoalesce(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCaseNoValue(

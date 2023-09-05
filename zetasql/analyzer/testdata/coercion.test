@@ -1,3 +1,5 @@
+[default also_show_signature_mismatch_details]
+
 [language_features={{|V_1_3_DATE_TIME_CONSTRUCTORS}}]
 select date(@test_param_string);
 --
@@ -184,6 +186,18 @@ QueryStmt
 select 1 + '1';
 --
 ERROR: No matching signature for operator + for argument types: INT64, STRING. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select 1 + '1';
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: INT64, STRING
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 2: Unable to coerce type STRING to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument 2: Unable to coerce type STRING to expected type DOUBLE [at 1:8]
 select 1 + '1';
        ^
 ==
@@ -454,6 +468,14 @@ select fn_on_any_enum(NULL)
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_ENUM for argument types: NULL. Supported signature: FN_ON_ANY_ENUM(ENUM) [at 1:8]
 select fn_on_any_enum(NULL)
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_ENUM
+  Argument types: NULL
+  Signature: FN_ON_ANY_ENUM(ENUM)
+    Unable to determine type for untyped null for argument kind <enum> [at 1:8]
+select fn_on_any_enum(NULL)
+       ^
 ==
 
 select fn_on_any_proto(NULL)
@@ -461,11 +483,27 @@ select fn_on_any_proto(NULL)
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_PROTO for argument types: NULL. Supported signature: FN_ON_ANY_PROTO(PROTO) [at 1:8]
 select fn_on_any_proto(NULL)
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_PROTO
+  Argument types: NULL
+  Signature: FN_ON_ANY_PROTO(PROTO)
+    Unable to determine type for untyped null for argument kind <proto> [at 1:8]
+select fn_on_any_proto(NULL)
+       ^
 ==
 
 select fn_on_any_struct(NULL)
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_STRUCT for argument types: NULL. Supported signature: FN_ON_ANY_STRUCT(STRUCT) [at 1:8]
+select fn_on_any_struct(NULL)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_STRUCT
+  Argument types: NULL
+  Signature: FN_ON_ANY_STRUCT(STRUCT)
+    Unable to determine type for untyped null for argument kind <struct> [at 1:8]
 select fn_on_any_struct(NULL)
        ^
 ==
@@ -590,11 +628,33 @@ select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.string_val;
 ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, STRING. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:31]
 select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.string_val;
                               ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, STRING
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type zetasql_test__.TestEnum to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type zetasql_test__.TestEnum to expected type UINT64 [at 1:31]
+select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.string_val;
+                              ^
 ==
 
 select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.int64_val;
 --
 ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, INT64. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:31]
+select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.int64_val;
+                              ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, INT64
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type zetasql_test__.TestEnum to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type zetasql_test__.TestEnum to expected type UINT64 [at 1:31]
 select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.int64_val;
                               ^
 ==
@@ -775,6 +835,14 @@ from TestTable
 ERROR: No matching signature for function IF for argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING. Supported signature: IF(BOOL, ANY, ANY) [at 1:8]
 select if(false,
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function IF
+  Argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING
+  Signature: IF(BOOL, T1, T1)
+    Unable to find common supertype for templated argument <T1> [at 1:8]
+select if(false,
+       ^
 ==
 
 # Test implicit supertyping of proto and string literal.  Fails since the
@@ -820,6 +888,14 @@ from TestTable
 ERROR: No matching signature for function IF for argument types: BOOL, zetasql_test__.KitchenSinkPB, zetasql_test__.KitchenSinkPB.Nested. Supported signature: IF(BOOL, ANY, ANY) [at 1:8]
 select if(false,
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function IF
+  Argument types: BOOL, zetasql_test__.KitchenSinkPB, zetasql_test__.KitchenSinkPB.Nested
+  Signature: IF(BOOL, T1, T1)
+    Unable to find common supertype for templated argument <T1> [at 1:8]
+select if(false,
+       ^
 ==
 
 # Supertyping proto and non-literal string does not work.
@@ -831,6 +907,14 @@ from TestTable
 ERROR: No matching signature for function IF for argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING. Supported signature: IF(BOOL, ANY, ANY) [at 1:8]
 select if(false,
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function IF
+  Argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING
+  Signature: IF(BOOL, T1, T1)
+    Unable to find common supertype for templated argument <T1> [at 1:8]
+select if(false,
+       ^
 ==
 
 # Supertyping proto and non-literal bytes does not work.
@@ -840,6 +924,14 @@ select if(false,
 from TestTable
 --
 ERROR: No matching signature for function IF for argument types: BOOL, zetasql_test__.KitchenSinkPB, BYTES. Supported signature: IF(BOOL, ANY, ANY) [at 1:8]
+select if(false,
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function IF
+  Argument types: BOOL, zetasql_test__.KitchenSinkPB, BYTES
+  Signature: IF(BOOL, T1, T1)
+    Unable to find common supertype for templated argument <T1> [at 1:8]
 select if(false,
        ^
 ==
@@ -1325,9 +1417,25 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RET
 select fn_on_int32_array_returns_int32(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
+  Argument types: ARRAY<INT64>
+  Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
+    Argument 1: Unable to coerce type ARRAY<INT64> to expected type ARRAY<INT32> [at 1:8]
+select fn_on_int32_array_returns_int32(
+       ^
+--
 ALTERNATION GROUP: ARRAY<string>[]
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<STRING>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
+select fn_on_int32_array_returns_int32(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
+  Argument types: ARRAY<STRING>
+  Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
+    Argument 1: Unable to coerce type ARRAY<STRING> to expected type ARRAY<INT32> [at 1:8]
 select fn_on_int32_array_returns_int32(
        ^
 --
@@ -1371,9 +1479,25 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RET
 select fn_on_int64_array_returns_int64(
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64
+  Argument types: ARRAY<INT32>
+  Signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>)
+    Argument 1: Unable to coerce type ARRAY<INT32> to expected type ARRAY<INT64> [at 1:8]
+select fn_on_int64_array_returns_int64(
+       ^
+--
 ALTERNATION GROUP: ARRAY<uint32>[]
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64 for argument types: ARRAY<UINT32>. Supported signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>) [at 1:8]
+select fn_on_int64_array_returns_int64(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64
+  Argument types: ARRAY<UINT32>
+  Signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>)
+    Argument 1: Unable to coerce type ARRAY<UINT32> to expected type ARRAY<INT64> [at 1:8]
 select fn_on_int64_array_returns_int64(
        ^
 --
@@ -1631,6 +1755,17 @@ from TestTable
 ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<STRING>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
 select KitchenSink.repeated_int32_val = KitchenSink.repeated_string_val
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<STRING>
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type ARRAY<INT32> to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type ARRAY<INT32> to expected type UINT64 [at 1:8]
+select KitchenSink.repeated_int32_val = KitchenSink.repeated_string_val
+       ^
 ==
 
 [language_features={{|V_1_1_ARRAY_EQUALITY}}]
@@ -1638,6 +1773,17 @@ select KitchenSink.repeated_int32_val = KitchenSink.repeated_int64_val
 from TestTable
 --
 ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<INT64>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
+select KitchenSink.repeated_int32_val = KitchenSink.repeated_int64_val
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<INT64>
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type ARRAY<INT32> to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type ARRAY<INT32> to expected type UINT64 [at 1:8]
 select KitchenSink.repeated_int32_val = KitchenSink.repeated_int64_val
        ^
 ==
@@ -1651,6 +1797,17 @@ ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, AR
 select KitchenSink.repeated_int32_val = [1,2,3]
        ^
 
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<INT64>
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type ARRAY<INT32> to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type ARRAY<INT32> to expected type UINT64 [at 1:8]
+select KitchenSink.repeated_int32_val = [1,2,3]
+       ^
 ==
 
 # TODO: This should work when implicit array coercion is allowed.
@@ -1693,6 +1850,17 @@ select KitchenSink.repeated_string_val = [null]
 from TestTable
 --
 ERROR: No matching signature for operator = for argument types: ARRAY<STRING>, ARRAY<INT64>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
+select KitchenSink.repeated_string_val = [null]
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: ARRAY<STRING>, ARRAY<INT64>
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type ARRAY<STRING> to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type ARRAY<STRING> to expected type UINT64 [at 1:8]
 select KitchenSink.repeated_string_val = [null]
        ^
 ==
@@ -2603,6 +2771,14 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RET
        fn_on_int32_array_returns_int32([1, 2, 3])
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
+  Argument types: ARRAY<INT64>
+  Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
+    Argument 1: Unable to coerce type ARRAY<INT64> to expected type ARRAY<INT32> [at 4:8]
+       fn_on_int32_array_returns_int32([1, 2, 3])
+       ^
+--
 ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
@@ -2638,6 +2814,14 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RET
 select fn_on_int32_array_returns_int32([1152921504606846976])
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
+  Argument types: ARRAY<INT64>
+  Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
+    Argument 1: Unable to coerce type ARRAY<INT64> to expected type ARRAY<INT32> [at 1:8]
+select fn_on_int32_array_returns_int32([1152921504606846976])
+       ^
+--
 ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES
 --
 ERROR: Could not cast literal [1152921504606846976] to type ARRAY<INT32> [at 1:40]
@@ -2655,6 +2839,14 @@ from ArrayTypes
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
 select fn_on_int32_array_returns_int32(
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
+  Argument types: ARRAY<INT64>
+  Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
+    Argument 1: Unable to coerce type ARRAY<INT64> to expected type ARRAY<INT32> [at 1:8]
+select fn_on_int32_array_returns_int32(
+       ^
 ==
 
 # For consistency with general expressions, we don't support implicit coercion
@@ -2670,6 +2862,14 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RET
 select fn_on_int32_array_returns_int32(ARRAY<INT64>[1, 2, 3])
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
+  Argument types: ARRAY<INT64>
+  Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
+    Argument 1: Unable to coerce type ARRAY<INT64> to expected type ARRAY<INT32> [at 1:8]
+select fn_on_int32_array_returns_int32(ARRAY<INT64>[1, 2, 3])
+       ^
+--
 ALTERNATION GROUPS:
     []
     V_1_1_CAST_DIFFERENT_ARRAY_TYPES,[]
@@ -2677,7 +2877,14 @@ ALTERNATION GROUPS:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
 select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
        ^
-
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
+  Argument types: ARRAY<INT64>
+  Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
+    Argument 1: Unable to coerce type ARRAY<INT64> to expected type ARRAY<INT32> [at 1:8]
+select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
+       ^
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
@@ -2711,6 +2918,22 @@ QueryStmt
 ALTERNATION GROUP: external
 --
 ERROR: No matching signature for function ROUND for argument types: NUMERIC, INT64, INT64. Supported signatures: ROUND(FLOAT64); ROUND(NUMERIC); ROUND(FLOAT64, INT64); ROUND(NUMERIC, INT64); ROUND(NUMERIC, INT64, ROUNDING_MODE) [at 7:8]
+SELECT ROUND(NUMERIC "1", 1, 1);
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function ROUND
+  Argument types: NUMERIC, INT64, INT64
+  Signature: ROUND(FLOAT64)
+    Signature accepts at most 1 argument, found 3 arguments
+  Signature: ROUND(NUMERIC)
+    Signature accepts at most 1 argument, found 3 arguments
+  Signature: ROUND(FLOAT64, INT64)
+    Signature accepts at most 2 arguments, found 3 arguments
+  Signature: ROUND(NUMERIC, INT64)
+    Signature accepts at most 2 arguments, found 3 arguments
+  Signature: ROUND(NUMERIC, INT64, ROUNDING_MODE)
+    Argument 3: Unable to coerce type INT64 to expected type ROUNDING_MODE [at 7:8]
 SELECT ROUND(NUMERIC "1", 1, 1);
        ^
 ==
@@ -2781,6 +3004,13 @@ ERROR: No matching signature for operator = for argument types: STRUCT<constant_
 select STRUCT( nested_catalog.constant_rounding_mode) = struct(1)
        ^
 
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: STRUCT<constant_rounding_mode ROUNDING_MODE>, STRUCT<INT64>
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1> [at 2:8]
+select STRUCT( nested_catalog.constant_rounding_mode) = struct(1)
+       ^
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
@@ -2821,12 +3051,34 @@ select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
 ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 2:8]
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type zetasql.functions.RoundingMode to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type zetasql.functions.RoundingMode to expected type UINT64 [at 2:8]
+select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
+       ^
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
 --
 ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
+select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type zetasql.functions.RoundingMode to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type zetasql.functions.RoundingMode to expected type UINT64 [at 1:8]
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
        ^
 ==

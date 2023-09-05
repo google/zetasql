@@ -40,7 +40,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 </td>
   <td>
-    Returns the approximate result for <code>COUNT(DISTINCT expression)</code>.
+    Gets the approximate result for <code>COUNT(DISTINCT expression)</code>.
   </td>
 </tr>
 
@@ -49,7 +49,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 </td>
   <td>
-    Returns the approximate quantile boundaries.
+    Gets the approximate quantile boundaries.
   </td>
 </tr>
 
@@ -58,7 +58,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 </td>
   <td>
-    Returns the approximate top elements and their approximate count.
+    Gets the approximate top elements and their approximate count.
   </td>
 </tr>
 
@@ -67,7 +67,7 @@ sketches. If you would like to specify precision with sketches, see:
 
 </td>
   <td>
-    Returns the approximate top elements and sum, based on the approximate sum
+    Gets the approximate top elements and sum, based on the approximate sum
     of an assigned weight.
   </td>
 </tr>

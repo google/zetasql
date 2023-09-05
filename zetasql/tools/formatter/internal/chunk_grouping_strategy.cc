@@ -946,7 +946,7 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
       }
     } else if (chunk.FirstKeyword() == "AS") {
       AddBlockForAsKeyword(chunk_block, &chunk);
-    } else if (chunk.FirstToken().Is(Token::Type::CASE_KEYWORD)) {
+    } else if (chunk.FirstToken().IsCaseExprKeyword()) {
       if (chunk.FirstKeyword() == "THEN") {
         AddBlockForThenKeyword(chunk_block, &chunk);
       } else {

@@ -96,7 +96,11 @@ std::vector<const Type*> ZetaSqlComplexTestTypes(
 }
 
 std::vector<std::string> ZetaSqlTestProtoFilepaths() {
-  return {"zetasql/testdata/test_schema.proto",
+  // `rounding_mode` and `array_find_mode` fixes `Enum not found`
+  // error in RQG / RSG: b/293474126.
+  return {"zetasql/public/functions/rounding_mode.proto",
+          "zetasql/public/functions/array_find_mode.proto",
+          "zetasql/testdata/test_schema.proto",
           "zetasql/testdata/test_proto3.proto",
           "google/protobuf/timestamp.proto",
           "google/protobuf/wrappers.proto",
@@ -150,7 +154,11 @@ std::vector<std::string> ZetaSqlRandomTestProtoNames() {
 }
 
 std::vector<std::string> ZetaSqlTestEnumNames() {
-  return {"zetasql_test__.TestEnum", "zetasql_test__.AnotherTestEnum"};
+  // `RoundingMode` and `ArrayFindMode` fixes `Enum not found`
+  // error in RQG / RSG: b/293474126.
+  return {"zetasql_test__.TestEnum", "zetasql_test__.AnotherTestEnum",
+          "zetasql.functions.RoundingMode",
+          "zetasql.functions.ArrayFindEnums.ArrayFindMode"};
 }
 
 }  // namespace testing

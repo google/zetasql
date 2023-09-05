@@ -65,7 +65,7 @@ SimpleCatalog::SimpleCatalog(absl::string_view name, TypeFactory* type_factory)
 absl::Status SimpleCatalog::GetTable(const std::string& name,
                                      const Table** table,
                                      const FindOptions& options) {
-  absl::MutexLock l(&mutex_);
+  absl::ReaderMutexLock l(&mutex_);
   *table = zetasql_base::FindPtrOrNull(tables_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }
@@ -73,7 +73,7 @@ absl::Status SimpleCatalog::GetTable(const std::string& name,
 absl::Status SimpleCatalog::GetModel(const std::string& name,
                                      const Model** model,
                                      const FindOptions& options) {
-  absl::MutexLock l(&mutex_);
+  absl::ReaderMutexLock l(&mutex_);
   *model = zetasql_base::FindPtrOrNull(models_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }
@@ -81,7 +81,7 @@ absl::Status SimpleCatalog::GetModel(const std::string& name,
 absl::Status SimpleCatalog::GetConnection(const std::string& name,
                                           const Connection** connection,
                                           const FindOptions& options) {
-  absl::MutexLock l(&mutex_);
+  absl::ReaderMutexLock l(&mutex_);
   *connection = zetasql_base::FindPtrOrNull(connections_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }
@@ -89,7 +89,7 @@ absl::Status SimpleCatalog::GetConnection(const std::string& name,
 absl::Status SimpleCatalog::GetSequence(const std::string& name,
                                         const Sequence** sequence,
                                         const FindOptions& options) {
-  absl::MutexLock l(&mutex_);
+  absl::ReaderMutexLock l(&mutex_);
   *sequence = zetasql_base::FindPtrOrNull(sequences_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }
@@ -97,7 +97,7 @@ absl::Status SimpleCatalog::GetSequence(const std::string& name,
 absl::Status SimpleCatalog::GetFunction(const std::string& name,
                                         const Function** function,
                                         const FindOptions& options) {
-  absl::MutexLock l(&mutex_);
+  absl::ReaderMutexLock l(&mutex_);
   *function = zetasql_base::FindPtrOrNull(functions_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }
@@ -105,7 +105,7 @@ absl::Status SimpleCatalog::GetFunction(const std::string& name,
 absl::Status SimpleCatalog::GetTableValuedFunction(
     const std::string& name, const TableValuedFunction** function,
     const FindOptions& options) {
-  absl::MutexLock l(&mutex_);
+  absl::ReaderMutexLock l(&mutex_);
   *function =
       zetasql_base::FindPtrOrNull(table_valued_functions_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
@@ -114,7 +114,7 @@ absl::Status SimpleCatalog::GetTableValuedFunction(
 absl::Status SimpleCatalog::GetProcedure(const std::string& name,
                                          const Procedure** procedure,
                                          const FindOptions& options) {
-  absl::MutexLock l(&mutex_);
+  absl::ReaderMutexLock l(&mutex_);
   *procedure = zetasql_base::FindPtrOrNull(procedures_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }
@@ -123,7 +123,7 @@ absl::Status SimpleCatalog::GetType(const std::string& name, const Type** type,
                                     const FindOptions& options) {
   const google::protobuf::DescriptorPool* pool;
   {
-    absl::MutexLock l(&mutex_);
+    absl::ReaderMutexLock l(&mutex_);
     // Types contained in types_ have case-insensitive names, so we lowercase
     // the name as is done in AddType.
     *type = zetasql_base::FindPtrOrNull(types_, absl::AsciiStrToLower(name));
@@ -154,7 +154,7 @@ absl::Status SimpleCatalog::GetType(const std::string& name, const Type** type,
 absl::Status SimpleCatalog::GetCatalog(const std::string& name,
                                        Catalog** catalog,
                                        const FindOptions& options) {
-  absl::MutexLock l(&mutex_);
+  absl::ReaderMutexLock l(&mutex_);
   *catalog = zetasql_base::FindPtrOrNull(catalogs_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }
@@ -162,7 +162,7 @@ absl::Status SimpleCatalog::GetCatalog(const std::string& name,
 absl::Status SimpleCatalog::GetConstant(const std::string& name,
                                         const Constant** constant,
                                         const FindOptions& options) {
-  absl::MutexLock l(&mutex_);
+  absl::ReaderMutexLock l(&mutex_);
   *constant = zetasql_base::FindPtrOrNull(constants_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }

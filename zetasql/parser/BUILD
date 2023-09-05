@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+# Placeholder: load py_proto_library
+# Placeholder: load py_library
+# Placeholder: load py_test
+# Placeholder: load py_binary
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load(":builddefs.bzl", "gen_parser_test")
 load("//bazel:bison.bzl", "genyacc")
@@ -211,6 +215,7 @@ cc_library(
         "//zetasql/base",
         "//zetasql/base:arena",
         "//zetasql/base:arena_allocator",
+        "//zetasql/base:check",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
@@ -487,6 +492,7 @@ cc_library(
     testonly = 1,
     srcs = ["run_parser_test.cc"],
     deps = [
+        ":deidentify",
         ":parser",
         "//zetasql/base:check",
         "//zetasql/base:edit_distance",
@@ -581,6 +587,36 @@ cc_test(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings",
         "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_library(
+    name = "deidentify",
+    srcs = ["deidentify.cc"],
+    hdrs = ["deidentify.h"],
+    deps = [
+        ":parser",
+        "//zetasql/base:status",
+        "//zetasql/public:builtin_function_options",
+        "//zetasql/public:catalog",
+        "//zetasql/public:function",
+        "//zetasql/public:language_options",
+        "//zetasql/public:parse_resume_location",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:strings",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "deidentify_test",
+    srcs = ["deidentify_test.cc"],
+    deps = [
+        ":deidentify",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
     ],
 )
 

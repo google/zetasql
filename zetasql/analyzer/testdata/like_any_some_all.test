@@ -1,3 +1,4 @@
+[default also_show_signature_mismatch_details]
 [default enabled_ast_rewrites=DEFAULTS]
 [default language_features=V_1_3_LIKE_ANY_SOME_ALL]
 

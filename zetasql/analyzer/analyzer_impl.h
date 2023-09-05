@@ -29,6 +29,7 @@
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/rewriter_interface.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -48,7 +49,7 @@ absl::Status InternalAnalyzeExpression(absl::string_view sql,
                                        const AnalyzerOptions& options,
                                        Catalog* catalog,
                                        TypeFactory* type_factory,
-                                       const Type* target_type,
+                                       AnnotatedType target_type,
                                        std::unique_ptr<AnalyzerOutput>* output);
 
 // Coerces <resolved_expr> to <target_type>, using assignment semantics
@@ -60,14 +61,14 @@ absl::Status InternalAnalyzeExpression(absl::string_view sql,
 absl::Status ConvertExprToTargetType(
     const ASTExpression& ast_expression, absl::string_view sql,
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
-    TypeFactory* type_factory, const Type* target_type,
+    TypeFactory* type_factory, AnnotatedType target_type,
     std::unique_ptr<const ResolvedExpr>* resolved_expr);
 
 absl::Status InternalAnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression,
     std::unique_ptr<ParserOutput> parser_output, absl::string_view sql,
     const AnalyzerOptions& options, Catalog* catalog, TypeFactory* type_factory,
-    const Type* target_type, std::unique_ptr<AnalyzerOutput>* output);
+    AnnotatedType target_type, std::unique_ptr<AnalyzerOutput>* output);
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_ANALYZER_IMPL_H_

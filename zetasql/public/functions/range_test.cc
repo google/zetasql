@@ -16,7 +16,11 @@
 
 #include "zetasql/public/functions/range.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -26,7 +30,6 @@
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
-#include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
@@ -35,6 +38,8 @@
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
@@ -155,6 +160,207 @@ TEST_F(GetBoundariesTest, GetBoundariesStrictFormattingLeadingOrTrailingSpace) {
                                             /*strict_formatting=*/false));
   EXPECT_EQ("2022-01-01", boundaries.start);
   EXPECT_EQ("2022-02-02", boundaries.end);
+}
+
+template <typename T>
+struct SerializeDeserializeRangeTestCase {
+  std::optional<T> start;
+  std::optional<T> end;
+  size_t serialized_size;
+};
+
+// Used for printing test case results on a test failure.
+template <typename T>
+std::ostream& operator<<(std::ostream& os,
+                         const SerializeDeserializeRangeTestCase<T>& param) {
+  std::string start_str =
+      param.start ? absl::StrCat(*param.start) : "UNBOUNDED";
+  std::string end_str = param.end ? absl::StrCat(*param.end) : "UNBOUNDED";
+  os << "[" << start_str << ", " << end_str
+     << "), serialized_size = " << param.serialized_size;
+  return os;
+}
+
+template <typename T>
+void TestSerializeDeserializeRange(
+    const SerializeDeserializeRangeTestCase<T>& test_case) {
+  RangeBoundaries<T> range_boundaries = {test_case.start, test_case.end};
+  std::string buffer;
+  SerializeRangeAndAppendToBytes(range_boundaries, &buffer);
+  size_t bytes_read;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(RangeBoundaries<T> decoded_range_boundaries,
+                       DeserializeRangeFromBytes<T>(buffer, &bytes_read));
+  EXPECT_EQ(bytes_read, test_case.serialized_size);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(size_t calculated_encoded_range_size,
+                       GetEncodedRangeSize<T>(buffer));
+  EXPECT_EQ(calculated_encoded_range_size, test_case.serialized_size);
+  EXPECT_EQ(buffer.size(), test_case.serialized_size);
+
+  EXPECT_EQ(range_boundaries.start, decoded_range_boundaries.start);
+  EXPECT_EQ(range_boundaries.end, decoded_range_boundaries.end);
+
+  // Now do the same but without bytes_read pointer.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(decoded_range_boundaries,
+                       DeserializeRangeFromBytes<T>(buffer));
+  EXPECT_EQ(range_boundaries.start, decoded_range_boundaries.start);
+  EXPECT_EQ(range_boundaries.end, decoded_range_boundaries.end);
+}
+
+template <typename T>
+void TestDeserializeRangeTooFewBytes(
+    const SerializeDeserializeRangeTestCase<T>& test_case) {
+  if (test_case.serialized_size == 1) return;
+
+  RangeBoundaries<T> range_boundaries = {test_case.start, test_case.end};
+  std::string serialized_range;
+  SerializeRangeAndAppendToBytes(range_boundaries, &serialized_range);
+  std::string serialized_range_header = serialized_range.substr(0, 1);
+  EXPECT_THAT(DeserializeRangeFromBytes<T>(serialized_range_header),
+              zetasql_base::testing::StatusIs(
+                  absl::StatusCode::kInvalidArgument,
+                  testing::HasSubstr(absl::StrFormat(
+                      "Too few bytes to read RANGE content (needed %d; got 1)",
+                      test_case.serialized_size))));
+}
+
+class SerializeDeserializeRangeInt32Test
+    : public ::testing::TestWithParam<
+          SerializeDeserializeRangeTestCase<int32_t>> {};
+
+std::vector<SerializeDeserializeRangeTestCase<int32_t>>
+GetSerializeDeserializeRangeInt32TestCases() {
+  return {
+      // Regular range.
+      {
+          .start = {1},
+          .end = {2},
+          .serialized_size = 9,
+      },
+      // Unbounded at end.
+      {
+          .start = {1},
+          .end = {},
+          .serialized_size = 5,
+      },
+      // Unbounded at start.
+      {
+          .start = {},
+          .end = {2},
+          .serialized_size = 5,
+      },
+      // Unbounded at start and end.
+      {
+          .start = {},
+          .end = {},
+          .serialized_size = 1,
+      },
+      // Very small values.
+      {
+          .start = {std::numeric_limits<int32_t>::min()},
+          .end = {std::numeric_limits<int32_t>::min() + 1},
+          .serialized_size = 9,
+      },
+      // Very large values.
+      {
+          .start = {std::numeric_limits<int32_t>::max() - 1},
+          .end = {std::numeric_limits<int32_t>::max()},
+          .serialized_size = 9,
+      },
+      // Very small start and very large end.
+      {
+          .start = {std::numeric_limits<int32_t>::min()},
+          .end = {std::numeric_limits<int32_t>::max()},
+          .serialized_size = 9,
+      },
+      // Mix of 0 and 1 bits.
+      {
+          .start = {-1431655766},
+          .end = {1431655765},
+          .serialized_size = 9,
+      },
+  };
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    SerializeDeserializeRangeInt32Tests, SerializeDeserializeRangeInt32Test,
+    ::testing::ValuesIn(GetSerializeDeserializeRangeInt32TestCases()));
+
+TEST_P(SerializeDeserializeRangeInt32Test, SerializeDeserializeSucceeds) {
+  TestSerializeDeserializeRange(GetParam());
+}
+
+TEST_P(SerializeDeserializeRangeInt32Test, TooFewBytes) {
+  TestDeserializeRangeTooFewBytes(GetParam());
+}
+
+class SerializeDeserializeRangeInt64Test
+    : public ::testing::TestWithParam<
+          SerializeDeserializeRangeTestCase<int64_t>> {};
+
+std::vector<SerializeDeserializeRangeTestCase<int64_t>>
+GetSerializeDeserializeRangeInt64TestCases() {
+  return {
+      // Regular range.
+      {
+          .start = {1},
+          .end = {2},
+          .serialized_size = 17,
+      },
+      // Unbounded at end.
+      {
+          .start = {1},
+          .end = {},
+          .serialized_size = 9,
+      },
+      // Unbounded at start.
+      {
+          .start = {},
+          .end = {2},
+          .serialized_size = 9,
+      },
+      // Unbounded at start and end.
+      {
+          .start = {},
+          .end = {},
+          .serialized_size = 1,
+      },
+      // Very small values.
+      {
+          .start = {std::numeric_limits<int64_t>::min()},
+          .end = {std::numeric_limits<int64_t>::min() + 1},
+          .serialized_size = 17,
+      },
+      // Very large values.
+      {
+          .start = {std::numeric_limits<int64_t>::max() - 1},
+          .end = {std::numeric_limits<int64_t>::max()},
+          .serialized_size = 17,
+      },
+      // Very small start and very large end.
+      {
+          .start = {std::numeric_limits<int64_t>::min()},
+          .end = {std::numeric_limits<int64_t>::max()},
+          .serialized_size = 17,
+      },
+      // Mix of 0 and 1 bits.
+      {
+          .start = {-6148914691236517206},
+          .end = {6148914691236517205},
+          .serialized_size = 17,
+      },
+  };
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    SerializeDeserializeRangeInt64Tests, SerializeDeserializeRangeInt64Test,
+    ::testing::ValuesIn(GetSerializeDeserializeRangeInt64TestCases()));
+
+TEST_P(SerializeDeserializeRangeInt64Test, SerializeDeserializeSucceeds) {
+  TestSerializeDeserializeRange(GetParam());
+}
+
+TEST_P(SerializeDeserializeRangeInt64Test, TooFewBytes) {
+  TestDeserializeRangeTooFewBytes(GetParam());
 }
 
 }  // namespace

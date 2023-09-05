@@ -262,7 +262,7 @@ static absl::Status WriteScalarValue(const google::protobuf::FieldDescriptor* fi
       break;
     case PAIR(FieldDescriptor::TYPE_MESSAGE, TYPE_PROTO):
     case PAIR(FieldDescriptor::TYPE_GROUP, TYPE_PROTO):
-      dst->WriteString(std::string(v.ToCord()));
+      dst->WriteCord(v.ToCord());
       break;
 
     default:
@@ -436,20 +436,21 @@ absl::Status ProtoUtil::WriteField(const WriteFieldOptions& options,
 
   // For packed fields, serialize all the values into a Cord, then write the
   // Cord using the LENGTH_DELIMITED wire type.
-  std::string packed_contents;
+  absl::Cord packed_contents;
   {
     // The cord cannot be read directly until the streams are destroyed.
-    google::protobuf::io::StringOutputStream cord_stream(&packed_contents);
+    google::protobuf::io::CordOutputStream cord_stream;
     CodedOutputStream coded_cord_stream(&cord_stream);
     for (const Value& v : value.elements()) {
       ZETASQL_RETURN_IF_ERROR(WriteValue(field_descr, format, v, &coded_cord_stream));
     }
     coded_cord_stream.Trim();
+    packed_contents = cord_stream.Consume();
   }
   dst->WriteVarint32(WireFormatLite::MakeTag(
       field_descr->number(), WireFormatLite::WIRETYPE_LENGTH_DELIMITED));
   dst->WriteVarint32(packed_contents.size());
-  dst->WriteString(packed_contents);
+  dst->WriteCord(packed_contents);
   return absl::OkStatus();
 }
 

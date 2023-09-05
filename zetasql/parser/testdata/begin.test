@@ -140,6 +140,6 @@ BEGIN;
   SELECT 3;
 END;
 --
-ERROR: Syntax error: Expected end of input but got keyword END [at 3:1]
+ERROR: Syntax error: Unexpected keyword END [at 3:1]
 END;
 ^

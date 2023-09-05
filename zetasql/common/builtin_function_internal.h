@@ -34,6 +34,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {
@@ -646,9 +647,10 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
                           const ZetaSQLBuiltinFunctionOptions& options,
                           NameToFunctionMap* functions);
 
-void GetBooleanFunctions(TypeFactory* type_factory,
-                         const ZetaSQLBuiltinFunctionOptions& options,
-                         NameToFunctionMap* functions);
+absl::Status GetBooleanFunctions(TypeFactory* type_factory,
+                                 const ZetaSQLBuiltinFunctionOptions& options,
+                                 NameToFunctionMap* functions);
+
 void GetLogicFunctions(TypeFactory* type_factory,
                        const ZetaSQLBuiltinFunctionOptions& options,
                        NameToFunctionMap* functions);
@@ -661,7 +663,7 @@ void GetRegexFunctions(TypeFactory* type_factory,
                        const ZetaSQLBuiltinFunctionOptions& options,
                        NameToFunctionMap* functions);
 
-void GetProto3ConversionFunctions(
+absl::Status GetProto3ConversionFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions);
 
@@ -676,6 +678,10 @@ void GetConditionalFunctions(TypeFactory* type_factory,
 void GetMiscellaneousFunctions(TypeFactory* type_factory,
                                const ZetaSQLBuiltinFunctionOptions& options,
                                NameToFunctionMap* functions);
+
+absl::Status GetDistanceFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions);
 
 void GetArrayMiscFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,
@@ -763,7 +769,7 @@ void GetAnonFunctions(TypeFactory* type_factory,
                       const ZetaSQLBuiltinFunctionOptions& options,
                       NameToFunctionMap* functions);
 
-void GetDifferentialPrivacyFunctions(
+absl::Status GetDifferentialPrivacyFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions, NameToTypeMap* types);
 

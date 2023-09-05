@@ -422,21 +422,21 @@ public class SimpleTableTest {
       fail();
     } catch (SqlException expected) {
       assertThat(expected).hasMessageThat().contains("PROTO<zetasql_test__.InvalidSQLTable1>");
-      assertThat(expected.getMessage().contains("decodes to non-struct type")).isTrue();
+      assertThat(expected).hasMessageThat().contains("decodes to non-struct type");
     }
 
     try {
       SimpleTable.tableFromProto(factory.createProtoType(InvalidSQLTable2.class));
       fail();
     } catch (SqlException expected) {
-      assertThat(expected.getMessage().contains("has anonymous fields")).isTrue();
+      assertThat(expected).hasMessageThat().contains("has anonymous fields");
     }
 
     try {
       SimpleTable.tableFromProto(factory.createProtoType(InvalidSQLTable3.class));
       fail();
     } catch (SqlException expected) {
-      assertThat(expected.getMessage()).contains("Duplicate column");
+      assertThat(expected).hasMessageThat().contains("Duplicate column");
     }
   }
 
@@ -445,7 +445,7 @@ public class SimpleTableTest {
     SimpleTable t1 = new SimpleTable("t1");
     SimpleTable t2 = new SimpleTable("t2", 100L);
     SimpleTable t3 = new SimpleTable("t3");
-    assertThat(t2.getId() > t1.getId() + 1).isTrue();
+    assertThat(t2.getId()).isGreaterThan(t1.getId() + 1);
     assertThat(t3.getId()).isEqualTo(101);
   }
 }

@@ -183,7 +183,7 @@ with a as (select 1 as a),
 select *
 from b join c on (c.c = b.b)
 --
-ERROR: Syntax error: Expected "(" or "," or keyword SELECT but got identifier "c" [at 3:6]
+ERROR: Syntax error: Unexpected identifier "c" [at 3:6]
      c as (select b as c from b)
      ^
 ==
@@ -201,7 +201,7 @@ WITH a as select 1
 WITH a as (select 1),
 select * from a;
 --
-ERROR: Syntax error: Trailing comma after the WITH clause before the SELECT clause is not allowed [at 2:1]
+ERROR: Syntax error: Trailing comma after the WITH clause before the main query is not allowed [at 2:1]
 select * from a;
 ^
 ==
@@ -211,7 +211,7 @@ WITH a as (select 1),
      b as (select 2),
 select * from a;
 --
-ERROR: Syntax error: Trailing comma after the WITH clause before the SELECT clause is not allowed [at 3:1]
+ERROR: Syntax error: Trailing comma after the WITH clause before the main query is not allowed [at 3:1]
 select * from a;
 ^
 ==
@@ -219,7 +219,7 @@ select * from a;
 # Same as above, but with expression subquery.
 SELECT (WITH a as (SELECT 1 as a), SELECT a.a FROM a);
 --
-ERROR: Syntax error: Trailing comma after the WITH clause before the SELECT clause is not allowed [at 1:36]
+ERROR: Syntax error: Trailing comma after the WITH clause before the main query is not allowed [at 1:36]
 SELECT (WITH a as (SELECT 1 as a), SELECT a.a FROM a);
                                    ^
 ==
@@ -227,7 +227,7 @@ SELECT (WITH a as (SELECT 1 as a), SELECT a.a FROM a);
 # Same as above, but with table subquery.
 SELECT * FROM (WITH a as (SELECT 1 as a), SELECT a.a FROM a);
 --
-ERROR: Syntax error: Trailing comma after the WITH clause before the SELECT clause is not allowed [at 1:43]
+ERROR: Syntax error: Trailing comma after the WITH clause before the main query is not allowed [at 1:43]
 SELECT * FROM (WITH a as (SELECT 1 as a), SELECT a.a FROM a);
                                           ^
 ==
@@ -565,7 +565,7 @@ WITH RECURSIVE
   b AS (SELECT * FROM b),
 select * from a, b;
 --
-ERROR: Syntax error: Trailing comma after the WITH clause before the SELECT clause is not allowed [at 4:1]
+ERROR: Syntax error: Trailing comma after the WITH clause before the main query is not allowed [at 4:1]
 select * from a, b;
 ^
 ==
@@ -869,6 +869,6 @@ WITH q1 as (select 1 x)
 WITH q2 as (select 2 y)
 select * from q2
 --
-ERROR: Syntax error: Expected "(" or "," or keyword SELECT but got keyword WITH [at 2:1]
+ERROR: Syntax error: Unexpected keyword WITH [at 2:1]
 WITH q2 as (select 2 y)
 ^

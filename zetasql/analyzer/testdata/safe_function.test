@@ -183,9 +183,32 @@ QueryStmt
 [language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
 select safe.cast(1 as int64)
 --
-ERROR: Unexpected function call argument alias found at safe.`cast` [at 1:20]
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.cast(1 as int64)
-                   ^
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+ERROR: Function not found: `cast`; Did you mean safe.cos? [at 1:8]
+select safe.cast(1 as int64)
+       ^
+==
+
+# For `SAFE_CAST` the "AS <type>" should not be interpreted as argument alias.
+select safe_cast(1 as int64)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 [language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]

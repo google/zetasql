@@ -27,6 +27,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/functions/range.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -37,6 +38,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/public/value.pb.h"
 #include <cstdint>
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
@@ -454,8 +456,7 @@ absl::Status MergeValueToProtoField(const Value& value,
               : reflection->MutableMessage(proto_out, field, message_factory);
       ValueProto value_proto;
       ZETASQL_RETURN_IF_ERROR(value.Serialize(&value_proto));
-      ZETASQL_RET_CHECK(submessage->ParseFromString(
-          std::string(value_proto.proto_value())));
+      ZETASQL_RET_CHECK(submessage->ParseFromCord(value_proto.proto_value()));
 
       return absl::OkStatus();
     }
@@ -494,9 +495,55 @@ absl::Status MergeValueToProtoField(const Value& value,
     case TYPE_RANGE: {
       ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_BYTES);
       std::string encoded_range;
-      ValueProto value_proto;
-      ZETASQL_RETURN_IF_ERROR(value.Serialize(&value_proto));
-      encoded_range = value_proto.SerializeAsString();
+      switch (value.type()->AsRange()->element_type()->kind()) {
+        case TypeKind::TYPE_DATE: {
+          ZETASQL_RET_CHECK_EQ(field_format, FieldFormat::RANGE_DATES_ENCODED);
+          RangeBoundaries<int32_t> range({
+              .start = value.start().is_null()
+                           ? std::nullopt
+                           : std::make_optional(value.start().date_value()),
+              .end = value.end().is_null()
+                         ? std::nullopt
+                         : std::make_optional(value.end().date_value()),
+          });
+          SerializeRangeAndAppendToBytes(range, &encoded_range);
+          break;
+        }
+        case TypeKind::TYPE_DATETIME: {
+          ZETASQL_RET_CHECK_EQ(field_format, FieldFormat::RANGE_DATETIMES_ENCODED);
+          RangeBoundaries<int64_t> range({
+              .start = value.start().is_null()
+                           ? std::nullopt
+                           : std::make_optional(
+                                 value.start().ToPacked64DatetimeMicros()),
+              .end = value.end().is_null()
+                         ? std::nullopt
+                         : std::make_optional(
+                               value.end().ToPacked64DatetimeMicros()),
+          });
+          SerializeRangeAndAppendToBytes(range, &encoded_range);
+          break;
+        }
+        case TypeKind::TYPE_TIMESTAMP: {
+          ZETASQL_RET_CHECK_EQ(field_format, FieldFormat::RANGE_TIMESTAMPS_ENCODED);
+          RangeBoundaries<int64_t> range({
+              .start = value.start().is_null()
+                           ? std::nullopt
+                           : std::make_optional(value.start().ToUnixMicros()),
+              .end = value.end().is_null()
+                         ? std::nullopt
+                         : std::make_optional(value.end().ToUnixMicros()),
+          });
+          SerializeRangeAndAppendToBytes(range, &encoded_range);
+          break;
+        }
+        default:
+          ZETASQL_RET_CHECK_FAIL()
+              << "Unsupported RANGE element type kind "
+              << Type::TypeKindToString(
+                     value.type()->AsRange()->element_type()->kind(),
+                     PRODUCT_EXTERNAL);
+      }
 
       if (field->is_repeated()) {
         reflection->AddString(proto_out, field, std::move(encoded_range));
@@ -635,9 +682,7 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
               ? reflection->GetRepeatedMessage(proto, field, index)
               : reflection->GetMessage(proto, field);
       absl::Cord serialized;
-      std::string serialized_str;
-      submessage.SerializeToString(&serialized_str);
-      serialized = absl::Cord(serialized_str);
+      submessage.SerializeToCord(&serialized);
       *value_out = Value::Proto(proto_type, serialized);
       return absl::OkStatus();
     }
@@ -688,7 +733,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_STRING, field->cpp_type())
           << field->DebugString();
       *value_out = Value::Bytes(
-          field->is_repeated() ?
+          field->is_repeated()
+              ?
       reflection->GetRepeatedString(proto, field, index) :
       reflection->GetString(proto, field));
       return absl::OkStatus();
@@ -715,7 +761,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_STRING, field->cpp_type())
           << field->DebugString();
       *value_out = Value::String(
-          field->is_repeated() ?
+          field->is_repeated()
+              ?
       reflection->GetRepeatedString(proto, field, index) :
       reflection->GetString(proto, field));
       return absl::OkStatus();
@@ -920,14 +967,39 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           reflection->GetRepeatedString(proto, field, index) :
           reflection->GetString(proto, field);
 
-      ValueProto value_proto;
-      bool parse_result = value_proto.ParseFromString(value);
-      if (!parse_result) {
-        return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
-               << "Invalid encoded range: " << value
-               << " with format: " << FieldFormat::Format_Name(field_format);
+      Value start, end;
+      switch (field_format) {
+        case FieldFormat::RANGE_DATES_ENCODED: {
+          ZETASQL_ASSIGN_OR_RETURN(RangeBoundaries<int32_t> range,
+                           DeserializeRangeFromBytes<int32_t>(value));
+          start = range.start ? Value::Date(*range.start) : Value::NullDate();
+          end = range.end ? Value::Date(*range.end) : Value::NullDate();
+          break;
+        }
+        case FieldFormat::RANGE_DATETIMES_ENCODED: {
+          ZETASQL_ASSIGN_OR_RETURN(RangeBoundaries<int64_t> range,
+                           DeserializeRangeFromBytes<int64_t>(value));
+          start = range.start ? Value::DatetimeFromPacked64Micros(*range.start)
+                              : Value::NullDatetime();
+          end = range.end ? Value::DatetimeFromPacked64Micros(*range.end)
+                          : Value::NullDatetime();
+          break;
+        }
+        case FieldFormat::RANGE_TIMESTAMPS_ENCODED: {
+          ZETASQL_ASSIGN_OR_RETURN(RangeBoundaries<int64_t> range,
+                           DeserializeRangeFromBytes<int64_t>(value));
+          start = range.start ? Value::TimestampFromUnixMicros(*range.start)
+                              : Value::NullTimestamp();
+          end = range.end ? Value::TimestampFromUnixMicros(*range.end)
+                          : Value::NullTimestamp();
+          break;
+        }
+        default:
+          ZETASQL_RET_CHECK_FAIL() << "Unsupported RANGE field format: "
+                           << FieldFormat::Format_Name(field_format);
       }
-      ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::Deserialize(value_proto, type));
+      ZETASQL_ASSIGN_OR_RETURN(*value_out,
+                       Value::MakeRange(std::move(start), std::move(end)));
 
       return absl::OkStatus();
     }

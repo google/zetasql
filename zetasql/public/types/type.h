@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -696,6 +697,7 @@ class Type {
   // Make Value and ContainerType friends, so it can access *ValueContent*
   // functions.
   friend class Value;
+  friend class InternalValue;
   friend class ContainerType;
   friend struct HashableValueContentContainerElementIgnoringFloat;
 

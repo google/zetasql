@@ -156,6 +156,22 @@ public class FunctionArgumentTypeTest {
     assertThat(typeAny2.isRepeated()).isFalse();
     assertThat(typeAny2.debugString()).isEqualTo("<T2>");
 
+    FunctionArgumentType typeAny3 =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_3, ArgumentCardinality.REQUIRED, 2);
+    assertThat(typeAny3.isConcrete()).isFalse();
+    assertThat(typeAny3.getType()).isNull();
+    assertThat(typeAny3.isRepeated()).isFalse();
+    assertThat(typeAny3.debugString()).isEqualTo("<T3>");
+
+    FunctionArgumentType arrayTypeAny3 =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_3, ArgumentCardinality.REQUIRED, 2);
+    assertThat(arrayTypeAny3.isConcrete()).isFalse();
+    assertThat(arrayTypeAny3.getType()).isNull();
+    assertThat(arrayTypeAny3.isRepeated()).isFalse();
+    assertThat(arrayTypeAny3.debugString()).isEqualTo("<array<T3>>");
+
     FunctionArgumentType typeArbitrary =
         new FunctionArgumentType(
             SignatureArgumentKind.ARG_TYPE_ARBITRARY, ArgumentCardinality.REQUIRED, -1);
@@ -278,6 +294,7 @@ public class FunctionArgumentTypeTest {
             .setProcedureArgumentMode(ProcedureArgumentMode.INOUT)
             .setDescriptorResolutionTableOffset(1234)
             .setArgumentCollationMode(FunctionEnums.ArgumentCollationMode.AFFECTS_PROPAGATION)
+            .setArgumentAliasKind(FunctionEnums.ArgumentAliasKind.ARGUMENT_ALIASED)
             .build();
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
     assertThat(options)

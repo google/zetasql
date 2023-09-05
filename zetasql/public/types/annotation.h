@@ -334,7 +334,7 @@ class ArrayAnnotationMap : public AnnotationMap {
   std::unique_ptr<AnnotationMap> element_;
 };
 
-// Holds unowned pointers to Type and AnnoationMap. <annotation_map> could be
+// Holds unowned pointers to Type and AnnotationMap. <annotation_map> could be
 // nullptr to indicate that the <type> doesn't have annotation. This struct is
 // cheap to copy, should always be passed by value.
 struct AnnotatedType {

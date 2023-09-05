@@ -1416,31 +1416,40 @@ Where:
 #### Example
 
 ```sql
-NEW Universe {
-  name: "Sol"
-  closest_planets: ["Mercury", "Venus", "Earth" ]
-  star {
-    radius_miles: 432,690
-    age: 4,603,000,000
+NEW zetasql.examples.astronomy.Planet {
+  planet_name: 'Jupiter'
+  facts: {
+    length_of_day: 9.93
+    distance_to_sun: 5.2 * ASTRONOMICAL_UNIT
+    has_rings: TRUE
   }
-  constellations [{
-    name: "Libra"
-    index: 0
-  }, {
-    name: "Scorpio"
-    index: 1
-  }]
-  planet_distances: [{
-    key: "Mercury"
-    distance: 46,507,000
-  }, {
-    key: "Venus"
-    distance: 107,480,000
-  }],
+  major_moons: [
+    { moon_name: 'Io' },
+    { moon_name: 'Europa' },
+    { moon_name: 'Ganymede' },
+    { moon_name: 'Callisto'}
+  ]
+  minor_moons: (
+    SELECT ARRAY_AGG(moon_name)
+    FROM SolarSystemMoons
+    WHERE
+      planet_name = 'Jupiter'
+      AND circumference < 3121
+  )
+  count_of_space_probe_photos: (
+    GALILEO_PHOTOS
+    + JUNO_PHOTOS
+    + NEW_HORIZONS_PHOTOS
+    + CASSINI_PHOTOS
+    + ULYSSES_PHOTOS
+    + VOYAGER_1_PHOTOS
+    + VOYAGER_2_PHOTOS
+    + PIONEER_10_PHOTOS
+    + PIONEER_11_PHOTOS
+  ),
   (UniverseExtraInfo.extension) {
     ...
   }
-  all_planets: (SELECT planets FROM SolTable)
 }
 ```
 
@@ -1480,7 +1489,7 @@ Simple:
 SELECT
   key,
   name,
-  NEW zetasql.examples.music.Chart { rank: 1 chart_name: "2" }
+  NEW zetasql.examples.music.Chart { rank: 1 chart_name: '2' }
 ```
 
 Nested messages and arrays:
@@ -1488,12 +1497,12 @@ Nested messages and arrays:
 ```sql
 SELECT
   NEW zetasql.examples.music.Album {
-    album_name: "New Moon"
+    album_name: 'New Moon'
     singer {
-      nationality: "Canadian"
-      residence: [{ city: "Victoria" }, { city: "Toronto" }]
+      nationality: 'Canadian'
+      residence: [ { city: 'Victoria' }, { city: 'Toronto' } ]
     }
-    song: ["Sandstorm","Wait"]
+    song: ['Sandstorm', 'Wait']
   }
 ```
 
@@ -1502,7 +1511,7 @@ With an extension field (note a comma is required before the extension field):
 ```sql
 SELECT
   NEW zetasql.examples.music.Album {
-    album_name: "New Moon",
+    album_name: 'New Moon',
     (zetasql.examples.music.downloads): 30
   }
 ```
@@ -1510,10 +1519,11 @@ SELECT
 Non-literal expressions as values:
 
 ```sql
-SELECT NEW zetasql.examples.music.Chart {
-  rank: (SELECT COUNT(*) FROM table_name WHERE foo="bar")
-  chart_name: CONCAT("best", "hits")
-}
+SELECT
+  NEW zetasql.examples.music.Chart {
+    rank: (SELECT COUNT(*) FROM TableName WHERE foo = 'bar')
+    chart_name: CONCAT('best', 'hits')
+  }
 ```
 
 Examples of the type protocol buffer being inferred from context:
@@ -1521,62 +1531,67 @@ Examples of the type protocol buffer being inferred from context:
 +   From `ARRAY` constructor:
 
     ```sql
-    SELECT ARRAY<zetasql.examples.music.Chart>[
-        { rank: 1 chart_name: "2" },
-        { rank: 2 chart_name: "3" }]
+    SELECT
+      ARRAY<zetasql.examples.music.Chart>[
+        { rank: 1 chart_name: '2' },
+        { rank: 2 chart_name: '3' }]
     ```
 +   From `STRUCT` constructor:
 
     ```sql
-    SELECT STRUCT<STRING,zetasql.examples.music.Chart,INT64>
-      ("foo", { rank: 1 chart_name: "2" }, 7)
+    SELECT
+      STRUCT<STRING, zetasql.examples.music.Chart, INT64>(
+        'foo', { rank: 1 chart_name: '2' }, 7)
     ```
 +   From column names through `SET`:
 
     +   Simple column:
 
     ```sql
-    UPDATE table_name SET ProtoColumn = { rank: 1 chart_name: "2" }
+    UPDATE TableName SET proto_column = { rank: 1 chart_name: '2' }
     ```
 
     +   Array column:
 
     ```sql
-    UPDATE table_name SET ProtoArrayColumn =
-      [{ rank: 1 chart_name: "2" }, { rank: 2 chart_name: "3" }]
+    UPDATE TableName
+    SET proto_array_column = [
+      { rank: 1 chart_name: '2' }, { rank: 2 chart_name: '3' }]
     ```
 
     +   Struct column:
 
     ```sql
-    UPDATE table_name SET ProtoStructColumn =
-      ("foo", { rank: 1 chart_name: "2" }, 7)
+    UPDATE TableName
+    SET proto_struct_column = ('foo', { rank: 1 chart_name: '2' }, 7)
     ```
 +   From generated column names in `CREATE`:
 
     ```sql
-    CREATE TABLE T (
-      IntColumn INT32,
-      ProtoColumn zetasql.examples.music.Chart AS ({ rank: 1 chart_name: "2" })
+    CREATE TABLE TableName (
+      proto_column zetasql.examples.music.Chart AS ({ rank: 1 chart_name: '2' })
     )
     ```
 +   From column names in default values in `CREATE`:
 
     ```sql
-    CREATE TABLE T (
-      IntColumn INT32,
-      ProtoColumn zetasql.examples.music.Chart DEFAULT ({ rank: 1 chart_name: "2" })
-    )
+    CREATE TABLE TableName(
+      proto_column zetasql.examples.music.Chart
+      DEFAULT({ rank: 1 chart_name: '2' }))
     ```
 +   From return types in SQL function body:
 
     ```sql
-    CREATE FUNCTION myfunc (  ) RETURNS zetasql.examples.music.Chart AS ({ rank: 1 chart_name: "2" })
+    CREATE FUNCTION MyFunc()
+    RETURNS zetasql.examples.music.Chart
+    AS (
+      { rank: 1 chart_name: '2' }
+    )
     ```
 +   From system variable type:
 
     ```sql
-    SET @@proto_system_variable = { rank: 1 chart_name: "2" }
+    SET @@proto_system_variable = { rank: 1 chart_name: '2' }
     ```
 
 #### `NEW protocol_buffer (...)` 

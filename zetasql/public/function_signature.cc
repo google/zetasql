@@ -68,8 +68,10 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_TYPE_FIXED:
     case ARG_TYPE_ANY_1:
     case ARG_TYPE_ANY_2:
+    case ARG_TYPE_ANY_3:
     case ARG_ARRAY_TYPE_ANY_1:
     case ARG_ARRAY_TYPE_ANY_2:
+    case ARG_ARRAY_TYPE_ANY_3:
     case ARG_PROTO_MAP_ANY:
     case ARG_PROTO_MAP_KEY_ANY:
     case ARG_PROTO_MAP_VALUE_ANY:
@@ -289,6 +291,9 @@ absl::Status FunctionArgumentTypeOptions::Deserialize(
     options->set_uses_array_element_for_collation(
         options_proto.uses_array_element_for_collation());
   }
+  // The default for `argument_alias_kind` is set to NON_ALIASED, so we don't
+  // need to the check `options_proto.has_argument_alias_kind()`.
+  options->set_argument_alias_kind(options_proto.argument_alias_kind());
   return absl::OkStatus();
 }
 
@@ -424,6 +429,9 @@ absl::Status FunctionArgumentTypeOptions::Serialize(
   if (uses_array_element_for_collation()) {
     options_proto->set_uses_array_element_for_collation(true);
   }
+  if (argument_alias_kind() != FunctionEnums::ARGUMENT_NON_ALIASED) {
+    options_proto->set_argument_alias_kind(argument_alias_kind());
+  }
   return absl::OkStatus();
 }
 
@@ -491,6 +499,12 @@ std::string FunctionArgumentTypeOptions::OptionsDebugString() const {
         "procedure_argument_mode: ",
         FunctionEnums::ProcedureArgumentMode_Name(procedure_argument_mode_)));
   }
+  // No need to print the default ARGUMENT_NON_ALIASED.
+  if (argument_alias_kind_ == FunctionEnums::ARGUMENT_ALIASED) {
+    options.push_back(absl::StrCat(
+        "argument_alias_kind: ",
+        FunctionEnums::ArgumentAliasKind_Name(argument_alias_kind_)));
+  }
   if (options.empty()) {
     return "";
   } else {
@@ -526,10 +540,14 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<T1>";
     case ARG_TYPE_ANY_2:
       return "<T2>";
+    case ARG_TYPE_ANY_3:
+      return "<T3>";
     case ARG_ARRAY_TYPE_ANY_1:
       return "<array<T1>>";
     case ARG_ARRAY_TYPE_ANY_2:
       return "<array<T2>>";
+    case ARG_ARRAY_TYPE_ANY_3:
+      return "<array<T3>>";
     case ARG_PROTO_MAP_ANY:
       return "<map<K, V>>";
     case ARG_PROTO_MAP_KEY_ANY:
@@ -674,8 +692,9 @@ bool FunctionArgumentType::IsTemplated() const {
 
 bool FunctionArgumentType::IsScalar() const {
   return kind_ == ARG_TYPE_FIXED || kind_ == ARG_TYPE_ANY_1 ||
-         kind_ == ARG_TYPE_ANY_2 || kind_ == ARG_ARRAY_TYPE_ANY_1 ||
-         kind_ == ARG_ARRAY_TYPE_ANY_2 || kind_ == ARG_PROTO_MAP_ANY ||
+         kind_ == ARG_TYPE_ANY_2 || kind_ == ARG_TYPE_ANY_3 ||
+         kind_ == ARG_ARRAY_TYPE_ANY_1 || kind_ == ARG_ARRAY_TYPE_ANY_2 ||
+         kind_ == ARG_ARRAY_TYPE_ANY_3 || kind_ == ARG_PROTO_MAP_ANY ||
          kind_ == ARG_PROTO_MAP_KEY_ANY || kind_ == ARG_PROTO_MAP_VALUE_ANY ||
          kind_ == ARG_PROTO_ANY || kind_ == ARG_STRUCT_ANY ||
          kind_ == ARG_ENUM_ANY || kind_ == ARG_TYPE_ARBITRARY ||
@@ -687,7 +706,7 @@ bool FunctionArgumentType::IsScalar() const {
 // matching works as intended.
 static bool IsLambdaAllowedArgKind(const SignatureArgumentKind kind) {
   return kind == ARG_TYPE_FIXED || kind == ARG_TYPE_ANY_1 ||
-         kind == ARG_TYPE_ANY_2;
+         kind == ARG_TYPE_ANY_2 || kind == ARG_TYPE_ANY_3;
 }
 
 absl::Status FunctionArgumentType::CheckLambdaArgType(
@@ -821,6 +840,8 @@ std::string FunctionArgumentType::UserFacingName(
         return print_template_details ? "ARRAY<T1>" : "ARRAY";
       case ARG_ARRAY_TYPE_ANY_2:
         return print_template_details ? "ARRAY<T2>" : "ARRAY";
+      case ARG_ARRAY_TYPE_ANY_3:
+        return print_template_details ? "ARRAY<T3>" : "ARRAY";
       case ARG_PROTO_ANY:
         return "PROTO";
       case ARG_STRUCT_ANY:
@@ -837,6 +858,8 @@ std::string FunctionArgumentType::UserFacingName(
         return print_template_details ? "T1" : "ANY";
       case ARG_TYPE_ANY_2:
         return print_template_details ? "T2" : "ANY";
+      case ARG_TYPE_ANY_3:
+        return print_template_details ? "T3" : "ANY";
       case ARG_TYPE_ARBITRARY:
         return "ANY";
       case ARG_TYPE_RELATION:
@@ -1287,8 +1310,10 @@ bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
 
   if ((kind_ == ARG_ARRAY_TYPE_ANY_1 && kind == ARG_TYPE_ANY_1) ||
       (kind_ == ARG_ARRAY_TYPE_ANY_2 && kind == ARG_TYPE_ANY_2) ||
+      (kind_ == ARG_ARRAY_TYPE_ANY_3 && kind == ARG_TYPE_ANY_3) ||
       (kind == ARG_ARRAY_TYPE_ANY_1 && kind_ == ARG_TYPE_ANY_1) ||
       (kind == ARG_ARRAY_TYPE_ANY_2 && kind_ == ARG_TYPE_ANY_2) ||
+      (kind == ARG_ARRAY_TYPE_ANY_3 && kind_ == ARG_TYPE_ANY_3) ||
       (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_KEY_ANY) ||
       (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_KEY_ANY) ||
       (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_VALUE_ANY) ||

@@ -1671,6 +1671,6 @@ ERROR: QUALIFY clause expression references column y which is neither grouped no
 
 select * QUALIFY(3)
 --
-ERROR: Query without FROM clause cannot have an QUALIFY clause [at 1:10]
+ERROR: Query without FROM clause cannot have a QUALIFY clause [at 1:10]
 select * QUALIFY(3)
          ^

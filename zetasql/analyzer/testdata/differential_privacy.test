@@ -13,7 +13,7 @@ select with differential_privacy sum();
 select with differential_privacy (int64)
 from SimpleTypes;
 --
-ERROR: SELECT WITH DIFFERENTIAL_PRIVACY queries require GROUP BY or aggregation, but neither was present [at 1:34]
+ERROR: You must use GROUP BY or aggregation function in a SELECT WITH DIFFERENTIAL_PRIVACY query, but it was absent [at 1:34]
 select with differential_privacy (int64)
                                  ^
 ==
@@ -922,7 +922,7 @@ QueryStmt
 select with differential_privacy int64
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: SELECT WITH DIFFERENTIAL_PRIVACY queries require GROUP BY or aggregation, but neither was present [at 1:34]
+ERROR: You must use GROUP BY or aggregation function in a SELECT WITH DIFFERENTIAL_PRIVACY query, but it was absent [at 1:34]
 select with differential_privacy int64
                                  ^
 ==

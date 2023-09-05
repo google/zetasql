@@ -164,8 +164,9 @@ static Value KitchenSink_equivalent(absl::string_view proto_str) {
   zetasql_test__::KitchenSinkPB kitchen_sink_message;
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &kitchen_sink_message));
-  return Value::Proto(KitchenSinkProtoType_equivalent(),
-                      SerializeToCord(kitchen_sink_message));
+  absl::Cord bytes;
+  ABSL_CHECK(kitchen_sink_message.SerializeToCord(&bytes));
+  return Value::Proto(KitchenSinkProtoType_equivalent(), bytes);
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCastString() {
@@ -2196,7 +2197,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
 
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_1,
                                             &kitchen_sink_message));
-  absl::Cord kitchen_sink_cord_1 = SerializeToCord(kitchen_sink_message);
+  absl::Cord bytes_2186;
+  ABSL_CHECK(kitchen_sink_message.SerializeToCord(&bytes_2186));
+  absl::Cord kitchen_sink_cord_1 = bytes_2186;
 
   const google::protobuf::Reflection* reflection = kitchen_sink_message.GetReflection();
   google::protobuf::UnknownFieldSet* unknown_fields =
@@ -2206,23 +2209,33 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   ABSL_CHECK(kitchen_sink_message.GetDescriptor()->IsReservedNumber(
       reserved_tag_number));
   unknown_fields->AddVarint(reserved_tag_number, /*value=*/1000);
-  absl::Cord kitchen_sink_cord_5 = SerializeToCord(kitchen_sink_message);
+  absl::Cord bytes_2196;
+  ABSL_CHECK(kitchen_sink_message.SerializeToCord(&bytes_2196));
+  absl::Cord kitchen_sink_cord_5 = bytes_2196;
 
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_2,
                                             &kitchen_sink_message));
-  absl::Cord kitchen_sink_cord_2 = SerializeToCord(kitchen_sink_message);
+  absl::Cord bytes_2200;
+  ABSL_CHECK(kitchen_sink_message.SerializeToCord(&bytes_2200));
+  absl::Cord kitchen_sink_cord_2 = bytes_2200;
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_3,
                                             &kitchen_sink_message));
-  absl::Cord kitchen_sink_cord_3 = SerializeToCord(kitchen_sink_message);
+  absl::Cord bytes_2203;
+  ABSL_CHECK(kitchen_sink_message.SerializeToCord(&bytes_2203));
+  absl::Cord kitchen_sink_cord_3 = bytes_2203;
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_4,
                                             &kitchen_sink_message));
-  absl::Cord kitchen_sink_cord_4 = SerializeToCord(kitchen_sink_message);
+  absl::Cord bytes_2206;
+  ABSL_CHECK(kitchen_sink_message.SerializeToCord(&bytes_2206));
+  absl::Cord kitchen_sink_cord_4 = bytes_2206;
 
   zetasql_test__::NullableInt nullable_int_message;
   const std::string nullable_int_string_1("value: 1");
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(nullable_int_string_1,
                                             &nullable_int_message));
-  absl::Cord nullable_int_cord_1 = SerializeToCord(nullable_int_message);
+  absl::Cord bytes_2212;
+  ABSL_CHECK(nullable_int_message.SerializeToCord(&bytes_2212));
+  absl::Cord nullable_int_cord_1 = bytes_2212;
 
   // Set up some equivalent but not equal enums and protos, both null and
   // non-null.
@@ -2262,8 +2275,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
           ->New());
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString("key: 'aaa' value: 777",
                                             string_int32_message.get()));
-  const Value string_int32_map_entry = Value::Proto(
-      StringInt32MapEntryType(), SerializeToCord(*string_int32_message));
+  absl::Cord bytes_2253;
+  ABSL_CHECK(string_int32_message->SerializeToCord(&bytes_2253));
+  const Value string_int32_map_entry =
+      Value::Proto(StringInt32MapEntryType(), bytes_2253);
 
   const StructType* string_string_struct;
   ZETASQL_CHECK_OK(type_factory()->MakeStructType(

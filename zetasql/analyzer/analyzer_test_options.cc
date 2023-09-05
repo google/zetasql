@@ -69,6 +69,7 @@ const char* const kUseHintsAllowlist = "use_hints_allowlist";
 const char* const kRunInJava = "java";
 const char* const kSupportedStatementKinds = "supported_statement_kinds";
 const char* const kUseDatabase = "use_database";
+const char* const kPrepareDatabase = "prepare_database";
 const char* const kRunDeserializer = "run_deserializer";
 const char* const kEnableLiteralReplacement = "enable_literal_replacement";
 const char* const kErrorMessageMode = "error_message_mode";
@@ -137,6 +138,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kRunInJava, true);
   test_case_options->RegisterString(kSupportedStatementKinds, "");
   test_case_options->RegisterString(kUseDatabase, "SampleCatalog");
+  test_case_options->RegisterString(kPrepareDatabase, "");
   test_case_options->RegisterBool(kRunDeserializer, true);
   test_case_options->RegisterBool(kEnableLiteralReplacement, true);
   test_case_options->RegisterString(kErrorMessageMode, "");

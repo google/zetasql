@@ -6,6 +6,94 @@
 
 ZetaSQL supports the following protocol buffer functions.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#contains_key"><code>CONTAINS_KEY</code></a>
+
+</td>
+  <td>
+    Checks if a protocol buffer map field contains a given key.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#proto_extract"><code>EXTRACT</code></a>
+
+</td>
+  <td>
+    Extracts a value or metadata from a protocol buffer.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#filter_fields"><code>FILTER_FIELDS</code></a>
+
+</td>
+  <td>
+    Removed unwanted fields from a protocol buffer.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_proto"><code>FROM_PROTO</code></a>
+
+</td>
+  <td>
+    Converts a protocol buffer value into ZetaSQL value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#modify_map"><code>MODIFY_MAP</code></a>
+
+</td>
+  <td>
+    Modifies a protocol buffer map field.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#proto_default_if_null"><code>PROTO_DEFAULT_IF_NULL</code></a>
+
+</td>
+  <td>
+    Produces the default protocol buffer field value if the
+    protocol buffer field is <code>NULL</code>. Otherwise, returns the
+    protocol buffer field value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#replace_fields"><code>REPLACE_FIELDS</code></a>
+
+</td>
+  <td>
+    Replaces the values in one or more protocol buffer fields.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_proto"><code>TO_PROTO</code></a>
+
+</td>
+  <td>
+    Converts a ZetaSQL value into a protocol buffer value.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `CONTAINS_KEY`
 
 ```sql
@@ -229,10 +317,13 @@ FROM AlbumList;
 ### `FILTER_FIELDS`
 
 ```sql
-FILTER_FIELDS(proto_expression, proto_field_list)
+FILTER_FIELDS(proto_expression, proto_field_list [, reset_fields_named_arg])
 
 proto_field_list:
   {+|-}proto_field_path[, ...]
+
+reset_fields_named_arg:
+  RESET_CLEARED_REQUIRED_FIELDS => { TRUE | FALSE }
 ```
 
 **Description**
@@ -251,6 +342,21 @@ Input values:
 + `proto_field_path`: The protocol buffer field to include or exclude.
   If the field represents an [extension][querying-proto-extensions], you can use
   syntax for that extension in the path.
++ `reset_fields_named_arg`: You can optionally add the
+ `RESET_CLEARED_REQUIRED_FIELDS` named argument.
+  If not explicitly set, `FALSE` is used implicitly.
+  If `FALSE`, you must include all protocol buffer `required` fields in the
+  `FILTER_FIELDS` function. If `TRUE`, you do not need to include all required
+  protocol buffer fields and the value of required fields
+  defaults to these values:
+
+  Type                    | Default value
+  ----------------------- | --------
+  Floating point          | `0.0`
+  Integer                 | `0`
+  Boolean                 | `FALSE`
+  String, byte            | `""`
+  Protocol buffer message | Empty message
 
 Protocol buffer field expression behavior:
 
@@ -259,7 +365,8 @@ Protocol buffer field expression behavior:
   fields are excluded. Or by default, when you exclude the first field, all
   other fields are included.
 + A required field in the protocol buffer cannot be excluded explicitly or
-  implicitly.
+  implicitly, unless you have the
+  `RESET_CLEARED_REQUIRED_FIELDS` named argument set as `TRUE`.
 + If a field is included, its child fields and descendants are implicitly
   included in the results.
 + If a field is excluded, its child fields and descendants are
@@ -431,6 +538,32 @@ SELECT FILTER_FIELDS(award_col, +year, -month) AS filtered_fields
 FROM MusicAwards
 
 -- Error
+```
+
+When `RESET_CLEARED_REQUIRED_FIELDS` is set as `TRUE`, `FILTER_FIELDS` doesn't
+need to include required fields. In the example below, `MusicAwards` has a
+required field called `year`, but this is not added as an argument for
+`FILTER_FIELDS`. `year` is added to the results with its default value, `0`.
+
+```sql
+SELECT FILTER_FIELDS(
+  award_col,
+  +month,
+  RESET_CLEARED_REQUIRED_FIELDS => TRUE) AS filtered_fields
+FROM MusicAwards;
+
+/*---------------------------------*
+ | filtered_fields                 |
+ +---------------------------------+
+ | {                               |
+ |   year: 0,                      |
+ |   month: 9                      |
+ | }                               |
+ | {                               |
+ |   year: 0,                      |
+ |   month: 12                     |
+ | }                               |
+ *---------------------------------*/
 ```
 
 [querying-proto-extensions]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#extensions

@@ -1575,6 +1575,50 @@ static std::vector<absl::string_view> NamedArgInfoToNameVector(
   return names;
 }
 
+// Validates the aliases of given `args` against the requirements enforced by
+// `result_signature`. `result_signature` must have concrete arguments.
+static absl::Status ResolveArgumentAliases(
+    const ASTNode* ast_node, const std::vector<const ASTNode*>& args,
+    const FunctionSignature* result_signature) {
+  const ASTFunctionCall* ast_function_call = nullptr;
+  if (ast_node->Is<ASTFunctionCall>()) {
+    ast_function_call = ast_node->GetAsOrDie<ASTFunctionCall>();
+  } else if (ast_node->Is<ASTAnalyticFunctionCall>()) {
+    ast_function_call =
+        ast_node->GetAsOrDie<ASTAnalyticFunctionCall>()->function();
+  } else {
+    // Currently only (regular or window) function call arguments can have
+    // aliases.
+    for (const ASTNode* arg : args) {
+      ZETASQL_RET_CHECK(!arg->Is<ASTExpressionWithAlias>());
+    }
+    return absl::OkStatus();
+  }
+
+  ZETASQL_RET_CHECK(result_signature->HasConcreteArguments());
+  ZETASQL_RET_CHECK_EQ(result_signature->NumConcreteArguments(), args.size());
+
+  for (int i = 0; i < result_signature->NumConcreteArguments(); ++i) {
+    const FunctionArgumentType& argument =
+        result_signature->ConcreteArgument(i);
+    if (args[i]->Is<ASTExpressionWithAlias>() &&
+        argument.options().argument_alias_kind() ==
+            FunctionEnums::ARGUMENT_NON_ALIASED) {
+      // The argument does not support aliases but an alias is provided, return
+      // a SQL error.
+      // TODO: Update the error message to be of the form
+      // "Unexpected argument alias found for the argument `arg_name` of
+      // `FunctionName`".
+      return MakeSqlErrorAt(
+                 args[i]->GetAsOrDie<ASTExpressionWithAlias>()->alias())
+             << "Unexpected function call argument alias found at "
+             << ast_function_call->function()->ToIdentifierPathString();
+    }
+  }
+
+  return absl::OkStatus();
+  }
+
 absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations_in,
@@ -1656,7 +1700,10 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   }
 
   ZETASQL_RET_CHECK(result_signature->HasConcreteArguments());
-  if (!function->Is<TemplatedSQLFunction>()) {
+  // If the `function` is a `TemplatedSqlFunction` or has a callback to compute
+  // the result type, it is ok to not have a concrete return type for now.
+  if (!function->Is<TemplatedSQLFunction>() &&
+      function->GetComputeResultTypeCallback() == nullptr) {
     if (!result_signature->IsConcrete()) {
       return ::zetasql_base::InternalErrorBuilder()
              << "Non-concrete result signature for non-templated function: "
@@ -1919,6 +1966,9 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
                                                     BadArgErrorPrefix));
     }
   }
+
+  ZETASQL_RETURN_IF_ERROR(ResolveArgumentAliases(ast_location, arg_locations,
+                                         result_signature.get()));
 
   if (function->PostResolutionConstraints() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(StatusWithInternalErrorLocation(

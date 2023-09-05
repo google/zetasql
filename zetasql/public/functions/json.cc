@@ -656,19 +656,16 @@ absl::Status JsonAddArrayElement(JSONValueRef input,
                                  const LanguageOptions& language_options,
                                  bool canonicalize_zero, bool add_each_element,
                                  AddType add_type) {
-  path_iterator.Rewind();
-  // First token is always empty.
-  ++path_iterator;
-
-  // Only contains a value for kInsert.
-  std::optional<int64_t> index_to_insert;
-
   // We convert `value` into JSONValue first and return an error if conversion
   // fails, before even checking whether the path exists or not.
   ZETASQL_RET_CHECK(value.is_valid());
   std::vector<JSONValue> elements_to_insert;
   if (add_each_element && value.type()->IsArray()) {
-    // If the value to be inserted in an array and add_each_element is true, the
+    if (value.is_null()) {
+      // If the value is a NULL ARRAY ignore the operation.
+      return absl::OkStatus();
+    }
+    // If the value to be inserted is an array and add_each_element is true, the
     // function adds each element separately instead of a single JSON array
     // value.
     elements_to_insert.reserve(value.num_elements());
@@ -685,6 +682,13 @@ absl::Status JsonAddArrayElement(JSONValueRef input,
                                        language_options, canonicalize_zero));
     elements_to_insert.push_back(std::move(e));
   }
+
+  path_iterator.Rewind();
+  // First token is always empty.
+  ++path_iterator;
+
+  // Only contains a value for kInsert.
+  std::optional<int64_t> index_to_insert;
 
   for (; !path_iterator.End(); ++path_iterator) {
     const StrictJSONPathToken& token = *path_iterator;

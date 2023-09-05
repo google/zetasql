@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+# Placeholder: load py_proto_library
+# Placeholder: load py_binary
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
 
@@ -151,6 +153,7 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/public/types",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
@@ -257,6 +260,7 @@ cc_library(
         ":resolved_ast_enums_cc_proto",
         ":resolved_node_kind_cc_proto",
         ":rewrite_utils",
+        "//zetasql/analyzer:expr_matching_helpers",
         "//zetasql/analyzer:filter_fields_path_validator",
         "//zetasql/base",
         "//zetasql/base:check",
@@ -309,10 +313,12 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":node_sources",
         ":resolved_ast",
         ":resolved_ast_enums_cc_proto",
         ":resolved_node_kind_cc_proto",
         ":rewrite_utils",
+        "//zetasql/analyzer:expr_matching_helpers",
         "//zetasql/analyzer:resolver",
         "//zetasql/base",
         "//zetasql/base:case",

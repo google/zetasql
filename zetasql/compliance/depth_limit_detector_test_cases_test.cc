@@ -75,7 +75,14 @@ class ReferenceDriverStatementRunner {
 
   absl::Status operator()(std::string_view sql) {
     zetasql::TypeFactory type_factory;
-    return driver_.ExecuteStatement(std::string(sql), {}, &type_factory)
+    ReferenceDriver::ExecuteStatementOptions options{
+        .primary_key_mode = PrimaryKeyMode::DEFAULT};
+    TestDatabase query_db;
+
+    ReferenceDriver::ExecuteStatementAuxOutput aux_output_ignored;
+    return driver_
+        .ExecuteStatementForReferenceDriver(sql, {}, options, &type_factory,
+                                            aux_output_ignored, &query_db)
         .status();
   }
 };

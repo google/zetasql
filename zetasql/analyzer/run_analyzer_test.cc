@@ -46,11 +46,13 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/literal_remover.h"
+#include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/sql_formatter.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
@@ -95,6 +97,7 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
@@ -327,6 +330,27 @@ class AnalyzerTestRunner {
   // virtually eliminates this cost.
   class CatalogFactory {
    public:
+    class PreparedDatabase {
+     public:
+      Catalog* catalog() const { return catalog_.get(); }
+      SimpleCatalog* mutable_catalog() { return mutable_catalog_.get(); }
+      void TakeOwnership(std::unique_ptr<TypeFactory> obj) {
+        owned_type_factories_.emplace_back(std::move(obj));
+      }
+
+      void TakeOwnership(std::unique_ptr<const AnalyzerOutput> obj) {
+        owned_analyzer_outputs_.emplace_back(std::move(obj));
+      }
+
+     private:
+      friend class CatalogFactory;
+      std::unique_ptr<MultiCatalog> catalog_;
+      std::unique_ptr<SimpleCatalog> mutable_catalog_;
+      std::vector<std::unique_ptr<TypeFactory>> owned_type_factories_;
+      std::vector<std::unique_ptr<const AnalyzerOutput>>
+          owned_analyzer_outputs_;
+    };
+
     // Returns a catalog matching the given catalog_name (which must
     // be either 'SampleCatalog' or 'SpecialCatalog'.
     //
@@ -343,8 +367,54 @@ class AnalyzerTestRunner {
         }
         return special_catalog_.get();
       } else {
-        return absl::NotFoundError(catalog_name);
+        auto it = prepared_databases_map_.find(catalog_name);
+
+        if (it == prepared_databases_map_.end()) {
+          return absl::NotFoundError(catalog_name);
+        }
+        const auto& [name, prepared_database] = *it;
+        return prepared_database.catalog();
       }
+    }
+
+    absl::StatusOr<PreparedDatabase*> CreateDatabase(
+        absl::string_view catalog_name, absl::string_view base_catalog_name,
+        const LanguageOptions& language,
+        std::vector<std::string> suppressed_functions) {
+      if (catalog_name == kSampleCatalogName ||
+          catalog_name == kSpecialCatalogName) {
+        return absl::AlreadyExistsError(
+            absl::StrFormat("'%s' is reserved and cannot be specified in"
+                            " prepare_database. Did you mean use_database?",
+                            catalog_name));
+      }
+      auto it = prepared_databases_map_.find(catalog_name);
+      if (it != prepared_databases_map_.end()) {
+        return absl::AlreadyExistsError(
+            absl::StrFormat("'%s' already exists", catalog_name));
+      }
+      ZETASQL_ASSIGN_OR_RETURN(
+          Catalog * base_catalog,
+          GetCatalog(base_catalog_name, language, suppressed_functions));
+      PreparedDatabase& entry = prepared_databases_map_[catalog_name];
+
+      entry.mutable_catalog_ = std::make_unique<SimpleCatalog>(catalog_name);
+
+      ZETASQL_RETURN_IF_ERROR(MultiCatalog::Create(
+          catalog_name, {entry.mutable_catalog_.get(), base_catalog},
+          &entry.catalog_));
+      return &entry;
+    }
+
+    absl::StatusOr<PreparedDatabase*> GetMutableDatabase(
+        absl::string_view catalog_name) {
+      auto it = prepared_databases_map_.find(catalog_name);
+      if (it == prepared_databases_map_.end()) {
+        return absl::NotFoundError(
+            absl::StrFormat("'%s' not found", catalog_name));
+      }
+
+      return &(it->second);
     }
 
    private:
@@ -392,6 +462,7 @@ class AnalyzerTestRunner {
     mutable std::unique_ptr<SimpleCatalog> special_catalog_;
     mutable absl::node_hash_map<CacheKey, std::unique_ptr<SampleCatalog>>
         sample_catalog_cache_;
+    absl::node_hash_map<std::string, PreparedDatabase> prepared_databases_map_;
   };
 
   void InitializeLiteralReplacementOptions() {
@@ -418,8 +489,12 @@ class AnalyzerTestRunner {
 
     const std::string& mode = test_case_options_.GetString(kModeOption);
 
-    TypeFactory type_factory;
+    auto type_factory_memory = std::make_unique<TypeFactory>();
+    TypeFactory& type_factory = *type_factory_memory;
     AnalyzerOptions options;
+
+    options.set_fields_accessed_mode(
+        AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS);
 
     if (test_case_options_.GetBool(kEnableSampleAnnotation)) {
       engine_specific_annotation_specs_.push_back(
@@ -762,16 +837,17 @@ class AnalyzerTestRunner {
       TestMulti(test_case, options, mode, catalog_holder.catalog(),
                 &type_factory, test_result);
     } else {
-      TestOne(test_case, options, mode, catalog_holder.catalog(), &type_factory,
-              test_result);
+      TestOne(test_case, options, mode, catalog_holder.catalog(),
+              std::move(type_factory_memory), test_result);
     }
   }
 
  private:
   void TestOne(const std::string& test_case, const AnalyzerOptions& options,
                const std::string& mode, Catalog* catalog,
-               TypeFactory* type_factory,
+               std::unique_ptr<TypeFactory> type_factory_memory,
                file_based_test_driver::RunTestCaseResult* test_result) {
+    TypeFactory* type_factory = type_factory_memory.get();
     std::unique_ptr<const AnalyzerOutput> output;
     absl::Status status;
     absl::Status detailed_sig_mismatch_status;
@@ -807,6 +883,8 @@ class AnalyzerTestRunner {
                   &analyze_from_ast_output);
           EXPECT_EQ(analyze_from_ast_status, status);
           if (analyze_from_ast_status.ok()) {
+            ZETASQL_EXPECT_OK(analyze_from_ast_output->resolved_statement()
+                          ->CheckNoFieldsAccessed());
             EXPECT_EQ(
                 analyze_from_ast_output->resolved_statement()->DebugString(),
                 output->resolved_statement()->DebugString());
@@ -863,6 +941,9 @@ class AnalyzerTestRunner {
     } else if (mode == "expression") {
       status = AnalyzeExpression(test_case, options, catalog, type_factory,
                                  &output);
+      if (status.ok()) {
+        ZETASQL_EXPECT_OK(output->resolved_expr()->CheckNoFieldsAccessed());
+      }
       if (!status.ok() &&
           test_case_options_.GetBool(kAlsoShowSignatureMismatchDetails) &&
           absl::StrContains(status.message(), "No matching signature")) {
@@ -898,8 +979,20 @@ class AnalyzerTestRunner {
         << "\nextracted_statement_properties node_kind: "
         << ResolvedNodeKind_Name(extracted_statement_properties.node_kind);
 
+    const AnalyzerOutput* output_ptr = output.get();
+    if (status.ok()) {
+      absl::Status prepare_database_status =
+          HandlePrepareDatabase(options,
+                                /* might take ownership */ type_factory_memory,
+                                /* might take ownership */ output);
+      if (!prepare_database_status.ok()) {
+        test_result->AddTestOutput(absl::StrCat(
+            "prepare_database ERROR: ", prepare_database_status.message()));
+      }
+    }
+
     HandleOneResult(test_case, options, type_factory, catalog, mode, status,
-                    detailed_sig_mismatch_status, output,
+                    detailed_sig_mismatch_status, output_ptr,
                     extracted_statement_properties, test_result);
   }
 
@@ -933,10 +1026,13 @@ class AnalyzerTestRunner {
 
       const absl::Status status = AnalyzeNextStatement(
           &location, options, catalog, type_factory, &output, &at_end_of_input);
-
+      if (status.ok()) {
+        ZETASQL_EXPECT_OK(output->resolved_statement()->CheckNoFieldsAccessed());
+      }
       HandleOneResult(test_case, options, type_factory, catalog, mode, status,
-                      /*detailed_sig_mismatch_status=*/absl::OkStatus(), output,
-                      extracted_statement_properties, test_result);
+                      /*detailed_sig_mismatch_status=*/absl::OkStatus(),
+                      output.get(), extracted_statement_properties,
+                      test_result);
 
       if (test_case_options_.GetBool(kTestExtractTableNames)) {
         CheckExtractNextTableNames(&location_for_extract_table_names,
@@ -1248,7 +1344,7 @@ class AnalyzerTestRunner {
       TypeFactory* type_factory, Catalog* catalog, absl::string_view mode,
       const absl::Status& status,
       const absl::Status& detailed_sig_mismatch_status,
-      const std::unique_ptr<const AnalyzerOutput>& output,
+      const AnalyzerOutput* output,
       const StatementProperties& extracted_statement_properties,
       file_based_test_driver::RunTestCaseResult* test_result) {
     std::string test_result_string;
@@ -1265,7 +1361,6 @@ class AnalyzerTestRunner {
         ASSERT_TRUE(resolved_expr != nullptr);
         node = resolved_expr;
       }
-
       node->ClearFieldsAccessed();
       test_result_string = node->DebugString();
       ZETASQL_ASSERT_OK(node->CheckNoFieldsAccessed());
@@ -1374,8 +1469,8 @@ class AnalyzerTestRunner {
         // We do not run the unparser if the original query failed analysis.
         output != nullptr) {
       std::string result_string;
-      TestUnparsing(test_case, options, catalog, mode == "statement",
-                    output.get(), &result_string);
+      TestUnparsing(test_case, options, catalog, mode == "statement", output,
+                    &result_string);
       absl::StrAppend(&test_result_string, "\n", result_string);
       absl::StripAsciiWhitespace(&test_result_string);
     }
@@ -1390,8 +1485,8 @@ class AnalyzerTestRunner {
         // analysis.
         output != nullptr) {
       std::string result_string;
-      TestLiteralReplacementInGoldens(
-          test_case, options, output.get(), &result_string);
+      TestLiteralReplacementInGoldens(test_case, options, output,
+                                      &result_string);
       absl::StrAppend(&test_result_string, "\n", result_string);
       absl::StripAsciiWhitespace(&test_result_string);
     }
@@ -1401,7 +1496,7 @@ class AnalyzerTestRunner {
         // analysis.
         output != nullptr) {
       std::string result_string;
-      TestUndeclaredParameters(output.get(), &result_string);
+      TestUndeclaredParameters(output, &result_string);
       absl::StrAppend(&test_result_string, "\n", result_string);
       absl::StripAsciiWhitespace(&test_result_string);
     }
@@ -1433,6 +1528,10 @@ class AnalyzerTestRunner {
         rewrite_options.set_enabled_rewrites(rewrites);
         outcome.status = RewriteResolvedAst(rewrite_options, test_case, catalog,
                                             type_factory, *rewrite_output);
+
+        if (outcome.status.ok()) {
+          ZETASQL_EXPECT_OK(rewrite_output->resolved_node()->CheckNoFieldsAccessed());
+        }
 
         if (outcome.status.ok() &&
             rewrite_output->resolved_statement() != nullptr) {
@@ -1517,13 +1616,69 @@ class AnalyzerTestRunner {
 
     if (test_dumper_callback_ != nullptr) {
       if (status.ok()) {
-        test_dumper_callback_(test_case, test_case_options_, options,
-                              output.get(), test_result);
+        test_dumper_callback_(test_case, test_case_options_, options, output,
+                              test_result);
       } else {
         test_dumper_callback_(test_case, test_case_options_, options, status,
                               test_result);
       }
     }
+  }
+
+  // This fully handles 'prepare_database' (including ignoring it).
+  absl::Status HandlePrepareDatabase(
+      const AnalyzerOptions& options,
+      std::unique_ptr<TypeFactory>& type_factory,
+      std::unique_ptr<const AnalyzerOutput>& output) {
+    std::string prepare_database_name =
+        test_case_options_.GetString(kPrepareDatabase);
+    if (prepare_database_name.empty()) {
+      return absl::OkStatus();
+    }
+    std::string use_database_name = test_case_options_.GetString(kUseDatabase);
+    std::string suppressed_functions =
+        test_case_options_.GetString(kSuppressFunctions);
+    ZETASQL_RET_CHECK(suppressed_functions.empty())
+        << "prepare_database with suppress_functions not yet supported";
+    bool new_database = prev_prepare_database_name_.empty() ||
+                        prev_prepare_database_name_ != prepare_database_name;
+    prev_prepare_database_name_ = prepare_database_name;
+    CatalogFactory::PreparedDatabase* database_entry = nullptr;
+    if (new_database) {
+      ZETASQL_ASSIGN_OR_RETURN(database_entry,
+                       catalog_factory_.CreateDatabase(
+                           prepare_database_name, use_database_name,
+                           options.language(), /* suppress_functions*/ {}));
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(database_entry, catalog_factory_.GetMutableDatabase(
+                                           prepare_database_name));
+    }
+    ABSL_CHECK_NE(database_entry, nullptr);
+
+    ZETASQL_RET_CHECK(output->resolved_statement() != nullptr);
+    switch (output->resolved_statement()->node_kind()) {
+      case RESOLVED_CREATE_FUNCTION_STMT: {
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<Function> function,
+                         MakeFunctionFromCreateFunction(
+                             *output->resolved_statement()
+                                  ->GetAs<ResolvedCreateFunctionStmt>()));
+        if (!database_entry->mutable_catalog()->AddOwnedFunctionIfNotPresent(
+                &function)) {
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "prepare_database duplicate function definition %s",
+              function->DebugString()));
+        }
+        break;
+      }
+      default:
+        return absl::InvalidArgumentError(
+            absl::StrFormat("prepare_database does not support %s",
+                            output->resolved_statement()->node_kind_string()));
+    }
+    database_entry->TakeOwnership(std::move(type_factory));
+    database_entry->TakeOwnership(std::move(output));
+
+    return absl::OkStatus();
   }
 
   static std::vector<std::string> ToLower(
@@ -2784,6 +2939,7 @@ class AnalyzerTestRunner {
   std::vector<AnalyzerRuntimeInfo> runtime_info_list_;
   LiteralReplacementOptions literal_replacement_options_;
   CatalogFactory catalog_factory_;
+  std::string prev_prepare_database_name_;
 };
 
 void ValidateRuntimeInfo(const AnalyzerRuntimeInfo& info) {
@@ -2799,7 +2955,7 @@ void ValidateRuntimeInfo(const AnalyzerRuntimeInfo& info) {
     }
   }
   EXPECT_GT(info.sum_elapsed_duration(), absl::ZeroDuration());
-  EXPECT_GT(info.parser_runtime_info().parser_elapsed_duration(),
+  EXPECT_GT(info.parser_runtime_info().parser_timed_value().elapsed_duration(),
             absl::ZeroDuration());
   EXPECT_GT(info.overall_timed_value().elapsed_duration(),
             absl::ZeroDuration());

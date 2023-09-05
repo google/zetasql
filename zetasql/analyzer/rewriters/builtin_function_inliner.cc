@@ -130,7 +130,7 @@ class BuiltinFunctionInlinerVisitor : public ResolvedASTDeepCopyVisitor {
             analyzer_options_, *catalog_, *type_factory_,
             is_safe ? absl::Substitute(kSafeExprTemplate, rewrite_template)
                     : rewrite_template,
-            variables, lambdas));
+            variables, lambdas, node->annotated_type()));
     PushNodeToStack(std::move(rewritten_expr));
     return absl::OkStatus();
   }

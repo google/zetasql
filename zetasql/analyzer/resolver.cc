@@ -218,7 +218,8 @@ std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedFloatLiteral(
     bool has_explicit_type, absl::string_view image) {
   if (!language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE) &&
       !language().LanguageFeatureEnabled(FEATURE_BIGNUMERIC_TYPE)) {
-    return MakeResolvedLiteral(ast_location, type, value, has_explicit_type);
+    return MakeResolvedLiteral(ast_location, {type, /*annotation_map=*/nullptr},
+                               value, has_explicit_type);
   }
   const int float_literal_id = next_float_literal_image_id_++;
   auto resolved_literal = zetasql::MakeResolvedLiteral(
@@ -2113,57 +2114,6 @@ absl::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
   ZETASQL_RETURN_IF_ERROR(coercer_.GetCommonSuperType(arg_set, &supertype));
   return supertype != nullptr &&
          supertype->SupportsEquality(analyzer_options_.language());
-}
-
-static absl::Status CheckAndPropagateAnnotationsImpl(
-    const ResolvedNode* resolved_node,
-    const std::vector<AnnotationSpec*>* annotation_specs,
-    AnnotationMap* annotation_map) {
-  for (auto& annotation_spec : *annotation_specs) {
-    switch (resolved_node->node_kind()) {
-      case RESOLVED_COLUMN_REF: {
-        auto* column_ref = resolved_node->GetAs<ResolvedColumnRef>();
-        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForColumnRef(
-            *column_ref, annotation_map));
-      } break;
-      case RESOLVED_GET_STRUCT_FIELD: {
-        auto* get_struct_field = resolved_node->GetAs<ResolvedGetStructField>();
-        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForGetStructField(
-            *get_struct_field, annotation_map));
-      } break;
-      case RESOLVED_MAKE_STRUCT: {
-        ZETASQL_RET_CHECK(annotation_map->IsStructMap());
-        auto* make_struct = resolved_node->GetAs<ResolvedMakeStruct>();
-        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForMakeStruct(
-            *make_struct, annotation_map->AsStructMap()));
-      } break;
-      case RESOLVED_FUNCTION_CALL: {
-        auto* function_call = resolved_node->GetAs<ResolvedFunctionCall>();
-        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForFunctionCallBase(
-            *function_call, annotation_map));
-      } break;
-      case RESOLVED_AGGREGATE_FUNCTION_CALL: {
-        auto* function_call =
-            resolved_node->GetAs<ResolvedAggregateFunctionCall>();
-        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForFunctionCallBase(
-            *function_call, annotation_map));
-      } break;
-      case RESOLVED_ANALYTIC_FUNCTION_CALL: {
-        auto* function_call =
-            resolved_node->GetAs<ResolvedAnalyticFunctionCall>();
-        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForFunctionCallBase(
-            *function_call, annotation_map));
-      } break;
-      case RESOLVED_SUBQUERY_EXPR: {
-        auto* subquery_expr = resolved_node->GetAs<ResolvedSubqueryExpr>();
-        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForSubqueryExpr(
-            *subquery_expr, annotation_map));
-      } break;
-      default:
-        break;
-    }
-  }
-  return absl::OkStatus();
 }
 
 absl::Status Resolver::ValidateUnnestSingleExpression(

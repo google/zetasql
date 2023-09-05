@@ -17,6 +17,516 @@ returned positions refer to character positions.
 All string comparisons are done byte-by-byte, without regard to Unicode
 canonical equivalence.
 
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#ascii"><code>ASCII</code></a>
+
+</td>
+  <td>
+    Gets the ASCII code for the first character or byte in a <code>STRING</code>
+    or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#byte_length"><code>BYTE_LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the number of <code>BYTES</code> in a <code>STRING</code> or
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#char_length"><code>CHAR_LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the number of characters in a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#character_length"><code>CHARACTER_LENGTH</code></a>
+
+</td>
+  <td>
+    Synonym for <code>CHAR_LENGTH</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#chr"><code>CHR</code></a>
+
+</td>
+  <td>
+    Converts a Unicode code point to a character.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#code_points_to_bytes"><code>CODE_POINTS_TO_BYTES</code></a>
+
+</td>
+  <td>
+    Converts an array of extended ASCII code points to a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#code_points_to_string"><code>CODE_POINTS_TO_STRING</code></a>
+
+</td>
+  <td>
+    Converts an array of extended ASCII code points to a
+    <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#collate"><code>COLLATE</code></a>
+
+</td>
+  <td>
+    Combines a <code>STRING</code> value and a collation specification into a
+    collation specification-supported <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#concat"><code>CONCAT</code></a>
+
+</td>
+  <td>
+    Concatenates one or more <code>STRING</code> or <code>BYTES</code>
+    values into a single result.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ends_with"><code>ENDS_WITH</code></a>
+
+</td>
+  <td>
+    Checks if a <code>STRING</code> or <code>BYTES</code> value is the suffix
+    of another value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#format_string"><code>FORMAT</code></a>
+
+</td>
+  <td>
+    Formats data and produces the results as a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_base32"><code>FROM_BASE32</code></a>
+
+</td>
+  <td>
+    Converts a base32-encoded <code>STRING</code> value into a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_base64"><code>FROM_BASE64</code></a>
+
+</td>
+  <td>
+    Converts a base64-encoded <code>STRING</code> value into a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#from_hex"><code>FROM_HEX</code></a>
+
+</td>
+  <td>
+    Converts a hexadecimal-encoded <code>STRING</code> value into a
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#initcap"><code>INITCAP</code></a>
+
+</td>
+  <td>
+    Formats a <code>STRING</code> as proper case, which means that the first
+    character in each word is uppercase and all other characters are lowercase.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#instr"><code>INSTR</code></a>
+
+</td>
+  <td>
+    Finds the position of a subvalue inside another value, optionally starting
+    the search at a given offset or occurrence.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#left"><code>LEFT</code></a>
+
+</td>
+  <td>
+    Gets the specified leftmost portion from a <code>STRING</code> or
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#length"><code>LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the length of a <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lower"><code>LOWER</code></a>
+
+</td>
+  <td>
+    Formats alphabetic characters in a <code>STRING</code> value as
+    lowercase.
+    <br /><br />
+    Formats ASCII characters in a <code>BYTES</code> value as
+    lowercase.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lpad"><code>LPAD</code></a>
+
+</td>
+  <td>
+    Prepends a <code>STRING</code> or <code>BYTES</code> value with a pattern.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ltrim"><code>LTRIM</code></a>
+
+</td>
+  <td>
+    Identical to the <code>TRIM</code> function, but only removes leading
+    characters.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#normalize"><code>NORMALIZE</code></a>
+
+</td>
+  <td>
+    Case-sensitively normalizes the characters in a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#normalize_and_casefold"><code>NORMALIZE_AND_CASEFOLD</code></a>
+
+</td>
+  <td>
+    Case-insensitively normalizes the characters in a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#octet_length"><code>OCTET_LENGTH</code></a>
+
+</td>
+  <td>
+    Alias for <code>BYTE_LENGTH</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_contains"><code>REGEXP_CONTAINS</code></a>
+
+</td>
+  <td>
+    Checks if a value is a partial match for a regular expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_extract"><code>REGEXP_EXTRACT</code></a>
+
+</td>
+  <td>
+    Produces a substring that matches a regular expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_extract_all"><code>REGEXP_EXTRACT_ALL</code></a>
+
+</td>
+  <td>
+    Produces an array of all substrings that match a
+    regular expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_instr"><code>REGEXP_INSTR</code></a>
+
+</td>
+  <td>
+    Finds the position of a regular expression match in a value, optionally
+    starting the search at a given offset or occurrence.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_match"><code>REGEXP_MATCH</code></a>
+
+</td>
+  <td>
+    (Deprecated) Checks if a value is a full match for a regular expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#regexp_replace"><code>REGEXP_REPLACE</code></a>
+
+</td>
+  <td>
+    Produces a <code>STRING</code> value where all substrings that match a
+    regular expression are replaced with a specified value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#repeat"><code>REPEAT</code></a>
+
+</td>
+  <td>
+    Produces a <code>STRING</code> or <code>BYTES</code> value that consists of
+    an original value, repeated.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#replace"><code>REPLACE</code></a>
+
+</td>
+  <td>
+    Replaces all occurrences of a pattern with another pattern in a
+    <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#reverse"><code>REVERSE</code></a>
+
+</td>
+  <td>
+    Reverses a <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#right"><code>RIGHT</code></a>
+
+</td>
+  <td>
+    Gets the specified rightmost portion from a <code>STRING</code> or
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#rpad"><code>RPAD</code></a>
+
+</td>
+  <td>
+    Appends a <code>STRING</code> or <code>BYTES</code> value with a pattern.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#rtrim"><code>RTRIM</code></a>
+
+</td>
+  <td>
+    Identical to the <code>TRIM</code> function, but only removes trailing
+    characters.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#safe_convert_bytes_to_string"><code>SAFE_CONVERT_BYTES_TO_STRING</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a <code>STRING</code> value and
+    replace any invalid UTF-8 characters with the Unicode replacement character,
+    <code>U+FFFD</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#soundex"><code>SOUNDEX</code></a>
+
+</td>
+  <td>
+    Gets the Soundex codes for words in a <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#split"><code>SPLIT</code></a>
+
+</td>
+  <td>
+    Splits a <code>STRING</code> or <code>BYTES</code> value, using a delimiter.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#starts_with"><code>STARTS_WITH</code></a>
+
+</td>
+  <td>
+    Checks if a <code>STRING</code> or <code>BYTES</code> value is a
+    prefix of another value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#strpos"><code>STRPOS</code></a>
+
+</td>
+  <td>
+    Finds the position of the first occurrence of a subvalue inside another
+    value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#substr"><code>SUBSTR</code></a>
+
+</td>
+  <td>
+    Gets a portion of a <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#substring"><code>SUBSTRING</code></a>
+
+</td>
+  <td>Alias for <code>SUBSTR</code></td>
+</tr>
+
+<tr>
+  <td><a href="#to_base32"><code>TO_BASE32</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a
+    base32-encoded <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_base64"><code>TO_BASE64</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a
+    base64-encoded <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_code_points"><code>TO_CODE_POINTS</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> or <code>BYTES</code> value into an array of
+    extended ASCII code points.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#to_hex"><code>TO_HEX</code></a>
+
+</td>
+  <td>
+    Converts a <code>BYTES</code> value to a
+    hexadecimal <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#translate"><code>TRANSLATE</code></a>
+
+</td>
+  <td>
+    Within a value, replaces each source character with the corresponding
+    target character.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#trim"><code>TRIM</code></a>
+
+</td>
+  <td>
+    Removes the specified leading and trailing Unicode code points or bytes
+    from a <code>STRING</code> or <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#unicode"><code>UNICODE</code></a>
+
+</td>
+  <td>
+    Gets the Unicode code point for the first character in a value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#upper"><code>UPPER</code></a>
+
+</td>
+  <td>
+    Formats alphabetic characters in a <code>STRING</code> value as
+    uppercase.
+    <br /><br />
+    Formats ASCII characters in a <code>BYTES</code> value as
+    uppercase.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ### `ASCII`
 
 ```sql
@@ -53,8 +563,8 @@ BYTE_LENGTH(value)
 
 **Description**
 
-Returns the length of the `STRING` or `BYTES` value in `BYTES`,
-regardless of whether the type of the value is `STRING` or `BYTES`.
+Gets the number of `BYTES` in a `STRING` or `BYTES` value,
+regardless of whether the value is a `STRING` or `BYTES` type.
 
 **Return type**
 
@@ -88,7 +598,7 @@ CHAR_LENGTH(value)
 
 **Description**
 
-Returns the length of the `STRING` in characters.
+Gets the number of characters in a `STRING` value.
 
 **Return type**
 
@@ -2210,7 +2720,7 @@ Returns the first substring in `value` that matches the
 
 If the regular expression contains a capturing group (`(...)`), and there is a
 match for that capturing group, that match is returned. If there
-are multiple matches for a capturing group, the last match is returned.
+are multiple matches for a capturing group, the first match is returned.
 
 Returns an error if:
 
@@ -2302,9 +2812,7 @@ Returns an array of all substrings of `value` that match the
 if there is no match.
 
 If the regular expression contains a capturing group (`(...)`), and there is a
-match for that capturing group, that match is added to the results. If there
-are multiple matches for a capturing group, the last match is added to the
-results.
+match for that capturing group, that match is added to the results.
 
 The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
 example, using this function to extract `ana` from `banana` returns only one
@@ -2629,13 +3137,13 @@ SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
 ### `REPLACE`
 
 ```sql
-REPLACE(original_value, from_value, to_value)
+REPLACE(original_value, from_pattern, to_pattern)
 ```
 
 **Description**
 
-Replaces all occurrences of `from_value` with `to_value` in `original_value`.
-If `from_value` is empty, no replacement is made.
+Replaces all occurrences of `from_pattern` with `to_pattern` in
+`original_value`. If `from_pattern` is empty, no replacement is made.
 
 This function supports specifying [collation][collation].
 
@@ -3168,7 +3676,7 @@ SUBSTR(value, position[, length])
 
 **Description**
 
-Returns a substring of the supplied `STRING` or `BYTES` value.
+Gets a portion (substring) of the supplied `STRING` or `BYTES` value.
 
 The `position` argument is an integer specifying the starting position of the
 substring.
@@ -3423,8 +3931,8 @@ TO_CODE_POINTS(value)
 
 **Description**
 
-Takes a `STRING` or `BYTES` value and returns an array of
-`INT64`.
+Takes a `STRING` or `BYTES` value and returns an array of `INT64` values that
+represent code points or extended ASCII character values.
 
 + If `value` is a `STRING`, each element in the returned array represents a
   [code point][string-link-to-code-points-wikipedia]. Each code point falls

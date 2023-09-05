@@ -70,6 +70,7 @@ class FunctionArgumentTypeOptions {
   typedef FunctionEnums::ArgumentCardinality ArgumentCardinality;
   typedef FunctionEnums::ArgumentCollationMode ArgumentCollationMode;
   typedef FunctionEnums::NamedArgumentKind NamedArgumentKind;
+  using ArgumentAliasKind = FunctionEnums::ArgumentAliasKind;
 
   FunctionArgumentTypeOptions() = default;
 
@@ -146,6 +147,8 @@ class FunctionArgumentTypeOptions {
   // irrelevant.
   NamedArgumentKind named_argument_kind() const { return named_argument_kind_; }
 
+  ArgumentAliasKind argument_alias_kind() const { return argument_alias_kind_; }
+
   ProcedureArgumentMode procedure_argument_mode() const {
     return procedure_argument_mode_;
   }
@@ -219,10 +222,13 @@ class FunctionArgumentTypeOptions {
     named_argument_kind_ = kind;
     return *this;
   }
-  ABSL_DEPRECATED("Inline me!")
-  FunctionArgumentTypeOptions& set_argument_name(absl::string_view name) {
-    return set_argument_name(name, zetasql::kPositionalOrNamed);
+
+  FunctionArgumentTypeOptions& set_argument_alias_kind(
+      ArgumentAliasKind argument_alias_kind) {
+    argument_alias_kind_ = argument_alias_kind;
+    return *this;
   }
+
   FunctionArgumentTypeOptions& set_procedure_argument_mode(
       ProcedureArgumentMode mode) {
     procedure_argument_mode_ = mode;
@@ -412,6 +418,11 @@ class FunctionArgumentTypeOptions {
   // Determines whether the argument name must or must not be specified when the
   // associated function is called.
   NamedArgumentKind named_argument_kind_ = FunctionEnums::POSITIONAL_ONLY;
+
+  // Determines whether aliases are supported for a function argument.
+  // An argument alias is an identifier associated with a function argument in
+  // the form of F(<arg> AS <alias>).
+  ArgumentAliasKind argument_alias_kind_ = FunctionEnums::ARGUMENT_NON_ALIASED;
 
   // If true on function input argument, uses the array element's collation when
   // calculating the function's propagation or operation collation.

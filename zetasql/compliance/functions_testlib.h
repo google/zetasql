@@ -17,6 +17,8 @@
 #ifndef ZETASQL_COMPLIANCE_FUNCTIONS_TESTLIB_H_
 #define ZETASQL_COMPLIANCE_FUNCTIONS_TESTLIB_H_
 
+// This file declare test case getters for compliance test functions.
+
 #include <vector>
 
 #include "zetasql/testing/test_function.h"
@@ -329,6 +331,11 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateDateRangeArrayExtras();
 std::vector<FunctionTestCall> GetFunctionTestsGenerateDatetimeRangeArray();
 std::vector<FunctionTestCall>
 GetFunctionTestsGenerateDatetimeRangeArrayExtras();
+std::vector<FunctionTestCall> GetFunctionTestsRangeContains();
+
+std::vector<FunctionTestCall> GetFunctionTestsCosineDistance();
+std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance();
+std::vector<FunctionTestCall> GetFunctionTestsEditDistance();
 
 }  // namespace zetasql
 

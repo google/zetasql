@@ -42,8 +42,8 @@ absl::Status ResolvedColumn::SaveTo(
     ResolvedColumnProto* proto) const {
   // Consider serializing ResolvedColumn in a separate table, indexed by
   // column_id_, and then only serialize the column_id_ in the AST.
-  proto->set_table_name(std::string(table_name_.ToStringView()));
-  proto->set_name(std::string(name_.ToStringView()));
+  proto->set_table_name(table_name_.ToStringView());
+  proto->set_name(name_.ToStringView());
 
   proto->set_column_id(column_id_);
   if (type_annotation_map() != nullptr) {

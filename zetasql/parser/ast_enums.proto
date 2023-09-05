@@ -76,6 +76,15 @@ message ASTBinaryExpressionEnums {
   }
 }
 
+message ASTOptionsEntryEnums {
+  enum AssignmentOp {
+    NOT_SET = 0;
+    ASSIGN = 1;      // "="
+    ADD_ASSIGN = 2;  // "+="
+    SUB_ASSIGN = 3;  // "-="
+  }
+}
+
 message ASTOrderingExpressionEnums {
   enum OrderingSpec {
     NOT_SET = 0;
