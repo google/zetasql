@@ -1586,7 +1586,7 @@ def main(unused_argv):
 
       <window_frame> can be NULL.
               """,
-      fields=[Field('window_frame', 'ResolvedWindowFrame', tag_id=2)])
+      fields=[Field('window_frame', 'ResolvedWindowFrame', tag_id=2, ignorable=IGNORABLE)])
 
   gen.AddNode(
       name='ResolvedExtendedCastElement',
@@ -5351,7 +5351,7 @@ value.
               """,
       fields=[
           Field('partition_by', 'ResolvedWindowPartitioning', tag_id=2),
-          Field('order_by', 'ResolvedWindowOrdering', tag_id=3),
+          Field('order_by', 'ResolvedWindowOrdering', tag_id=3, ignorable=IGNORABLE),
           Field(
               'analytic_function_list',
               'ResolvedComputedColumn',
