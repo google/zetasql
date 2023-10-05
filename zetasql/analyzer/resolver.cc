@@ -817,6 +817,7 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
     const ASTExpression* ast_value, const ASTIdentifier* ast_qualifier,
     const ASTIdentifier* ast_name, HintOrOptionType hint_or_option_type,
     const AllowedHintsAndOptions& allowed, const NameScope* from_name_scope,
+    ASTOptionsEntry::AssignmentOp option_assignment_op,
     std::vector<std::unique_ptr<const ResolvedOption>>* option_list) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RET_CHECK(ast_name != nullptr);
@@ -842,7 +843,8 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
   ZETASQL_ASSIGN_OR_RETURN(auto option_properties,
                    GetHintOrOptionProperties(allowed, qualifier, ast_name, name,
                                              hint_or_option_type));
-  auto [expected_type, resolving_kind] = std::move(option_properties);
+  auto [expected_type, resolving_kind, allow_alter_array] =
+      std::move(option_properties);
   switch (resolving_kind) {
     case AllowedHintsAndOptionsProto::OptionProto::
         CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER: {
@@ -924,11 +926,40 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
                                      &resolved_expr));
   }
 
+  if (hint_or_option_type == HintOrOptionType::Option &&
+      option_assignment_op != ASTOptionsEntry::AssignmentOp::ASSIGN) {
+    if (!allow_alter_array) {
+      return MakeSqlErrorAt(ast_name)
+             << "Operators '+=' and '-=' are not allowed for option " << name;
+    }
+    if (expected_type != nullptr && !expected_type->IsArray()) {
+      return MakeSqlErrorAt(ast_name)
+             << "Invalid operator "
+             << (option_assignment_op == ASTOptionsEntry::ADD_ASSIGN ? "+="
+                                                                     : "-=")
+             << " for option " << name << " with expected type "
+             << expected_type->DebugString();
+    }
+  }
+
+  ResolvedOption::AssignmentOp resolved_assignment_op;
+
+  switch (option_assignment_op) {
+    case ASTOptionsEntry::ADD_ASSIGN:
+      resolved_assignment_op = ResolvedOption::ADD_ASSIGN;
+      break;
+    case ASTOptionsEntry::SUB_ASSIGN:
+      resolved_assignment_op = ResolvedOption::SUB_ASSIGN;
+      break;
+    default:
+      resolved_assignment_op = ResolvedOption::DEFAULT_ASSIGN;
+  }
+
   auto resolved_option =
       MakeResolvedOption(qualifier, name, std::move(resolved_expr));
+  resolved_option->set_assignment_op(resolved_assignment_op);
   MaybeRecordParseLocation(ast_name->parent(), resolved_option.get());
   option_list->push_back(std::move(resolved_option));
-
   return absl::OkStatus();
 }
 
@@ -959,7 +990,7 @@ absl::Status Resolver::ResolveHintAndAppend(
         ast_hint_entry->value(), ast_hint_entry->qualifier(),
         ast_hint_entry->name(), HintOrOptionType::Hint,
         analyzer_options_.allowed_hints_and_options(),
-        /*from_name_scope=*/nullptr, hints));
+        /*from_name_scope=*/nullptr, ASTOptionsEntry::ASSIGN, hints));
   }
 
   return absl::OkStatus();
@@ -1090,7 +1121,8 @@ absl::Status Resolver::ResolveOptionsList(
           options_entry->value(), /*ast_qualifier=*/nullptr,
           options_entry->name(), HintOrOptionType::Option,
           analyzer_options_.allowed_hints_and_options(),
-          /*from_name_scope=*/nullptr, resolved_options));
+          /*from_name_scope=*/nullptr, options_entry->assignment_op(),
+          resolved_options));
     }
   }
   return absl::OkStatus();
@@ -1131,7 +1163,7 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
           options_entry->value(), /*ast_qualifier=*/nullptr,
           options_entry->name(), option_type,
           analyzer_options_.allowed_hints_and_options(), &from_name_scope,
-          resolved_options));
+          options_entry->assignment_op(), resolved_options));
     }
 
     // Validate that if epsilon is specified, then only at most one of delta or
@@ -1206,6 +1238,22 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
           "Anonymization option kappa is deprecated, instead use "
           "max_groups_contributed"));
     }
+    // Only allow the `min_privacy_units_per_group` option, if the corresponding
+    // language feature is enabled.
+    if (!language().LanguageFeatureEnabled(
+            FEATURE_DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP) &&
+        zetasql_base::ContainsKey(specified_options, "min_privacy_units_per_group")) {
+      return MakeSqlErrorAt(options_list)
+             << "min_privacy_units_per_group is not supported";
+    }
+    // The options `min_privacy_units_per_group` and `k_threshold` don't make
+    // sense together. Thus we forbit it.
+    if (zetasql_base::ContainsKey(specified_options, "min_privacy_units_per_group") &&
+        zetasql_base::ContainsKey(specified_options, "k_threshold")) {
+      return MakeSqlErrorAt(options_list)
+             << "The options min_privacy_units_per_group and k_threshold "
+                "cannot be specified simultaneously.";
+    }
   }
   return absl::OkStatus();
 }
@@ -1234,7 +1282,7 @@ absl::Status Resolver::ResolveAggregationThresholdOptionsList(
         options_entry->value(), /*ast_qualifier=*/nullptr,
         options_entry->name(), HintOrOptionType::AggregationThresholdOption,
         analyzer_options_.allowed_hints_and_options(), &from_name_scope,
-        resolved_options));
+        options_entry->assignment_op(), resolved_options));
   }
 
   // Validate that at most one of the options max_groups_contributed,
@@ -1278,7 +1326,8 @@ absl::Status Resolver::ResolveAnonWithReportOptionsList(
   ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
       options_entry->value(), /*ast_qualifier=*/nullptr, options_entry->name(),
       HintOrOptionType::Option, allowed_report_options,
-      /*from_name_scope=*/nullptr, resolved_options));
+      /*from_name_scope=*/nullptr, options_entry->assignment_op(),
+      resolved_options));
 
   ZETASQL_RET_CHECK_EQ(resolved_options->size(), 1);
   ZETASQL_RET_CHECK(

@@ -52,23 +52,19 @@ std::string Unparse(const ASTNode* node) {
 
 namespace parser {
 
-// Formatter ---------------------------------------------------------
-// Indent 2 spaces by default.
-static const int kDefaultNumIndentSpaces = 2;
-static const int kNumColumnLimit = 100;
-
-void Formatter::Indent() {
-  absl::StrAppend(&indentation_, std::string(kDefaultNumIndentSpaces, ' '));
+void Formatter::Indent(int spaces) {
+  absl::StrAppend(&indentation_, std::string(spaces, ' '));
 }
 
-void Formatter::Dedent() {
-  ABSL_CHECK_GE(indentation_.size(), kDefaultNumIndentSpaces)
+void Formatter::Dedent(int spaces) {
+  ABSL_CHECK_GE(indentation_.size(), spaces)  // Crash OK
       << "Impossible to dedent: has reached to the beginning of the line.";
-  indentation_.resize(indentation_.size() - kDefaultNumIndentSpaces);
+  indentation_.resize(indentation_.size() - spaces);
 }
 
 void Formatter::Format(absl::string_view s) {
   if (s.empty()) return;
+  suppress_next_newline_ = false;
   if (buffer_.empty()) {
     // This is treated the same as the case below when starting a new line.
     absl::StrAppend(&buffer_, indentation_, s);
@@ -133,8 +129,11 @@ void Formatter::Format(absl::string_view s) {
 }
 
 void Formatter::FormatLine(absl::string_view s) {
-  Format(s);
-  FlushLine();
+  if (!s.empty() || !suppress_next_newline_) {
+    Format(s);
+    FlushLine();
+  }
+  suppress_next_newline_ = false;
 }
 
 void Formatter::AddUnary(absl::string_view s) {
@@ -168,6 +167,7 @@ bool Formatter::LastTokenIsSeparator() {
 }
 
 void Formatter::FlushLine() {
+  suppress_next_newline_ = false;
   if ((unparsed_->empty() || unparsed_->back() == '\n') && buffer_.empty()) {
     return;
   }
@@ -917,6 +917,22 @@ void Unparser::visitASTCreateSnapshotTableStatement(
   print("CREATE");
   if (node->is_or_replace()) print("OR REPLACE");
   print("SNAPSHOT TABLE");
+  if (node->is_if_not_exists()) print("IF NOT EXISTS");
+  node->name()->Accept(this, data);
+  print("CLONE");
+  node->clone_data_source()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTCreateSnapshotStatement(
+    const ASTCreateSnapshotStatement* node, void* data) {
+  print("CREATE");
+  if (node->is_or_replace()) print("OR REPLACE");
+  print("SNAPSHOT ");
+  print(SchemaObjectKindToName(node->schema_object_kind()));
   if (node->is_if_not_exists()) print("IF NOT EXISTS");
   node->name()->Accept(this, data);
   print("CLONE");
@@ -2644,12 +2660,69 @@ void Unparser::visitASTStructColumnSchema(const ASTStructColumnSchema* node,
   UnparseColumnSchema(node, data);
 }
 
+void Unparser::visitASTIdentityColumnStartWith(
+    const ASTIdentityColumnStartWith* node, void* data) {
+  ABSL_DCHECK(node->value() != nullptr);
+  node->value()->Accept(this, data);
+}
+
+void Unparser::visitASTIdentityColumnIncrementBy(
+    const ASTIdentityColumnIncrementBy* node, void* data) {
+  ABSL_DCHECK(node->value() != nullptr);
+  node->value()->Accept(this, data);
+}
+
+void Unparser::visitASTIdentityColumnMaxValue(
+    const ASTIdentityColumnMaxValue* node, void* data) {
+  ABSL_DCHECK(node->value() != nullptr);
+  node->value()->Accept(this, data);
+}
+
+void Unparser::visitASTIdentityColumnMinValue(
+    const ASTIdentityColumnMinValue* node, void* data) {
+  ABSL_DCHECK(node->value() != nullptr);
+  node->value()->Accept(this, data);
+}
+
+void Unparser::visitASTIdentityColumnInfo(const ASTIdentityColumnInfo* node,
+                                          void* data) {
+  print("IDENTITY(");
+  if (node->start_with_value() != nullptr) {
+    print("START WITH ");
+    node->start_with_value()->Accept(this, data);
+  }
+  if (node->increment_by_value() != nullptr) {
+    print("INCREMENT BY ");
+    node->increment_by_value()->Accept(this, data);
+  }
+  if (node->max_value() != nullptr) {
+    print("MAXVALUE ");
+    node->max_value()->Accept(this, data);
+  }
+  if (node->min_value() != nullptr) {
+    print("MINVALUE ");
+    node->min_value()->Accept(this, data);
+  }
+  if (node->cycling_enabled()) {
+    print("CYCLE");
+  }
+  print(")");
+}
+
 void Unparser::visitASTGeneratedColumnInfo(const ASTGeneratedColumnInfo* node,
                                            void* data) {
-  print("AS (");
-  ABSL_DCHECK(node->expression() != nullptr);
-  node->expression()->Accept(this, data);
-  print(")");
+  print("GENERATED");
+  print(node->GetSqlForGeneratedMode());
+  print("AS ");
+  if (node->expression() != nullptr) {
+    ABSL_DCHECK(node->identity_column_info() == nullptr);
+    print("(");
+    node->expression()->Accept(this, data);
+    print(")");
+  } else {
+    ABSL_DCHECK(node->identity_column_info() != nullptr);
+    node->identity_column_info()->Accept(this, data);
+  }
   print(node->GetSqlForStoredMode());
 }
 
@@ -3580,6 +3653,16 @@ void Unparser::visitASTAlterColumnDropDefaultAction(
   }
   node->column_name()->Accept(this, data);
   print("DROP DEFAULT");
+}
+
+void Unparser::visitASTAlterColumnDropGeneratedAction(
+    const ASTAlterColumnDropGeneratedAction* node, void* data) {
+  print("ALTER COLUMN");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->column_name()->Accept(this, data);
+  print("DROP GENERATED");
 }
 
 void Unparser::visitASTRevokeFromClause(const ASTRevokeFromClause* node,

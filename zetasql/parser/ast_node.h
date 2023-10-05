@@ -62,6 +62,9 @@ class BisonParser;
 // Converts a SchemaObjectKind to the SQL name of that kind.
 absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind);
 
+// Checks whether SchemaObjectKind can be snapshotted or not.
+bool SchemaObjectAllowedForSnapshot(SchemaObjectKind schema_object_kind);
+
 // Base class for all AST nodes.
 class ASTNode : public zetasql_base::ArenaOnlyGladiator {
  public:

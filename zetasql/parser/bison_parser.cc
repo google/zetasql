@@ -28,6 +28,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/timer_util.h"
 #include "zetasql/common/utf_util.h"
+#include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/bison_parser.bison.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/id_string.h"
@@ -35,6 +36,7 @@
 #include "zetasql/public/proto/logging.pb.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/flags/flag.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -49,6 +51,13 @@
 
 
 
+ABSL_FLAG(
+    bool, zetasql_parser_strip_errors, false,
+    "Simplify ZetaSQL parser error messages to just \"Syntax Error\". Using "
+    "this flag in tests ensures that tests will not be written assuming an "
+    "exact parser error message. This allows ZetaSQL changes to improve "
+    "error messages later without breaking user tests.");
+
 namespace zetasql {
 namespace parser {
 
@@ -59,9 +68,6 @@ namespace parser {
 constexpr int kBisonParseSuccess = 0;
 constexpr int kBisonParseError = 1;
 constexpr int kBisonMemoryExhausted = 2;
-
-BisonParser::BisonParser() = default;
-BisonParser::~BisonParser() = default;
 
 static std::string GetBisonParserModeName(BisonParserMode mode) {
   switch (mode) {
@@ -357,13 +363,12 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
 
 static absl::Status ParseWithBison(
     BisonParser* parser, absl::string_view filename, absl::string_view input,
-    ParserRuntimeInfo& parser_runtime_info, BisonParserMode mode,
-    int start_byte_offset, const LanguageOptions& language_options,
-    ASTNode*& output_node, std::string& error_message,
-    ParseLocationPoint& error_location,
+    BisonParserMode mode, int start_byte_offset,
+    const LanguageOptions& language_options, ASTNode*& output_node,
+    std::string& error_message, ParseLocationPoint& error_location,
     ASTStatementProperties* ast_statement_properties,
     bool& move_error_location_past_whitespace, int* statement_end_byte_offset,
-    bool& format_error) {
+    bool& format_error, int64_t& out_num_lexical_tokens) {
   auto tokenizer = std::make_unique<ZetaSqlFlexTokenizer>(
       mode, filename, input, start_byte_offset, language_options);
 
@@ -373,7 +378,7 @@ static absl::Status ParseWithBison(
       statement_end_byte_offset);
 
   const int parse_status_code = bison_parser_impl.parse();
-  parser_runtime_info.add_lexical_tokens(tokenizer->num_lexical_tokens());
+  out_num_lexical_tokens = tokenizer->num_lexical_tokens();
 
   format_error = false;
   // The tokenizer's error overrides the parser's error.
@@ -438,6 +443,23 @@ absl::Status BisonParser::Parse(
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
     ASTStatementProperties* ast_statement_properties,
     int* statement_end_byte_offset) {
+  absl::Status status =
+      ParseInternal(mode, filename, input, start_byte_offset, id_string_pool,
+                    arena, language_options, output, other_allocated_ast_nodes,
+                    ast_statement_properties, statement_end_byte_offset);
+  if (!status.ok() && absl::GetFlag(FLAGS_zetasql_parser_strip_errors)) {
+    return absl::InvalidArgumentError("Syntax error");
+  }
+  return status;
+}
+
+absl::Status BisonParser::ParseInternal(
+    BisonParserMode mode, absl::string_view filename, absl::string_view input,
+    int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
+    const LanguageOptions& language_options, std::unique_ptr<ASTNode>* output,
+    std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
+    ASTStatementProperties* ast_statement_properties,
+    int* statement_end_byte_offset) {
   id_string_pool_ = id_string_pool;
   arena_ = arena;
   language_options_ = &language_options;
@@ -445,6 +467,11 @@ absl::Status BisonParser::Parse(
       std::make_unique<std::vector<std::unique_ptr<ASTNode>>>();
   auto clean_up_allocated_ast_nodes =
       absl::MakeCleanup([&] { allocated_ast_nodes_.reset(); });
+  if (parser_runtime_info_ == nullptr) {
+    parser_runtime_info_ =
+        std::make_unique<ParserRuntimeInfo>(language_options);
+  }
+
   // We must have the filename outlive the <resume_location>, since the
   // parse tree ASTNodes will reference it in their ParseLocationRanges.
   // So we allocate a new filename from the ParserOptions IdStringPool,
@@ -459,14 +486,17 @@ absl::Status BisonParser::Parse(
   bool move_error_location_past_whitespace = false;
   bool format_error = false;
 
+  ZETASQL_RET_CHECK(parser_runtime_info_ != nullptr);
   auto parser_timer = internal::MakeScopedTimerStarted(
-      &parser_runtime_info_.parser_timed_value());
+      &parser_runtime_info_->parser_timed_value());
 
+  int64_t num_lexical_tokens;
   absl::Status parse_status = ParseWithBison(
-      this, filename, input, parser_runtime_info_, mode, start_byte_offset,
-      language_options, output_node, error_message, error_location,
-      ast_statement_properties, move_error_location_past_whitespace,
-      statement_end_byte_offset, format_error);
+      this, filename, input, mode, start_byte_offset, language_options,
+      output_node, error_message, error_location, ast_statement_properties,
+      move_error_location_past_whitespace, statement_end_byte_offset,
+      format_error, num_lexical_tokens);
+  parser_runtime_info_->add_lexical_tokens(num_lexical_tokens);
 
   if (parse_status.ok()) {
     ZETASQL_RETURN_IF_ERROR(InitNodes(output_node, *allocated_ast_nodes_, output,

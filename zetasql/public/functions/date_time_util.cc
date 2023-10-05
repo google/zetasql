@@ -4206,9 +4206,8 @@ void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale) {
   }
 }
 
-absl::StatusOr<TimestampBucketizer> TimestampBucketizer::Create(
-    zetasql::IntervalValue bucket_width, absl::Time origin,
-    absl::TimeZone timezone, TimestampScale scale) {
+absl::Status TimestampBucketizer::ValidateBucketWidth(
+    IntervalValue bucket_width, TimestampScale scale) {
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
   if (scale == kMicroseconds && bucket_width.get_nano_fractions() != 0) {
@@ -4241,6 +4240,13 @@ absl::StatusOr<TimestampBucketizer> TimestampBucketizer::Create(
       bucket_width.get_nano_fractions() == 0) {
     return MakeEvalError() << "Zero bucket width INTERVAL is not allowed";
   }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<TimestampBucketizer> TimestampBucketizer::Create(
+    zetasql::IntervalValue bucket_width, absl::Time origin,
+    absl::TimeZone timezone, TimestampScale scale) {
+  ZETASQL_RETURN_IF_ERROR(ValidateBucketWidth(bucket_width, scale));
 
   absl::Duration bucket_size;
   if (bucket_width.get_days() > 0) {
@@ -4290,8 +4296,8 @@ absl::Status TimestampBucket(absl::Time input,
   return bucketizer.Compute(input, output);
 }
 
-absl::StatusOr<DatetimeBucketizer> DatetimeBucketizer::Create(
-    IntervalValue bucket_width, DatetimeValue origin, TimestampScale scale) {
+absl::Status DatetimeBucketizer::ValidateBucketWidth(IntervalValue bucket_width,
+                                                     TimestampScale scale) {
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
   if (scale == kMicroseconds && bucket_width.get_nano_fractions() != 0) {
@@ -4316,7 +4322,12 @@ absl::StatusOr<DatetimeBucketizer> DatetimeBucketizer::Create(
     return MakeEvalError()
            << "Exactly one non-zero INTERVAL part in bucket width is required";
   }
+  return absl::OkStatus();
+}
 
+absl::StatusOr<DatetimeBucketizer> DatetimeBucketizer::Create(
+    IntervalValue bucket_width, DatetimeValue origin, TimestampScale scale) {
+  ZETASQL_RETURN_IF_ERROR(ValidateBucketWidth(bucket_width, scale));
   // Here we branch out into handling MONTHs and other interval types.
   // MONTH is special since it's a non-fixed interval, therefore it requires
   // use of civil time library to perform all arithmetic on dates.
@@ -4468,8 +4479,7 @@ absl::Status DatetimeBucket(const DatetimeValue& input,
   return bucketizer.Compute(input, output);
 }
 
-absl::StatusOr<DateBucketizer> DateBucketizer::Create(
-    IntervalValue bucket_width, int32_t origin_date) {
+absl::Status DateBucketizer::ValidateBucketWidth(IntervalValue bucket_width) {
   if (bucket_width.get_micros() > 0 || bucket_width.get_nano_fractions() > 0) {
     return MakeEvalError()
            << "Only MONTH and DAY parts are allowed in bucket width INTERVAL";
@@ -4481,7 +4491,12 @@ absl::StatusOr<DateBucketizer> DateBucketizer::Create(
     return MakeEvalError()
            << "Exactly one non-zero INTERVAL part in bucket width is required";
   }
+  return absl::OkStatus();
+}
 
+absl::StatusOr<DateBucketizer> DateBucketizer::Create(
+    IntervalValue bucket_width, int32_t origin_date) {
+  ZETASQL_RETURN_IF_ERROR(ValidateBucketWidth(bucket_width));
   // Here we branch out into handling MONTHs and DAY interval types.
   // MONTH is special since it's a non-fixed interval, therefore it requires
   // use of civil time library to perform all arithmetic on dates.

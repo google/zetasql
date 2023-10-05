@@ -43,16 +43,6 @@ inline absl::Cord SerializePartialToCord(const google::protobuf::Message& pb) {
   return bytes;
 }
 
-ABSL_DEPRECATED("Inline me!")
-inline bool ParseFromCord(absl::Cord bytes, google::protobuf::Message* pb) {
-  return pb->ParseFromCord(bytes);
-}
-
-ABSL_DEPRECATED("Inline me!")
-inline bool ParsePartialFromCord(absl::Cord bytes, google::protobuf::Message* pb) {
-  return pb->ParsePartialFromCord(bytes);
-}
-
 inline std::unique_ptr<google::protobuf::compiler::DiskSourceTree>
 CreateProtoSourceTree() {
   auto source_tree = std::make_unique<google::protobuf::compiler::DiskSourceTree>();

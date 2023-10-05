@@ -826,7 +826,7 @@ if x < y then
 else
   select 2;
 --
-ERROR: Syntax error: Expected END IF [at 5:1]
+ERROR: Syntax error: Expected keyword END but got end of script [at 5:1]
 
 ^
 ==
@@ -840,7 +840,7 @@ else
 
 
 --
-ERROR: Syntax error: Expected END IF [at 5:1]
+ERROR: Syntax error: Expected keyword END but got end of script [at 5:1]
 
 ^
 ==
@@ -864,7 +864,7 @@ IF true THEN
   SELECT 1;
 END IF;
 --
-ERROR: Syntax error: Expected END IF [at 3:3]
+ERROR: Syntax error: Expected keyword END but got identifier "SSSELECT" [at 3:3]
   SSSELECT 1;
   ^
 ==
@@ -888,15 +888,15 @@ if x < y then
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Expected END IF [at 4:1]
+ERROR: Syntax error: Expected keyword END but got end of script [at 4:1]
 
 ^
 --
 ALTERNATION GROUP: end
 --
-ERROR: Syntax error: Expected END IF [at 3:1]
+ERROR: Syntax error: Expected keyword IF but got end of script [at 3:4]
 end
-^
+   ^
 --
 ALTERNATION GROUP: if
 --
@@ -906,15 +906,15 @@ if
 --
 ALTERNATION GROUP: end else
 --
-ERROR: Syntax error: Expected END IF [at 3:1]
+ERROR: Syntax error: Expected keyword IF but got keyword ELSE [at 3:5]
 end else
-^
+    ^
 --
 ALTERNATION GROUP: end drop
 --
-ERROR: Syntax error: Expected END IF [at 3:1]
+ERROR: Syntax error: Expected keyword IF but got keyword DROP [at 3:5]
 end drop
-^
+    ^
 ==
 
 # Simple if/elseif/elseif
@@ -1327,7 +1327,7 @@ ELSEIF THEN SELECT 1;
 IF TRUE THEN
 ELSEIF TRUE THEN SELECT 1;
 --
-ERROR: Syntax error: Expected END IF [at 3:1]
+ERROR: Syntax error: Expected keyword END but got end of script [at 3:1]
 
 ^
 ==

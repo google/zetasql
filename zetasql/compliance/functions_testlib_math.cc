@@ -32,6 +32,7 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -1099,7 +1100,7 @@ namespace {
 // Gets a corresponding safe version function test set by converting the regular
 // test set (obtained from `regular_test_sets`) with errors to return NULL.
 std::vector<QueryParamsWithResult> GetFunctionTestsSafeVersion(
-    const std::vector<std::function<std::vector<QueryParamsWithResult>()>>&
+    absl::Span<const std::function<std::vector<QueryParamsWithResult>()>>
         regular_test_set) {
   std::vector<QueryParamsWithResult> regular_tests;
   for (const auto& get_regular_test : regular_test_set) {

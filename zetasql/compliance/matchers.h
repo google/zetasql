@@ -42,11 +42,11 @@
 
 #include "google/protobuf/descriptor.h"
 #include "absl/base/attributes.h"
-#include <cstdint>
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
 

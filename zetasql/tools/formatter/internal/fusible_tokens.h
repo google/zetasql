@@ -23,6 +23,7 @@
 #include "zetasql/tools/formatter/internal/token.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql::formatter::internal {
 
@@ -154,7 +155,7 @@ const FusibleGroup* GetFusibleGroups();
 
 // Converts a list of token groups into a tree.
 const FusibleGroup* FusibleGroupsFromTokens(
-    const std::vector<FusibleTokens>& fusible_tokens);
+    absl::Span<const FusibleTokens> fusible_tokens);
 
 // Returns the maximum token position in <tokens> that can be grouped into a
 // single chunk with the token at <start_index>; i.e., these tokens should be

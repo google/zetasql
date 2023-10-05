@@ -76,8 +76,7 @@ void InitExponents() {
 #endif
   }
 
-#ifdef __x86_64__
-  // For doubles on x86, the results from pow/exp10 cause issues for rounding
+  // For doubles the results from pow/exp10 cause issues for rounding
   // whole numbers which is a pretty obvious wart. Instead compute with repeated
   // multiplying/dividing by 10. Unfortunately, for floats doing this creates
   // those issues so we use two different methods for the types.
@@ -97,7 +96,6 @@ void InitExponents() {
     exponent /= 10;
     kDecimalExponentDouble[-kDoubleMinExponent - i - 1] = exponent;
   }
-#endif  // __x86_64__
 }
 
 namespace {

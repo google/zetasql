@@ -650,6 +650,40 @@ TEST_F(FunctionCallBuilderTest,
               StatusIs(absl::StatusCode::kInternal));
 }
 
+TEST_F(FunctionCallBuilderTest, SafeSubtractionTestForInt64) {
+  // Int64 - Int64 is a built-in signature type in the `SimpleCatalog`.
+  std::unique_ptr<ResolvedExpr> input1 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1),
+                          /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(2),
+                          /*has_explicit_type=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.SafeSubtract(std::move(input1), std::move(input2)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
++-Literal(type=INT64, value=1, has_explicit_type=TRUE)
++-Literal(type=INT64, value=2, has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest,
+       SafeSubtractRefusesToWorkOnSignedAndUnsignedIntegers) {
+  // Int64 - Uint64 is *not* a built-in function in `SimpleCatalog`.
+  std::unique_ptr<ResolvedExpr> input1 =
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1),
+                          /*has_explicit_type=*/true);
+
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::Uint64Type(), Value::Uint64(1),
+                          /*has_explicit_type=*/true);
+
+  EXPECT_THAT(fn_builder_.SafeSubtract(std::move(input1), std::move(input2)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
 TEST_F(FunctionCallBuilderTest, AndTest) {
   std::vector<std::unique_ptr<const ResolvedExpr>> expressions;
   std::unique_ptr<ResolvedExpr> input = MakeResolvedLiteral(

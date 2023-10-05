@@ -30,11 +30,9 @@
 #include <variant>
 #include <vector>
 
-
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <cstdint>  
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"

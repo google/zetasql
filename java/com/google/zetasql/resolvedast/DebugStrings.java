@@ -56,6 +56,7 @@ import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedOutputColumn;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedSystemVariable;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedWindowFrame;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedWindowFrameExpr;
+import com.google.zetasql.resolvedast.ResolvedOptionEnums.AssignmentOp;
 import com.google.zetasql.resolvedast.ResolvedSetOperationScanEnums.SetOperationColumnMatchMode;
 import com.google.zetasql.resolvedast.ResolvedSetOperationScanEnums.SetOperationColumnPropagationMode;
 import com.google.zetasql.resolvedast.ResolvedStatementEnums.ObjectAccess;
@@ -142,6 +143,10 @@ class DebugStrings {
 
   static boolean isDefaultValue(SetOperationColumnPropagationMode mode) {
     return mode == SetOperationColumnPropagationMode.STRICT;
+  }
+
+  static boolean isDefaultValue(AssignmentOp assignmentOp) {
+    return assignmentOp == AssignmentOp.DEFAULT_ASSIGN;
   }
 
   // toStringImpl functions for different node field types, similar to the C++ implementation in
@@ -415,9 +420,16 @@ class DebugStrings {
     node.getExpr().collectDebugStringFieldsWithNameFormat(fields);
   }
 
-  /** ResolvedOption gets formatted as "[qualifier.]name := value" */
+  /**
+   * ResolvedOption gets formatted as "[<qualifier>.]<name> := value" if the assignment operator is
+   * "=". Otherwise, it is formatted as [<qualifier>.]<name><assignment_operator> +- <value>
+   */
   static void collectDebugStringFields(ResolvedOption node, List<DebugStringField> fields) {
-    node.getValue().collectDebugStringFieldsWithNameFormat(fields);
+    if (isDefaultValue(node.getAssignmentOp())) {
+      node.getValue().collectDebugStringFieldsWithNameFormat(fields);
+    } else {
+      fields.add(new DebugStringField("", node.getValue()));
+    }
   }
 
   static void collectDebugStringFields(ResolvedWindowFrame node, List<DebugStringField> fields) {
@@ -517,10 +529,11 @@ class DebugStrings {
         node.getQualifier().isEmpty()
             ? ""
             : ZetaSQLStrings.toIdentifierLiteral(node.getQualifier()) + ".";
-
-    return node.getValue()
-        .getNameForDebugStringWithNameFormat(
-            prefix + ZetaSQLStrings.toIdentifierLiteral(node.getName()));
+    String nameWithPrefix = prefix + ZetaSQLStrings.toIdentifierLiteral(node.getName());
+    if (isDefaultValue(node.getAssignmentOp())) {
+      return node.getValue().getNameForDebugStringWithNameFormat(nameWithPrefix);
+    }
+    return nameWithPrefix + (node.getAssignmentOp() == AssignmentOp.ADD_ASSIGN ? "+=" : "-=");
   }
 
   static String getNameForDebugString(ResolvedWindowFrame node) {

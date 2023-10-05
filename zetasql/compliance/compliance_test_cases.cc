@@ -56,7 +56,6 @@
 #include "gtest/gtest.h"
 #include "absl/base/attributes.h"
 #include "absl/base/casts.h"
-#include <cstdint>
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
@@ -2595,6 +2594,17 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestEditDistance, 1) {
       test_case.params.AddRequiredFeature(FEATURE_NAMED_ARGUMENTS);
     }
   }
+  std::vector<FunctionTestCall> tests_bytes =
+      GetFunctionTestsEditDistanceBytes();
+  for (auto& test_case : tests_bytes) {
+    test_case.params.AddRequiredFeature(
+        FEATURE_V_1_4_ENABLE_EDIT_DISTANCE_BYTES);
+    if (test_case.params.params().size() == 3) {
+      test_case.params.AddRequiredFeature(FEATURE_NAMED_ARGUMENTS);
+    }
+  }
+  tests.insert(tests.end(), tests_bytes.begin(), tests_bytes.end());
+
   RunFunctionTestsCustom(Shard(tests), edit_distance_fn);
 }
 

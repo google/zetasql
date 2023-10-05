@@ -24,7 +24,6 @@
 #include <string>
 
 #include "absl/base/attributes.h"
-#include <cstdint>
 #include "absl/strings/string_view.h"
 
 namespace zetasql {

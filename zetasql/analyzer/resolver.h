@@ -17,6 +17,7 @@
 #ifndef ZETASQL_ANALYZER_RESOLVER_H_
 #define ZETASQL_ANALYZER_RESOLVER_H_
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -25,6 +26,7 @@
 #include <set>
 #include <stack>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -116,6 +118,12 @@ class Resolver {
     DifferentialPrivacyOption,
     AggregationThresholdOption,
   };
+
+  struct GeneratedColumnIndexAndResolvedId {
+    int column_index;
+    int resolved_column_id;
+  };
+
   // <*analyzer_options> should outlive the constructed Resolver. It must have
   // all arenas initialized.
   Resolver(Catalog* catalog, TypeFactory* type_factory,
@@ -382,14 +390,19 @@ class Resolver {
 
   class GeneratedColumnTopoSorter : public ResolvedASTVisitor {
    public:
-    explicit GeneratedColumnTopoSorter(const Table* table,
-                                       CycleDetector* cycle_detector,
-                                       std::vector<int>& generated_columns)
+    explicit GeneratedColumnTopoSorter(
+        const Table* table, CycleDetector* cycle_detector,
+        std::vector<int>& generated_column_indices,
+        absl::node_hash_map<const Column*, ResolvedColumn>&
+            catalog_columns_to_resolved_columns_map)
         : table_(table),
           cycle_detector_(cycle_detector),
-          generated_columns_(generated_columns) {}
-    std::vector<int> release_topologically_sorted_generated_columns() {
-      std::vector<int> tmp;
+          generated_column_indices_(generated_column_indices),
+          catalog_columns_to_resolved_columns_map_(
+              catalog_columns_to_resolved_columns_map) {}
+    std::vector<GeneratedColumnIndexAndResolvedId>
+    release_topologically_sorted_generated_columns() {
+      std::vector<GeneratedColumnIndexAndResolvedId> tmp;
       topologically_sorted_generated_columns_.swap(tmp);
       return tmp;
     }
@@ -399,15 +412,24 @@ class Resolver {
     absl::Status DefaultVisit(const ResolvedNode* node) override;
     const Table* table_;
     CycleDetector* cycle_detector_;
-    const std::vector<int>& generated_columns_;
-    absl::flat_hash_set<int> visited_columns_;
-    std::vector<int> topologically_sorted_generated_columns_;
+    const std::vector<int>& generated_column_indices_;
+    // absl::node_hash_map is used for pointer stability since this is a map
+    // of a pointer vs value(ResolvedColumn) and ResolvedColumn is owned by the
+    // map.
+    absl::node_hash_map<const Column*, ResolvedColumn>&
+        catalog_columns_to_resolved_columns_map_;
+    absl::flat_hash_set<int> visited_column_indices_;
+    std::vector<GeneratedColumnIndexAndResolvedId>
+        topologically_sorted_generated_columns_;
   };
 
   absl::Status TopologicallySortGeneratedColumns(
       std::vector<int>& generated_columns, const Table* table,
       CycleDetector* cycle_detector,
-      std::vector<int>& out_topologically_sorted_generated_columns);
+      absl::node_hash_map<const Column*, ResolvedColumn>&
+          catalog_columns_to_resolved_columns_map,
+      std::vector<GeneratedColumnIndexAndResolvedId>&
+          out_topologically_sorted_generated_columns);
 
   static const std::map<int, SpecialArgumentType>* const
       kEmptyArgumentOptionMap;
@@ -580,7 +602,7 @@ class Resolver {
   void AddNamedSubquery(const std::vector<IdString>& alias,
                         std::unique_ptr<NamedSubquery> named_subquery);
   bool IsPathExpressionStartingFromNamedSubquery(
-      const ASTPathExpression* path_expr);
+      const ASTPathExpression& path_expr) const;
 
   // Set of unique WITH aliases seen so far.  If there are duplicate WITH
   // aliases in the query (visible in different scopes), we'll give them
@@ -688,14 +710,6 @@ class Resolver {
   std::unique_ptr<const ResolvedLiteral> MakeResolvedLiteral(
       const ASTNode* ast_location, const Value& value,
       bool set_has_explicit_type = false) const;
-
-  ABSL_DEPRECATED("Inline me!")
-  std::unique_ptr<const ResolvedLiteral> MakeResolvedLiteral(
-      const ASTNode* ast_location, const Type* type, const Value& value,
-      bool has_explicit_type) const {
-    return MakeResolvedLiteral(ast_location, {type, /*annotation_map=*/nullptr},
-                               value, has_explicit_type);
-  }
 
   // Same as the previous method but <annotated_type> is used to contain
   // both target type and its annotation information.
@@ -1367,7 +1381,6 @@ class Resolver {
       std::unique_ptr<const ResolvedTableScan> table_scan,
       const ResolvedColumnList& insert_columns,
       const NameScope* nested_scope,  // NULL for non-nested INSERTs.
-      std::vector<int> topologically_sorted_generated_column_index_list,
       std::unique_ptr<ResolvedInsertStmt>* output);
 
   absl::Status ResolveUpdateStatement(
@@ -1948,6 +1961,13 @@ class Resolver {
           computed_columns,
       std::unique_ptr<const ResolvedScan>* current_scan);
 
+  // Add a ResolvedProjectScan wrapping `current_scan` but keeping only the
+  // visible columns from `name_list` in its column_list.
+  // No-op if there are no columns to prune away.
+  absl::Status MaybeAddProjectForColumnPruning(
+      const NameList& name_list,
+      std::unique_ptr<const ResolvedScan>* current_scan);
+
   // Add all remaining scans for this SELECT query on top of <current_scan>,
   // which already includes the FROM clause scan and WHERE clause scan (if
   // present).  The remaining scans include any necessary scans for
@@ -2442,12 +2462,25 @@ class Resolver {
     CalculateFinalColumnNamesForCorresponding(
         const std::vector<ResolvedInputResult>& resolved_inputs) const;
 
+    // Returns the final column names of the set operation, which are the same
+    // as the identifiers in the corresponding by list.
+    //
+    // This function should only be called when column_match_mode is
+    // CORRESPONDING_BY.
+    absl::StatusOr<std::vector<IdString>>
+    CalculateFinalColumnNamesForCorrespondingBy(
+        const std::vector<ResolvedInputResult>& resolved_inputs) const;
+
     // This class provides a two-way index mapping between the columns in the
     // <output_column_list> of each input and the final columns of the set
     // operation.
     class IndexMapper {
      public:
-      IndexMapper() = default;
+      explicit IndexMapper(size_t num_queries) {
+        for (int query_idx = 0; query_idx < num_queries; ++query_idx) {
+          index_mapping_[query_idx] = {};
+        }
+      }
 
       // Returns std::nullopt if the `final_column_idx` -th final column does
       // not have a corresponding column in the <output_column_list> of the
@@ -2543,6 +2576,12 @@ class Resolver {
     // resolved columns.
     std::vector<InputArgumentType> BuildColumnTypeList(
         const ResolvedInputResult& resolved_input) const;
+
+    // Returns a union of column names provided in `resolved_inputs`. It is ok
+    // for an input scan to have duplicate column names.
+    absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
+    GetAllColumnNames(
+        const std::vector<ResolvedInputResult>& resolved_inputs) const;
 
     const ASTSetOperation* const set_operation_;
     Resolver* const resolver_;
@@ -2731,9 +2770,8 @@ class Resolver {
 
   // Return true if the first identifier on the path is a name that exists in
   // <scope>.
-  static bool IsPathExpressionStartingFromScope(
-      const ASTPathExpression* expr,
-      const NameScope* scope);
+  static bool IsPathExpressionStartingFromScope(const ASTPathExpression& expr,
+                                                const NameScope& scope);
 
   // Return true if <table_ref> should be resolved as an array scan.
   // This happens if it has UNNEST, or it is a path with at least two
@@ -4224,6 +4262,7 @@ class Resolver {
       const ASTExpression* ast_value, const ASTIdentifier* ast_qualifier,
       const ASTIdentifier* ast_name, HintOrOptionType hint_or_option_type,
       const AllowedHintsAndOptions& allowed, const NameScope* from_name_scope,
+      ASTOptionsEntry::AssignmentOp option_assignment_op,
       std::vector<std::unique_ptr<const ResolvedOption>>* option_list);
 
   // Resolve <ast_hint> and add entries into <hints>.
@@ -4452,8 +4491,8 @@ class Resolver {
   // Check our assumptions about value tables.
   // These errors shouldn't show up to users. They only happen if an engine
   // gives us a bad Table in the Catalog.
-  absl::Status CheckValidValueTable(const ASTPathExpression* path_expr,
-                                    const Table* table) const;
+  absl::Status CheckValidValueTable(const ASTPathExpression& path_expr,
+                                    const Table& table) const;
   absl::Status CheckValidValueTableFromTVF(const ASTTVF* path_expr,
                                            absl::string_view full_tvf_name,
                                            const TVFRelation& schema) const;

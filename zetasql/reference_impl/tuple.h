@@ -38,7 +38,6 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/variable_id.h"
-#include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"

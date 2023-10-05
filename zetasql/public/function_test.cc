@@ -18,6 +18,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -266,6 +267,8 @@ class FunctionSerializationTests : public ::testing::Test {
               argument2.options().must_be_non_null());
     EXPECT_EQ(argument1.options().must_be_constant(),
               argument2.options().must_be_constant());
+    EXPECT_EQ(argument1.options().must_be_constant_expression(),
+              argument2.options().must_be_constant_expression());
     EXPECT_EQ(argument1.options().has_argument_name(),
               argument2.options().has_argument_name());
     if (argument1.options().has_argument_name()) {
@@ -685,8 +688,6 @@ TEST_F(FunctionSerializationTests,
   EXPECT_TRUE(result->argument(7).GetDefault().value().type()->IsBytes());
 }
 
-// TODO: Update this test case to test ANY_K and ARRAY_ANY_K for k
-// = 4, 5.
 TEST_F(FunctionSerializationTests,
        CheckSignatureSerializationAndDeserializationWithTemplatedDefaultValue) {
   TypeFactory type_factory;
@@ -749,6 +750,28 @@ TEST_F(FunctionSerializationTests,
             .set_argument_name("arg_array_any_3_proto_arr_null",
                                kPositionalOrNamed)
             .set_cardinality(FunctionEnums::OPTIONAL)
+            .set_default(values::Null(array_proto_type))},
+       {ARG_TYPE_ANY_4, FunctionArgumentTypeOptions()
+                            .set_argument_name("arg_any_4_empty_int64_array",
+                                               kPositionalOrNamed)
+                            .set_cardinality(FunctionEnums::OPTIONAL)
+                            .set_default(values::EmptyArray(array_int64_type))},
+       {ARG_ARRAY_TYPE_ANY_4,
+        FunctionArgumentTypeOptions()
+            .set_argument_name("arg_array_any_4_proto_arr_null",
+                               kPositionalOrNamed)
+            .set_cardinality(FunctionEnums::OPTIONAL)
+            .set_default(values::Null(array_proto_type))},
+       {ARG_TYPE_ANY_5, FunctionArgumentTypeOptions()
+                            .set_argument_name("arg_any_5_empty_int64_array",
+                                               kPositionalOrNamed)
+                            .set_cardinality(FunctionEnums::OPTIONAL)
+                            .set_default(values::EmptyArray(array_int64_type))},
+       {ARG_ARRAY_TYPE_ANY_5,
+        FunctionArgumentTypeOptions()
+            .set_argument_name("arg_array_any_5_proto_arr_null",
+                               kPositionalOrNamed)
+            .set_cardinality(FunctionEnums::OPTIONAL)
             .set_default(values::Null(array_proto_type))}},
       /*context_id=*/-1);
 
@@ -770,7 +793,7 @@ TEST_F(FunctionSerializationTests,
                                                         &factory, pools)));
   ExpectEqualsIgnoringCallbacks(templated_signature, *result);
 
-  ASSERT_EQ(result->arguments().size(), 8);
+  ASSERT_EQ(result->arguments().size(), 12);
 
   ASSERT_TRUE(result->argument(0).options().has_argument_name());
   EXPECT_EQ(result->argument(0).options().argument_name(), "arg_any");
@@ -814,6 +837,30 @@ TEST_F(FunctionSerializationTests,
             "arg_array_any_3_proto_arr_null");
   EXPECT_TRUE(result->argument(7).GetDefault().value().is_null());
   EXPECT_TRUE(result->argument(7).GetDefault().value().type()->Equals(
+      array_proto_type));
+
+  ASSERT_TRUE(result->argument(8).options().has_argument_name());
+  EXPECT_EQ(result->argument(8).options().argument_name(),
+            "arg_any_4_empty_int64_array");
+  EXPECT_TRUE(result->argument(8).GetDefault().value().empty());
+
+  ASSERT_TRUE(result->argument(9).options().has_argument_name());
+  EXPECT_EQ(result->argument(9).options().argument_name(),
+            "arg_array_any_4_proto_arr_null");
+  EXPECT_TRUE(result->argument(9).GetDefault().value().is_null());
+  EXPECT_TRUE(result->argument(9).GetDefault().value().type()->Equals(
+      array_proto_type));
+
+  ASSERT_TRUE(result->argument(10).options().has_argument_name());
+  EXPECT_EQ(result->argument(10).options().argument_name(),
+            "arg_any_5_empty_int64_array");
+  EXPECT_TRUE(result->argument(10).GetDefault().value().empty());
+
+  ASSERT_TRUE(result->argument(11).options().has_argument_name());
+  EXPECT_EQ(result->argument(11).options().argument_name(),
+            "arg_array_any_5_proto_arr_null");
+  EXPECT_TRUE(result->argument(11).GetDefault().value().is_null());
+  EXPECT_TRUE(result->argument(11).GetDefault().value().type()->Equals(
       array_proto_type));
 }
 

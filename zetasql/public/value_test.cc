@@ -1450,7 +1450,9 @@ TEST_F(ValueTest, AlmostEquals) {
 absl::Cord BuildDoubleValueProto(double value) {
   google::protobuf::DoubleValue m;
   m.set_value(value);
-  return SerializeToCord(m);
+  absl::Cord bytes;
+  ABSL_CHECK(m.SerializeToCord(&bytes));
+  return bytes;
 }
 
 TEST_F(ValueTest, AlmostEqualsMessageWithFloatingPointField) {
@@ -2488,7 +2490,9 @@ TEST_F(ValueTest, Proto) {
 
   const ProtoType* proto_type = GetTestProtoType();
   zetasql_test__::KitchenSinkPB k;
-  absl::Cord bytes = SerializePartialToCord(k);
+  absl::Cord bytes_2968;
+  ABSL_CHECK(k.SerializePartialToCord(&bytes_2968));
+  absl::Cord bytes = bytes_2968;
   // Empty proto.
   EXPECT_EQ(0, bytes.size());
   EXPECT_TRUE(Value::Proto(proto_type, bytes).type()->Equals(proto_type));
@@ -2511,7 +2515,9 @@ TEST_F(ValueTest, Proto) {
   EXPECT_EQ("{}", proto.ShortDebugString());
   // Non-empty proto.
   k.set_int32_val(3);
-  bytes = SerializePartialToCord(k);
+  absl::Cord bytes_2996;
+  ABSL_CHECK(k.SerializePartialToCord(&bytes_2996));
+  bytes = bytes_2996;
   EXPECT_EQ(2, bytes.size());
   Value proto1 = TestGetSQL(Proto(proto_type, bytes));
   Value proto2 = proto1;
@@ -2553,7 +2559,9 @@ TEST_F(ValueTest, Proto) {
   // Test with a proto with a duplicate optional field.  The last one takes
   // precedence.
   k.set_int32_val(7);
-  absl::Cord bytes4 = SerializePartialToCord(k);
+  absl::Cord bytes_3038;
+  ABSL_CHECK(k.SerializePartialToCord(&bytes_3038));
+  absl::Cord bytes4 = bytes_3038;
   // Now we have two duplicate 3 values followed by a 7.
   bytes.Append(bytes4);
   Value proto4 = TestGetSQL(Proto(proto_type, bytes));
@@ -2665,7 +2673,9 @@ TEST_F(ValueTest, Proto) {
   google::protobuf::Int32Value unset_proto3;
   absl::Cord result_bytes = absl::Cord(result);
   set_value = Value::Proto(proto3_type, result_bytes);
-  unset_value = Value::Proto(proto3_type, SerializeToCord(unset_proto3));
+  absl::Cord bytes_3150;
+  ABSL_CHECK(unset_proto3.SerializeToCord(&bytes_3150));
+  unset_value = Value::Proto(proto3_type, bytes_3150);
   EXPECT_TRUE(set_value.Equals(unset_value));
   TestHashEqual(set_value, unset_value);
 }
@@ -3658,7 +3668,9 @@ TEST_F(ValueTest, ProtoFormatTest) {
   k.set_int64_key_2(2);
   k.set_int32_val(3);
   // Empty proto.
-  absl::Cord bytes = SerializePartialToCord(k);
+  absl::Cord bytes_4153;
+  ABSL_CHECK(k.SerializePartialToCord(&bytes_4153));
+  absl::Cord bytes = bytes_4153;
 
   const ProtoType* proto_type = GetTestProtoType();
   EXPECT_EQ(Struct({"p", "i"}, {Proto(proto_type, bytes), 1}).Format(),
@@ -4280,7 +4292,9 @@ TEST_F(ValueTest, Serialize) {
       )",
                                              &ks));
 
-  absl::Cord ks_serialized = SerializePartialToCord(ks);
+  absl::Cord bytes;
+  ABSL_CHECK(ks.SerializePartialToCord(&bytes));
+  absl::Cord ks_serialized = bytes;
 
   SerializeDeserialize(Null(proto_type));
   SerializeDeserialize(Proto(proto_type, ks_serialized));

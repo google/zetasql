@@ -523,14 +523,15 @@ std::string ResolvedMakeProtoField::GetNameForDebugString() const {
 
 // ResolvedOption gets formatted as
 //   [<qualifier>.]<name> := <value>
-// if no parse location is available. Otherwise, it is formatted as
-//   [<qualifier>.]<name>=
-//   +-parse_location=<location>
+// if no parse location is available and the assignment operator is "=".
+// Otherwise, it is formatted as
+//   [<qualifier>.]<name><assignment_operator>
+//   [+-parse_location=<location>]
 //   +-<value>
 void ResolvedOption::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
-  if (fields->empty()) {
+  if (fields->empty() && assignment_op_ == DEFAULT_ASSIGN) {
     CollectDebugStringFieldsWithNameFormat(value_.get(), fields);
   } else {
     fields->emplace_back("", value_.get(), value_accessed());
@@ -542,10 +543,22 @@ std::string ResolvedOption::GetNameForDebugString() const {
       qualifier_.empty() ? ""
                           : absl::StrCat(ToIdentifierLiteral(qualifier_), "."),
       ToIdentifierLiteral(name_));
-  if (GetParseLocationRangeOrNULL() == nullptr) {
+  if (GetParseLocationRangeOrNULL() == nullptr &&
+      assignment_op_ == ResolvedOption::DEFAULT_ASSIGN) {
     return GetNameForDebugStringWithNameFormat(prefix, value_.get());
   }
-  return absl::StrCat(prefix, "=");
+  absl::string_view assignment_op_string;
+  switch (assignment_op_) {
+    case ResolvedOption::ADD_ASSIGN:
+      assignment_op_string = "+=";
+      break;
+    case ResolvedOption::SUB_ASSIGN:
+      assignment_op_string = "-=";
+      break;
+    default:
+      assignment_op_string = "=";
+  }
+  return absl::StrCat(prefix, assignment_op_string);
 }
 
 std::string ResolvedWindowFrame::FrameUnitToString(FrameUnit frame_unit) {

@@ -28,7 +28,6 @@
 #include "google/protobuf/message.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
-#include <cstdint>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"

@@ -5,9 +5,6 @@
 # - column match mode: BY_POSITION, CORRESPONDING
 # - column propagation mode: INNER, FULL
 
-# TODO: Allow sqlbuilder to when sqlbuilder implementation for FULL
-# is ready.
-[default no_run_unparser]
 [default language_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
 [default enabled_ast_rewrites=DEFAULTS]
 
@@ -62,7 +59,6 @@ QueryStmt
     |   +-output_column_list=[SimpleTypes.int64#20, SimpleTypes.int32#19, $null_column_for_outer_set_op.double#42, SimpleTypes.float#26]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -151,7 +147,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -238,7 +233,6 @@ QueryStmt
     |   +-output_column_list=[SimpleTypes.int64#20, SimpleTypes.int32#19, $null_column_for_outer_set_op.double#42, SimpleTypes.float#26]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -327,7 +321,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -415,7 +408,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -502,7 +494,6 @@ QueryStmt
     |   +-output_column_list=[SimpleTypes.int64#20, SimpleTypes.int32#19, $null_column_for_outer_set_op.double#42, SimpleTypes.float#26]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -615,7 +606,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -718,7 +708,6 @@ QueryStmt
     |   +-output_column_list=SimpleTypes.[int64#20, int32#19]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -823,7 +812,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -926,7 +914,6 @@ QueryStmt
     |   +-output_column_list=SimpleTypes.[int64#20, int32#19]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -1031,7 +1018,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -1134,7 +1120,6 @@ QueryStmt
     |   +-output_column_list=SimpleTypes.[int64#20, int32#19]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
-
 
 [REWRITTEN AST]
 QueryStmt

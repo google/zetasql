@@ -50,10 +50,10 @@ enum FunctionSignatureId {
   // 1700-1799 Net functions                  (NextId: 1716)
   // 1800-1899 More time functions            (NextId: 1864)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
-  // 2000-2199 Geography functions            (NextId: 2091)
+  // 2000-2199 Geography functions            (NextId: 2092)
   // 2200-2231 Anonymization functions        (NextId: 2232)
-  // 2300-2499 Numeric & more math functions  (NextId: 2352)
-  // 2500-2599 Array and proto map functions  (NextId: 2552)
+  // 2300-2499 Numeric & more math functions  (NextId: 2353)
+  // 2500-2599 Array and proto map functions  (NextId: 2561)
   // 2600-2699 More misc functions.           (NextId: 2622)
   // 2700-2799 Aggregate functions II         (NextId: 2746)
   // 2800-2899 Differential Privacy functions (NextId: 2832)
@@ -1006,6 +1006,7 @@ enum FunctionSignatureId {
   FN_ST_CONVEXHULL = 2065;
   FN_ST_EXTERIORRING = 2078;
   FN_ST_INTERIORRINGS = 2079;
+  FN_ST_LINE_SUBSTRING = 2091;
 
   // Predicates
   FN_ST_EQUALS = 2020;
@@ -1234,6 +1235,37 @@ enum FunctionSignatureId {
   FN_ARRAY_REMOVE_FIRST_N = 2546;
   FN_ARRAY_REMOVE_LAST_N = 2547;  // ARRAY_REMOVE_LAST(array<T>, N) -> ARRAY<T>
 
+  // ARRAY_ZIP(array<T1>, array<T2>[, ARRAY_ZIP_MODE]) -> ARRAY<STRUCT<T1, T2>>
+  FN_ARRAY_ZIP_TWO_ARRAY = 2552;
+
+  // ARRAY_ZIP(array<T1>, array<T2>, LAMBDA(T1, T2) -> T3) -> ARRAY<T3>
+  FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA = 2553;
+  // ARRAY_ZIP(array<T1>, array<T2>, ARRAY_ZIP_MODE, LAMBDA(T1, T2) -> T3) ->
+  // ARRAY<T3>
+  FN_ARRAY_ZIP_TWO_ARRAY_MODE_LAMBDA = 2554;
+
+  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>[, ARRAY_ZIP_MODE]) ->
+  // ARRAY<STRUCT<T1, T2, T3>>
+  FN_ARRAY_ZIP_THREE_ARRAY = 2555;
+
+  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, LAMBDA(T1, T2, T3) -> T4) ->
+  // ARRAY<T4>
+  FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA = 2556;
+  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, ARRAY_ZIP_MODE, LAMBDA(T1, T2,
+  // T3) -> T4) -> ARRAY<T4>
+  FN_ARRAY_ZIP_THREE_ARRAY_MODE_LAMBDA = 2557;
+
+  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>[, ARRAY_ZIP_MODE]) ->
+  // ARRAY<STRUCT<T1, T2, T3, T4>>
+  FN_ARRAY_ZIP_FOUR_ARRAY = 2558;
+
+  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>, LAMBDA(T1, T2, T3,
+  // T4) -> T5) -> ARRAY<T5>
+  FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA = 2559;
+  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>, ARRAY_ZIP_MODE,
+  // LAMBDA(T1, T2, T3, T4) -> T5) -> ARRAY<T5>
+  FN_ARRAY_ZIP_FOUR_ARRAY_MODE_LAMBDA = 2560;
+
   // More misc functions
   FN_JSON_TO_INT64 = 2600;   // int64(json) -> int64
   FN_JSON_TO_BOOL = 2601;    // bool(json) -> bool
@@ -1303,4 +1335,6 @@ enum FunctionSignatureId {
   FN_EUCLIDEAN_DISTANCE_SPARSE_STRING = 2350;
   // edit_distance(STRING, STRING[, INT64]) -> INT64
   FN_EDIT_DISTANCE = 2351;
+  // edit_distance(BYTES, BYTES[, INT64]) -> INT64
+  FN_EDIT_DISTANCE_BYTES = 2352;
 }

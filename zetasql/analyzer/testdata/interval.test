@@ -203,6 +203,88 @@ QueryStmt
       +-SingleRowScan
 ==
 
+# Microseconds handling
+[language_features={{INTERVAL_TYPE|INTERVAL_TYPE,TIMESTAMP_NANOS|INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
+SELECT INTERVAL '0.123456' SECOND
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INTERVAL, value=0-0 0 0:0:0.123456)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features={{INTERVAL_TYPE|INTERVAL_TYPE,TIMESTAMP_NANOS|INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
+SELECT INTERVAL '17:23.123456' MINUTE TO SECOND
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INTERVAL, value=0-0 0 0:17:23.123456)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Nanoseconds handling
+[language_features={{INTERVAL_TYPE|INTERVAL_TYPE,TIMESTAMP_NANOS|INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
+SELECT INTERVAL '0.123456789' SECOND
+--
+ALTERNATION GROUPS:
+    INTERVAL_TYPE
+    INTERVAL_TYPE,TIMESTAMP_NANOS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INTERVAL, value=0-0 0 0:0:0.123456789)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE
+--
+ERROR: Invalid INTERVAL value '0.123456789' [at 1:8]
+SELECT INTERVAL '0.123456789' SECOND
+       ^
+==
+
+[language_features={{INTERVAL_TYPE|INTERVAL_TYPE,TIMESTAMP_NANOS|INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
+SELECT INTERVAL '17:23.123456789' MINUTE TO SECOND
+--
+ALTERNATION GROUPS:
+    INTERVAL_TYPE
+    INTERVAL_TYPE,TIMESTAMP_NANOS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INTERVAL, value=0-0 0 0:17:23.123456789)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE
+--
+ERROR: Invalid INTERVAL value '17:23.123456789' [at 1:8]
+SELECT INTERVAL '17:23.123456789' MINUTE TO SECOND
+       ^
+==
+
 [language_features={{|INTERVAL_TYPE}}]
 select interval 1 year
 --

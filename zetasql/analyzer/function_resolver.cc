@@ -584,7 +584,13 @@ absl::Status FunctionResolver::
     ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
         const FunctionSignature& signature,
         absl::Span<const ArgIndexEntry> index_mapping,
-        std::vector<InputArgumentType>* input_argument_types) {
+        std::vector<InputArgumentType>* input_argument_types,
+        std::vector<const ASTNode*>* arg_locations) {
+  ZETASQL_RET_CHECK_NE(input_argument_types, nullptr);
+  if (arg_locations != nullptr) {
+    ZETASQL_RET_CHECK_EQ(input_argument_types->size(), arg_locations->size());
+  }
+
   std::vector<InputArgumentType> orig_input_argument_types =
       std::move(*input_argument_types);
   input_argument_types->clear();
@@ -613,6 +619,22 @@ absl::Status FunctionResolver::
       }
     }
   }
+  if (arg_locations == nullptr) {
+    return absl::OkStatus();
+  }
+  // If `arg_locations` is provided, also reorder it to match the signature.
+  std::vector<const ASTNode*> original_arg_locations =
+      std::move(*arg_locations);
+  arg_locations->clear();
+  for (const ArgIndexEntry& p : index_mapping) {
+    const ASTNode* call_arg_location =
+        p.call_arg_index >= 0 ? original_arg_locations[p.call_arg_index]
+                              : nullptr;
+    arg_locations->push_back(call_arg_location);
+  }
+  // Check the invariant that `input_argument_types` still match positionally
+  // with `arg_locations` after the reorder.
+  ZETASQL_RET_CHECK_EQ(input_argument_types->size(), arg_locations->size());
   return absl::OkStatus();
 }
 
@@ -841,8 +863,9 @@ FunctionResolver::FindMatchingSignature(
 
   ZETASQL_VLOG(6) << "FindMatchingSignature for function: "
           << function->DebugString(/*verbose=*/true) << "\n  for arguments: "
-          << InputArgumentType::ArgumentsToString(
-                 *input_arguments, ProductMode::PRODUCT_INTERNAL);
+          << InputArgumentType::ArgumentsToString(*input_arguments,
+                                                  ProductMode::PRODUCT_INTERNAL)
+          << " show_mismatch_details: " << show_mismatch_details;
 
   ZETASQL_RET_CHECK_LE(arg_locations_in.size(), std::numeric_limits<int32_t>::max());
   const int num_provided_args = static_cast<int>(arg_locations_in.size());
@@ -932,20 +955,23 @@ FunctionResolver::FindMatchingSignature(
 
     std::vector<InputArgumentType> input_arguments_copy =
         original_input_arguments;
+    std::vector<const ASTNode*> reordered_arg_locations = arg_locations_in;
     if (!arg_index_mapping.empty()) {
       ZETASQL_RETURN_IF_ERROR(
           ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
-              signature, arg_index_mapping, &input_arguments_copy));
+              signature, arg_index_mapping, &input_arguments_copy,
+              &reordered_arg_locations));
     }
 
     std::unique_ptr<FunctionSignature> result_concrete_signature;
     std::vector<FunctionArgumentOverride> sig_arg_overrides;
     ZETASQL_ASSIGN_OR_RETURN(
         const bool is_match,
-        SignatureMatches(arg_locations_in, input_arguments_copy, signature,
-                         function->ArgumentsAreCoercible(), name_scope,
-                         &result_concrete_signature, &signature_match_result,
-                         &arg_index_mapping, &sig_arg_overrides));
+        SignatureMatches(reordered_arg_locations, input_arguments_copy,
+                         signature, function->ArgumentsAreCoercible(),
+                         name_scope, &result_concrete_signature,
+                         &signature_match_result, &arg_index_mapping,
+                         &sig_arg_overrides));
     if (!is_match) {
       if (show_mismatch_details) {
         mismatch_errors->push_back(signature_match_result.mismatch_message());
@@ -954,15 +980,14 @@ FunctionResolver::FindMatchingSignature(
     }
 
     ZETASQL_RET_CHECK(result_concrete_signature != nullptr);
-    ZETASQL_ASSIGN_OR_RETURN(const bool argument_constraints_satisfied,
+    ZETASQL_ASSIGN_OR_RETURN(const std::string arg_constraints_violation_reason,
                      result_concrete_signature->CheckArgumentConstraints(
                          input_arguments_copy));
-    if (!argument_constraints_satisfied) {
-      // If this signature has argument constraints and they are not
-      // satisfied then ignore the signature.
-      // TODO: reveal constraint details.
+    // If this signature has argument constraints and they are not
+    // satisfied then check the next signature.
+    if (!arg_constraints_violation_reason.empty()) {
       if (show_mismatch_details) {
-        mismatch_errors->push_back("Argument constraints are not satisfied");
+        mismatch_errors->push_back(arg_constraints_violation_reason);
       }
       continue;
     }
@@ -1070,6 +1095,8 @@ absl::Status ExtractStructFieldLocations(
           cast_free_ast_location->GetAs<ASTCastExpression>();
       cast_free_ast_location = ast_cast->expr();
     } else if (cast_free_ast_location->node_kind() == AST_NAMED_ARGUMENT) {
+      // The grammar guarantees the named argument does not have a lambda as
+      // its value.
       const ASTNamedArgument* ast_arg =
           cast_free_ast_location->GetAs<ASTNamedArgument>();
       cast_free_ast_location = ast_arg->expr();
@@ -1575,11 +1602,54 @@ static std::vector<absl::string_view> NamedArgInfoToNameVector(
   return names;
 }
 
-// Validates the aliases of given `args` against the requirements enforced by
-// `result_signature`. `result_signature` must have concrete arguments.
+static bool IsBuiltinArrayZipFunctionLambdaSignatures(
+    const Function* function, const FunctionSignature* signature) {
+  if (!function->IsZetaSQLBuiltin()) {
+    return false;
+  }
+  // TODO: Add signatures as we implement ARRAY_ZIP.
+  switch (signature->context_id()) {
+    case FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA:
+    case FN_ARRAY_ZIP_TWO_ARRAY_MODE_LAMBDA:
+    case FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA:
+    case FN_ARRAY_ZIP_THREE_ARRAY_MODE_LAMBDA:
+    case FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA:
+    case FN_ARRAY_ZIP_FOUR_ARRAY_MODE_LAMBDA:
+      return true;
+    default:
+      return false;
+  }
+}
+
+static absl::Status MakeArgumentAliasSqlError(
+    const ASTNode* error_location, const Function* function,
+    const FunctionSignature* signature,
+    const ASTFunctionCall* ast_function_call) {
+  if (IsBuiltinArrayZipFunctionLambdaSignatures(function, signature)) {
+    // The ARRAY_ZIP signatures with lambdas do not allow argument aliases.
+    // Return a special error message explaining this.
+    return MakeSqlErrorAt(error_location)
+           << "ARRAY_ZIP function with lambda argument does not allow "
+           << "providing argument aliases";
+  }
+  // Default error message.
+  // TODO: Update the error message to be of the form
+  // "Unexpected argument alias found for the argument `arg_name` of
+  // `FunctionName`".
+  return MakeSqlErrorAt(error_location)
+         << "Unexpected function call argument alias found at "
+         << ast_function_call->function()->ToIdentifierPathString();
+}
+
+// Validates the argument aliases of given `args` against the requirements
+// enforced by `result_signature`, and stores the argument aliases in
+// `input_argument_types`.
+//
+// `result_signature` must be concrete.
 static absl::Status ResolveArgumentAliases(
     const ASTNode* ast_node, const std::vector<const ASTNode*>& args,
-    const FunctionSignature* result_signature) {
+    const Function* function, const FunctionSignature* result_signature,
+    std::vector<InputArgumentType>& input_argument_types) {
   const ASTFunctionCall* ast_function_call = nullptr;
   if (ast_node->Is<ASTFunctionCall>()) {
     ast_function_call = ast_node->GetAsOrDie<ASTFunctionCall>();
@@ -1598,26 +1668,96 @@ static absl::Status ResolveArgumentAliases(
   ZETASQL_RET_CHECK(result_signature->HasConcreteArguments());
   ZETASQL_RET_CHECK_EQ(result_signature->NumConcreteArguments(), args.size());
 
+  std::vector<std::optional<IdString>> argument_aliases;
+  argument_aliases.reserve(result_signature->NumConcreteArguments());
   for (int i = 0; i < result_signature->NumConcreteArguments(); ++i) {
     const FunctionArgumentType& argument =
         result_signature->ConcreteArgument(i);
-    if (args[i]->Is<ASTExpressionWithAlias>() &&
-        argument.options().argument_alias_kind() ==
-            FunctionEnums::ARGUMENT_NON_ALIASED) {
-      // The argument does not support aliases but an alias is provided, return
-      // a SQL error.
-      // TODO: Update the error message to be of the form
-      // "Unexpected argument alias found for the argument `arg_name` of
-      // `FunctionName`".
-      return MakeSqlErrorAt(
-                 args[i]->GetAsOrDie<ASTExpressionWithAlias>()->alias())
-             << "Unexpected function call argument alias found at "
-             << ast_function_call->function()->ToIdentifierPathString();
+    std::optional<IdString> alias = std::nullopt;
+    if (argument.options().argument_alias_kind() !=
+            FunctionEnums::ARGUMENT_ALIASED &&
+        args[i]->Is<ASTExpressionWithAlias>()) {
+      // The argument does not support aliases but an alias is provided,
+      // return a SQL error.
+      return MakeArgumentAliasSqlError(
+          args[i]->GetAsOrDie<ASTExpressionWithAlias>()->alias(), function,
+          result_signature, ast_function_call);
     }
+    if (argument.options().argument_alias_kind() ==
+        FunctionEnums::ARGUMENT_ALIASED) {
+      // This argument needs to have an alias, either provided by the user or
+      // generated by the resolver.
+      if (args[i]->Is<ASTExpressionWithAlias>()) {
+        alias = args[i]
+                    ->GetAsOrDie<ASTExpressionWithAlias>()
+                    ->alias()
+                    ->GetAsIdString();
+      } else {
+        // It is possible that an alias cannot be inferred, i.e. the returned
+        // alias is an empty string. Empty strings are still used argument
+        // aliases because, for example for ARRAY_ZIP, empty aliases means the
+        // result STRUCT should have anonymous fields.
+        alias = GetAliasForExpression(args[i]);
+      }
+    }
+    argument_aliases.push_back(alias);
   }
 
-  return absl::OkStatus();
+  // Store the resolved argument aliases into `input_argument_types` so that
+  // SQL function callbacks can access them.
+  ZETASQL_RET_CHECK_EQ(input_argument_types.size(), argument_aliases.size());
+  for (int i = 0; i < argument_aliases.size(); ++i) {
+    if (argument_aliases[i].has_value()) {
+      input_argument_types[i].set_argument_alias(*argument_aliases[i]);
+    }
   }
+  return absl::OkStatus();
+}
+
+// Returns the annotation maps of the input arguments of the `function_call`.
+static std::vector<const AnnotationMap*> GetArgumentAnnotations(
+    const ResolvedFunctionCallBase* function_call) {
+  std::vector<const AnnotationMap*> argument_annotations;
+  if (!function_call->argument_list().empty()) {
+    for (const std::unique_ptr<const ResolvedExpr>& argument :
+         function_call->argument_list()) {
+      argument_annotations.push_back(argument->type_annotation_map());
+    }
+  } else {
+    // The function uses `generic_argument_list` to store its arguments.
+    for (const std::unique_ptr<const ResolvedFunctionArgument>& argument :
+         function_call->generic_argument_list()) {
+      if (argument->expr() == nullptr) {
+        // Only arguments of type `expr` can have collations.
+        argument_annotations.push_back(nullptr);
+      } else {
+        argument_annotations.push_back(argument->expr()->type_annotation_map());
+      }
+    }
+  }
+  return argument_annotations;
+}
+
+absl::Status FunctionResolver::CustomPropagateAnnotations(
+    const Type* result_type, const ComputeResultAnnotationsCallback& callback,
+    ResolvedFunctionCallBase* function_call) {
+  ZETASQL_RET_CHECK_NE(result_type, nullptr);
+  ZETASQL_RET_CHECK(callback != nullptr);
+  ZETASQL_RET_CHECK_NE(function_call, nullptr);
+  ZETASQL_RET_CHECK(function_call->argument_list().empty() ||
+            function_call->generic_argument_list().empty());
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      const AnnotationMap* annotation_map,
+      callback(
+          AnnotationCallbackArgs{
+              .result_type = result_type,
+              .argument_annotations = GetArgumentAnnotations(function_call),
+          },
+          *type_factory_));
+  function_call->set_type_annotation_map(annotation_map);
+  return absl::OkStatus();
+}
 
 absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
@@ -1741,7 +1881,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       return function->GetBadArgumentErrorPrefixCallback()(*result_signature,
                                                            idx);
     }
-    const FunctionArgumentType& argument = result_signature->argument(idx);
+    const FunctionArgumentType& argument =
+        result_signature->ConcreteArgument(idx);
     if (argument.has_argument_name()) {
       // Check whether function call was using named argument or positional
       // argument, and if it was named - use the name in the error message.
@@ -1904,6 +2045,15 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       }
     }
 
+    if (concrete_argument.must_be_constant_expression()) {
+      ZETASQL_ASSIGN_OR_RETURN(bool arg_is_constant_expr,
+                       IsConstantExpression(arguments[idx].get()));
+      if (!arg_is_constant_expr) {
+        return MakeSqlErrorAt(arg_locations[idx])
+               << BadArgErrorPrefix(idx) << " must be a constant expression";
+      }
+    }
+
     // If we have a cast of a parameter, we want to check the expression inside
     // the cast.  Even if the query just has a parameter, when we unparse, we
     // may get a cast of a parameter, and that should be legal too.
@@ -1915,8 +2065,6 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     // is_not_aggregate, except that is_not_aggregate also allows
     // ResolvedArgumentRefs with kind NOT_AGGREGATE, so that we can have SQL
     // UDF bodies that wrap calls with NOT_AGGREGATE arguments.
-    // TODO We may want to generalize these to use IsConstantExpression,
-    // so we can allow any constant expression for these arguments.
     if (concrete_argument.must_be_constant() ||
         concrete_argument.options().is_not_aggregate()) {
       switch (unwrapped_argument->node_kind()) {
@@ -1967,8 +2115,9 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     }
   }
 
-  ZETASQL_RETURN_IF_ERROR(ResolveArgumentAliases(ast_location, arg_locations,
-                                         result_signature.get()));
+  ZETASQL_RETURN_IF_ERROR(ResolveArgumentAliases(ast_location, arg_locations, function,
+                                         result_signature.get(),
+                                         input_argument_types));
 
   if (function->PostResolutionConstraints() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(StatusWithInternalErrorLocation(
@@ -2132,8 +2281,21 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   }
   ZETASQL_RETURN_IF_ERROR(resolver_->MaybeResolveCollationForFunctionCallBase(
       /*error_location=*/ast_location, (*resolved_expr_out).get()));
-  ZETASQL_RETURN_IF_ERROR(resolver_->CheckAndPropagateAnnotations(
-      /*error_node=*/ast_location, (*resolved_expr_out).get()));
+
+  if (const ComputeResultAnnotationsCallback& annotation_callback =
+          result_signature->GetComputeResultAnnotationsCallback();
+      annotation_callback != nullptr) {
+    // This function signature has a custom callback to compute the result
+    // annotations.
+    ZETASQL_RETURN_IF_ERROR(CustomPropagateAnnotations(
+        result_signature->result_type().type(), annotation_callback,
+        (*resolved_expr_out).get()));
+  } else {
+    // No custom annotation callbacks for this SQL function signature, use the
+    // default annotation propagation logic.
+    ZETASQL_RETURN_IF_ERROR(resolver_->CheckAndPropagateAnnotations(
+        /*error_node=*/ast_location, (*resolved_expr_out).get()));
+  }
 
   if ((*resolved_expr_out)->function()->GetGroup() ==
           Function::kZetaSQLFunctionGroupName &&

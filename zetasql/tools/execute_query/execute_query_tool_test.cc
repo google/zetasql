@@ -373,7 +373,7 @@ static std::string TestDataDir() {
 }
 
 static void VerifyDataMatches(
-    const Table& table, const std::vector<std::vector<Value>>& expected_table) {
+    const Table& table, absl::Span<const std::vector<Value>> expected_table) {
   std::vector<int> all_columns;
   for (int i = 0; i < table.NumColumns(); ++i) {
     all_columns.push_back(i);

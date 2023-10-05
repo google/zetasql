@@ -23,6 +23,7 @@
 
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/status_macros.h"
@@ -261,7 +262,10 @@ class IntervalValue final {
   absl::StatusOr<IntervalValue> operator*(int64_t v) const;
 
   // Divide by integer operator
-  absl::StatusOr<IntervalValue> operator/(int64_t v) const;
+  ABSL_ATTRIBUTE_ALWAYS_INLINE
+  absl::StatusOr<IntervalValue> operator/(int64_t v) const {
+    return Divide(v, /*round_to_micros=*/false);
+  }
 
   // Multiply by the given integer.
   ABSL_ATTRIBUTE_ALWAYS_INLINE
@@ -270,8 +274,16 @@ class IntervalValue final {
   }
 
   // Divide by the given integer.
-  ABSL_ATTRIBUTE_ALWAYS_INLINE
-  absl::StatusOr<IntervalValue> Divide(int64_t v) const { return (*this) / v; }
+  // When <round_to_micros> is true, do a rounding towards zero on trailing
+  // nanos precision digits. When the second argument is not set, its default
+  // value is false.
+  absl::StatusOr<IntervalValue> Divide(int64_t v, bool round_to_micros) const;
+
+  // The same as above, but uses round_to_micros=false by default.
+  ABSL_DEPRECATED("Inline me!")
+  absl::StatusOr<IntervalValue> Divide(int64_t v) const {
+    return Divide(v, /*round_to_micros=*/false);
+  }
 
   // Aggregates multiple INTERVAL values and produces sum and average of all
   // values. This class handles a temporary overflow while adding values.
@@ -344,24 +356,62 @@ class IntervalValue final {
   std::string ToISO8601() const;
 
   // Parses interval from string, automatically detects datetime fields.
-  static absl::StatusOr<IntervalValue> ParseFromString(absl::string_view input);
+  // If allow_nanos=false, an error is return when nanosecond part is present.
+  static absl::StatusOr<IntervalValue> ParseFromString(absl::string_view input,
+                                                       bool allow_nanos);
+  // Same as above, but with allow_nanos=true.
+  ABSL_DEPRECATED("Inline me!")
+  static absl::StatusOr<IntervalValue> ParseFromString(
+      absl::string_view input) {
+    return ParseFromString(input, /*allow_nanos=*/true);
+  }
 
   // Parses interval from string for single datetime field.
+  // If allow_nanos=false, an error is return when nanosecond part is present.
   static absl::StatusOr<IntervalValue> ParseFromString(
-      absl::string_view input, functions::DateTimestampPart part);
+      absl::string_view input, functions::DateTimestampPart part,
+      bool allow_nanos);
+  // Same as above, but with allow_nanos=true.
+  ABSL_DEPRECATED("Inline me!")
+  static absl::StatusOr<IntervalValue> ParseFromString(
+      absl::string_view input, functions::DateTimestampPart part) {
+    return ParseFromString(input, part, /*allow_nanos=*/true);
+  }
 
   // Parses interval from string for two datetime fields.
+  // If allow_nanos=false, an error is return when nanosecond part is present.
   static absl::StatusOr<IntervalValue> ParseFromString(
       absl::string_view input, functions::DateTimestampPart from,
-      functions::DateTimestampPart to);
+      functions::DateTimestampPart to, bool allow_nanos);
+  // Same as above, but with allow_nanos=true.
+  ABSL_DEPRECATED("Inline me!")
+  static absl::StatusOr<IntervalValue> ParseFromString(
+      absl::string_view input, functions::DateTimestampPart from,
+      functions::DateTimestampPart to) {
+    return ParseFromString(input, from, to, /*allow_nanos=*/true);
+  }
 
   // Parses interval from ISO 8601 Duration.
+  // If allow_nanos=false, an error is return when nanosecond part is present.
+  static absl::StatusOr<IntervalValue> ParseFromISO8601(absl::string_view input,
+                                                        bool allow_nanos);
+  // Same as above, but with allow_nanos=true.
+  ABSL_DEPRECATED("Inline me!")
   static absl::StatusOr<IntervalValue> ParseFromISO8601(
-      absl::string_view input);
+      absl::string_view input) {
+    return ParseFromISO8601(input, /*allow_nanos=*/true);
+  }
 
   // Parses either canonical interval string representation (ParseFromString) or
   // ISO 8601 Duration representation - detects automatically the format.
-  static absl::StatusOr<IntervalValue> Parse(absl::string_view input);
+  // If allow_nanos=false, an error is return when nanosecond part is present.
+  static absl::StatusOr<IntervalValue> Parse(absl::string_view input,
+                                             bool allow_nanos);
+  // Same as above, but with allow_nanos=true.
+  ABSL_DEPRECATED("Inline me!")
+  static absl::StatusOr<IntervalValue> Parse(absl::string_view input) {
+    return Parse(input, /*allow_nanos=*/true);
+  }
 
   // Interval constructor from integer for given datetime part field.
   static absl::StatusOr<IntervalValue> FromInteger(

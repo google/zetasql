@@ -32,7 +32,6 @@
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/numeric_constants.h"
 #include "absl/base/attributes.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/base/port.h"
 #include "absl/status/statusor.h"

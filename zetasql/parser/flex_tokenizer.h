@@ -32,6 +32,7 @@
 
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/location.hh"
+#include "zetasql/parser/tokenizer.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/flags/declare.h"
@@ -44,12 +45,9 @@ namespace zetasql {
 namespace parser {
 
 // Flex-based tokenizer for the ZetaSQL Bison parser.
-class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
+class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase,
+                                     public Tokenizer {
  public:
-  // Type aliases to improve readability of API.
-  using TokenKind = int;
-  using Location = zetasql_bison_parser::location;
-
   // Constructs a simple wrapper around a flex generated tokenizer. 'mode'
   // controls the first token that is returned to the bison parser, which
   // determines the starting production used by the parser.
@@ -60,6 +58,14 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
 
   ZetaSqlFlexTokenizer(const ZetaSqlFlexTokenizer&) = delete;
   ZetaSqlFlexTokenizer& operator=(const ZetaSqlFlexTokenizer&) = delete;
+
+  std::unique_ptr<Tokenizer> GetNewInstance(
+      absl::string_view filename, absl::string_view input) const override {
+    return std::make_unique<ZetaSqlFlexTokenizer>(
+        mode_, filename, input, start_offset_, language_options_);
+  }
+
+  int GetNextToken(Location* location) override;
 
   // Returns the next token id, returning its location in 'yylloc'. On input,
   // 'yylloc' must be the location of the previous token that was returned.
@@ -74,7 +80,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // Returns a non-OK error status if the tokenizer encountered an error. This
   // error takes priority over a parser error, because the parser error is
   // always a consequence of the tokenizer error.
-  absl::Status GetOverrideError() const { return override_error_; }
+  absl::Status GetOverrideError() const override { return override_error_; }
 
   // Ensures that the next token returned will be EOF, even if we're not at the
   // end of the input.

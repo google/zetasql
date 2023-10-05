@@ -42,7 +42,6 @@
 #include "zetasql/public/functions/convert_internal.h"
 #include "zetasql/public/functions/util.h"
 #include "zetasql/public/numeric_value.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"

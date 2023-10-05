@@ -1,6 +1,6 @@
 # Collation annotation is preserved.
-# TODO: Enable sqlbuilder when its implementation for FULL
-# is ready.
+# TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
+# is supported.
 [default no_run_unparser]
 [default enabled_ast_rewrites=DEFAULTS]
 [default language_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]

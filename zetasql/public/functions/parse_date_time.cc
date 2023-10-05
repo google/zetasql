@@ -34,7 +34,6 @@
 #include "zetasql/public/functions/parse_date_time_utils.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
@@ -583,7 +582,7 @@ static absl::Status ParseISOYear(const ParseElementInfo& year_element,
 // the first week number is 0, but it is 1 when the first day of the year
 // is also the first day of the week (which depends on the format element).
 static absl::StatusOr<int64_t> FirstWeekNumberOfYear(int64_t year,
-                                                   const char element) {
+                                                     const char element) {
   const absl::CivilDay january_first(year, 1, 1);
   if (element == 'U') {
     // Sunday is the first day of the week
@@ -605,7 +604,7 @@ static absl::StatusOr<int64_t> FirstWeekNumberOfYear(int64_t year,
 // Returns the week number of December 31st of the year.  This week number
 // depends on which format element is considered (%U or %W).
 static absl::StatusOr<int64_t> LastWeekNumberOfYear(int64_t year,
-                                                  const char element) {
+                                                    const char element) {
   const absl::CivilDay january_first(year, 1, 1);
   const absl::Weekday january_first_weekday = absl::GetWeekday(january_first);
   const int32_t days_in_year =
@@ -644,11 +643,13 @@ static absl::StatusOr<int64_t> LastWeekNumberOfYear(int64_t year,
 
 // Checks whether or not the specified week number is valid for the given
 // year.  Note that validity depends on the format element (%U vs. %W).
-static absl::Status CheckWeekNumberValidityForYear(int64_t year, int week_number,
+static absl::Status CheckWeekNumberValidityForYear(int64_t year,
+                                                   int week_number,
                                                    const char element) {
   ZETASQL_ASSIGN_OR_RETURN(int64_t first_week_number,
                    FirstWeekNumberOfYear(year, element));
-  ZETASQL_ASSIGN_OR_RETURN(int64_t last_week_number, LastWeekNumberOfYear(year, element));
+  ZETASQL_ASSIGN_OR_RETURN(int64_t last_week_number,
+                   LastWeekNumberOfYear(year, element));
   if (week_number >= first_week_number && week_number <= last_week_number) {
     return absl::OkStatus();
   }
@@ -799,7 +800,8 @@ static absl::Status ComputeDateFromYearWeekAndWeekday(
 }
 
 static absl::Status ComputeYearMonthDayFromISOParts(
-    int64_t* year, int* month, int* mday, DateParseContext* date_parse_context) {
+    int64_t* year, int* month, int* mday,
+    DateParseContext* date_parse_context) {
   std::optional<ParseElementInfo> iso_year_info;
   std::optional<ParseElementInfo> iso_week_info;
   std::optional<ParseElementInfo> weekday_info;
@@ -867,7 +869,8 @@ static absl::Status ComputeYearMonthDayFromISOParts(
 }
 
 static absl::Status ComputeYearMonthDayFromNonISOParts(
-    int64_t* year, int* month, int* mday, DateParseContext* date_parse_context) {
+    int64_t* year, int* month, int* mday,
+    DateParseContext* date_parse_context) {
   // Compute the non-ISO year/month/day from the canonicalized DateParseContext.
   std::optional<ParseElementInfo> week_info;
   std::optional<ParseElementInfo> weekday_info;
@@ -946,7 +949,8 @@ static absl::Status ComputeYearMonthDayFromNonISOParts(
 // and day of week).  Updates the year, month, and/or day if these newly
 // supported elements are present and relevant.
 static absl::Status UpdateYearMonthDayIfNeeded(
-    int64_t* year, int* month, int* mday, DateParseContext* date_parse_context) {
+    int64_t* year, int* month, int* mday,
+    DateParseContext* date_parse_context) {
   // Canonicalize the DateParseContext, eliminating redundancy.  Note that
   // the returned DateParseContext will be validated via RET_CHECKs below
   // during processing.
@@ -1062,8 +1066,11 @@ static absl::Status ParseTime(absl::string_view format,
         ++data;
         ++fmt;
       } else {
-        return MakeEvalError() << "Mismatch between format character '" << *fmt
-                               << "' and string character '" << *data << "'";
+        return MakeEvalError()
+               << "Mismatch between format character '" << *fmt
+               << "' and string character '" << *data << "'"
+               << " at string index: " << data - timestamp_string.data()
+               << " with format: '" << format << "'";
       }
       continue;
     }

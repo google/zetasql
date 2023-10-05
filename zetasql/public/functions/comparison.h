@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <limits>
 
-#include <cstdint>
 
 namespace zetasql {
 namespace functions {

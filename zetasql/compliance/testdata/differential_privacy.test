@@ -1742,3 +1742,157 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
 
 NOTE: Reference implementation reports non-determinism.
 ==
+
+# If MIN_PRIVACY_UNITS_PER_GROUP=1 and delta = 1.0, then all groups should
+# appear in the output. I.e. in the same way as if MIN_PRIVACY_UNITS_PER_GROUP=1
+# were omitted. Clamping is such that no actual clamping occurrs.
+[name=differential_privacy_min_privacy_units_per_group_is_one]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP,NAMED_ARGUMENTS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, min_privacy_units_per_group=1, max_groups_contributed=NULL)
+  int64_val, SUM(double_val, contribution_bounds_per_group => (-4.0, 4.0))
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+ARRAY<STRUCT<int64_val INT64, DOUBLE>>[unknown order:
+  {1, 4.5},
+  {3, 2.5},
+  {NULL, 2.5},
+  {2, 3},
+  {4, -1.5}
+]
+==
+
+# If MIN_PRIVACY_UNITS_PER_GROUP=2 and delta = 1.0, then groups should appear
+# in the output if and only if >= 2 users contribute. For the TestTableWithUid,
+# there are 3 `int64_val` with not less than 2 contributions:
+# `1`, `NULL` and `2`.
+[name=differential_privacy_min_privacy_units_per_group_is_2]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP,NAMED_ARGUMENTS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, min_privacy_units_per_group=2, max_groups_contributed=NULL)
+  int64_val, COUNT(uid,  contribution_bounds_per_group => (0, 1))
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+
+ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:{1, 3}, {NULL, 2}, {2, 3}]
+==
+
+# If MIN_PRIVACY_UNITS_PER_GROUP=3 and delta = 1.0, then groups should appear
+# in the output if and only if >= 3 users contribute. Compared to the test above
+# the null-group is discarded, since only 2 users contribute.
+[name=differential_privacy_min_privacy_units_per_group_is_3]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP,NAMED_ARGUMENTS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, min_privacy_units_per_group=3, max_groups_contributed=NULL)
+  int64_val, COUNT(uid, contribution_bounds_per_group => (0, 1))
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+
+ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:{1, 3}, {2, 3}]
+==
+
+# This test is the same as the one above, however, now we specify the compatible
+# group selection strategy (LAPLACE_THRESHOLDING) directly.
+[name=differential_privacy_min_privacy_units_per_group_and_explicit_laplace_thresholding]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP,NAMED_ARGUMENTS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta = 1.0, min_privacy_units_per_group=3, group_selection_strategy=LAPLACE_THRESHOLD, max_groups_contributed=NULL)
+  int64_val, COUNT(uid, contribution_bounds_per_group => (0, 1))
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+
+ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:{1, 3}, {2, 3}]
+==
+
+# If MIN_PRIVACY_UNITS_PER_GROUP=4 and delta = 1.0, then groups should appear
+# in the output if and only if >= 4 users contribute. Since there are no groups
+# with more than 3 users in the dataset, the output should be empty.
+[name=differential_privacy_min_privacy_units_per_group_is_4]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP,NAMED_ARGUMENTS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, min_privacy_units_per_group=4, max_groups_contributed=NULL)
+  int64_val, COUNT(uid, contribution_bounds_per_group => (0, 1))
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+
+ARRAY<STRUCT<int64_val INT64, INT64>>[]
+==
+
+# Engines should report an error if min_privacy_units_per_group is set
+# simultaneously with the PUBLIC_GROUPS groups selection strategy.
+[name=differential_privacy_public_groups_and_min_privacy_units_per_group_set]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP,NAMED_ARGUMENTS]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta = 1.0, min_privacy_units_per_group=2, group_selection_strategy = PUBLIC_GROUPS, max_groups_contributed=NULL)
+  SUM(double_val, contribution_bounds_per_group => (0.0, 2.0))
+FROM TestTableWithUid
+--
+
+ERROR: generic::invalid_argument: The MIN_PRIVACY_UNITS_PER_GROUP option must not be specified if GROUP_SELECTION_STRATEGY=PUBLIC_GROUPS
+==
+
+# The min_privacy_units_per_group should work well together with reports of
+# type JSON.
+[name=differential_privacy_min_privacy_units_per_group_works_with_json_report]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,NAMED_ARGUMENTS,JSON_TYPE,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP]
+[forbidden_features=ANONYMIZATION_THRESHOLDING]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, min_privacy_units_per_group=3, max_groups_contributed=NULL)
+  int64_val, COUNT(*, contribution_bounds_per_group => (0, 1), report_format => "JSON")
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+ARRAY<STRUCT<int64_val INT64, JSON>>[unknown order:
+  {
+    1,
+    {"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":-5.99146454710798e-20,"upper_bound":5.99146454710798e-20},"value":3}}
+  },
+  {
+    2,
+    {"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":-5.99146454710798e-20,"upper_bound":5.99146454710798e-20},"value":3}}
+  }
+]
+==
+
+# The min_privacy_units_per_group should work well together with reports of
+# type PROTO.
+[name=differential_privacy_min_privacy_units_per_group_works_with_proto_report]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP]
+[forbidden_features=ANONYMIZATION_THRESHOLDING]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, min_privacy_units_per_group=3, max_groups_contributed=NULL)
+  int64_val, COUNT(*,  contribution_bounds_per_group => (0, 1), report_format => "PROTO")
+FROM TestTableWithUid
+GROUP BY int64_val;
+--
+ARRAY<STRUCT<
+        int64_val INT64,
+        PROTO<zetasql.functions.DifferentialPrivacyOutputWithReport>
+      >>
+[unknown order:{1,
+                {
+                  value {
+                    int_value: 3
+                    noise_confidence_interval {
+                      lower_bound: -5.99146454710798e-20
+                      upper_bound: 5.99146454710798e-20
+                      confidence_level: 0.95
+                    }
+                  }
+                }},
+               {2,
+                {
+                  value {
+                    int_value: 3
+                    noise_confidence_interval {
+                      lower_bound: -5.99146454710798e-20
+                      upper_bound: 5.99146454710798e-20
+                      confidence_level: 0.95
+                    }
+                  }
+                }}]

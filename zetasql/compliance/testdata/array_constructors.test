@@ -117,6 +117,56 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, {21, 22}, {31, 32}]}
 ]
 ==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_DATE_array_basic]
+SELECT ARRAY<RANGE<DATE>>[
+  RANGE<DATE> '[2014-01-01, 2015-01-01)',
+  RANGE<DATE> '[UNBOUNDED, UNBOUNDED)'
+];
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATE>>[known order:
+     [2014-01-01, 2015-01-01),
+     [NULL, NULL)
+   ]}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=construct_RANGE_DATETIME_array_basic]
+SELECT ARRAY<RANGE<DATETIME>>[
+  RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)',
+  RANGE<DATETIME> '[2016-01-01 12:00:00, UNBOUNDED)',
+  RANGE<DATETIME> '[UNBOUNDED, 2017-01-01 12:00:00)'
+];
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATETIME>>[known order:
+     [2016-01-01 12:00:00, 2017-01-01 12:00:00),
+     [2016-01-01 12:00:00, NULL),
+     [NULL, 2017-01-01 12:00:00)
+   ]}
+]
+==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_TIMESTAMP_array_basic]
+SELECT ARRAY<RANGE<TIMESTAMP>>[
+  RANGE<TIMESTAMP> '[2018-10-01 12:00:00+00, UNBOUNDED)',
+  RANGE<TIMESTAMP> '[UNBOUNDED, 2019-01-01 12:00:00+00)'
+];
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<TIMESTAMP>>[known order:
+     [
+       2018-10-01 12:00:00+00,
+       NULL
+     ),
+     [
+       NULL,
+       2019-01-01 12:00:00+00
+     )
+   ]}
+]
+==
 [name=construct_BOOL_array_from_params]
 [parameters=true a, false b, cast(NULL as bool) c]
 SELECT ARRAY<BOOL>[@a, @b, @c];
@@ -240,6 +290,60 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, {21, 22}, NULL]}
 ]
 ==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_DATE_array_from_params]
+[parameters=
+  RANGE(DATE "2014-01-01", DATE "2015-01-01") a,
+  RANGE(cast(NULL as DATE), cast(NULL as DATE)) b,
+  cast(NULL as RANGE<DATE>) c]
+SELECT ARRAY<RANGE<DATE>>[@a, @b, @c];
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATE>>[known order:
+     [2014-01-01, 2015-01-01),
+     [NULL, NULL),
+     NULL
+   ]}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=construct_RANGE_DATETIME_array_from_params]
+[parameters=
+  cast(NULL as RANGE<DATETIME>) a,
+  RANGE(cast(NULL as DATETIME), DATETIME "2017-01-01 12:00:00") b,
+  RANGE(DATETIME "2016-01-01 12:00:00", DATETIME "2017-01-01 12:00:00") c]
+SELECT ARRAY<RANGE<DATETIME>>[@a, @b, @c];
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATETIME>>[known order:
+     NULL,
+     [NULL, 2017-01-01 12:00:00),
+     [2016-01-01 12:00:00, 2017-01-01 12:00:00)
+   ]}
+]
+==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_TIMESTAMP_array_from_params]
+[parameters=
+  RANGE(TIMESTAMP "2018-10-01 12:00:00+00", cast(NULL as TIMESTAMP)) a,
+  cast(NULL as RANGE<TIMESTAMP>) b,
+  RANGE(TIMESTAMP "2018-10-01 12:00:00+00", cast(NULL as TIMESTAMP)) c]
+SELECT ARRAY<RANGE<TIMESTAMP>>[@a, @b, @c];
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<TIMESTAMP>>[known order:
+     [
+       2018-10-01 12:00:00+00,
+       NULL
+     ),
+     NULL,
+     [
+       2018-10-01 12:00:00+00,
+       NULL
+     )
+   ]}
+]
+==
 [name=construct_BOOL_array_from_non_literals]
 SELECT ARRAY<BOOL>[1 IS NULL, true OR false, a] FROM (SELECT true a);
 --
@@ -349,6 +453,62 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<STRUCT<INT64, INT64>>[known order:{31, 32}, {41, 42}]}
 ]
 ==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_DATE_array_from_non_literals]
+SELECT ARRAY<RANGE<DATE>>[
+  RANGE<DATE> '[2014-01-01, 2015-01-01)',
+  a
+] FROM (
+  SELECT RANGE<DATE> '[UNBOUNDED, UNBOUNDED)' a
+);
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATE>>[known order:
+     [2014-01-01, 2015-01-01),
+     [NULL, NULL)
+   ]}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=construct_RANGE_DATETIME_array_from_non_literals]
+SELECT ARRAY<RANGE<DATETIME>>[
+  RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)',
+  RANGE<DATETIME> '[2016-01-01 12:00:00, UNBOUNDED)',
+  a
+] FROM (
+  SELECT RANGE<DATETIME> '[UNBOUNDED, 2017-01-01 12:00:00)' a
+);
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATETIME>>[known order:
+     [2016-01-01 12:00:00, 2017-01-01 12:00:00),
+     [2016-01-01 12:00:00, NULL),
+     [NULL, 2017-01-01 12:00:00)
+   ]}
+]
+==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_TIMESTAMP_array_from_non_literals]
+SELECT ARRAY<RANGE<TIMESTAMP>>[
+  RANGE<TIMESTAMP> '[2018-10-01 12:00:00+00, UNBOUNDED)',
+  a
+] FROM (
+  SELECT RANGE<TIMESTAMP> '[UNBOUNDED, 2019-01-01 12:00:00+00)' a
+);
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<TIMESTAMP>>[known order:
+     [
+       2018-10-01 12:00:00+00,
+       NULL
+     ),
+     [
+       NULL,
+       2019-01-01 12:00:00+00
+     )
+   ]}
+]
+==
 [name=construct_BOOL_array_with_null]
 SELECT ARRAY<BOOL>[true, NULL, true];
 --
@@ -455,6 +615,53 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<STRUCT<INT64, INT64>>[known order:{11, 12}, NULL, {31, 32}]}
 ]
 ==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_DATE_array_with_null]
+SELECT ARRAY<RANGE<DATE>>[
+  RANGE<DATE> '[2014-01-01, 2015-01-01)',
+  NULL
+];
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATE>>[known order:
+     [2014-01-01, 2015-01-01),
+     NULL
+   ]}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=construct_RANGE_DATETIME_array_with_null]
+SELECT ARRAY<RANGE<DATETIME>>[
+  RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)',
+  NULL,
+  RANGE<DATETIME> '[UNBOUNDED, 2017-01-01 12:00:00)'
+];
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATETIME>>[known order:
+     [2016-01-01 12:00:00, 2017-01-01 12:00:00),
+     NULL,
+     [NULL, 2017-01-01 12:00:00)
+   ]}
+]
+==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_TIMESTAMP_array_with_null]
+SELECT ARRAY<RANGE<TIMESTAMP>>[
+  NULL,
+  RANGE<TIMESTAMP> '[UNBOUNDED, 2019-01-01 12:00:00+00)'
+];
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<TIMESTAMP>>[known order:
+     NULL,
+     [
+       NULL,
+       2019-01-01 12:00:00+00
+     )
+   ]}
+]
+==
 [name=select_BOOL_array_all_null]
 SELECT ARRAY<BOOL>[NULL, NULL];
 --
@@ -529,6 +736,24 @@ SELECT ARRAY<STRUCT<int64, int64>>[NULL, NULL];
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<INT64, INT64>>[known order:NULL, NULL]}]
 ==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_DATE_array_all_null]
+SELECT ARRAY<RANGE<DATE>>[NULL, NULL];
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATE>>[known order:NULL, NULL]}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=construct_RANGE_DATETIME_array_all_null]
+SELECT ARRAY<RANGE<DATETIME>>[NULL, NULL];
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATETIME>>[known order:NULL, NULL]}]
+==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_TIMESTAMP_array_all_null]
+SELECT ARRAY<RANGE<TIMESTAMP>>[NULL, NULL];
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<TIMESTAMP>>[known order:NULL, NULL]}]
+==
 [name=select_BOOL_array_empty]
 SELECT ARRAY<BOOL>[];
 --
@@ -599,6 +824,24 @@ SELECT ARRAY<STRUCT<int64, int64>>[];
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<INT64, INT64>>[]}]
 ==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_DATE_array_empty]
+SELECT ARRAY<RANGE<DATE>>[];
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATE>>[]}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=construct_RANGE_DATETIME_array_empty]
+SELECT ARRAY<RANGE<DATETIME>>[];
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATETIME>>[]}]
+==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_TIMESTAMP_array_empty]
+SELECT ARRAY<RANGE<TIMESTAMP>>[];
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<TIMESTAMP>>[]}]
+==
 [name=select_cast_null_to_BOOL_array]
 SELECT CAST(NULL AS ARRAY<BOOL>);
 --
@@ -668,6 +911,24 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL)}]
 SELECT CAST(NULL AS ARRAY<STRUCT<int64, int64>>);
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<INT64, INT64>>(NULL)}]
+==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_DATE_array_cast_from_null]
+SELECT CAST(NULL AS ARRAY<RANGE<DATE>>);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATE>>(NULL)}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=construct_RANGE_DATETIME_array_cast_from_null]
+SELECT CAST(NULL AS ARRAY<RANGE<DATETIME>>);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATETIME>>(NULL)}]
+==
+[required_features=RANGE_TYPE]
+[name=construct_RANGE_TIMESTAMP_array_cast_from_null]
+SELECT CAST(NULL AS ARRAY<RANGE<TIMESTAMP>>);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<TIMESTAMP>>(NULL)}]
 ==
 ##
 ## Queries that tests explicit unnest. This time we do not require a full

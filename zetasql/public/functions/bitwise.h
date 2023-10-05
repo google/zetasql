@@ -54,7 +54,6 @@
 
 #include "zetasql/public/functions/util.h"
 #include "absl/base/casts.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"

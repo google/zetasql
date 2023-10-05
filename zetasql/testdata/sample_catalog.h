@@ -104,6 +104,10 @@ class SampleCatalog {
 
   void LoadFunctionsWithStructArgs();
   void LoadFunctions();
+  // Similar to `LoadFunctions`, loads test functions into the sample catalog.
+  // We have to split the original `LoadFunctions` function into two otherwise
+  // the stack size limit is reached.
+  void LoadFunctions2();
   void LoadExtendedSubscriptFunctions();
   void LoadFunctionsWithDefaultArguments();
   void LoadTemplatedSQLUDFs();
@@ -149,6 +153,10 @@ class SampleCatalog {
   void LoadContrivedLambdaArgFunctions();
 
   void AddOwnedTable(SimpleTable* table);
+  void AddGeneratedColumnToTable(std::string column_name,
+                                 std::vector<std::string> expression_columns,
+                                 std::string generated_expr,
+                                 SimpleTable* table);
 
   // Add a SQLFunction to catalog_ with a SQL expression as the function body.
   void AddSqlDefinedFunction(absl::string_view name,
@@ -168,6 +176,8 @@ class SampleCatalog {
   // Helpers for LoadSqlFunctions so that its both logically broken up and
   // so that its less troublesome for dbg build stacks.
   void LoadScalarSqlFunctions(const LanguageOptions& language_options);
+  void LoadScalarSqlFunctionsFromStandardModule(
+      const LanguageOptions& language_options);
   void LoadDeepScalarSqlFunctions(const LanguageOptions& language_options);
   void LoadScalarSqlFunctionTemplates(const LanguageOptions& language_options);
   void LoadAggregateSqlFunctions(const LanguageOptions& language_options);

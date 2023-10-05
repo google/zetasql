@@ -63,11 +63,17 @@ TEST(ResolvedColumnTest, Test) {
   EXPECT_EQ(c1, c1);
   EXPECT_FALSE(c1 == c2);
   EXPECT_FALSE(c3 == c2);
+  EXPECT_TRUE(c1 != c2);
+  EXPECT_TRUE(c3 != c2);
+  EXPECT_FALSE(c1 != c1);
+  EXPECT_NE(c1, c2);
+  EXPECT_NE(c2, c3);
 
   ResolvedColumn c2_alternate(2, zetasql::IdString::MakeGlobal("XXX"),
                               zetasql::IdString::MakeGlobal("YYY"),
                               type_factory.get_double());
   EXPECT_TRUE(c2 == c2_alternate);  // Equality on column_id only.
+  EXPECT_FALSE(c2 != c2_alternate);  // Inequality is based on column_id only.
 
   EXPECT_EQ("T1.C1#1", c1.DebugString());
   EXPECT_EQ("C1#1", c1.ShortDebugString());

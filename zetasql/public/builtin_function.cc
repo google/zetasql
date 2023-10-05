@@ -196,6 +196,11 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
     ZETASQL_RETURN_IF_ERROR(
         GetArrayFindFunctions(&type_factory, options, &functions, &types));
   }
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_ARRAY_ZIP)) {
+    ZETASQL_RETURN_IF_ERROR(
+        GetArrayZipFunctions(&type_factory, options, &functions, &types));
+  }
   return absl::OkStatus();
 }
 

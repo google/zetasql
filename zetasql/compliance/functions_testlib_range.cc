@@ -53,8 +53,8 @@ bool HasDatetimeElementType(Value range) {
              TypeKind::TYPE_DATETIME;
 }
 
-void CommonInitialCheck(const std::vector<Value>& values,
-                        const Value& unbounded, const Value& null_range) {
+void CommonInitialCheck(absl::Span<const Value> values, const Value& unbounded,
+                        const Value& null_range) {
   // Verify provided values are of the same type
   // All values must be of the same type, coercion is not allowed
   ABSL_CHECK_EQ(values[0].type_kind(), unbounded.type_kind());
@@ -74,7 +74,7 @@ void CommonInitialCheck(const std::vector<Value>& values,
 }
 
 std::vector<FunctionTestCall> WrapFeatures(
-    const std::vector<FunctionTestCall>& tests) {
+    absl::Span<const FunctionTestCall> tests) {
   std::vector<FunctionTestCall> wrapped_tests;
   wrapped_tests.reserve(tests.size());
   for (auto call : tests) {
@@ -1163,7 +1163,8 @@ FunctionTestCall GenerateRangeArrayTest(
     zetasql::functions::TimestampScale scale) {
   Value range = RangeFromStr(input_range_str, range_type, scale);
 
-  IntervalValue step = *IntervalValue::ParseFromString(step_str);
+  IntervalValue step =
+      *IntervalValue::ParseFromString(step_str, /*allow_nanos=*/true);
 
   std::vector<Value> expected_result;
   for (absl::string_view range_str : expected_result_str) {
@@ -1196,7 +1197,8 @@ FunctionTestCall GenerateRangeArrayErrorTest(
     zetasql::functions::TimestampScale scale) {
   Value range = RangeFromStr(input_range_str, range_type, scale);
 
-  IntervalValue step = *IntervalValue::ParseFromString(step_str);
+  IntervalValue step =
+      *IntervalValue::ParseFromString(step_str, /*allow_nanos=*/true);
 
   FunctionTestCall call{
       "generate_range_array",

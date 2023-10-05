@@ -578,8 +578,8 @@ protocol buffer field types and the resulting ZetaSQL types.
 <table>
 <thead>
 <tr>
-<th>Protocol Buffer Field Type</th>
-<th style="white-space:nowrap">ZetaSQL Type</th>
+<th>Protocol buffer field type</th>
+<th style="white-space:nowrap">ZetaSQL type</th>
 </tr>
 </thead>
 <tbody>
@@ -650,23 +650,88 @@ A change to the default value for a `PROTO` field affects all future reads of
 that field using the new `PROTO` definition for records where the value is
 unset.
 
-For example, suppose that `proto_msg` of type `PROTO` has a non-repeated leaf
-field named `leaf_field`. A reference to `proto_msg.leaf_field` returns:
+For example, consider the following protocol buffer:
 
-+   `NULL` if `proto_msg` is `NULL`.
-+   The default value if `proto_msg` isn't `NULL` but `leaf_field` isn't set.
-+   The value of `leaf_field` if `proto_msg` isn't `NULL` and `leaf_field` is
-    set.
+```proto
+import "zetasql/public/proto/type_annotation.proto";
 
-The behavior is similar for repeated fields because protocol buffers can't
-define a default value for repeated fields. ZetaSQL represents
-repeated fields as arrays, so a reference to `proto_msg.repeated_field` returns:
+message SimpleMessage {
+  optional SubMessage message_field_x = 1;
+  optional SubMessage message_field_y = 2;
+}
 
-+   `NULL` if `proto_msg` is `NULL`.
-+   An empty `ARRAY` (as `[]`) if `proto_msg` isn't `NULL` but `repeated_field`
-    isn't set.
-+   An `ARRAY` containing each value of `repeated_field` if `proto_msg` isn't
-    `NULL` and `repeated_field` is set.
+message SubMessage {
+  optional string field_a = 1;
+  optional string field_b = 2;
+  optional string field_c = 3 [( zetasql.use_defaults ) = false];
+  repeated string field_d = 4;
+  repeated string field_e = 5;
+}
+```
+
+Assume the following field values:
+
++ `message_field_x` isn't set.
++ `message_field_y.field_a` is set to `"a"`.
++ `message_field_y.field_b` isn't set.
++ `message_field_y.field_c` isn't set.
++ `message_field_y.field_d` is set to `["d"]`.
++ `message_field_y.field_e` isn't set.
+
+For this example, the following table summarizes the values produced from
+various accessed fields:
+
+<table>
+<thead>
+<tr>
+<th style="width:30%">Accessed field</th>
+<th style="width:30%">Value produced</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>message_field_x</code></td>
+<td><code>NULL</code></td>
+<td>Message isn't set.</td>
+</tr>
+<tr>
+<td><code>message_field_x.field_a</code> through <code>message_field_x.field_e</code></td>
+<td><code>NULL</code></td>
+<td>Parent message isn't set.</td>
+</tr>
+<tr>
+<td><code>message_field_y</code></td>
+<td><code>PROTO&lt;SubMessage&gt;{ field_a: "a" field_d: ["d"]}</code></td>
+<td>Parent message and child fields are set.</td>
+</tr>
+<tr>
+<td><code>message_field_y.field_a</code></td>
+<td><code>"a"</code></td>
+<td>Field is set.</td>
+</tr>
+<tr>
+<td><code>message_field_y.field_b</code></td>
+<td><code>" "</code> (empty string)</td>
+<td>Field isn't set but parent message is set, so default value (empty string) is produced.</td>
+</tr>
+<tr>
+<td><code>message_field_y.field_c</code></td>
+<td><code>NULL</code></td>
+<td>Field isn't set and annotation indicates to not use defaults.</td>
+</tr>
+<tr>
+<td><code>message_field_y.field_d</code></td>
+<td><code>["d"]</code></td>
+<td>Field is set.</td>
+</tr>
+<tr>
+<td><code>message_field_y.field_e</code></td>
+<td><code>[ ]</code> (empty array)</td>
+<td>Repeated field isn't set.</td>
+</tr>
+</tbody>
+</table>
 
 ###  `zetasql.use_defaults`
 

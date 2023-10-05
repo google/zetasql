@@ -1,4 +1,5 @@
 # max_rows_contributed added to differential privacy options
+[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(max_rows_contributed = 5)

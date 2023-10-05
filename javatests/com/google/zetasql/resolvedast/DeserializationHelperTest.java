@@ -199,6 +199,18 @@ public class DeserializationHelperTest {
     arguments.add(
         new FunctionArgumentType(
             SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_3, ArgumentCardinality.OPTIONAL, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_4, ArgumentCardinality.OPTIONAL, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_4, ArgumentCardinality.OPTIONAL, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_5, ArgumentCardinality.OPTIONAL, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_5, ArgumentCardinality.OPTIONAL, -1));
     FunctionSignature signature =
         new FunctionSignature(
             new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_2), arguments, -1, options);

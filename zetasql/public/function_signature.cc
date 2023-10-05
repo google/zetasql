@@ -16,7 +16,6 @@
 
 #include "zetasql/public/function_signature.h"
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -69,9 +68,13 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_TYPE_ANY_1:
     case ARG_TYPE_ANY_2:
     case ARG_TYPE_ANY_3:
+    case ARG_TYPE_ANY_4:
+    case ARG_TYPE_ANY_5:
     case ARG_ARRAY_TYPE_ANY_1:
     case ARG_ARRAY_TYPE_ANY_2:
     case ARG_ARRAY_TYPE_ANY_3:
+    case ARG_ARRAY_TYPE_ANY_4:
+    case ARG_ARRAY_TYPE_ANY_5:
     case ARG_PROTO_MAP_ANY:
     case ARG_PROTO_MAP_KEY_ANY:
     case ARG_PROTO_MAP_VALUE_ANY:
@@ -103,12 +106,12 @@ FunctionArgumentTypeOptions::FunctionArgumentTypeOptions(
       extra_relation_input_columns_allowed_(
           extra_relation_input_columns_allowed) {}
 
-absl::StatusOr<bool>
+absl::StatusOr<std::string>
 FunctionSignatureOptions::CheckFunctionSignatureConstraints(
     const FunctionSignature& concrete_signature,
     const std::vector<InputArgumentType>& arguments) const {
   if (constraints_ == nullptr) {
-    return true;
+    return "";
   }
   ZETASQL_RET_CHECK(concrete_signature.IsConcrete())
       << "FunctionSignatureArgumentConstraintsCallback must be called with a "
@@ -196,6 +199,8 @@ absl::Status FunctionArgumentTypeOptions::Deserialize(
     const Type* arg_type, FunctionArgumentTypeOptions* options) {
   options->set_cardinality(options_proto.cardinality());
   options->set_must_be_constant(options_proto.must_be_constant());
+  options->set_must_be_constant_expression(
+      options_proto.must_be_constant_expression());
   options->set_must_be_non_null(options_proto.must_be_non_null());
   options->set_is_not_aggregate(options_proto.is_not_aggregate());
   options->set_must_support_equality(options_proto.must_support_equality());
@@ -349,6 +354,10 @@ absl::Status FunctionArgumentTypeOptions::Serialize(
   if (must_be_constant()) {
     options_proto->set_must_be_constant(must_be_constant());
   }
+  if (must_be_constant_expression()) {
+    options_proto->set_must_be_constant_expression(
+        must_be_constant_expression());
+  }
   if (must_be_non_null()) {
     options_proto->set_must_be_non_null(must_be_non_null());
   }
@@ -488,6 +497,9 @@ std::string FunctionArgumentTypeOptions::OptionsDebugString() const {
   // In java, we just print the proto itself.
   std::vector<std::string> options;
   if (must_be_constant_) options.push_back("must_be_constant: true");
+  if (must_be_constant_expression_) {
+    options.push_back("must_be_constant_expression: true");
+  }
   if (must_be_non_null_) options.push_back("must_be_non_null: true");
   if (default_.has_value()) {
     options.push_back(
@@ -518,6 +530,9 @@ std::string FunctionArgumentTypeOptions::GetSQLDeclaration(
   // Some of these don't currently have any SQL syntax.
   // We emit a comment for those cases.
   if (must_be_constant_) options.push_back("/*must_be_constant*/");
+  if (must_be_constant_expression_) {
+    options.push_back("/*must_be_constant_expression*/");
+  }
   if (must_be_non_null_) options.push_back("/*must_be_non_null*/");
   if (default_.has_value()) {
     options.push_back("DEFAULT");
@@ -542,12 +557,20 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<T2>";
     case ARG_TYPE_ANY_3:
       return "<T3>";
+    case ARG_TYPE_ANY_4:
+      return "<T4>";
+    case ARG_TYPE_ANY_5:
+      return "<T5>";
     case ARG_ARRAY_TYPE_ANY_1:
       return "<array<T1>>";
     case ARG_ARRAY_TYPE_ANY_2:
       return "<array<T2>>";
     case ARG_ARRAY_TYPE_ANY_3:
       return "<array<T3>>";
+    case ARG_ARRAY_TYPE_ANY_4:
+      return "<array<T4>>";
+    case ARG_ARRAY_TYPE_ANY_5:
+      return "<array<T5>>";
     case ARG_PROTO_MAP_ANY:
       return "<map<K, V>>";
     case ARG_PROTO_MAP_KEY_ANY:
@@ -693,8 +716,10 @@ bool FunctionArgumentType::IsTemplated() const {
 bool FunctionArgumentType::IsScalar() const {
   return kind_ == ARG_TYPE_FIXED || kind_ == ARG_TYPE_ANY_1 ||
          kind_ == ARG_TYPE_ANY_2 || kind_ == ARG_TYPE_ANY_3 ||
+         kind_ == ARG_TYPE_ANY_4 || kind_ == ARG_TYPE_ANY_5 ||
          kind_ == ARG_ARRAY_TYPE_ANY_1 || kind_ == ARG_ARRAY_TYPE_ANY_2 ||
-         kind_ == ARG_ARRAY_TYPE_ANY_3 || kind_ == ARG_PROTO_MAP_ANY ||
+         kind_ == ARG_ARRAY_TYPE_ANY_3 || kind_ == ARG_ARRAY_TYPE_ANY_4 ||
+         kind_ == ARG_ARRAY_TYPE_ANY_5 || kind_ == ARG_PROTO_MAP_ANY ||
          kind_ == ARG_PROTO_MAP_KEY_ANY || kind_ == ARG_PROTO_MAP_VALUE_ANY ||
          kind_ == ARG_PROTO_ANY || kind_ == ARG_STRUCT_ANY ||
          kind_ == ARG_ENUM_ANY || kind_ == ARG_TYPE_ARBITRARY ||
@@ -706,7 +731,8 @@ bool FunctionArgumentType::IsScalar() const {
 // matching works as intended.
 static bool IsLambdaAllowedArgKind(const SignatureArgumentKind kind) {
   return kind == ARG_TYPE_FIXED || kind == ARG_TYPE_ANY_1 ||
-         kind == ARG_TYPE_ANY_2 || kind == ARG_TYPE_ANY_3;
+         kind == ARG_TYPE_ANY_2 || kind == ARG_TYPE_ANY_3 ||
+         kind == ARG_TYPE_ANY_4 || kind == ARG_TYPE_ANY_5;
 }
 
 absl::Status FunctionArgumentType::CheckLambdaArgType(
@@ -842,6 +868,10 @@ std::string FunctionArgumentType::UserFacingName(
         return print_template_details ? "ARRAY<T2>" : "ARRAY";
       case ARG_ARRAY_TYPE_ANY_3:
         return print_template_details ? "ARRAY<T3>" : "ARRAY";
+      case ARG_ARRAY_TYPE_ANY_4:
+        return print_template_details ? "ARRAY<T4>" : "ARRAY";
+      case ARG_ARRAY_TYPE_ANY_5:
+        return print_template_details ? "ARRAY<T5>" : "ARRAY";
       case ARG_PROTO_ANY:
         return "PROTO";
       case ARG_STRUCT_ANY:
@@ -860,6 +890,10 @@ std::string FunctionArgumentType::UserFacingName(
         return print_template_details ? "T2" : "ANY";
       case ARG_TYPE_ANY_3:
         return print_template_details ? "T3" : "ANY";
+      case ARG_TYPE_ANY_4:
+        return print_template_details ? "T4" : "ANY";
+      case ARG_TYPE_ANY_5:
+        return print_template_details ? "T5" : "ANY";
       case ARG_TYPE_ARBITRARY:
         return "ANY";
       case ARG_TYPE_RELATION:
@@ -1173,7 +1207,7 @@ bool FunctionSignature::ComputeIsConcrete() const {
   }
 }
 
-absl::StatusOr<bool> FunctionSignature::CheckArgumentConstraints(
+absl::StatusOr<std::string> FunctionSignature::CheckArgumentConstraints(
     const std::vector<InputArgumentType>& arguments) const {
   return options_.CheckFunctionSignatureConstraints(*this, arguments);
 }
@@ -1210,6 +1244,11 @@ std::string FunctionSignature::SignaturesToString(
                     signature.DebugString(/*function_name=*/"", verbose));
   }
   return out;
+}
+
+const ComputeResultAnnotationsCallback&
+FunctionSignature::GetComputeResultAnnotationsCallback() const {
+  return options_.compute_result_annotations_callback();
 }
 
 namespace {
@@ -1311,9 +1350,13 @@ bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
   if ((kind_ == ARG_ARRAY_TYPE_ANY_1 && kind == ARG_TYPE_ANY_1) ||
       (kind_ == ARG_ARRAY_TYPE_ANY_2 && kind == ARG_TYPE_ANY_2) ||
       (kind_ == ARG_ARRAY_TYPE_ANY_3 && kind == ARG_TYPE_ANY_3) ||
+      (kind_ == ARG_ARRAY_TYPE_ANY_4 && kind == ARG_TYPE_ANY_4) ||
+      (kind_ == ARG_ARRAY_TYPE_ANY_5 && kind == ARG_TYPE_ANY_5) ||
       (kind == ARG_ARRAY_TYPE_ANY_1 && kind_ == ARG_TYPE_ANY_1) ||
       (kind == ARG_ARRAY_TYPE_ANY_2 && kind_ == ARG_TYPE_ANY_2) ||
       (kind == ARG_ARRAY_TYPE_ANY_3 && kind_ == ARG_TYPE_ANY_3) ||
+      (kind == ARG_ARRAY_TYPE_ANY_4 && kind_ == ARG_TYPE_ANY_4) ||
+      (kind == ARG_ARRAY_TYPE_ANY_5 && kind_ == ARG_TYPE_ANY_5) ||
       (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_KEY_ANY) ||
       (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_KEY_ANY) ||
       (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_VALUE_ANY) ||

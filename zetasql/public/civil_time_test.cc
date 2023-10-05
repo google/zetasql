@@ -23,7 +23,6 @@
 
 #include "zetasql/base/logging.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/time/civil_time.h"
 
 using zetasql::TimeValue;

@@ -28,6 +28,7 @@
 #include "google/protobuf/descriptor_database.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/anon_function.h"
 #include "zetasql/public/catalog.h"
@@ -334,6 +335,180 @@ static absl::StatusOr<const Type*> ComputeResultTypeCallbackToStruct(
   return struct_type;
 }
 
+// Similar to `ComputeResultTypeCallbackToStruct`, but use the argument aliases
+// in `arguments`, if specified, as the struct field names.
+static absl::StatusOr<const Type*>
+ComputeResultTypeCallbackToStructUseArgumentAliases(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options) {
+  const StructType* struct_type;
+  std::vector<StructType::StructField> struct_fields;
+  struct_fields.reserve(arguments.size());
+  for (int i = 0; i < arguments.size(); ++i) {
+    std::string field_name;
+    if (arguments[i].argument_alias().has_value()) {
+      field_name = arguments[i].argument_alias()->ToString();
+    } else {
+      field_name = absl::StrCat("no_alias_", i);
+    }
+    struct_fields.push_back({field_name, arguments[i].type()});
+  }
+  ZETASQL_CHECK_OK(type_factory->MakeStructType(struct_fields, &struct_type));
+  return struct_type;
+}
+
+// f(collation_1, ..., collation_n) -> STRUCT<collation_1, ..., collation_n>.
+// If the return value is nullptr it means no collations.
+static absl::StatusOr<const AnnotationMap*>
+ComputeResultAnnotationsCallbackToStruct(const AnnotationCallbackArgs& args,
+                                         TypeFactory& type_factory) {
+  const Type* result_type = args.result_type;
+  const std::vector<const AnnotationMap*>& arguments =
+      args.argument_annotations;
+  // Can only handle struct type, where each argument becomes a field of the
+  // struct.
+  ZETASQL_RET_CHECK(result_type->IsStruct());
+  ZETASQL_RET_CHECK_EQ(result_type->AsStruct()->num_fields(), arguments.size());
+
+  std::unique_ptr<AnnotationMap> annotation_map =
+      AnnotationMap::Create(result_type);
+  ZETASQL_RET_CHECK(annotation_map->IsStructMap());
+  StructAnnotationMap* struct_annotation_map = annotation_map->AsStructMap();
+  ZETASQL_RET_CHECK_EQ(struct_annotation_map->num_fields(), arguments.size());
+
+  // We only check collation because currently the only supported annotation for
+  // functions is collation.
+  const int collation_annotation_id = CollationAnnotation::GetId();
+
+  // The annotation of each input argument is added to the corresponding
+  // struct field.
+  for (int i = 0; i < arguments.size(); ++i) {
+    if (arguments[i] == nullptr ||
+        arguments[i]->GetAnnotation(collation_annotation_id) == nullptr) {
+      continue;
+    }
+    struct_annotation_map->mutable_field(i)->SetAnnotation(
+        collation_annotation_id,
+        *arguments[i]->GetAnnotation(collation_annotation_id));
+  }
+  if (annotation_map->Empty()) {
+    // Use nullptr rather than an empty annotation map when there are no
+    // annotations.
+    return nullptr;
+  }
+  return type_factory.TakeOwnership(std::move(annotation_map));
+}
+
+// f(ARRAY<collation_1>, ..., ARRAY<collation_n>) -> ARRAY<STRUCT<collation_1,
+// ..., collation_n>>.
+// If the return value is nullptr it means no collations.
+static absl::StatusOr<const AnnotationMap*>
+ComputeResultAnnotationsCallbackArraysToArrayOfStruct(
+    const AnnotationCallbackArgs& args, TypeFactory& type_factory) {
+  const Type* result_type = args.result_type;
+  const std::vector<const AnnotationMap*>& arguments =
+      args.argument_annotations;
+
+  // The return type must be ARRAY<STRUCT>.
+  ZETASQL_RET_CHECK(result_type->IsArray());
+  ZETASQL_RET_CHECK(result_type->AsArray()->element_type()->IsStruct());
+  ZETASQL_RET_CHECK_EQ(result_type->AsArray()->element_type()->AsStruct()->num_fields(),
+               arguments.size());
+
+  // We only check collation because currently the only supported annotation for
+  // functions is collation.
+  const int collation_annotation_id = CollationAnnotation::GetId();
+
+  // Validations on the annotations of the input arguments.
+  for (const AnnotationMap* argument : arguments) {
+    if (argument == nullptr) {
+      continue;
+    }
+    ZETASQL_RET_CHECK(argument->IsArrayMap());
+    // Only the array elements may have collations, not the array themselves.
+    ZETASQL_RET_CHECK_EQ(argument->AsArrayMap()->GetAnnotation(collation_annotation_id),
+                 nullptr);
+  }
+
+  std::unique_ptr<AnnotationMap> annotation_map =
+      AnnotationMap::Create(result_type);
+  ZETASQL_RET_CHECK(annotation_map->IsArrayMap());
+  ZETASQL_RET_CHECK(annotation_map->AsArrayMap()->element()->IsStructMap());
+
+  ArrayAnnotationMap* array_annotation_map = annotation_map->AsArrayMap();
+  StructAnnotationMap* element_struct_annotation_map =
+      array_annotation_map->mutable_element()->AsStructMap();
+  ZETASQL_RET_CHECK_EQ(element_struct_annotation_map->num_fields(), arguments.size());
+
+  // Propagate the array element collations to the elements of the result array.
+  for (int i = 0; i < arguments.size(); ++i) {
+    if (arguments[i] == nullptr) {
+      continue;
+    }
+    const AnnotationMap* argument_element_annotation_map =
+        arguments[i]->AsArrayMap()->element();
+    if (argument_element_annotation_map == nullptr ||
+        argument_element_annotation_map->GetAnnotation(
+            collation_annotation_id) == nullptr) {
+      continue;
+    }
+    element_struct_annotation_map->mutable_field(i)->SetAnnotation(
+        collation_annotation_id,
+        *argument_element_annotation_map->GetAnnotation(
+            collation_annotation_id));
+  }
+  if (annotation_map->Empty()) {
+    // Use nullptr rather than an empty annotation map when there are no
+    // annotations.
+    return nullptr;
+  }
+  return type_factory.TakeOwnership(std::move(annotation_map));
+}
+
+// f(annotation_1, ..., annotation_n) -> annotation_n.
+static absl::StatusOr<const AnnotationMap*>
+ComputeResultAnnotationsCallbackUseTheFinalAnnotation(
+    const AnnotationCallbackArgs& args, TypeFactory& type_factory) {
+  const Type* result_type = args.result_type;
+  ZETASQL_RET_CHECK_EQ(result_type, type_factory.get_string());
+  const std::vector<const AnnotationMap*>& arguments =
+      args.argument_annotations;
+  std::unique_ptr<AnnotationMap> annotation_map =
+      AnnotationMap::Create(result_type);
+  // We only check collation because currently the only supported annotation for
+  // functions is collation.
+  const int collation_annotation_id = CollationAnnotation::GetId();
+  for (int i = 0; i < arguments.size(); ++i) {
+    if (arguments[i] == nullptr) {
+      annotation_map->UnsetAnnotation(collation_annotation_id);
+    } else {
+      annotation_map->SetAnnotation(
+          collation_annotation_id,
+          *arguments[i]->GetAnnotation(collation_annotation_id));
+    }
+  }
+  if (annotation_map->Empty()) {
+    return nullptr;
+  }
+  return type_factory.TakeOwnership(std::move(annotation_map));
+}
+
+// f(collation_1, ..., collation_n) -> SQL error.
+// This is to verify that the thrown error is used as why a function call is
+// invalid.
+static absl::StatusOr<const AnnotationMap*>
+ComputeResultAnnotationsCallbackSqlError(const AnnotationCallbackArgs& args,
+                                         TypeFactory& type_factory) {
+  for (const AnnotationMap* argument : args.argument_annotations) {
+    if (argument != nullptr && !argument->Empty()) {
+      return MakeSqlError() << "Arguments should not have annotations";
+    }
+  }
+  return nullptr;
+}
+
 void SampleCatalog::LoadCatalog(const LanguageOptions& language_options) {
   // We split these up because these methods (particularly loading builtins)
   // use too much stack and may cause overflows.
@@ -352,7 +527,7 @@ void SampleCatalog::LoadCatalogBuiltins(
     const ZetaSQLBuiltinFunctionOptions& builtin_function_options) {
   // Populate the sample catalog with the ZetaSQL functions using the
   // specified ZetaSQLBuiltinFunctionOptions.
-  ZETASQL_CHECK_OK(catalog_->AddZetaSQLFunctionsAndTypes(builtin_function_options));
+  ZETASQL_CHECK_OK(catalog_->AddBuiltinFunctionsAndTypes(builtin_function_options));
 }
 
 void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
@@ -415,6 +590,7 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadViews(language_options);
   LoadNestedCatalogs();
   LoadFunctions();
+  LoadFunctions2();
   LoadExtendedSubscriptFunctions();
   LoadFunctionsWithDefaultArguments();
   LoadFunctionsWithStructArgs();
@@ -587,6 +763,28 @@ class SimpleTableWithReadTimeIgnored : public SimpleTable {
 
 }  // namespace
 
+void SampleCatalog::AddGeneratedColumnToTable(
+    std::string column_name, std::vector<std::string> expression_columns,
+    std::string generated_expr, SimpleTable* table) {
+  AnalyzerOptions options;
+  options.mutable_language()->SetSupportsAllStatementKinds();
+  std::unique_ptr<const AnalyzerOutput> output;
+  for (const std::string& expression_column : expression_columns) {
+    ZETASQL_ASSERT_OK(
+        options.AddExpressionColumn(expression_column, types::Int64Type()));
+  }
+  ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr, options, catalog_.get(),
+                              catalog_->type_factory(), &output));
+  SimpleColumn::ExpressionAttributes expr_attributes(
+      SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
+      generated_expr, output->resolved_expr());
+  ZETASQL_ASSERT_OK(table->AddColumn(
+      new SimpleColumn(table->Name(), column_name, types::Int64Type(),
+                       {.column_expression = expr_attributes}),
+      /*is_owned=*/true));
+  sql_object_artifacts_.push_back(std::move(output));
+}
+
 void SampleCatalog::LoadTables() {
   SimpleTable* value_table = new SimpleTable(
       "Value", {{"Value", types_->get_int64()},
@@ -690,6 +888,23 @@ void SampleCatalog::LoadTables() {
 
   sql_object_artifacts_.emplace_back(std::move(output));
   AddOwnedTable(table_with_default_column);
+
+  SimpleTable* table_with_generated_column = new SimpleTable(
+      "TableWithGeneratedColumn", std::vector<SimpleTable::NameAndType>{});
+  // Adding column A AS (B+C) to table.
+  AddGeneratedColumnToTable("A", {"B", "C"}, "B+C",
+                            table_with_generated_column);
+  // Adding column B AS (C+1) to table.
+  AddGeneratedColumnToTable("B", {"C"}, "C+1", table_with_generated_column);
+  // Adding column C int64_t to table.
+  ZETASQL_ASSERT_OK(table_with_generated_column->AddColumn(
+      new SimpleColumn(table_with_generated_column->Name(), "C",
+                       types::Int64Type()),
+      /*is_owned=*/true));
+  // Adding column D AS (A+B+C) to table.
+  AddGeneratedColumnToTable("D", {"A", "B", "C"}, "A+B+C",
+                            table_with_generated_column);
+  AddOwnedTable(table_with_generated_column);
 
   // Create two tables with the following schema.
   // GeoStructTable1: geo STRUCT<a GEOGRAPHY>
@@ -2219,7 +2434,9 @@ void SampleCatalog::LoadFunctions() {
                      /*context_id=*/-1,
                      FunctionSignatureOptions().set_rejects_collation(true)}});
   catalog_->AddOwnedFunction(function);
+}
 
+void SampleCatalog::LoadFunctions2() {
   // Add the following test analytic functions. All functions have the same
   // list of function signatures:
   //     arguments: (), (ARG_TYPE_ANY_1) and (<int64_t>, <string>))
@@ -2247,9 +2464,8 @@ void SampleCatalog::LoadFunctions() {
                                  "weight", kPositionalOrNamed))},
        -1 /* context */});
 
-  function = new Function(
-      "afn_order", "sample_functions", Function::ANALYTIC,
-      function_signatures,
+  Function* function = new Function(
+      "afn_order", "sample_functions", Function::ANALYTIC, function_signatures,
       FunctionOptions(FunctionOptions::ORDER_REQUIRED,
                       /*window_framing_support_in=*/false));
   catalog_->AddOwnedFunction(function);
@@ -2556,18 +2772,24 @@ void SampleCatalog::LoadFunctions() {
   // arguments.
   auto sanity_check_nonnull_arg_constraints =
       [](const FunctionSignature& signature,
-         const std::vector<InputArgumentType>& arguments) {
-        ABSL_CHECK(signature.IsConcrete());
-        ABSL_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
-        for (int i = 0; i < arguments.size(); ++i) {
-          ABSL_CHECK(
-              arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
-          if (arguments[i].is_null()) {
-            return false;
-          }
+         const std::vector<InputArgumentType>& arguments) -> std::string {
+    ABSL_CHECK(signature.IsConcrete());
+    ABSL_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+    for (int i = 0; i < arguments.size(); ++i) {
+      ABSL_CHECK(arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
+      if (arguments[i].is_null()) {
+        if (signature.ConcreteArgument(i).has_argument_name()) {
+          return absl::StrCat("Argument `",
+                              signature.ConcreteArgument(i).argument_name(),
+                              "`: NULL argument is not allowed");
+        } else {
+          return absl::StrCat("Argument ", i + 1,
+                              ": NULL argument is not allowed");
         }
-        return true;
-      };
+      }
+    }
+    return "";
+  };
 
   // A PostResolutionArgumentConstraintsCallback that restricts all the provided
   // INT64 arguments to be nonnegative if they are literals.
@@ -2690,6 +2912,17 @@ void SampleCatalog::LoadFunctions() {
        /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
+  // Add function with constant expression argument.
+  function = new Function("fn_with_constant_expr_arg", "sample_functions",
+                          Function::SCALAR);
+  const auto string_const_expression_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_cardinality(FunctionArgumentType::REQUIRED)
+                                .set_must_be_constant_expression());
+  function->AddSignature(
+      {types_->get_bool(), {string_const_expression_arg}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
   {
     auto function = std::make_unique<Function>("fn_with_named_rounding_mode",
                                                "sample_functions", mode);
@@ -2769,6 +3002,114 @@ void SampleCatalog::LoadFunctions() {
     catalog_->AddOwnedFunction(std::move(function));
   }
 
+  // Arguments and return type are both ARG_TYPE_ANY_4.
+  {
+    auto function = std::make_unique<Function>("fn_with_arg_type_any_4",
+                                               "sample_functions", mode);
+    const FunctionArgumentType positional(ARG_TYPE_ANY_4);
+    function->AddSignature({ARG_TYPE_ANY_4,
+                            {positional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // ARG_TYPE_ANY_4 arguments + ARRAY_ARG_TYPE_ANY_4 result.
+  {
+    auto function = std::make_unique<Function>("fn_arg_type_any_4_array_result",
+                                               "sample_functions", mode);
+    const FunctionArgumentType optional(
+        ARG_TYPE_ANY_4, FunctionArgumentTypeOptions()
+                            .set_cardinality(FunctionArgumentType::OPTIONAL)
+                            .set_argument_name("o1", kPositionalOrNamed));
+    function->AddSignature({ARG_ARRAY_TYPE_ANY_4,
+                            {optional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // ARG_ARRAY_TYPE_ANY_4 arguments + ARG_TYPE_ANY_4 result.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_arg_type_array_any_4_result_type_any_4", "sample_functions", mode);
+    const FunctionArgumentType named_optional(
+        ARG_ARRAY_TYPE_ANY_4,
+        FunctionArgumentTypeOptions()
+            .set_cardinality(FunctionArgumentType::OPTIONAL)
+            .set_argument_name("o1", kNamedOnly));
+    function->AddSignature({ARG_TYPE_ANY_4,
+                            {named_optional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // ARG_ARRAY_TYPE_ANY_4 arguments + ARG_ARRAY_TYPE_ANY_4 result.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_repeated_array_any_4_return_type_array_any_4", "sample_functions",
+        mode);
+    const FunctionArgumentType repeated(
+        ARG_ARRAY_TYPE_ANY_4, FunctionArgumentTypeOptions().set_cardinality(
+                                  FunctionArgumentType::REPEATED));
+    function->AddSignature({ARG_ARRAY_TYPE_ANY_4,
+                            {repeated},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // Arguments and return type are both ARG_TYPE_ANY_5.
+  {
+    auto function = std::make_unique<Function>("fn_with_arg_type_any_5",
+                                               "sample_functions", mode);
+    const FunctionArgumentType positional(ARG_TYPE_ANY_5);
+    function->AddSignature({ARG_TYPE_ANY_5,
+                            {positional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // ARG_TYPE_ANY_5 arguments + ARRAY_ARG_TYPE_ANY_5 result.
+  {
+    auto function = std::make_unique<Function>("fn_arg_type_any_5_array_result",
+                                               "sample_functions", mode);
+    const FunctionArgumentType optional(
+        ARG_TYPE_ANY_5, FunctionArgumentTypeOptions()
+                            .set_cardinality(FunctionArgumentType::OPTIONAL)
+                            .set_argument_name("o1", kPositionalOrNamed));
+    function->AddSignature({ARG_ARRAY_TYPE_ANY_5,
+                            {optional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // ARG_ARRAY_TYPE_ANY_5 arguments + ARG_TYPE_ANY_5 result.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_arg_type_array_any_5_result_type_any_5", "sample_functions", mode);
+    const FunctionArgumentType named_optional(
+        ARG_ARRAY_TYPE_ANY_5,
+        FunctionArgumentTypeOptions()
+            .set_cardinality(FunctionArgumentType::OPTIONAL)
+            .set_argument_name("o1", kNamedOnly));
+    function->AddSignature({ARG_TYPE_ANY_5,
+                            {named_optional},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
+  // ARG_ARRAY_TYPE_ANY_5 arguments + ARG_ARRAY_TYPE_ANY_5 result.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_repeated_array_any_5_return_type_array_any_5", "sample_functions",
+        mode);
+    const FunctionArgumentType repeated(
+        ARG_ARRAY_TYPE_ANY_5, FunctionArgumentTypeOptions().set_cardinality(
+                                  FunctionArgumentType::REPEATED));
+    function->AddSignature({ARG_ARRAY_TYPE_ANY_5,
+                            {repeated},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+
   // Regular non-aggregate function with argument alias support.
   {
     auto function = std::make_unique<Function>("fn_for_argument_alias",
@@ -2813,10 +3154,9 @@ void SampleCatalog::LoadFunctions() {
     FunctionArgumentType non_aliased(ARG_TYPE_ANY_2);
     std::vector<FunctionSignature> function_signatures = {
         {types_->get_int64(), {aliased, non_aliased}, /*context_id=*/-1}};
-    function =
+    catalog_->AddOwnedFunction(
         new Function("aggregate_fn_for_argument_alias", "sample_functions",
-                     Function::AGGREGATE, function_signatures);
-    catalog_->AddOwnedFunction(function);
+                     Function::AGGREGATE, function_signatures));
   }
   // Analytic functions with argument alias support.
   {
@@ -2831,6 +3171,244 @@ void SampleCatalog::LoadFunctions() {
                      Function::ANALYTIC, function_signatures,
                      FunctionOptions(FunctionOptions::ORDER_REQUIRED,
                                      /*window_framing_support_in=*/false)));
+  }
+
+  // Function with argument aliases and ComputeReturnTypeCallback.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_to_struct_with_optional_aliases", "sample_functions", mode,
+        FunctionOptions().set_compute_result_type_callback(
+            &ComputeResultTypeCallbackToStructUseArgumentAliases));
+    // Signature where no argument aliases are allowed.
+    {
+      const FunctionArgumentType arg_1(types_->get_bool());
+      const FunctionArgumentType arg_2(types_->get_bool());
+      function->AddSignature({ARG_TYPE_ARBITRARY,
+                              {arg_1, arg_2},
+                              /*context_id=*/-1});
+    }
+    // Signature where one of the arguments can have an alias.
+    {
+      const FunctionArgumentType arg_1(
+          types_->get_int64(),
+          FunctionArgumentTypeOptions().set_argument_alias_kind(
+              FunctionEnums::ARGUMENT_ALIASED));
+      const FunctionArgumentType arg_2(types_->get_int64());
+      function->AddSignature({ARG_TYPE_ARBITRARY,
+                              {arg_1, arg_2},
+                              /*context_id=*/-1});
+    }
+    // Signature where both the arguments can have aliases.
+    {
+      const FunctionArgumentType arg_1(
+          types_->get_string(),
+          FunctionArgumentTypeOptions().set_argument_alias_kind(
+              FunctionEnums::ARGUMENT_ALIASED));
+      const FunctionArgumentType arg_2(
+          types_->get_string(),
+          FunctionArgumentTypeOptions().set_argument_alias_kind(
+              FunctionEnums::ARGUMENT_ALIASED));
+      function->AddSignature({ARG_TYPE_ARBITRARY,
+                              {arg_1, arg_2},
+                              /*context_id=*/-1});
+    }
+    // Signature with optional arguments.
+    {
+      const FunctionArgumentType optional_supports_alias(
+          types_->get_string(),
+          FunctionArgumentTypeOptions()
+              .set_argument_alias_kind(FunctionEnums::ARGUMENT_ALIASED)
+              .set_cardinality(FunctionArgumentType::OPTIONAL)
+              .set_default(values::String("default_string")));
+      const FunctionArgumentType optional_not_supports_alias(
+          types_->get_int64(),
+          FunctionArgumentTypeOptions()
+              .set_cardinality(FunctionArgumentType::OPTIONAL)
+              .set_default(values::Int64(100)));
+      function->AddSignature(
+          {ARG_TYPE_ARBITRARY,
+           {optional_supports_alias, optional_not_supports_alias},
+           /*context_id=*/-1});
+    }
+    // Signature with repeated arguments.
+    {
+      // Use one required positional arguments to avoid ambiguity.
+      const FunctionArgumentType positional(types_->get_bytes());
+      const FunctionArgumentType repeated_supports_alias(
+          types_->get_int64(),
+          FunctionArgumentTypeOptions()
+              .set_argument_alias_kind(FunctionEnums::ARGUMENT_ALIASED)
+              .set_cardinality(FunctionArgumentType::REPEATED));
+      const FunctionArgumentType repeated_not_supports_alias(
+          types_->get_string(), FunctionArgumentTypeOptions().set_cardinality(
+                                    FunctionArgumentType::REPEATED));
+      function->AddSignature(
+          {ARG_TYPE_ARBITRARY,
+           {positional, repeated_supports_alias, repeated_not_supports_alias},
+           /*context_id=*/-1});
+    }
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Window function with named lambda.
+  {
+    FunctionArgumentType named_lambda = FunctionArgumentType::Lambda(
+        {ARG_TYPE_ANY_1}, ARG_TYPE_ANY_1,
+        FunctionArgumentTypeOptions().set_argument_name("named_lambda",
+                                                        kNamedOnly));
+    Function* function =
+        new Function("afn_named_lambda", "sample_functions", Function::ANALYTIC,
+                     {{ARG_TYPE_ANY_1,
+                       {ARG_TYPE_ANY_1, named_lambda},
+                       /*context_id=*/-1}},
+                     FunctionOptions(FunctionOptions::ORDER_REQUIRED,
+                                     /*window_framing_support_in=*/false));
+    catalog_->AddOwnedFunction(function);
+  }
+  // Scalar function with named lambda.
+  {
+    FunctionArgumentType named_lambda = FunctionArgumentType::Lambda(
+        {ARG_TYPE_ANY_1}, ARG_TYPE_ANY_1,
+        FunctionArgumentTypeOptions().set_argument_name("named_lambda",
+                                                        kNamedOnly));
+    Function* function =
+        new Function("fn_named_lambda", "sample_functions", Function::SCALAR,
+                     {{ARG_TYPE_ANY_1,
+                       {ARG_TYPE_ANY_1, named_lambda},
+                       /*context_id=*/-1}});
+    catalog_->AddOwnedFunction(function);
+  }
+  // Aggregate function with named lambda.
+  {
+    FunctionArgumentType named_lambda = FunctionArgumentType::Lambda(
+        {ARG_TYPE_ANY_1}, ARG_TYPE_ANY_1,
+        FunctionArgumentTypeOptions()
+            .set_argument_name("named_lambda", kNamedOnly)
+            .set_is_not_aggregate());
+    Function* function = new Function("fn_aggregate_named_lambda",
+                                      "sample_functions", Function::AGGREGATE,
+                                      {{ARG_TYPE_ANY_1,
+                                        {ARG_TYPE_ANY_1, named_lambda},
+                                        /*context_id=*/-1}});
+    catalog_->AddOwnedFunction(function);
+  }
+  // Function with multiple named arguments, including named lambdas. This
+  // function can be used to verify that named lambdas can be specified in any
+  // order.
+  {
+    FunctionArgumentType named_1 = FunctionArgumentType(
+        ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_name(
+                            "named_1", kPositionalOrNamed));
+    FunctionArgumentType named_2 = FunctionArgumentType(
+        ARG_TYPE_ANY_2, FunctionArgumentTypeOptions().set_argument_name(
+                            "named_2", kPositionalOrNamed));
+    FunctionArgumentType named_only_lambda = FunctionArgumentType::Lambda(
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_2}, ARG_TYPE_ANY_3,
+        FunctionArgumentTypeOptions().set_argument_name("named_lambda",
+                                                        kPositionalOrNamed));
+    std::vector<FunctionSignature> function_signatures = {
+        {ARG_TYPE_ANY_3,
+         {named_1, named_2, named_only_lambda},
+         /*context_id=*/-1}};
+    catalog_->AddOwnedFunction(
+        new Function("fn_multiple_named_arguments", "sample_functions",
+                     Function::SCALAR, function_signatures));
+  }
+  // Function with multiple named arguments.
+  {
+    FunctionArgumentType named_lambda_1 = FunctionArgumentType::Lambda(
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2,
+        FunctionArgumentTypeOptions().set_argument_name("named_lambda_1",
+                                                        kPositionalOrNamed));
+    FunctionArgumentType named_lambda_2 = FunctionArgumentType::Lambda(
+        {ARG_TYPE_ANY_1}, ARG_TYPE_ANY_3,
+        FunctionArgumentTypeOptions().set_argument_name("named_lambda_2",
+                                                        kPositionalOrNamed));
+    std::vector<FunctionSignature> function_signatures = {
+        {ARG_TYPE_ANY_3,
+         {ARG_TYPE_ANY_1, named_lambda_1, named_lambda_2},
+         /*context_id=*/-1}};
+    catalog_->AddOwnedFunction(
+        new Function("fn_multiple_named_lambda_arguments", "sample_functions",
+                     Function::SCALAR, function_signatures));
+  }
+  // Function with signatures having a custom ComputeResultAnnotationsCallback.
+  {
+    auto function = std::make_unique<Function>("fn_custom_annotation_callback",
+                                               "sample_functions", mode);
+    // Signature with custom annotation callback.
+    const StructType* struct_type;
+    ZETASQL_CHECK_OK(type_factory()->MakeStructType(
+        {{"key", type_factory()->get_string()},
+         {"value", type_factory()->get_string()}},
+        &struct_type));
+    function->AddSignature(
+        {struct_type,
+         {types_->get_string(), types_->get_string()},
+         /*context_id=*/-1,
+         FunctionSignatureOptions().set_compute_result_annotations_callback(
+             &ComputeResultAnnotationsCallbackToStruct)});
+    // Signature without custom annotation callback.
+    function->AddSignature(
+        {struct_type,
+         {types_->get_int64(), types_->get_string(), types_->get_string()},
+         /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function with array input and a custom ComputeResultAnnotationsCallback.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_custom_annotation_callback_array_arg", "sample_functions", mode);
+    const Type* array_string_type = nullptr;
+    const Type* result_array_type = nullptr;
+    {
+      ZETASQL_CHECK_OK(types_->MakeArrayType(types_->get_string(), &array_string_type));
+      const StructType* struct_type;
+      ZETASQL_CHECK_OK(type_factory()->MakeStructType(
+          {{"key", type_factory()->get_string()},
+           {"value", type_factory()->get_string()}},
+          &struct_type));
+      ZETASQL_CHECK_OK(types_->MakeArrayType(struct_type, &result_array_type));
+    }
+    // Signature with custom annotation callback.
+    function->AddSignature(
+        {result_array_type,
+         {array_string_type, array_string_type},
+         /*context_id=*/-1,
+         FunctionSignatureOptions().set_compute_result_annotations_callback(
+             &ComputeResultAnnotationsCallbackArraysToArrayOfStruct)});
+    // Signature without custom annotation callback.
+    function->AddSignature(
+        {result_array_type,
+         {types_->get_int64(), array_string_type, array_string_type},
+         /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function that throws an error when input arguments have annotations.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_custom_annotation_callback_sql_error", "sample_functions", mode);
+    function->AddSignature(
+        {types_->get_string(),
+         {types_->get_string(), types_->get_string()},
+         /*context_id=*/-1,
+         FunctionSignatureOptions().set_compute_result_annotations_callback(
+             &ComputeResultAnnotationsCallbackSqlError)});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function with generic argument list with custom annotation callback.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_custom_annotation_with_generic_argument_list", "sample_functions",
+        mode);
+    FunctionArgumentType lambda = FunctionArgumentType::Lambda(
+        {types_->get_string()}, types_->get_string());
+    function->AddSignature(
+        {types_->get_string(),
+         {lambda, types_->get_string(), types_->get_string()},
+         /*context_id=*/-1,
+         FunctionSignatureOptions().set_compute_result_annotations_callback(
+             &ComputeResultAnnotationsCallbackUseTheFinalAnnotation)});
+    catalog_->AddOwnedFunction(std::move(function));
   }
 }  // NOLINT(readability/fn_size)
 
@@ -4536,6 +5114,27 @@ void SampleCatalog::LoadTableValuedFunctions2() {
        {named_required_format_arg, named_required_schema_relation_arg},
        /*context_id=*/-1},
       output_schema_two_types));
+  {
+    // Add a TVF with relation arg + scalar arg + named lambda.
+    FunctionArgumentType relation_arg = FunctionArgumentType(
+        ARG_TYPE_RELATION, FunctionArgumentTypeOptions().set_argument_name(
+                               "any_relation", kPositionalOrNamed));
+    FunctionArgumentType scalar_arg = FunctionArgumentType(
+        ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_name(
+                            "any_scalar", kPositionalOrNamed));
+    FunctionArgumentType named_lambda_arg = FunctionArgumentType::Lambda(
+        {ARG_TYPE_ANY_1}, ARG_TYPE_ANY_1,
+        FunctionArgumentTypeOptions().set_argument_name("named_lambda",
+                                                        kNamedOnly));
+    catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+        {"tvf_relation_arg_scalar_arg_named_lambda"},
+        {FunctionArgumentType::RelationWithSchema(
+             output_schema_two_types,
+             /*extra_relation_input_columns_allowed=*/false),
+         {relation_arg, scalar_arg, named_lambda_arg},
+         /*context_id=*/-1},
+        output_schema_two_types));
+  }
 }  // NOLINT(readability/fn_size)
 
 void SampleCatalog::LoadFunctionsWithStructArgs() {
@@ -6066,6 +6665,20 @@ void SampleCatalog::LoadProcedures() {
   AddProcedureWithArgumentType("date", types_->get_date());
   AddProcedureWithArgumentType("timestamp", types_->get_timestamp());
   AddProcedureWithArgumentType("string", types_->get_string());
+
+  // Add a procedure with named_lambda.
+  {
+    FunctionArgumentType named_lambda = FunctionArgumentType::Lambda(
+        {ARG_TYPE_ANY_1}, ARG_TYPE_ANY_1,
+        FunctionArgumentTypeOptions().set_argument_name("named_lambda",
+                                                        kNamedOnly));
+    auto procedure = std::make_unique<Procedure>(
+        std::vector<std::string>{"proc_on_named_lambda"},
+        FunctionSignature{types_->get_int64(),
+                          {ARG_TYPE_ANY_1, named_lambda},
+                          /*context_id=*/-1});
+    catalog_->AddOwnedProcedure(std::move(procedure));
+  }
 }
 
 void SampleCatalog::LoadConstants() {
@@ -6509,6 +7122,7 @@ void SampleCatalog::AddSqlDefinedFunctionFromCreate(
 
 void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
   LoadScalarSqlFunctions(language_options);
+  LoadScalarSqlFunctionsFromStandardModule(language_options);
   LoadDeepScalarSqlFunctions(language_options);
   LoadScalarSqlFunctionTemplates(language_options);
   LoadAggregateSqlFunctions(language_options);
@@ -6560,7 +7174,10 @@ void SampleCatalog::LoadScalarSqlFunctions(
                                /*context_id=*/static_cast<int64_t>(0)};
   AddSqlDefinedFunction("UnaryIncrementRefArg", int_int, {"a"}, "a + 1",
                         language_options);
+}
 
+void SampleCatalog::LoadScalarSqlFunctionsFromStandardModule(
+    const LanguageOptions& language_options) {
   // Function from sql/modules/math_utils/math_utils.sqlm
   // References each of its arguments more than once.
   AddSqlDefinedFunctionFromCreate(
@@ -6596,6 +7213,12 @@ void SampleCatalog::LoadScalarSqlFunctions(
               AS ((SELECT COUNT(*) FROM KeyValue)); )",
       language_options,
       /*inline_sql_functions=*/true);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION stable_array_sort(arr ANY TYPE)
+              AS ((SELECT ARRAY_AGG(e ORDER BY e, off)
+                   FROM UNNEST(arr) AS e WITH OFFSET off)); )",
+      language_options);
 }
 
 void SampleCatalog::LoadDeepScalarSqlFunctions(

@@ -906,7 +906,7 @@ class NameList {
   // if 'f1' is on the excluded list for value table column 'vt', then a
   // lookup for name 'f1' will not find it.  But the excluded field can still
   // be found explicitly by resolving the path 'vt.f1'.  Also, star expansion
-  // on the NameList does not include excluded fields, but 'rangvar.*'
+  // on the NameList does not include excluded fields, but 'rangevar.*'
   // expansion does include them.
   //
   // Lookups for <range_variable_name> will return the range variable, not the
@@ -939,17 +939,34 @@ class NameList {
   // This is intended for testing only.
   absl::Status AddAmbiguousColumn_Test(IdString name);
 
-  // Add all names from <other>.  Returns an error if there is collision
-  // in range variable names.
-  absl::Status MergeFrom(const NameList& other, const ASTNode* ast_location);
+  // Options to customize behavior of NameList::MergeFrom.
+  struct MergeOptions {
+    // If non-NULL, names in this list will be excluded.
+    // Range variables with matching names are also excluded.
+    const IdStringSetCase* excluded_field_names = nullptr;
 
-  // Add all names from <other>, except <excluded_field_names> (if non-NULL).
-  // Range variables with matching names are also excluded.
-  // Returns an error if there is collision in range variable names.
-  absl::Status MergeFromExceptColumns(
-      const NameList& other,
-      const IdStringSetCase* excluded_field_names,  // May be NULL
-      const ASTNode* ast_location);
+    // If true, the copied names are converted to be just a flat table.
+    // Range variables are dropped, and value tables are converted to
+    // regular columns.
+    // Pseudo-columns are still preserved.
+    // This is used when assigning a new range variable to a partial query
+    // result, making the result act as if that result was a single table.
+    // This is used when assigning an alias for a table subquery, and
+    // would be used for parenthesized joins (if supported).  It is similar to
+    // how a WITH subquery becomes a flat table when referenced.
+    bool flatten_to_table = false;
+
+    // If present, the NameList must be a value table.  This copies the
+    // NameList, preserving the value table, but changing its alias.
+    // Cannot be used with `flatten_to_table`.
+    const IdString* rename_value_table_to_name = nullptr;
+  };
+
+  // Add all names from <other>, with modifications per <options>.
+  // Returns an error if there are collisions in range variable names.
+  absl::Status MergeFrom(const NameList& other, const ASTNode* ast_location);
+  absl::Status MergeFrom(const NameList& other, const ASTNode* ast_location,
+                         const MergeOptions& options);
 
   // Clone current NameList, invoking clone_column for each column to create new
   // columns.

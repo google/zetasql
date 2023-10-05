@@ -1,4 +1,5 @@
 # Reject cross joins on two tables containing private data, there's no ON clause
+[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy count(*, contribution_bounds_per_group => (0, 100))

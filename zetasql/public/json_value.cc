@@ -33,10 +33,8 @@
 #include <utility>
 #include <vector>
 
-
 #include "zetasql/base/logging.h"
 #include "zetasql/public/numeric_parser.h"
-#include <cstdint>  
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"

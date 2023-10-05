@@ -686,9 +686,9 @@ ERROR: No matching signature for function SAFE_ADD
   Signature: SAFE_ADD(UINT64, UINT64)
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_ADD(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: SAFE_ADD(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select safe_add(
        ^
 --
@@ -878,9 +878,9 @@ ERROR: No matching signature for function SAFE_ADD
   Signature: SAFE_ADD(UINT64, UINT64)
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_ADD(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: SAFE_ADD(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select safe_add(
        ^
 --
@@ -916,9 +916,9 @@ ERROR: No matching signature for function SAFE_ADD
   Signature: SAFE_ADD(UINT64, UINT64)
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_ADD(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: SAFE_ADD(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select safe_add(
        ^
 --
@@ -955,9 +955,9 @@ ERROR: No matching signature for function SAFE_ADD
   Signature: SAFE_ADD(UINT64, UINT64)
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_ADD(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: SAFE_ADD(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select safe_add(
        ^
 --
@@ -1103,7 +1103,7 @@ ERROR: No matching signature for function SAFE_ADD
   Signature: SAFE_ADD(UINT64, UINT64)
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_ADD(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_add(
        ^
 --
@@ -1121,7 +1121,7 @@ ERROR: No matching signature for function SAFE_ADD
   Signature: SAFE_ADD(UINT64, UINT64)
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_ADD(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_add(
        ^
 --
@@ -1139,7 +1139,7 @@ ERROR: No matching signature for function SAFE_ADD
   Signature: SAFE_ADD(UINT64, UINT64)
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_ADD(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_add(
        ^
 --
@@ -1157,7 +1157,7 @@ ERROR: No matching signature for function SAFE_ADD
   Signature: SAFE_ADD(UINT64, UINT64)
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_ADD(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_add(
        ^
 ==
@@ -1347,9 +1347,9 @@ ERROR: No matching signature for function SAFE_SUBTRACT
   Signature: SAFE_SUBTRACT(UINT64, UINT64)
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_SUBTRACT(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied
+    At least one argument must have NUMERIC type
   Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1539,9 +1539,9 @@ ERROR: No matching signature for function SAFE_SUBTRACT
   Signature: SAFE_SUBTRACT(UINT64, UINT64)
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_SUBTRACT(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied
+    At least one argument must have NUMERIC type
   Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1577,9 +1577,9 @@ ERROR: No matching signature for function SAFE_SUBTRACT
   Signature: SAFE_SUBTRACT(UINT64, UINT64)
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_SUBTRACT(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied
+    At least one argument must have NUMERIC type
   Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1616,9 +1616,9 @@ ERROR: No matching signature for function SAFE_SUBTRACT
   Signature: SAFE_SUBTRACT(UINT64, UINT64)
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_SUBTRACT(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied
+    At least one argument must have NUMERIC type
   Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1764,7 +1764,7 @@ ERROR: No matching signature for function SAFE_SUBTRACT
   Signature: SAFE_SUBTRACT(UINT64, UINT64)
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1782,7 +1782,7 @@ ERROR: No matching signature for function SAFE_SUBTRACT
   Signature: SAFE_SUBTRACT(UINT64, UINT64)
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1800,7 +1800,7 @@ ERROR: No matching signature for function SAFE_SUBTRACT
   Signature: SAFE_SUBTRACT(UINT64, UINT64)
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_subtract(
        ^
 --
@@ -1818,7 +1818,7 @@ ERROR: No matching signature for function SAFE_SUBTRACT
   Signature: SAFE_SUBTRACT(UINT64, UINT64)
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_SUBTRACT(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_subtract(
        ^
 ==
@@ -2008,9 +2008,9 @@ ERROR: No matching signature for function SAFE_MULTIPLY
   Signature: SAFE_MULTIPLY(UINT64, UINT64)
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: SAFE_MULTIPLY(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2200,9 +2200,9 @@ ERROR: No matching signature for function SAFE_MULTIPLY
   Signature: SAFE_MULTIPLY(UINT64, UINT64)
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: SAFE_MULTIPLY(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2238,9 +2238,9 @@ ERROR: No matching signature for function SAFE_MULTIPLY
   Signature: SAFE_MULTIPLY(UINT64, UINT64)
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: SAFE_MULTIPLY(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2277,9 +2277,9 @@ ERROR: No matching signature for function SAFE_MULTIPLY
   Signature: SAFE_MULTIPLY(UINT64, UINT64)
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: SAFE_MULTIPLY(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2425,7 +2425,7 @@ ERROR: No matching signature for function SAFE_MULTIPLY
   Signature: SAFE_MULTIPLY(UINT64, UINT64)
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2443,7 +2443,7 @@ ERROR: No matching signature for function SAFE_MULTIPLY
   Signature: SAFE_MULTIPLY(UINT64, UINT64)
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2461,7 +2461,7 @@ ERROR: No matching signature for function SAFE_MULTIPLY
   Signature: SAFE_MULTIPLY(UINT64, UINT64)
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_multiply(
        ^
 --
@@ -2479,7 +2479,7 @@ ERROR: No matching signature for function SAFE_MULTIPLY
   Signature: SAFE_MULTIPLY(UINT64, UINT64)
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: SAFE_MULTIPLY(DOUBLE, DOUBLE)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select safe_multiply(
        ^
 ==

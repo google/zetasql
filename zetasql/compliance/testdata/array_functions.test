@@ -67,6 +67,60 @@ SELECT ARRAY_LENGTH([1, 5] || [2, 5, 7] || [3, 2] || [4]);
 --
 ARRAY<STRUCT<INT64>>[{8}]
 ==
+[name=array_length_range_date_null]
+[required_features=RANGE_TYPE]
+SELECT ARRAY_LENGTH(CAST(NULL AS ARRAY<RANGE<DATE>>))
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=array_length_range_datetime_null]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT ARRAY_LENGTH(CAST(NULL AS ARRAY<RANGE<DATETIME>>))
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=array_length_range_timestamp_null]
+[required_features=RANGE_TYPE]
+SELECT ARRAY_LENGTH(CAST(NULL AS ARRAY<RANGE<TIMESTAMP>>))
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=array_length_range_date_empty]
+[required_features=RANGE_TYPE]
+SELECT ARRAY_LENGTH(ARRAY<RANGE<DATE>>[])
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+[name=array_length_range_datetime_empty]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT ARRAY_LENGTH(ARRAY<RANGE<DATETIME>>[])
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+[name=array_length_range_timestamp_empty]
+[required_features=RANGE_TYPE]
+SELECT ARRAY_LENGTH(ARRAY<RANGE<TIMESTAMP>>[])
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+[name=array_length_range_date]
+[required_features=RANGE_TYPE]
+SELECT ARRAY_LENGTH(ARRAY<RANGE<DATE>>[RANGE<DATE> "[2014-01-01, 2015-01-01)", RANGE<DATE> "[2014-01-01, UNBOUNDED)", RANGE<DATE> "[UNBOUNDED, 2015-01-01)", RANGE<DATE> "[UNBOUNDED, UNBOUNDED)"])
+--
+ARRAY<STRUCT<INT64>>[{4}]
+==
+[name=array_length_range_datetime]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT ARRAY_LENGTH(ARRAY<RANGE<DATETIME>>[RANGE<DATETIME> "[2014-01-01, 2015-01-01)", RANGE<DATETIME> "[2014-01-01, UNBOUNDED)", RANGE<DATETIME> "[UNBOUNDED, 2015-01-01)", RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)"])
+--
+ARRAY<STRUCT<INT64>>[{4}]
+==
+[name=array_length_range_timestamp]
+[required_features=RANGE_TYPE]
+SELECT ARRAY_LENGTH(ARRAY<RANGE<TIMESTAMP>>[RANGE<TIMESTAMP> "[2014-01-01, 2015-01-01)", RANGE<TIMESTAMP> "[2014-01-01, UNBOUNDED)", RANGE<TIMESTAMP> "[UNBOUNDED, 2015-01-01)", RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)"])
+--
+ARRAY<STRUCT<INT64>>[{4}]
+==
 ##
 ## OFFSET queries
 ##
@@ -179,6 +233,47 @@ SELECT @arr[OFFSET(@off32)], @arr[OFFSET(@offu32)], @arr[OFFSET(@off64)]
 --
 ARRAY<STRUCT<INT64, INT64, INT64>>[{10, 11, 12}]
 ==
+[name=array_offset_range_date_out_of_range]
+[required_features=RANGE_TYPE]
+SELECT [RANGE<DATE> "[2014-01-01, 2015-01-01)", RANGE<DATE> "[2014-01-01, UNBOUNDED)", RANGE<DATE> "[UNBOUNDED, 2015-01-01)", RANGE<DATE> "[UNBOUNDED, UNBOUNDED)"][OFFSET(-1)]
+--
+ERROR: generic::out_of_range: Array index -1 is out of bounds
+==
+[name=array_offset_range_datetime_out_of_range]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT [RANGE<DATETIME> "[2014-01-01, 2015-01-01)", RANGE<DATETIME> "[2014-01-01, UNBOUNDED)", RANGE<DATETIME> "[UNBOUNDED, 2015-01-01)", RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)"][OFFSET(-1)]
+--
+ERROR: generic::out_of_range: Array index -1 is out of bounds
+==
+[name=array_offset_range_timestamp_out_of_range]
+[required_features=RANGE_TYPE]
+SELECT [RANGE<TIMESTAMP> "[2014-01-01, 2015-01-01)", RANGE<TIMESTAMP> "[2014-01-01, UNBOUNDED)", RANGE<TIMESTAMP> "[UNBOUNDED, 2015-01-01)", RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)"][OFFSET(-1)]
+--
+ERROR: generic::out_of_range: Array index -1 is out of bounds
+==
+[name=array_offset_range_date]
+[required_features=RANGE_TYPE]
+SELECT [RANGE<DATE> "[2014-01-01, 2015-01-01)", RANGE<DATE> "[2014-01-01, UNBOUNDED)", RANGE<DATE> "[UNBOUNDED, 2015-01-01)", RANGE<DATE> "[UNBOUNDED, UNBOUNDED)"][OFFSET(1)]
+--
+ARRAY<STRUCT<RANGE<DATE>>>[{[2014-01-01, NULL)}]
+==
+[name=array_offset_range_datetime]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT [RANGE<DATETIME> "[2014-01-01, 2015-01-01)", RANGE<DATETIME> "[2014-01-01, UNBOUNDED)", RANGE<DATETIME> "[UNBOUNDED, 2015-01-01)", RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)"][OFFSET(1)]
+--
+ARRAY<STRUCT<RANGE<DATETIME>>>[{[2014-01-01 00:00:00, NULL)}]
+==
+[name=array_offset_range_timestamp]
+[required_features=RANGE_TYPE]
+SELECT [RANGE<TIMESTAMP> "[2014-01-01, 2015-01-01)", RANGE<TIMESTAMP> "[2014-01-01, UNBOUNDED)", RANGE<TIMESTAMP> "[UNBOUNDED, 2015-01-01)", RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)"][OFFSET(1)]
+--
+ARRAY<STRUCT<RANGE<TIMESTAMP>>>[
+  {[
+     2014-01-01 08:00:00+00,
+     NULL
+   )}
+]
+==
 ##
 ## ORDINAL queries
 ##
@@ -251,6 +346,47 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 SELECT @arr[ORDINAL(@ord)]
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=array_ordinal_range_date_out_of_range]
+[required_features=RANGE_TYPE]
+SELECT [RANGE<DATE> "[2014-01-01, 2015-01-01)", RANGE<DATE> "[2014-01-01, UNBOUNDED)", RANGE<DATE> "[UNBOUNDED, 2015-01-01)", RANGE<DATE> "[UNBOUNDED, UNBOUNDED)"][ORDINAL(0)]
+--
+ERROR: generic::out_of_range: Array index 0 is out of bounds
+==
+[name=array_ordinal_range_datetime_out_of_range]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT [RANGE<DATETIME> "[2014-01-01, 2015-01-01)", RANGE<DATETIME> "[2014-01-01, UNBOUNDED)", RANGE<DATETIME> "[UNBOUNDED, 2015-01-01)", RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)"][ORDINAL(0)]
+--
+ERROR: generic::out_of_range: Array index 0 is out of bounds
+==
+[name=array_ordinal_range_timestamp_out_of_range]
+[required_features=RANGE_TYPE]
+SELECT [RANGE<TIMESTAMP> "[2014-01-01, 2015-01-01)", RANGE<TIMESTAMP> "[2014-01-01, UNBOUNDED)", RANGE<TIMESTAMP> "[UNBOUNDED, 2015-01-01)", RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)"][ORDINAL(0)]
+--
+ERROR: generic::out_of_range: Array index 0 is out of bounds
+==
+[name=array_ordinal_range_date]
+[required_features=RANGE_TYPE]
+SELECT [RANGE<DATE> "[2014-01-01, 2015-01-01)", RANGE<DATE> "[2014-01-01, UNBOUNDED)", RANGE<DATE> "[UNBOUNDED, 2015-01-01)", RANGE<DATE> "[UNBOUNDED, UNBOUNDED)"][ORDINAL(1)]
+--
+ARRAY<STRUCT<RANGE<DATE>>>[{[2014-01-01, 2015-01-01)}]
+==
+[name=array_ordinal_range_datetime]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT [RANGE<DATETIME> "[2014-01-01, 2015-01-01)", RANGE<DATETIME> "[2014-01-01, UNBOUNDED)", RANGE<DATETIME> "[UNBOUNDED, 2015-01-01)", RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)"][ORDINAL(1)]
+--
+ARRAY<STRUCT<RANGE<DATETIME>>>[{[2014-01-01 00:00:00, 2015-01-01 00:00:00)}]
+==
+[name=array_ordinal_range_timestamp]
+[required_features=RANGE_TYPE]
+SELECT [RANGE<TIMESTAMP> "[2014-01-01, 2015-01-01)", RANGE<TIMESTAMP> "[2014-01-01, UNBOUNDED)", RANGE<TIMESTAMP> "[UNBOUNDED, 2015-01-01)", RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)"][ORDINAL(1)]
+--
+ARRAY<STRUCT<RANGE<TIMESTAMP>>>[
+  {[
+     2014-01-01 08:00:00+00,
+     2015-01-01 08:00:00+00
+   )}
+]
 ==
 ##
 ## SAFE_OFFSET and SAFE_ORDINAL queries
@@ -670,6 +806,125 @@ ARRAY<STRUCT<ARRAY<>>>[
      -0.00001
    ]}
 ]
+==
+[name=array_concat_range_date]
+[required_features=RANGE_TYPE]
+[parameters=cast(null as RANGE<DATE>) as null_range]
+SELECT ARRAY_CONCAT(
+  [
+    RANGE<DATE> '[2014-01-01, 2015-01-01)',
+    RANGE<DATE> '[2014-01-01, UNBOUNDED)'
+  ],
+  [@null_range],
+  [
+    RANGE<DATE> '[UNBOUNDED, 2015-01-01)'
+  ],
+  [])
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATE>>[known order:
+     [2014-01-01, 2015-01-01),
+     [2014-01-01, NULL),
+     NULL,
+     [NULL, 2015-01-01)
+   ]}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=array_concat_range_datetime]
+[parameters=cast(null as RANGE<DATETIME>) as null_range]
+SELECT ARRAY_CONCAT(
+  [
+    RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)',
+    RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)'
+  ],
+  [],
+  [@null_range],
+  [
+    RANGE<DATETIME> '[UNBOUNDED, 2017-01-01 12:00:00)'
+  ],
+  [
+    RANGE<DATETIME> '[2016-01-01 12:00:00, UNBOUNDED)'
+  ])
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATETIME>>[known order:
+     [2016-01-01 12:00:00, 2017-01-01 12:00:00),
+     [NULL, NULL),
+     NULL,
+     [NULL, 2017-01-01 12:00:00),
+     [2016-01-01 12:00:00, NULL)
+   ]}
+]
+==
+[required_features=RANGE_TYPE]
+[parameters=cast(null as RANGE<TIMESTAMP>) as null_range]
+[name=array_concat_range_timestamp]
+SELECT ARRAY_CONCAT(
+  [],
+  [
+    RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)'
+  ],
+  [
+    RANGE<TIMESTAMP> '[2018-10-01 12:00:00+00, UNBOUNDED)',
+    RANGE<TIMESTAMP> '[UNBOUNDED, 2019-01-01 12:00:00+00)'
+  ],
+  [
+    RANGE<TIMESTAMP> '[2018-10-01 12:00:00+00, 2019-01-01 12:00:00+00)'
+  ],
+  [@null_range])
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<TIMESTAMP>>[known order:
+     [NULL, NULL),
+     [
+       2018-10-01 12:00:00+00,
+       NULL
+     ),
+     [
+       NULL,
+       2019-01-01 12:00:00+00
+     ),
+     [
+       2018-10-01 12:00:00+00,
+       2019-01-01 12:00:00+00
+     ),
+     NULL
+   ]}
+]
+==
+[name=array_concat_range_date_with_null]
+[required_features=RANGE_TYPE]
+[parameters=cast(null as ARRAY<RANGE<DATE>>) as null_range_array]
+SELECT ARRAY_CONCAT(
+  @null_range_array,
+  [
+    RANGE<DATE> '[UNBOUNDED, 2015-01-01)'
+  ])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATE>>(NULL)}]
+==
+[name=array_concat_range_datetime_with_null]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[parameters=cast(null as ARRAY<RANGE<DATETIME>>) as null_range_array]
+SELECT ARRAY_CONCAT(
+  @null_range_array,
+  [
+    RANGE<DATETIME> '[UNBOUNDED, 2017-01-01 12:00:00)'
+  ])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATETIME>>(NULL)}]
+==
+[name=array_concat_range_timestamp_with_null]
+[required_features=RANGE_TYPE]
+[parameters=cast(null as ARRAY<RANGE<TIMESTAMP>>) as null_range_array]
+SELECT ARRAY_CONCAT(
+  @null_range_array,
+  [
+    RANGE<TIMESTAMP> '[2018-10-01 12:00:00+00, 2019-01-01 12:00:00+00)'
+  ])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<TIMESTAMP>>(NULL)}]
 ==
 [name=array_first_subquery_unordered]
 WITH t AS (SELECT value FROM UNNEST([1, 2, 3, 4]) AS value)

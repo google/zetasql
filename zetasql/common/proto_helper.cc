@@ -94,9 +94,12 @@ absl::Status AddFileDescriptorSetToPool(
     google::protobuf::DescriptorPool* pool) {
 
   StringAppendErrorCollector error_collector;
-  for (int idx = 0; idx < file_descriptor_set->file_size(); ++idx) {
-    pool->BuildFileCollectingErrors(file_descriptor_set->file(idx),
-                                    &error_collector);
+  for (const google::protobuf::FileDescriptorProto& file : file_descriptor_set->file()) {
+    // Skip if the file has already been added.
+    if (pool->FindFileByName(file.name()) != nullptr) {
+      continue;
+    }
+    pool->BuildFileCollectingErrors(file, &error_collector);
     if (error_collector.HasError()) {
       return MakeSqlError()
              << "Error(s) encountered during protocol buffer analysis: "

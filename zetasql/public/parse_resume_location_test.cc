@@ -23,7 +23,6 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/parse_resume_location.pb.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 
 namespace zetasql {
 

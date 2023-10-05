@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <string>
 
-#include <cstdint>
 #include "absl/time/civil_time.h"
 
 namespace zetasql {

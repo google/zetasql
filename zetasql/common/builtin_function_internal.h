@@ -31,6 +31,7 @@
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "absl/container/flat_hash_set.h"
@@ -449,34 +450,36 @@ std::string AnonCountStarBadArgumentErrorPrefix(const FunctionSignature&,
 // an OVER clause.
 FunctionOptions DefaultAggregateFunctionOptions();
 
-// Returns true if an arithmetic operation has a floating point type as its
+// Checks if an arithmetic operation has a floating point type as its
 // input.
-bool HasFloatingPointArgument(const FunctionSignature& matched_signature,
-                              const std::vector<InputArgumentType>& arguments);
+std::string CheckHasFloatingPointArgument(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments);
 
-// Returns true if at least one input argument has NUMERIC type.
-bool HasNumericTypeArgument(const FunctionSignature& matched_signature,
-                            const std::vector<InputArgumentType>& arguments);
+// Checks if at least one input argument has NUMERIC type.
+std::string CheckHasNumericTypeArgument(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments);
 
-// Returns true if all input arguments have NUMERIC or BIGNUMERIC type,
+// Checks if all input arguments have NUMERIC or BIGNUMERIC type,
 // including the case without input arguments.
-bool AllArgumentsHaveNumericOrBigNumericType(
+std::string CheckAllArgumentsHaveNumericOrBigNumericType(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments);
 
-// Returns true if there is at least one input argument and the last argument
+// Checks if there is at least one input argument and the last argument
 // has NUMERIC type or BIGNUMERIC type.
-bool LastArgumentHasNumericOrBigNumericType(
+std::string CheckLastArgumentHasNumericOrBigNumericType(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments);
 
-// Returns true if at least one input argument has BIGNUMERIC type.
-bool HasBigNumericTypeArgument(
+// Checks if at least one input argument has BIGNUMERIC type.
+std::string CheckHasBigNumericTypeArgument(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments);
 
-// Returns true if at least one input argument has INTERVAL type.
-bool HasIntervalTypeArgument(
+// Checks if at least one input argument has INTERVAL type.
+std::string CheckHasIntervalTypeArgument(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments);
 
@@ -714,6 +717,10 @@ void GetArrayTransformFunctions(TypeFactory* type_factory,
 void GetArrayIncludesFunctions(TypeFactory* type_factory,
                                const ZetaSQLBuiltinFunctionOptions& options,
                                NameToFunctionMap* functions);
+
+absl::Status GetArrayZipFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions, NameToTypeMap* types);
 
 void GetSubscriptFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,

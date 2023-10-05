@@ -53,7 +53,6 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
-#include <cstdint>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -1118,8 +1117,12 @@ absl::StatusOr<Value> CastContext::CastValue(
       return Value::String(v.interval_value().ToString());
     }
     case FCT(TYPE_STRING, TYPE_INTERVAL): {
+      bool allow_nanos =
+          language_options().LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS) ||
+          !language_options().LanguageFeatureEnabled(
+              FEATURE_ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE);
       ZETASQL_ASSIGN_OR_RETURN(IntervalValue interval,
-                       IntervalValue::Parse(v.string_value()));
+                       IntervalValue::Parse(v.string_value(), allow_nanos));
       return Value::Interval(interval);
     }
 

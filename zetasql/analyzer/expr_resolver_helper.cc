@@ -337,4 +337,14 @@ IdString GetAliasForExpression(const ASTNode* node) {
   }
 }
 
+bool IsNamedLambda(const ASTNode* node) {
+  if (node == nullptr) {
+    return false;
+  }
+  if (!node->Is<ASTNamedArgument>()) {
+    return false;
+  }
+  return node->GetAsOrDie<ASTNamedArgument>()->expr()->Is<ASTLambda>();
+}
+
 }  // namespace zetasql

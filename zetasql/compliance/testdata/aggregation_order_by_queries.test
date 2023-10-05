@@ -236,6 +236,210 @@ ARRAY<STRUCT<
   }
 ]
 ==
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TestTableRangeValues AS
+SELECT cast(1 as int64) as row_id,
+       "abc" as string_val,
+       [1, 2, 3] as array_val,
+       range<date> "[UNBOUNDED, UNBOUNDED)" as range_date_val,
+       range<timestamp> "[UNBOUNDED, UNBOUNDED)" as range_timestamp_val union all
+SELECT 2,  "def", [4, 5, 6], range<date> "[2020-01-01, 2020-01-02)", range<timestamp> "[2020-01-01 12:00:00+02, 2020-12-31 14:00:00+04)" union all
+SELECT 3,  "ghi", [7, 8, 9], range<date> "[2020-01-01, 2020-01-02)", range<timestamp> "[2020-01-01 12:00:00+02, 2020-12-31 14:00:00+04)" union all
+SELECT 4,  "abc", [10, 11, 12], range<date> "[2020-01-01, 2020-01-02)", range<timestamp> "[2020-01-01 12:00:00+02, 2020-12-31 14:00:00+04)" union all
+SELECT 5,  "jkl", [NULL], range<date> "[UNBOUNDED, 2020-01-02)", range<timestamp> "[UNBOUNDED, 2020-12-31 14:00:00+04)" union all
+SELECT 6,  NULL, [16, 17, 18], range<date> "[2020-01-01, UNBOUNDED)", range<timestamp> "[2020-01-01 12:00:00+02, UNBOUNDED)" union all
+SELECT 7,  "jkl", NULL, range<date> "[2020-01-01, UNBOUNDED)", range<timestamp> "[2020-01-01 12:00:00+02, UNBOUNDED)" union all
+SELECT 8,  "foo", [22, 23, 24], cast(null as range<date>), cast(null as range<timestamp>) union all
+select 9,  "bar", [25, 26, 27], cast(null as range<date>), cast(null as range<timestamp>) union all
+SELECT 10,  "def", [1, 2, 3], range<date> "[2020-02-01, 2020-03-02)", range<timestamp> "[2020-02-01 12:00:00+02, 2020-12-31 14:00:00+04)" union all
+SELECT 11,  "def", [4, 5, 6], range<date> "[2020-02-01, 2020-03-02)", range<timestamp> "[2020-02-01 12:00:00+02, 2020-12-31 14:00:00+04)"
+--
+
+ARRAY<STRUCT<
+        row_id INT64,
+        string_val STRING,
+        array_val ARRAY<>,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>
+[{
+   1,
+   "abc",
+   ARRAY<INT64>[1, 2, 3],
+   [NULL, NULL),
+   [NULL, NULL)
+ },
+ {2,
+  "def",
+  ARRAY<INT64>[4, 5, 6],
+  [2020-01-01, 2020-01-02),
+  [
+    2020-01-01 10:00:00+00,
+    2020-12-31 10:00:00+00
+  )},
+ {3,
+  "ghi",
+  ARRAY<INT64>[7, 8, 9],
+  [2020-01-01, 2020-01-02),
+  [
+    2020-01-01 10:00:00+00,
+    2020-12-31 10:00:00+00
+  )},
+ {4,
+  "abc",
+  ARRAY<INT64>[10, 11, 12],
+  [2020-01-01, 2020-01-02),
+  [
+    2020-01-01 10:00:00+00,
+    2020-12-31 10:00:00+00
+  )},
+ {5,
+  "jkl",
+  ARRAY<INT64>[NULL],
+  [NULL, 2020-01-02),
+  [
+    NULL,
+    2020-12-31 10:00:00+00
+  )},
+ {6,
+  NULL,
+  ARRAY<INT64>[16, 17, 18],
+  [2020-01-01, NULL),
+  [
+    2020-01-01 10:00:00+00,
+    NULL
+  )},
+ {7,
+  "jkl",
+  ARRAY<INT64>(NULL),
+  [2020-01-01, NULL),
+  [
+    2020-01-01 10:00:00+00,
+    NULL
+  )},
+ {
+   8,
+   "foo",
+   ARRAY<INT64>[22, 23, 24],
+   NULL,
+   NULL
+ },
+ {
+   9,
+   "bar",
+   ARRAY<INT64>[25, 26, 27],
+   NULL,
+   NULL
+ },
+ {10,
+  "def",
+  ARRAY<INT64>[1, 2, 3],
+  [2020-02-01, 2020-03-02),
+  [
+    2020-02-01 10:00:00+00,
+    2020-12-31 10:00:00+00
+  )},
+ {11,
+  "def",
+  ARRAY<INT64>[4, 5, 6],
+  [2020-02-01, 2020-03-02),
+  [
+    2020-02-01 10:00:00+00,
+    2020-12-31 10:00:00+00
+  )}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TestTableRangeDatetimeValues AS
+SELECT cast(1 as int64) as row_id,
+       "abc" as string_val,
+       [1, 2, 3] as array_val,
+       range<datetime> "[UNBOUNDED, UNBOUNDED)" as range_datetime_val union all
+SELECT 2,  "def", [4, 5, 6], range<datetime> "[2020-01-01, 2020-01-02)" union all
+SELECT 3,  "ghi", [7, 8, 9], range<datetime> "[2020-01-01, 2020-01-02)" union all
+SELECT 4,  "abc", [10, 11, 12], range<datetime> "[2020-01-01, 2020-01-02)" union all
+SELECT 5,  "jkl", [NULL], range<datetime> "[UNBOUNDED, 2020-01-02)" union all
+SELECT 6,  NULL, [16, 17, 18], range<datetime> "[2020-01-01, UNBOUNDED)" union all
+SELECT 7,  "jkl", NULL, range<datetime> "[2020-01-01, UNBOUNDED)" union all
+SELECT 8,  "foo", [22, 23, 24], cast(null as range<datetime>) union all
+select 9,  "bar", [25, 26, 27], cast(null as range<datetime>) union all
+SELECT 10,  "def", [4, 5, 6], range<datetime> "[2020-02-01, 2020-03-02)" union all
+SELECT 11,  "def", [4, 5, 6], range<datetime> "[2020-02-01, 2020-03-02)"
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        string_val STRING,
+        array_val ARRAY<>,
+        range_datetime_val RANGE<DATETIME>
+      >>
+[{
+   1,
+   "abc",
+   ARRAY<INT64>[1, 2, 3],
+   [NULL, NULL)
+ },
+ {
+   2,
+   "def",
+   ARRAY<INT64>[4, 5, 6],
+   [2020-01-01 00:00:00, 2020-01-02 00:00:00)
+ },
+ {
+   3,
+   "ghi",
+   ARRAY<INT64>[7, 8, 9],
+   [2020-01-01 00:00:00, 2020-01-02 00:00:00)
+ },
+ {
+   4,
+   "abc",
+   ARRAY<INT64>[10, 11, 12],
+   [2020-01-01 00:00:00, 2020-01-02 00:00:00)
+ },
+ {
+   5,
+   "jkl",
+   ARRAY<INT64>[NULL],
+   [NULL, 2020-01-02 00:00:00)
+ },
+ {
+   6,
+   NULL,
+   ARRAY<INT64>[16, 17, 18],
+   [2020-01-01 00:00:00, NULL)
+ },
+ {
+   7,
+   "jkl",
+   ARRAY<INT64>(NULL),
+   [2020-01-01 00:00:00, NULL)
+ },
+ {
+   8,
+   "foo",
+   ARRAY<INT64>[22, 23, 24],
+   NULL
+ },
+ {
+   9,
+   "bar",
+   ARRAY<INT64>[25, 26, 27],
+   NULL
+ },
+ {
+   10,
+   "def",
+   ARRAY<INT64>[4, 5, 6],
+   [2020-02-01 00:00:00, 2020-03-02 00:00:00)
+ },
+ {
+   11,
+   "def",
+   ARRAY<INT64>[4, 5, 6],
+   [2020-02-01 00:00:00, 2020-03-02 00:00:00)
+ }]
+==
 
 [default required_features=V_1_1_ORDER_BY_IN_AGGREGATE]
 [name=aggregation_order_by_array_agg]
@@ -1242,5 +1446,617 @@ ARRAY<STRUCT<ARRAY<>,
     "def,foo,jkl"
   }
 ]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=RANGE_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[name=aggregation_order_by_range_date]
+SELECT ARRAY_AGG(range_date_val ORDER BY range_date_val ASC),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_date_val ASC),
+       ARRAY_AGG(range_date_val ORDER BY range_date_val DESC),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_date_val DESC),
+       ARRAY_AGG(range_date_val ORDER BY range_date_val LIMIT 0),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_date_val LIMIT 0),
+       ARRAY_AGG(range_date_val ORDER BY range_date_val LIMIT 3),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_date_val LIMIT 3),
+       ARRAY_AGG(DISTINCT range_date_val ORDER BY range_date_val ASC),
+       ARRAY_AGG(DISTINCT range_date_val ORDER BY range_date_val ASC LIMIT 3),
+       ARRAY_AGG(DISTINCT range_date_val ORDER BY range_date_val DESC),
+       ARRAY_AGG(DISTINCT range_date_val ORDER BY range_date_val DESC LIMIT 3),
+       ARRAY_AGG(row_id ORDER BY range_date_val),
+       ARRAY_AGG(range_date_val ORDER BY row_id)
+FROM TestTableRangeValues
+--
+ARRAY<STRUCT<ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>>>
+[{ARRAY<RANGE<DATE>>[unknown order:
+    NULL,
+    NULL,
+    [NULL, 2020-01-02),
+    [NULL, NULL),
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, NULL),
+    [2020-01-01, NULL),
+    [2020-02-01, 2020-03-02),
+    [2020-02-01, 2020-03-02)
+  ],
+  ARRAY<INT64>[unknown order:
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    NULL,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    10,
+    11,
+    12,
+    7,
+    8,
+    9,
+    16,
+    17,
+    18,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  ARRAY<RANGE<DATE>>[unknown order:
+    [2020-02-01, 2020-03-02),
+    [2020-02-01, 2020-03-02),
+    [2020-01-01, NULL),
+    [2020-01-01, NULL),
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, 2020-01-02),
+    [NULL, NULL),
+    [NULL, 2020-01-02),
+    NULL,
+    NULL
+  ],
+  ARRAY<INT64>[unknown order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    16,
+    17,
+    18,
+    4,
+    5,
+    6,
+    10,
+    11,
+    12,
+    7,
+    8,
+    9,
+    1,
+    2,
+    3,
+    NULL,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27
+  ],
+  ARRAY<RANGE<DATE>>(NULL),
+  ARRAY<INT64>(NULL),
+  ARRAY<RANGE<DATE>>[unknown order:NULL, NULL, [NULL, 2020-01-02)],
+  ARRAY<INT64>[unknown order:22, 23, 24, 25, 26, 27, NULL],
+  ARRAY<RANGE<DATE>>[known order:
+    NULL,
+    [NULL, 2020-01-02),
+    [NULL, NULL),
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, NULL),
+    [2020-02-01, 2020-03-02)
+  ],
+  ARRAY<RANGE<DATE>>[known order:NULL, [NULL, 2020-01-02), [NULL, NULL)],
+  ARRAY<RANGE<DATE>>[known order:
+    [2020-02-01, 2020-03-02),
+    [2020-01-01, NULL),
+    [2020-01-01, 2020-01-02),
+    [NULL, NULL),
+    [NULL, 2020-01-02),
+    NULL
+  ],
+  ARRAY<RANGE<DATE>>[known order:
+    [2020-02-01, 2020-03-02),
+    [2020-01-01, NULL),
+    [2020-01-01, 2020-01-02)
+  ],
+  ARRAY<INT64>[unknown order:8, 9, 5, 1, 2, 4, 3, 6, 7, 10, 11],
+  ARRAY<RANGE<DATE>>[known order:
+    [NULL, NULL),
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, 2020-01-02),
+    [NULL, 2020-01-02),
+    [2020-01-01, NULL),
+    [2020-01-01, NULL),
+    NULL,
+    NULL,
+    [2020-02-01, 2020-03-02),
+    [2020-02-01, 2020-03-02)
+  ]}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=RANGE_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_2_CIVIL_TIME]
+[name=aggregation_order_by_range_datetime]
+SELECT ARRAY_AGG(range_datetime_val ORDER BY range_datetime_val ASC),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_datetime_val ASC),
+       ARRAY_AGG(range_datetime_val ORDER BY range_datetime_val DESC),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_datetime_val DESC),
+       ARRAY_AGG(range_datetime_val ORDER BY range_datetime_val LIMIT 0),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_datetime_val LIMIT 0),
+       ARRAY_AGG(range_datetime_val ORDER BY range_datetime_val LIMIT 3),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_datetime_val LIMIT 3),
+       ARRAY_AGG(DISTINCT range_datetime_val ORDER BY range_datetime_val ASC),
+       ARRAY_AGG(DISTINCT range_datetime_val ORDER BY range_datetime_val ASC LIMIT 3),
+       ARRAY_AGG(DISTINCT range_datetime_val ORDER BY range_datetime_val DESC),
+       ARRAY_AGG(DISTINCT range_datetime_val ORDER BY range_datetime_val DESC LIMIT 3),
+       ARRAY_AGG(row_id ORDER BY range_datetime_val),
+       ARRAY_AGG(range_datetime_val ORDER BY row_id)
+FROM TestTableRangeDatetimeValues
+--
+ARRAY<STRUCT<ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>>>
+[{ARRAY<RANGE<DATETIME>>[unknown order:
+    NULL,
+    NULL,
+    [NULL, 2020-01-02 00:00:00),
+    [NULL, NULL),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, NULL),
+    [2020-01-01 00:00:00, NULL),
+    [2020-02-01 00:00:00, 2020-03-02 00:00:00),
+    [2020-02-01 00:00:00, 2020-03-02 00:00:00)
+  ],
+  ARRAY<INT64>[unknown order:
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    NULL,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    10,
+    11,
+    12,
+    7,
+    8,
+    9,
+    16,
+    17,
+    18,
+    4,
+    5,
+    6,
+    4,
+    5,
+    6
+  ],
+  ARRAY<RANGE<DATETIME>>[unknown order:
+    [2020-02-01 00:00:00, 2020-03-02 00:00:00),
+    [2020-02-01 00:00:00, 2020-03-02 00:00:00),
+    [2020-01-01 00:00:00, NULL),
+    [2020-01-01 00:00:00, NULL),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [NULL, NULL),
+    [NULL, 2020-01-02 00:00:00),
+    NULL,
+    NULL
+  ],
+  ARRAY<INT64>[unknown order:
+    4,
+    5,
+    6,
+    4,
+    5,
+    6,
+    16,
+    17,
+    18,
+    4,
+    5,
+    6,
+    10,
+    11,
+    12,
+    7,
+    8,
+    9,
+    1,
+    2,
+    3,
+    NULL,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27
+  ],
+  ARRAY<RANGE<DATETIME>>(NULL),
+  ARRAY<INT64>(NULL),
+  ARRAY<RANGE<DATETIME>>[unknown order:
+    NULL,
+    NULL,
+    [NULL, 2020-01-02 00:00:00)
+  ],
+  ARRAY<INT64>[unknown order:22, 23, 24, 25, 26, 27, NULL],
+  ARRAY<RANGE<DATETIME>>[known order:
+    NULL,
+    [NULL, 2020-01-02 00:00:00),
+    [NULL, NULL),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, NULL),
+    [2020-02-01 00:00:00, 2020-03-02 00:00:00)
+  ],
+  ARRAY<RANGE<DATETIME>>[known order:
+    NULL,
+    [NULL, 2020-01-02 00:00:00),
+    [NULL, NULL)
+  ],
+  ARRAY<RANGE<DATETIME>>[known order:
+    [2020-02-01 00:00:00, 2020-03-02 00:00:00),
+    [2020-01-01 00:00:00, NULL),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [NULL, NULL),
+    [NULL, 2020-01-02 00:00:00),
+    NULL
+  ],
+  ARRAY<RANGE<DATETIME>>[known order:
+    [2020-02-01 00:00:00, 2020-03-02 00:00:00),
+    [2020-01-01 00:00:00, NULL),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00)
+  ],
+  ARRAY<INT64>[unknown order:8, 9, 5, 1, 2, 4, 3, 6, 7, 10, 11],
+  ARRAY<RANGE<DATETIME>>[known order:
+    [NULL, NULL),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [NULL, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, NULL),
+    [2020-01-01 00:00:00, NULL),
+    NULL,
+    NULL,
+    [2020-02-01 00:00:00, 2020-03-02 00:00:00),
+    [2020-02-01 00:00:00, 2020-03-02 00:00:00)
+  ]}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[required_features=RANGE_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[name=aggregation_order_by_range_timestamp]
+SELECT ARRAY_AGG(range_timestamp_val ORDER BY range_timestamp_val ASC),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_timestamp_val ASC),
+       ARRAY_AGG(range_timestamp_val ORDER BY range_timestamp_val DESC),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_timestamp_val DESC),
+       ARRAY_AGG(range_timestamp_val ORDER BY range_timestamp_val LIMIT 0),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_timestamp_val LIMIT 0),
+       ARRAY_AGG(range_timestamp_val ORDER BY range_timestamp_val LIMIT 3),
+       ARRAY_CONCAT_AGG(array_val ORDER BY range_timestamp_val LIMIT 3),
+       ARRAY_AGG(DISTINCT range_timestamp_val ORDER BY range_timestamp_val ASC),
+       ARRAY_AGG(DISTINCT range_timestamp_val ORDER BY range_timestamp_val ASC LIMIT 3),
+       ARRAY_AGG(DISTINCT range_timestamp_val ORDER BY range_timestamp_val DESC),
+       ARRAY_AGG(DISTINCT range_timestamp_val ORDER BY range_timestamp_val DESC LIMIT 3),
+       ARRAY_AGG(row_id ORDER BY range_timestamp_val),
+       ARRAY_AGG(range_timestamp_val ORDER BY row_id)
+FROM TestTableRangeValues
+--
+ARRAY<STRUCT<ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>>>
+[{ARRAY<RANGE<TIMESTAMP>>[unknown order:
+    NULL,
+    NULL,
+    [
+      NULL,
+      2020-12-31 10:00:00+00
+    ),
+    [NULL, NULL),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      NULL
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      NULL
+    ),
+    [
+      2020-02-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-02-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    )
+  ],
+  ARRAY<INT64>[unknown order:
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    NULL,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    10,
+    11,
+    12,
+    7,
+    8,
+    9,
+    16,
+    17,
+    18,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  ARRAY<RANGE<TIMESTAMP>>[unknown order:
+    [
+      2020-02-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-02-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      NULL
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      NULL
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [NULL, NULL),
+    [
+      NULL,
+      2020-12-31 10:00:00+00
+    ),
+    NULL,
+    NULL
+  ],
+  ARRAY<INT64>[unknown order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    16,
+    17,
+    18,
+    4,
+    5,
+    6,
+    10,
+    11,
+    12,
+    7,
+    8,
+    9,
+    1,
+    2,
+    3,
+    NULL,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27
+  ],
+  ARRAY<RANGE<TIMESTAMP>>(NULL),
+  ARRAY<INT64>(NULL),
+  ARRAY<RANGE<TIMESTAMP>>[unknown order:
+    NULL,
+    NULL,
+    [
+      NULL,
+      2020-12-31 10:00:00+00
+    )
+  ],
+  ARRAY<INT64>[unknown order:22, 23, 24, 25, 26, 27, NULL],
+  ARRAY<RANGE<TIMESTAMP>>[known order:
+    NULL,
+    [
+      NULL,
+      2020-12-31 10:00:00+00
+    ),
+    [NULL, NULL),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      NULL
+    ),
+    [
+      2020-02-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    )
+  ],
+  ARRAY<RANGE<TIMESTAMP>>[known order:
+    NULL,
+    [
+      NULL,
+      2020-12-31 10:00:00+00
+    ),
+    [NULL, NULL)
+  ],
+  ARRAY<RANGE<TIMESTAMP>>[known order:
+    [
+      2020-02-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      NULL
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [NULL, NULL),
+    [
+      NULL,
+      2020-12-31 10:00:00+00
+    ),
+    NULL
+  ],
+  ARRAY<RANGE<TIMESTAMP>>[known order:
+    [
+      2020-02-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      NULL
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    )
+  ],
+  ARRAY<INT64>[unknown order:8, 9, 5, 1, 2, 4, 3, 6, 7, 10, 11],
+  ARRAY<RANGE<TIMESTAMP>>[known order:
+    [NULL, NULL),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      NULL,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      NULL
+    ),
+    [
+      2020-01-01 10:00:00+00,
+      NULL
+    ),
+    NULL,
+    NULL,
+    [
+      2020-02-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    ),
+    [
+      2020-02-01 10:00:00+00,
+      2020-12-31 10:00:00+00
+    )
+  ]}]
 
 NOTE: Reference implementation reports non-determinism.

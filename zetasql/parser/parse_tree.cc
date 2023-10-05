@@ -1204,12 +1204,27 @@ std::string ASTGeneratedColumnInfo::GetSqlForStoredMode() const {
   }
 }
 
+std::string ASTGeneratedColumnInfo::GetSqlForGeneratedMode() const {
+  switch (generated_mode_) {
+    case ASTGeneratedColumnInfo::ALWAYS:
+      return "ALWAYS";
+    case ASTGeneratedColumnInfo::BY_DEFAULT:
+      return "BY DEFAULT";
+  }
+}
+
 std::string ASTGeneratedColumnInfo::SingleNodeDebugString() const {
-  std::string mode = GetSqlForStoredMode();
-  if (mode.empty()) return ASTNode::SingleNodeDebugString();
-  std::replace(mode.begin(), mode.end(), ' ', '_');
-  return absl::StrCat(ASTNode::SingleNodeDebugString(), "(stored_mode=", mode,
-                      ")");
+  std::string stored_mode = GetSqlForStoredMode();
+  std::string generated_mode = GetSqlForGeneratedMode();
+  std::replace(generated_mode.begin(), generated_mode.end(), ' ', '_');
+  if (stored_mode.empty()) {
+    return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
+                        "generated_mode=", generated_mode, ")");
+  }
+  std::replace(stored_mode.begin(), stored_mode.end(), ' ', '_');
+  return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
+                      "generated_mode=", generated_mode, ", ",
+                      "stored_mode=", stored_mode, ")");
 }
 
 std::string ASTNotNullColumnAttribute::SingleNodeSqlString() const {
@@ -1457,6 +1472,15 @@ std::string ASTAlterColumnDropNotNullAction::GetSQLForAlterAction() const {
   return "ALTER COLUMN DROP NOT NULL";
 }
 
+std::string ASTAlterColumnDropGeneratedAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_exists() ? "(is_if_exists)" : "");
+}
+
+std::string ASTAlterColumnDropGeneratedAction::GetSQLForAlterAction() const {
+  return "ALTER COLUMN DROP GENERATED";
+}
+
 std::string ASTSpannerAlterColumnAction::GetSQLForAlterAction() const {
   return "ALTER COLUMN";
 }
@@ -1632,6 +1656,10 @@ std::string ASTOptionsEntry::GetSQLForOperator() const {
     case SUB_ASSIGN:
       return "-=";
   }
+}
+
+bool SchemaObjectAllowedForSnapshot(SchemaObjectKind schema_object_kind) {
+  return schema_object_kind == SchemaObjectKind::kSchema;
 }
 
 }  // namespace zetasql

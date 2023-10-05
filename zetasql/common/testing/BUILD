@@ -88,5 +88,6 @@ cc_test(
         "//zetasql/common:status_payload_utils",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
     ],
 )

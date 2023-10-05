@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
@@ -136,6 +137,12 @@ class InputArgumentType {
 
   bool is_default_argument_value() const {
     return is_default_argument_value_;
+  }
+
+  std::optional<IdString> argument_alias() const { return argument_alias_; }
+
+  void set_argument_alias(IdString argument_alias) {
+    argument_alias_ = argument_alias;
   }
 
   // Argument type name to be used in user facing text (i.e. error messages).
@@ -276,6 +283,10 @@ class InputArgumentType {
   // exist.
   std::shared_ptr<const TVFConnectionArgument> connection_arg_;
   // Copyable.
+
+  // The alias of the argument this InputArgumentType corresponds to. If the
+  // argument does not support aliases, `argument_alias_` = std::nullopt.
+  std::optional<IdString> argument_alias_;
 };
 
 // Only hashes the type kind, not the type itself (so two different enums will
@@ -352,6 +363,8 @@ class InputArgumentTypeSet {
   // so we can iterate over it quickly, and clear it quickly.
   // Many callers call arguments() just so they can iterate through them,
   // and this is very slow in a hash_set.
+  // Using a vector also ensures order is preserved when these types are
+  // reported in error messages.
   std::vector<InputArgumentType> arguments_vector_;
 
   // If the set of arguments gets large, we'll also start storing a hash_set of

@@ -61,9 +61,10 @@
 #include "zetasql/testing/using_test_value.cc"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -74,6 +75,7 @@
 #include "zetasql/base/stl_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 #include "zetasql/base/clock.h"
 
 extern absl::Flag<int64_t>
@@ -4182,6 +4184,370 @@ TEST_F(PreparedModifyWithDefaultColumnTest, UpdateToDefault) {
   EXPECT_FALSE(iter->NextRow());
   ZETASQL_EXPECT_OK(iter->Status());
 }
+
+struct TestQuery {
+  std::string test_name;
+  std::string sql;
+  std::vector<std::vector<Value>> expected_rows;
+  ParameterValueMap params;
+  absl::StatusCode error_code;
+  std::string error_message;
+};
+
+class PreparedModifyWithGeneratedColumnTest
+    : public ::testing::TestWithParam<TestQuery> {
+ public:
+  void SetUp() override {
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
+    analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
+    AddTableWithGeneratedColumn();
+    AddTableWithConstantGeneratedColumn();
+    AddTableWithCyclicDependency();
+    AddTableWithNonCyclicDependency();
+    AddTableT1();
+    AddTableT2();
+    AddTableT3();
+  }
+  absl::StatusOr<std::vector<std::vector<Value>>> GetInsertRows(
+      std::unique_ptr<EvaluatorTableModifyIterator> iter) {
+    std::vector<std::vector<Value>> rows;
+    while (iter->NextRow()) {
+      std::vector<Value> row;
+      int num_col = iter->table()->NumColumns();
+      for (int i = 0; i < num_col; ++i) {
+        row.push_back(iter->GetColumnValue(i));
+      }
+      rows.push_back(row);
+    }
+    return rows;
+  }
+
+  Catalog* catalog() { return &catalog_; }
+  const AnalyzerOptions& analyzer_options() { return analyzer_options_; }
+
+ protected:
+  void AddGeneratedColumnToTable(std::string column_name,
+                                 std::vector<std::string> expression_columns,
+                                 std::string generated_expr,
+                                 SimpleTable* table) {
+    AnalyzerOptions options = analyzer_options_;
+    std::unique_ptr<const AnalyzerOutput> output;
+    for (const std::string& expression_column : expression_columns) {
+      ZETASQL_ASSERT_OK(
+          options.AddExpressionColumn(expression_column, types::Int64Type()));
+    }
+    ZETASQL_ASSERT_OK(AnalyzeExpression(generated_expr, options, &catalog_,
+                                catalog_.type_factory(), &output));
+    SimpleColumn::ExpressionAttributes expr_attributes(
+        SimpleColumn::ExpressionAttributes::ExpressionKind::GENERATED,
+        generated_expr, output->resolved_expr());
+    ZETASQL_ASSERT_OK(table->AddColumn(
+        new SimpleColumn(table->Name(), column_name, types::Int64Type(),
+                         {.column_expression = expr_attributes}),
+        /*is_owned=*/true));
+    outputs_.push_back(std::move(output));
+  }
+  void AddTableWithCyclicDependency() {
+    // Table representation
+    // CREATE TABLE TCyclic (
+    //  id int64_t ,
+    //  data int64_t ,
+    //  gen1 as gen2*2 ,
+    //  gen2 as gen1*2 ,
+    // ) PRIMARY KEY(id,gen1)
+    auto test_table = std::make_unique<SimpleTable>(
+        "TCyclic",
+        std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
+                                              {"data", types::Int64Type()}});
+
+    // Add column gen2 as gen1*2
+    AddGeneratedColumnToTable("gen2", {"gen1"}, "gen1*2", test_table.get());
+    // Add column gen1 as gen2*2
+    AddGeneratedColumnToTable("gen1", {"gen2"}, "gen2*2", test_table.get());
+    test_table->SetContents({{Int64(1), Int64(2), Int64(8), Int64(4)},
+                             {Int64(2), Int64(3), Int64(12), Int64(6)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+  void AddTableWithGeneratedColumn() {
+    // Table representation
+    // CREATE TABLE T (
+    //  id int64_t ,
+    //  data int64_t ,
+    //  gen2 as (gen1*2) ,
+    //  gen1 as (data*2) ,
+    //  gen3 as (data*3) ,
+    // ) PRIMARY KEY(id,gen1)
+    auto test_table = std::make_unique<SimpleTable>(
+        kTestTable,
+        std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
+                                              {"data", types::Int64Type()}});
+    // Add column gen2 as gen1*2
+    AddGeneratedColumnToTable("gen2", {"gen1"}, "gen1*2", test_table.get());
+    // Add column gen1 as data*2
+    AddGeneratedColumnToTable("gen1", {"data"}, "data*2", test_table.get());
+    // Add column gen3 as data*3
+    AddGeneratedColumnToTable("gen3", {"data"}, "data*3", test_table.get());
+
+    test_table->SetContents(
+        {{Int64(1), Int64(2), Int64(8), Int64(4), Int64(6)},
+         {Int64(2), Int64(3), Int64(12), Int64(6), Int64(9)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+
+  void AddTableWithConstantGeneratedColumn() {
+    // Table representation
+    // CREATE TABLE TGenConst (
+    //  id int64_t ,
+    //  data int64_t ,
+    //  gen1 as (7+3) ,
+    // ) PRIMARY KEY(id,gen1)
+    auto test_table = std::make_unique<SimpleTable>(
+        "TGenConst",
+        std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
+                                              {"data", types::Int64Type()}});
+
+    // Add column gen1 as (7+3)
+    AddGeneratedColumnToTable("gen1", {}, "7+3", test_table.get());
+    test_table->SetContents(
+        {{Int64(1), Int64(2), Int64(10)}, {Int64(2), Int64(3), Int64(10)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+
+  void AddTableT1() {
+    // CREATE TABLE T1 (
+    //   a INT64,
+    //   b INT64,
+    //   c INT64,
+    // ) PRIMARY KEY(a);
+    auto t1 = std::make_unique<SimpleTable>(
+        "T1", std::vector<SimpleTable::NameAndType>{{"a", types::Int64Type()},
+                                                    {"b", types::Int64Type()},
+                                                    {"c", types::Int64Type()}});
+    // contents of T1
+    // a b c
+    // 1 2 2
+    // 2 3 3
+    // 3 4 4
+    t1->SetContents({{Int64(1), Int64(2), Int64(2)},
+                     {Int64(2), Int64(3), Int64(3)},
+                     {Int64(3), Int64(4), Int64(4)}});
+    catalog_.AddOwnedTable(std::move(t1));
+  }
+  void AddTableT2() {
+    // CREATE TABLE T2 (
+    //   a INT64,
+    //   b INT64,
+    //   c INT64 AS (b*2),
+    // ) PRIMARY KEY(a);
+    auto t2 = std::make_unique<SimpleTable>(
+        "T2", std::vector<SimpleTable::NameAndType>{{"a", types::Int64Type()},
+                                                    {"b", types::Int64Type()}});
+    AddGeneratedColumnToTable("c", {"b"}, "b*2", t2.get());
+    t2->SetContents({{Int64(4), Int64(5), Int64(10)}});
+    catalog_.AddOwnedTable(std::move(t2));
+  }
+  void AddTableT3() {
+    // CREATE TABLE T3 (
+    //   a INT64,
+    //   b INT64,
+    //   c INT64,
+    //   d INT64 AS (b*2),
+    // ) PRIMARY KEY(a);
+    auto t3 = std::make_unique<SimpleTable>(
+        "T3", std::vector<SimpleTable::NameAndType>{{"a", types::Int64Type()},
+                                                    {"b", types::Int64Type()},
+                                                    {"c", types::Int64Type()}});
+    AddGeneratedColumnToTable("d", {"b"}, "b*2", t3.get());
+    // contents of T3
+    // a b c d
+    // 1 2 4 4
+    // 4 3 4 6
+    // 3 3 8 6
+    t3->SetContents({{Int64(1), Int64(2), Int64(4), Int64(4)},
+                     {Int64(4), Int64(3), Int64(4), Int64(6)},
+                     {Int64(3), Int64(3), Int64(8), Int64(6)}});
+    catalog_.AddOwnedTable(std::move(t3));
+  }
+
+  void AddTableWithNonCyclicDependency() {
+    // Table representation
+    // CREATE TABLE TA (
+    //  A as (B+C) ,
+    //  B as (C+1) ,
+    //  C int64_t ,
+    //  D as (A+B+C) ,
+    // ) PRIMARY KEY(A,C)
+    auto test_table = std::make_unique<SimpleTable>(
+        "TA", std::vector<SimpleTable::NameAndType>{});
+
+    // Add column A as (B+C)
+    AddGeneratedColumnToTable("A", {"B", "C"}, "B+C", test_table.get());
+    // Add column B as (C+1)
+    AddGeneratedColumnToTable("B", {"C"}, "C+1", test_table.get());
+    // Add column C int64_t
+    ZETASQL_ASSERT_OK(test_table->AddColumn(
+        new SimpleColumn(test_table->Name(), "C", types::Int64Type()),
+        /*is_owned=*/true));
+    // Add column D as (A+B+C)
+    AddGeneratedColumnToTable("D", {"A", "B", "C"}, "A+B+C", test_table.get());
+
+    test_table->SetContents({{Int64(3), Int64(2), Int64(1), Int64(6)},
+                             {Int64(5), Int64(3), Int64(2), Int64(10)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+  absl::StatusOr<std::vector<std::vector<Value>>> ExecuteInsertQuery(
+      std::string sql, ParameterValueMap params) {
+    PreparedModify insert_stmt(sql, EvaluatorOptions());
+    AnalyzerOptions query_options = analyzer_options();
+    for (auto& [param_name, param_value] : params) {
+      ZETASQL_RETURN_IF_ERROR(
+          query_options.AddQueryParameter(param_name, types::Int64Type()));
+    }
+    ZETASQL_RETURN_IF_ERROR(insert_stmt.Prepare(query_options, catalog()));
+    ZETASQL_RET_CHECK_EQ(insert_stmt.resolved_statement()->node_kind(),
+                 RESOLVED_INSERT_STMT);
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                     insert_stmt.Execute(params));
+    return GetInsertRows(std::move(iter));
+  }
+
+  SimpleCatalog catalog_{"test_catalog"};
+  AnalyzerOptions analyzer_options_;
+  std::vector<std::unique_ptr<const AnalyzerOutput>> outputs_;
+
+  // Table names
+  static constexpr char kTestTable[] = "T";
+};
+
+TEST_P(PreparedModifyWithGeneratedColumnTest, TestQuery) {
+  TestQuery test_query = GetParam();
+  auto result = ExecuteInsertQuery(test_query.sql, test_query.params);
+  ASSERT_THAT(result.status(),
+              StatusIs(test_query.error_code,
+                       testing::MatchesRegex(test_query.error_message)));
+  if (result.ok()) {
+    EXPECT_EQ(result.value(), test_query.expected_rows);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TestQuery, PreparedModifyWithGeneratedColumnTest,
+    testing::ValuesIn<TestQuery>({
+        {"simple_select",
+         R"sql(INSERT INTO T2(a,b) SELECT a,b FROM T1)sql",
+         {{Int64(1), Int64(2), Int64(4)},
+          {Int64(2), Int64(3), Int64(6)},
+          {Int64(3), Int64(4), Int64(8)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
+        // Verifies that writing to a generated column doesn't have any effect.
+        // The generated column values are always derived from the generated
+        // expression. Trying to copy all data from T1(a,b,c) to T2(a,b,c).
+        // As T2.c is a generated column, the copied values will be ignored and
+        // will be evaluated through the generated expression.
+        {"write_to_generated_column_with_select",
+         R"sql(INSERT INTO T2(a,b,c) SELECT * FROM T1)sql",
+         {{Int64(1), Int64(2), Int64(4)},
+          {Int64(2), Int64(3), Int64(6)},
+          {Int64(3), Int64(4), Int64(8)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
+        // Selects two rows , say R1 & R2 from table T3 where R1.d = R2.d
+        // Then adds a row R into the table with R.a = R1.a + R2.a,
+        // R.b = R1.b + R2.b, R.c = R1.c + R2.c.
+        {"self_joins",
+         R"sql(INSERT INTO T3(a,b,c)
+               SELECT P.a+Q.a,P.b+Q.b,P.c+Q.c FROM T3 P, T3 Q
+               WHERE P.d = Q.d AND P.a < Q.a)sql",
+         {{Int64(7), Int64(6), Int64(12), Int64(12)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
+        // Verifies if insert queries work as expected when query parameters
+        // with same name as that of a columns of table being inserted to are
+        // used.
+        {"select_parameters_conflicting_with_inserting_columns",
+         R"sql(INSERT INTO T2(a,b)
+               SELECT DISTINCT @a,@b FROM T2)sql",
+         {{Int64(12), Int64(10), Int64(20)}},
+         // Adding parameters named `a` & `b` and selecting those to make sure
+         // that these don't conflict with the column names (parameters
+         // values are picked, not generated column).
+         {{"b", values::Int64(10)}, {"a", values::Int64(12)}},
+         absl::StatusCode::kOk,
+         ""},
+        // Verifies if insert queries work as expected when query parameters
+        // with same name as that of target generated column of a table are
+        // used.
+        {"select_parameters_conflicting_with_target_gen_columns",
+         R"sql(INSERT INTO T2(a,b)
+               SELECT DISTINCT @b,@c FROM T2)sql",
+         {{Int64(10), Int64(12), Int64(24)}},
+         // Adding parameters named `b` & `c` and selecting those to make sure
+         // that these don't conflict with the column names (parameters values
+         // are picked, not generated column).
+         {{"b", values::Int64(10)}, {"c", values::Int64(12)}},
+         absl::StatusCode::kOk,
+         ""},
+        {"simple",
+         R"sql(INSERT INTO T (id,data) VALUES (3,7),(3,6))sql",
+         {{Int64(3), Int64(7), Int64(28), Int64(14), Int64(21)},
+          {Int64(3), Int64(6), Int64(24), Int64(12), Int64(18)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
+        {"const_gen_col",
+         R"sql(INSERT INTO TGenConst (id,data) VALUES (3,7),(4,6))sql",
+         {{Int64(3), Int64(7), Int64(10)}, {Int64(4), Int64(6), Int64(10)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
+        {"topological_order",
+         R"sql(INSERT INTO TA (C) VALUES (3),(4))sql",
+         {{Int64(7), Int64(4), Int64(3), Int64(14)},
+          {Int64(9), Int64(5), Int64(4), Int64(18)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
+        {"parameters_conflicting_with_target_gen_col",
+         R"sql(INSERT INTO T3(a,b,c) VALUES (2,6,@d))sql",
+         {{Int64(2), Int64(6), Int64(4), Int64(12)}},
+         {{"d", values::Int64(4)}},
+         absl::StatusCode::kOk,
+         ""},
+        {"parameters_conflicting_with_incoming_dependent_col",
+         R"sql(INSERT INTO T3(a,b,c) VALUES (2,@b,4))sql",
+         {{Int64(2), Int64(6), Int64(4), Int64(12)}},
+         {{"b", values::Int64(6)}},
+         absl::StatusCode::kOk,
+         ""},
+        {"duplicate_pk",
+         R"sql(INSERT INTO T (id,data) VALUES (2,3))sql",
+         {},
+         {},
+         absl::StatusCode::kOutOfRange,
+         "Failed to insert row with primary key.*id:2.*gen2:12.*"},
+        {"cyclic_generated_columns",
+         R"sql(INSERT INTO TCyclic (id,data) VALUES (3,7),(3,6))sql",
+         {},
+         {},
+         absl::StatusCode::kInvalidArgument,
+         "Recursive dependencies detected while evaluating generated "
+         "column expression values for TCyclic.gen.. The expression "
+         "indicates the column depends on itself. Columns forming "
+         "the cycle : TCyclic.gen., TCyclic.gen."},
+    }),
+    [](const testing::TestParamInfo<
+        PreparedModifyWithGeneratedColumnTest::ParamType>& info) {
+      return info.param.test_name;
+    });
 
 TEST(PreparedQuery, FromTableOnlySecondColumn) {
   SimpleTable test_table(

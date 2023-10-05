@@ -65,6 +65,8 @@ public class AllowedHintsAndOptions implements Serializable {
     // Option resolving kind.
     public abstract OptionProto.ResolvingKind resolvingKind();
 
+    public abstract boolean allowAlterArray();
+
     public abstract Builder toBuilder();
 
     public static Builder builder() {
@@ -77,6 +79,8 @@ public class AllowedHintsAndOptions implements Serializable {
       Builder type(@Nullable Type type);
 
       Builder resolvingKind(OptionProto.ResolvingKind referenceTree);
+
+      Builder allowAlterArray(boolean allowAlterArray);
 
       AllowedOptionProperties build();
     }
@@ -162,12 +166,14 @@ public class AllowedHintsAndOptions implements Serializable {
             .addOptionBuilder()
             .setName(option.getKey())
             .setType(typeBuilder)
-            .setResolvingKind(option.getValue().resolvingKind());
+            .setResolvingKind(option.getValue().resolvingKind())
+            .setAllowAlterArray(option.getValue().allowAlterArray());
       } else {
         builder
             .addOptionBuilder()
             .setName(option.getKey())
-            .setResolvingKind(option.getValue().resolvingKind());
+            .setResolvingKind(option.getValue().resolvingKind())
+            .setAllowAlterArray(option.getValue().allowAlterArray());
       }
     }
     for (Entry<String, AllowedOptionProperties> anonymizationOption :
@@ -179,12 +185,14 @@ public class AllowedHintsAndOptions implements Serializable {
             .addAnonymizationOptionBuilder()
             .setName(anonymizationOption.getKey())
             .setType(typeBuilder)
-            .setResolvingKind(anonymizationOption.getValue().resolvingKind());
+            .setResolvingKind(anonymizationOption.getValue().resolvingKind())
+            .setAllowAlterArray(anonymizationOption.getValue().allowAlterArray());
       } else {
         builder
             .addAnonymizationOptionBuilder()
             .setName(anonymizationOption.getKey())
-            .setResolvingKind(anonymizationOption.getValue().resolvingKind());
+            .setResolvingKind(anonymizationOption.getValue().resolvingKind())
+            .setAllowAlterArray(anonymizationOption.getValue().allowAlterArray());
       }
     }
     for (Entry<String, AllowedOptionProperties> differentialPrivacyOption :
@@ -199,12 +207,14 @@ public class AllowedHintsAndOptions implements Serializable {
             .addDifferentialPrivacyOptionBuilder()
             .setName(differentialPrivacyOption.getKey())
             .setType(typeBuilder)
-            .setResolvingKind(differentialPrivacyOption.getValue().resolvingKind());
+            .setResolvingKind(differentialPrivacyOption.getValue().resolvingKind())
+            .setAllowAlterArray(differentialPrivacyOption.getValue().allowAlterArray());
       } else {
         builder
             .addDifferentialPrivacyOptionBuilder()
             .setName(differentialPrivacyOption.getKey())
-            .setResolvingKind(differentialPrivacyOption.getValue().resolvingKind());
+            .setResolvingKind(differentialPrivacyOption.getValue().resolvingKind())
+            .setAllowAlterArray(differentialPrivacyOption.getValue().allowAlterArray());
       }
     }
     return builder.build();
@@ -246,9 +256,12 @@ public class AllowedHintsAndOptions implements Serializable {
               : OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER;
       if (option.hasType()) {
         allowed.addOption(
-            option.getName(), factory.deserialize(option.getType(), pools), resolvingKind);
+            option.getName(),
+            factory.deserialize(option.getType(), pools),
+            option.getAllowAlterArray(),
+            resolvingKind);
       } else {
-        allowed.addOption(option.getName(), null, resolvingKind);
+        allowed.addOption(option.getName(), null, option.getAllowAlterArray(), resolvingKind);
       }
     }
 
@@ -298,8 +311,25 @@ public class AllowedHintsAndOptions implements Serializable {
    *
    * @param type may be NULL to indicate that all Types are allowed.
    */
+  public void addOption(String name, @Nullable Type type, boolean allowAlterArray) {
+    addOption(
+        name,
+        type,
+        allowAlterArray,
+        OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER);
+  }
+
+  /**
+   * Add an option with CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER resolvingKind.
+   *
+   * @param type may be NULL to indicate that all Types are allowed.
+   */
   public void addOption(String name, @Nullable Type type) {
-    addOption(name, type, OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER);
+    addOption(
+        name,
+        type,
+        /* allowAlterArray= */ false,
+        OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER);
   }
 
   /**
@@ -308,14 +338,22 @@ public class AllowedHintsAndOptions implements Serializable {
    * @param type may be NULL to indicate that all Types are allowed.
    * @param resolvingKind may not be NULL.
    */
-  public void addOption(String name, @Nullable Type type, OptionProto.ResolvingKind resolvingKind) {
+  public void addOption(
+      String name,
+      @Nullable Type type,
+      boolean allowAlterArray,
+      OptionProto.ResolvingKind resolvingKind) {
     Preconditions.checkNotNull(name);
     Preconditions.checkNotNull(resolvingKind);
     Preconditions.checkArgument(!name.isEmpty());
     Preconditions.checkArgument(!options.containsKey(Ascii.toLowerCase(name)));
     options.put(
         Ascii.toLowerCase(name),
-        AllowedOptionProperties.builder().type(type).resolvingKind(resolvingKind).build());
+        AllowedOptionProperties.builder()
+            .type(type)
+            .resolvingKind(resolvingKind)
+            .allowAlterArray(allowAlterArray)
+            .build());
   }
 
   /**
@@ -342,7 +380,11 @@ public class AllowedHintsAndOptions implements Serializable {
     Preconditions.checkArgument(!anonymizationOptions.containsKey(Ascii.toLowerCase(name)));
     anonymizationOptions.put(
         Ascii.toLowerCase(name),
-        AllowedOptionProperties.builder().type(type).resolvingKind(resolvingKind).build());
+        AllowedOptionProperties.builder()
+            .type(type)
+            .resolvingKind(resolvingKind)
+            .allowAlterArray(false)
+            .build());
   }
 
   /**
@@ -369,7 +411,11 @@ public class AllowedHintsAndOptions implements Serializable {
     Preconditions.checkArgument(!differentialPrivacyOptions.containsKey(Ascii.toLowerCase(name)));
     differentialPrivacyOptions.put(
         Ascii.toLowerCase(name),
-        AllowedOptionProperties.builder().type(type).resolvingKind(resolvingKind).build());
+        AllowedOptionProperties.builder()
+            .type(type)
+            .resolvingKind(resolvingKind)
+            .allowAlterArray(false)
+            .build());
   }
 
   /**
@@ -517,30 +563,42 @@ public class AllowedHintsAndOptions implements Serializable {
         AllowedOptionProperties.builder()
             .type(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE))
             .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
             .build());
     anonymizationOptions.put(
         "delta",
         AllowedOptionProperties.builder()
             .type(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE))
             .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
             .build());
     anonymizationOptions.put(
         "k_threshold",
         AllowedOptionProperties.builder()
             .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
             .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
             .build());
     anonymizationOptions.put(
         "kappa",
         AllowedOptionProperties.builder()
             .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
             .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
             .build());
     anonymizationOptions.put(
         "max_rows_contributed",
         AllowedOptionProperties.builder()
             .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
             .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
+            .build());
+    anonymizationOptions.put(
+        "min_privacy_units_per_group",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
             .build());
   }
 
@@ -553,24 +611,35 @@ public class AllowedHintsAndOptions implements Serializable {
         AllowedOptionProperties.builder()
             .type(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE))
             .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
             .build());
     differentialPrivacyOptions.put(
         "delta",
         AllowedOptionProperties.builder()
             .type(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE))
             .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
             .build());
     differentialPrivacyOptions.put(
         "max_groups_contributed",
         AllowedOptionProperties.builder()
             .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
             .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
             .build());
     differentialPrivacyOptions.put(
         "max_rows_contributed",
         AllowedOptionProperties.builder()
             .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
             .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
+            .build());
+    differentialPrivacyOptions.put(
+        "min_privacy_units_per_group",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .allowAlterArray(false)
             .build());
   }
 }

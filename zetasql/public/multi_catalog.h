@@ -32,6 +32,7 @@
 namespace zetasql {
 
 // Class that wraps an ordered list of Catalogs into a single Catalog.
+// Optionally assumes ownership of the wrapped Catalogs.
 //
 // For Find*() functions, object names are looked up from the Catalogs in
 // order, with the result of the first found lookup returned.
@@ -58,15 +59,20 @@ class MultiCatalog : public Catalog {
   MultiCatalog(const MultiCatalog&) = delete;
   MultiCatalog& operator=(const MultiCatalog&) = delete;
 
-  // Create a MultiCatalog from an ordered list of Catalogs.  Does not own
-  // the catalogs in the list.  Catalogs in the list must be non-NULL or
-  // an error is returned.
+  // Create a MultiCatalog from an ordered list of Catalogs.  Catalogs in the
+  // list must be non-NULL or an error is returned.  Does not own the catalogs
+  // in the list.  To pass ownership of the Catalogs see `AppendOwnedCatalog`
+  // instead.
   static absl::Status Create(absl::string_view name,
                              const std::vector<Catalog*>& catalog_list,
                              std::unique_ptr<MultiCatalog>* multi_catalog);
 
   // Appends a Catalog to <catalog_list_>.  Crashes if <catalog> is NULL.
   void AppendCatalog(Catalog* catalog);
+
+  // Similar to `AppendCatalog`, but assumes ownership.  Returns a non-OK status
+  // iff `catalog is nullptr.
+  absl::Status AppendOwnedCatalog(std::unique_ptr<Catalog> catalog);
 
   std::string FullName() const override { return name_; }
 
@@ -142,6 +148,9 @@ class MultiCatalog : public Catalog {
 
   // The ordered list of catalogs where names are looked up.
   std::vector<Catalog*> catalog_list_;
+
+  // Storage for owned catalogs.
+  std::vector<std::unique_ptr<Catalog>> owned_catalogs_;
 };
 
 }  // namespace zetasql

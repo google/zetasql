@@ -42,6 +42,16 @@ enum SignatureArgumentKind {
   //   LAMBDA(<T1>, <T2>, <T3>) -> <T3>
   ARG_TYPE_ANY_3 = 23;
 
+  // Templated type.  All arguments with this type must be the same type.
+  // For example,
+  //   LAMBDA(<T1>, <T2>, <T3>, <T4>) -> <T4>
+  ARG_TYPE_ANY_4 = 25;
+
+  // Templated type. All arguments with this type must be the same type.
+  // For example,
+  //   LAMBDA(<T1>, <T2>, <T3>, <T4>, <T5>) -> <T5>
+  ARG_TYPE_ANY_5 = 27;
+
   // Templated array type.  All arguments with this type must be the same
   // type.  Additionally, all arguments with this type must be an array
   // whose element type matches arguments with ARG_TYPE_ANY_1 type.
@@ -62,6 +72,20 @@ enum SignatureArgumentKind {
   // For example,
   //   MAX(<array<T3>>) -> <T3>
   ARG_ARRAY_TYPE_ANY_3 = 24;
+
+  // Templated array type. All arguments with this type must be the same type.
+  // Additionally, all arguments with this type must be an array whose element
+  // type matches arguments with ARG_TYPE_ANY_4 type.
+  // For example,
+  //   MAX(<array<T4>>) -> <T4>
+  ARG_ARRAY_TYPE_ANY_4 = 26;
+
+  // Templated array type. All arguments with this type must be the same type.
+  // Additionally, all arguments with this type must be an array whose element
+  // type matches arguments with ARG_TYPE_ANY_5 type.
+  // For example,
+  //   MAX(<array<T5>>) -> <T5>
+  ARG_ARRAY_TYPE_ANY_5 = 28;
 
   // Templated proto map type. This is an array of protos where the proto
   // is a map entry. It has a key field and a value field. This kind allows

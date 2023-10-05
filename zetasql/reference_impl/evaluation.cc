@@ -28,7 +28,6 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
-#include <cstdint>
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/flags/flag.h"

@@ -42,7 +42,6 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/base/casts.h"
-#include <cstdint>
 #include "absl/base/macros.h"
 #include "absl/hash/hash_testing.h"
 #include "absl/numeric/int128.h"

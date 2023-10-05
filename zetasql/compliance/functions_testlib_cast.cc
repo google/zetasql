@@ -41,12 +41,12 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "absl/base/casts.h"
-#include <cstdint>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/civil_time.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/stl_util.h"
 #include "zetasql/base/status.h"
@@ -152,7 +152,7 @@ static const ProtoType* Uint64StringMapEntryType() {
 
 template <typename Type>
 static std::vector<Type> ConcatTests(
-    const std::vector<std::vector<Type>>& test_vectors) {
+    absl::Span<const std::vector<Type>> test_vectors) {
   std::vector<Type> result;
   for (const auto& v : test_vectors) {
     result.insert(result.end(), v.begin(), v.end());

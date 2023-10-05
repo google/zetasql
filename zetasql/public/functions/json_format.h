@@ -29,7 +29,6 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
-#include <cstdint>
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"

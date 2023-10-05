@@ -414,6 +414,19 @@ inline void STLStringResizeUninitialized(string_type* s, size_t new_size) {
                                                                     new_size);
 }
 
+// Tests two hash maps/sets for equality. This exists because operator== in the
+// STL can return false when the maps/sets contain identical elements. This is
+// because it compares the internal hash tables which may be different if the
+// order of insertions and deletions differed.
+template <typename HashSet>
+inline bool HashSetEquality(const HashSet& set_a, const HashSet& set_b) {
+  if (set_a.size() != set_b.size()) return false;
+  for (typename HashSet::const_iterator i = set_a.begin(); i != set_a.end();
+       ++i)
+    if (set_b.find(*i) == set_b.end()) return false;
+  return true;
+}
+
 }  // namespace zetasql_base
 
 #endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_STL_UTIL_H_

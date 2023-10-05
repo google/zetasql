@@ -33,6 +33,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/internal_value.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
@@ -1932,7 +1933,8 @@ absl::StatusOr<ValueExpr*> DMLValueExpr::LookupResolvedExpr(
   return value_expr->get();
 }
 
-ValueExpr* DMLValueExpr::LookupDefaultExpr(const int resolved_column_id) const {
+ValueExpr* DMLValueExpr::LookupDefaultOrGeneratedExpr(
+    const int resolved_column_id) const {
   const std::unique_ptr<ValueExpr>* value_expr =
       zetasql_base::FindOrNull(*column_expr_map_, resolved_column_id);
   if (value_expr == nullptr) return nullptr;
@@ -2692,7 +2694,7 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfUpdateItem(
         // The column may have a default value, look it up first:
         const ResolvedColumn& column =
             target->GetAs<ResolvedColumnRef>()->column();
-        leaf_value_expr = LookupDefaultExpr(column.column_id());
+        leaf_value_expr = LookupDefaultOrGeneratedExpr(column.column_id());
       }
       if (leaf_value_expr == nullptr) {
         ZETASQL_ASSIGN_OR_RETURN(leaf_value_expr,
@@ -3051,7 +3053,7 @@ absl::StatusOr<Value> DMLUpdateValueExpr::GetLeafValue(
       // The column may have a default value, look it up first:
       const ResolvedColumn& column =
           target->GetAs<ResolvedColumnRef>()->column();
-      leaf_value_expr = LookupDefaultExpr(column.column_id());
+      leaf_value_expr = LookupDefaultOrGeneratedExpr(column.column_id());
     }
     if (leaf_value_expr == nullptr) {
       ZETASQL_ASSIGN_OR_RETURN(leaf_value_expr,
@@ -3407,7 +3409,8 @@ absl::Status DMLInsertValueExpr::SetSchemasForEvaluation(
         if (stmt()->table_scan() != nullptr &&
             dml_value->value()->node_kind() == RESOLVED_DMLDEFAULT) {
           // The column may have a default value, look it up first:
-          expr = LookupDefaultExpr(stmt()->insert_column_list(i).column_id());
+          expr = LookupDefaultOrGeneratedExpr(
+              stmt()->insert_column_list(i).column_id());
         }
         if (expr == nullptr) {
           // A null `expr` means that we don't find a default value
@@ -3440,6 +3443,18 @@ absl::Status DMLInsertValueExpr::SetSchemasForEvaluation(
     for (const std::unique_ptr<ValueExpr>& val : *returning_column_values_) {
       ZETASQL_RETURN_IF_ERROR(val->SetSchemasForEvaluation(expr_schemas));
     }
+  }
+  std::vector<VariableId> variables;
+  for (int i = 0; i < column_list_->size(); ++i) {
+    const ResolvedColumn& column = (*column_list_)[i];
+    ZETASQL_ASSIGN_OR_RETURN(
+        const VariableId variable_id,
+        column_to_variable_mapping_->LookupVariableNameForColumn(column));
+    variables.push_back(variable_id);
+  }
+  const TupleSchema column_schema(variables);
+  for (const auto& [column_id, value_expr] : *column_expr_map_) {
+    ZETASQL_RETURN_IF_ERROR(value_expr->SetSchemasForEvaluation({&column_schema}));
   }
 
   return absl::OkStatus();
@@ -3572,17 +3587,28 @@ absl::Status DMLInsertValueExpr::PopulateRowsToInsert(
   for (const std::vector<Value>& columns_to_insert_for_row :
        columns_to_insert) {
     std::vector<Value> row_to_insert;
+    // Map of generated column resolved id vs position in the row_to_insert.
+    absl::flat_hash_map<int, size_t> generated_columns_position_map;
+
+    const Table* table = stmt()->table_scan()->table();
 
     for (int i = 0; i < column_list_->size(); ++i) {
       const ResolvedColumn& column = (*column_list_)[i];
-
+      const Column* sql_column = table->GetColumn(i);
+      if (sql_column->HasGeneratedExpression()) {
+        generated_columns_position_map[column.column_id()] = i;
+      }
       const InsertColumnOffsets* insert_column_offsets =
           zetasql_base::FindOrNull(insert_column_map, column);
       if (insert_column_offsets == nullptr) {
-        ValueExpr* default_expr = LookupDefaultExpr(column.column_id());
-        if (default_expr == nullptr) {
+        ValueExpr* default_expr =
+            LookupDefaultOrGeneratedExpr(column.column_id());
+
+        if (default_expr == nullptr || sql_column->HasGeneratedExpression()) {
           // A null `default_expr` means that we don't find a default value
           // expression for this column, fill in NULL here:
+          // Generated columns are evaluated separately after topological
+          // sorting
           row_to_insert.push_back(Value::Null(column.type()));
         } else {
           ZETASQL_ASSIGN_OR_RETURN(const Value value,
@@ -3598,6 +3624,26 @@ absl::Status DMLInsertValueExpr::PopulateRowsToInsert(
       }
     }
 
+    // We evaluate generated columns in topological order since the generated
+    // column dependencies must already be evaluated before we can evaluate
+    // the value of a generated column. For example, if gen2 = gen1 + data, we
+    // need to have values of gen1 and data evaluated before gen2 value can be
+    // evaluated.
+    for (int column_id :
+         stmt()->topologically_sorted_generated_column_id_list()) {
+      auto itr = generated_columns_position_map.find(column_id);
+      ZETASQL_RET_CHECK(itr != generated_columns_position_map.end());
+      size_t generated_column_pos = itr->second;
+      ZETASQL_RET_CHECK_LT(generated_column_pos, column_list_->size());
+      ValueExpr* generated_expr = LookupDefaultOrGeneratedExpr(column_id);
+      ZETASQL_RET_CHECK(generated_expr != nullptr);
+      TupleData tuple_data = CreateTupleDataFromValues(row_to_insert);
+      ZETASQL_ASSIGN_OR_RETURN(const Value new_value,
+                       EvalExpr(*generated_expr, {&tuple_data}, context));
+
+      // Replace with generated value.
+      row_to_insert[generated_column_pos] = new_value;
+    }
     rows_to_insert->push_back(row_to_insert);
   }
 
@@ -3648,8 +3694,8 @@ absl::Status DMLInsertValueExpr::PopulateColumnsToInsert(
         if (stmt()->table_scan() != nullptr &&
             dml_value->value()->node_kind() == RESOLVED_DMLDEFAULT) {
           // The column may have a default value, look it up first:
-          value_expr =
-              LookupDefaultExpr(stmt()->insert_column_list(i).column_id());
+          value_expr = LookupDefaultOrGeneratedExpr(
+              stmt()->insert_column_list(i).column_id());
         }
         if (value_expr == nullptr) {
           // A null `value_expr` means that we don't find a default value

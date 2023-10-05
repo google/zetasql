@@ -1,3 +1,4 @@
+[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [default no_run_unparser]
@@ -2503,7 +2504,7 @@ QueryStmt
           +-max_groups_contributed := Literal(type=INT64, value=3)
 
 
-Rewrite ERROR: Differential privacy option group_selection_strategy PUBLIC_GROUPS only allows column names out of the public group SELECT DISINTCT subquery in the GROUP BY list.
+Rewrite ERROR: Differential privacy option group_selection_strategy PUBLIC_GROUPS only allows column names out of the public group SELECT DISTINCT subquery in the GROUP BY list.
 ==
 
 # Happy path for multiple public group joins, both right.

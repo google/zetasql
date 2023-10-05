@@ -38,7 +38,6 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -48,6 +47,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 
@@ -83,7 +83,7 @@ using functions::YEAR;
 
 template <typename Type>
 static std::vector<Type> ConcatTests(
-    const std::vector<std::vector<Type>>& test_vectors) {
+    absl::Span<const std::vector<Type>> test_vectors) {
   std::vector<Type> result;
   for (const auto& v : test_vectors) {
     result.insert(result.end(), v.begin(), v.end());
@@ -554,7 +554,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDateTrunc() {
 // A shorthand to construct and return a vector of FunctionTestCall with the
 // <function_name> and wrapped results from the vector of CivilTimeTestCase.
 static std::vector<FunctionTestCall> PrepareCivilTimeTestCaseAsFunctionTestCall(
-    const std::vector<CivilTimeTestCase>& test_cases,
+    absl::Span<const CivilTimeTestCase> test_cases,
     absl::string_view function_name) {
   std::vector<QueryParamsWithResult> cases_with_features;
   cases_with_features.reserve(test_cases.size());
@@ -8898,7 +8898,8 @@ FunctionTestCall TimestampBucketTest(
                                     /*allow_tz_in_str=*/true, &timestamp))
       << timestamp_string;
 
-  IntervalValue interval = *IntervalValue ::ParseFromString(interval_string);
+  IntervalValue interval =
+      *IntervalValue::ParseFromString(interval_string, /*allow_nanos=*/true);
   absl::Time origin;
   ZETASQL_CHECK_OK(ConvertStringToTimestamp(origin_string, timezone, scale,
                                     /*allow_tz_in_str=*/true, &origin))
@@ -8940,7 +8941,8 @@ FunctionTestCall TimestampBucketErrorTest(
                                     /*allow_tz_in_str=*/true, &timestamp))
       << timestamp_string;
 
-  IntervalValue interval = *IntervalValue::ParseFromString(interval_string);
+  IntervalValue interval =
+      *IntervalValue::ParseFromString(interval_string, /*allow_nanos=*/true);
 
   absl::Time origin;
   ZETASQL_CHECK_OK(ConvertStringToTimestamp(origin_string, timezone, scale,
@@ -9246,7 +9248,8 @@ FunctionTestCall DatetimeBucketTest(
   DatetimeValue datetime;
   ZETASQL_CHECK_OK(ConvertStringToDatetime(datetime_string, scale, &datetime))
       << datetime_string;
-  IntervalValue interval = *IntervalValue::ParseFromString(interval_string);
+  IntervalValue interval =
+      *IntervalValue::ParseFromString(interval_string, /*allow_nanos=*/true);
   DatetimeValue origin;
   ZETASQL_CHECK_OK(ConvertStringToDatetime(origin_string, scale, &origin))
       << origin_string;
@@ -9279,7 +9282,8 @@ FunctionTestCall DatetimeBucketErrorTest(
   DatetimeValue datetime;
   ZETASQL_CHECK_OK(ConvertStringToDatetime(datetime_string, scale, &datetime))
       << datetime_string;
-  IntervalValue interval = *IntervalValue ::ParseFromString(interval_string);
+  IntervalValue interval =
+      *IntervalValue::ParseFromString(interval_string, /*allow_nanos=*/true);
   DatetimeValue origin;
   ZETASQL_CHECK_OK(ConvertStringToDatetime(origin_string, scale, &origin))
       << origin_string;
@@ -10060,7 +10064,8 @@ FunctionTestCall DateBucketTest(absl::string_view date_string,
                                 absl::string_view expected_result) {
   int32_t date;
   ZETASQL_CHECK_OK(functions::ConvertStringToDate(date_string, &date)) << date_string;
-  IntervalValue interval = *IntervalValue::ParseFromString(interval_string);
+  IntervalValue interval =
+      *IntervalValue::ParseFromString(interval_string, /*allow_nanos=*/true);
   int32_t origin;
   ZETASQL_CHECK_OK(functions::ConvertStringToDate(origin_string, &origin))
       << origin_string;
@@ -10084,7 +10089,8 @@ FunctionTestCall DateBucketErrorTest(absl::string_view date_string,
                                      absl::string_view expected_error) {
   int32_t date;
   ZETASQL_CHECK_OK(functions::ConvertStringToDate(date_string, &date)) << date_string;
-  IntervalValue interval = *IntervalValue::ParseFromString(interval_string);
+  IntervalValue interval =
+      *IntervalValue::ParseFromString(interval_string, /*allow_nanos=*/true);
   int32_t origin;
   ZETASQL_CHECK_OK(functions::ConvertStringToDate(origin_string, &origin))
       << origin_string;

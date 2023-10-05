@@ -39,6 +39,7 @@
 #include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
@@ -99,6 +100,9 @@ class FunctionArgumentTypeOptions {
 
   ArgumentCardinality cardinality() const { return cardinality_; }
   bool must_be_constant() const { return must_be_constant_; }
+  bool must_be_constant_expression() const {
+    return must_be_constant_expression_;
+  }
   bool must_be_non_null() const { return must_be_non_null_; }
   bool is_not_aggregate() const { return is_not_aggregate_; }
   bool must_support_equality() const { return must_support_equality_; }
@@ -159,6 +163,10 @@ class FunctionArgumentTypeOptions {
   }
   FunctionArgumentTypeOptions& set_must_be_constant(bool v = true) {
     must_be_constant_ = v;
+    return *this;
+  }
+  FunctionArgumentTypeOptions& set_must_be_constant_expression(bool v = true) {
+    must_be_constant_expression_ = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_be_non_null(bool v = true) {
@@ -438,6 +446,22 @@ class FunctionArgumentTypeOptions {
   // overloaded on constant vs non-constant arguments.
   bool must_be_constant_ = false;
 
+  // If true, this argument must be constant expression or value.
+  //
+  // Rules:
+  // - literals and parameters are constant
+  // - column references are not constant
+  // - correlated column references
+  // - scalar functions are constant if FunctionOptions::volatility is
+  //   IMMUTABLE or STABLE, and if all arguments are constant
+  // - aggregate and analytic functions are not constant
+  // - DDL CONSTANTs
+  // - expression subqueries are not constant
+  // - built-in operators like CAST and CASE and struct field access are
+  //   constant if all arguments are constant
+  // - UDF argument references
+  bool must_be_constant_expression_ = false;
+
   // If true, this argument cannot be NULL.
   // An error will be returned if this overload is chosen and the argument
   // is a literal NULL.
@@ -624,6 +648,9 @@ class FunctionArgumentType {
   ArgumentCardinality cardinality() const { return options_->cardinality(); }
 
   bool must_be_constant() const { return options_->must_be_constant(); }
+  bool must_be_constant_expression() const {
+    return options_->must_be_constant_expression();
+  }
   bool has_argument_name() const { return options_->has_argument_name(); }
   const std::string& argument_name() const { return options_->argument_name(); }
 
@@ -934,12 +961,40 @@ class FunctionSignatureRewriteOptions {
   std::string sql_;
 };
 
-// Returns whether the concrete argument list is valid for a matched concrete
-// FunctionSignature.
+// Returns the reason why the concrete argument list is NOT valid for a matched
+// concrete FunctionSignature. Returns empty string if no error is found. The
+// returned reason is used to compose detailed signature mismatching error
+// message for the signature.
 // It is guaranteed that the passed in signature is concrete and the input
 // argument types match 1:1 with the concrete arguments in the signature.
-using FunctionSignatureArgumentConstraintsCallback = std::function<bool(
+using FunctionSignatureArgumentConstraintsCallback = std::function<std::string(
     const FunctionSignature&, const std::vector<InputArgumentType>&)>;
+
+// The input arguments to `ComputeResultAnnotationsCallback`. We use a struct
+// to make it easier to add arguments to the callback.
+struct AnnotationCallbackArgs {
+  // The concrete return type of the SQL function. Must not be nullptr.
+  const Type* result_type;
+
+  // The annotations of the input arguments. Must be of the same size as the
+  // function's concrete arguments. If an argument does not have annotations,
+  // the corresponding argument_annotation is nullptr.
+  std::vector<const AnnotationMap*> argument_annotations;
+};
+
+// This callback calculates the annotations for the function signature's result
+// type. It is used when a SQL function signature needs non-default annotation
+// propagation logic.
+//
+// New annotations should be allocated in `type_factory`.
+//
+// The callback will be invoked after `ComputeResultTypeCallback`, if the SQL
+// function has it. When it is invoked, the function signature is already
+// selected. Errors returned by this function will become analysis errors
+// for the query.
+using ComputeResultAnnotationsCallback =
+    std::function<absl::StatusOr<const AnnotationMap*>(
+        const AnnotationCallbackArgs& args, TypeFactory& type_factory)>;
 
 class FunctionSignatureOptions {
  public:
@@ -1035,7 +1090,7 @@ class FunctionSignatureOptions {
   // If constraints are not met then the signature is ignored during analysis.
   // Evaluates the constraint callback if populated, and if the signature is
   // sensitive to the TimestampMode then checks that as well.
-  absl::StatusOr<bool> CheckFunctionSignatureConstraints(
+  absl::StatusOr<std::string> CheckFunctionSignatureConstraints(
       const FunctionSignature& concrete_signature,
       const std::vector<InputArgumentType>& arguments) const;
 
@@ -1075,6 +1130,21 @@ class FunctionSignatureOptions {
       FunctionSignatureRewriteOptions options) {
     rewrite_options_ = options;
     return *this;
+  }
+
+  // Adds a custom callback for the SQL function signature to compute the result
+  // annotations.
+  // Note the callback is invoked after `compute_restul_type_callback`, if it is
+  // not nullptr, because this callback needs the correct concrete result type.
+  FunctionSignatureOptions& set_compute_result_annotations_callback(
+      ComputeResultAnnotationsCallback callback) {
+    compute_result_annotations_callback_ = std::move(callback);
+    return *this;
+  }
+
+  const ComputeResultAnnotationsCallback& compute_result_annotations_callback()
+      const {
+    return compute_result_annotations_callback_;
   }
 
   // Returns options related to a rewrite implementation of this function
@@ -1152,6 +1222,11 @@ class FunctionSignatureOptions {
 
   // Configures a rewrite implementation of this function signature.
   std::optional<FunctionSignatureRewriteOptions> rewrite_options_;
+
+  // If not nullptr, this is used to compute the result annotations after the
+  // function call return type is determined.
+  ComputeResultAnnotationsCallback compute_result_annotations_callback_ =
+      nullptr;
 
   // Copyable.
 };
@@ -1302,7 +1377,7 @@ class FunctionSignature {
 
   // Returns whether or not the constraints are satisfied.
   // If <options_.constraints_> is NULL, returns true.
-  absl::StatusOr<bool> CheckArgumentConstraints(
+  absl::StatusOr<std::string> CheckArgumentConstraints(
       const std::vector<InputArgumentType>& arguments) const;
 
   // If verbose is true, include FunctionOptions modifiers.
@@ -1395,6 +1470,12 @@ class FunctionSignature {
       const LanguageOptions& language_options,
       FunctionArgumentType::NamePrintingStyle print_style,
       bool print_template_details = false) const;
+
+  // Returns the custom callback to compute the result annotations. Returns
+  // nullptr if the SQL function signature does not have a custom annotation
+  // callback.
+  const ComputeResultAnnotationsCallback& GetComputeResultAnnotationsCallback()
+      const;
 
  private:
   bool ComputeIsConcrete() const;

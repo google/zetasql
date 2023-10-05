@@ -15,13 +15,13 @@
 #
 
 # Placeholder: load py_proto_library
+# Placeholder: load py_binary
 # Placeholder: load py_library
 # Placeholder: load py_test
-# Placeholder: load py_binary
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load(":builddefs.bzl", "gen_parser_test")
 load("//bazel:bison.bzl", "genyacc")
 load("//bazel:flex.bzl", "genlex")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":builddefs.bzl", "gen_parser_test")
 
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
@@ -185,7 +185,6 @@ cc_library(
         "ast_node_internal.h",
         "bison_parser.cc",
         "bison_parser.h",
-        "bison_parser_mode.h",
         "flex_tokenizer.cc",
         "flex_tokenizer.h",
         "parser.cc",
@@ -208,9 +207,12 @@ cc_library(
     deps = [
         ":ast_enums_cc_proto",
         ":bison_parser_generated_lib",
+        ":bison_parser_mode",
         ":flex_istream",
         ":keywords",
+        ":location",
         ":parse_tree",
+        ":tokenizer",
         "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
@@ -245,9 +247,17 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
         "@com_google_absl//absl/types:variant",
         "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_library(
+    name = "bison_parser_mode",
+    hdrs = [
+        "bison_parser_mode.h",
     ],
 )
 
@@ -258,10 +268,14 @@ cc_test(
         "flex_tokenizer_test.cc",
     ],
     deps = [
-        "parser",
         ":bison_parser_generated_lib",
+        ":location",
+        ":parser",
+        ":tokenizer",
         "//bazel:flex",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/parser:bison_parser_mode",
+        "//zetasql/parser:bison_token_codes",
         "//zetasql/public:language_options",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/flags:flag",
@@ -290,6 +304,16 @@ cc_test(
 )
 
 cc_library(
+    name = "tokenizer",
+    hdrs = ["tokenizer.h"],
+    deps = [
+        ":location",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "bison_parser_generated_lib",
     srcs = [
         "bison_parser.bison.cc",
@@ -299,10 +323,8 @@ cc_library(
     hdrs = [
         "bison_parser.bison.h",
         "bison_parser.h",
-        "bison_parser_mode.h",
         "flex_tokenizer.h",
         "join_processor.h",
-        "location.hh",
         "parser_internal.h",
         "parser_runtime_info.h",
         "statement_properties.h",
@@ -321,8 +343,11 @@ cc_library(
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
+        ":bison_parser_mode",
         ":keywords",
+        ":location",
         ":parse_tree",
+        ":tokenizer",
         "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
@@ -346,6 +371,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -386,9 +412,11 @@ cc_library(
         ":parse_tree",
         ":parse_tree_cc_proto",
         "//zetasql/base:arena",
+        "//zetasql/base:check",
         "//zetasql/base:status",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public/proto:logging_cc_proto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -547,7 +575,7 @@ cc_library(
         "keywords.h",
     ],
     deps = [
-        ":bison_keyword_token_codes_inc",
+        ":bison_token_codes",
         "//zetasql/base",
         "//zetasql/base:case",
         "//zetasql/base:map_util",
@@ -561,15 +589,23 @@ cc_library(
 )
 
 cc_library(
-    name = "bison_keyword_token_codes_inc",
-    textual_hdrs = ["bison_keyword_token_codes.inc"],
+    name = "bison_token_codes",
+    hdrs = ["bison_token_codes.h"],
+    deps = [":bison_token_codes_inc"],
+)
+
+# Used only to create a textual header with the generated code. Use the final .h from the other
+# visible library.
+cc_library(
+    name = "bison_token_codes_inc",
+    textual_hdrs = ["bison_token_codes.inc"],
 )
 
 genrule(
-    name = "generate_bison_keyword_token_codes_inc",
+    name = "generate_bison_token_codes",
     srcs = ["bison_parser.bison.h"],
-    outs = ["bison_keyword_token_codes.inc"],
-    cmd = "grep '    KW_.* = ' $(location bison_parser.bison.h) > $@",
+    outs = ["bison_token_codes.inc"],
+    cmd = "awk '/      enum yytokentype/ {f = 1} {if (f && $$0 ~ /=/) print;}; /      };/ { f= 0 }' $(location bison_parser.bison.h) > $@",
 )
 
 cc_test(
@@ -639,6 +675,11 @@ genyacc(
     ],
     header_out = "bison_parser.bison.h",
     source_out = "bison_parser.bison.cc",
+)
+
+cc_library(
+    name = "location",
+    hdrs = ["location.hh"],
 )
 
 [gen_parser_test(

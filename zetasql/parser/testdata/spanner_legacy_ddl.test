@@ -153,7 +153,7 @@ CreateTableStatement [0-316] [create table...delete cascade]
       SimpleColumnSchema [75-96] [int64 as (a+3) stored]
         PathExpression [75-80] [int64]
           Identifier(int64) [75-80] [int64]
-        GeneratedColumnInfo(stored_mode=STORED) [81-96] [as (a+3) stored]
+        GeneratedColumnInfo(generated_mode=ALWAYS, stored_mode=STORED) [81-96] [as (a+3) stored]
           BinaryExpression(+) [85-88] [a+3]
             PathExpression [85-86] [a]
               Identifier(a) [85-86] [a]
@@ -205,7 +205,7 @@ CREATE TABLE t1
   a int64,
   b string(123),
   c int64 DEFAULT (a + 2),
-  d int64 AS (a + 3) STORED,
+  d int64 GENERATED ALWAYS AS (a + 3) STORED,
   e timestamp NOT NULL OPTIONS(allow_commit_timestamp = true),
   CONSTRAINT con CHECK(c > 1) ENFORCED,
   CHECK(d > 2) ENFORCED,
@@ -615,7 +615,7 @@ AlterTableStatement [0-53] [alter table...+2) stored]
         SimpleColumnSchema [31-53] [int64  as (x+2) stored]
           PathExpression [31-36] [int64]
             Identifier(int64) [31-36] [int64]
-          GeneratedColumnInfo(stored_mode=STORED) [38-53] [as (x+2) stored]
+          GeneratedColumnInfo(generated_mode=ALWAYS, stored_mode=STORED) [38-53] [as (x+2) stored]
             BinaryExpression(+) [42-45] [x+2]
               PathExpression [42-43] [x]
                 Identifier(x) [42-43] [x]
@@ -667,7 +667,7 @@ AlterTableStatement [0-61] [alter table...+2) stored]
         SimpleColumnSchema [31-61] [int64 not null as (x+2) stored]
           PathExpression [31-36] [int64]
             Identifier(int64) [31-36] [int64]
-          GeneratedColumnInfo(stored_mode=STORED) [46-61] [as (x+2) stored]
+          GeneratedColumnInfo(generated_mode=ALWAYS, stored_mode=STORED) [46-61] [as (x+2) stored]
             BinaryExpression(+) [50-53] [x+2]
               PathExpression [50-51] [x]
                 Identifier(x) [50-51] [x]

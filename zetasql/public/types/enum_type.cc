@@ -33,7 +33,6 @@
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/algorithm/container.h"
-#include <cstdint>
 #include "absl/container/inlined_vector.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"

@@ -29,7 +29,6 @@
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
-#include <cstdint>
 #include "absl/container/btree_map.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
@@ -68,7 +67,7 @@ class ReproCommand {
   ReproCommand& operator=(const ReproCommand&) = delete;
 
   // Overrides the test target run by build.
-  void OverrideTestTarget(const std::string& test_target) {
+  void OverrideTestTarget(absl::string_view test_target) {
     test_target_ = test_target;
   }
 
@@ -79,7 +78,7 @@ class ReproCommand {
 
   // Remove the test arg flag if it's set. Ignored if not set. Returns true if
   // the flag was removed.
-  bool RemoveBuildFlag(const std::string& flag_name) {
+  bool RemoveBuildFlag(absl::string_view flag_name) {
     return RemoveFromMapIfPresent(flag_name, &build_flags_);
   }
 
@@ -93,7 +92,7 @@ class ReproCommand {
 
   // Remove the test arg flag if it's set. Ignored if not set. Returns true if
   // the flag was removed.
-  bool RemoveTestArgFlag(const std::string& flag_name) {
+  bool RemoveTestArgFlag(absl::string_view flag_name) {
     return RemoveFromMapIfPresent(flag_name, &test_arg_flags_);
   }
 
@@ -104,7 +103,7 @@ class ReproCommand {
 
   // Overrides the value of the given environment variable in the test. Returns
   // true if the flag was removed.
-  bool RemoveTestEnvFlag(const std::string& env_name) {
+  bool RemoveTestEnvFlag(absl::string_view env_name) {
     return RemoveFromMapIfPresent(env_name, &test_envs_);
   }
 

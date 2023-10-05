@@ -378,7 +378,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 6:8]
+    At least one argument must have a floating point type [at 6:8]
        `int32` + `numeric`,
        ^
 ==
@@ -521,7 +521,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: NUMERIC + NUMERIC
     Argument 2: Unable to coerce type BIGNUMERIC to expected type NUMERIC [at 1:8]
 select `int32` + `bignumeric`,
@@ -541,7 +541,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int32` + `bignumeric`,
        ^
 ==
@@ -562,7 +562,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int32` + `uint64`
        ^
 ==
@@ -583,7 +583,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int64` + `uint64`
        ^
 ==
@@ -604,7 +604,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `uint64` + `int32`
        ^
 ==
@@ -625,7 +625,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `uint64` + `int64`
        ^
 ==
@@ -1002,7 +1002,7 @@ ERROR: No matching signature for operator -
   Signature: UINT64 - UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE - DOUBLE
-    Argument constraints are not satisfied [at 6:8]
+    At least one argument must have a floating point type [at 6:8]
        `int32` - `numeric`,
        ^
 ==
@@ -1147,7 +1147,7 @@ ERROR: No matching signature for operator -
   Signature: NUMERIC - NUMERIC
     Argument 2: Unable to coerce type BIGNUMERIC to expected type NUMERIC
   Signature: DOUBLE - DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int32` - `bignumeric`,
        ^
 --
@@ -1165,7 +1165,7 @@ ERROR: No matching signature for operator -
   Signature: UINT64 - UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE - DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int32` - `bignumeric`,
        ^
 ==
@@ -1186,7 +1186,7 @@ ERROR: No matching signature for operator -
   Signature: UINT64 - UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE - DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int32` - `uint64`
        ^
 ==
@@ -1207,7 +1207,7 @@ ERROR: No matching signature for operator -
   Signature: UINT64 - UINT64
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: DOUBLE - DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int64` - `uint64`
        ^
 ==
@@ -1228,7 +1228,7 @@ ERROR: No matching signature for operator -
   Signature: UINT64 - UINT64
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE - DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `uint64` - `int32`
        ^
 ==
@@ -1249,7 +1249,7 @@ ERROR: No matching signature for operator -
   Signature: UINT64 - UINT64
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: DOUBLE - DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `uint64` - `int64`
        ^
 ==
@@ -1626,7 +1626,7 @@ ERROR: No matching signature for operator *
   Signature: UINT64 * UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE * DOUBLE
-    Argument constraints are not satisfied [at 6:8]
+    At least one argument must have a floating point type [at 6:8]
        `int32` * `numeric`,
        ^
 ==
@@ -1769,7 +1769,7 @@ ERROR: No matching signature for operator *
   Signature: UINT64 * UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE * DOUBLE
-    Argument constraints are not satisfied
+    At least one argument must have a floating point type
   Signature: NUMERIC * NUMERIC
     Argument 2: Unable to coerce type BIGNUMERIC to expected type NUMERIC [at 1:8]
 select `int32` * `bignumeric`,
@@ -1789,7 +1789,7 @@ ERROR: No matching signature for operator *
   Signature: UINT64 * UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE * DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int32` * `bignumeric`,
        ^
 ==
@@ -1810,7 +1810,7 @@ ERROR: No matching signature for operator *
   Signature: UINT64 * UINT64
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE * DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int32` * `uint64`
        ^
 ==
@@ -1831,7 +1831,7 @@ ERROR: No matching signature for operator *
   Signature: UINT64 * UINT64
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: DOUBLE * DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `int64` * `uint64`
        ^
 ==
@@ -1852,7 +1852,7 @@ ERROR: No matching signature for operator *
   Signature: UINT64 * UINT64
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: DOUBLE * DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `uint64` * `int32`
        ^
 ==
@@ -1873,7 +1873,7 @@ ERROR: No matching signature for operator *
   Signature: UINT64 * UINT64
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: DOUBLE * DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select `uint64` * `int64`
        ^
 ==
@@ -3101,7 +3101,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 1: Unable to coerce type NUMERIC to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 2:8]
+    At least one argument must have a floating point type [at 2:8]
        numeric + 1,
        ^
 ==
@@ -3167,7 +3167,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 1: Unable to coerce type BIGNUMERIC to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select bignumeric + 1,
        ^
 ==
@@ -4201,7 +4201,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 1: Unable to coerce type NUMERIC to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select numeric + 2000000000000,
        ^
 ==
@@ -4247,7 +4247,7 @@ ERROR: No matching signature for operator +
   Signature: UINT64 + UINT64
     Argument 1: Unable to coerce type BIGNUMERIC to expected type UINT64
   Signature: DOUBLE + DOUBLE
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have a floating point type [at 1:8]
 select bignumeric + 2000000000000,
        ^
 ==
@@ -4637,3 +4637,20 @@ ALTERNATION GROUP: <empty>
 ERROR: BIGNUMERIC literals are not supported [at 1:8]
 select bignumeric '1' / 2, bignumeric '1' / 2.1,
        ^
+==
+
+select 1+1.1;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     +-Literal(type=DOUBLE, value=1)
+    |     +-Literal(type=DOUBLE, value=1.1)
+    +-input_scan=
+      +-SingleRowScan

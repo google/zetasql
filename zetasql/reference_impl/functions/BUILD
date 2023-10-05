@@ -46,6 +46,7 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/functions:hash",
         "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/status:statusor",
     ],
 )
@@ -59,6 +60,7 @@ cc_library(
         "//zetasql/common:errors",
         "//zetasql/public:json_value",
         "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
         "//zetasql/public/functions:json",
         "//zetasql/public/functions:json_format",
         "//zetasql/public/functions:json_internal",

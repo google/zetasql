@@ -345,6 +345,22 @@ public class Value implements Serializable {
     return proto.getEnumValue();
   }
 
+  /** Returns the enum name or the number as string for open enums. */
+  public String enumDisplayName() {
+    checkValueHasKind(TypeKind.TYPE_ENUM);
+    checkValueNotNull();
+    EnumType enumType = type.asEnum();
+    int value = getEnumValue();
+    String name = enumType.findName(value);
+    if (name != null) {
+      return name;
+    }
+    if (enumType.getDescriptor().isClosed()) {
+      throw new AssertionError(String.format("Value %s not in %s", value, enumType));
+    }
+    return String.valueOf(value);
+  }
+
   /** Returns the enum name string if the type is enum. */
   public String getEnumName() {
     checkValueHasKind(TypeKind.TYPE_ENUM);
@@ -693,10 +709,11 @@ public class Value implements Serializable {
           if (verbose) {
             String typeName =
                 String.format("Enum<%s>", type.asEnum().getDescriptor().getFullName());
-            String s = isNull() ? "NULL" : String.format("%s:%d", getEnumName(), getEnumValue());
+            String s =
+                isNull() ? "NULL" : String.format("%s:%d", enumDisplayName(), getEnumValue());
             return String.format("%s(%s)", typeName, s);
           } else {
-            return isNull() ? "NULL" : getEnumName();
+            return isNull() ? "NULL" : enumDisplayName();
           }
         }
       case TYPE_ARRAY:

@@ -82,6 +82,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/types/span.h"
 #include "file_based_test_driver/file_based_test_driver.h"
 #include "zetasql/base/file_util.h"  
 #include "zetasql/base/map_util.h"
@@ -1477,6 +1478,8 @@ static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
   options.set_product_mode(zetasql::ProductMode::PRODUCT_INTERNAL);
   // Enable all possible language features.
   options.EnableMaximumLanguageFeaturesForDevelopment();
+  options.EnableLanguageFeature(FEATURE_TEXTMAPPER_PARSER);
+  options.EnableLanguageFeature(FEATURE_SHADOW_PARSING);
   // Allow CREATE TABLE AS SELECT in [prepare_database] statements.
   options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_AS_SELECT_STMT);
   options.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
@@ -1579,6 +1582,13 @@ SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
   std::optional<bool> is_deterministic_output = std::nullopt;
   if (IsTestingReferenceImpl()) {
     bool uses_unsupported_type = false;  // unused
+    AutoLanguageOptions options_cleanup(reference_driver());
+    LanguageOptions options_with_shadow_parsing =
+        reference_driver_->language_options();
+    options_with_shadow_parsing.EnableLanguageFeature(
+        FEATURE_TEXTMAPPER_PARSER);
+    options_with_shadow_parsing.EnableLanguageFeature(FEATURE_SHADOW_PARSING);
+    reference_driver()->SetLanguageOptions(options_with_shadow_parsing);
     if (script_mode_) {
       result = reference_driver()->ExecuteScriptForReferenceDriver(
           sql_, parameters_, GetExecuteStatementOptions(),
@@ -1828,6 +1838,10 @@ void SQLTestBase::StepPrepareDatabase() {
 
   if (GetStatementKind(sql_) == RESOLVED_CREATE_TABLE_AS_SELECT_STMT) {
     ReferenceDriver::ExecuteStatementAuxOutput aux_output;
+    ABSL_CHECK(test_setup_driver_->language_options().LanguageFeatureEnabled(
+        FEATURE_TEXTMAPPER_PARSER));
+    ABSL_CHECK(test_setup_driver_->language_options().LanguageFeatureEnabled(
+        FEATURE_SHADOW_PARSING));
     CheckCancellation(
         test_setup_driver_
             ->ExecuteStatementForReferenceDriver(
@@ -2206,7 +2220,7 @@ absl::Status SQLTestBase::AddKnownErrorEntry(
   return absl::OkStatus();
 }
 
-void SQLTestBase::LoadKnownErrorFiles(const std::vector<std::string>& files) {
+void SQLTestBase::LoadKnownErrorFiles(absl::Span<const std::string> files) {
   for (const std::string& file : files) {
     ZETASQL_CHECK_OK(LoadKnownErrorFile(file));
   }
@@ -2220,8 +2234,8 @@ void SQLTestBase::LoadKnownErrorFiles(const std::vector<std::string>& files) {
 }
 
 absl::btree_set<std::string> SQLTestBase::EffectiveLabels(
-    absl::string_view full_name, const std::vector<std::string>& labels,
-    const std::vector<std::string>& global_labels) const {
+    absl::string_view full_name, absl::Span<const std::string> labels,
+    absl::Span<const std::string> global_labels) const {
   absl::btree_set<std::string> effective_labels;
   effective_labels.emplace(full_name);
   effective_labels.insert(labels.begin(), labels.end());

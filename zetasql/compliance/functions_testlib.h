@@ -336,6 +336,7 @@ std::vector<FunctionTestCall> GetFunctionTestsRangeContains();
 std::vector<FunctionTestCall> GetFunctionTestsCosineDistance();
 std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance();
 std::vector<FunctionTestCall> GetFunctionTestsEditDistance();
+std::vector<FunctionTestCall> GetFunctionTestsEditDistanceBytes();
 
 }  // namespace zetasql
 

@@ -257,12 +257,20 @@ public final class FunctionArgumentType implements Serializable {
         return "<T2>";
       case ARG_TYPE_ANY_3:
         return "<T3>";
+      case ARG_TYPE_ANY_4:
+        return "<T4>";
+      case ARG_TYPE_ANY_5:
+        return "<T5>";
       case ARG_ARRAY_TYPE_ANY_1:
         return "<array<T1>>";
       case ARG_ARRAY_TYPE_ANY_2:
         return "<array<T2>>";
       case ARG_ARRAY_TYPE_ANY_3:
         return "<array<T3>>";
+      case ARG_ARRAY_TYPE_ANY_4:
+        return "<array<T4>>";
+      case ARG_ARRAY_TYPE_ANY_5:
+        return "<array<T5>>";
       case ARG_ENUM_ANY:
         return "<enum>";
       case ARG_PROTO_MAP_ANY:
@@ -385,6 +393,9 @@ public final class FunctionArgumentType implements Serializable {
     public abstract Boolean getMustBeConstant();
 
     @Nullable
+    public abstract Boolean getMustBeConstantExpression();
+
+    @Nullable
     public abstract Boolean getMustBeNonNull();
 
     @Nullable
@@ -457,6 +468,9 @@ public final class FunctionArgumentType implements Serializable {
       }
       if (getMustBeConstant() != null) {
         builder.setMustBeConstant(getMustBeConstant());
+      }
+      if (getMustBeConstantExpression() != null) {
+        builder.setMustBeConstantExpression(getMustBeConstantExpression());
       }
       if (getMustBeNonNull() != null) {
         builder.setMustBeNonNull(getMustBeNonNull());
@@ -545,6 +559,9 @@ public final class FunctionArgumentType implements Serializable {
       }
       if (proto.hasMustBeConstant()) {
         builder.setMustBeConstant(proto.getMustBeConstant());
+      }
+      if (proto.hasMustBeConstantExpression()) {
+        builder.setMustBeConstantExpression(proto.getMustBeConstantExpression());
       }
       if (proto.hasMustBeNonNull()) {
         builder.setMustBeNonNull(proto.getMustBeNonNull());
@@ -639,6 +656,9 @@ public final class FunctionArgumentType implements Serializable {
       if (getMustBeConstant() != null) {
         options.add("must_be_constant: true");
       }
+      if (getMustBeConstantExpression() != null) {
+        options.add("must_be_constant_expression: true");
+      }
       if (getMustBeNonNull() != null) {
         options.add("must_be_non_null: true");
       }
@@ -669,6 +689,8 @@ public final class FunctionArgumentType implements Serializable {
       public abstract Builder setCardinality(ArgumentCardinality cardinality);
 
       public abstract Builder setMustBeConstant(Boolean constant);
+
+      public abstract Builder setMustBeConstantExpression(Boolean constantExpression);
 
       public abstract Builder setMustBeNonNull(Boolean notNull);
 

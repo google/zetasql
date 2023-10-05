@@ -29,7 +29,6 @@
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "absl/base/attributes.h"
-#include <cstdint>
 #include "absl/base/macros.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -1045,6 +1044,12 @@ class TimestampBucketizer {
   TimestampBucketizer(TimestampBucketizer&& other) = default;
   TimestampBucketizer& operator=(TimestampBucketizer&& other) = default;
 
+  // Validates whether the input bucket width can be used for timestamp
+  // bucketing. This function is guaranteed to be in sync with the validation
+  // performed by the Create function.
+  static absl::Status ValidateBucketWidth(IntervalValue bucket_width,
+                                          TimestampScale scale);
+
   static absl::StatusOr<TimestampBucketizer> Create(
       zetasql::IntervalValue bucket_width, absl::Time origin,
       absl::TimeZone timezone, TimestampScale scale);
@@ -1098,6 +1103,12 @@ class DatetimeBucketizer {
   DatetimeBucketizer& operator=(const DatetimeBucketizer& other) = default;
   DatetimeBucketizer(DatetimeBucketizer&& other) = default;
   DatetimeBucketizer& operator=(DatetimeBucketizer&& other) = default;
+
+  // Validates whether the input bucket width can be used for datetime
+  // bucketing. This function is guaranteed to be in sync with the validation
+  // performed by the Create function.
+  static absl::Status ValidateBucketWidth(IntervalValue bucket_width,
+                                          TimestampScale scale);
 
   static absl::StatusOr<DatetimeBucketizer> Create(IntervalValue bucket_width,
                                                    DatetimeValue origin,
@@ -1180,6 +1191,11 @@ class DateBucketizer {
   DateBucketizer& operator=(const DateBucketizer& other) = default;
   DateBucketizer(DateBucketizer&& other) = default;
   DateBucketizer& operator=(DateBucketizer&& other) = default;
+
+  // Validates whether the input bucket width can be used for date bucketing.
+  // This function is guaranteed to be in sync with the validation performed by
+  // the Create function.
+  static absl::Status ValidateBucketWidth(IntervalValue bucket_width);
 
   static absl::StatusOr<DateBucketizer> Create(IntervalValue bucket_width,
                                                int32_t origin_date);

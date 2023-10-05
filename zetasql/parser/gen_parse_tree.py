@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 423
+NEXT_NODE_TAG_ID = 431
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -211,6 +211,9 @@ SCALAR_TEMPLATED_TYPE_KIND = EnumScalarType('TemplatedTypeKind',
 
 SCALAR_STORED_MODE = EnumScalarType('StoredMode', 'ASTGeneratedColumnInfo',
                                     'NON_STORED')
+
+SCALAR_GENERATED_MODE = EnumScalarType('GeneratedMode',
+                                       'ASTGeneratedColumnInfo', 'ALWAYS')
 
 SCALAR_RELATIVE_POSITION_TYPE = EnumScalarType('RelativePositionType',
                                                'ASTColumnPosition', 'PRECEDING')
@@ -5270,28 +5273,64 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTCreateSnapshotStatement',
+      tag_id=430,
+      parent='ASTCreateStatement',
+      comment="""
+      Represents a generic CREATE SNAPSHOT statement.
+      Currently used for CREATE SNAPSHOT SCHEMA statement.
+      """,
+      fields=[
+          Field('schema_object_kind', SCALAR_SCHEMA_OBJECT_KIND, tag_id=2),
+          Field(
+              'name',
+              'ASTPathExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'clone_data_source',
+              'ASTCloneDataSource',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              tag_id=5,
+          ),
+      ],
+      extra_public_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """,
+  )
+
+  gen.AddNode(
       name='ASTCreateSnapshotTableStatement',
       tag_id=181,
       parent='ASTCreateStatement',
+      comment="""
+      Represents a CREATE SNAPSHOT TABLE statement.
+      """,
       fields=[
           Field(
               'name',
               'ASTPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'clone_data_source',
               'ASTCloneDataSource',
               tag_id=3,
-              field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'options_list',
-              'ASTOptionsList',
-              tag_id=4),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('options_list', 'ASTOptionsList', tag_id=4),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ASTTypeParameterList',
@@ -5606,21 +5645,31 @@ def main(argv):
       parent='ASTNode',
       use_custom_debug_string=True,
       custom_debug_string_comment="""
-      Adds stored_mode (if needed) to the debug string.
+      Adds stored_mode and generated_mode to the debug string.
       """,
       fields=[
           Field(
               'expression',
               'ASTExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION),
           Field(
               'stored_mode',
               SCALAR_STORED_MODE,
               tag_id=3),
+          Field(
+              'generated_mode',
+              SCALAR_GENERATED_MODE,
+              tag_id=4),
+          Field(
+              'identity_column_info',
+              'ASTIdentityColumnInfo',
+              tag_id=5,
+              field_loader=FieldLoaderMethod.OPTIONAL),
       ],
       extra_public_defs="""
   std::string GetSqlForStoredMode() const;
+  std::string GetSqlForGeneratedMode() const;
       """)
 
   gen.AddNode(
@@ -6716,6 +6765,28 @@ def main(argv):
       extra_public_defs="""
   std::string GetSQLForAlterAction() const override;
       """)
+
+  gen.AddNode(
+      name='ASTAlterColumnDropGeneratedAction',
+      tag_id=423,
+      parent='ASTAlterAction',
+      use_custom_debug_string=True,
+      comment="""
+      ALTER table action for "ALTER COLUMN DROP GENERATED" clause
+      """,
+      fields=[
+          Field(
+              'column_name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('is_if_exists', SCALAR_BOOL, tag_id=3),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+      """,
+  )
 
   gen.AddNode(
       name='ASTGrantToClause',
@@ -9145,6 +9216,93 @@ def main(argv):
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
       """,
+  )
+
+  gen.AddNode(
+      name='ASTIdentityColumnInfo',
+      tag_id=424,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'start_with_value',
+              'ASTIdentityColumnStartWith',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'increment_by_value',
+              'ASTIdentityColumnIncrementBy',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'max_value',
+              'ASTIdentityColumnMaxValue',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'min_value',
+              'ASTIdentityColumnMinValue',
+              tag_id=5,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'cycling_enabled',
+              SCALAR_BOOL,
+              tag_id=6),
+      ])
+
+  gen.AddNode(
+      name='ASTIdentityColumnStartWith',
+      tag_id=425,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'value',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTIdentityColumnIncrementBy',
+      tag_id=426,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'value',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTIdentityColumnMaxValue',
+      tag_id=427,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'value',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTIdentityColumnMinValue',
+      tag_id=428,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'value',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
   )
 
   gen.Generate(output_path, template_path=template_path)

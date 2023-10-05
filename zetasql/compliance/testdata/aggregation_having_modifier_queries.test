@@ -481,6 +481,120 @@ ARRAY<STRUCT<row_id INT64,
   {14, true, nan, 13, 33, "13"}
 ]
 ==
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TableRangeTypes AS
+SELECT
+  CAST(1 AS int64) as row_id,
+  true AS bool_val,
+  RANGE<DATE> "[UNBOUNDED, UNBOUNDED)" AS range_date_val,
+  RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)" AS range_timestamp_val,
+UNION ALL SELECT 2, true, RANGE<DATE> "[UNBOUNDED, UNBOUNDED)", RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)"
+UNION ALL SELECT 3, true, RANGE<DATE> "[2020-01-01, 2020-01-02)", RANGE<TIMESTAMP> "[2020-01-01 12:00:00+02, 2020-12-31 14:00:00+04)"
+UNION ALL SELECT 4, true, RANGE<DATE> "[2020-01-01, 2020-01-02)", RANGE<TIMESTAMP> "[2020-01-01 12:00:00+02, 2020-12-31 14:00:00+04)"
+UNION ALL SELECT 5, false, RANGE<DATE> "[UNBOUNDED, 2020-01-02)", RANGE<TIMESTAMP> "[UNBOUNDED, 2020-12-31 14:00:00+04)"
+UNION ALL SELECT 6, false, RANGE<DATE> "[2020-01-01, UNBOUNDED)", RANGE<TIMESTAMP> "[2020-01-01 12:00:00+02, UNBOUNDED)"
+UNION ALL SELECT 7, false, RANGE<DATE> "[2020-01-01, UNBOUNDED)", RANGE<TIMESTAMP> "[2020-01-01 12:00:00+02, UNBOUNDED)"
+UNION ALL SELECT 8, false, CAST(NULL AS RANGE<DATE>), CAST(NULL AS RANGE<TIMESTAMP>)
+UNION ALL SELECT 9, false, CAST(NULL AS RANGE<DATE>), CAST(NULL AS RANGE<TIMESTAMP>)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>
+[{1, true, [NULL, NULL), [NULL, NULL)},
+ {2, true, [NULL, NULL), [NULL, NULL)},
+ {3,
+  true,
+  [2020-01-01, 2020-01-02),
+  [
+    2020-01-01 10:00:00+00,
+    2020-12-31 10:00:00+00
+  )},
+ {4,
+  true,
+  [2020-01-01, 2020-01-02),
+  [
+    2020-01-01 10:00:00+00,
+    2020-12-31 10:00:00+00
+  )},
+ {5,
+  false,
+  [NULL, 2020-01-02),
+  [
+    NULL,
+    2020-12-31 10:00:00+00
+  )},
+ {6,
+  false,
+  [2020-01-01, NULL),
+  [
+    2020-01-01 10:00:00+00,
+    NULL
+  )},
+ {7,
+  false,
+  [2020-01-01, NULL),
+  [
+    2020-01-01 10:00:00+00,
+    NULL
+  )},
+ {8, false, NULL, NULL},
+ {9, false, NULL, NULL}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TableDatetimeRangeType AS
+SELECT
+  CAST(1 AS int64) as row_id,
+  true as bool_val,
+  RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)" AS range_datetime_val,
+UNION ALL SELECT 2, true, RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)"
+UNION ALL SELECT 3, true, RANGE<DATETIME> "[2020-01-01 12:00:00, 2020-12-31 14:00:00)"
+UNION ALL SELECT 4, true, RANGE<DATETIME> "[2020-01-01 12:00:00, 2020-12-31 14:00:00)"
+UNION ALL SELECT 5, false, RANGE<DATETIME> "[UNBOUNDED, 2020-12-31 14:00:00)"
+UNION ALL SELECT 6, false, RANGE<DATETIME> "[2020-01-01 12:00:00, UNBOUNDED)"
+UNION ALL SELECT 7, false, RANGE<DATETIME> "[2020-01-01 12:00:00, UNBOUNDED)"
+UNION ALL SELECT 8, false, CAST(NULL AS RANGE<DATETIME>)
+UNION ALL SELECT 9, false, CAST(NULL AS RANGE<DATETIME>)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_datetime_val RANGE<DATETIME>
+      >>
+[{1, true, [NULL, NULL)},
+ {2, true, [NULL, NULL)},
+ {
+   3,
+   true,
+   [2020-01-01 12:00:00, 2020-12-31 14:00:00)
+ },
+ {
+   4,
+   true,
+   [2020-01-01 12:00:00, 2020-12-31 14:00:00)
+ },
+ {
+   5,
+   false,
+   [NULL, 2020-12-31 14:00:00)
+ },
+ {
+   6,
+   false,
+   [2020-01-01 12:00:00, NULL)
+ },
+ {
+   7,
+   false,
+   [2020-01-01 12:00:00, NULL)
+ },
+ {8, false, NULL},
+ {9, false, NULL}]
+==
 [name=aggregate_max_id_having_1]
 SELECT MAX(row_id HAVING MIN 1), MAX(row_id HAVING MAX 1)
 FROM TableAllTypes
@@ -598,6 +712,39 @@ SELECT COUNT(* HAVING MIN bytes_val), COUNT(* HAVING MAX bytes_val)
 FROM TableAllTypes
 --
 ARRAY<STRUCT<INT64, INT64>>[{4, 1}]
+==
+[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE]
+[name=aggregate_count_range_having_bool]
+SELECT COUNT(range_date_val HAVING MIN bool_val), COUNT(range_date_val HAVING MAX bool_val),
+COUNT(range_timestamp_val HAVING MIN bool_val), COUNT(range_timestamp_val HAVING MAX bool_val),
+FROM TableRangeTypes
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{3, 4, 3, 4}]
+==
+[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregate_count_range_datetime_having_bool]
+SELECT COUNT(range_datetime_val HAVING MIN bool_val), COUNT(range_datetime_val HAVING MAX bool_val),
+FROM TableDatetimeRangeType
+--
+ARRAY<STRUCT<INT64, INT64>>[{3, 4}]
+==
+[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE]
+[name=aggregate_count_range_having_range]
+SELECT COUNT(range_date_val HAVING MIN range_date_val),
+COUNT(range_date_val HAVING MAX range_date_val),
+COUNT(range_timestamp_val HAVING MIN range_timestamp_val),
+COUNT(range_timestamp_val HAVING MAX range_timestamp_val),
+FROM TableRangeTypes
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{1, 2, 1, 2}]
+==
+[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregate_count_range_datetime_having_range]
+SELECT COUNT(range_datetime_val HAVING MIN range_datetime_val),
+COUNT(range_datetime_val HAVING MAX range_datetime_val),
+FROM TableDatetimeRangeType
+--
+ARRAY<STRUCT<INT64, INT64>>[{1, 2}]
 ==
 [name=aggregate_approx_count_distinct_id_having_id]
 SELECT APPROX_COUNT_DISTINCT(row_id HAVING MIN row_id),
@@ -733,6 +880,41 @@ UNNEST( [
 );
 --
 ARRAY<STRUCT<INT64, INT64>>[{2, 1}]
+==
+[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE]
+[name=aggregate_count_distinct_range_having_bool]
+SELECT COUNT(DISTINCT range_date_val HAVING MIN bool_val),
+COUNT(DISTINCT range_date_val HAVING MAX bool_val),
+COUNT(DISTINCT range_timestamp_val HAVING MIN bool_val),
+COUNT(DISTINCT range_timestamp_val HAVING MAX bool_val),
+FROM TableRangeTypes
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{2, 2, 2, 2}]
+==
+[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregate_count_distinct_range_datetime_having_bool]
+SELECT COUNT(DISTINCT range_datetime_val HAVING MIN bool_val), COUNT(DISTINCT range_datetime_val HAVING MAX bool_val),
+FROM TableDatetimeRangeType
+--
+ARRAY<STRUCT<INT64, INT64>>[{2, 2}]
+==
+[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE]
+[name=aggregate_count_distinct_range_having_range]
+SELECT COUNT(DISTINCT range_date_val HAVING MIN range_date_val),
+COUNT(DISTINCT range_date_val HAVING MAX range_date_val),
+COUNT(DISTINCT range_timestamp_val HAVING MIN range_timestamp_val),
+COUNT(DISTINCT range_timestamp_val HAVING MAX range_timestamp_val),
+FROM TableRangeTypes
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{1, 1, 1, 1}]
+==
+[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregate_count_distinct_range_datetime_having_range]
+SELECT COUNT(DISTINCT range_datetime_val HAVING MIN range_datetime_val),
+COUNT(DISTINCT range_datetime_val HAVING MAX range_datetime_val),
+FROM TableDatetimeRangeType
+--
+ARRAY<STRUCT<INT64, INT64>>[{1, 1}]
 ==
 [name=aggregate_array_agg_id_having_double_ignore_null]
 SELECT ARRAY_AGG(row_id HAVING MIN double_val),

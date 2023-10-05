@@ -632,16 +632,109 @@ std::vector<FunctionTestCall> GetFunctionTestsEditDistance() {
        3ll,
        absl::OutOfRangeError("max_distance must be non-negative")},
 
+      // Unicode strings
+      {"edit_distance", {"𨉟€", "€€"}, 1ll},
+      {"edit_distance", {"a𨉟b", "a€b"}, 1ll},
+      // àx is \u00e0 \u0078
+      // a̋x is \u0061 \u030b \u0078
+      {"edit_distance", {"àx", "a̋x"}, 2ll},
+      // Note that the following use different code points than the above.
+      // àx is \u0061 \u0300 \u0078
+      // áx is \u0061 \u0301 \u0078
+      {"edit_distance", {"àx", "áx"}, 1ll},
+      // zàx is \u007a \u00e0 \u0078
+      // za̋x is \u007a \u0061 \u030b \u0078
+      {"edit_distance", {"zàx", "za̋x"}, 2ll},
+
       // No max distance
       {"edit_distance", {"", "abc"}, 3ll},
       {"edit_distance", {"abc", "ade"}, 2ll},
       {"edit_distance", {"abc", "abc"}, 0ll},
 
+      // Unicode with max distance.
+      {"edit_distance", {"𨉟€", "€€", 3}, 1ll},
+      {"edit_distance", {"a𨉟b", "a€b", 2}, 1ll},
+      // àx is \u00e0 \u0078
+      // a̋x is \u0061 \u030b \u0078
+      {"edit_distance", {"àx", "a̋x", 1}, 1ll},
+      // Note that the following use different code points than the above.
+      // àx is \u0061 \u0300 \u0078
+      // áx is \u0061 \u0301 \u0078
+      {"edit_distance", {"àx", "áx", 4}, 1ll},
+      // zàx is \u007a \u00e0 \u0078
+      // za̋x is \u007a \u0061 \u030b \u0078
+      {"edit_distance", {"zàx", "za̋x", 2}, 2ll},
+
       // With max distance
+      {"edit_distance", {"abc", "", 4}, 3ll},
       {"edit_distance", {"abc", "", 3}, 3ll},
       {"edit_distance", {"abc", "", 2}, 2ll},
       {"edit_distance", {"abc", "", 1}, 1ll},
       {"edit_distance", {"abc", "", 0}, 0ll}};
+  return tests;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsEditDistanceBytes() {
+  std::vector<FunctionTestCall> tests = {
+      // BYTES input with NULL arguments.
+      {"edit_distance",
+       {values::NullBytes(), values::NullBytes()},
+       values::NullInt64()},
+      {"edit_distance",
+       {values::NullBytes(), values::Bytes("abc")},
+       values::NullInt64()},
+      {"edit_distance",
+       {values::Bytes("abc"), values::NullBytes()},
+       values::NullInt64()},
+      {"edit_distance",
+       {values::Bytes("abc"), values::Bytes("a"), values::NullInt64()},
+       values::NullInt64()},
+
+      // Invalid max_distance.
+      {"edit_distance",
+       {values::Bytes("abc"), values::Bytes(""), -3},
+       3ll,
+       absl::OutOfRangeError("max_distance must be non-negative")},
+
+      // Unicode strings
+      {"edit_distance", {values::Bytes("𨉟€"), values::Bytes("€€")}, 4ll},
+      {"edit_distance", {values::Bytes("a𨉟b"), values::Bytes("a€b")}, 4ll},
+      // àx is \u00e0 \u0078
+      // a̋x is \u0061 \u030b \u0078
+      {"edit_distance", {values::Bytes("àx"), values::Bytes("a̋x")}, 3ll},
+      // Note that the following use different code points than the above.
+      // àx is \u0061 \u0300 \u0078
+      // áx is \u0061 \u0301 \u0078
+      {"edit_distance", {values::Bytes("àx"), values::Bytes("áx")}, 1ll},
+      // zàx is \u007a \u00e0 \u0078
+      // za̋x is \u007a \u0061 \u030b \u0078
+      {"edit_distance", {values::Bytes("zàx"), values::Bytes("za̋x")}, 3ll},
+
+      // No max distance
+      {"edit_distance", {values::Bytes(""), values::Bytes("abc")}, 3ll},
+      {"edit_distance", {values::Bytes("abc"), values::Bytes("ade")}, 2ll},
+      {"edit_distance", {values::Bytes("abc"), values::Bytes("abc")}, 0ll},
+
+      // Unicode with max distance.
+      {"edit_distance", {values::Bytes("𨉟€"), values::Bytes("€€"), 3}, 3ll},
+      {"edit_distance", {values::Bytes("a𨉟b"), values::Bytes("a€b"), 2}, 2ll},
+      // àx is \u00e0 \u0078
+      // a̋x is \u0061 \u030b \u0078
+      {"edit_distance", {values::Bytes("àx"), values::Bytes("a̋x"), 2}, 2ll},
+      // Note that the following use different code points than the above.
+      // àx is \u0061 \u0300 \u0078
+      // áx is \u0061 \u0301 \u0078
+      {"edit_distance", {values::Bytes("àx"), values::Bytes("áx"), 4}, 1ll},
+      // zàx is \u007a \u00e0 \u0078
+      // za̋x is \u007a \u0061 \u030b \u0078
+      {"edit_distance", {values::Bytes("zàx"), values::Bytes("za̋x"), 2}, 2ll},
+
+      // With max distance
+      {"edit_distance", {values::Bytes("abc"), values::Bytes(""), 4}, 3ll},
+      {"edit_distance", {values::Bytes("abc"), values::Bytes(""), 3}, 3ll},
+      {"edit_distance", {values::Bytes("abc"), values::Bytes(""), 2}, 2ll},
+      {"edit_distance", {values::Bytes("abc"), values::Bytes(""), 1}, 1ll},
+      {"edit_distance", {values::Bytes("abc"), values::Bytes(""), 0}, 0ll}};
   return tests;
 }
 

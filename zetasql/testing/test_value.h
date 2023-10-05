@@ -21,6 +21,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
@@ -31,7 +32,6 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"
-#include <cstdint>
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/types/span.h"
@@ -142,7 +142,7 @@ inline absl::StatusOr<Value> GetStatusOrValue(const Value& arg) {
 
 template <>
 inline absl::StatusOr<Value> GetStatusOrValue(
-    const absl::StatusOr<absl::variant<Value, ScriptResult>>& arg) {
+    const absl::StatusOr<std::variant<Value, ScriptResult>>& arg) {
   if (!arg.ok()) {
     return arg.status();
   }

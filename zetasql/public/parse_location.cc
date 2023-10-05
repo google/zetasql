@@ -28,7 +28,6 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/internal_error_location.pb.h"
-#include <cstdint>
 #include "absl/status/statusor.h"
 #include "unicode/umachine.h"
 #include "unicode/utf8.h"

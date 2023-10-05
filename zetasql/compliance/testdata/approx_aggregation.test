@@ -357,7 +357,6 @@ ARRAY<STRUCT<ARRAY<>,
     2001-01-01 00:00:00+00,
     2001-01-01 00:00:00+00
   ]}]
-
 ==
 [required_features=NUMERIC_TYPE]
 [name=approx_quantiles_numeric]
@@ -374,6 +373,57 @@ FROM UNNEST([BIGNUMERIC "1.23", BIGNUMERIC "1.23", BIGNUMERIC "1.23"]) x
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BIGNUMERIC>[known order:1.23, 1.23]}]
 
+==
+[required_features=RANGE_TYPE]
+[name=approx_quantiles_range_dates]
+SELECT APPROX_QUANTILES(x, 1)
+FROM UNNEST([
+  RANGE<DATE> '[2014-01-01, 2015-01-01)',
+  RANGE<DATE> '[2014-01-01, 2015-01-01)',
+  RANGE<DATE> '[2014-01-01, 2015-01-01)']) x
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATE>>[known order:
+     [2014-01-01, 2015-01-01),
+     [2014-01-01, 2015-01-01)
+   ]}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=approx_quantiles_range_datetimes]
+SELECT APPROX_QUANTILES(x, 1)
+FROM UNNEST([
+  RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)',
+  RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)',
+  RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)']) x
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<DATETIME>>[known order:
+     [2016-01-01 12:00:00, 2017-01-01 12:00:00),
+     [2016-01-01 12:00:00, 2017-01-01 12:00:00)
+   ]}
+]
+==
+[required_features=RANGE_TYPE]
+[name=approx_quantiles_range_timestamps]
+SELECT APPROX_QUANTILES(x, 1)
+FROM UNNEST([
+  RANGE<TIMESTAMP> '[2018-10-01 12:00:00+00, 2019-01-01 12:00:00+00)',
+  RANGE<TIMESTAMP> '[2018-10-01 12:00:00+00, 2019-01-01 12:00:00+00)',
+  RANGE<TIMESTAMP> '[2018-10-01 12:00:00+00, 2019-01-01 12:00:00+00)']) x
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<RANGE<TIMESTAMP>>[known order:
+     [
+       2018-10-01 12:00:00+00,
+       2019-01-01 12:00:00+00
+     ),
+     [
+       2018-10-01 12:00:00+00,
+       2019-01-01 12:00:00+00
+     )
+   ]}
+]
 # ----------------------------------------------------------------------------
 # APPROX_TOP_COUNT
 # ----------------------------------------------------------------------------

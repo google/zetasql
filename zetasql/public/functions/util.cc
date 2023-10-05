@@ -106,7 +106,8 @@ std::string DivisionByZeroMessage(T in1, T in2) {
 }
 
 template std::string DivisionByZeroMessage<int64_t>(int64_t in1, int64_t in2);
-template std::string DivisionByZeroMessage<uint64_t>(uint64_t in1, uint64_t in2);
+template std::string DivisionByZeroMessage<uint64_t>(uint64_t in1,
+                                                     uint64_t in2);
 template std::string DivisionByZeroMessage<double>(double in1, double in2);
 // This override is introduced because StrCat does not support long double.
 template <>

@@ -171,7 +171,8 @@ static AllowedHintsAndOptions GetAllowedHintsAndOptions(
 
   allowed.AddOption("int64_option", types::Int64Type());
   allowed.AddOption("int32_option", types::Int32Type());
-  allowed.AddOption("string_option", types::StringType());
+  allowed.AddOption("string_option", types::StringType(),
+                    /*allow_alter_array=*/true);
   allowed.AddOption("string_array_option", string_array_type);
   allowed.AddOption("date_option", types::DateType());
   allowed.AddOption("enum_option", enum_type);
@@ -179,6 +180,10 @@ static AllowedHintsAndOptions GetAllowedHintsAndOptions(
   allowed.AddOption("struct_option", struct_type);
   allowed.AddOption("enum_array_option", enum_array_type);
   allowed.AddOption("untyped_option", nullptr);
+  allowed.AddOption("string_array_allow_alter_option", string_array_type,
+                    /*allow_alter_array=*/true);
+  allowed.AddOption("enum_array_allow_alter_option", enum_array_type,
+                    /*allow_alter_array=*/true);
 
   allowed.AddHint(kQualifier, "int64_hint", types::Int64Type());
   allowed.AddHint(kQualifier, "int32_hint", types::Int32Type());
@@ -875,7 +880,10 @@ class AnalyzerTestRunner {
       if (!test_case_options_.GetBool(kUseSharedIdSequence)) {
         std::unique_ptr<ParserOutput> parser_output;
         ParserOptions parser_options = options.GetParserOptions();
-        if (ParseStatement(test_case, parser_options, &parser_output).ok()) {
+
+        absl::Status parse_status =
+            ParseStatement(test_case, parser_options, &parser_output);
+        if (parse_status.ok()) {
           std::unique_ptr<const AnalyzerOutput> analyze_from_ast_output;
           const absl::Status analyze_from_ast_status =
               AnalyzeStatementFromParserOutputOwnedOnSuccess(

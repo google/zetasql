@@ -266,6 +266,10 @@ message ASTGeneratedColumnInfoEnums {
     STORED = 1;
     STORED_VOLATILE = 2;
   }
+  enum GeneratedMode {
+    ALWAYS = 0;
+    BY_DEFAULT = 1;
+  }
 }
 message ASTColumnPositionEnums {
   enum RelativePositionType {

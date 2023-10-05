@@ -204,8 +204,7 @@ behavior:
 
 </td>
   <td>
-    Extracts a JSON boolean and converts it to a
-    SQL <code>BOOL</code> value.
+    Converts a JSON boolean to a SQL <code>BOOL</code> value.
   </td>
 </tr>
 
@@ -217,8 +216,8 @@ behavior:
   
   </td>
   <td>
-    Extracts a JSON number and converts it to a
-    SQL <code>DOUBLE</code> value.
+    Converts a JSON number to a SQL
+    <code>DOUBLE</code> value.
   </td>
 </tr>
 
@@ -227,8 +226,7 @@ behavior:
 
 </td>
   <td>
-    Extracts a JSON number and converts it to a
-    SQL <code>INT64</code> value.
+    Converts a JSON number to a SQL <code>INT64</code> value.
   </td>
 </tr>
 
@@ -420,8 +418,7 @@ behavior:
 
 </td>
   <td>
-    Extracts a JSON string and converts it to a
-    SQL <code>STRING</code> value.
+    Converts a JSON string to a SQL <code>STRING</code> value.
   </td>
 </tr>
 
@@ -455,18 +452,18 @@ BOOL(json_expr)
 
 **Description**
 
-Extracts a JSON boolean and converts it to a SQL `BOOL` value.
+Converts a JSON boolean to a SQL `BOOL` value.
 
 Arguments:
 
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"name": "sky", "color": "blue"}'
+    JSON 'true'
     ```
 
-    If the expression is SQL `NULL`, the function returns SQL
-    `NULL`. If the extracted JSON value is not a boolean, an error is produced.
+    If the JSON value is not a boolean, an error is produced. If the expression
+    is SQL `NULL`, the function returns SQL `NULL`.
 
 **Return type**
 
@@ -512,20 +509,18 @@ DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 
 **Description**
 
-Extracts a JSON number and converts it to a
-SQL `DOUBLE` value.
+Converts a JSON number to a SQL `DOUBLE` value.
 
 Arguments:
 
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"name": "sky", "color": "blue"}'
+    JSON '9.8'
     ```
 
-    If the expression is SQL `NULL`, the
-    function returns SQL `NULL`. If the extracted JSON value is not a number, an
-    error is produced.
+    If the JSON value is not a number, an error is produced. If the expression
+    is a SQL `NULL`, the function returns SQL `NULL`.
 +   `wide_number_mode`: Optional mandatory-named argument,
     which defines what happens with a number that cannot be
     represented as a `DOUBLE` without loss of
@@ -610,19 +605,19 @@ INT64(json_expr)
 
 **Description**
 
-Extracts a JSON number and converts it to a SQL `INT64` value.
+Converts a JSON number to a SQL `INT64` value.
 
 Arguments:
 
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"name": "sky", "color" : "blue"}'
+    JSON '999'
     ```
 
-    If this expression is SQL `NULL`, the function returns SQL
-    `NULL`. If the extracted JSON number has a fractional part or is outside of
-    the `INT64` domain, an error is produced.
+    If the JSON value is not a number, or the JSON number is not in the SQL
+    `INT64` domain, an error is produced. If the expression is SQL `NULL`, the
+    function returns SQL `NULL`.
 
 **Return type**
 
@@ -787,7 +782,7 @@ Arguments:
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    JSON '["a", "b", "c"]'
     ```
 +   `json_path_value_pair`: A value and the [JSONPath][JSONPath-format] for
     that value. This includes:
@@ -975,7 +970,7 @@ Arguments:
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    JSON '["a", "b", "c"]'
     ```
 +   `json_path_value_pair`: A value and the [JSONPath][JSONPath-format] for
     that value. This includes:
@@ -1324,12 +1319,12 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class": {"students": [{"name": "Jane"}]}}'
+    '{"name": "Jane", "age": "6"}'
     ```
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    JSON '{"name": "Jane", "age": "6"}'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
     you want to obtain from the input. If this optional parameter is not
@@ -1844,12 +1839,12 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class": {"students": [{"name": "Jane"}]}}'
+    '["a", "b", {"key": "c"}]'
     ```
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    JSON '["a", "b", {"key": "c"}]'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
     you want to obtain from the input. If this optional parameter is not
@@ -2445,7 +2440,7 @@ Arguments:
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    JSON '{"a": null, "b": "c"}'
     ```
 +   `json_path`: Remove JSON nulls at this [JSONPath][JSONPath-format] for
     `json_expr`.
@@ -2691,12 +2686,12 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class": {"students": [{"name": "Jane"}]}}'
+    '{"name": "Jakob", "age": "6"}'
     ```
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    JSON '{"name": "Jane", "age": "6"}'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
     you want to obtain from the input. If this optional parameter is not
@@ -2799,12 +2794,12 @@ Arguments:
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    '{"class": {"students": [{"name": "Jane"}]}}'
+    '["apples", "oranges", "grapes"]'
     ```
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    JSON '["apples", "oranges", "grapes"]'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
     you want to obtain from the input. If this optional parameter is not
@@ -3813,18 +3808,18 @@ STRING(json_expr)
 
 **Description**
 
-Extracts a JSON string and converts it to a SQL `STRING` value.
+Converts a JSON string to a SQL `STRING` value.
 
 Arguments:
 
 +   `json_expr`: JSON. For example:
 
     ```
-    JSON '{"name": "sky", "color": "blue"}'
+    JSON '"purple"'
     ```
 
-    If this expression is SQL `NULL`, the function returns SQL
-    `NULL`. If the extracted JSON value is not a string, an error is produced.
+    If the JSON value is not a string, an error is produced. If the expression
+    is SQL `NULL`, the function returns SQL `NULL`.
 
 **Return type**
 

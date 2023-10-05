@@ -75,7 +75,7 @@ void TestConvertErrorWithSource(
 
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
-                        &parser_output));
+                        /*keep_error_location_payload=*/true, &parser_output));
   ASSERT_EQ(parser_output->script()->statement_list().size(), 2);
   const ASTStatement* error_stmt =
       parser_output->script()->statement_list().at(1);
@@ -96,7 +96,9 @@ void TestConvertErrorWithSource(
 
   EXPECT_THAT(
       MaybeUpdateErrorFromPayload(
-          script_executor_error_message_mode, sql,
+          script_executor_error_message_mode,
+          /*keep_error_location_payload=*/
+          script_executor_error_message_mode == ERROR_MESSAGE_WITH_PAYLOAD, sql,
           ConvertStatus(outer_status, error_stmt_segment)),
       StatusIs(absl::StatusCode::kInvalidArgument, expected_error_message));
 }
@@ -133,7 +135,7 @@ TEST(ConvertLocalErrorToScriptError, InvalidErrorLocation) {
 
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
-                        &parser_output));
+                        /*keep_error_location_payload=*/true, &parser_output));
   ASSERT_EQ(parser_output->script()->statement_list().size(), 2);
   const ASTStatement* error_stmt =
       parser_output->script()->statement_list().at(1);

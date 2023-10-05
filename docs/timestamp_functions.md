@@ -429,34 +429,47 @@ for a list of format elements that this function supports.
 **Example**
 
 ```sql
-SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS formatted;
+SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2050-12-25 15:30:55+00", "UTC")
+  AS formatted;
 
 /*--------------------------*
  | formatted                |
  +--------------------------+
- | Thu Dec 25 15:30:00 2008 |
+ | Sun Dec 25 15:30:55 2050 |
  *--------------------------*/
 ```
 
 ```sql
-SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00+00") AS formatted;
-
-/*-------------*
- | formatted   |
- +-------------+
- | Dec-25-2008 |
- *-------------*/
-```
-
-```sql
-SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
+SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2050-12-25 15:30:55+00")
   AS formatted;
 
 /*-------------*
  | formatted   |
  +-------------+
- | Dec 2008    |
+ | Dec-25-2050 |
  *-------------*/
+```
+
+```sql
+SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2050-12-25 15:30:55+00")
+  AS formatted;
+
+/*-------------*
+ | formatted   |
+ +-------------+
+ | Dec 2050    |
+ *-------------*/
+```
+
+```sql
+SELECT FORMAT_TIMESTAMP("%Y-%m-%dT%H:%M:%SZ", TIMESTAMP "2050-12-25 15:30:55", "UTC")
+  AS formatted;
+
+/*+---------------------*
+ |      formatted       |
+ +----------------------+
+ | 2050-12-25T15:30:55Z |
+ *----------------------*/
 ```
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time

@@ -882,3 +882,91 @@ CreateTableFunctionStmt
 |         +-SingleRowScan
 +-output_column_list=
   +-$query.p#1 AS p [INT64]
+==
+
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+--
+ERROR: Syntax error: Invalid operator "+=" [at 1:81]
+...b SET OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+                                                  ^
+==
+
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2']);
+--
+ERROR: Syntax error: Invalid operator "-=" [at 1:81]
+...b SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2']);
+                                                  ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+--
+AlterTableStmt
++-name_path=abTable
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-column="b"
+    +-option_list=
+      +-string_array_allow_alter_option+=
+        +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2']);
+--
+AlterTableStmt
++-name_path=abTable
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-column="b"
+    +-option_list=
+      +-string_array_allow_alter_option-=
+        +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2'], enum_array_allow_alter_option += array<zetasql_test__.TestEnum>[1,2])
+--
+AlterTableStmt
++-name_path=abTable
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-column="b"
+    +-option_list=
+      +-string_array_allow_alter_option-=
+      | +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
+      +-enum_array_allow_alter_option+=
+        +-Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[TESTENUM1, TESTENUM2], has_explicit_type=TRUE)
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option += ['str1', 'str2']);
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:49]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option += ['str1...
+                                                ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option -= ['str1', 'str2']);
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_option [at 1:49]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option -= ['str1...
+                                                ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option += 'str1');
+--
+ERROR: Invalid operator += for option string_option with expected type STRING [at 1:49]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option += 'str1');
+                                                ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option -= 'str1');
+--
+ERROR: Invalid operator -= for option string_option with expected type STRING [at 1:49]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option -= 'str1');
+                                                ^
+==

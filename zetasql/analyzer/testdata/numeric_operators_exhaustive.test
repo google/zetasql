@@ -85,7 +85,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(int32,
        ^
 --
@@ -122,7 +122,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 1: Unable to coerce type INT32 to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(int32,
        ^
 --
@@ -237,7 +237,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 2: Unable to coerce type DOUBLE to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(uint32,
        ^
 --
@@ -311,7 +311,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(int64,
        ^
 --
@@ -347,7 +347,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 1: Unable to coerce type INT64 to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(int64,
        ^
 --
@@ -365,7 +365,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 2: Unable to coerce type INT32 to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(uint64,
        ^
 --
@@ -402,7 +402,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 2: Unable to coerce type INT64 to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(uint64,
        ^
 --
@@ -456,7 +456,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 2: Unable to coerce type DOUBLE to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(uint64,
        ^
 --
@@ -566,7 +566,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 2: Unable to coerce type DOUBLE to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(1,
        ^
 --
@@ -584,7 +584,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 1: Unable to coerce type DOUBLE to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(1.0,
        ^
 --
@@ -602,7 +602,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 1: Unable to coerce type DOUBLE to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(1.0,
        ^
 --
@@ -622,7 +622,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 1: Unable to coerce type DOUBLE to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(1.0,
        ^
 --
@@ -640,7 +640,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 1: Unable to coerce type DOUBLE to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(1.0,
        ^
 --
@@ -658,7 +658,7 @@ ERROR: No matching signature for function DIV
   Signature: DIV(UINT64, UINT64)
     Argument 1: Unable to coerce type DOUBLE to expected type UINT64
   Signature: DIV(NUMERIC, NUMERIC)
-    Argument constraints are not satisfied [at 1:8]
+    At least one argument must have NUMERIC type [at 1:8]
 select div(1.0,
        ^
 --

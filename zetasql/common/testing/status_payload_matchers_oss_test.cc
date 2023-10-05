@@ -23,6 +23,7 @@
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/testing/proto_matchers_oss.h"
 
 using ::testing::AllOf;
@@ -39,7 +40,7 @@ using zetasql::testing::EqualsProto;
 using zetasql::testing::StatusHasPayload;
 using zetasql_base::testing::StatusIs;
 
-absl::Status StatusWithPayload(const std::string &text) {
+absl::Status StatusWithPayload(absl::string_view text) {
   absl::Status status{absl::StatusCode::kUnknown, "message"};
 
   CustomPayload payload;

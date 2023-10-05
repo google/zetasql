@@ -92,6 +92,9 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtNode(const ASTNode* ast_node,
 inline ::zetasql_base::StatusBuilder MakeSqlErrorAt(const ASTNode* ast_node) {
   return MakeSqlErrorAtNode(ast_node, /*include_leftmost_child=*/true);
 }
+inline ::zetasql_base::StatusBuilder MakeSqlErrorAt(const ASTNode& ast_node) {
+  return MakeSqlErrorAt(&ast_node);
+}
 
 // Returns MakeSqlError() annotated with the error location for <ast_node>
 // itself. In contrast with MakeSqlErrorAt(), this does not use the error

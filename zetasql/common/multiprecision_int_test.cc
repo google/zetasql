@@ -45,7 +45,6 @@
 
 #include "zetasql/common/multiprecision_int_impl.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/base/macros.h"
 #include "absl/hash/hash.h"
 #include "absl/hash/hash_testing.h"

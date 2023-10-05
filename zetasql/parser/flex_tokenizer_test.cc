@@ -18,7 +18,8 @@
 
 #include <vector>
 
-#include "zetasql/parser/bison_parser.bison.h"
+#include "zetasql/parser/bison_parser_mode.h"
+#include "zetasql/parser/bison_token_codes.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -26,7 +27,7 @@ namespace zetasql::parser {
 
 using ::testing::ElementsAre;
 
-using Token = zetasql_bison_parser::BisonParserImpl::token;
+using Token = TokenKinds;
 using TokenKind = int;
 
 // This class is a friend of the tokenizer so that it can help us test the

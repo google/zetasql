@@ -25,7 +25,6 @@
 #include "zetasql/base/arena_allocator.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/bison_parser_mode.h"
-#include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/location.hh"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser_runtime_info.h"
@@ -51,7 +50,7 @@ namespace parser {
 // zetasql_bison_parser::BisonParserImpl.
 class BisonParser {
  public:
-  BisonParser();
+  BisonParser() = default;
   BisonParser(const BisonParser&) = delete;
   BisonParser& operator=(const BisonParser&) = delete;
 
@@ -69,9 +68,11 @@ class BisonParser {
         arena_(arena),
         language_options_(&language_options),
         allocated_ast_nodes_(std::move(allocated_ast_nodes)),
-        input_(input) {}
+        input_(input),
+        parser_runtime_info_(
+            std::make_unique<ParserRuntimeInfo>(language_options)) {}
 
-  ~BisonParser();
+  ~BisonParser() = default;
 
   // Parses 'input' in mode 'mode', starting at byte offset 'start_byte_offset'.
   // Returns the output tree in 'output', or returns an annotated error.
@@ -291,11 +292,20 @@ class BisonParser {
     return std::move(warnings_);
   }
 
-  ParserRuntimeInfo&& release_runtime_info() {
+  std::unique_ptr<ParserRuntimeInfo> release_runtime_info() {
     return std::move(parser_runtime_info_);
   }
 
  private:
+  absl::Status ParseInternal(
+      BisonParserMode mode, absl::string_view filename, absl::string_view input,
+      int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
+      const LanguageOptions& language_options,
+      std::unique_ptr<zetasql::ASTNode>* output,
+      std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
+      ASTStatementProperties* ast_statement_properties,
+      int* statement_end_byte_offset);
+
   // Identifiers and literal values are allocated from this arena. Not owned.
   // Only valid during Parse().
   IdStringPool* id_string_pool_;
@@ -329,7 +339,7 @@ class BisonParser {
   std::unique_ptr<std::vector<absl::Status>> warnings_ =
       std::make_unique<std::vector<absl::Status>>();
 
-  ParserRuntimeInfo parser_runtime_info_;
+  std::unique_ptr<ParserRuntimeInfo> parser_runtime_info_;
 };
 
 // These are defined here because some of our tests rely on grabbing quoted

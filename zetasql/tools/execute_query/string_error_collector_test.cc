@@ -20,6 +20,7 @@
 #include <string>
 
 #include "gtest/gtest.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace {
@@ -32,11 +33,11 @@ class StringErrorCollectorTest : public ::testing::Test {
     error_string_.clear();
   }
 
-  void RecordError(int line, int column, const std::string& message) {
+  void RecordError(int line, int column, absl::string_view message) {
     test_collector_->RecordError(line, column, message);
   }
 
-  void RecordWarning(int line, int column, const std::string& message) {
+  void RecordWarning(int line, int column, absl::string_view message) {
     test_collector_->RecordWarning(line, column, message);
   }
 

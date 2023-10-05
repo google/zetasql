@@ -674,6 +674,30 @@ FunctionCallBuilder::Subtract(std::unique_ptr<const ResolvedExpr> minuend,
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::SafeSubtract(
+    std::unique_ptr<const ResolvedExpr> minuend,
+    std::unique_ptr<const ResolvedExpr> subtrahend) {
+  ZETASQL_RET_CHECK_NE(minuend.get(), nullptr);
+  ZETASQL_RET_CHECK_NE(subtrahend.get(), nullptr);
+  const Function* safe_subtract_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(
+      GetBuiltinFunctionFromCatalog("safe_subtract", &safe_subtract_fn));
+  ZETASQL_ASSIGN_OR_RETURN(FunctionSignature signature,
+                   GetBinaryFunctionSignatureFromArgumentTypes(
+                       safe_subtract_fn, minuend->type(), subtrahend->type()));
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
+  arguments.emplace_back(std::move(minuend));
+  arguments.emplace_back(std::move(subtrahend));
+
+  // Below, the error mode is chosen to be `DEFAULT_ERROR_MODE`, because
+  // F1 does not support `SAFE_ERROR_MODE` in combination with `SAFE_SUBTRACT`.
+  return MakeResolvedFunctionCall(
+      signature.result_type().type(), safe_subtract_fn, signature,
+      std::move(arguments), ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::And(
     std::vector<std::unique_ptr<const ResolvedExpr>> expressions) {
   return NaryLogic("$and", FN_AND, std::move(expressions));

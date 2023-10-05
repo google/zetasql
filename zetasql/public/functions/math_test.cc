@@ -34,7 +34,6 @@
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -559,7 +558,6 @@ INSTANTIATE_TEST_SUITE_P(Rounding, MathTemplateTest,
 namespace {
 
 TEST(TruncAndRoundTest, PrecisionIssues) {
-#ifdef __x86_64__
   auto test_same_in_as_out = [](double number, int digits) {
     absl::Status status;
     double out;
@@ -589,7 +587,6 @@ TEST(TruncAndRoundTest, PrecisionIssues) {
       test_same_in_as_out(number, digits);
     }
   }
-#endif
 }
 
 }  // namespace

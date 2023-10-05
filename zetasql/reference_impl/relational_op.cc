@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -328,7 +329,7 @@ EvaluatorTableScanOp::Create(
 
 absl::StatusOr<std::unique_ptr<ColumnFilter>>
 EvaluatorTableScanOp::IntersectColumnFilters(
-    const std::vector<std::unique_ptr<ColumnFilter>>& filters) {
+    absl::Span<const std::unique_ptr<ColumnFilter>> filters) {
   // Invariant: a Value that matches all the ColumnFilters in entry.second is
   // in the range ['lower_bound', 'upper_bound'] and in 'in_set'. We
   // represent +/- infinity with invalid 'lower_bound'/'upper_bound'. We

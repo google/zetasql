@@ -280,14 +280,16 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
 
 namespace {
 
-bool NoStringLiterals(const FunctionSignature& matched_signature,
-                      const std::vector<InputArgumentType>& arguments) {
-  for (const InputArgumentType& argument : arguments) {
+std::string NoStringLiterals(const FunctionSignature& matched_signature,
+                             const std::vector<InputArgumentType>& arguments) {
+  for (int i = 0; i < arguments.size(); ++i) {
+    const InputArgumentType& argument = arguments[i];
     if (argument.is_literal() && argument.type()->IsString()) {
-      return false;
+      return absl::StrCat("Argument ", i + 1,
+                          ": no string literal can be provided");
     }
   }
-  return true;
+  return "";
 }
 
 }  // namespace
@@ -526,7 +528,7 @@ void GetDatetimeCurrentFunctions(TypeFactory* type_factory,
 // Disallows string literals and query parameters from matching signature in
 // arguments at specified positions.
 template <int arg_index1, int arg_index2 = -1>
-bool NoLiteralOrParameterString(
+std::string NoLiteralOrParameterString(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments) {
   for (int i = 0; i < arguments.size(); i++) {
@@ -536,10 +538,12 @@ bool NoLiteralOrParameterString(
     const auto& argument = arguments[i];
     if ((argument.is_literal() || argument.is_query_parameter()) &&
         argument.type()->IsString()) {
-      return false;
+      return absl::StrCat(
+          "Argument ", i + 1,
+          ": no literal or query parameter string can be provided");
     }
   }
-  return true;
+  return "";
 }
 
 void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
@@ -1098,13 +1102,13 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   const Function::Mode SCALAR = Function::SCALAR;
 
   FunctionSignatureOptions has_floating_point_argument;
-  has_floating_point_argument.set_constraints(&HasFloatingPointArgument);
+  has_floating_point_argument.set_constraints(&CheckHasFloatingPointArgument);
   FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
   FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
   FunctionSignatureOptions has_interval_type_argument;
-  has_interval_type_argument.set_constraints(&HasIntervalTypeArgument);
+  has_interval_type_argument.set_constraints(&CheckHasIntervalTypeArgument);
   FunctionSignatureOptions date_arithmetics_options =
       FunctionSignatureOptions().add_required_language_feature(
           FEATURE_V_1_3_DATE_ARITHMETICS);
@@ -1412,9 +1416,9 @@ void GetAggregateFunctions(TypeFactory* type_factory,
   const Type* interval_type = type_factory->get_interval();
 
   FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
   FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
 
   const Function::Mode AGGREGATE = Function::AGGREGATE;
 
@@ -1575,7 +1579,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions all_args_are_numeric_or_bignumeric;
   all_args_are_numeric_or_bignumeric.set_constraints(
-      &AllArgumentsHaveNumericOrBigNumericType);
+      &CheckAllArgumentsHaveNumericOrBigNumericType);
   FunctionArgumentTypeOptions non_null_non_agg_between_0_and_1;
   non_null_non_agg_between_0_and_1.set_is_not_aggregate();
   non_null_non_agg_between_0_and_1.set_must_be_non_null();
@@ -1622,14 +1626,14 @@ void GetAggregateFunctions(TypeFactory* type_factory,
         FN_PERCENTILE_DISC_NUMERIC,
         FunctionSignatureOptions()
             .set_uses_operation_collation()
-            .set_constraints(&LastArgumentHasNumericOrBigNumericType)},
+            .set_constraints(&CheckLastArgumentHasNumericOrBigNumericType)},
        {ARG_TYPE_ANY_1,
         {{ARG_TYPE_ANY_1, comparable},
          {bignumeric_type, non_null_non_agg_between_0_and_1}},
         FN_PERCENTILE_DISC_BIGNUMERIC,
         FunctionSignatureOptions()
             .set_uses_operation_collation()
-            .set_constraints(&LastArgumentHasNumericOrBigNumericType)}},
+            .set_constraints(&CheckLastArgumentHasNumericOrBigNumericType)}},
       disallowed_order_and_frame_allowed_null_handling);
 }
 
@@ -1661,9 +1665,9 @@ void GetApproxFunctions(TypeFactory* type_factory,
   non_null_positive_non_agg.set_min_value(1);
 
   FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
   FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
 
   InsertFunction(functions, options, "approx_count_distinct", AGGREGATE,
                  {{int64_type,
@@ -1753,8 +1757,8 @@ void GetStatisticalFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions has_numeric_type_argument;
   FunctionSignatureOptions has_bignumeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
-  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
+  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
 
   // Support statistical functions:
   // CORR, COVAR_POP, COVAR_SAMP,

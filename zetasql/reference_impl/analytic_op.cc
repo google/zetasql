@@ -39,7 +39,6 @@
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include <cstdint>
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"

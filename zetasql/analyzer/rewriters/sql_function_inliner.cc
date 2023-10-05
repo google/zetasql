@@ -659,9 +659,13 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
   // is SQL-defined but has a shape not supported by the inliner.
   absl::StatusOr<std::optional<AggregateFnDetails>> IsInlineable(
       const ResolvedAggregateFunctionCall* call) {
+    const Function* function = call->function();
+    if (!function->Is<SQLFunctionInterface>() &&
+        !function->Is<TemplatedSQLFunction>()) {
+      return std::nullopt;
+    }
     const ParseLocationRange* error_location =
         call->GetParseLocationRangeOrNULL();
-    const Function* function = call->function();
     if (call->error_mode() == ResolvedFunctionCall::SAFE_ERROR_MODE) {
       // TODO: Support SAFE mode calls using IFERROR.
       return MakeSqlErrorAtStart(error_location)
@@ -737,7 +741,7 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
           .arg_names = fn->GetArgumentNames(),
       };
     }
-    return std::nullopt;
+    ZETASQL_RET_CHECK_FAIL() << "Return should be unreachable.";
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
@@ -934,6 +938,30 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
         .set_expr_list(std::move(post_aggregate_exprs))
         .set_column_list(std::move(post_aggregate_column_list))
         .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedAggregationThresholdAggregateScan(
+      std::unique_ptr<const ResolvedAggregationThresholdAggregateScan> node)
+      override {
+    for (const auto& computed_col : node->aggregate_list()) {
+      if (computed_col->expr()->Is<ResolvedAggregateFunctionCall>() &&
+          (computed_col->expr()
+               ->GetAs<ResolvedAggregateFunctionCall>()
+               ->function()
+               ->Is<SQLFunctionInterface>() ||
+           computed_col->expr()
+               ->GetAs<ResolvedAggregateFunctionCall>()
+               ->function()
+               ->Is<TemplatedSQLFunction>())) {
+        return MakeSqlErrorAtStart(computed_col->expr()
+                                       ->GetAs<ResolvedAggregateFunctionCall>()
+                                       ->GetParseLocationRangeOrNULL())
+               << "Aggregation threshold is not supported with user defined "
+                  "aggregate function";
+      }
+    }
+    return node;
   }
 
  private:

@@ -50,6 +50,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -364,6 +365,14 @@ SignatureArgumentKind RelatedTemplatedKind(SignatureArgumentKind kind) {
       return ARG_ARRAY_TYPE_ANY_3;
     case ARG_ARRAY_TYPE_ANY_3:
       return ARG_TYPE_ANY_3;
+    case ARG_TYPE_ANY_4:
+      return ARG_ARRAY_TYPE_ANY_4;
+    case ARG_ARRAY_TYPE_ANY_4:
+      return ARG_TYPE_ANY_4;
+    case ARG_TYPE_ANY_5:
+      return ARG_ARRAY_TYPE_ANY_5;
+    case ARG_ARRAY_TYPE_ANY_5:
+      return ARG_TYPE_ANY_5;
     case ARG_RANGE_TYPE_ANY:
       return ARG_TYPE_ANY_1;
     default:
@@ -696,7 +705,8 @@ namespace {
 
 bool IsArgKind_ARRAY_ANY_K(SignatureArgumentKind kind) {
   return kind == ARG_ARRAY_TYPE_ANY_1 || kind == ARG_ARRAY_TYPE_ANY_2 ||
-         kind == ARG_ARRAY_TYPE_ANY_3;
+         kind == ARG_ARRAY_TYPE_ANY_3 || kind == ARG_ARRAY_TYPE_ANY_4 ||
+         kind == ARG_ARRAY_TYPE_ANY_5;
 }
 
 // Shorthand for making resolved function argument with lambda.
@@ -1445,9 +1455,11 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
           const Type* common_supertype =
               coercer_.GetCommonSuperType(type_set.typed_arguments());
           if (common_supertype == nullptr) {
-            SET_MISMATCH_ERROR(absl::StrFormat(
-                "Unable to find common supertype for templated argument %s",
-                FunctionArgumentType::SignatureArgumentKindToString(kind)));
+            SET_MISMATCH_ERROR(absl::Substitute(
+                "Unable to find common supertype for templated argument $0\n"
+                "  Input types for $0: $1",
+                FunctionArgumentType::SignatureArgumentKindToString(kind),
+                type_set.typed_arguments().ToString()));
             return false;
           }
           // InsertOrDie() is safe because 'kind' only occurs once in
@@ -1582,7 +1594,9 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   std::vector<std::pair<SignatureArgumentKind, SignatureArgumentKind>> kinds(
       {{ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
        {ARG_TYPE_ANY_2, ARG_ARRAY_TYPE_ANY_2},
-       {ARG_TYPE_ANY_3, ARG_ARRAY_TYPE_ANY_3}});
+       {ARG_TYPE_ANY_3, ARG_ARRAY_TYPE_ANY_3},
+       {ARG_TYPE_ANY_4, ARG_ARRAY_TYPE_ANY_4},
+       {ARG_TYPE_ANY_5, ARG_ARRAY_TYPE_ANY_5}});
   for (const auto& kind : kinds) {
     const Type** arg_type =
         zetasql_base::FindOrNull(resolved_templated_arguments, kind.first);

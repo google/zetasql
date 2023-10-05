@@ -27,6 +27,7 @@
 #include "zetasql/reference_impl/type_helpers.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_split.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -166,7 +167,7 @@ absl::Status GetOutputColumnInfo(const ResolvedStatement* resolved_stmt,
 // The length of the result vector is the maximum number of lines that appears
 // in any column string.
 std::vector<std::vector<std::string>> SplitColumnStringsIntoLines(
-    const std::vector<std::string>& column_strings) {
+    absl::Span<const std::string> column_strings) {
   // First, break down each column string into a vector of distinct lines.
   std::vector<std::vector<std::string>> columns_by_line;
   columns_by_line.reserve(column_strings.size());
@@ -196,8 +197,8 @@ std::vector<std::vector<std::string>> SplitColumnStringsIntoLines(
 // Helper function to produce a string representation of a 'row',
 // given the input column string values and column buffer lengths.
 std::string GenerateRowStringFromSingleLineColumns(
-    const std::vector<std::string>& column_strings,
-    const std::vector<size_t>& column_buffer_lengths) {
+    absl::Span<const std::string> column_strings,
+    absl::Span<const size_t> column_buffer_lengths) {
   ABSL_CHECK_EQ(column_strings.size(), column_buffer_lengths.size());
   std::string row_string = "|";
   for (int col_idx = 0; col_idx < column_strings.size(); ++col_idx) {
@@ -289,7 +290,7 @@ std::string ValueToOutputString(const Value& value, bool escape_strings) {
 //
 // Example:
 // +------+----+-----+------------+------------------------+---+---+
-std::string GetRowSeparator(const std::vector<size_t>& max_column_lengths) {
+std::string GetRowSeparator(absl::Span<const size_t> max_column_lengths) {
   std::string separator = "+";
   for (int col_idx = 0; col_idx < max_column_lengths.size(); ++col_idx) {
     absl::StrAppend(&separator,

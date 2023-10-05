@@ -271,10 +271,19 @@ SCALAR_SQL_SECURITY = EnumScalarType('SqlSecurity', 'ResolvedCreateStatement')
 SCALAR_DETERMINISM_LEVEL = EnumScalarType('DeterminismLevel',
                                           'ResolvedCreateStatement')
 SCALAR_STORED_MODE = EnumScalarType('StoredMode', 'ResolvedGeneratedColumnInfo')
+SCALAR_GENERATED_MODE = EnumScalarType(
+    'GeneratedMode', 'ResolvedGeneratedColumnInfo'
+)
 SCALAR_DROP_MODE = EnumScalarType('DropMode', 'ResolvedDropStmt')
 SCALAR_INSERTION_MODE = EnumScalarType('InsertionMode',
                                        'ResolvedAuxLoadDataStmt')
 SCALAR_INDEX_TYPE = EnumScalarType('IndexType', 'ResolvedDropIndexStmt')
+SCALAR_OPTIONS_ASSIGNMENT_OP = EnumScalarType(
+    'AssignmentOp',
+    'ResolvedOption',
+    cpp_default='DEFAULT_ASSIGN',
+    java_default='AssignmentOp.DEFAULT_ASSIGN',
+)
 
 
 def Field(name,
@@ -552,7 +561,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 244
+          Next tag_id: 245
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -2801,8 +2810,9 @@ value.
       from input_scan, and output anonymized rows.
       Spec: (broken link)
 
-      <k_threshold_expr> when non-null, points to a function call in
-      the <aggregate_list> and adds a filter that acts like:
+      <k_threshold_expr> when non-null, is a function call that uses one or more
+      items from the <aggregate_list> as arguments.
+      The engine then adds a filter that acts like:
         HAVING <k_threshold_expr> >= <implementation-defined k-threshold>
       omitting any rows that would not pass this condition.
       TODO: Update this comment after splitting the rewriter out
@@ -2820,8 +2830,10 @@ value.
               'ResolvedOption',
               tag_id=6,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDifferentialPrivacyAggregateScan',
@@ -2832,8 +2844,10 @@ value.
       from input_scan, and output anonymized rows.
       Spec: (broken link)
 
-      <group_selection_threshold_expr> when non-null, points to a function call
-      in the <aggregate_list> and adds a filter that acts like:
+
+      <group_selection_threshold_expr> when non-null, is a function call that
+      uses one or more items from the <aggregate_list> as arguments.
+      The engine then adds a filter that acts like:
         HAVING <group_selection_threshold_expr> >=
         <implementation-defined group_selection_threshold>
       omitting any rows that would not pass this condition.
@@ -2846,17 +2860,16 @@ value.
 
               """,
       fields=[
-          Field(
-              'group_selection_threshold_expr',
-              'ResolvedExpr',
-              tag_id=5),
+          Field('group_selection_threshold_expr', 'ResolvedExpr', tag_id=5),
           Field(
               'option_list',
               'ResolvedOption',
               tag_id=6,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAggregationThresholdAggregateScan',
@@ -3275,13 +3288,33 @@ value.
              function (e.g. RAND).
         - 'STORED_VOLATILE': The <expression> must be computed at write time and
              may call volatile functions (e.g. RAND).
+
+      `generated_mode` dictates how the generated column is populated. Values
+      are:
+        - 'ALWAYS' the generated value is always applied to the column,
+            meaning users cannot write to the column.
+        - 'BY_DEFAULT', the generated value is applied to to the column only if
+             the user does not write to the column.
+        This field is set to ALWAYS by default.
+
       See (broken link) and
       (broken link).""",
       fields=[
           Field('expression', 'ResolvedExpr', tag_id=2),
           Field(
-              'stored_mode', SCALAR_STORED_MODE, tag_id=5, ignorable=IGNORABLE),
-      ])
+              'stored_mode',
+              SCALAR_STORED_MODE,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'generated_mode',
+              SCALAR_GENERATED_MODE,
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedColumnDefaultValue',
@@ -5194,7 +5227,7 @@ value.
       parent='ResolvedArgument',
       use_custom_debug_string=True,
       comment="""
-      This represents one SQL hint key/value pair.
+      This represents one SQL hint or option key/value pair.
       The SQL syntax @{ key1=value1, key2=value2, some_db.key3=value3 }
       will expand to three ResolvedOptions.  Keyword hints (e.g. LOOKUP JOIN)
       are interpreted as shorthand, and will be expanded to a ResolvedOption
@@ -5205,16 +5238,20 @@ value.
       See (broken link) for more detail.
       Hint semantics are implementation defined.
 
-      Each hint is resolved as a [<qualifier>.]<name>:=<value> pair.
+      Each hint or option is resolved as a [<qualifier>.]<name>:=<value> pair.
         <qualifier> will be empty if no qualifier was present.
         <name> is always non-empty.
         <value> can be a ResolvedLiteral or a ResolvedParameter,
                 a cast of a ResolvedParameter (for typed hints only),
                 or a general expression (on constant inputs).
+        <assignment_op> is an enum that indicates the assignment operation for
+                        array type options.
 
       If AllowedHintsAndOptions was set in AnalyzerOptions, and this hint or
       option was included there and had an expected type, the type of <value>
-      will match that expected type.  Unknown hints (not listed in
+      will match that expected type. For assignment_op that's not the default
+      value, also checks whether the expected type is Array and whether
+      allow_alter_array is true. Unknown hints and options(not listed in
       AllowedHintsAndOptions) are not stripped and will still show up here.
 
       If non-empty, <qualifier> should be interpreted as a target system name,
@@ -5224,18 +5261,29 @@ value.
       <qualifier> is set only for hints, and will always be empty in options
       lists.
 
+      <assignment_op> will always be DEFAULT_ASSIGN (i.e. "=") for hints, and
+                      defaults to the same value for options. Can be set to
+                      ADD_ASSIGN ("+=") and SUB_ASSIGN ("-=") for options with
+                      Array type.
+
       The SQL syntax allows using an identifier as a hint value.
       Such values are stored here as ResolvedLiterals with string type.
               """,
       fields=[
           Field(
-              'qualifier',
-              SCALAR_STRING,
-              tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
+              'qualifier', SCALAR_STRING, tag_id=2, ignorable=IGNORABLE_DEFAULT
+          ),
           Field('name', SCALAR_STRING, tag_id=3, ignorable=IGNORABLE),
-          Field('value', 'ResolvedExpr', tag_id=4, ignorable=IGNORABLE)
-      ])
+          Field('value', 'ResolvedExpr', tag_id=4, ignorable=IGNORABLE),
+          Field(
+              'assignment_op',
+              SCALAR_OPTIONS_ASSIGNMENT_OP,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              is_constructor_arg=False,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedWindowPartitioning',
@@ -5494,6 +5542,12 @@ value.
 
       The returning clause has a <output_column_list> to represent the data
       sent back to clients. It can only access columns from the <table_scan>.
+      <topologically_sorted_generated_column_id_list> is set for queries to
+      tables having generated columns. It provides the resolved column ids of
+      the generated columns in topological order.
+      <generated_expr_list> has generated expressions for the corresponding
+      generated column in the topologically_sorted_generated_column_id_list.
+      Hence, these lists have the same size.
 
       <column_access_list> indicates for each column in <table_scan.column_list>
       whether it was read and/or written. The query engine may also require
@@ -5563,7 +5617,7 @@ value.
               is_constructor_arg=False,
               java_to_string_method='toStringObjectAccess'),
           Field(
-              'topologically_sorted_generated_column_index_list',
+              'topologically_sorted_generated_column_id_list',
               SCALAR_INT,
               tag_id=14,
               vector=True,
@@ -5573,7 +5627,7 @@ value.
               java_to_string_method='toStringCommaSeparatedForInt',
               comment="""
                This returns a topologically sorted list of generated columns
-               indexes in the table accessed by insert statement.
+               resolved ids in the table accessed by insert statement.
                For example for below table
                CREATE TABLE T(
                k1 INT64 NOT NULL,
@@ -5587,6 +5641,23 @@ value.
                 *  ------------------------------->gen3
               the vector would have corresponding indexes of one of these values
               gen1 gen2 gen3 OR gen1 gen3 gen2.
+              """),
+          Field(
+              'generated_column_expr_list',
+              'ResolvedExpr',
+              tag_id=15,
+              vector=True,
+              is_optional_constructor_arg=True,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              This field returns the vector of generated column expressions
+              corresponding to the column ids in
+              topologically_sorted_generated_column_id_list. Both the lists have
+              the same size and 1-to-1 mapping for the column id with its
+              corresponding expression. This field is not directly accessed
+              from the catalog since these expressions are rewritten to replace
+              the ResolvedExpressionColumn for the referred columns in the
+              catalog to corresponding ResolvedColumnRef.
               """)
       ],
       extra_defs="""

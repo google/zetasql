@@ -446,8 +446,8 @@ see [Bytes literals][bytes-literals].
 The date type represents a Gregorian calendar date, independent of time zone. A
 date value does not represent a specific 24-hour time period. Rather, a given
 date value represents a different 24-hour period when interpreted in different
-time zones, and may represent a shorter or longer day during Daylight Savings
-Time transitions.
+time zones, and may represent a shorter or longer day during daylight saving
+time (DST) transitions.
 To represent an absolute point in time,
 use a [timestamp][timestamp-type].
 
@@ -659,7 +659,7 @@ interior_ring:
 </pre>
           Examples:
 <pre class="lang-sql prettyprint">
-POLYGON((0 0, 2 2, 2 0, 0 0), (2 2, 3 4, 2 4))
+POLYGON((0 0, 2 2, 2 0, 0 0), (2 2, 3 4, 2 4, 2 2))
 </pre>
 <pre class="lang-sql prettyprint">
 POLYGON EMPTY
@@ -722,7 +722,7 @@ MULTIPOLYGON((polygon)[, ...])
 </pre>
           Examples:
 <pre class="lang-sql prettyprint">
-MULTIPOLYGON(((0 -1, 1 0, 0 -1)), ((0 0, 2 2, 3 0), (2 2, 3 4, 2 4, 1 9)))
+MULTIPOLYGON(((0 -1, 1 0, 1 1, 0 -1)), ((0 0, 2 2, 3 0, 0 0), (2 2, 3 4, 2 4, 1 9)))
 </pre>
 <pre class="lang-sql prettyprint">
 MULTIPOLYGON EMPTY
@@ -2048,7 +2048,7 @@ see [Time literals][time-literals].
 </table>
 
 A timestamp value represents an absolute point in time,
-independent of any time zone or convention such as Daylight Savings Time,
+independent of any time zone or convention such as daylight saving time (DST),
 with
 microsecond or nanosecond
 precision.
@@ -2209,9 +2209,8 @@ of the timestamp:
 
 Note that not all time zone names are interchangeable even if they do happen to
 report the same time during a given part of the year. For example,
-`America/Los_Angeles` reports the same time as `UTC-7:00` during Daylight
-Savings Time, but reports the same time as `UTC-8:00` outside of Daylight
-Savings Time.
+`America/Los_Angeles` reports the same time as `UTC-7:00` during daylight
+saving time (DST), but reports the same time as `UTC-8:00` outside of DST.
 
 If a time zone is not specified, the default time zone value is used.
 

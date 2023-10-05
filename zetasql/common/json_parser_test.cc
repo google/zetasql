@@ -23,7 +23,6 @@
 
 #include "zetasql/base/logging.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_format.h"

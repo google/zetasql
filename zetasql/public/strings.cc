@@ -27,13 +27,16 @@
 #include "zetasql/common/utf_util.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/base/case.h"
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/case.h"
 #include "unicode/utf.h"
@@ -1057,6 +1060,19 @@ absl::Status ParseIdentifierPath(absl::string_view str,
     ++p;
     segment_start = p;
     allow_slash_path_segment = false;
+  }
+
+  // The slashed path should return error if a segment has a reserved keyword
+  // for example /CREATE/abc.
+  if (language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_ALLOW_SLASH_PATHS) &&
+      !temp_out.empty()) {
+    absl::string_view first_seg = temp_out[0];
+    std::vector<std::string> slash_path = absl::StrSplit(first_seg, '/');
+    if (slash_path.size() > 1 &&
+        absl::c_any_of(slash_path, &IsReservedKeyword)) {
+      return MakeSqlError() << "Slashed path contains a reserved keyword'";
+    }
   }
 
   *out = temp_out;

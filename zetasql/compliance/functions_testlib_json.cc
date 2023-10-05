@@ -35,6 +35,7 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -1481,14 +1482,22 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonRemove() {
   absl::string_view json_string =
       R"({"a": 10, "b": [true, ["foo", null, "bar"], {"c": [20]}]})";
   std::vector<FunctionTestCall> tests = {
-      // NULL
+      // All NULLs.
       {"json_remove", {NullJson(), NullString()}, NullJson()},
+      // NULL JSON input.
       {"json_remove", {NullJson(), String("$.a")}, NullJson()},
-      {"json_remove", {ParseJson(R"({"a": 10})"), NullString()}, NullJson()},
+      // NULL JSONPath. Ignore Operation.
       {"json_remove",
-       {ParseJson(R"({"a": 10})"), String("$.a"), NullString()},
-       NullJson()},
-      // Invalid JSONPath
+       {ParseJson(json_string), NullString()},
+       ParseJson(json_string)},
+      // Mix of both NULL and Non-NULL JSONPath.
+      {"json_remove",
+       {ParseJson(json_string), String("$.a"), NullString()},
+       ParseJson(R"({"b": [true, ["foo", null, "bar"], {"c": [20]}]})")},
+      {"json_remove",
+       {ParseJson(json_string), NullString(), String("$.a")},
+       ParseJson(R"({"b": [true, ["foo", null, "bar"], {"c": [20]}]})")},
+      // Invalid JSONPath.
       {"json_remove",
        {ParseJson(R"({"a": 10})"), String("$")},
        NullJson(),
@@ -1499,6 +1508,16 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonRemove() {
        OUT_OF_RANGE},
       {"json_remove",
        {ParseJson(R"({"a": 10})"), String("$.a"), String("$")},
+       NullJson(),
+       OUT_OF_RANGE},
+      // Invalid and NULL JSONPath.
+      {"json_remove",
+       {ParseJson(R"({"a": 10})"), NullString(), String("$")},
+       NullJson(),
+       OUT_OF_RANGE},
+      // Invalid JSONPath and NULL input JSON.
+      {"json_remove",
+       {NullJson(), NullString(), String("$$")},
        NullJson(),
        OUT_OF_RANGE},
       // 1 JSONPath
@@ -1609,34 +1628,75 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
     }
   }
 
-  // NULL cases
-  tests.push_back({"json_array_insert",
-                   QueryParamsWithResult({NullJson(), String("$[0]"), Int64(1)},
-                                         NullJson())});
-  tests.push_back(
-      {"json_array_insert",
-       QueryParamsWithResult({ParseJson("[1]"), NullString(), Int64(1)},
-                             NullJson())});
-  tests.push_back({"json_array_insert",
-                   QueryParamsWithResult({ParseJson("[1]"), String("$[0]"),
-                                          Int64(1), NullString(), Int64(2)},
-                                         NullJson())});
-  tests.push_back(
-      {"json_array_insert",
-       QueryParamsWithResult({ParseJson("[1]"), String("$[0]"), Int64(1),
-                              NullString(), Int64(2), Bool(true)},
-                             NullJson())
-           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
-  tests.push_back(
-      {"json_array_insert",
-       QueryParamsWithResult({ParseJson("[1]"), String("$[0]"), Int64(1),
-                              String("$[0]"), Int64(2), NullBool()},
-                             NullJson())
-           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
-
   absl::string_view json_string =
       R"([[1, 2, 3], true, {"a": [1.1,[["foo"]]]}])";
 
+  // NULL input JSON.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({NullJson(), String("$[0]"), Int64(1)},
+                                         NullJson())});
+  // NULL JSONPath.
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson(json_string), NullString(), Int64(1)},
+                             ParseJson(json_string))});
+  // NULL input JSON and NULL JSONPath.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({NullJson(), NullString(), Int64(1)},
+                                         NullJson())});
+  // Both NULL and non-null JSONPath.
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"), Int64(1), NullString(),
+            Int64(2)},
+           ParseJson(R"([1, [1, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), NullString(), Int64(2), String("$[0]"),
+            Int64(1)},
+           ParseJson(R"([1, [1, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))});
+  // Both NULL and non-null JSONPath with INSERT_EACH_ELEMENT.
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[0]"), Int64Array({1, 2}),
+            NullString(), Int64(2), Bool(true)},
+           ParseJson(R"([1, 2, [1, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // NULL insert_each_element.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({ParseJson(json_string),
+                                          String("$[0]"), Int64(1), NullBool()},
+                                         ParseJson(json_string))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // NULL input JSON and NULL insert_each_element.
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({NullJson(), String("$[0]"), Int64(1), NullBool()},
+                             NullJson())
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Invalid JSONPath.
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson(json_string), String("$$"), Int64(1)},
+                             NullJson(), OUT_OF_RANGE)});
+  // Invalid JSONPath with NULL input JSON.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({NullJson(), String("$$"), Int64(1)},
+                                         NullJson(), OUT_OF_RANGE)});
+  // Invalid second JSONPath with NULL input JSON.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({NullJson(), String("$.a"), Int64(2),
+                                          String("$$"), Int64(1)},
+                                         NullJson(), OUT_OF_RANGE)});
+  // Invalid JSONPath with NULL insert_each_element.
+  tests.push_back({"json_array_insert",
+                   QueryParamsWithResult({NullJson(), String("$"), Int64(1),
+                                          String("$$"), Int64(2), NullBool()},
+                                         NullJson(), OUT_OF_RANGE)
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // NULL array value for insertion. The insertion is ignored because
   // `insert_each_element` = true.
   tests.push_back({"json_array_insert",
@@ -2010,35 +2070,66 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
     }
   }
 
-  // NULL cases
+  absl::string_view json_string =
+      R"([[1, 2, 3], true, {"a": [1.1,[["foo"]]]}])";
+
+  // NULL input JSON.
   tests.push_back(
       {"json_array_append",
        QueryParamsWithResult({NullJson(), String("$"), Int64(1)}, NullJson())});
+  // NULL JSONPath.
   tests.push_back(
       {"json_array_append",
-       QueryParamsWithResult({ParseJson("[1]"), NullString(), Int64(1)},
-                             NullJson())});
-
-  tests.push_back({"json_array_append",
-                   QueryParamsWithResult({ParseJson("[1]"), String("$"),
-                                          Int64(1), NullString(), Int64(2)},
-                                         NullJson())});
-
+       QueryParamsWithResult({ParseJson(json_string), NullString(), Int64(1)},
+                             ParseJson(json_string))});
+  // Mix of NULL and Non-NULL JSONPath.
   tests.push_back(
       {"json_array_append",
-       QueryParamsWithResult({ParseJson("[1]"), String("$"), Int64(1),
-                              NullString(), Int64(2), Bool(true)},
-                             NullJson())
-           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$"), Int64(1), NullString(),
+            Int64(2)},
+           ParseJson(R"([[1, 2, 3], true, {"a": [1.1,[["foo"]]]}, 1])"))});
+  // Mix of NULL and Non-NULL JSONPath.
   tests.push_back(
       {"json_array_append",
-       QueryParamsWithResult({ParseJson("[1]"), String("$"), Int64(1),
+       QueryParamsWithResult(
+           {ParseJson(json_string), NullString(), Int64(1), String("$"),
+            Int64(2)},
+           ParseJson(R"([[1, 2, 3], true, {"a": [1.1,[["foo"]]]}, 2])"))});
+  // NULL append_each_element.
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({ParseJson(json_string), String("$"), Int64(1),
                               String("$"), Int64(2), NullBool()},
-                             NullJson())
+                             ParseJson(json_string))
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // NULL input json and NULL append_each_element.
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult({NullJson(), String("$"), Int64(1),
+                                          String("$"), Int64(2), NullBool()},
+                                         NullJson())
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
-  absl::string_view json_string =
-      R"([[1, 2, 3], true, {"a": [1.1,[["foo"]]]}])";
+  // Invalid JSONPath.
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({ParseJson(json_string), String("$$"), Int64(1)},
+                             NullJson(), OUT_OF_RANGE)});
+  // Invalid JSONPath with NULL input JSON.
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult({NullJson(), String("$$"), Int64(1)},
+                                         NullJson(), OUT_OF_RANGE)});
+  // Invalid second JSONPath with NULL input JSON.
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult({NullJson(), String("$.a"), Int64(2),
+                                          String("$$"), Int64(1)},
+                                         NullJson(), OUT_OF_RANGE)});
+  // Invalid JSONPath with NULL append_each_element.
+  tests.push_back({"json_array_append",
+                   QueryParamsWithResult({NullJson(), String("$"), Int64(1),
+                                          String("$$"), Int64(2), NullBool()},
+                                         NullJson(), OUT_OF_RANGE)
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // 1 append
   // Negative indexing is not supported.
   tests.push_back({"json_array_append",
@@ -2348,25 +2439,35 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
   absl::string_view json_string =
       R"({"a":null, "b":{}, "c":[], "d":{"e": 1}, "f":["foo", [], {}, [3,4]]})";
 
-  // NULL
+  // NULL input and NULL JSONPath.
   tests.push_back(
       {"json_set", QueryParamsWithResult({NullJson(), NullString(), Bool(true)},
                                          NullJson())});
+  // NULL input with non-null JSONPath.
   tests.push_back(
       {"json_set", QueryParamsWithResult(
                        {NullJson(), String("$.a"), Bool(true)}, NullJson())});
+  // Non-null input and single NULL JSONPath.
   tests.push_back({"json_set", QueryParamsWithResult({ParseJson(json_string),
                                                       NullString(), Bool(true)},
-                                                     NullJson())});
+                                                     ParseJson(json_string))});
+  // Ignore first NULL path operation but continue with other SET operation
+  // pair.
+  tests.push_back({"json_set", QueryParamsWithResult(
+                                   {ParseJson(json_string), NullString(),
+                                    Bool(true), String("$.a"), Int64(10)},
+                                   ParseJson(
+                                       R"({"a":10, "b":{}, "c":[], "d":{"e": 1},
+                                          "f":["foo", [], {}, [3,4]]})"))});
+  // Ignore middle NULL path operation but continue with other SET operation
+  // pairs.
   tests.push_back(
-      {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$.a"),
-                                          Bool(true), NullString(), Int64(10)},
-                                         NullJson())});
-  tests.push_back(
-      {"json_set", QueryParamsWithResult(
-                       {ParseJson(json_string), String("$.a"), Bool(true),
-                        NullString(), Int64(10), NullString(), Bool(false)},
-                       NullJson())});
+      {"json_set",
+       QueryParamsWithResult({ParseJson(json_string), String("$.a"), Bool(true),
+                              NullString(), Int64(10), String("$.b"), Int64(5)},
+                             ParseJson(
+                                 R"({"a":true, "b":5, "c":[], "d":{"e": 1},
+                                    "f":["foo", [], {}, [3,4]]})"))});
 
   // Invalid JSONPath
   tests.push_back(
@@ -2629,29 +2730,58 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls() {
   std::vector<FunctionTestCall> tests;
   constexpr absl::string_view kInitialSimpleObjectValue =
       R"({"a":null, "b":1, "c":[null, true], "d":{}, "e":[null], "f":[]})";
-  // NULL
+  // NULL input JSON.
   tests.push_back(
       {"json_strip_nulls", QueryParamsWithResult({NullJson()}, NullJson())});
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialSimpleObjectValue), NullString()}, NullJson())});
+           {NullJson(), String("$.a"), Bool(true), NullBool()}, NullJson())
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Invalid JSONPath with NULL input JSON.
+  tests.push_back(
+      {"json_strip_nulls", QueryParamsWithResult({NullJson(), String("$a")},
+                                                 NullJson(), OUT_OF_RANGE)});
+
+  // Non-null input with NULL path.
+  tests.push_back({"json_strip_nulls",
+                   QueryParamsWithResult(
+                       {ParseJson(kInitialSimpleObjectValue), NullString()},
+                       ParseJson(kInitialSimpleObjectValue))});
+  // Non-null input with NULL include_arrays.
   tests.push_back({"json_strip_nulls",
                    QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
                                           String("$.a"), NullBool()},
-                                         NullJson())
+                                         ParseJson(kInitialSimpleObjectValue))
                        .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Non-null input with NULL remove_empty.
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
                               String("$.a"), Bool(true), NullBool()},
-                             NullJson())
+                             ParseJson(kInitialSimpleObjectValue))
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
-  // Invalid JSONPath
+  // Invalid JSONPath.
   tests.push_back({"json_strip_nulls",
                    QueryParamsWithResult(
                        {ParseJson(kInitialSimpleObjectValue), String("$a")},
                        NullJson(), OUT_OF_RANGE)});
+  // Invalid JSONPath with NULL input JSON.
+  tests.push_back(
+      {"json_strip_nulls", QueryParamsWithResult({NullJson(), String("$a")},
+                                                 NullJson(), OUT_OF_RANGE)});
+  // Invalid JSONPath with NULL include_arrays.
+  tests.push_back({"json_strip_nulls",
+                   QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
+                                          String("$a"), NullBool()},
+                                         NullJson(), OUT_OF_RANGE)
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Invalid JSONPath with NULL remove_empty.
+  tests.push_back({"json_strip_nulls",
+                   QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
+                                          String("$a"), Bool(true), NullBool()},
+                                         NullJson(), OUT_OF_RANGE)
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Valid cases.
   tests.push_back(
       {"json_strip_nulls",

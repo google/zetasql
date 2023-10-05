@@ -21,7 +21,6 @@
 #include <string>
 
 #include "absl/base/attributes.h"
-#include <cstdint>
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
@@ -91,9 +90,10 @@ std::string BinaryOverflowMessage<long double>(
 template <typename T>
 std::string DivisionByZeroMessage(T in1, T in2);
 
-extern template std::string DivisionByZeroMessage<int64_t>(int64_t in1, int64_t in2);
+extern template std::string DivisionByZeroMessage<int64_t>(int64_t in1,
+                                                           int64_t in2);
 extern template std::string DivisionByZeroMessage<uint64_t>(uint64_t in1,
-                                                          uint64_t in2);
+                                                            uint64_t in2);
 extern template std::string DivisionByZeroMessage<double>(double in1,
                                                           double in2);
 template <>

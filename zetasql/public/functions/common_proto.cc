@@ -23,7 +23,6 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
-#include <cstdint>
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 

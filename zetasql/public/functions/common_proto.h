@@ -33,7 +33,6 @@
 #include "zetasql/common/utf_util.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
-#include <cstdint>
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "zetasql/base/status.h"

@@ -18,10 +18,13 @@ syntax notation rules:
   option.
 + Ellipsis `...`: Preceding item can repeat.
 + Red square brackets
-  <code><b><span style="color:Tomato;">[ ]</span></b></code>: Required and
+  <code><span class="syntax">[ ]</span></code>: Required and
   part of the syntax.
 + Red curly braces
-  <code><b><span style="color:Tomato;">{ }</span></b></code>: Required and
+  <code><span class="syntax">{ }</span></code>: Required and
+  part of the syntax.
++ Red vertical bar
+  <code><span class="syntax">|</span></code>: Required and
   part of the syntax.
 
 ## SQL syntax
@@ -104,7 +107,7 @@ SELECT * FROM (SELECT "apple" AS fruit, "carrot" AS vegetable);
 Items in a `SELECT` list can be expressions. These expressions evaluate to a
 single value and produce one output column, with an optional explicit `alias`.
 
-If the expression does not have an explicit alias, it receives an implicit alias
+If the expression doesn't have an explicit alias, it receives an implicit alias
 according to the rules for [implicit aliases][implicit-aliases], if possible.
 Otherwise, the column is anonymous and you cannot refer to it by name elsewhere
 in the query.
@@ -187,7 +190,7 @@ FROM orders;
  *-----------+----------*/
 ```
 
-Note: `SELECT * EXCEPT` does not exclude columns that do not have names.
+Note: `SELECT * EXCEPT` doesn't exclude columns that don't have names.
 
 ### `SELECT * REPLACE`
 
@@ -197,7 +200,7 @@ from the `SELECT *` statement. In the output column list, the column that
 matches the identifier in a `REPLACE` clause is replaced by the expression in
 that `REPLACE` clause.
 
-A `SELECT * REPLACE` statement does not change the names or order of columns.
+A `SELECT * REPLACE` statement doesn't change the names or order of columns.
 However, it can change the value and the value type.
 
 ```sql
@@ -228,7 +231,7 @@ FROM orders;
  *----------+-----------+----------*/
 ```
 
-Note: `SELECT * REPLACE` does not replace columns that do not have names.
+Note: `SELECT * REPLACE` doesn't replace columns that don't have names.
 
 ### `SELECT DISTINCT`
 
@@ -691,7 +694,7 @@ SELECT results FROM Coordinates, UNNEST(Coordinates.position.y) AS results;
 ```
 
 In explicit unnesting, `array_expression` must return an
-array value but does not need to resolve to an array.
+array value but doesn't need to resolve to an array.
 
 ##### Tables and explicit unnesting
 
@@ -862,7 +865,7 @@ Top-level definitions:
 `unpivot_operator` definitions:
 
 + `INCLUDE NULLS`: Add rows with `NULL` values to the result.
-+ `EXCLUDE NULLS`: Do not add rows with `NULL` values to the result.
++ `EXCLUDE NULLS`: don't add rows with `NULL` values to the result.
   By default, `UNPIVOT` excludes rows with `NULL` values.
 + `single_column_unpivot`: Rotates columns into one `values_column`
   and one `name_column`.
@@ -1256,7 +1259,7 @@ the `ClickEvents` table contains 10000 rows, with 9990 rows of value `US`
 and 10 rows of value `VN`. The number of distinct countries in this example
 is two. With 1% uniform sampling, it is statistically probable that all the
 sampled rows are from the `US` and none of them are from the `VN` partition.
-As a result, the output of the second query does not contain the `SUM` estimate
+As a result, the output of the second query doesn't contain the `SUM` estimate
 for the group `VN`. We refer to this as the _missing-group problem_, which
 can be solved with [stratified sampling][stratified-sampling].
 
@@ -1302,7 +1305,7 @@ combine and discard rows from the two `from_item`s to form a single source.
 <a id="inner_join"></a>
 
 An `INNER JOIN`, or simply `JOIN`, effectively calculates the Cartesian product
-of the two `from_item`s and discards all rows that do not meet the join
+of the two `from_item`s and discards all rows that don't meet the join
 condition. _Effectively_ means that it is possible to implement an `INNER JOIN`
 without actually calculating the Cartesian product.
 
@@ -1479,7 +1482,7 @@ FROM Roster, TeamMascot;
 
 A `FULL OUTER JOIN` (or simply `FULL JOIN`) returns all fields for all matching
 rows in both `from_items` that meet the join condition. If a given row from one
-`from_item` does not join to any row in the other `from_item`, the row returns
+`from_item` doesn't join to any row in the other `from_item`, the row returns
 with `NULL` values for all columns from the other `from_item`.
 
 ```sql
@@ -1550,10 +1553,10 @@ The result of a `LEFT OUTER JOIN` (or simply `LEFT JOIN`) for two
 predicate.
 
 All rows from the _left_ `from_item` are retained;
-if a given row from the left `from_item` does not join to any row
+if a given row from the left `from_item` doesn't join to any row
 in the _right_ `from_item`, the row will return with `NULL` values for all
 columns exclusively from the right `from_item`. Rows from the right
-`from_item` that do not join to any row in the left `from_item` are discarded.
+`from_item` that don't join to any row in the left `from_item` are discarded.
 
 ```sql
 FROM A LEFT OUTER JOIN B ON A.w = B.y
@@ -1620,10 +1623,10 @@ The result of a `RIGHT OUTER JOIN` (or simply `RIGHT JOIN`) for two
 predicate.
 
 All rows from the _right_ `from_item` are returned;
-if a given row from the right `from_item` does not join to any row
+if a given row from the right `from_item` doesn't join to any row
 in the _left_ `from_item`, the row will return with `NULL` values for all
 columns exclusively from the left `from_item`. Rows from the left `from_item`
-that do not join to any row in the right `from_item` are discarded.
+that don't join to any row in the right `from_item` are discarded.
 
 ```sql
 FROM A RIGHT OUTER JOIN B ON A.w = B.y
@@ -1856,7 +1859,7 @@ FROM ( A JOIN (B JOIN C USING (x)) USING (x) )
 ```
 
 A `FROM` clause can have multiple joins. Provided there are no comma cross joins
-in the `FROM` clause, joins do not require parenthesis, though parenthesis can
+in the `FROM` clause, joins don't require parenthesis, though parenthesis can
 help readability:
 
 ```sql
@@ -2088,7 +2091,7 @@ order:
 + `ORDER BY`
 + `LIMIT`
 
-Evaluation order does not always match syntax order.
+Evaluation order doesn't always match syntax order.
 
 The `WHERE` clause only references columns available via the `FROM` clause;
 it cannot reference `SELECT` list aliases.
@@ -2342,7 +2345,7 @@ expressions that are not in the grouping set are aggregated and produce a
 **Examples**
 
 The following queries produce the same subtotals and a grand total, but
-the first one uses `GROUP BY` with `ROLLUP` and the second one does not:
+the first one uses `GROUP BY` with `ROLLUP` and the second one doesn't:
 
 ```sql
 -- GROUP BY with ROLLUP
@@ -2420,7 +2423,7 @@ order:
 + `ORDER BY`
 + `LIMIT`
 
-Evaluation order does not always match syntax order.
+Evaluation order doesn't always match syntax order.
 
 The `HAVING` clause references columns available via the `FROM` clause, as
 well as `SELECT` list aliases. Expressions referenced in the `HAVING` clause
@@ -2447,7 +2450,7 @@ HAVING ps > 0;
 ### Mandatory aggregation 
 <a id="mandatory_aggregation"></a>
 
-Aggregation does not have to be present in the `HAVING` clause itself, but
+Aggregation doesn't have to be present in the `HAVING` clause itself, but
 aggregation must be present in at least one of the following forms:
 
 #### Aggregation function in the `SELECT` list.
@@ -2471,7 +2474,7 @@ HAVING SUM(PointsScored) > 15;
 #### Aggregation in both the `SELECT` list and `HAVING` clause.
 
 When aggregation functions are present in both the `SELECT` list and `HAVING`
-clause, the aggregation functions and the columns they reference do not need
+clause, the aggregation functions and the columns they reference don't need
 to be the same. In the example below, the two aggregation functions,
 `COUNT()` and `SUM()`, are different and also use different columns.
 
@@ -2613,7 +2616,7 @@ ORDER BY SchoolID, LastName;
 
 When used in conjunction with
 [set operators][set-operators],
-the `ORDER BY` clause applies to the result set of the entire query; it does not
+the `ORDER BY` clause applies to the result set of the entire query; it doesn't
 apply only to the closest `SELECT` statement. For this reason, it can be helpful
 (though it is not required) to use parentheses to show the scope of the `ORDER
 BY`.
@@ -2736,7 +2739,7 @@ order:
 + `ORDER BY`
 + `LIMIT`
 
-Evaluation order does not always match syntax order.
+Evaluation order doesn't always match syntax order.
 
 **Examples**
 
@@ -2951,7 +2954,7 @@ them.
 
 The `INTERSECT` operator returns rows that are found in the results of both
 the left and right input queries. Unlike `EXCEPT`, the positioning of the input
-queries (to the left versus right of the `INTERSECT` operator) does not matter.
+queries (to the left versus right of the `INTERSECT` operator) doesn't matter.
 
 ### `EXCEPT` 
 <a id="except"></a>
@@ -3024,7 +3027,7 @@ SELECT * FROM Produce1 UNION ALL SELECT * FROM Produce2;
 ```
 
 In the proceeding example, an attempt was made to list of fruits in one column
-and vegetables in another, however the results do not reflect this.
+and vegetables in another, however the results don't reflect this.
 To get the intended results, use the `CORRESPONDING` specification.
 
 #### Set operation results when matching by column name
@@ -3057,7 +3060,7 @@ SELECT * FROM Produce1 UNION ALL CORRESPONDING SELECT * FROM Produce2;
 Notice that the order of the columns is determined by the first input query in
 this example.
 
-#### Columns that do not appear in both result sets are dropped
+#### Columns that don't appear in both result sets are dropped
 
 With the `CORRESPONDING` specification, only columns appearing in both
 input queries are preserved and all other columns are dropped.
@@ -3144,7 +3147,7 @@ but [rules apply][cte-rules].
 CTEs can be [non-recursive][non-recursive-cte] or
 [recursive][recursive-cte] and you can include both of these in your
 `WITH` clause. A recursive CTE references itself, where a
-non-recursive CTE does not. If a recursive CTE is included in the `WITH` clause,
+non-recursive CTE doesn't. If a recursive CTE is included in the `WITH` clause,
 the `RECURSIVE` keyword must also be included.
 
 You can include the `RECURSIVE` keyword in a `WITH` clause even if no
@@ -3289,7 +3292,7 @@ _new rows_ which are unioned with the previous iteration. The recursive
 union operation terminates when a recursive term iteration produces no new
 rows.
 
-If recursion does not terminate, the query will not terminate.
+If recursion doesn't terminate, the query will not terminate.
 
 To avoid a non-terminating iteration in a recursive union operation, you can
 use the `LIMIT` clause in a query.
@@ -3419,7 +3422,7 @@ SELECT * FROM T1 ORDER BY n
 ##### Examples of disallowed recursive CTEs
 
 The following recursive CTE is disallowed because the
-self-reference does not include a set operator, base term, and
+self-reference doesn't include a set operator, base term, and
 recursive term.
 
 ```sql {.bad}
@@ -3765,6 +3768,10 @@ WITH ANONYMIZATION OPTIONS( <a href="#dp_privacy_parameters"><span class="var">p
   <span class="var">epsilon</span> = <span class="var">expression</span>,
   { <span class="var">delta</span> = <span class="var">expression</span> | <span class="var">k_threshold</span> = <span class="var">expression</span> },
   [ { <span class="var">kappa</span> = <span class="var">expression</span> | <span class="var">max_groups_contributed</span> = <span class="var">expression</span> } ]
+<a href="#dp_privacy_parameters">privacy_parameters</a>:
+  epsilon = expression,
+  { delta = expression | k_threshold = expression },
+  [ { kappa = expression | max_groups_contributed = expression } ],
 </pre>
 
 **Differential privacy clause**
@@ -3935,8 +3942,8 @@ differential privacy in ZetaSQL.
 The examples in this section reference the following tables:
 
 ```sql
-CREATE OR REPLACE TABLE professors AS (
-  SELECT 101 id, "pencil" item, 24 quantity UNION ALL
+CREATE OR REPLACE TABLE {{USERNAME}}.professors AS (
+  SELECT 101 AS id, "pencil" AS item, 24 AS quantity UNION ALL
   SELECT 123, "pen", 16 UNION ALL
   SELECT 123, "pencil", 10 UNION ALL
   SELECT 123, "pencil", 38 UNION ALL
@@ -3947,8 +3954,8 @@ CREATE OR REPLACE TABLE professors AS (
 ```
 
 ```sql
-CREATE OR REPLACE TABLE students AS (
-  SELECT 1 id, "pencil" item, 5 quantity UNION ALL
+CREATE OR REPLACE TABLE {{USERNAME}}.students AS (
+  SELECT 1 AS id, "pencil" AS item, 5 AS quantity UNION ALL
   SELECT 1, "pen", 2 UNION ALL
   SELECT 2, "pen", 1 UNION ALL
   SELECT 3, "pen", 4);
@@ -3960,13 +3967,13 @@ CREATE OR REPLACE TABLE students AS (
 The examples in this section reference these views:
 
 ```sql
-CREATE OR REPLACE VIEW view_on_professors
+CREATE OR REPLACE VIEW {{USERNAME}}.view_on_professors
 OPTIONS(anonymization_userid_column='id')
 AS (SELECT * FROM professors);
 ```
 
 ```sql
-CREATE OR REPLACE VIEW view_on_students
+CREATE OR REPLACE VIEW {{USERNAME}}.view_on_students
 OPTIONS(anonymization_userid_column='id')
 AS (SELECT * FROM students);
 ```
@@ -4072,7 +4079,7 @@ GROUP BY item;
  *----------+------------------*/
 ```
 
-#### Limit the groups in which a privacy unit ID can exist
+#### Limit the groups in which a privacy unit ID can exist 
 <a id="limit_groups"></a>
 
 A privacy unit column can exist within multiple groups. For example, in the
@@ -4089,7 +4096,7 @@ SELECT
 FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
--- privacy unit ID 123 was only included in the pen group in this example.
+-- The privacy unit ID 123 was only included in the pen group in this example.
 -- Noise was removed from this query for demonstration purposes only.
 /*----------+------------------*
  | item     | average_quantity |
@@ -4109,7 +4116,7 @@ SELECT
 FROM professors
 GROUP BY item;
 
--- Privacy unit column 123 was only included in the pen group in this example.
+-- The privacy unit column 123 was only included in the pen group in this example.
 -- Noise was removed from this query for demonstration purposes only.
 /*----------+------------------*
  | item     | average_quantity |
@@ -4159,7 +4166,7 @@ FROM Singers s;
 ### Implicit aliases 
 <a id="implicit_aliases"></a>
 
-In the `SELECT` list, if there is an expression that does not have an explicit
+In the `SELECT` list, if there is an expression that doesn't have an explicit
 alias, ZetaSQL assigns an implicit alias according to the following
 rules. There can be multiple columns with the same alias in the `SELECT` list.
 
@@ -4181,7 +4188,7 @@ following rules apply:
 
 <ul>
   <li>
-    If there is an expression that does not have an explicit alias,
+    If there is an expression that doesn't have an explicit alias,
     ZetaSQL assigns an implicit alias in these cases:
     <ul>
     <li>
@@ -4198,10 +4205,10 @@ following rules apply:
     </li>
   </ul>
   <li>
-    Table subqueries do not have implicit aliases.
+    Table subqueries don't have implicit aliases.
   </li>
   <li>
-    <code>FROM UNNEST(x)</code> does not have an implicit alias.
+    <code>FROM UNNEST(x)</code> doesn't have an implicit alias.
   </li>
 </ul>
 
@@ -4269,7 +4276,7 @@ SELECT * FROM Singers as s, Songs as s2
 ORDER BY s.LastName
 ```
 
-Invalid &mdash; `ORDER BY` does not use the table alias:
+Invalid &mdash; `ORDER BY` doesn't use the table alias:
 
 ```sql {.bad}
 SELECT * FROM Singers as s, Songs as s2
@@ -4419,7 +4426,7 @@ When referencing a range variable on its own without a specified column suffix,
 the result of a table expression is the row type of the related table.
 Value tables have explicit row types, so for range variables related
 to value tables, the result type is the value table's row type. Other tables
-do not have explicit row types, and for those tables, the range variable
+don't have explicit row types, and for those tables, the range variable
 type is a dynamically defined struct that includes all of the
 columns in the table.
 

@@ -1896,6 +1896,9 @@ public class ValueTest {
 
     assertThat(typeInt32.getEnumValue()).isEqualTo(1);
     assertThat(typeInt32.getEnumName()).isEqualTo("TYPE_INT32");
+    assertThat(typeInt32.enumDisplayName()).isEqualTo("TYPE_INT32");
+    assertThat(typeInt32.debugString(false)).isEqualTo("TYPE_INT32");
+    assertThat(typeInt32.debugString(true)).isEqualTo("Enum<zetasql.TypeKind>(TYPE_INT32:1)");
     assertThat(typeDouble.getEnumValue()).isEqualTo(7);
     assertThat(typeDouble.getEnumName()).isEqualTo("TYPE_DOUBLE");
     assertThat(anotherInt32.getEnumValue()).isEqualTo(1);
@@ -1917,6 +1920,10 @@ public class ValueTest {
     }
 
     assertThat(Value.createEnumValue(openEnum, 10000).getEnumValue()).isEqualTo(10000);
+    assertThat(Value.createEnumValue(openEnum, -10).enumDisplayName()).isEqualTo("-10");
+    assertThat(Value.createEnumValue(openEnum, -10).debugString(false)).isEqualTo("-10");
+    assertThat(Value.createEnumValue(openEnum, -10).debugString(true))
+        .isEqualTo("Enum<zetasql_test__.TestProto3Enum>(-10:-10)");
 
     checkSerializeAndDeserialize(typeInt32, anotherInt32);
     checkSerializeAndDeserialize(typeInt32);

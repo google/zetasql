@@ -27,11 +27,14 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/time_zone_util.h"
+#include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/base/case.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
@@ -55,24 +58,26 @@ bool StringVectorCaseLess::operator()(
   return (v1.size() < v2.size());
 }
 
-void AllowedHintsAndOptions::AddOption(absl::string_view name,
-                                       const Type* type) {
-  ZETASQL_CHECK_OK(AddOptionImpl(options_lower, name, type));
+void AllowedHintsAndOptions::AddOption(absl::string_view name, const Type* type,
+                                       bool allow_alter_array) {
+  ZETASQL_CHECK_OK(AddOptionImpl(options_lower, name, type, allow_alter_array));
 }
 
 void AllowedHintsAndOptions::AddAnonymizationOption(absl::string_view name,
                                                     const Type* type) {
-  ZETASQL_CHECK_OK(AddOptionImpl(anonymization_options_lower, name, type));
+  ZETASQL_CHECK_OK(AddOptionImpl(anonymization_options_lower, name, type,
+                         /*allow_alter_array=*/false));
 }
 
 void AllowedHintsAndOptions::AddDifferentialPrivacyOption(
     const std::string& name, const Type* type) {
-  ZETASQL_CHECK_OK(AddOptionImpl(differential_privacy_options_lower, name, type));
+  ZETASQL_CHECK_OK(AddOptionImpl(differential_privacy_options_lower, name, type,
+                         /*allow_alter_array=*/false));
 }
 
 absl::Status AllowedHintsAndOptions::AddOptionImpl(
     absl::flat_hash_map<std::string, AllowedOptionProperties>& options_map,
-    absl::string_view name, const Type* type,
+    absl::string_view name, const Type* type, bool allow_alter_array,
     AllowedHintsAndOptionsProto::OptionProto::ResolvingKind resolving_kind) {
   if (name.empty()) {
     return MakeSqlError() << "Option name should not be empty.";
@@ -80,7 +85,8 @@ absl::Status AllowedHintsAndOptions::AddOptionImpl(
   if (!zetasql_base::InsertIfNotPresent(
           &options_map, absl::AsciiStrToLower(name),
           AllowedOptionProperties{.type = type,
-                                  .resolving_kind = resolving_kind})) {
+                                  .resolving_kind = resolving_kind,
+                                  .allow_alter_array = allow_alter_array})) {
     return MakeSqlError() << "Duplicate option: " << name;
   }
   return absl::OkStatus();
@@ -170,9 +176,11 @@ absl::Status AllowedHintsAndOptions::Deserialize(
         ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
             option.type(), pools, &type));
         ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(options, option.name(), type,
+                                              option.allow_alter_array(),
                                               resolving_kind));
       } else {
         ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(options, option.name(), nullptr,
+                                              option.allow_alter_array(),
                                               resolving_kind));
       }
     }
@@ -278,6 +286,7 @@ absl::Status AllowedHintsAndOptions::Serialize(
                 option_proto->mutable_type(), file_descriptor_set_map));
       }
       option_proto->set_resolving_kind(properties.resolving_kind);
+      option_proto->set_allow_alter_array(properties.allow_alter_array);
     }
     return absl::OkStatus();
   };

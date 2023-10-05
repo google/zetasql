@@ -98,7 +98,6 @@
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/type_parameter_constraints.h"
 #include "absl/algorithm/container.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
@@ -3113,27 +3112,16 @@ bool ArithmeticFunction::Eval(absl::Span<const TupleData* const> params,
       return InvokeBinary<BigNumericValue>(&functions::Divide<BigNumericValue>,
                                            args, result, status);
     case FCT(FunctionKind::kDivide, TYPE_INTERVAL): {
-      auto status_interval = args[0].interval_value() / args[1].int64_value();
+      // Sanitize the nanos second part if in micro seconds mode.
+      bool round_to_micros = GetTimestampScale(context->GetLanguageOptions()) ==
+                             functions::TimestampScale::kMicroseconds;
+      auto status_interval = args[0].interval_value().Divide(
+          args[1].int64_value(), round_to_micros);
       if (!status_interval.ok()) {
         *status = status_interval.status();
         return false;
       }
-      IntervalValue quotient = *status_interval;
-      if (quotient.get_nano_fractions() != 0 &&
-          GetTimestampScale(context->GetLanguageOptions()) ==
-              functions::TimestampScale::kMicroseconds) {
-        // Round off the nanos bits toward zero.
-        if (quotient.get_nanos() > 0) {
-          IntervalValue nanos_to_subtract =
-              *IntervalValue::FromNanos(quotient.get_nano_fractions());
-          quotient = *(quotient - nanos_to_subtract);
-        } else {
-          IntervalValue nanos_to_add = *IntervalValue::FromNanos(
-              IntervalValue::kNanosInMicro - quotient.get_nano_fractions());
-          quotient = *(quotient + nanos_to_add);
-        }
-      }
-      *result = Value::Interval(quotient);
+      *result = Value::Interval(*status_interval);
       return true;
     }
 
@@ -5117,6 +5105,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   unsigned __int128 out_uint128_ = 0;  // Sum
   NumericValue out_numeric_;           // Min, Max
   BigNumericValue out_bignumeric_;     // Min, Max
+  Value out_range_;                    // Min, Max
   NumericValue::SumAggregator numeric_aggregator_;                // Avg, Sum
   BigNumericValue::SumAggregator bignumeric_aggregator_;          // Avg, Sum
   IntervalValue::SumAggregator interval_aggregator_;              // Sum
@@ -5637,6 +5626,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kMax, TYPE_ARRAY):
       min_max_out_array_ = Value::Invalid();
       break;
+    case FCT(FunctionKind::kMax, TYPE_RANGE):
+      out_range_ = Value::Invalid();
+      break;
 
       // Min
     case FCT(FunctionKind::kMin, TYPE_FLOAT):
@@ -5675,6 +5667,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       break;
     case FCT(FunctionKind::kMin, TYPE_ARRAY):
       min_max_out_array_ = Value::Invalid();
+      break;
+    case FCT(FunctionKind::kMin, TYPE_RANGE):
+      out_range_ = Value::Invalid();
       break;
 
       // Avg and Sum
@@ -6142,6 +6137,18 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       }
       break;
     }
+    case FCT(FunctionKind::kMax, TYPE_RANGE): {
+      if (!out_range_.is_valid()) {
+        out_range_ = value;
+      } else {
+        const Value comparison_result = out_range_.SqlLessThan(value);
+        if (!comparison_result.is_valid() || comparison_result.is_null()) {
+          return false;
+        }
+        out_range_ = comparison_result.bool_value() ? value : out_range_;
+      }
+      break;
+    }
 
       // Min
     case FCT(FunctionKind::kMin, TYPE_FLOAT):
@@ -6228,6 +6235,18 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
           min_max_out_array_ = value;
           additional_bytes_to_request = min_max_out_array_.physical_byte_size();
         }
+      }
+      break;
+    }
+    case FCT(FunctionKind::kMin, TYPE_RANGE): {
+      if (!out_range_.is_valid()) {
+        out_range_ = value;
+      } else {
+        const Value comparison_result = value.SqlLessThan(out_range_);
+        if (!comparison_result.is_valid() || comparison_result.is_null()) {
+          return false;
+        }
+        out_range_ = comparison_result.bool_value() ? value : out_range_;
       }
       break;
     }
@@ -7193,6 +7212,13 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     case FCT(FunctionKind::kMin, TYPE_ARRAY): {
       if (count_ > 0) {
         return min_max_out_array_;
+      }
+      return Value::Null(output_type);
+    }
+    case FCT(FunctionKind::kMax, TYPE_RANGE):
+    case FCT(FunctionKind::kMin, TYPE_RANGE): {
+      if (count_ > 0) {
+        return out_range_;
       }
       return Value::Null(output_type);
     }
@@ -11322,14 +11348,34 @@ absl::StatusOr<Value> EditDistanceFunction::Eval(
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
+  ZETASQL_RET_CHECK((args[0].type()->IsString() && args[1].type()->IsString()) ||
+            (args[0].type()->IsBytes() && args[1].type()->IsBytes()));
+  bool is_string = args[0].type()->IsString();
+  absl::string_view s0 = args[0].type()->IsBytes() ? args[0].bytes_value()
+                                                   : args[0].string_value();
+  absl::string_view s1 = args[1].type()->IsBytes() ? args[1].bytes_value()
+                                                   : args[1].string_value();
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      Value result,
-      functions::EditDistance(
-          args[0], args[1],
-          args.size() > 2 ? std::make_optional(args[2]) : std::nullopt),
-      _.With(&DistanceFunctionResultConverter));
-  return result;
+  int64_t result = 0;
+  if (is_string) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        result,
+        functions::EditDistance(s0, s1,
+                                args.size() > 2
+                                    ? std::make_optional(args[2].int64_value())
+                                    : std::nullopt),
+        _.With(&DistanceFunctionResultConverter));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(
+        result,
+        functions::EditDistanceBytes(
+            s0, s1,
+            args.size() > 2 ? std::make_optional(args[2].int64_value())
+                            : std::nullopt),
+        _.With(&DistanceFunctionResultConverter));
+  }
+
+  return Value::Int64(result);
 }
 
 }  // namespace zetasql

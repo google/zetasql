@@ -364,6 +364,19 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> minuend,
       std::unique_ptr<const ResolvedExpr> subtrahend);
 
+  // Construct a ResolvedFunctionCall for `minuend` - `subtrahend` such that
+  // if there is in overflow, then the result will be NULL.
+  //
+  // Requires: `minuend` and `subtrahend` must be of types compatible with one
+  // of the function signatures of the built-in function "safe_subtract"
+  // present in the `catalog`.
+  //
+  // The signature for the built-in function "safe_subtract" must be available
+  // in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> SafeSubtract(
+      std::unique_ptr<const ResolvedExpr> minuend,
+      std::unique_ptr<const ResolvedExpr> subtrahend);
+
   // Construct a ResolvedFunctionCall for
   //  expressions[0] AND expressions[1] AND ... AND expressions[N-1]
   // where N is the number of expressions.

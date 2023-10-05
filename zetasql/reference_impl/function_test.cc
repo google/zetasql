@@ -26,10 +26,12 @@
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/evaluation.h"
+#include "zetasql/reference_impl/functions/hash.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/memory/memory.h"
 
 namespace zetasql {
 

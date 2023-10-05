@@ -46,7 +46,6 @@
 #include "zetasql/public/functions/convert.h"
 #include "zetasql/public/functions/util.h"
 #include "zetasql/public/numeric_value.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -366,7 +365,7 @@ bool Add(T in1, T in2, T* out, absl::Status* error) {
 
 template <>
 inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t* out,
-                            absl::Status* error) {
+                              absl::Status* error) {
   arithmetics_internal::Saturated<int64_t> result(
       internal::safe_cast<int64_t>(in1));
   result.Sub(internal::safe_cast<int64_t>(in2));

@@ -41,6 +41,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
 
@@ -121,7 +122,7 @@ std::vector<FunctionTestCall> GetFunctionTestsBitCast() {
 
 namespace {
 
-Value DateArray(const std::vector<int32_t>& values) {
+Value DateArray(absl::Span<const int32_t> values) {
   std::vector<Value> date_values;
   date_values.reserve(values.size());
   for (int32_t value : values) {
@@ -402,7 +403,7 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateDateArray() {
 namespace {
 
 Value TimestampArray(
-    const std::vector<std::string>& timestamp_strings,
+    absl::Span<const std::string> timestamp_strings,
     functions::TimestampScale scale = functions::kMicroseconds) {
   std::vector<Value> values;
   values.reserve(timestamp_strings.size());

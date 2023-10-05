@@ -262,6 +262,7 @@
 %union {
   bool boolean;
   int64_t int64_val;
+  const char* string_constant;
   zetasql::TypeKind type_kind;
   zetasql::ASTFunctionCall::NullHandlingModifier null_handling_modifier;
   zetasql::ASTWindowFrame::FrameUnit frame_unit;
@@ -297,6 +298,7 @@
   zetasql::ASTFunctionParameter::ProcedureParameterMode parameter_mode;
   zetasql::ASTCreateFunctionStmtBase::DeterminismLevel determinism_level;
   zetasql::ASTGeneratedColumnInfo::StoredMode stored_mode;
+  zetasql::ASTGeneratedColumnInfo::GeneratedMode generated_mode;
   zetasql::ASTOrderingExpression::OrderingSpec ordering_spec;
   zetasql::ASTSelectWith* select_with;
   zetasql::ASTSetOperationColumnMatchMode* column_match_mode;
@@ -643,6 +645,7 @@ using namespace zetasql::parser_internal;
 %token KW_ADD "ADD"
 %token KW_AGGREGATE "AGGREGATE"
 %token KW_ALTER "ALTER"
+%token KW_ALWAYS "ALWAYS"
 %token KW_ANALYZE "ANALYZE"
 %token KW_APPROX "APPROX"
 %token KW_ARE "ARE"
@@ -666,6 +669,7 @@ using namespace zetasql::parser_internal;
 %token KW_CONTINUE "CONTINUE"
 %token KW_CONSTANT "CONSTANT"
 %token KW_CONSTRAINT "CONSTRAINT"
+%token KW_CYCLE "CYCLE"
 %token KW_DATA "DATA"
 %token KW_DATABASE "DATABASE"
 %token KW_DATE "DATE"
@@ -685,6 +689,7 @@ using namespace zetasql::parser_internal;
 %token KW_EXECUTE "EXECUTE"
 %token KW_EXPLAIN "EXPLAIN"
 %token KW_EXPORT "EXPORT"
+%token KW_EXTEND "EXTEND"
 %token KW_EXTERNAL "EXTERNAL"
 %token KW_FILES "FILES"
 %token KW_FILTER "FILTER"
@@ -697,10 +702,12 @@ using namespace zetasql::parser_internal;
 %token KW_GRANT "GRANT"
 %token KW_GROUP_ROWS "GROUP_ROWS"
 %token KW_HIDDEN "HIDDEN"
+%token KW_IDENTITY "IDENTITY"
 %token KW_IMMEDIATE "IMMEDIATE"
 %token KW_IMMUTABLE "IMMUTABLE"
 %token KW_IMPORT "IMPORT"
 %token KW_INCLUDE "INCLUDE"
+%token KW_INCREMENT "INCREMENT"
 %token KW_INDEX "INDEX"
 %token KW_INOUT "INOUT"
 %token KW_INPUT "INPUT"
@@ -721,9 +728,11 @@ using namespace zetasql::parser_internal;
 %token KW_MATCHED "MATCHED"
 %token KW_MATERIALIZED "MATERIALIZED"
 %token KW_MAX "MAX"
+%token KW_MAXVALUE "MAXVALUE"
 %token KW_MESSAGE "MESSAGE"
 %token KW_METADATA "METADATA"
 %token KW_MIN "MIN"
+%token KW_MINVALUE "MINVALUE"
 %token KW_MODEL "MODEL"
 %token KW_MODULE "MODULE"
 %token KW_NUMERIC "NUMERIC"
@@ -890,7 +899,7 @@ using namespace zetasql::parser_internal;
 %type <node> create_schema_statement
 %type <node> create_table_function_statement
 %type <node> create_model_statement
-%type <node> create_snapshot_table_statement
+%type <node> create_snapshot_statement
 %type <node> create_table_statement
 %type <node> create_view_statement
 %type <node> create_entity_statement
@@ -1243,6 +1252,7 @@ using namespace zetasql::parser_internal;
 %type <expression> with_expression
 %type <node> show_statement
 %type <identifier> show_target
+%type <expression> signed_numerical_literal
 %type <node> simple_column_schema_inner
 %type <node> sql_function_body
 %type <node> star_except_list
@@ -1353,6 +1363,7 @@ using namespace zetasql::parser_internal;
 %type <import_type> import_type
 
 %type <stored_mode> stored_mode
+%type <generated_mode> generated_mode
 
 %type <table_or_table_function_keywords> table_or_table_function
 %type <index_type_keywords> index_type
@@ -1383,6 +1394,13 @@ using namespace zetasql::parser_internal;
 %type <node> opt_column_attributes
 %type <node> opt_field_attributes
 %type <node> raise_statement
+
+%type <node> identity_column_info
+%type <node> opt_start_with
+%type <node> opt_increment_by
+%type <node> opt_maxvalue
+%type <node> opt_minvalue
+%type <boolean> opt_cycle
 
 %type <binary_op> additive_operator
 %type <binary_op> comparative_operator
@@ -1555,7 +1573,7 @@ sql_statement_body:
     | create_external_table_function_statement
     | create_model_statement
     | create_schema_statement
-    | create_snapshot_table_statement
+    | create_snapshot_statement
     | create_table_function_statement
     | create_table_statement
     | create_view_statement
@@ -1739,6 +1757,13 @@ alter_action:
       {
         auto* node = MAKE_NODE(ASTAlterColumnDropNotNullAction, @$, {$4});
         node->set_is_if_exists($3);
+        $$ = node;
+      }
+    | "ALTER" "COLUMN" opt_if_exists identifier "DROP" "GENERATED"
+      {
+        auto* node =
+            MAKE_NODE(ASTAlterColumnDropGeneratedAction, @$, {$identifier});
+        node->set_is_if_exists($opt_if_exists);
         $$ = node;
       }
     | "RENAME" "TO" path_expression
@@ -2904,12 +2929,27 @@ undrop_statement:
         $$ = undrop;
       }
     ;
-create_snapshot_table_statement:
+
+create_snapshot_statement:
     "CREATE" opt_or_replace "SNAPSHOT" "TABLE" opt_if_not_exists maybe_dashed_path_expression
      "CLONE" clone_data_source opt_options_list
       {
         auto* create =
             MAKE_NODE(ASTCreateSnapshotTableStatement, @$, {$6, $8, $9});
+        create->set_is_if_not_exists($5);
+        create->set_is_or_replace($2);
+        $$ = create;
+      }
+    | "CREATE" opt_or_replace "SNAPSHOT" schema_object_kind opt_if_not_exists maybe_dashed_path_expression
+      "CLONE" clone_data_source opt_options_list
+      {
+        if (!zetasql::SchemaObjectAllowedForSnapshot($schema_object_kind)) {
+          YYERROR_AND_ABORT_AT(@schema_object_kind, absl::StrCat("CREATE SNAPSHOT ", absl::AsciiStrToUpper(
+            parser->GetInputText(@schema_object_kind)), " is not supported"));
+        }
+        auto* create =
+            MAKE_NODE(ASTCreateSnapshotStatement, @$, {$6, $8, $9});
+        create->set_schema_object_kind($schema_object_kind);
         create->set_is_if_not_exists($5);
         create->set_is_or_replace($2);
         $$ = create;
@@ -3422,9 +3462,23 @@ column_schema_inner:
       $$ = WithExtraChildren(parser->WithEndLocation($1, @2), {$2});
     };
 
-generated_as_keywords:
+generated_mode:
   "GENERATED" "AS"
+    {
+      $$ = zetasql::ASTGeneratedColumnInfo::GeneratedMode::ALWAYS;
+    }
+  | "GENERATED" "ALWAYS" "AS"
+    {
+      $$ = zetasql::ASTGeneratedColumnInfo::GeneratedMode::ALWAYS;
+    }
+  | "GENERATED" "BY" "DEFAULT" "AS"
+    {
+      $$ = zetasql::ASTGeneratedColumnInfo::GeneratedMode::BY_DEFAULT;
+    }
   | "AS"
+    {
+      $$ = zetasql::ASTGeneratedColumnInfo::GeneratedMode::ALWAYS;
+    }
   ;
 
 stored_mode:
@@ -3442,11 +3496,110 @@ stored_mode:
     }
   ;
 
-generated_column_info:
-  generated_as_keywords "(" expression ")" stored_mode
+signed_numerical_literal:
+ integer_literal
+ | numeric_literal
+ | bignumeric_literal
+ | floating_point_literal
+ {
+  $$ = $1;
+ }
+ | "-" integer_literal[literal]
+ {
+  auto* expression = MAKE_NODE(ASTUnaryExpression, @$, {$literal});
+  expression->set_op(zetasql::ASTUnaryExpression::MINUS);
+  $$ = expression;
+ }
+ | "-" floating_point_literal[literal]
+ {
+  auto* expression = MAKE_NODE(ASTUnaryExpression, @$, {$literal});
+  expression->set_op(zetasql::ASTUnaryExpression::MINUS);
+  $$ = expression;
+ }
+ ;
+
+opt_start_with:
+  "START" "WITH" signed_numerical_literal[literal]
+  {
+    $$ = MAKE_NODE(ASTIdentityColumnStartWith, @$, {$literal});
+  }
+  | %empty
+  {
+    $$ = nullptr;
+  }
+  ;
+
+opt_increment_by:
+  "INCREMENT" "BY" signed_numerical_literal[literal]
+  {
+    $$ = MAKE_NODE(ASTIdentityColumnIncrementBy, @$, {$literal});
+  }
+  | %empty
+  {
+    $$ = nullptr;
+  }
+  ;
+
+opt_maxvalue:
+  "MAXVALUE" signed_numerical_literal[literal]
+  {
+    $$ = MAKE_NODE(ASTIdentityColumnMaxValue, @$, {$literal});
+  }
+  | %empty
+  {
+    $$ = nullptr;
+  }
+  ;
+
+opt_minvalue:
+  "MINVALUE" signed_numerical_literal[literal]
+  {
+    $$ = MAKE_NODE(ASTIdentityColumnMinValue, @$, {$literal});
+  }
+  | %empty
+  {
+    $$ = nullptr;
+  }
+  ;
+
+opt_cycle:
+  "CYCLE"
+  {
+    $$ = true;
+  }
+  | "NO" "CYCLE"
+  {
+    $$ = false;
+  }
+  | %empty
+  {
+    $$ = false;
+  }
+  ;
+
+identity_column_info:
+  KW_IDENTITY "(" opt_start_with[start] opt_increment_by[increment]
+  opt_maxvalue[max] opt_minvalue[min] opt_cycle[cycle] ")"
     {
-      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$3});
-      column->set_stored_mode($5);
+      auto* identity_column =
+        MAKE_NODE(ASTIdentityColumnInfo, @$, {$start, $increment, $max, $min});
+      identity_column->set_cycling_enabled($cycle);
+      $$ = identity_column;
+    }
+  ;
+
+generated_column_info:
+  generated_mode "(" expression ")" stored_mode
+    {
+      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$expression});
+      column->set_stored_mode($stored_mode);
+      column->set_generated_mode($generated_mode);
+      $$ = column;
+    }
+  | generated_mode identity_column_info
+    {
+      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$2});
+      column->set_generated_mode($generated_mode);
       $$ = column;
     }
   ;
@@ -4507,7 +4660,6 @@ opt_column_match_suffix:
 // the set operations in an unparenthesized sequence are different.
 // We have no precedence rules for associativity between different set
 // operations but parentheses are supported to disambiguate.
-//
 query_set_operation_prefix:
     query_primary[left_query] set_operation_metadata[set_op] query_primary[right_query]
       {
@@ -7974,6 +8126,10 @@ named_argument:
       {
         $$ = MAKE_NODE(ASTNamedArgument, @$, {$1, $3});
       }
+    | identifier KW_NAMED_ARGUMENT_ASSIGNMENT lambda_argument
+      {
+        $$ = MAKE_NODE(ASTNamedArgument, @$, {$identifier, $lambda_argument});
+      }
     ;
 
 lambda_argument:
@@ -8557,6 +8713,7 @@ keyword_as_identifier:
     | "AGGREGATE"
     | "ADD"
     | "ALTER"
+    | "ALWAYS"
     | "ANALYZE"
     | "APPROX"
     | "ARE"
@@ -8581,6 +8738,7 @@ keyword_as_identifier:
     | "CONSTRAINT"
     | "CONTINUE"
     | "CORRESPONDING"
+    | "CYCLE"
     | "DATA"
     | "DATABASE"
     | "DATE"
@@ -8601,6 +8759,7 @@ keyword_as_identifier:
     | "EXECUTE"
     | "EXPLAIN"
     | "EXPORT"
+    | "EXTEND"
     | "EXTERNAL"
     | "FILES"
     | "FILTER"
@@ -8613,10 +8772,12 @@ keyword_as_identifier:
     | "GRANT"
     | "GROUP_ROWS"
     | "HIDDEN"
+    | "IDENTITY"
     | "IMMEDIATE"
     | "IMMUTABLE"
     | "IMPORT"
     | "INCLUDE"
+    | "INCREMENT"
     | "INDEX"
     | "INOUT"
     | "INPUT"
@@ -8637,9 +8798,11 @@ keyword_as_identifier:
     | "MATCHED"
     | "MATERIALIZED"
     | "MAX"
+    | "MAXVALUE"
     | "MESSAGE"
     | "METADATA"
     | "MIN"
+    | "MINVALUE"
     | "MODEL"
     | "MODULE"
     | "NUMERIC"
@@ -10364,6 +10527,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTCreateApproxViewStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "MATERIALIZED" opt_recursive "VIEW"
       { $$ = zetasql::ASTCreateMaterializedViewStatement::kConcreteNodeKind; }
+    | "CREATE" opt_or_replace "SNAPSHOT" "SCHEMA"
+      { $$ = zetasql::ASTCreateSnapshotStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "SNAPSHOT" "TABLE"
       { $$ = zetasql::ASTCreateSnapshotTableStatement::kConcreteNodeKind; }
     | "CALL"

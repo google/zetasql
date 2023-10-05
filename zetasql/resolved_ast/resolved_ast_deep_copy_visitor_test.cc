@@ -37,7 +37,6 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"

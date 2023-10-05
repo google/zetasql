@@ -32,7 +32,6 @@
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
-#include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
 #include "absl/random/random.h"

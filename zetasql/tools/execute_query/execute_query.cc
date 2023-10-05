@@ -62,7 +62,7 @@ absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
   // flag value is passed).
   config.mutable_analyzer_options()
       .mutable_language()
-      ->EnableMaximumLanguageFeaturesForDevelopment();
+      ->EnableMaximumLanguageFeatures();
   config.mutable_analyzer_options()
       .mutable_language()
       ->SetSupportsAllStatementKinds();
@@ -71,6 +71,9 @@ absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
   // ExecuteQueryLoopPrintErrorHandler.
   config.mutable_analyzer_options().set_error_message_mode(
       ERROR_MESSAGE_WITH_PAYLOAD);
+
+  config.mutable_analyzer_options()
+      .set_show_function_signature_mismatch_details(true);
 
   ZETASQL_RETURN_IF_ERROR(SetDescriptorPoolFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(SetToolModeFromFlags(config));

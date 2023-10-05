@@ -2483,7 +2483,7 @@ QueryStmt
           +-max_groups_contributed := Literal(type=INT64, value=3)
 
 
-Rewrite ERROR: Anonymization option group_selection_strategy PUBLIC_GROUPS only allows column names out of the public group SELECT DISINTCT subquery in the GROUP BY list.
+Rewrite ERROR: Anonymization option group_selection_strategy PUBLIC_GROUPS only allows column names out of the public group SELECT DISTINCT subquery in the GROUP BY list.
 ==
 
 # Happy path for multiple public group joins, both right.

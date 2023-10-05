@@ -1606,6 +1606,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
         Argument 2: failed to resolve lambda body, error: No matching signature for operator > for argument types: INT64, STRING
           Signature: T1 > T1
             Unable to find common supertype for templated argument <T1>
+              Input types for <T1>: {INT64, STRING}
           Signature: INT64 > UINT64
             Argument 2: Unable to coerce type STRING to expected type UINT64
           Signature: UINT64 > INT64

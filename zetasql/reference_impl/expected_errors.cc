@@ -87,21 +87,32 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       new StatusRegexMatcher(absl::StatusCode::kUnimplemented,
                              "as (?:a )?PIVOT expression is not supported"));
 
-  // TODO: RQG does not include
-  // zetasql.functions.DateTimestampPart in the set of protos that the query
-  // needs to know about.
+  // TODO: RQG should not generate proto expressions for protos in
+  // zetasql.functions.* as they are often "special" (e.g. only allowed as
+  // arguments to particular functions during analysis). However, at the moment
+  // we do generate these things.
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kInvalidArgument,
-      "Type not found: `zetasql.functions.DateTimestampPart`"));
-
-  // TODO: SQLBuilder does not take the fact that DateTimestampPart
-  // names can only appear in this form in particular locations.
+      "Type not found: `zetasql.functions."));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       ".*(Unrecognized name|Function not found): "
       "(YEAR|MONTH|DAY|DAYOFWEEK|DAYOFYEAR|QUARTER|HOUR|MINUTE|SECOND|"
       "MILLISECOND|MICROSECOND|NANOSECOND|DATE|WEEK|DATETIME|TIME"
-      "ISOWEEK|ISOYEAR).*"));
+      "ISOWEEK|ISOYEAR|NFC|NFKC|NFD|NFKD|FIRST|LAST).*"));
+
+  // TODO: Certain expressions have a built-in proto type that
+  // isn't necessarily in the catalog. Right now, the STRUCT builder includes
+  // that built-in type from google.protobuf. in the STRUCT declaration, e.x.
+  // STRUCT< Field_1 `google.protobuf.Int64Value`, ... > (TO_PROTO(...),...) The
+  // standard catalog setups do not include these types by default, so this
+  // leads to a "Type not found: 'google.protobuf.Int64Value'" error. For now,
+  // we allowlist this case. We should either figure out how to support this or
+  // avoid generating it.
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kInvalidArgument, "Type not found: `google.protobuf."));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kInvalidArgument, "Type not found: `google.type."));
 
   // D3A_* calls can be generated in a way that returns an invalid argument
   // from the evaluator/executor.
@@ -158,6 +169,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "NULL struct field"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "max_distance must be non-negative"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "EDIT_DISTANCE.*invalid UTF8 string"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

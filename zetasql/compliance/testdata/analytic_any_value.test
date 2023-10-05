@@ -465,6 +465,146 @@ ARRAY<STRUCT<row_id INT64, array_val ARRAY<>, ARRAY<>>>[unknown order:
 ]
 ==
 
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=analytic_any_value_rangetype_date_1]
+SELECT row_id, range_date_val, ANY_VALUE(range_date_val) OVER test_window
+FROM (
+  SELECT 1 AS row_id, CAST(NULL as RANGE<DATE>) AS range_date_val
+  UNION ALL
+  SELECT 2, RANGE<DATE> '[2020-01-01, 2020-12-31)')
+WINDOW test_window AS (ROWS CURRENT ROW)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        RANGE<DATE>
+      >>
+[unknown order:{
+                 2,
+                 [2020-01-01, 2020-12-31),
+                 [2020-01-01, 2020-12-31)
+               },
+               {1, NULL, NULL}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=analytic_any_value_rangetype_date_2]
+SELECT row_id, range_date_val, ANY_VALUE(range_date_val) OVER test_window
+FROM (
+  SELECT 1 AS row_id, CAST(NULL as RANGE<DATE>) AS range_date_val
+  UNION ALL
+  SELECT 2, RANGE<DATE> '[2020-01-01, 2020-12-31)')
+WINDOW test_window AS (ORDER BY row_id
+                       ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        RANGE<DATE>
+      >>
+[unknown order:{1, NULL, NULL},
+               {
+                 2,
+                 [2020-01-01, 2020-12-31),
+                 NULL
+               }]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=analytic_any_value_rangetype_timestamp_1]
+SELECT row_id, range_timestamp_val, ANY_VALUE(range_timestamp_val) OVER test_window
+FROM (
+  SELECT 1 AS row_id, CAST(NULL AS RANGE<TIMESTAMP>) AS range_timestamp_val
+  UNION ALL
+  SELECT 2, RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)')
+WINDOW test_window AS (ROWS CURRENT ROW)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{2,
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-12-31 08:00:00+00
+                ),
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-12-31 08:00:00+00
+                )},
+               {1, NULL, NULL}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=analytic_any_value_rangetype_timestamp_2]
+SELECT row_id, range_timestamp_val, ANY_VALUE(range_timestamp_val) OVER test_window
+FROM (
+  SELECT 1 AS row_id, CAST(NULL AS RANGE<TIMESTAMP>) AS range_timestamp_val
+  UNION ALL
+  SELECT 2, RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)')
+WINDOW test_window AS (ORDER BY row_id
+                       ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{1, NULL, NULL},
+               {2,
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-12-31 08:00:00+00
+                ),
+                NULL}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=analytic_any_value_rangetype_datetime_1]
+SELECT row_id, range_datetime_val, ANY_VALUE(range_datetime_val) OVER test_window
+FROM (
+  SELECT 1 AS row_id, CAST(NULL as RANGE<DATETIME>) AS range_datetime_val
+  UNION ALL
+  SELECT 2, RANGE<DATETIME> '[2020-01-01, 2020-12-31)')
+WINDOW test_window AS (ROWS CURRENT ROW)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{
+                 2,
+                 [2020-01-01 00:00:00, 2020-12-31 00:00:00),
+                 [2020-01-01 00:00:00, 2020-12-31 00:00:00)
+               },
+               {1, NULL, NULL}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=analytic_any_value_rangetype_datetime_2]
+SELECT row_id, range_datetime_val, ANY_VALUE(range_datetime_val) OVER test_window
+FROM (
+  SELECT 1 AS row_id, CAST(NULL as RANGE<DATETIME>) AS range_datetime_val
+  UNION ALL
+  SELECT 2, RANGE<DATETIME> '[2020-01-01, 2020-12-31)')
+WINDOW test_window AS (ORDER BY row_id
+                       ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{1, NULL, NULL},
+               {
+                 2,
+                 [2020-01-01 00:00:00, 2020-12-31 00:00:00),
+                 NULL
+               }]
+==
+
 [name=analytic_any_value_distinct_1]
 SELECT row_id,
        bool_val,
@@ -590,3 +730,101 @@ ARRAY<STRUCT<
   {2, TESTENUM1, TESTENUM1},
   {1, NULL, NULL}
 ]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=analytic_any_value_distinct_rangetype_date]
+SELECT row_id, range_date_val, ANY_VALUE(range_date_val) OVER test_window
+FROM (
+  SELECT 1 AS row_id, true AS bool_val, CAST(NULL as RANGE<DATE>) AS range_date_val
+  UNION ALL
+  SELECT 2, true, CAST(NULL AS RANGE<DATE>)
+  UNION ALL
+  SELECT 3, false, RANGE<DATE> '[UNBOUNDED, 2020-12-31)'
+  UNION ALL
+  SELECT 4, false, RANGE<DATE> '[UNBOUNDED, 2020-12-31)')
+WINDOW test_window AS (PARTITION BY bool_val)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        RANGE<DATE>
+      >>
+[unknown order:
+  {3, [NULL, 2020-12-31), [NULL, 2020-12-31)},
+  {4, [NULL, 2020-12-31), [NULL, 2020-12-31)},
+  {1, NULL, NULL},
+  {2, NULL, NULL}
+]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=analytic_any_value_distinct_rangetype_timestamp]
+SELECT row_id, range_timestamp_val, ANY_VALUE(range_timestamp_val) OVER test_window
+FROM (
+  SELECT 1 AS row_id, true AS bool_val, CAST(NULL as RANGE<TIMESTAMP>) AS range_timestamp_val
+  UNION ALL
+  SELECT 2, true, CAST(NULL AS RANGE<TIMESTAMP>)
+  UNION ALL
+  SELECT 3, false, RANGE<TIMESTAMP> '[UNBOUNDED, 2020-12-31)'
+  UNION ALL
+  SELECT 4, false, RANGE<TIMESTAMP> '[UNBOUNDED, 2020-12-31)')
+WINDOW test_window AS (PARTITION BY bool_val)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{3,
+                [
+                  NULL,
+                  2020-12-31 08:00:00+00
+                ),
+                [
+                  NULL,
+                  2020-12-31 08:00:00+00
+                )},
+               {4,
+                [
+                  NULL,
+                  2020-12-31 08:00:00+00
+                ),
+                [
+                  NULL,
+                  2020-12-31 08:00:00+00
+                )},
+               {1, NULL, NULL},
+               {2, NULL, NULL}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=analytic_any_value_distinct_rangetype_datetime]
+SELECT row_id, range_datetime_val, ANY_VALUE(range_datetime_val) OVER test_window
+FROM (
+  SELECT 1 AS row_id, true AS bool_val, CAST(NULL as RANGE<DATETIME>) AS range_datetime_val
+  UNION ALL
+  SELECT 2, true, CAST(NULL AS RANGE<DATETIME>)
+  UNION ALL
+  SELECT 3, false, RANGE<DATETIME> '[UNBOUNDED, 2020-12-31)'
+  UNION ALL
+  SELECT 4, false, RANGE<DATETIME> '[UNBOUNDED, 2020-12-31)')
+WINDOW test_window AS (PARTITION BY bool_val)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{
+                 3,
+                 [NULL, 2020-12-31 00:00:00),
+                 [NULL, 2020-12-31 00:00:00)
+               },
+               {
+                 4,
+                 [NULL, 2020-12-31 00:00:00),
+                 [NULL, 2020-12-31 00:00:00)
+               },
+               {1, NULL, NULL},
+               {2, NULL, NULL}]

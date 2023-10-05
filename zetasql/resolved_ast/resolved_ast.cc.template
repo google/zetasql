@@ -136,6 +136,13 @@ struct TestIsDefaultValue<ResolvedSetOperationScan::SetOperationColumnPropagatio
   }
 };
 
+template <>
+struct TestIsDefaultValue<ResolvedOption::AssignmentOp> {
+  static bool IsDefaultValue(ResolvedOption::AssignmentOp assignment_op) {
+    return assignment_op == ResolvedOption::DEFAULT_ASSIGN;
+  }
+};
+
 // Return true if <value> is equal to the default value for its type.
 // e.g. for pointers, return true if <value> is nullptr.
 // TODO This provides no way to distinguish an unset value from a
@@ -411,6 +418,29 @@ static std::string ToStringImpl(
     default:
       ABSL_LOG(ERROR) << "Invalid StoredMode: " << mode;
       return absl::StrCat("INVALID_STORED_MODE(", mode, ")");
+  }
+}
+static std::string ToStringImpl(
+    ResolvedGeneratedColumnInfoEnums::GeneratedMode mode) {
+  switch (mode) {
+    case ResolvedGeneratedColumnInfoEnums::ALWAYS:
+      return "ALWAYS";
+    case ResolvedGeneratedColumnInfoEnums::BY_DEFAULT:
+      return "BY_DEFAULT";
+    default:
+      ABSL_LOG(ERROR) << "Invalid GeneratedMode: " << mode;
+      return absl::StrCat("INVALID_GENERATED_MODE(", mode, ")");
+  }
+}
+
+static std::string ToStringImpl(ResolvedOption::AssignmentOp assignment_op) {
+  switch (assignment_op) {
+    case ResolvedOptionEnums::ADD_ASSIGN:
+      return "+=";
+    case ResolvedOptionEnums::SUB_ASSIGN:
+      return "-=";
+    default:
+      return "=";
   }
 }
 

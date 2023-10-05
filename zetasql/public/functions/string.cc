@@ -42,7 +42,6 @@
 #include "zetasql/base/case.h"
 #include "zetasql/base/string_numbers.h"
 #include "absl/base/casts.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -1635,7 +1634,7 @@ bool Repeat(absl::string_view input_str, int64_t repeat_count, std::string* out,
   }
 
   out->clear();
-  if (input_str.length() > 0) {
+  if (!input_str.empty()) {
     size_t rep_mem_bytes = 0;
     if (input_str.length() > kMaxOutputSize || repeat_count > kMaxOutputSize ||
         (rep_mem_bytes = repeat_count * input_str.length()) > kMaxOutputSize) {

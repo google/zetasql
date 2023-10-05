@@ -31,6 +31,7 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/templated_sql_function.h"
@@ -293,6 +294,9 @@ class FunctionResolver {
   // the original function call (i.e., matches the order of the input to
   // GetFunctionArgumentIndexMappingPerSignature).
   //
+  // `arg_locations` is the input AST locations for the input arguments. If it
+  // is not nullptr, it must match positionally with `input_argument_types`.
+  //
   // Upon success, this function reorders the provided <input_argument_types>
   // list, so that the elements match the argument order in the matching
   // signature. For any optional arguments whose values are not provided
@@ -301,6 +305,10 @@ class FunctionResolver {
   // - If a default value is present in the FunctionArgumentTypeOptions
   //   corresponding to the omitted argument, this default value is injected.
   // - Otherwise, a NULL value for this omitted argument might be injected.
+  //
+  // `arg_locations`, if provided, will also be reordered to match the
+  // signature. For the optional arguments without a provided values, nullptr
+  // will be added to indicate no input location.
   //
   // Note that a NULL value is only injected for omitted optional arguments that
   // appear before a named argument or an argument with a default, and are not
@@ -312,7 +320,8 @@ class FunctionResolver {
   ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
       const FunctionSignature& signature,
       absl::Span<const ArgIndexEntry> index_mapping,
-      std::vector<InputArgumentType>* input_argument_types);
+      std::vector<InputArgumentType>* input_argument_types,
+      std::vector<const ASTNode*>* arg_locations = nullptr);
 
   // Reorders the given input argument representations <arg_locations>,
   // <resolved_args> and <resolved_tvf_args> with the given <index_mapping>
@@ -430,6 +439,13 @@ class FunctionResolver {
   // and set the annotation on the <function_call>.type_annotation_map field.
   absl::Status ResolveCollationForCollateFunction(
       const ASTNode* error_location, ResolvedFunctionCall* function_call);
+
+  // Computes the result annotations of the `function_call` using the provided
+  // `callback` and stores them in `function_call`. This method is called when
+  // a SQL function has a custom callback to compute the result annotations.
+  absl::Status CustomPropagateAnnotations(
+      const Type* result_type, const ComputeResultAnnotationsCallback& callback,
+      ResolvedFunctionCallBase* function_call);
 
   friend class FunctionResolverTest;
 };

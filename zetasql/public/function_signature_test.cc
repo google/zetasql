@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -36,6 +37,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -631,6 +633,16 @@ static FunctionSignature GetVoidFunction(TypeFactory* factory) {
   return void_func;
 }
 
+static FunctionSignature GetConstantExpressionArgumentFunction(
+    TypeFactory* factory) {
+  FunctionSignature constant_expression_function(
+      FunctionArgumentType(ARG_TYPE_VOID),
+      {{ARG_TYPE_ANY_1,
+        FunctionArgumentTypeOptions().set_must_be_constant_expression()}},
+      /*context_id=*/-1);
+  return constant_expression_function;
+}
+
 TEST(FunctionSignatureTests, FunctionSignatureTestsInternalProductMode) {
   TypeFactory factory;
 
@@ -712,6 +724,13 @@ TEST(FunctionSignatureTests, FunctionSignatureTestsInternalProductMode) {
             void_func.GetSQLDeclaration({"a", "b", "c d"},
                                         ProductMode::PRODUCT_INTERNAL));
 
+  // Test constant_expression declaration.
+  FunctionSignature constant_expression_func =
+      GetConstantExpressionArgumentFunction(&factory);
+  EXPECT_EQ("(<T1>) -> <void>", constant_expression_func.DebugString());
+  EXPECT_EQ("func(<T1> {must_be_constant_expression: true}) -> <void>",
+            constant_expression_func.DebugString("func", true));
+
   // Test DebugString() for a signature with a deprecation warning.
   FreestandingDeprecationWarning warning;
   warning.set_message("foo is deprecated");
@@ -790,6 +809,12 @@ TEST(FunctionSignatureTests, FunctionSignatureTestsExternalProductMode) {
   EXPECT_EQ("(a BOOL, b INT64 NOT AGGREGATE, `c d` <T1> /*must_be_non_null*/)",
             void_func.GetSQLDeclaration({"a", "b", "c d"},
                                         ProductMode::PRODUCT_EXTERNAL));
+  // Test constant_expression declaration.
+  FunctionSignature constant_expression_func =
+      GetConstantExpressionArgumentFunction(&factory);
+  EXPECT_EQ("(const_arg <T1> /*must_be_constant_expression*/)",
+            constant_expression_func.GetSQLDeclaration(
+                {"const_arg"}, ProductMode::PRODUCT_EXTERNAL));
 
   // Model array function like ARRAY_FILTER
   FunctionSignature array_filter_function = GetArrayFilterFunction(&factory);
@@ -1675,15 +1700,19 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
     // values.
     enum_size += SignatureArgumentKind_IsValid(i);
   }
-  ASSERT_EQ(22, enum_size);
+  ASSERT_EQ(26, enum_size);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
   templated_kinds.insert(ARG_TYPE_ANY_2);
   templated_kinds.insert(ARG_TYPE_ANY_3);
+  templated_kinds.insert(ARG_TYPE_ANY_4);
+  templated_kinds.insert(ARG_TYPE_ANY_5);
   templated_kinds.insert(ARG_ARRAY_TYPE_ANY_1);
   templated_kinds.insert(ARG_ARRAY_TYPE_ANY_2);
   templated_kinds.insert(ARG_ARRAY_TYPE_ANY_3);
+  templated_kinds.insert(ARG_ARRAY_TYPE_ANY_4);
+  templated_kinds.insert(ARG_ARRAY_TYPE_ANY_5);
   templated_kinds.insert(ARG_PROTO_MAP_ANY);
   templated_kinds.insert(ARG_PROTO_MAP_KEY_ANY);
   templated_kinds.insert(ARG_PROTO_MAP_VALUE_ANY);
@@ -1854,9 +1883,7 @@ TEST(FunctionSignatureTests, FunctionSignatureRewriteOptionsSerialization) {
 TEST(FunctionSignatureTests, TestArgumentConstraints) {
   auto noop_constraints_callback =
       [](const FunctionSignature& signature,
-         const std::vector<InputArgumentType>& arguments) {
-    return true;
-  };
+         const std::vector<InputArgumentType>& arguments) { return ""; };
   FunctionSignature nonconcrete_signature(
       types::Int64Type(), {{types::StringType(), /*num_occurrences=*/-1}},
       /*context_id=*/-1,
@@ -1878,21 +1905,23 @@ TEST(FunctionSignatureTests, TestArgumentConstraints) {
       FunctionSignatureOptions().set_constraints(noop_constraints_callback));
   EXPECT_THAT(concrete_signature.CheckArgumentConstraints(
                   {InputArgumentType::UntypedNull()}),
-              IsOkAndHolds(true));
+              IsOkAndHolds(""));
 
   auto nonnull_constraints_callback =
       [](const FunctionSignature& signature,
-         const std::vector<InputArgumentType>& arguments) {
-        if (signature.NumConcreteArguments() != arguments.size()) {
-          return false;
-        }
-        for (const InputArgumentType& arg_type : arguments) {
-          if (arg_type.is_null()) {
-            return false;
-          }
-        }
-        return true;
-      };
+         const std::vector<InputArgumentType>& arguments) -> std::string {
+    if (signature.NumConcreteArguments() != arguments.size()) {
+      return absl::StrCat("Expecting ", signature.NumConcreteArguments(),
+                          " arguments, but got ", arguments.size());
+    }
+    for (int i = 0; i < arguments.size(); ++i) {
+      const InputArgumentType& arg_type = arguments[i];
+      if (arg_type.is_null()) {
+        return absl::StrCat("Argument ", i + 1, ": NULL cannot be provided");
+      }
+    }
+    return "";
+  };
 
   FunctionSignature concrete_signature2(
       {types::Int64Type(), FunctionArgumentType::REQUIRED,
@@ -1903,10 +1932,10 @@ TEST(FunctionSignatureTests, TestArgumentConstraints) {
       FunctionSignatureOptions().set_constraints(nonnull_constraints_callback));
   EXPECT_THAT(concrete_signature2.CheckArgumentConstraints(
                   {InputArgumentType::UntypedNull()}),
-              IsOkAndHolds(false));
+              IsOkAndHolds("Argument 1: NULL cannot be provided"));
   EXPECT_THAT(concrete_signature2.CheckArgumentConstraints(
                   {InputArgumentType{types::StringType()}}),
-              IsOkAndHolds(true));
+              IsOkAndHolds(""));
 
   FunctionSignature concrete_signature3(
       {types::Int64Type(), FunctionArgumentType::REQUIRED,
@@ -1919,10 +1948,10 @@ TEST(FunctionSignatureTests, TestArgumentConstraints) {
       FunctionSignatureOptions().set_constraints(nonnull_constraints_callback));
   EXPECT_THAT(concrete_signature3.CheckArgumentConstraints(
                   {InputArgumentType::UntypedNull()}),
-              IsOkAndHolds(false));
+              IsOkAndHolds("Argument 1: NULL cannot be provided"));
   EXPECT_THAT(concrete_signature3.CheckArgumentConstraints(
                   {InputArgumentType{types::StringType()}}),
-              IsOkAndHolds(true));
+              IsOkAndHolds(""));
 }
 
 void TestArgumentTypeOptionsSerialization(

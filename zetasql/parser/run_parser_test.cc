@@ -595,6 +595,8 @@ class RunParserTest : public ::testing::Test {
     ZETASQL_ASSIGN_OR_RETURN(LanguageOptions::LanguageFeatureSet features,
                      GetRequiredLanguageFeatures(test_case_options_));
     language_options_->SetEnabledLanguageFeatures(features);
+    language_options_->EnableLanguageFeature(FEATURE_TEXTMAPPER_PARSER);
+    language_options_->EnableLanguageFeature(FEATURE_SHADOW_PARSING);
 
     if (test_case_options_.GetBool(kQualifyReserved)) {
       ZETASQL_EXPECT_OK(language_options_->EnableReservableKeyword("QUALIFY"));

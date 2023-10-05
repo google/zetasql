@@ -25,6 +25,7 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT (build/include)
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -33,7 +34,7 @@ constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 namespace {
 
 std::vector<QueryParamsWithResult> WrapFeatureIntervalType(
-    const std::vector<QueryParamsWithResult>& params) {
+    absl::Span<const QueryParamsWithResult> params) {
   std::vector<QueryParamsWithResult> wrapped_params;
   wrapped_params.reserve(params.size());
   for (const auto& param : params) {
@@ -43,7 +44,7 @@ std::vector<QueryParamsWithResult> WrapFeatureIntervalType(
 }
 
 std::vector<QueryParamsWithResult> WrapFeaturesIntervalAndCivilTimeTypes(
-    const std::vector<QueryParamsWithResult>& params) {
+    absl::Span<const QueryParamsWithResult> params) {
   std::vector<QueryParamsWithResult> wrapped_params;
   wrapped_params.reserve(params.size());
   for (const auto& param : params) {
@@ -54,7 +55,7 @@ std::vector<QueryParamsWithResult> WrapFeaturesIntervalAndCivilTimeTypes(
 }
 
 std::vector<FunctionTestCall> WrapFeatureIntervalType(
-    const std::vector<FunctionTestCall>& tests) {
+    absl::Span<const FunctionTestCall> tests) {
   std::vector<FunctionTestCall> wrapped_tests;
   wrapped_tests.reserve(tests.size());
   for (auto call : tests) {
@@ -94,7 +95,8 @@ Value YMDHMS(int64_t year, int64_t month, int64_t day, int64_t hour,
       interval_testing::YMDHMS(year, month, day, hour, minute, second));
 }
 Value FromString(absl::string_view str) {
-  return Value::Interval(*IntervalValue::ParseFromString(str));
+  return Value::Interval(
+      *IntervalValue::ParseFromString(str, /*allow_nanos=*/true));
 }
 
 }  // namespace
@@ -290,7 +292,8 @@ Value Time(absl::string_view str) {
 }
 
 Value Interval(absl::string_view str) {
-  IntervalValue interval = *IntervalValue::ParseFromString(str);
+  IntervalValue interval =
+      *IntervalValue::ParseFromString(str, /*allow_nanos=*/true);
   return Value::Interval(interval);
 }
 
@@ -584,7 +587,8 @@ std::vector<QueryParamsWithResult> GetDatetimeAddSubIntervalBase() {
   };
 
   for (const auto& p : kAddDatetimeIntervalDayToSecondTests) {
-    IntervalValue interval = *IntervalValue::ParseFromString(p.input2);
+    IntervalValue interval =
+        *IntervalValue::ParseFromString(p.input2, /*allow_nanos=*/true);
     // Original test case
     tests.push_back(
         {{Datetime(p.input1), Value::Interval(interval)}, Datetime(p.output)});
@@ -594,7 +598,8 @@ std::vector<QueryParamsWithResult> GetDatetimeAddSubIntervalBase() {
   }
 
   for (const auto& p : kAddDatetimeIntervalYearToSecondTests) {
-    IntervalValue interval = *IntervalValue::ParseFromString(p.input2);
+    IntervalValue interval =
+        *IntervalValue::ParseFromString(p.input2, /*allow_nanos=*/true);
     tests.push_back(
         {{Datetime(p.input1), Value::Interval(interval)}, Datetime(p.output)});
     // Note: for Year/Month date parts, x+y=z <=> z-y=x is no longer true, so
@@ -614,8 +619,8 @@ std::vector<QueryParamsWithResult> GetDatetimeAddSubInterval() {
     if (test.result().is_null() || !test.param(0).type()->IsDatetime()) {
       continue;
     }
-    IntervalValue interval =
-        *IntervalValue::ParseFromString(test.result().string_value());
+    IntervalValue interval = *IntervalValue::ParseFromString(
+        test.result().string_value(), /*allow_nanos=*/true);
     tests.push_back(
         {{test.param(1), Value::Interval(interval)}, test.param(0)});
   }
@@ -644,7 +649,8 @@ std::vector<QueryParamsWithResult> GetTimestampAddSubIntervalBase() {
 
   // Reuse test cases for Datetime +/- Interval for DAY TO SECOND granularity
   for (const auto& p : kAddDatetimeIntervalDayToSecondTests) {
-    IntervalValue interval = *IntervalValue::ParseFromString(p.input2);
+    IntervalValue interval =
+        *IntervalValue::ParseFromString(p.input2, /*allow_nanos=*/true);
     // Original test case
     tests.push_back({{Timestamp(p.input1), Value::Interval(interval)},
                      Timestamp(p.output)});
@@ -666,8 +672,8 @@ std::vector<QueryParamsWithResult> GetTimestampAddSubInterval() {
     if (test.result().is_null() || !test.param(0).type()->IsTimestamp()) {
       continue;
     }
-    IntervalValue interval =
-        *IntervalValue::ParseFromString(test.result().string_value());
+    IntervalValue interval = *IntervalValue::ParseFromString(
+        test.result().string_value(), /*allow_nanos=*/true);
     tests.push_back(
         {{test.param(1), Value::Interval(interval)}, test.param(0)});
   }

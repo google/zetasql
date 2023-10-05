@@ -58,6 +58,10 @@ static bool IsNonreservedKeywordToken(TokenKind token) {
          token < Token::SENTINEL_NONRESERVED_KW_END;
 }
 
+int ZetaSqlFlexTokenizer::GetNextToken(Location* location) {
+  return GetNextTokenFlex(location);
+}
+
 // The token disambiguation rules are allowed to see a fixed-length sequence of
 // tokens produced by the lexical rules in flex_tokenzer.h and may change the
 // kind of `token` based on the kinds of the other tokens in the window.

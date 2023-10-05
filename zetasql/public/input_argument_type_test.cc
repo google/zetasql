@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
@@ -30,6 +31,9 @@
 #include "absl/strings/str_join.h"
 
 namespace zetasql {
+namespace {
+
+using ::testing::Optional;
 
 static std::string ArgumentDebugStrings(
     const std::vector<InputArgumentType>& arguments) {
@@ -255,4 +259,12 @@ TEST(InputArgumentTypeTest, LongArgumentsString) {
   EXPECT_THAT(argument_type_string, testing::EndsWith("..."));
 }
 
+TEST(InputArgumentTypeTest, ArgumentAlias) {
+  InputArgumentType input_argument_type;
+  IdString alias = IdString::MakeGlobal("alias");
+  input_argument_type.set_argument_alias(alias);
+  EXPECT_THAT(input_argument_type.argument_alias(), Optional(alias));
+}
+
+}  // namespace
 }  // namespace zetasql

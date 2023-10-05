@@ -19,7 +19,9 @@
 #ifndef ZETASQL_PUBLIC_EVALUATOR_TABLE_ITERATOR_H_
 #define ZETASQL_PUBLIC_EVALUATOR_TABLE_ITERATOR_H_
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -172,6 +174,18 @@ class EvaluatorTableIterator {
   // set a deadline member and check for its expiration inside processing loops
   // or in NextRow().
   virtual void SetDeadline(absl::Time deadline) {}
+
+  // Gets the current memory usage of this iterator in bytes. Returns
+  // std::nullopt if memory usage tracking is not supported.
+  virtual std::optional<int64_t> GetCurrentMemoryUsage() const {
+    return std::nullopt;
+  }
+
+  // Gets the peak memory usage of this iterator in bytes. Returns std::nullopt
+  // if memory usage tracking is not supported.
+  virtual std::optional<int64_t> GetPeakMemoryUsage() const {
+    return std::nullopt;
+  }
 };
 
 // Represents a restriction of values needed by a scan for a particular

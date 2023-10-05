@@ -348,3 +348,230 @@ select * from mytvf(date_string => model keyvalue);
 ERROR: Syntax error: Expected ")" or "," but got identifier "keyvalue" [at 1:42]
 select * from mytvf(date_string => model keyvalue);
                                          ^
+==
+
+# The parser allows named lambdas for filter fields.
+SELECT FILTER_FIELDS(KitchenSink, +int64_key_1, +int64_key_2, RESET_CLEARED_REQUIRED_FIELDS => e -> e)
+FROM TestTable
+--
+QueryStatement [0-117] [SELECT FILTER_FIE...TestTable]
+  Query [0-117] [SELECT FILTER_FIE...TestTable]
+    Select [0-117] [SELECT FILTER_FIE...TestTable]
+      SelectList [7-102] [FILTER_FIELDS...=> e -> e)]
+        SelectColumn [7-102] [FILTER_FIELDS...=> e -> e)]
+          FunctionCall [7-102] [FILTER_FIELDS...=> e -> e)]
+            PathExpression [7-20] [FILTER_FIELDS]
+              Identifier(FILTER_FIELDS) [7-20] [FILTER_FIELDS]
+            PathExpression [21-32] [KitchenSink]
+              Identifier(KitchenSink) [21-32] [KitchenSink]
+            UnaryExpression(+) [34-46] [+int64_key_1]
+              PathExpression [35-46] [int64_key_1]
+                Identifier(int64_key_1) [35-46] [int64_key_1]
+            UnaryExpression(+) [48-60] [+int64_key_2]
+              PathExpression [49-60] [int64_key_2]
+                Identifier(int64_key_2) [49-60] [int64_key_2]
+            NamedArgument [62-101] [RESET_CLEARED_REQ...=> e -> e]
+              Identifier(RESET_CLEARED_REQUIRED_FIELDS) [62-91] [RESET_CLEARED_REQUIRED_FIELDS]
+              Lambda [95-101] [e -> e]
+                PathExpression [95-96] [e]
+                  Identifier(e) [95-96] [e]
+                PathExpression [100-101] [e]
+                  Identifier(e) [100-101] [e]
+      FromClause [103-117] [FROM TestTable]
+        TablePathExpression [108-117] [TestTable]
+          PathExpression [108-117] [TestTable]
+            Identifier(TestTable) [108-117] [TestTable]
+--
+SELECT
+  FILTER_FIELDS(KitchenSink, +int64_key_1, +int64_key_2, RESET_CLEARED_REQUIRED_FIELDS  => (e) -> e)
+FROM
+  TestTable
+==
+
+# The parser allows named lambdas for window functions.
+select afn_named_lambda(distinct key, named_lambda => e -> e) over ()
+from keyvalue
+ORDER BY key
+--
+QueryStatement [0-96] [select afn_named_...DER BY key]
+  Query [0-96] [select afn_named_...DER BY key]
+    Select [0-83] [select afn_named_...m keyvalue]
+      SelectList [7-69] [afn_named_lambda...e) over ()]
+        SelectColumn [7-69] [afn_named_lambda...e) over ()]
+          AnalyticFunctionCall [7-69] [afn_named_lambda...e) over ()]
+            FunctionCall(distinct=true) [7-61] [afn_named_lambda...=> e -> e)]
+              PathExpression [7-23] [afn_named_lambda]
+                Identifier(afn_named_lambda) [7-23] [afn_named_lambda]
+              PathExpression [33-36] [key]
+                Identifier(key) [33-36] [key]
+              NamedArgument [38-60] [named_lambda => e -> e]
+                Identifier(named_lambda) [38-50] [named_lambda]
+                Lambda [54-60] [e -> e]
+                  PathExpression [54-55] [e]
+                    Identifier(e) [54-55] [e]
+                  PathExpression [59-60] [e]
+                    Identifier(e) [59-60] [e]
+            WindowSpecification [67-69] [()]
+      FromClause [70-83] [from keyvalue]
+        TablePathExpression [75-83] [keyvalue]
+          PathExpression [75-83] [keyvalue]
+            Identifier(keyvalue) [75-83] [keyvalue]
+    OrderBy [84-96] [ORDER BY key]
+      OrderingExpression(ASC) [93-96] [key]
+        PathExpression [93-96] [key]
+          Identifier(key) [93-96] [key]
+--
+SELECT
+  afn_named_lambda(DISTINCT key, named_lambda  => (e) -> e) OVER ()
+FROM
+  keyvalue
+ORDER BY key
+==
+
+# The parser allows named lambdas for scalar functions.
+SELECT fn_named_lambda(1, named_lambda => e -> e)
+--
+QueryStatement [0-49] [SELECT fn_named_l...=> e -> e)]
+  Query [0-49] [SELECT fn_named_l...=> e -> e)]
+    Select [0-49] [SELECT fn_named_l...=> e -> e)]
+      SelectList [7-49] [fn_named_lambda...=> e -> e)]
+        SelectColumn [7-49] [fn_named_lambda...=> e -> e)]
+          FunctionCall [7-49] [fn_named_lambda...=> e -> e)]
+            PathExpression [7-22] [fn_named_lambda]
+              Identifier(fn_named_lambda) [7-22] [fn_named_lambda]
+            IntLiteral(1) [23-24] [1]
+            NamedArgument [26-48] [named_lambda => e -> e]
+              Identifier(named_lambda) [26-38] [named_lambda]
+              Lambda [42-48] [e -> e]
+                PathExpression [42-43] [e]
+                  Identifier(e) [42-43] [e]
+                PathExpression [47-48] [e]
+                  Identifier(e) [47-48] [e]
+--
+SELECT
+  fn_named_lambda(1, named_lambda  => (e) -> e)
+==
+
+# The parser allows named lambdas for aggregate functions.
+SELECT fn_aggregate_named_lambda(key, named_lambda => e -> e)
+FROM KeyValue
+--
+QueryStatement [0-75] [SELECT fn_aggrega...M KeyValue]
+  Query [0-75] [SELECT fn_aggrega...M KeyValue]
+    Select [0-75] [SELECT fn_aggrega...M KeyValue]
+      SelectList [7-61] [fn_aggregate_name...=> e -> e)]
+        SelectColumn [7-61] [fn_aggregate_name...=> e -> e)]
+          FunctionCall [7-61] [fn_aggregate_name...=> e -> e)]
+            PathExpression [7-32] [fn_aggregate_named_lambda]
+              Identifier(fn_aggregate_named_lambda) [7-32] [fn_aggregate_named_lambda]
+            PathExpression [33-36] [key]
+              Identifier(key) [33-36] [key]
+            NamedArgument [38-60] [named_lambda => e -> e]
+              Identifier(named_lambda) [38-50] [named_lambda]
+              Lambda [54-60] [e -> e]
+                PathExpression [54-55] [e]
+                  Identifier(e) [54-55] [e]
+                PathExpression [59-60] [e]
+                  Identifier(e) [59-60] [e]
+      FromClause [62-75] [FROM KeyValue]
+        TablePathExpression [67-75] [KeyValue]
+          PathExpression [67-75] [KeyValue]
+            Identifier(KeyValue) [67-75] [KeyValue]
+--
+SELECT
+  fn_aggregate_named_lambda(key, named_lambda  => (e) -> e)
+FROM
+  KeyValue
+==
+
+# The parser allows named lambdas for UNNEST.
+SELECT 1
+FROM UNNEST([1], mode => e -> e)
+--
+QueryStatement [0-41] [SELECT 1 FROM...=> e -> e)]
+  Query [0-41] [SELECT 1 FROM...=> e -> e)]
+    Select [0-41] [SELECT 1 FROM...=> e -> e)]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+      FromClause [9-41] [FROM UNNEST...=> e -> e)]
+        TablePathExpression [14-41] [UNNEST([1], mode => e -> e)]
+          UnnestExpression [14-41] [UNNEST([1], mode => e -> e)]
+            ExpressionWithOptAlias [21-24] [[1]]
+              ArrayConstructor [21-24] [[1]]
+                IntLiteral(1) [22-23] [1]
+            NamedArgument [26-40] [mode => e -> e]
+              Identifier(mode) [26-30] [mode]
+              Lambda [34-40] [e -> e]
+                PathExpression [34-35] [e]
+                  Identifier(e) [34-35] [e]
+                PathExpression [39-40] [e]
+                  Identifier(e) [39-40] [e]
+--
+SELECT
+  1
+FROM
+  UNNEST(ARRAY[1], mode  => (e) -> e)
+==
+
+# The parser allows named lambdas for tvfs.
+SELECT * FROM tvf_relation_arg_scalar_arg_named_lambda(
+    (SELECT 1 AS X), 1, named_lambda => e -> e)
+--
+QueryStatement [0-103] [SELECT * FROM...=> e -> e)]
+  Query [0-103] [SELECT * FROM...=> e -> e)]
+    Select [0-103] [SELECT * FROM...=> e -> e)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-103] [FROM tvf_relation...=> e -> e)]
+        TVF [14-103] [tvf_relation_arg_...=> e -> e)]
+          PathExpression [14-54] [tvf_relation_arg_...med_lambda]
+            Identifier(tvf_relation_arg_scalar_arg_named_lambda) [14-54] [tvf_relation_arg_...med_lambda]
+          TVFArgument [60-75] [(SELECT 1 AS X)]
+            ExpressionSubquery [60-75] [(SELECT 1 AS X)]
+              Query [61-74] [SELECT 1 AS X]
+                Select [61-74] [SELECT 1 AS X]
+                  SelectList [68-74] [1 AS X]
+                    SelectColumn [68-74] [1 AS X]
+                      IntLiteral(1) [68-69] [1]
+                      Alias [70-74] [AS X]
+                        Identifier(X) [73-74] [X]
+          TVFArgument [77-78] [1]
+            IntLiteral(1) [77-78] [1]
+          TVFArgument [80-102] [named_lambda => e -> e]
+            NamedArgument [80-102] [named_lambda => e -> e]
+              Identifier(named_lambda) [80-92] [named_lambda]
+              Lambda [96-102] [e -> e]
+                PathExpression [96-97] [e]
+                  Identifier(e) [96-97] [e]
+                PathExpression [101-102] [e]
+                  Identifier(e) [101-102] [e]
+--
+SELECT
+  *
+FROM
+  tvf_relation_arg_scalar_arg_named_lambda((
+    SELECT
+      1 AS X
+  ), 1, named_lambda  => (e) -> e)
+==
+
+# The parser allows named lambdas for procedure calls.
+CALL proc_on_named_lambda(1, named_lambda => e -> e)
+--
+CallStatement [0-52] [CALL proc_on_name...=> e -> e)]
+  PathExpression [5-25] [proc_on_named_lambda]
+    Identifier(proc_on_named_lambda) [5-25] [proc_on_named_lambda]
+  TVFArgument [26-27] [1]
+    IntLiteral(1) [26-27] [1]
+  TVFArgument [29-51] [named_lambda => e -> e]
+    NamedArgument [29-51] [named_lambda => e -> e]
+      Identifier(named_lambda) [29-41] [named_lambda]
+      Lambda [45-51] [e -> e]
+        PathExpression [45-46] [e]
+          Identifier(e) [45-46] [e]
+        PathExpression [50-51] [e]
+          Identifier(e) [50-51] [e]
+--
+CALL proc_on_named_lambda(1, named_lambda  => (e) -> e)

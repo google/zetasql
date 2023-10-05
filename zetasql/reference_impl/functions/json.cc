@@ -31,6 +31,7 @@
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/ret_check.h"
@@ -832,25 +833,26 @@ absl::StatusOr<Value> JsonRemoveFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
   ZETASQL_RET_CHECK_GE(args.size(), 2);
-  if (HasNulls(args)) {
-    return Value::Null(output_type());
+
+  std::vector<std::unique_ptr<StrictJSONPathIterator>> path_iterators;
+  for (int i = 1; i < args.size(); ++i) {
+    if (args[i].is_null()) continue;
+    ZETASQL_ASSIGN_OR_RETURN(
+        path_iterators.emplace_back(),
+        BuildStrictJSONPathIterator(args[i].string_value(), "JSON_REMOVE"));
+  }
+
+  // Check if JSON input is NULL.
+  if (args[0].is_null()) {
+    return Value::NullJson();
   }
 
   ZETASQL_ASSIGN_OR_RETURN(JSONValue result,
                    GetJSONValueCopy(args[0], context->GetLanguageOptions()));
   JSONValueRef ref = result.GetRef();
 
-  for (int i = 1; i < args.size(); ++i) {
-    auto path_iterator = StrictJSONPathIterator::Create(args[i].string_value());
-    if (!path_iterator.ok()) {
-      return MakeEvalError() << "Invalid input to JSON_REMOVE: "
-                             << path_iterator.status().message();
-    }
-    auto status = functions::JsonRemove(ref, **path_iterator).status();
-    if (!status.ok()) {
-      return MakeEvalError()
-             << "Invalid input to JSON_REMOVE: " << status.message();
-    }
+  for (auto& path_iterator : path_iterators) {
+    ZETASQL_RETURN_IF_ERROR(functions::JsonRemove(ref, *path_iterator).status());
   }
 
   return Value::Json(std::move(result));
@@ -878,22 +880,30 @@ absl::StatusOr<Value> JsonArrayInsertAppendFunction::Eval(
                                                         : "JSON_ARRAY_APPEND")
            << ": paths and values must come in pairs";
   }
-  if (args[0].is_null() || args.back().is_null()) {
-    return Value::NullJson();
-  }
 
   int64_t num_value_pairs = (args.size() - 2) / 2;
-
+  std::vector<std::unique_ptr<StrictJSONPathIterator>> path_iterators;
   for (int i = 0; i < num_value_pairs; ++i) {
-    // If any JSONPath is NULL, return NULL.
-    if (args[2 * i + 1].is_null()) {
-      return Value::NullJson();
+    const int index = 2 * i + 1;
+    ZETASQL_RET_CHECK(args[index].type()->IsString());
+    if (args[index].is_null()) {
+      path_iterators.push_back(nullptr);
+      continue;
     }
+    ZETASQL_ASSIGN_OR_RETURN(
+        path_iterators.emplace_back(),
+        StrictJSONPathIterator::Create(args[index].string_value()));
   }
 
   for (int i = 0; i < num_value_pairs; ++i) {
     ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2 * i + 2], context));
   }
+
+  // Check if input JSON is NULL.
+  if (args[0].is_null()) {
+    return Value::NullJson();
+  }
+
   const LanguageOptions& language_options = context->GetLanguageOptions();
 
   ZETASQL_ASSIGN_OR_RETURN(JSONValue result,
@@ -901,34 +911,23 @@ absl::StatusOr<Value> JsonArrayInsertAppendFunction::Eval(
   JSONValueRef ref = result.GetRef();
 
   ZETASQL_RET_CHECK(args.back().type()->IsBool());
-  const bool insert_each_element = args.back().bool_value();
-
-  // Function name in error message.
-  absl::string_view function_name;
-  if (kind() == FunctionKind::kJsonArrayInsert) {
-    function_name = "JSON_ARRAY_INSERT";
-  } else {
-    function_name = "JSON_ARRAY_APPEND";
+  // Check if `{insert,append}_each_element` is NULL.
+  if (args.back().is_null()) {
+    return Value::Json(std::move(result));
   }
-
+  const bool insert_each_element = args.back().bool_value();
   for (int i = 0; i < num_value_pairs; ++i) {
-    ZETASQL_RET_CHECK(args[2 * i + 1].type()->IsString());
-    ZETASQL_ASSIGN_OR_RETURN(auto path_iterator,
-                     BuildStrictJSONPathIterator(args[2 * i + 1].string_value(),
-                                                 function_name));
-    absl::Status status;
-    if (kind() == FunctionKind::kJsonArrayInsert) {
-      status = functions::JsonInsertArrayElement(
-          ref, *path_iterator, args[2 * i + 2], language_options,
-          /*canonicalize_zero=*/true, insert_each_element);
-    } else {
-      status = functions::JsonAppendArrayElement(
-          ref, *path_iterator, args[2 * i + 2], language_options,
-          /*canonicalize_zero=*/true, insert_each_element);
+    if (path_iterators[i] == nullptr) {
+      continue;
     }
-    if (!status.ok()) {
-      return MakeEvalError() << "Invalid input to " << function_name << ": "
-                             << status.message();
+    if (kind() == FunctionKind::kJsonArrayInsert) {
+      ZETASQL_RETURN_IF_ERROR(functions::JsonInsertArrayElement(
+          ref, *path_iterators[i], args[2 * i + 2], language_options,
+          /*canonicalize_zero=*/true, insert_each_element));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(functions::JsonAppendArrayElement(
+          ref, *path_iterators[i], args[2 * i + 2], language_options,
+          /*canonicalize_zero=*/true, insert_each_element));
     }
   }
 
@@ -948,34 +947,27 @@ absl::StatusOr<Value> JsonSetFunction::Eval(
 
   const size_t num_value_pairs = (args.size() - 1) / 2;
 
-  if (args[0].is_null()) {
-    return Value::NullJson();
-  }
-
-  // Validity verification steps:
-  // 1) Check validity of all non-null JSON paths. Return error if invalid.
-  // 2) If any JSON path is NULL return NULL.
-  // Parsing errors take precedence over NULL inputs.
-  bool paths_contain_nulls = false;
+  // Check validity of all non-null JSON paths. Return error if invalid.
   std::vector<std::unique_ptr<StrictJSONPathIterator>> path_iterators;
   path_iterators.reserve(num_value_pairs);
   for (int i = 0; i < num_value_pairs; ++i) {
     int index = 2 * i + 1;
     ZETASQL_RET_CHECK(args[index].type()->IsString());
     if (args[index].is_null()) {
-      paths_contain_nulls = true;
+      path_iterators.push_back(nullptr);
       continue;
     }
     ZETASQL_ASSIGN_OR_RETURN(
         path_iterators.emplace_back(),
         BuildStrictJSONPathIterator(args[index].string_value(), "JSON_SET"));
   }
-  if (paths_contain_nulls) {
-    return Value::NullJson();
-  }
 
   for (int i = 0; i < num_value_pairs; ++i) {
     ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2 * i + 2], context));
+  }
+
+  if (args[0].is_null()) {
+    return Value::NullJson();
   }
 
   const LanguageOptions& language_options = context->GetLanguageOptions();
@@ -984,6 +976,10 @@ absl::StatusOr<Value> JsonSetFunction::Eval(
   JSONValueRef ref = result.GetRef();
 
   for (int i = 0; i < num_value_pairs; ++i) {
+    if (path_iterators[i] == nullptr) {
+      // Ignore NULL path operation.
+      continue;
+    }
     if (absl::Status status = functions::JsonSet(
             ref, *path_iterators[i], args[2 * i + 2], language_options,
             /*canonicalize_zero=*/true);
@@ -1002,30 +998,48 @@ absl::StatusOr<Value> JsonSetFunction::Eval(
 absl::StatusOr<Value> JsonStripNullsFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
+  // Execution Steps:
+  // 1) Check json_path validity.
+  // 2) If json_expr is NULL return NULL.
+  // 3) If json_path, include_arrays or remove_empty is NULL return json_expr.
+  // 4) Execute JSON_STRIP_NULLS function and return result.
+  //
+  // Args:
+  // args[0] -> json_expr
+  // args[1] -> json_path
+  // args[2] -> include_arrays
+  // args[3] -> remove_empty
   ZETASQL_RET_CHECK_EQ(args.size(), 4);
-  if (HasNulls(args)) {
-    return Value::NullJson();
-  }
   ZETASQL_RET_CHECK(args[0].type()->IsJson());
   ZETASQL_RET_CHECK(args[1].type()->IsString());
   ZETASQL_RET_CHECK(args[2].type()->IsBool());
   ZETASQL_RET_CHECK(args[3].type()->IsBool());
 
-  const LanguageOptions& language_options = context->GetLanguageOptions();
-
-  ZETASQL_ASSIGN_OR_RETURN(JSONValue result,
-                   GetJSONValueCopy(args[0], language_options));
-  ZETASQL_ASSIGN_OR_RETURN(
-      auto path_iterator,
-      BuildStrictJSONPathIterator(args[1].string_value(), "JSON_STRIP_NULLS"));
-  if (absl::Status status =
-          functions::JsonStripNulls(result.GetRef(), *path_iterator,
-                                    args[2].bool_value(), args[3].bool_value());
-      !status.ok()) {
-    return MakeEvalError() << "Invalid input to JSON_STRIP_NULLS: "
-                           << status.message();
+  // Step 1) Check path validity.
+  std::unique_ptr<StrictJSONPathIterator> path_iterator;
+  if (!args[1].is_null()) {
+    ZETASQL_ASSIGN_OR_RETURN(path_iterator,
+                     BuildStrictJSONPathIterator(args[1].string_value(),
+                                                 "JSON_STRIP_NULLS"));
   }
 
+  // Step 2) If json_expr is NULL return NULL.
+  if (args[0].is_null()) {
+    return Value::NullJson();
+  }
+
+  // Step 3) If json_path, include_arrays or remove_empty is NULL return
+  // json_expr.
+  if (args[1].is_null() || args[2].is_null() || args[3].is_null()) {
+    return Value::Json(JSONValue::CopyFrom(args[0].json_value()));
+  }
+  ZETASQL_ASSIGN_OR_RETURN(JSONValue result,
+                   GetJSONValueCopy(args[0], context->GetLanguageOptions()));
+
+  // Step 4) Execute JSON_STRIP_NULLS function and return result.
+  ZETASQL_RETURN_IF_ERROR(functions::JsonStripNulls(result.GetRef(), *path_iterator,
+                                            args[2].bool_value(),
+                                            args[3].bool_value()));
   return Value::Json(std::move(result));
 }
 

@@ -20,11 +20,13 @@
 #include "zetasql/reference_impl/functions/json.h"
 #include "zetasql/reference_impl/functions/range.h"
 #include "zetasql/reference_impl/functions/string_with_collation.h"
+#include "zetasql/reference_impl/functions/uuid.h"
 
 namespace zetasql {
 
 void RegisterAllOptionalBuiltinFunctions() {
   RegisterBuiltinJsonFunctions();
+  RegisterBuiltinUuidFunctions();
   RegisterBuiltinHashFunctions();
   RegisterBuiltinStringWithCollationFunctions();
   RegisterBuiltinRangeFunctions();

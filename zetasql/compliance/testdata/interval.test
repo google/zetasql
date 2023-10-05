@@ -111,6 +111,32 @@ ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL, INTERVAL>>[
   {1-2 0 0:0:0, 0-0 0 1:2:0, NULL, NULL}
 ]
 ==
+[required_features=INTERVAL_TYPE]
+[forbidden_features=TIMESTAMP_NANOS]
+[name=cast_nanos_without_nanos_support]
+SELECT
+  CAST('1-2 3 4:5:6.123456789' AS INTERVAL),
+  CAST('-1-2 -3 -4:5:6.123456789' AS INTERVAL),
+  CAST('P1Y2M3DT4H5M6.123456789S' AS INTERVAL)
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL>>[
+  {
+    1-2 3 4:5:6.123456789,
+    -1-2 -3 -4:5:6.123456789,
+    1-2 3 4:5:6.123456789
+  }
+]
+==
+[required_features=INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE]
+[forbidden_features=TIMESTAMP_NANOS]
+[name=cast_nanos_without_nanos_support_enforcement_enabled]
+SELECT
+  CAST('1-2 3 4:5:6.123456789' AS INTERVAL),
+  CAST('-1-2 -3 -4:5:6.123456789' AS INTERVAL),
+  CAST('P1Y2M3DT4H5M6.123456789S' AS INTERVAL)
+--
+ERROR: generic::out_of_range: Invalid INTERVAL value '1-2 3 4:5:6.123456789'
+==
 [required_features=INTERVAL_TYPE,NAMED_ARGUMENTS]
 [name=make_interval]
 select

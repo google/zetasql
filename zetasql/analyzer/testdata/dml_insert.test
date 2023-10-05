@@ -2081,6 +2081,66 @@ INSERT UpdateToDefaultTable (readonly_settable_to_default) VALUES (DEFAULT);
                              ^
 ==
 
+# TODO: Add java support for generated expressions.
+[no_java]
+INSERT INTO TableWithGeneratedColumn (C) VALUES(3)
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=TableWithGeneratedColumn.[A#1, B#2, C#3], table=TableWithGeneratedColumn, column_index_list=[0, 1, 2])
++-insert_column_list=[TableWithGeneratedColumn.C#3]
++-row_list=
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=3)
++-column_access_list=READ,READ,READ_WRITE
++-topologically_sorted_generated_column_id_list=[2, 1, 4]
++-generated_column_expr_list=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  | +-Literal(type=INT64, value=1)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.A#1)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+    +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+==
+
+# TODO: Add java support for generated expressions.
+[no_java]
+INSERT INTO TableWithGeneratedColumn (C) SELECT C FROM TableWithGeneratedColumn
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=TableWithGeneratedColumn.[A#1, B#2, C#3], table=TableWithGeneratedColumn, column_index_list=[0, 1, 2])
++-insert_column_list=[TableWithGeneratedColumn.C#3]
++-query=
+| +-ProjectScan
+|   +-column_list=[TableWithGeneratedColumn.C#7]
+|   +-input_scan=
+|     +-TableScan(column_list=[TableWithGeneratedColumn.C#7], table=TableWithGeneratedColumn, column_index_list=[2])
++-query_output_column_list=[TableWithGeneratedColumn.C#7]
++-column_access_list=READ,READ,READ_WRITE
++-topologically_sorted_generated_column_id_list=[2, 1, 4]
++-generated_column_expr_list=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  | +-Literal(type=INT64, value=1)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.A#1)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+    +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+==
+
 INSERT INTO KeyValue@{hint_name=hint_value} (key, value) VALUES (1, "one");
 --
 InsertStmt

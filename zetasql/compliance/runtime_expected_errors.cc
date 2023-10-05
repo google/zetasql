@@ -191,7 +191,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "overflow"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "Floating point overflow in function: (ACOS|ACOSH|ASIN|COSH|SINH)"));
+      "Floating point overflow in function: "
+      "(ACOS|ACOSH|ASIN|COSH|SINH|ROUND)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Floating point error in function: "
@@ -321,7 +322,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "Negative bucket width INTERVAL is not allowed"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "Bucket for .* is outside of (timestamp|datetime) range"));
+      "Bucket for .* is outside of (date|timestamp|datetime) range"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Bucket width INTERVAL with non-zero MONTH part is not allowed"));
@@ -613,6 +614,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Invalid `wide_number_mode` specified"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid input to JSON_(REMOVE|SET)"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "The JSONPath cannot be '$'"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid input to JSON_STRIP_NULLS"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(

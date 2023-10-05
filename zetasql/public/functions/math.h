@@ -27,7 +27,6 @@
 #include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/functions/util.h"
 #include "zetasql/public/numeric_value.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"

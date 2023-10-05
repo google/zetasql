@@ -31,7 +31,6 @@
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
-#include <cstdint>
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"

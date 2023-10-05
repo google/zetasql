@@ -25,7 +25,6 @@
 #include <utility>
 #include <vector>
 
-
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/public/language_options.h"
@@ -34,7 +33,6 @@
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
 #include "zetasql/public/value.h"
-#include <cstdint>  
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -43,6 +41,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "unicode/schriter.h"
 #include "unicode/uchar.h"
 #include "unicode/unistr.h"
@@ -718,7 +717,7 @@ bool IsLoadOrSourceStatementStart(const ParseToken& parse_token,
 
 // Returns true if the `parse_token` might start a token in curly braces.
 bool IsCurlyBracesParameterStart(const ParseToken& parse_token,
-                                 const std::vector<Token>& tokens) {
+                                 absl::Span<const Token> tokens) {
   return parse_token.GetImage() == "{" &&
          (tokens.empty() || tokens.back().GetImage() != "@");
 }
@@ -727,7 +726,7 @@ bool IsCurlyBracesParameterStart(const ParseToken& parse_token,
 // might start a jinja block or comment:
 // {% ... %} or {# ... #}.
 bool IsJinjaExpressionStart(const ParseToken& parse_token,
-                            const std::vector<Token>& tokens) {
+                            absl::Span<const Token> tokens) {
   return (parse_token.GetImage() == "%" ||
           absl::StartsWith(parse_token.GetImage(), "#")) &&
          !tokens.empty() && tokens.back().GetImage() == "{" &&
@@ -737,7 +736,7 @@ bool IsJinjaExpressionStart(const ParseToken& parse_token,
 // Returns true if the `parse_token` starts a description of a legacy ASSERT
 // statement: "ASSERT [error message] AS ...".
 bool IsLegacyAssertDescriptionStart(const ParseToken& parse_token,
-                                    const std::vector<Token>& tokens) {
+                                    absl::Span<const Token> tokens) {
   if (tokens.empty() || parse_token.GetImage() != "[") {
     return false;
   }
@@ -1036,7 +1035,7 @@ ParseToken EndOfInputToken(int position) {
 
 // Returns i'th non comment token in `tokens` or nullptr if such token doesn't
 // exist.
-const Token* NonCommentToken(const std::vector<Token>& tokens, int i) {
+const Token* NonCommentToken(absl::Span<const Token> tokens, int i) {
   int t = 0;
   for (const auto& token : tokens) {
     if (token.IsComment()) {

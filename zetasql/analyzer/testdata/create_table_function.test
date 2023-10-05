@@ -1792,7 +1792,7 @@ CreateTableFunctionStmt
 |   +-input_scan=
 |     +-RelationArgumentScan(column_list=[t.column#1], name="t")
 +-output_column_list=
-| +-t.column#1 AS column [STRUCT<x INT64, y STRING>]
+| +-t.column#1 AS `$value` [STRUCT<x INT64, y STRING>]
 +-is_value_table=TRUE
 ==
 
@@ -1990,7 +1990,7 @@ CreateTableFunctionStmt
 |       +-input_scan=
 |         +-RelationArgumentScan(column_list=[t.column#1], name="t")
 +-output_column_list=
-| +-$subquery1.x#3 AS x [INT64]
+| +-$subquery1.x#3 AS `$value` [INT64]
 +-is_value_table=TRUE
 ==
 
@@ -2039,7 +2039,7 @@ CreateTableFunctionStmt
 |   +-input_scan=
 |     +-RelationArgumentScan(column_list=[t.$value_column#1], name="t", is_value_table=TRUE)
 +-output_column_list=
-| +-$query.test_extra_pb#2 AS test_extra_pb [PROTO<zetasql_test__.TestExtraPB>]
+| +-$query.test_extra_pb#2 AS `$value` [PROTO<zetasql_test__.TestExtraPB>]
 +-is_value_table=TRUE
 ==
 
@@ -2177,7 +2177,7 @@ CreateTableFunctionStmt
 |   +-input_scan=
 |     +-RelationArgumentScan(column_list=[t.$value_column#1], name="t", is_value_table=TRUE)
 +-output_column_list=
-| +-$query.x#2 AS x [INT64]
+| +-$query.x#2 AS `$value` [INT64]
 +-is_value_table=TRUE
 ==
 

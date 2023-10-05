@@ -880,6 +880,15 @@ class SQLBuilder : public ResolvedASTVisitor {
       ResolvedSetOperationScan::SetOperationColumnPropagationMode
           column_propagation_mode,
       std::vector<std::unique_ptr<QueryExpression>>& set_op_scan_list);
+
+  // Returns the original scan from the input `scan`.
+  //
+  // For example, some ProjectScans are added by the resolver to wrap the
+  // original scan to adjust column order or add NULL columns. This function
+  // identifies those scans and returns the original scan to provide better
+  // unparsed SQL.
+  absl::StatusOr<const ResolvedScan*> GetOriginalInputScanForCorresponding(
+      const ResolvedScan* scan);
 };
 
 }  // namespace zetasql

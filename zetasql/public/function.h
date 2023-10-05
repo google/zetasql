@@ -179,7 +179,6 @@ class AggregateFunctionEvaluator {
   // On success, returns OK and populates 'stop_accumulation' with whether
   // the caller may skip subsequent calls to Accumulate().
   // On failure, returns the status.
-  // NULL values are ignored.
   virtual absl::Status Accumulate(absl::Span<const Value*> args,
                                   bool* stop_accumulation) = 0;
 
@@ -731,6 +730,7 @@ class Function {
   const PostResolutionArgumentConstraintsCallback& PostResolutionConstraints()
       const;
   const ComputeResultTypeCallback& GetComputeResultTypeCallback() const;
+
   const FunctionGetSQLCallback& GetSQLCallback() const;
 
   const NoMatchingSignatureCallback& GetNoMatchingSignatureCallback() const;

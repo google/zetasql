@@ -17,8 +17,6 @@
 #ifndef ZETASQL_RESOLVED_AST_RESOLVED_COLUMN_H_
 #define ZETASQL_RESOLVED_AST_RESOLVED_COLUMN_H_
 
-#include <stddef.h>
-
 #include <string>
 #include <vector>
 
@@ -28,7 +26,6 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -122,6 +119,11 @@ class ResolvedColumn {
   // Equality is defined using column_id only.
   bool operator==(const ResolvedColumn& other) const {
     return column_id_ == other.column_id_;
+  }
+
+  // Inequality is defined using column_id only.
+  bool operator!=(const ResolvedColumn& other) const {
+    return !(*this == other);
   }
 
   // Order by column_id, so these can be stored in a set.

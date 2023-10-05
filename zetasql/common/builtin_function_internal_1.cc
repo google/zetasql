@@ -1616,75 +1616,79 @@ bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type) {
          arg_type->IsInterval() || arg_type->IsProto() || arg_type->IsEnum();
 }
 
-// Returns true if an arithmetic operation has a floating point type as its
-// input.
-bool HasFloatingPointArgument(const FunctionSignature& matched_signature,
-                              const std::vector<InputArgumentType>& arguments) {
+// Checks if an arithmetic operation has a floating point type as its input.
+std::string CheckHasFloatingPointArgument(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->IsFloatingPoint()) {
-      return true;
+      return "";
     }
   }
-  return false;
+  return "At least one argument must have a floating point type";
 }
 
-// Returns true if at least one input argument has NUMERIC type.
-bool HasNumericTypeArgument(const FunctionSignature& matched_signature,
-                            const std::vector<InputArgumentType>& arguments) {
+// Checks if at least one input argument has NUMERIC type.
+std::string CheckHasNumericTypeArgument(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() == TYPE_NUMERIC) {
-      return true;
+      return "";
     }
   }
-  return false;
+  return "At least one argument must have NUMERIC type";
 }
 
-// Returns true if all input arguments have NUMERIC or BIGNUMERIC type,
-// including the case without input arguments.
-bool AllArgumentsHaveNumericOrBigNumericType(
+// Checks if all input arguments have NUMERIC or BIGNUMERIC type, including the
+// case without input arguments.
+std::string CheckAllArgumentsHaveNumericOrBigNumericType(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() != TYPE_NUMERIC &&
         argument.type()->kind() != TYPE_BIGNUMERIC) {
-      return false;
+      return "All arguments must have NUMERIC or BIGNUMERIC type";
     }
   }
-  return true;
+  return "";
 }
 
-// Returns true if there is at least one input argument and the last argument
-// has NUMERIC type or BIGNUMERIC type.
-bool LastArgumentHasNumericOrBigNumericType(
+// Checks if there is at least one input argument and the last argument has
+// NUMERIC type or BIGNUMERIC type.
+std::string CheckLastArgumentHasNumericOrBigNumericType(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments) {
-  return !arguments.empty() &&
-         (arguments.back().type()->kind() == TYPE_NUMERIC ||
-          arguments.back().type()->kind() == TYPE_BIGNUMERIC);
+  if (!arguments.empty() &&
+      (arguments.back().type()->kind() == TYPE_NUMERIC ||
+       arguments.back().type()->kind() == TYPE_BIGNUMERIC)) {
+    return "";
+  }
+  return "Last argument must have NUMERIC or BIGNUMERIC type";
 }
 
-// Returns true if at least one input argument has BIGNUMERIC type.
-bool HasBigNumericTypeArgument(
+// Checks if at least one input argument has BIGNUMERIC type.
+std::string CheckHasBigNumericTypeArgument(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() == TYPE_BIGNUMERIC) {
-      return true;
+      return "";
     }
   }
-  return false;
+  return "At least one argument must have BigNumeric type";
 }
 
-// Returns true if at least one input argument has INTERVAL type.
-bool HasIntervalTypeArgument(
+// Checks if at least one input argument has INTERVAL type.
+std::string CheckHasIntervalTypeArgument(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() == TYPE_INTERVAL) {
-      return true;
+      return "";
     }
   }
-  return false;
+  return "At least one argument must have INTERVAL type";
 }
 
 // Compute the result type for TOP_COUNT and TOP_SUM.

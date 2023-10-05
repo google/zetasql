@@ -61,9 +61,16 @@ absl::StatusOr<Value> EuclideanDistanceSparseStringKey(Value vector1,
 
 // Implementation of:
 // EDIT_DISTANCE(STRING, STRING) -> INT64
+absl::StatusOr<int64_t> EditDistance(absl::string_view s0, absl::string_view s1,
+                                     std::optional<int64_t> max_distance);
+
+// Implementation of:
 // EDIT_DISTANCE(BYTES, BYTES) -> INT64
-absl::StatusOr<Value> EditDistance(Value v1, Value v2,
-                                   std::optional<Value> max_distance);
+// The difference between this and the EditDistance above is that this function
+// does not consider Unicode text and compares the string byte to byte.
+absl::StatusOr<int64_t> EditDistanceBytes(absl::string_view s0,
+                                          absl::string_view s1,
+                                          std::optional<int64_t> max_distance);
 
 }  // namespace functions
 }  // namespace zetasql

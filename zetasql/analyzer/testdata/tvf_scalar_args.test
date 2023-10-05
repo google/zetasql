@@ -2889,7 +2889,8 @@ Signature Mismatch Details:
 ERROR: No matching signature for tvf_repeating_any_one_type_args
   Argument types: INT64, STRING
   Signature: TVF_REPEATING_ANY_ONE_TYPE_ARGS([T1, ...])
-    Unable to find common supertype for templated argument <T1> [at 1:25]
+    Unable to find common supertype for templated argument <T1>
+  Input types for <T1>: {INT64, STRING} [at 1:25]
 select column_bool from tvf_repeating_any_one_type_args(1, "a")
                         ^
 ==

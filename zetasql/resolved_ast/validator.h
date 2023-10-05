@@ -635,6 +635,34 @@ class Validator {
       const ResolvedExpr* group_threshold_expr,
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
+      const std::vector<std::unique_ptr<const ResolvedOption>>& scan_options,
+      absl::string_view expression_name);
+
+  // Validates the group selection threshold expression for differential privacy
+  // scans (called k threshold expression in ResolvedAnonymizedAggregateScan).
+  // Compared to ValidateGroupSelectionThresholdExpr above, the assumption is
+  // that specification of `min_privacy_units_per_group` led to a rewriting of
+  // this expression.
+  absl::Status ValidateGroupSelectionThresholdExprWithMinPrivacyUnitsPerGroup(
+      const ResolvedExpr* group_threshold_expr,
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const std::unique_ptr<const ResolvedOption>&
+          min_privacy_units_per_group_option,
+      absl::string_view expression_name);
+
+  // Validates the group selection threshold expression for differential
+  // privacy scans (called k threshold expression in
+  // ResolvedAnonymizedAggregateScan). Compared to
+  // ValidateGroupSelectionThresholdExpr above, this function assumes (or else
+  // returns an error) that rewriting of the group selection threshold
+  // expression was not needed (for example because the
+  // min_privacy_units_per_group was not specified).
+  absl::Status
+  ValidateGroupSelectionThresholdExprWithoutMinPrivacyUnitsPerGroup(
+      const ResolvedExpr* group_threshold_expr,
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
       absl::string_view expression_name);
 
   // Validates GroupingSet and grouping columns are empty.

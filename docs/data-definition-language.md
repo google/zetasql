@@ -831,7 +831,7 @@ denied from exercising these privileges on the object.
 
 > Warning: Creating a privilege restriction can break downstream dependencies.
 > For tips to avoid this, see [Privileges and Restrictions]
-> (/company/teams/datahub/privileges_and_restrictions.md).
+> ((broken link)).
 
 **Parameters**
 

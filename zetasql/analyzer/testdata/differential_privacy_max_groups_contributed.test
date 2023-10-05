@@ -4,6 +4,7 @@
 # each user only contributes to one group.
 # We can't run the unparser because the rewrite generates TABLESAMPLE and the
 # TABLESAMPLE feature is not turned on.
+[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_run_unparser]

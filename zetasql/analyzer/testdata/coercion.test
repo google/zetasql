@@ -633,6 +633,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, STRING
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, zetasql_test__.TestEnum}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type zetasql_test__.TestEnum to expected type INT64
   Signature: UINT64 = INT64
@@ -651,6 +652,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, INT64
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, zetasql_test__.TestEnum}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type zetasql_test__.TestEnum to expected type INT64
   Signature: UINT64 = INT64
@@ -840,7 +842,8 @@ Signature Mismatch Details:
 ERROR: No matching signature for function IF
   Argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING
   Signature: IF(BOOL, T1, T1)
-    Unable to find common supertype for templated argument <T1> [at 1:8]
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, zetasql_test__.KitchenSinkPB} [at 1:8]
 select if(false,
        ^
 ==
@@ -893,7 +896,8 @@ Signature Mismatch Details:
 ERROR: No matching signature for function IF
   Argument types: BOOL, zetasql_test__.KitchenSinkPB, zetasql_test__.KitchenSinkPB.Nested
   Signature: IF(BOOL, T1, T1)
-    Unable to find common supertype for templated argument <T1> [at 1:8]
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.KitchenSinkPB} [at 1:8]
 select if(false,
        ^
 ==
@@ -912,7 +916,8 @@ Signature Mismatch Details:
 ERROR: No matching signature for function IF
   Argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING
   Signature: IF(BOOL, T1, T1)
-    Unable to find common supertype for templated argument <T1> [at 1:8]
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, zetasql_test__.KitchenSinkPB} [at 1:8]
 select if(false,
        ^
 ==
@@ -931,7 +936,8 @@ Signature Mismatch Details:
 ERROR: No matching signature for function IF
   Argument types: BOOL, zetasql_test__.KitchenSinkPB, BYTES
   Signature: IF(BOOL, T1, T1)
-    Unable to find common supertype for templated argument <T1> [at 1:8]
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {BYTES, zetasql_test__.KitchenSinkPB} [at 1:8]
 select if(false,
        ^
 ==
@@ -1760,6 +1766,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<STRING>
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {ARRAY<INT32>, ARRAY<STRING>}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type ARRAY<INT32> to expected type INT64
   Signature: UINT64 = INT64
@@ -1780,6 +1787,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<INT64>
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {ARRAY<INT32>, ARRAY<INT64>}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type ARRAY<INT32> to expected type INT64
   Signature: UINT64 = INT64
@@ -1802,6 +1810,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<INT64>
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {ARRAY<INT32>, ARRAY<INT64>}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type ARRAY<INT32> to expected type INT64
   Signature: UINT64 = INT64
@@ -1857,6 +1866,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: ARRAY<STRING>, ARRAY<INT64>
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {ARRAY<STRING>, ARRAY<INT64>}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type ARRAY<STRING> to expected type INT64
   Signature: UINT64 = INT64
@@ -3008,7 +3018,8 @@ select STRUCT( nested_catalog.constant_rounding_mode) = struct(1)
 Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: STRUCT<constant_rounding_mode ROUNDING_MODE>, STRUCT<INT64>
   Signature: T1 = T1
-    Unable to find common supertype for templated argument <T1> [at 2:8]
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRUCT<constant_rounding_mode ROUNDING_MODE>, STRUCT<INT64>} [at 2:8]
 select STRUCT( nested_catalog.constant_rounding_mode) = struct(1)
        ^
 ==
@@ -3056,6 +3067,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {ROUNDING_MODE, zetasql.functions.RoundingMode}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type zetasql.functions.RoundingMode to expected type INT64
   Signature: UINT64 = INT64
@@ -3075,6 +3087,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {ROUNDING_MODE, zetasql.functions.RoundingMode}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type zetasql.functions.RoundingMode to expected type INT64
   Signature: UINT64 = INT64

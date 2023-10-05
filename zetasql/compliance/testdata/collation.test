@@ -693,32 +693,6 @@ select
 ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64, INT64>>[{2, 1, 2, 2, 2, 2}]
 ==
 
-[name=nullif_with_collation_ci]
-select
-  nullif(collate('a', 'und:ci'), 'a'),
-  nullif(collate('a', 'und:ci'), 'A'),
-  nullif(collate('a', 'und:ci'), 'B'),
-  nullif(collate('aBc', 'und:ci'), 'ABC'),
-  nullif(collate('A\u070Fbc', 'und:ci'), 'abc')
---
-ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING>>[
-  {NULL, NULL, "a", NULL, NULL}
-]
-==
-
-[name=nullif_with_collation_binary]
-select
-  nullif(collate('a', 'binary'), 'a'),
-  nullif(collate('a', 'binary'), 'A'),
-  nullif(collate('a', 'binary'), 'B'),
-  nullif(collate('aBc', 'binary'), 'ABC'),
-  nullif(collate('A\u070Fbc', 'binary'), 'abc')
---
-ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING>>[
-  {NULL, "a", "a", "aBc", "A܏bc"}
-]
-==
-
 [name=count_distinct_with_collation_ci]
 with TestTable as (
 select 'aB' col union all

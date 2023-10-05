@@ -76,6 +76,7 @@ struct AllowedOptionProperties {
   AllowedHintsAndOptionsProto::OptionProto::ResolvingKind resolving_kind =
       AllowedHintsAndOptionsProto::OptionProto::
           CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER;
+  bool allow_alter_array = false;
 };
 
 // This class specifies a set of allowed hints and options, and their expected
@@ -120,7 +121,8 @@ struct AllowedHintsAndOptions {
   }
 
   // Add an option.  <type> may be NULL to indicate that all Types are allowed.
-  void AddOption(absl::string_view name, const Type* type);
+  void AddOption(absl::string_view name, const Type* type,
+                 bool allow_alter_array = false);
 
   // Add an anonymization option. <type> may be NULL to indicate that all Types
   // are allowed.
@@ -194,6 +196,7 @@ struct AllowedHintsAndOptions {
           {"max_rows_contributed", {types::Int64Type()}},
           {"group_selection_strategy",
            {types::DifferentialPrivacyGroupSelectionStrategyEnumType()}},
+          {"min_privacy_units_per_group", {types::Int64Type()}},
   };
 
   // Options allowed in ResolvedDifferentialPrivacyAggregateScan.
@@ -208,6 +211,7 @@ struct AllowedHintsAndOptions {
                          FROM_NAME_SCOPE_IDENTIFIER}},
           {"group_selection_strategy",
            {types::DifferentialPrivacyGroupSelectionStrategyEnumType()}},
+          {"min_privacy_units_per_group", {types::Int64Type()}},
   };
 
  private:
@@ -215,7 +219,7 @@ struct AllowedHintsAndOptions {
                            const Type* type, bool allow_unqualified = true);
   absl::Status AddOptionImpl(
       absl::flat_hash_map<std::string, AllowedOptionProperties>& options_map,
-      absl::string_view name, const Type* type,
+      absl::string_view name, const Type* type, bool allow_alter_array,
       AllowedHintsAndOptionsProto::OptionProto::ResolvingKind resolving_kind =
           AllowedHintsAndOptionsProto::OptionProto::
               CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER);

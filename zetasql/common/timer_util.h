@@ -19,7 +19,7 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <optional>
+#include <ctime>
 
 #include "google/protobuf/duration.pb.h"
 #include "zetasql/common/thread_stack.h"
@@ -44,9 +44,38 @@ class ResourceMeasurement {
 #endif
     return ts.tv_sec * 1000000000 + ts.tv_nsec;
   }
+  static int64_t MonotonicWallNanos() {
+#ifdef CLOCK_MONOTONIC
+    timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000000000 + ts.tv_nsec;
+#else
+    return absl::GetCurrentTimeNanos();
+#endif
+  }
+  int64_t wall_nanos_;
   int64_t cpu_nanos_ = ThreadCPUNanos();
-  absl::Time time_ = absl::Now();
   ThreadStackStats stack_stats_ = GetCurrentThreadStackStats();
+
+ public:
+  // CreateStart makes sure to take wall time measurement first, so that
+  // it is consistently longer than CPU time
+  static ResourceMeasurement CreateStart() {
+    ResourceMeasurement ret;
+    ret.wall_nanos_ = MonotonicWallNanos();
+    ret.cpu_nanos_ = ThreadCPUNanos();
+    return ret;
+  }
+
+  // CreateEnd makes sure to take wall time measurement last, so that is
+  // consistently longer than CPU time
+  static ResourceMeasurement CreateEnd() {
+    ResourceMeasurement ret;
+    ret.cpu_nanos_ = ThreadCPUNanos();
+    ret.wall_nanos_ = MonotonicWallNanos();
+    return ret;
+  }
+
   friend class TimedValue;
 };
 
@@ -56,7 +85,7 @@ class ElapsedTimer {
   const ResourceMeasurement& GetStart() const { return timer_start_; }
 
  private:
-  ResourceMeasurement timer_start_ = ResourceMeasurement();
+  ResourceMeasurement timer_start_ = ResourceMeasurement::CreateStart();
 };
 
 // A helper class represent an accumulated total of resources used (like CPU,
@@ -70,7 +99,7 @@ class TimedValue {
  public:
   TimedValue() = default;
   TimedValue(const ResourceMeasurement& start, const ResourceMeasurement& end) {
-    wall_time_ = end.time_ - start.time_;
+    wall_time_ = absl::Nanoseconds(end.wall_nanos_ - start.wall_nanos_);
     cpu_time_ = absl::Nanoseconds(end.cpu_nanos_ - start.cpu_nanos_);
     stack_available_bytes_ = start.stack_stats_.ThreadStackAvailableBytes();
     stack_peak_used_bytes_ = end.stack_stats_.ThreadStackPeakUsedBytes();
@@ -92,7 +121,7 @@ class TimedValue {
   ABSL_DEPRECATED("Accumulate all statistics not just wall time")
   void Accumulate(absl::Duration duration) { wall_time_ += duration; }
   void Accumulate(ElapsedTimer timer) {
-    Accumulate(TimedValue(timer.GetStart(), ResourceMeasurement()));
+    Accumulate(TimedValue(timer.GetStart(), ResourceMeasurement::CreateEnd()));
   }
   void Accumulate(const TimedValue& timer) {
     wall_time_ += timer.wall_time_;

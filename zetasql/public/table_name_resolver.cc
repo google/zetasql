@@ -133,12 +133,18 @@ class TableNameResolver {
   // into or deleting from.  It does *not* include WITH table aliases or TVF
   // table-valued argument names (which are both tracked separately in
   // 'local_table_aliases_').
-  absl::Status FindInQuery(const ASTQuery* query,
-                           const AliasSet& visible_aliases);
+  // Range variables this query exports will be added to 'new_aliases'.
+  // The default value can be used when those aliases are ignored.
+  absl::Status FindInQuery(
+      const ASTQuery* query, const AliasSet& visible_aliases,
+      AliasSet* new_aliases = std::make_unique<AliasSet>().get());
 
+  // 'visible_aliases' are the aliases that can be resolved inside the query.
+  // Range variables this query exports will be added to 'new_aliases'.
   absl::Status FindInQueryExpression(const ASTQueryExpression* query_expr,
                                      const ASTOrderBy* order_by,
-                                     const AliasSet& visible_aliases);
+                                     const AliasSet& visible_aliases,
+                                     AliasSet* new_aliases);
 
   absl::Status FindInSelect(const ASTSelect* select, const ASTOrderBy* order_by,
                             const AliasSet& orig_visible_aliases);
@@ -1183,9 +1189,9 @@ absl::Status TableNameResolver::FindInMergeStatement(
   return absl::OkStatus();
 }
 
-absl::Status TableNameResolver::FindInQuery(
-    const ASTQuery* query,
-    const AliasSet& visible_aliases) {
+absl::Status TableNameResolver::FindInQuery(const ASTQuery* query,
+                                            const AliasSet& visible_aliases,
+                                            AliasSet* new_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   AliasSet old_local_table_aliases;
   if (query->with_clause() != nullptr) {
@@ -1218,9 +1224,14 @@ absl::Status TableNameResolver::FindInQuery(
     }
   }
 
-  ZETASQL_RETURN_IF_ERROR(FindInQueryExpression(query->query_expr(),
-                                        query->order_by(),
-                                        visible_aliases));
+  AliasSet local_visible_aliases = visible_aliases;
+
+  ZETASQL_RETURN_IF_ERROR(FindInQueryExpression(
+      query->query_expr(), query->order_by(), visible_aliases,
+      /*new_aliases=*/&local_visible_aliases));
+
+  new_aliases->insert(local_visible_aliases.begin(),
+                      local_visible_aliases.end());
 
   // Restore local table alias set if we modified it.
   if (query->with_clause() != nullptr) {
@@ -1230,9 +1241,8 @@ absl::Status TableNameResolver::FindInQuery(
 }
 
 absl::Status TableNameResolver::FindInQueryExpression(
-    const ASTQueryExpression* query_expr,
-    const ASTOrderBy* order_by,
-    const AliasSet& visible_aliases) {
+    const ASTQueryExpression* query_expr, const ASTOrderBy* order_by,
+    const AliasSet& visible_aliases, AliasSet* new_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   switch (query_expr->node_kind()) {
     case AST_SELECT:
@@ -1288,8 +1298,9 @@ absl::Status TableNameResolver::FindInSetOperation(
     const ASTSetOperation* set_operation,
     const AliasSet& visible_aliases) {
   for (const ASTQueryExpression* input : set_operation->inputs()) {
+    AliasSet new_aliases;
     ZETASQL_RETURN_IF_ERROR(FindInQueryExpression(input, nullptr /* order_by */,
-                                          visible_aliases));
+                                          visible_aliases, &new_aliases));
   }
   return absl::OkStatus();
 }
@@ -1436,8 +1447,9 @@ absl::Status TableNameResolver::FindInTableSubquery(
     AliasSet* local_visible_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
+  AliasSet new_aliases;
   ZETASQL_RETURN_IF_ERROR(FindInQuery(table_subquery->subquery(),
-                              external_visible_aliases));
+                              external_visible_aliases, &new_aliases));
 
   if (table_subquery->pivot_clause() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(table_subquery->pivot_clause(),
@@ -1445,9 +1457,14 @@ absl::Status TableNameResolver::FindInTableSubquery(
   }
 
   if (table_subquery->alias() != nullptr) {
+    // If the table subquery has a table alias, that alias becomes visible and
+    // aliases from the inner query are hidden.
     zetasql_base::InsertIfNotPresent(
         local_visible_aliases,
         absl::AsciiStrToLower(table_subquery->alias()->GetAsStringView()));
+  } else {
+    // Otherwise, the inner table aliases propagate out.
+    local_visible_aliases->insert(new_aliases.begin(), new_aliases.end());
   }
   return absl::OkStatus();
 }

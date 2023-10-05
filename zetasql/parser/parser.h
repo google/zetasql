@@ -17,7 +17,6 @@
 #ifndef ZETASQL_PARSER_PARSER_H_
 #define ZETASQL_PARSER_PARSER_H_
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -31,10 +30,10 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/base/attributes.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/variant.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -134,7 +133,7 @@ class ParserOutput {
                    std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
           node,
       std::unique_ptr<std::vector<absl::Status>> warnings,
-      ParserRuntimeInfo info = {});
+      std::unique_ptr<ParserRuntimeInfo> info = nullptr);
   ParserOutput(const ParserOutput&) = delete;
   ParserOutput& operator=(const ParserOutput&) = delete;
   ~ParserOutput();
@@ -174,7 +173,10 @@ class ParserOutput {
 
   const std::vector<absl::Status>& warnings() const { return *warnings_; }
 
-  const ParserRuntimeInfo& runtime_info() const { return runtime_info_; }
+  const ParserRuntimeInfo& runtime_info() const {
+    ABSL_DCHECK(runtime_info_ != nullptr);
+    return *runtime_info_;
+  }
 
  private:
   template<class T>
@@ -197,7 +199,7 @@ class ParserOutput {
 
   std::unique_ptr<std::vector<absl::Status>> warnings_;
 
-  ParserRuntimeInfo runtime_info_;
+  std::unique_ptr<ParserRuntimeInfo> runtime_info_;
 };
 
 // Parses <statement_string> and returns the parser output in <output> upon

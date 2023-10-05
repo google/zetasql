@@ -371,30 +371,26 @@ primary key already exists in the table.
 You can change this behavior by choosing one of the following options for
 handling duplicate rows:
 
-+ `IGNORE`
-+ `REPLACE`
-+ `UPDATE`
++ `INSERT OR IGNORE`: The existing or first row is inserted, and the rest are
+  ignored.
++ `INSERT OR REPLACE`: All but the last inserted row are replaced.
++ `INSERT OR UPDATE`: Updates are applied sequentially, ending with the last
+  update.
 
 Your statement would resemble the following:
 
 <pre>
-INSERT [OR] IGNORE | REPLACE | UPDATE <em>&lt;rest of statement&gt;</em>
+INSERT [OR] { IGNORE | REPLACE | UPDATE } <em>&lt;rest of statement&gt;</em>
 </pre>
 
 These keywords require that your table includes a primary key. If the table does
 not have a primary key, the statement fails.
 
-In cases where an `INSERT` statement attempts to add the same row twice,
-ZetaSQL treats the inserts as if they were applied sequentially. This means
-that:
+If a table is unordered, the first row, last row, and sequence of rows
+are arbitrary.
 
-+ For `INSERT IGNORE` statements, the first row is inserted, and the rest are
-ignored.
-+ For `INSERT REPLACE` statements, all but the last insert are replaced.
-+ For `INSERT UPDATE` statements, updates are applied sequentially, ending with
-the last update.
-
-#### `INSERT IGNORE`
+#### `INSERT OR IGNORE` 
+<a id="insert_ignore"></a>
 
 You can instruct your `INSERT` statement to skip any rows that have duplicate
 primary keys by using the `IGNORE` keyword.
@@ -408,11 +404,12 @@ INSERT OR IGNORE INTO Singers
 VALUES ("Catalina", "Smith", "1990-08-17", DEFAULT, "nationality:'U.S.A.'");
 ```
 
-`INSERT IGNORE` ignores only duplicate rows that have the same primary key.
-ZetaSQL raises an error if any other constraint violation occurs, including
-duplicate keys in unique indexes.
+`INSERT OR IGNORE` ignores only duplicate rows that have the same
+primary key. ZetaSQL raises an error if any other constraint
+violation occurs, including duplicate keys in unique indexes.
 
-#### `INSERT REPLACE`
+#### `INSERT OR REPLACE` 
+<a id="insert_replace"></a>
 
 You can instruct your `INSERT` statement to replace any rows that have duplicate
 primary keys by using the `REPLACE` statement. Replaced rows have the same
@@ -431,16 +428,17 @@ Using `REPLACE` is the same as deleting the existing row and inserting a
 replacement one. As a result, any columns that you do not mention in the
 replacement row are cleared and replaced with their default values. If you want
 your statement to preserve the values of unspecified columns, use
-`INSERT UPDATE`.
+`INSERT OR UPDATE`.
 
-#### `INSERT UPDATE`
+#### `INSERT OR UPDATE` 
+<a id="insert_update"></a>
 
-With an `INSERT UPDATE` statement, the statement updates the columns specified
+`INSERT OR UPDATE` updates the columns specified
 for one or more rows. Columns that are not listed in the `INSERT` statement
 remain unchanged.
 
-The following example illustrates how `INSERT UPDATE` changes an existing row.
-In this case, the status is changed from `active` to `inactive`.
+The following example illustrates how `INSERT OR UPDATE` changes an
+existing row. In this case, the status is changed from `active` to `inactive`.
 
 ```
 INSERT OR UPDATE INTO Singers
@@ -507,7 +505,7 @@ One of the value expressions in the `INSERT` statement adds a new row, while the
 second updates an existing one. Both result in a total of 2 modified rows, which
 matches the `ASSERT_ROWS_MODIFIED 2` clause of the statement.
 
-The following statement uses `INSERT IGNORE` to add rows to the table.
+The following statement uses `INSERT OR IGNORE` to add rows to the table.
 
 ```
 INSERT OR IGNORE INTO Singers

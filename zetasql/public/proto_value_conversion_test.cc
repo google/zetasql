@@ -48,7 +48,6 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"

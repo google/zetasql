@@ -1333,6 +1333,9 @@ TEST(StringsTest, ParseIdentifierPathWithSlashes) {
        "/root:/global.dataset-sub.Table",
        {},
        "invalid character"},
+      {"PathWithReservedKeyword1", "/END", {}, "reserved keyword"},
+      {"PathWithReservedKeyword2", "/abc/END", {}, "reserved keyword"},
+      {"PathWithReservedKeyword3", "/abc/END/def", {}, "reserved keyword"},
       {"SlashNextToDot", "/root/global/.Table", {}, "invalid character"},
   });
 

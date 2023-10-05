@@ -98,6 +98,7 @@ public class FunctionArgumentTypeTest {
     assertThat(typeNull.debugString()).isEqualTo("repeated FIXED");
   }
 
+  // TODO: Break this test into multiple smaller unit tests.
   @Test
   public void testNotFixedType() {
     FunctionArgumentType arrayTypeAny1 =
@@ -171,6 +172,38 @@ public class FunctionArgumentTypeTest {
     assertThat(arrayTypeAny3.getType()).isNull();
     assertThat(arrayTypeAny3.isRepeated()).isFalse();
     assertThat(arrayTypeAny3.debugString()).isEqualTo("<array<T3>>");
+
+    FunctionArgumentType typeAny4 =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_4, ArgumentCardinality.REQUIRED, 2);
+    assertThat(typeAny4.isConcrete()).isFalse();
+    assertThat(typeAny4.getType()).isNull();
+    assertThat(typeAny4.isRepeated()).isFalse();
+    assertThat(typeAny4.debugString()).isEqualTo("<T4>");
+
+    FunctionArgumentType arrayTypeAny4 =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_4, ArgumentCardinality.REQUIRED, 2);
+    assertThat(arrayTypeAny4.isConcrete()).isFalse();
+    assertThat(arrayTypeAny4.getType()).isNull();
+    assertThat(arrayTypeAny4.isRepeated()).isFalse();
+    assertThat(arrayTypeAny4.debugString()).isEqualTo("<array<T4>>");
+
+    FunctionArgumentType typeAny5 =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_5, ArgumentCardinality.REQUIRED, 2);
+    assertThat(typeAny5.isConcrete()).isFalse();
+    assertThat(typeAny5.getType()).isNull();
+    assertThat(typeAny5.isRepeated()).isFalse();
+    assertThat(typeAny5.debugString()).isEqualTo("<T5>");
+
+    FunctionArgumentType arrayTypeAny5 =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_5, ArgumentCardinality.REQUIRED, 2);
+    assertThat(arrayTypeAny5.isConcrete()).isFalse();
+    assertThat(arrayTypeAny5.getType()).isNull();
+    assertThat(arrayTypeAny5.isRepeated()).isFalse();
+    assertThat(arrayTypeAny5.debugString()).isEqualTo("<array<T5>>");
 
     FunctionArgumentType typeArbitrary =
         new FunctionArgumentType(
@@ -274,6 +307,7 @@ public class FunctionArgumentTypeTest {
         FunctionArgumentTypeOptions.builder()
             .setCardinality(ArgumentCardinality.REPEATED)
             .setMustBeConstant(true)
+            .setMustBeConstantExpression(true)
             .setMustBeNonNull(true)
             .setIsNotAggregate(true)
             .setMustSupportEquality(true)

@@ -497,3 +497,437 @@ SELECT nested_catalog.fn_for_argument_alias(1 AS alias, "string" AS invalid_alia
 ERROR: Unexpected function call argument alias found at nested_catalog.fn_for_argument_alias [at 1:66]
 ...fn_for_argument_alias(1 AS alias, "string" AS invalid_alias)
                                               ^
+==
+
+# The following test cases with `fn_to_struct_with_optional_aliases` do not have
+# java tests because the function has a ComputeResultTypeCallback.
+#
+# Signature does not allow argument aliases, and no aliases are provided. No
+# `InputArgumentType` has aliases stored, so the default "no_alias_<i>" is used.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(TRUE, TRUE)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<no_alias_0 BOOL, no_alias_1 BOOL>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BOOL, BOOL) -> STRUCT<no_alias_0 BOOL, no_alias_1 BOOL>)
+    |     +-Literal(type=BOOL, value=true)
+    |     +-Literal(type=BOOL, value=true)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Signature does not allow argument aliases, but an alias is provided. A sql
+# error should occur.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(TRUE AS alias_0, TRUE)
+--
+ERROR: Unexpected function call argument alias found at fn_to_struct_with_optional_aliases [at 1:48]
+SELECT fn_to_struct_with_optional_aliases(TRUE AS alias_0, TRUE)
+                                               ^
+==
+
+# Signature allows the first argument to have an alias, but the function call
+# does not specify one. An alias is generated and is used as the corresponding
+# struct field name.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(int64, 2)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<int64 INT64, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<int64 INT64, no_alias_1 INT64>)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+==
+
+# Similar to the test case above but with type coercion. An alias should still
+# be generated for `int32`.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(int32, 2)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<int32 INT64, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<int32 INT64, no_alias_1 INT64>)
+    |     +-Cast(INT32 -> INT64)
+    |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
+==
+
+# Similar to the test case above but with literal coercion. An empty alias is
+# generated for the first argument.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(1, 2)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<INT64, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<INT64, no_alias_1 INT64>)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Signature allows the first argument to have an alias, and the function call
+# provides an alias, which will be used as the corresponding struct field name.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(int64 AS alias_0, 2)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<alias_0 INT64, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<alias_0 INT64, no_alias_1 INT64>)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+==
+
+# Similar to the test case above but with type coercion.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(int32 AS alias_0, 2)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<alias_0 INT64, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<alias_0 INT64, no_alias_1 INT64>)
+    |     +-Cast(INT32 -> INT64)
+    |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
+==
+
+# Similar to the test case above but with literal coercion.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(1 AS alias_0, 2)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<alias_0 INT64, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<alias_0 INT64, no_alias_1 INT64>)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Signature allows both the arguments to have aliases, but the function call
+# does not supply aliases.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(string, string)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<string STRING, string STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(STRING, STRING) -> STRUCT<string STRING, string STRING>)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
+==
+
+# Signature allows both the arguments to have aliases, but the function call
+# only provides an alias for the 2nd argument.
+# Because the first argument is a literal, its generated alias is an empty string.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases("a", "b" AS alias_1)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<STRING, alias_1 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(STRING, STRING) -> STRUCT<STRING, alias_1 STRING>)
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=STRING, value="b")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Signature allows both the arguments to have aliases, and the function call
+# provides aliases for both.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases("a" AS alias_0, "b" AS alias_1)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<alias_0 STRING, alias_1 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(STRING, STRING) -> STRUCT<alias_0 STRING, alias_1 STRING>)
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=STRING, value="b")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Signature with optional arguments. No arguments. Because the arguments have
+# default values, an alias (empty string) is still generated for the first
+# argument.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases()
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<STRING, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<STRING, no_alias_1 INT64>)
+    |     +-Literal(type=STRING, value="default_string")
+    |     +-Literal(type=INT64, value=100)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Signature with optional arguments. The first argument is provided without
+# alias, and the 2nd argument is not provided.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(string)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<string STRING, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<string STRING, no_alias_1 INT64>)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-Literal(type=INT64, value=100)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
+==
+
+# Signature with optional arguments. Both the arguments are provided without
+# aliases.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(string, 1)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<string STRING, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<string STRING, no_alias_1 INT64>)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
+==
+
+# Signature with optional arguments. Both the arguments are provided and the
+# first one has an alias.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(string AS alias_0, 1)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<alias_0 STRING, no_alias_1 INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<alias_0 STRING, no_alias_1 INT64>)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
+==
+
+# Signature with repeated arguments. Arguments are not provided.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(b"")
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<no_alias_0 BYTES>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(0) INT64, repeated(0) STRING) -> STRUCT<no_alias_0 BYTES>)
+    |     +-Literal(type=BYTES, value=b"")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Signature with repeated arguments repeated once without aliases. An alias
+# (empty string) is generated for the 2nd argument.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(b"", 1, "string")
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<no_alias_0 BYTES, INT64, no_alias_2 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(1) INT64, repeated(1) STRING) -> STRUCT<no_alias_0 BYTES, INT64, no_alias_2 STRING>)
+    |     +-Literal(type=BYTES, value=b"")
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=STRING, value="string")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Signature with repeated arguments repeated once with aliases.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(b"", 1 AS alias_1, "string")
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<no_alias_0 BYTES, alias_1 INT64, no_alias_2 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(1) INT64, repeated(1) STRING) -> STRUCT<no_alias_0 BYTES, alias_1 INT64, no_alias_2 STRING>)
+    |     +-Literal(type=BYTES, value=b"")
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=STRING, value="string")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Signature with repeated arguments repeated twice without aliases. Both
+# occurrences of int64 are generated with aliases.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(bytes, int64, string, int64, string)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, int64 INT64, no_alias_4 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(2) INT64, repeated(2) STRING) -> STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, int64 INT64, no_alias_4 STRING>)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int64#2, string#5, bytes#6], table=SimpleTypes, column_index_list=[1, 4, 5])
+==
+
+# Signature with repeated arguments repeated twice with aliases.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(bytes, int64 AS alias_1, string, int64 AS alias_3, string)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<no_alias_0 BYTES, alias_1 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(2) INT64, repeated(2) STRING) -> STRUCT<no_alias_0 BYTES, alias_1 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int64#2, string#5, bytes#6], table=SimpleTypes, column_index_list=[1, 4, 5])
+==
+
+# Signature with repeated arguments repeated twice and only the second
+# occurrence has an alias.
+[no_java]
+SELECT fn_to_struct_with_optional_aliases(bytes, int64, string, int64 AS alias_3, string)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(2) INT64, repeated(2) STRING) -> STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int64#2, string#5, bytes#6], table=SimpleTypes, column_index_list=[1, 4, 5])

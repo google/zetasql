@@ -683,6 +683,8 @@ class BuiltinFunctionRegistry {
   BuiltinFunctionRegistry(const BuiltinFunctionRegistry&) = delete;
   BuiltinFunctionRegistry& operator=(const BuiltinFunctionRegistry&) = delete;
 
+  // Returns an unowned pointer to the function. The caller is responsible for
+  // cleanup.
   static absl::StatusOr<BuiltinScalarFunction*> GetScalarFunction(
       FunctionKind kind, const Type* output_type);
 

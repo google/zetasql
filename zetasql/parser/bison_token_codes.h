@@ -14,22 +14,21 @@
 // limitations under the License.
 //
 
-#include "zetasql/common/function_signature_testutil.h"
-
-#include <vector>
-
-#include "zetasql/public/function.pb.h"
+#ifndef ZETASQL_PARSER_BISON_TOKEN_CODES_H_
+#define ZETASQL_PARSER_BISON_TOKEN_CODES_H_
 
 namespace zetasql {
+namespace parser {
 
-std::vector<SignatureArgumentKindGroup> GetRelatedSignatureArgumentGroup() {
-  return {
-      {.kind = ARG_TYPE_ANY_1, .array_kind = ARG_ARRAY_TYPE_ANY_1},
-      {.kind = ARG_TYPE_ANY_2, .array_kind = ARG_ARRAY_TYPE_ANY_2},
-      {.kind = ARG_TYPE_ANY_3, .array_kind = ARG_ARRAY_TYPE_ANY_3},
-      {.kind = ARG_TYPE_ANY_4, .array_kind = ARG_ARRAY_TYPE_ANY_4},
-      {.kind = ARG_TYPE_ANY_5, .array_kind = ARG_ARRAY_TYPE_ANY_5},
-  };
-}
+// Specifies the generated codes for all token kinds.
+enum TokenKinds {
+// This is a generated file that contains just the lines of the form KW_... =
+// in the bison parser. We don't want to take a full compilation dependency on
+// the parser because that would create cyclic dependencies.
+#include "zetasql/parser/bison_token_codes.inc"  
+};
 
+}  // namespace parser
 }  // namespace zetasql
+
+#endif  // ZETASQL_PARSER_BISON_TOKEN_CODES_H_

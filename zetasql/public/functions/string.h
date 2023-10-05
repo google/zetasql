@@ -50,7 +50,6 @@
 #include <vector>
 
 #include "zetasql/public/functions/normalize_mode.pb.h"
-#include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"

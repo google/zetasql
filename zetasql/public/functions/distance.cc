@@ -35,6 +35,8 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "unicode/umachine.h"
+#include "unicode/utf8.h"
 #include "zetasql/base/edit_distance.h"
 #include "zetasql/base/status_macros.h"
 
@@ -311,15 +313,51 @@ absl::StatusOr<Value> EuclideanDistanceSparseStringKey(Value vector1,
   return ComputeEuclideanDistanceFunctionSparse<std::string>(vector1, vector2);
 }
 
-absl::StatusOr<Value> EditDistance(Value v1, Value v2,
-                                   std::optional<Value> max_distance_value) {
-  absl::string_view s0 =
-      v1.type()->IsBytes() ? v1.bytes_value() : v1.string_value();
-  absl::string_view s1 =
-      v2.type()->IsBytes() ? v2.bytes_value() : v2.string_value();
+absl::StatusOr<std::vector<char32_t>> GetUtf8CodePoints(absl::string_view s) {
+  std::vector<char32_t> result;
+  int32_t offset = 0;
+  while (offset < s.size()) {
+    UChar32 character;
+    U8_NEXT(s, offset, s.size(), character);
+    if (character < 0) {
+      return absl::InvalidArgumentError("invalid UTF8 string");
+    }
+    result.push_back(character);
+  }
 
+  return result;
+}
+
+absl::StatusOr<int64_t> EditDistance(
+    absl::string_view s0, absl::string_view s1,
+    std::optional<int64_t> max_distance_value) {
   int64_t max_distance = max_distance_value.has_value()
-                             ? max_distance_value.value().int64_value()
+                             ? max_distance_value.value()
+                             : std::max(s0.size(), s1.size());
+  if (max_distance < 0) {
+    return absl::InvalidArgumentError("max_distance must be non-negative");
+  }
+  const int64_t max_possible_distance = std::max(s0.size(), s1.size());
+  if (max_distance > max_possible_distance) {
+    max_distance = max_possible_distance;
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<char32_t> code_points0, GetUtf8CodePoints(s0));
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<char32_t> code_points1, GetUtf8CodePoints(s1));
+
+  int64_t result = zetasql_base::CappedLevenshteinDistance(
+      code_points0.begin(), code_points0.end(), code_points1.begin(),
+      code_points1.end(), std::equal_to<char32_t>(),
+      static_cast<int>(max_distance));
+
+  return result;
+}
+
+absl::StatusOr<int64_t> EditDistanceBytes(
+    absl::string_view s0, absl::string_view s1,
+    std::optional<int64_t> max_distance_value) {
+  int64_t max_distance = max_distance_value.has_value()
+                             ? max_distance_value.value()
                              : std::max(s0.size(), s1.size());
   if (max_distance < 0) {
     return absl::InvalidArgumentError("max_distance must be non-negative");
@@ -333,7 +371,7 @@ absl::StatusOr<Value> EditDistance(Value v1, Value v2,
       s0.begin(), s0.end(), s1.begin(), s1.end(), std::equal_to<char>(),
       static_cast<int>(max_distance));
 
-  return Value::Int64(result);
+  return result;
 }
 
 }  // namespace functions

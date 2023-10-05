@@ -21,10 +21,28 @@
 #include "zetasql/public/functions/hash.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"
+#include "absl/log/log.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {
 namespace {
+
+static functions::Hasher::Algorithm GetHasherAlgorithm(FunctionKind kind) {
+  switch (kind) {
+    case FunctionKind::kMd5:
+      return functions::Hasher::kMd5;
+    case FunctionKind::kSha1:
+      return functions::Hasher::kSha1;
+    case FunctionKind::kSha256:
+      return functions::Hasher::kSha256;
+    case FunctionKind::kSha512:
+      return functions::Hasher::kSha512;
+    default:
+      // Crash in debug mode, for non-debug mode fall back to MD5.
+      ABSL_DLOG(FATAL) << "Unexpected function kind: " << static_cast<int>(kind);
+      return functions::Hasher::kMd5;
+  }
+}
 
 class HashFunction : public SimpleBuiltinScalarFunction {
  public:
@@ -32,9 +50,8 @@ class HashFunction : public SimpleBuiltinScalarFunction {
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;
-
  private:
-  const std::unique_ptr<functions::Hasher> hasher_;
+  const functions::Hasher::Algorithm algorithm_;
 };
 
 class FarmFingerprintFunction : public SimpleBuiltinScalarFunction {
@@ -49,24 +66,7 @@ class FarmFingerprintFunction : public SimpleBuiltinScalarFunction {
 
 HashFunction::HashFunction(FunctionKind kind)
     : SimpleBuiltinScalarFunction(kind, types::BytesType()),
-      hasher_(
-          functions::Hasher::Create([kind]() -> functions::Hasher::Algorithm {
-            switch (kind) {
-              case FunctionKind::kMd5:
-                return functions::Hasher::kMd5;
-              case FunctionKind::kSha1:
-                return functions::Hasher::kSha1;
-              case FunctionKind::kSha256:
-                return functions::Hasher::kSha256;
-              case FunctionKind::kSha512:
-                return functions::Hasher::kSha512;
-              default:
-                // Crash in debug mode, for non-debug mode fall back to MD5.
-                ABSL_DLOG(FATAL)
-                    << "Unexpected function kind: " << static_cast<int>(kind);
-                return functions::Hasher::kMd5;
-            }
-          }())) {}
+      algorithm_(GetHasherAlgorithm(kind)) {}
 
 absl::StatusOr<Value> HashFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
@@ -80,7 +80,9 @@ absl::StatusOr<Value> HashFunction::Eval(
                                       ? args[0].bytes_value()
                                       : args[0].string_value();
 
-  return Value::Bytes(hasher_->Hash(input));
+  // Create a new hasher on every invocation for thread safety, because the
+  // HashFunction instance is global (b/299648584)
+  return Value::Bytes(functions::Hasher::Create(algorithm_)->Hash(input));
 }
 
 absl::StatusOr<Value> FarmFingerprintFunction::Eval(

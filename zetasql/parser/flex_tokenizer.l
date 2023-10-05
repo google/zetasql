@@ -389,6 +389,7 @@ add { return BisonParserImpl::token::KW_ADD; }
 aggregate { return BisonParserImpl::token::KW_AGGREGATE; }
 all { return BisonParserImpl::token::KW_ALL; }
 alter { return BisonParserImpl::token::KW_ALTER; }
+always { return BisonParserImpl::token::KW_ALWAYS; }
 analyze { return BisonParserImpl::token::KW_ANALYZE; }
 and {
   if (YY_START == IN_BETWEEN) {
@@ -448,6 +449,7 @@ create { return BisonParserImpl::token::KW_CREATE; }
 cross { return BisonParserImpl::token::KW_CROSS; }
 cube { return BisonParserImpl::token::KW_CUBE; }
 current { return BisonParserImpl::token::KW_CURRENT; }
+cycle { return BisonParserImpl::token::KW_CYCLE; }
 data { return BisonParserImpl::token::KW_DATA; }
 database { return BisonParserImpl::token::KW_DATABASE; }
 date { return BisonParserImpl::token::KW_DATE; }
@@ -480,6 +482,7 @@ execute { return BisonParserImpl::token::KW_EXECUTE; }
 exists { return BisonParserImpl::token::KW_EXISTS; }
 explain { return BisonParserImpl::token::KW_EXPLAIN; }
 export { return BisonParserImpl::token::KW_EXPORT; }
+extend { return BisonParserImpl::token::KW_EXTEND; }
 external { return BisonParserImpl::token::KW_EXTERNAL; }
 extract { return BisonParserImpl::token::KW_EXTRACT; }
 false { return BisonParserImpl::token::KW_FALSE; }
@@ -510,6 +513,7 @@ groups { return BisonParserImpl::token::KW_GROUPS; }
 hash { return BisonParserImpl::token::KW_HASH; }
 having { return BisonParserImpl::token::KW_HAVING; }
 hidden { return BisonParserImpl::token::KW_HIDDEN; }
+identity { return BisonParserImpl::token::KW_IDENTITY; }
 if { return BisonParserImpl::token::KW_IF; }
 ignore { return BisonParserImpl::token::KW_IGNORE; }
 immediate { return BisonParserImpl::token::KW_IMMEDIATE; }
@@ -517,6 +521,7 @@ immutable { return BisonParserImpl::token::KW_IMMUTABLE; }
 import { return BisonParserImpl::token::KW_IMPORT; }
 in { return BisonParserImpl::token::KW_IN; }
 include { return BisonParserImpl::token::KW_INCLUDE; }
+increment { return BisonParserImpl::token::KW_INCREMENT; }
 inout { return BisonParserImpl::token::KW_INOUT; }
 index { return BisonParserImpl::token::KW_INDEX; }
 inner { return BisonParserImpl::token::KW_INNER; }
@@ -554,10 +559,12 @@ match { return BisonParserImpl::token::KW_MATCH; }
 matched { return BisonParserImpl::token::KW_MATCHED; }
 materialized  { return BisonParserImpl::token::KW_MATERIALIZED; }
 max { return BisonParserImpl::token::KW_MAX; }
+maxvalue { return BisonParserImpl::token::KW_MAXVALUE; }
 merge { return BisonParserImpl::token::KW_MERGE; }
 message { return BisonParserImpl::token::KW_MESSAGE; }
 metadata { return BisonParserImpl::token::KW_METADATA; }
 min { return BisonParserImpl::token::KW_MIN; }
+minvalue { return BisonParserImpl::token::KW_MINVALUE; }
 model { return BisonParserImpl::token::KW_MODEL; }
 module { return BisonParserImpl::token::KW_MODULE; }
 natural { return BisonParserImpl::token::KW_NATURAL; }

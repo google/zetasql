@@ -22,16 +22,23 @@
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
+#include "zetasql/resolved_ast/node_sources.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/no_destructor.h"
 #include "zetasql/base/status_macros.h"
 
@@ -1638,6 +1645,61 @@ TEST(ValidateTest, AggregationThresholdAggregateScanInvalidOption) {
   EXPECT_THAT(
       validator.ValidateResolvedStatement(node_with_invalid_option.get()),
       testing::StatusIs(absl::StatusCode::kInternal));
+}
+
+static std::unique_ptr<ResolvedSetOperationItem> CreateSetOperationItem(
+    int column_id, absl::string_view node_source, IdStringPool& pool) {
+  ResolvedColumn column = ResolvedColumn(
+      column_id, pool.Make("table"), pool.Make("column"), types::Int64Type());
+  std::unique_ptr<ResolvedScan> scan = MakeResolvedSingleRowScan({column});
+  scan->set_node_source(std::string(node_source));
+  std::unique_ptr<ResolvedSetOperationItem> item =
+      MakeResolvedSetOperationItem(std::move(scan), {column});
+  return item;
+}
+
+TEST(ValidateTest, SetOperationCorrespondingStrictMode) {
+  IdStringPool pool;
+  // Prepare a set operation scan with mode = STRICT CORRESPONDING, but its
+  // input scans have node_source =
+  // kNodeSourceResolverSetOperationCorresponding, so the validation should
+  // fail.
+  std::vector<std::unique_ptr<ResolvedSetOperationItem>> items;
+  items.push_back(CreateSetOperationItem(
+      /*column_id=*/1, kNodeSourceResolverSetOperationCorresponding, pool));
+  items.push_back(CreateSetOperationItem(
+      /*column_id=*/2, kNodeSourceResolverSetOperationCorresponding, pool));
+
+  ResolvedColumn result_column = ResolvedColumn(
+      3, pool.Make("set_op"), pool.Make("column"), types::Int64Type());
+  std::unique_ptr<ResolvedSetOperationScan> set_operation_scan =
+      MakeResolvedSetOperationScan({result_column},
+                                   ResolvedSetOperationScan::UNION_ALL,
+                                   std::move(items));
+  set_operation_scan->set_column_match_mode(
+      ResolvedSetOperationScan::CORRESPONDING);
+  set_operation_scan->set_column_propagation_mode(
+      ResolvedSetOperationScan::STRICT);
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_CORRESPONDING);
+  language_options.EnableLanguageFeature(
+      FEATURE_V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE);
+  Validator validator(language_options);
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
+  output_column_list.push_back(
+      MakeResolvedOutputColumn("column", result_column));
+  std::unique_ptr<ResolvedQueryStmt> query_stmt = MakeResolvedQueryStmt(
+      std::move(output_column_list),
+      /*is_value_table=*/false, std::move(set_operation_scan));
+
+  absl::Status status = validator.ValidateResolvedStatement(query_stmt.get());
+  EXPECT_THAT(status, testing::StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(status.message(),
+              testing::HasSubstr(
+                  absl::StrCat("STRICT mode should not have node_source = ",
+                               kNodeSourceResolverSetOperationCorresponding)));
 }
 
 }  // namespace

@@ -1,4 +1,5 @@
 # Specify WITH DIFFERENTIAL_PRIVACY with an EXISTS subquery.
+[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]

@@ -114,13 +114,6 @@ class AnalyzerRuntimeInfo {
     return impl_->resolver_timed_value;
   }
 
-  // Total elapsed duration spent processing rewriters; note this isn't quite
-  // the same as the sum of time spent in rewriters, since there is some
-  // overhead.
-  ABSL_DEPRECATED("Inline me!")
-  absl::Duration rewriters_elapsed_duration() const {
-    return rewriters_timed_value().elapsed_duration();
-  }
   internal::TimedValue& rewriters_timed_value() const {
     return impl_->rewriters_timed_value;
   }

@@ -426,17 +426,20 @@ Input values:
   start and how out-of-range indexes are handled. The index is an integer that
   represents a specific position in the array.
   + `OFFSET(index)`: The index starts at zero. Produces an error if the index is
-    out of range. Produces the same
-    result as `index` by itself.
+    out of range. To produce `NULL` instead of an error, use
+    `SAFE_OFFSET(index)`. This
+    position keyword produces the same result as `index` by itself.
   + `SAFE_OFFSET(index)`: The index starts at
     zero. Returns `NULL` if the index is out of range.
   + `ORDINAL(index)`: The index starts at one.
     Produces an error if the index is out of range.
+    To produce `NULL` instead of an error, use `SAFE_ORDINAL(index)`.
   + `SAFE_ORDINAL(index)`: The index starts at
     one. Returns `NULL` if the index is out of range.
 + `index`: An integer that represents a specific position in the array. If used
   by itself without a position keyword, the index starts at zero and produces
-  an error if the index is out of range.
+  an error if the index is out of range. To produce `NULL` instead of an error,
+  use the `SAFE_OFFSET(index)` or `SAFE_ORDINAL(index)` position keyword.
 
 **Return type**
 

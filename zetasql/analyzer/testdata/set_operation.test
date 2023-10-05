@@ -1052,6 +1052,247 @@ QueryStmt
         +-output_column_list=[$union_all2_cast.$struct#8]
 ==
 
+# A set operation on value tables acts as value table when used as a
+# table subquery.
+select *, a, b
+from (
+  select AS STRUCT 1 a, 2 b
+  union all
+  select AS STRUCT 3 c, 4 d
+)
+where b = 2
+--
+QueryStmt
++-output_column_list=
+| +-$query.a#9 AS a [INT64]
+| +-$query.b#10 AS b [INT64]
+| +-$query.a#11 AS a [INT64]
+| +-$query.b#12 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[a#9, b#10, a#11, b#12]
+    +-expr_list=
+    | +-a#9 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$union_all.$struct#7)
+    | |   +-field_idx=0
+    | +-b#10 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$union_all.$struct#7)
+    | |   +-field_idx=1
+    | +-a#11 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$union_all.$struct#7)
+    | |   +-field_idx=0
+    | +-b#12 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$union_all.$struct#7)
+    |     +-field_idx=1
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$union_all.$struct#7]
+        +-input_scan=
+        | +-SetOperationScan
+        |   +-column_list=[$union_all.$struct#7]
+        |   +-op_type=UNION_ALL
+        |   +-input_item_list=
+        |     +-SetOperationItem
+        |     | +-scan=
+        |     | | +-ProjectScan
+        |     | |   +-column_list=[$make_struct.$struct#3]
+        |     | |   +-expr_list=
+        |     | |   | +-$struct#3 :=
+        |     | |   |   +-MakeStruct
+        |     | |   |     +-type=STRUCT<a INT64, b INT64>
+        |     | |   |     +-field_list=
+        |     | |   |       +-ColumnRef(type=INT64, column=$union_all1.a#1)
+        |     | |   |       +-ColumnRef(type=INT64, column=$union_all1.b#2)
+        |     | |   +-input_scan=
+        |     | |     +-ProjectScan
+        |     | |       +-column_list=$union_all1.[a#1, b#2]
+        |     | |       +-expr_list=
+        |     | |       | +-a#1 := Literal(type=INT64, value=1)
+        |     | |       | +-b#2 := Literal(type=INT64, value=2)
+        |     | |       +-input_scan=
+        |     | |         +-SingleRowScan
+        |     | +-output_column_list=[$make_struct.$struct#3]
+        |     +-SetOperationItem
+        |       +-scan=
+        |       | +-ProjectScan
+        |       |   +-column_list=[$union_all2_cast.$struct#8]
+        |       |   +-expr_list=
+        |       |   | +-$struct#8 :=
+        |       |   |   +-Cast(STRUCT<c INT64, d INT64> -> STRUCT<a INT64, b INT64>)
+        |       |   |     +-ColumnRef(type=STRUCT<c INT64, d INT64>, column=$make_struct.$struct#6)
+        |       |   +-input_scan=
+        |       |     +-ProjectScan
+        |       |       +-column_list=[$make_struct.$struct#6]
+        |       |       +-expr_list=
+        |       |       | +-$struct#6 :=
+        |       |       |   +-MakeStruct
+        |       |       |     +-type=STRUCT<c INT64, d INT64>
+        |       |       |     +-field_list=
+        |       |       |       +-ColumnRef(type=INT64, column=$union_all2.c#4)
+        |       |       |       +-ColumnRef(type=INT64, column=$union_all2.d#5)
+        |       |       +-input_scan=
+        |       |         +-ProjectScan
+        |       |           +-column_list=$union_all2.[c#4, d#5]
+        |       |           +-expr_list=
+        |       |           | +-c#4 := Literal(type=INT64, value=3)
+        |       |           | +-d#5 := Literal(type=INT64, value=4)
+        |       |           +-input_scan=
+        |       |             +-SingleRowScan
+        |       +-output_column_list=[$union_all2_cast.$struct#8]
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-GetStructField
+            | +-type=INT64
+            | +-expr=
+            | | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$union_all.$struct#7)
+            | +-field_idx=1
+            +-Literal(type=INT64, value=2)
+==
+
+# A set operation on value tables acts as value table when used as a
+# table subquery, with an alias on the subquery.
+[language_features=V_1_2_GROUP_BY_STRUCT]
+select *, input.*, a, input.a
+from (
+  select AS STRUCT 1 a, 2 b
+  intersect all
+  select AS STRUCT 3 c, 4 d
+) as input
+where b = 2 and input.b = 2
+--
+QueryStmt
++-output_column_list=
+| +-$query.a#9 AS a [INT64]
+| +-$query.b#10 AS b [INT64]
+| +-$query.a#11 AS a [INT64]
+| +-$query.b#12 AS b [INT64]
+| +-$query.a#13 AS a [INT64]
+| +-$query.a#14 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[a#9, b#10, a#11, b#12, a#13, a#14]
+    +-expr_list=
+    | +-a#9 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+    | |   +-field_idx=0
+    | +-b#10 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+    | |   +-field_idx=1
+    | +-a#11 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+    | |   +-field_idx=0
+    | +-b#12 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+    | |   +-field_idx=1
+    | +-a#13 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+    | |   +-field_idx=0
+    | +-a#14 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+    |     +-field_idx=0
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$intersect_all.$struct#7]
+        +-input_scan=
+        | +-SetOperationScan
+        |   +-column_list=[$intersect_all.$struct#7]
+        |   +-op_type=INTERSECT_ALL
+        |   +-input_item_list=
+        |     +-SetOperationItem
+        |     | +-scan=
+        |     | | +-ProjectScan
+        |     | |   +-column_list=[$make_struct.$struct#3]
+        |     | |   +-expr_list=
+        |     | |   | +-$struct#3 :=
+        |     | |   |   +-MakeStruct
+        |     | |   |     +-type=STRUCT<a INT64, b INT64>
+        |     | |   |     +-field_list=
+        |     | |   |       +-ColumnRef(type=INT64, column=$intersect_all1.a#1)
+        |     | |   |       +-ColumnRef(type=INT64, column=$intersect_all1.b#2)
+        |     | |   +-input_scan=
+        |     | |     +-ProjectScan
+        |     | |       +-column_list=$intersect_all1.[a#1, b#2]
+        |     | |       +-expr_list=
+        |     | |       | +-a#1 := Literal(type=INT64, value=1)
+        |     | |       | +-b#2 := Literal(type=INT64, value=2)
+        |     | |       +-input_scan=
+        |     | |         +-SingleRowScan
+        |     | +-output_column_list=[$make_struct.$struct#3]
+        |     +-SetOperationItem
+        |       +-scan=
+        |       | +-ProjectScan
+        |       |   +-column_list=[$intersect_all2_cast.$struct#8]
+        |       |   +-expr_list=
+        |       |   | +-$struct#8 :=
+        |       |   |   +-Cast(STRUCT<c INT64, d INT64> -> STRUCT<a INT64, b INT64>)
+        |       |   |     +-ColumnRef(type=STRUCT<c INT64, d INT64>, column=$make_struct.$struct#6)
+        |       |   +-input_scan=
+        |       |     +-ProjectScan
+        |       |       +-column_list=[$make_struct.$struct#6]
+        |       |       +-expr_list=
+        |       |       | +-$struct#6 :=
+        |       |       |   +-MakeStruct
+        |       |       |     +-type=STRUCT<c INT64, d INT64>
+        |       |       |     +-field_list=
+        |       |       |       +-ColumnRef(type=INT64, column=$intersect_all2.c#4)
+        |       |       |       +-ColumnRef(type=INT64, column=$intersect_all2.d#5)
+        |       |       +-input_scan=
+        |       |         +-ProjectScan
+        |       |           +-column_list=$intersect_all2.[c#4, d#5]
+        |       |           +-expr_list=
+        |       |           | +-c#4 := Literal(type=INT64, value=3)
+        |       |           | +-d#5 := Literal(type=INT64, value=4)
+        |       |           +-input_scan=
+        |       |             +-SingleRowScan
+        |       +-output_column_list=[$intersect_all2_cast.$struct#8]
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            | +-GetStructField
+            | | +-type=INT64
+            | | +-expr=
+            | | | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+            | | +-field_idx=1
+            | +-Literal(type=INT64, value=2)
+            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+              +-GetStructField
+              | +-type=INT64
+              | +-expr=
+              | | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+              | +-field_idx=1
+              +-Literal(type=INT64, value=2)
+==
+
 # UNION of a STRUCT value table and non-value table.  The result is a value
 # table since the first input to the union is a value table.
 select AS STRUCT 1 a, 2 b

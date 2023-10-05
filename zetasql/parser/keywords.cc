@@ -27,20 +27,13 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include <cstdint>
+#include "zetasql/parser/bison_token_codes.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
-
-enum BisonKeywordTokenCode {
-// This is a generated file that contains just the lines of the form KW_... =
-// in the bison parser. We don't want to take a full compilation dependency on
-// the parser because that would create cyclic dependencies.
-#include "zetasql/parser/bison_keyword_token_codes.inc"
-};
 
 namespace zetasql {
 namespace parser {
@@ -86,6 +79,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"aggregate", KW_AGGREGATE},
     {"all", KW_ALL, kReserved},
     {"alter", KW_ALTER},
+    {"always", KW_ALWAYS},
     {"analyze", KW_ANALYZE},
     {"and", KW_AND, kReserved},
     {"any", KW_ANY, kReserved},
@@ -127,6 +121,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"cross", KW_CROSS, kReserved},
     {"cube", KW_CUBE, kReserved},
     {"current", KW_CURRENT, kReserved},
+    {"cycle", KW_CYCLE},
     {"data", KW_DATA},
     {"database", KW_DATABASE},
     {"date", KW_DATE},
@@ -159,6 +154,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"exists", KW_EXISTS, kReserved},
     {"explain", KW_EXPLAIN},
     {"export", KW_EXPORT},
+    {"extend", KW_EXTEND},
     {"external", KW_EXTERNAL},
     {"extract", KW_EXTRACT, kReserved},
     {"false", KW_FALSE, kReserved},
@@ -183,6 +179,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"hash", KW_HASH, kReserved},
     {"having", KW_HAVING, kReserved},
     {"hidden", KW_HIDDEN},
+    {"identity", KW_IDENTITY},
     {"if", KW_IF, kReserved},
     {"ignore", KW_IGNORE, kReserved},
     {"immediate", KW_IMMEDIATE},
@@ -190,6 +187,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"import", KW_IMPORT},
     {"in", KW_IN, kReserved},
     {"include", KW_INCLUDE},
+    {"increment", KW_INCREMENT},
     {"index", KW_INDEX},
     {"inner", KW_INNER, kReserved},
     {"inout", KW_INOUT},
@@ -221,10 +219,12 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"matched", KW_MATCHED},
     {"materialized", KW_MATERIALIZED},
     {"max", KW_MAX},
+    {"maxvalue", KW_MAXVALUE},
     {"merge", KW_MERGE, kReserved},
     {"message", KW_MESSAGE},
     {"metadata", KW_METADATA},
     {"min", KW_MIN},
+    {"minvalue", KW_MINVALUE},
     {"model", KW_MODEL},
     {"module", KW_MODULE},
     {"natural", KW_NATURAL, kReserved},

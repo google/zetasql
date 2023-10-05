@@ -314,37 +314,49 @@ struct EditDistanceParam {
   std::optional<int64_t> max_distance;
 
   int64_t expected_output = 0;
+  int64_t expected_bytes_output = 0;
 
   EditDistanceParam(absl::string_view text1, absl::string_view text2,
                     int64_t expected_output)
-      : text1(text1), text2(text2), expected_output(expected_output) {}
+      : text1(text1),
+        text2(text2),
+        expected_output(expected_output),
+        expected_bytes_output(expected_output) {}
   EditDistanceParam(absl::string_view text1, absl::string_view text2,
                     int64_t max_distance, int64_t expected_output)
       : text1(text1),
         text2(text2),
         max_distance(max_distance),
-        expected_output(expected_output) {}
+        expected_output(expected_output),
+        expected_bytes_output(expected_output) {}
 };
+
+EditDistanceParam EditDistanceParamWithExpectedBytesOutput(
+    absl::string_view text1, absl::string_view text2, int64_t expected_output,
+    int64_t expected_bytes_output) {
+  EditDistanceParam param(text1, text2, expected_output);
+  param.expected_bytes_output = expected_bytes_output;
+  return param;
+}
 
 class EditDistanceParamTest
     : public ::testing::TestWithParam<EditDistanceParam> {};
 
 TEST_P(EditDistanceParamTest, EditDistance) {
   std::vector<Value> params;
-  Value text1 = Value::String(GetParam().text1);
-  Value text2 = Value::String(GetParam().text2);
-  std::optional<Value> max_distance =
+  std::optional<int64_t> max_distance =
       GetParam().max_distance.has_value()
-          ? std::make_optional(Value::Int64(GetParam().max_distance.value()))
+          ? std::make_optional(GetParam().max_distance.value())
           : std::nullopt;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(Value result, EditDistance(text1, text2, max_distance));
-  EXPECT_EQ(result.int64_value(), GetParam().expected_output);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      int64_t result,
+      EditDistance(GetParam().text1, GetParam().text2, max_distance));
+  EXPECT_EQ(result, GetParam().expected_output);
 
-  Value bytes1 = Value::Bytes(GetParam().text1);
-  Value bytes2 = Value::Bytes(GetParam().text2);
-  ZETASQL_ASSERT_OK_AND_ASSIGN(Value result_bytes,
-                       EditDistance(bytes1, bytes2, max_distance));
-  EXPECT_EQ(result_bytes.int64_value(), GetParam().expected_output);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      int64_t result_bytes,
+      EditDistanceBytes(GetParam().text1, GetParam().text2, max_distance));
+  EXPECT_EQ(result_bytes, GetParam().expected_bytes_output);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -355,6 +367,18 @@ INSTANTIATE_TEST_SUITE_P(
         EditDistanceParam("a", "b", 1), EditDistanceParam("a", "a", 0),
         EditDistanceParam("aa", "a", 1), EditDistanceParam("abc", "abd", 1),
         EditDistanceParam("abc", "abd", 1), EditDistanceParam("aac", "abd", 2),
+
+        // Unicode
+        EditDistanceParamWithExpectedBytesOutput("𨉟€", "€€", 1, 4),
+        EditDistanceParamWithExpectedBytesOutput("a𨉟b", "a€b", 1, 4),
+        // àx is \u00e0 \u0078
+        // a̋x is \u0061 \u030b \u0078
+        EditDistanceParamWithExpectedBytesOutput("àx", "a̋x", 2, 3),
+        EditDistanceParamWithExpectedBytesOutput("zàx", "za̋x", 2, 3),
+        // Note that the following use different code points than the above.
+        // àx is \u0061 \u0300 \u0078
+        // áx is \u0061 \u0301 \u0078
+        EditDistanceParam("àx", "áx", 1),
 
         // With max distance.
         EditDistanceParam("123", "1234567", 5, 4),
@@ -369,17 +393,22 @@ INSTANTIATE_TEST_SUITE_P(
 
             ));
 
-TEST(EditDistance, LongString) {
+TEST(EditDistance, TwoLongStrings) {
   std::vector<Value> params;
-  std::string very_long_string = " ";
-  for (int i = 0; i < 20; i++) {  // Final length is ~2^20 bytes.
-    very_long_string.append(very_long_string);
-  }
+  std::string very_long_string1 = std::string(1 << 12, '1');
+  std::string very_long_string2 = std::string(1 << 12, '2');
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(Value result,
-                       EditDistance(Value::String(very_long_string),
-                                    Value::String("text"), std::nullopt));
-  EXPECT_EQ(result.int64_value(), 1 << 20);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      int64_t result,
+      EditDistance(very_long_string1, very_long_string2, std::nullopt));
+  EXPECT_EQ(result, 1 << 12);
+}
+
+TEST(EditDistance, VeryLongStringAndShortString) {
+  std::string very_long_string = std::string(1 << 20, ' ');
+  ZETASQL_ASSERT_OK_AND_ASSIGN(int64_t result,
+                       EditDistance(very_long_string, "   ", std::nullopt));
+  EXPECT_EQ(result, (1 << 20) - 3);
 }
 
 }  // namespace

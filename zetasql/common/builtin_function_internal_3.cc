@@ -403,18 +403,32 @@ void GetStringFunctions(TypeFactory* type_factory,
             }));
   }
 
-  InsertFunction(
-      functions, options, "edit_distance", SCALAR,
-      {{int64_type,
-        {string_type,
-         string_type,
-         {int64_type, FunctionArgumentTypeOptions()
-                          .set_cardinality(FunctionEnums::OPTIONAL)
-                          .set_argument_name("max_distance", kNamedOnly)
-                          .set_default(values::Int64(
-                              std::numeric_limits<int64_t>::max()))}},
-        FN_EDIT_DISTANCE}},
-      FunctionOptions());
+  std::vector<FunctionSignatureOnHeap> edit_distance_signature = {
+      {int64_type,
+       {string_type,
+        string_type,
+        {int64_type,
+         FunctionArgumentTypeOptions()
+             .set_cardinality(FunctionEnums::OPTIONAL)
+             .set_argument_name("max_distance", kNamedOnly)
+             .set_default(values::Int64(std::numeric_limits<int64_t>::max()))}},
+       FN_EDIT_DISTANCE},
+  };
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_ENABLE_EDIT_DISTANCE_BYTES)) {
+    edit_distance_signature.push_back(
+        {int64_type,
+         {bytes_type,
+          bytes_type,
+          {int64_type, FunctionArgumentTypeOptions()
+                           .set_cardinality(FunctionEnums::OPTIONAL)
+                           .set_argument_name("max_distance", kNamedOnly)
+                           .set_default(values::Int64(
+                               std::numeric_limits<int64_t>::max()))}},
+         FN_EDIT_DISTANCE_BYTES});
+  }
+  InsertFunction(functions, options, "edit_distance", SCALAR,
+                 edit_distance_signature, FunctionOptions());
 }
 
 void GetRegexFunctions(TypeFactory* type_factory,
@@ -744,13 +758,17 @@ void GetConditionalFunctions(TypeFactory* type_factory,
       functions, options, "ifnull", SCALAR,
       {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_IFNULL}});
 
+  bool uses_operation_collation_for_nullif =
+      options.language_options.LanguageFeatureEnabled(
+          zetasql::FEATURE_V_1_4_USE_OPERATION_COLLATION_FOR_NULLIF);
   // NULLIF(expr1, expr2): NULL if expr1 = expr2, otherwise returns expr1.
   InsertFunction(
       functions, options, "nullif", SCALAR,
       {{ARG_TYPE_ANY_1,
         {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
         FN_NULLIF,
-        FunctionSignatureOptions().set_uses_operation_collation()}},
+        FunctionSignatureOptions().set_uses_operation_collation(
+            uses_operation_collation_for_nullif)}},
       FunctionOptions().set_post_resolution_argument_constraint(
           absl::bind_front(&CheckArgumentsSupportEquality, "NULLIF")));
 
@@ -1564,11 +1582,11 @@ absl::Status GetNumericFunctions(TypeFactory* type_factory,
       FunctionArgumentType::OPTIONAL;
 
   FunctionSignatureOptions has_floating_point_argument;
-  has_floating_point_argument.set_constraints(&HasFloatingPointArgument);
+  has_floating_point_argument.set_constraints(&CheckHasFloatingPointArgument);
   FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
   FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
 
   InsertSimpleFunction(
       functions, options, "abs", SCALAR,
@@ -2081,10 +2099,10 @@ void GetHllCountFunctions(TypeFactory* type_factory,
       FunctionArgumentType::OPTIONAL;
 
   FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
 
   FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
 
   // The second argument must be an integer literal between 10 and 24,
   // and cannot be NULL.
@@ -2148,10 +2166,10 @@ void GetD3ACountFunctions(TypeFactory* type_factory,
       FunctionArgumentType::OPTIONAL;
 
   FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
 
   FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
 
   // The second argument `weight` is required to avoid misusage as HLL_COUNT and
   // ensure that the user is using it in the cases they need deletions.
@@ -2831,6 +2849,11 @@ void GetGeographyFunctions(TypeFactory* type_factory,
       functions, options, "st_interiorrings", SCALAR,
       {{geography_array_type, {geography_type}, FN_ST_INTERIORRINGS}},
       geography_required);
+  InsertFunction(functions, options, "st_linesubstring", SCALAR,
+                 {{geography_type,
+                   {geography_type, double_type, double_type},
+                   FN_ST_LINE_SUBSTRING}},
+                 geography_required);
 
   // Predicates
   InsertSimpleFunction(
@@ -3146,7 +3169,7 @@ void GetAnonFunctions(TypeFactory* type_factory,
       FunctionArgumentType::OPTIONAL;
 
   FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
 
   FunctionOptions anon_options =
       FunctionOptions()
@@ -3576,7 +3599,7 @@ absl::Status GetDifferentialPrivacyFunctions(
   ZETASQL_ASSIGN_OR_RETURN(const Type* numeric_pair_type, make_pair_type(numeric_type));
 
   FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
 
   auto no_matching_signature_callback =
       [](absl::string_view qualified_function_name,
@@ -3650,31 +3673,43 @@ absl::Status GetDifferentialPrivacyFunctions(
         auto dp_report_constraint =
             [report_arg_position, report_format](
                 const FunctionSignature& concrete_signature,
-                const std::vector<InputArgumentType>& arguments) {
-              if (arguments.size() <= report_arg_position) {
-                return false;
-              }
-              const Value* value =
-                  arguments.at(report_arg_position).literal_value();
-              if (value == nullptr || !value->is_valid()) {
-                return false;
-              }
-              const Value expected_value =
-                  Value::Enum(types::DifferentialPrivacyReportFormatEnumType(),
-                              report_format);
-              // If we encounter string we have to create enum type out of it to
-              // be able to compare against expected enum value.
-              if (value->type()->IsString()) {
-                auto enum_value = Value::Enum(
-                    types::DifferentialPrivacyReportFormatEnumType(),
-                    value->string_value());
-                if (!enum_value.is_valid()) {
-                  return false;
-                }
-                return enum_value.Equals(expected_value);
-              }
-              return value->Equals(expected_value);
-            };
+                const std::vector<InputArgumentType>& arguments)
+            -> std::string {
+          if (arguments.size() <= report_arg_position) {
+            return absl::StrCat("at most ", report_arg_position,
+                                " argument(s) can be provided");
+          }
+          const Value* value =
+              arguments.at(report_arg_position).literal_value();
+          if (value == nullptr || !value->is_valid()) {
+            return absl::StrCat("literal value is required at ",
+                                report_arg_position + 1);
+          }
+          const Value expected_value = Value::Enum(
+              types::DifferentialPrivacyReportFormatEnumType(), report_format);
+          // If we encounter string we have to create enum type out of it to
+          // be able to compare against expected enum value.
+          if (value->type()->IsString()) {
+            auto enum_value =
+                Value::Enum(types::DifferentialPrivacyReportFormatEnumType(),
+                            value->string_value());
+            if (!enum_value.is_valid()) {
+              return absl::StrCat("Invalid enum value: ",
+                                  value->string_value());
+            }
+            if (enum_value.Equals(expected_value)) {
+              return "";
+            }
+            return absl::StrCat(
+                "Found: ", enum_value.EnumDisplayName(),
+                " expecting: ", expected_value.EnumDisplayName());
+          }
+          if (value->Equals(expected_value)) {
+            return std::string("");
+          }
+          return absl::StrCat("Found: ", value->EnumDisplayName(),
+                              " expecting: ", expected_value.EnumDisplayName());
+        };
         return FunctionSignatureOptions()
             .set_constraints(dp_report_constraint)
             .add_required_language_feature(

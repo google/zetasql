@@ -37,7 +37,6 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"

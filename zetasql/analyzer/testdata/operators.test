@@ -1915,6 +1915,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator < for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 < T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 < UINT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: UINT64 < INT64
@@ -1932,6 +1933,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator <= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 <= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 <= UINT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: UINT64 <= INT64
@@ -1949,6 +1951,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator > for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 > T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 > UINT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: UINT64 > INT64
@@ -1966,6 +1969,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator >= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 >= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 >= UINT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: UINT64 >= INT64
@@ -1983,6 +1987,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: UINT64 = INT64
@@ -2000,6 +2005,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator != for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 != T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 != UINT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: UINT64 != INT64
@@ -2035,6 +2041,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 < T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 < UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 < INT64
@@ -2052,6 +2059,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 <= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 <= UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 <= INT64
@@ -2069,6 +2077,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 > T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 > UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 > INT64
@@ -2086,6 +2095,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 >= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 >= UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 >= INT64
@@ -2103,6 +2113,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 = INT64
@@ -2120,6 +2131,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 != T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 != UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 != INT64
@@ -2155,6 +2167,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 < T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 < UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 < INT64
@@ -2172,6 +2185,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 <= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 <= UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 <= INT64
@@ -2189,6 +2203,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 > T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 > UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 > INT64
@@ -2206,6 +2221,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 >= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 >= UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 >= INT64
@@ -2223,6 +2239,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 = INT64
@@ -2240,6 +2257,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 != T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 != UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 != INT64
@@ -2275,6 +2293,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 < T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 < UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 < INT64
@@ -2292,6 +2311,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 <= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 <= UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 <= INT64
@@ -2309,6 +2329,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 > T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 > UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 > INT64
@@ -2326,6 +2347,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 >= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 >= UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 >= INT64
@@ -2343,6 +2365,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 = INT64
@@ -2360,6 +2383,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 != T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 != UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 != INT64
@@ -2395,6 +2419,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 < T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 < UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 < INT64
@@ -2412,6 +2437,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 <= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 <= UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 <= INT64
@@ -2429,6 +2455,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 > T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 > UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 > INT64
@@ -2446,6 +2473,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 >= T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 >= UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 >= INT64
@@ -2463,6 +2491,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 = INT64
@@ -2480,6 +2509,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 != T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 != UINT64
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 != INT64
@@ -2732,6 +2762,7 @@ ERROR: No matching signature for operator IS NOT DISTINCT FROM
   Argument types: STRING, INT64
   Signature: T1 IS NOT DISTINCT FROM T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, STRING}
   Signature: INT64 IS NOT DISTINCT FROM UINT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: UINT64 IS NOT DISTINCT FROM INT64
@@ -2750,6 +2781,7 @@ ERROR: No matching signature for operator IS DISTINCT FROM
   Argument types: STRING, INT64
   Signature: T1 IS DISTINCT FROM T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, STRING}
   Signature: INT64 IS DISTINCT FROM UINT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: UINT64 IS DISTINCT FROM INT64

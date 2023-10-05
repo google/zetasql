@@ -20,18 +20,39 @@
 #include <cstdint>
 
 #include "zetasql/common/timer_util.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/logging.pb.h"
-#include "absl/base/macros.h"
-#include "absl/flags/flag.h"
+#include "absl/base/attributes.h"
 
 namespace zetasql {
 
+inline ExecutionStats::ParserVariant GetPrimaryParser(
+    const LanguageOptions& language_options) {
+  return language_options.LanguageFeatureEnabled(FEATURE_TEXTMAPPER_PARSER)
+             ? ExecutionStats::PARSER_TEXTMAPPER
+             : ExecutionStats::PARSER_BISON;
+}
+
+inline ExecutionStats::ParserVariant GetShadowParser(
+    const LanguageOptions& language_options) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_SHADOW_PARSING)) {
+    return ExecutionStats::PARSER_UNSPECIFIED;
+  }
+  return language_options.LanguageFeatureEnabled(FEATURE_TEXTMAPPER_PARSER)
+             ? ExecutionStats::PARSER_BISON
+             : ExecutionStats::PARSER_TEXTMAPPER;
+}
+
 class ParserRuntimeInfo {
  public:
-  ABSL_DEPRECATED("Inline me!")
-  absl::Duration parser_elapsed_duration() const {
-    return parser_timed_value().elapsed_duration();
-  }
+  explicit ParserRuntimeInfo(const LanguageOptions& language_options)
+  {}
+  // Used only for analyzer_output's compatibility. "
+  ABSL_DEPRECATED("Use the constructor that takes a LanguageOptions.")
+  ParserRuntimeInfo()
+  {}
+
   internal::TimedValue& parser_timed_value() { return parser_timed_value_; }
   const internal::TimedValue& parser_timed_value() const {
     return parser_timed_value_;
@@ -69,5 +90,6 @@ class ParserRuntimeInfo {
   internal::TimedValue parser_timed_value_;
   int64_t num_lexical_tokens_ = 0;
 };
+
 }  // namespace zetasql
 #endif  // ZETASQL_PARSER_PARSER_RUNTIME_INFO_H_

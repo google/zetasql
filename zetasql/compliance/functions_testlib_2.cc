@@ -48,6 +48,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace {
@@ -751,7 +752,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
 static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
     const std::vector<ValueConstructor>& input, const Value& out,
     const std::set<LanguageFeature>& required_language_features,
-    const std::vector<LanguageFeature>& array_language_features,
+    absl::Span<const LanguageFeature> array_language_features,
     std::vector<QueryParamsWithResult>* result) {
   bool has_any_civil_time = false;
   bool has_any_numeric = false;

@@ -159,6 +159,7 @@ public class AllowedHintsAndOptionsTest {
             + "option {\n"
             + "  name: \"option1\"\n"
             + "  resolving_kind: CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER"
+            + "  allow_alter_array: false"
             + "}\n"
             + "anonymization_option {\n"
             + "  name: \"anonymization_option1\"\n"
@@ -166,6 +167,7 @@ public class AllowedHintsAndOptionsTest {
             + "    type_kind: TYPE_INT64\n"
             + "  }\n"
             + "  resolving_kind: CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER"
+            + "  allow_alter_array: false"
             + "}\n",
         protoBuilder);
     AllowedHintsAndOptionsProto proto =
@@ -212,6 +214,7 @@ public class AllowedHintsAndOptionsTest {
             + "    type_kind: TYPE_INT64\n"
             + "  }\n"
             + "  resolving_kind: CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER"
+            + "  allow_alter_array: false"
             + "}",
         protoBuilder);
     AllowedHintsAndOptionsProto proto =
@@ -255,7 +258,7 @@ public class AllowedHintsAndOptionsTest {
     assertThat(allowed.getOptionType("Option2")).isNull();
     assertThat(allowed.getOptionType("noOption")).isNull();
 
-    assertThat(allowed.getAnonymizationOptionNameList()).hasSize(7);
+    assertThat(allowed.getAnonymizationOptionNameList()).hasSize(8);
     assertThat(allowed.getAnonymizationOptionType("anonymization_option1").isInt64()).isTrue();
     assertThat(allowed.getAnonymizationOptionType("anonymization_option2")).isNull();
     assertThat(allowed.getAnonymizationOptionType("epsilon").isDouble()).isTrue();
@@ -263,6 +266,8 @@ public class AllowedHintsAndOptionsTest {
     assertThat(allowed.getAnonymizationOptionType("kappa").isInt64()).isTrue();
     assertThat(allowed.getAnonymizationOptionType("k_threshold").isInt64()).isTrue();
     assertThat(allowed.getAnonymizationOptionType("max_rows_contributed").isInt64()).isTrue();
+    assertThat(allowed.getAnonymizationOptionType("min_privacy_units_per_group").isInt64())
+        .isTrue();
     assertThat(allowed.getAnonymizationOptionType("noOption")).isNull();
   }
 
@@ -272,13 +277,15 @@ public class AllowedHintsAndOptionsTest {
     allowed.addDifferentialPrivacyOption(
         "dp_option1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
 
-    assertThat(allowed.getDifferentialPrivacyOptionNameList()).hasSize(5);
+    assertThat(allowed.getDifferentialPrivacyOptionNameList()).hasSize(6);
     assertThat(allowed.getDifferentialPrivacyOptionType("dp_option1").isInt64()).isTrue();
     assertThat(allowed.getDifferentialPrivacyOptionType("epsilon").isDouble()).isTrue();
     assertThat(allowed.getDifferentialPrivacyOptionType("delta").isDouble()).isTrue();
     assertThat(allowed.getDifferentialPrivacyOptionType("max_groups_contributed").isInt64())
         .isTrue();
     assertThat(allowed.getDifferentialPrivacyOptionType("max_rows_contributed").isInt64()).isTrue();
+    assertThat(allowed.getDifferentialPrivacyOptionType("min_privacy_units_per_group").isInt64())
+        .isTrue();
     assertThat(allowed.getDifferentialPrivacyOptionType("noOption")).isNull();
   }
 

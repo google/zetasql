@@ -2,6 +2,7 @@
 # Which replaces group_selection_threshold_expr with the user defined function
 # counting unique user counts.
 # More details are in (broken link).
+[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,DIFFERENTIAL_PRIVACY_THRESHOLDING,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,NAMED_ARGUMENTS,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 

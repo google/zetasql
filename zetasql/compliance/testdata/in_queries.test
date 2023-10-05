@@ -176,6 +176,83 @@ ARRAY<STRUCT<
       >>
 [{1, {1, 2}}, {2, {3, 4}}]
 ==
+[prepare_database]
+[required_features=RANGE_TYPE]
+CREATE TABLE TestRange AS
+SELECT 'a' as y,
+       RANGE<DATE> '[2020-01-01, 2020-12-31)' as range_date_col,
+       RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)' as range_timestamp_col
+UNION ALL
+SELECT 'b',
+       RANGE<DATE> '[2020-01-01, UNBOUNDED)',
+       RANGE<TIMESTAMP> '[2020-01-01, UNBOUNDED)'
+UNION ALL
+SELECT 'c',
+       RANGE<DATE> '[UNBOUNDED, 2020-12-31)',
+       RANGE<TIMESTAMP> '[UNBOUNDED, 2020-12-31)'
+UNION ALL
+SELECT 'd',
+       RANGE<DATE> '[UNBOUNDED, UNBOUNDED)',
+       RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)'
+--
+ARRAY<STRUCT<
+        y STRING,
+        range_date_col RANGE<DATE>,
+        range_timestamp_col RANGE<TIMESTAMP>
+      >>
+[{"a",
+  [2020-01-01, 2020-12-31),
+  [
+    2020-01-01 08:00:00+00,
+    2020-12-31 08:00:00+00
+  )},
+ {"b",
+  [2020-01-01, NULL),
+  [
+    2020-01-01 08:00:00+00,
+    NULL
+  )},
+ {"c",
+  [NULL, 2020-12-31),
+  [
+    NULL,
+    2020-12-31 08:00:00+00
+  )},
+ {"d", [NULL, NULL), [NULL, NULL)}]
+==
+[prepare_database]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+CREATE TABLE TestDatetimeRange AS
+SELECT 'a' as y,
+       RANGE<DATETIME> '[2020-01-01, 2020-12-31)' as range_datetime_col
+UNION ALL
+SELECT 'b',
+       RANGE<DATETIME> '[2020-01-01, UNBOUNDED)'
+UNION ALL
+SELECT 'c',
+       RANGE<DATETIME> '[UNBOUNDED, 2020-12-31)'
+UNION ALL
+SELECT 'd',
+       RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)'
+--
+ARRAY<STRUCT<
+        y STRING,
+        range_datetime_col RANGE<DATETIME>
+      >>
+[{
+   "a",
+   [2020-01-01 00:00:00, 2020-12-31 00:00:00)
+ },
+ {
+   "b",
+   [2020-01-01 00:00:00, NULL)
+ },
+ {
+   "c",
+   [NULL, 2020-12-31 00:00:00)
+ },
+ {"d", [NULL, NULL)}]
+==
 [name=in_clause_simple]
 SELECT y FROM Test WHERE x IN(1, 2) ORDER BY y;
 --
@@ -239,6 +316,48 @@ WHERE bignumeric_col IN(CAST(1.234567890123456789 AS BIGNUMERIC), CAST(-3.141592
 --
 ARRAY<STRUCT<y STRING>>[unknown order:{"b"}, {"a"}]
 ==
+[required_features=RANGE_TYPE]
+[name=in_clause_simple_not_in_range_date]
+SELECT y FROM TestRange
+WHERE range_date_col NOT IN(RANGE<DATE> '[2020-01-01, 2020-12-31)', RANGE<DATE> '[UNBOUNDED, UNBOUNDED)');
+--
+ARRAY<STRUCT<y STRING>>[unknown order:{"b"}, {"c"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_simple_in_range_date]
+SELECT y FROM TestRange
+WHERE range_date_col IN(RANGE<DATE> '[2020-01-01, 2020-12-31)', RANGE<DATE> '[UNBOUNDED, UNBOUNDED)');
+--
+ARRAY<STRUCT<y STRING>>[unknown order:{"d"}, {"a"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_simple_not_in_range_timestamp]
+SELECT y FROM TestRange
+WHERE range_timestamp_col NOT IN(RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)', RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)');
+--
+ARRAY<STRUCT<y STRING>>[unknown order:{"b"}, {"c"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_simple_in_range_timestamp]
+SELECT y FROM TestRange
+WHERE range_timestamp_col IN(RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)', RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)');
+--
+ARRAY<STRUCT<y STRING>>[unknown order:{"d"}, {"a"}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=in_clause_simple_not_in_range_datetime]
+SELECT y FROM TestDatetimeRange
+WHERE range_datetime_col NOT IN(RANGE<DATETIME> '[2020-01-01, 2020-12-31)', RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)');
+--
+ARRAY<STRUCT<y STRING>>[unknown order:{"b"}, {"c"}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=in_clause_simple_in_range_datetime]
+SELECT y FROM TestDatetimeRange
+WHERE range_datetime_col IN(RANGE<DATETIME> '[2020-01-01, 2020-12-31)', RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)');
+--
+ARRAY<STRUCT<y STRING>>[unknown order:{"d"}, {"a"}]
+==
 [name=in_clause_unnest_not_in]
 SELECT y FROM Test WHERE x NOT IN UNNEST(ARRAY<INT64>[1,2]) ORDER BY y;
 --
@@ -281,6 +400,120 @@ SELECT y FROM Test WHERE x NOT IN (
 --
 ARRAY<STRUCT<y STRING>>[{"a"}]
 ==
+[required_features=RANGE_TYPE]
+[name=in_clause_subquery_range_date]
+SELECT y FROM TestRange WHERE range_date_col IN (
+  SELECT RANGE<DATE> '[2020-01-01, 2020-12-31)' t1
+  UNION ALL
+  SELECT RANGE<DATE> '[UNBOUNDED, UNBOUNDED)')
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"a"}, {"d"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_not_in_subquery_range_date]
+SELECT y FROM TestRange WHERE range_date_col NOT IN (
+  SELECT RANGE<DATE> '[2020-01-01, 2020-12-31)' t1
+  UNION ALL
+  SELECT RANGE<DATE> '[UNBOUNDED, UNBOUNDED)')
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"b"}, {"c"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_subquery_range_timestamp]
+SELECT y FROM TestRange WHERE range_timestamp_col IN (
+  SELECT RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)' t1
+  UNION ALL
+  SELECT RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)')
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"a"}, {"d"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_not_in_subquery_range_timestamp]
+SELECT y FROM TestRange WHERE range_timestamp_col NOT IN (
+  SELECT RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)' t1
+  UNION ALL
+  SELECT RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)')
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"b"}, {"c"}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=in_clause_subquery_range_datetime]
+SELECT y FROM TestDatetimeRange WHERE range_datetime_col IN (
+  SELECT RANGE<DATETIME> '[2020-01-01, 2020-12-31)' t1
+  UNION ALL
+  SELECT RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)')
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"a"}, {"d"}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=in_clause_not_in_subquery_range_datetime]
+SELECT y FROM TestDatetimeRange WHERE range_datetime_col NOT IN (
+  SELECT RANGE<DATETIME> '[2020-01-01, 2020-12-31)' t1
+  UNION ALL
+  SELECT RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)')
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"b"}, {"c"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_subquery_range_date_unnest]
+SELECT y FROM TestRange WHERE range_date_col IN (
+  SELECT i FROM UNNEST([RANGE<DATE> '[2020-01-01, 2020-12-31)',
+                        RANGE<DATE> '[UNBOUNDED, UNBOUNDED)']) i)
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"a"}, {"d"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_not_in_subquery_range_date_unnest]
+SELECT y FROM TestRange WHERE range_date_col NOT IN (
+  SELECT i FROM UNNEST([RANGE<DATE> '[2020-01-01, 2020-12-31)',
+                        RANGE<DATE> '[UNBOUNDED, UNBOUNDED)']) i)
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"b"}, {"c"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_subquery_range_timestamp_unnest]
+SELECT y FROM TestRange WHERE range_timestamp_col IN (
+  SELECT i FROM UNNEST([RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)',
+                        RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)']) i)
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"a"}, {"d"}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_not_in_subquery_range_timestamp_unnest]
+SELECT y FROM TestRange WHERE range_timestamp_col NOT IN (
+  SELECT i FROM UNNEST([RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)',
+                        RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)']) i)
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"b"}, {"c"}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=in_clause_subquery_range_datetime_unnest]
+SELECT y FROM TestDatetimeRange WHERE range_datetime_col IN (
+  SELECT i FROM UNNEST([RANGE<DATETIME> '[2020-01-01, 2020-12-31)',
+                        RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)']) i)
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"a"}, {"d"}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=in_clause_not_in_subquery_range_datetime_unnest]
+SELECT y FROM TestDatetimeRange WHERE range_datetime_col NOT IN (
+  SELECT i FROM UNNEST([RANGE<DATETIME> '[2020-01-01, 2020-12-31)',
+                        RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)']) i)
+ORDER BY y;
+--
+ARRAY<STRUCT<y STRING>>[known order:{"b"}, {"c"}]
+==
 [name=in_clause_empty_subquery]
 SELECT y FROM Test WHERE x IN (
   SELECT x FROM Test WHERE 1=0);
@@ -312,6 +545,33 @@ ARRAY<STRUCT<BOOL>>[{true}]
 [required_features=BIGNUMERIC_TYPE]
 [name=in_clause_unnest_in_select_bignumeric]
 SELECT CAST(1.234567890123456789 AS BIGNUMERIC) IN UNNEST(ARRAY<BIGNUMERIC>[1, 2, 3.25, 1.234567890123456789]);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_unnest_in_select_range_date]
+SELECT RANGE<DATE> '[2020-01-01, 2020-02-01)'
+IN UNNEST(
+  ARRAY<RANGE<DATE>>[RANGE<DATE> '[2020-01-01, 2020-02-01)',
+                     RANGE<DATE> '[2020-02-01, 2020-03-01)']);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[required_features=RANGE_TYPE]
+[name=in_clause_unnest_in_select_range_timestamp]
+SELECT RANGE<TIMESTAMP> '[2020-01-01, 2020-02-01)'
+IN UNNEST(
+  ARRAY<RANGE<TIMESTAMP>>[RANGE<TIMESTAMP> '[2020-01-01, 2020-02-01)',
+                          RANGE<TIMESTAMP> '[2020-02-01, 2020-03-01)']);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=in_clause_unnest_in_select_range_datetime]
+SELECT RANGE<DATETIME> '[2020-01-01, 2020-02-01)'
+IN UNNEST(
+  ARRAY<RANGE<DATETIME>>[RANGE<DATETIME> '[2020-01-01, 2020-02-01)',
+                         RANGE<DATETIME> '[2020-02-01, 2020-03-01)']);
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==

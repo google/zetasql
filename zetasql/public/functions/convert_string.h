@@ -33,7 +33,6 @@
 #include <string>
 
 #include "zetasql/public/numeric_value.h"
-#include <cstdint>
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 

@@ -440,6 +440,11 @@ absl::Status Resolver::ResolveAlterActions(
         }
         alter_actions->push_back(std::move(resolved_action));
       } break;
+      case AST_ALTER_COLUMN_DROP_GENERATED_ACTION: {
+        return MakeSqlErrorAt(action)
+               << "ALTER " << alter_statement_kind << " does not support "
+               << action->GetSQLForAlterAction();
+      }
       case AST_SET_COLLATE_CLAUSE: {
         if (!language().LanguageFeatureEnabled(
                 FEATURE_V_1_3_COLLATION_SUPPORT) ||

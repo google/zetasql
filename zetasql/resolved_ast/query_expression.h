@@ -74,6 +74,7 @@ class QueryExpression {
       std::vector<std::unique_ptr<QueryExpression>>* set_op_scan_list,
       const std::string& set_op_type, const std::string& set_op_modifier,
       const std::string& set_op_column_match_mode,
+      const std::string& set_op_column_propagation_mode,
       const std::string& query_hints);
   bool TrySetGroupByClause(
       const std::map<int, std::string>& group_by_list,
@@ -201,6 +202,9 @@ class QueryExpression {
   // For a set operation, contains one of ["", "CORRESPONDING",
   // "CORRESPONDING_BY"]; for non set operations it is "".
   std::string set_op_column_match_mode_;
+  // For a set operation, contains one of "", "FULL", "LEFT", "STRICT"; for
+  // non set operations it is "".
+  std::string set_op_column_propagation_mode_;
   // For QueryExpression of a SetOperationScan, the set_op_scan_list will
   // contain QueryExpression for each of the input queries in the set
   // operation.

@@ -1,4 +1,5 @@
 # Table with UID in the WITH clause, differential privacy in the outer SELECT
+[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 WITH t as (select *

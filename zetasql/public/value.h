@@ -45,7 +45,6 @@
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/attributes.h"
-#include <cstdint>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"

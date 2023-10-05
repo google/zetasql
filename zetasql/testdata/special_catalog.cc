@@ -27,11 +27,11 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/testdata/test_schema.pb.h"
-#include <cstdint>
 #include "absl/container/btree_set.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -64,7 +64,7 @@ class TableWithAnonymousAndDuplicatedColumnNames : public Table {
   // Make a table with columns with the given names and types.
   typedef std::pair<std::string, const Type*> NameAndType;
   TableWithAnonymousAndDuplicatedColumnNames(
-      absl::string_view name, const std::vector<NameAndType>& columns)
+      absl::string_view name, absl::Span<const NameAndType> columns)
       : name_(name) {
     absl::btree_set<std::string> column_names;
     for (const NameAndType& name_and_type : columns) {

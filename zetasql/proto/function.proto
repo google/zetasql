@@ -109,6 +109,8 @@ message FunctionArgumentTypeOptionsProto {
   // Indicates whether aliases are supported for a function argument.
   optional FunctionEnums.ArgumentAliasKind argument_alias_kind = 26
       [default = ARGUMENT_NON_ALIASED];
+  // If true, this argument must be constant expression or value.
+  optional bool must_be_constant_expression = 27;
 }
 
 message ArgumentTypeLambdaProto {

@@ -29,6 +29,7 @@
 #include "absl/hash/hash_testing.h"
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 namespace {
@@ -64,7 +65,7 @@ using functions::WEEK;
 using functions::YEAR;
 
 IntervalValue Interval(absl::string_view str) {
-  return *IntervalValue::Parse(str);
+  return *IntervalValue::Parse(str, /*allow_nanos=*/true);
 }
 
 TEST(IntervalValueTest, Months) {
@@ -584,6 +585,7 @@ TEST(IntervalValueTest, Multiply) {
 }
 
 TEST(IntervalValueTest, Divide) {
+  // operator/ is just a wrapper around Divide
   EXPECT_EQ(Months(6), *(Years(1) / 2));
   EXPECT_EQ(Months(-6), *(Years(1) / (-2)));
   EXPECT_EQ(Days(15), *(Months(1) / 2));
@@ -601,8 +603,43 @@ TEST(IntervalValueTest, Divide) {
   EXPECT_EQ(Years(0), *(Nanos(1) / 2));
   EXPECT_EQ(Years(0), *(Nanos(1) / (-2)));
 
-  // Divide is just a wrapper around operator/
-  EXPECT_EQ(Months(5), *(Months(10).Divide(2)));
+  EXPECT_EQ(Months(5), *(Months(10).Divide(2, /*round_to_micros=*/false)));
+
+  // Verify round_to_micros=false (default) flag behavior
+  EXPECT_EQ(Nanos(333), *(Micros(1).Divide(3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(-333), *(Micros(-1).Divide(3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(-333), *(Micros(1).Divide(-3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(333), *(Micros(-1).Divide(-3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(5666), *(Micros(17).Divide(3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(-5666), *(Micros(-17).Divide(3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(-5666), *(Micros(17).Divide(-3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(5666), *(Micros(-17).Divide(-3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(490447666),
+            *(Micros(1471343).Divide(3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(-490447666),
+            *(Micros(-1471343).Divide(3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(-490447666),
+            *(Micros(1471343).Divide(-3, /*round_to_micros=*/false)));
+  EXPECT_EQ(Nanos(490447666),
+            *(Micros(-1471343).Divide(-3, /*round_to_micros=*/false)));
+
+  // Verify round_to_micros=true flag behavior
+  EXPECT_EQ(Micros(0), *(Micros(1).Divide(3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(0), *(Micros(-1).Divide(3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(0), *(Micros(1).Divide(-3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(0), *(Micros(-1).Divide(-3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(5), *(Micros(17).Divide(3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(-5), *(Micros(-17).Divide(3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(-5), *(Micros(17).Divide(-3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(5), *(Micros(-17).Divide(-3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(490447),
+            *(Micros(1471343).Divide(3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(-490447),
+            *(Micros(-1471343).Divide(3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(-490447),
+            *(Micros(1471343).Divide(-3, /*round_to_micros=*/true)));
+  EXPECT_EQ(Micros(490447),
+            *(Micros(-1471343).Divide(-3, /*round_to_micros=*/true)));
 
   EXPECT_THAT(Years(0) / 0, StatusIs(absl::StatusCode::kOutOfRange));
   EXPECT_THAT(Micros(1) / 0, StatusIs(absl::StatusCode::kOutOfRange));
@@ -1066,667 +1103,1016 @@ TEST(IntervalValueTest, ToString) {
 }
 
 std::string ParseToString(absl::string_view input,
-                          functions::DateTimestampPart part) {
-  return IntervalValue::ParseFromString(input, part).value().ToString();
+                          functions::DateTimestampPart part, bool allow_nanos) {
+  return IntervalValue::ParseFromString(input, part, allow_nanos)
+      .value()
+      .ToString();
 }
 
 void ExpectParseError(absl::string_view input,
-                      functions::DateTimestampPart part) {
-  EXPECT_THAT(IntervalValue::ParseFromString(input, part),
+                      functions::DateTimestampPart part, bool allow_nanos) {
+  EXPECT_THAT(IntervalValue::ParseFromString(input, part, allow_nanos),
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(IntervalValueTest, ParseFromString1) {
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", YEAR));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0", YEAR));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("+0", YEAR));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("000", YEAR));
-  EXPECT_EQ("9-0 0 0:0:0", ParseToString("009", YEAR));
-  EXPECT_EQ("-9-0 0 0:0:0", ParseToString("-009", YEAR));
-  EXPECT_EQ("123-0 0 0:0:0", ParseToString("123", YEAR));
-  EXPECT_EQ("-123-0 0 0:0:0", ParseToString("-123", YEAR));
-  EXPECT_EQ("123-0 0 0:0:0", ParseToString("+123", YEAR));
-  EXPECT_EQ("10000-0 0 0:0:0", ParseToString("10000", YEAR));
-  EXPECT_EQ("-10000-0 0 0:0:0", ParseToString("-10000", YEAR));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("+0", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("000", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("9-0 0 0:0:0", ParseToString("009", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("-9-0 0 0:0:0", ParseToString("-009", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("123-0 0 0:0:0", ParseToString("123", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("-123-0 0 0:0:0",
+            ParseToString("-123", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("123-0 0 0:0:0",
+            ParseToString("+123", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("10000-0 0 0:0:0",
+            ParseToString("10000", YEAR, /*allow_nanos=*/false));
+  EXPECT_EQ("-10000-0 0 0:0:0",
+            ParseToString("-10000", YEAR, /*allow_nanos=*/false));
 
   // reject spaces
-  ExpectParseError("", YEAR);
-  ExpectParseError(" 1", YEAR);
-  ExpectParseError("-1 ", YEAR);
-  ExpectParseError("- 1", YEAR);
-  ExpectParseError("\t1", YEAR);
-  ExpectParseError("1\t", YEAR);
-  ExpectParseError("\n1", YEAR);
-  ExpectParseError("1\n", YEAR);
+  ExpectParseError("", YEAR, /*allow_nanos=*/false);
+  ExpectParseError(" 1", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("-1 ", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("- 1", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("\t1", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("1\t", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("\n1", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("1\n", YEAR, /*allow_nanos=*/false);
   // invalid formatting
-  ExpectParseError("--1", YEAR);
-  ExpectParseError("1.0", YEAR);
-  ExpectParseError("123 0", YEAR);
+  ExpectParseError("--1", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("1.0", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("123 0", YEAR, /*allow_nanos=*/false);
   // exceeds max number of months
-  ExpectParseError("10001", YEAR);
-  ExpectParseError("-10001", YEAR);
+  ExpectParseError("10001", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("-10001", YEAR, /*allow_nanos=*/false);
   // overflow during multiplication
-  ExpectParseError("9223372036854775807", YEAR);
-  ExpectParseError("-9223372036854775808", YEAR);
+  ExpectParseError("9223372036854775807", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775808", YEAR, /*allow_nanos=*/false);
   // overflow fitting into int64_t at SimpleAtoi
-  ExpectParseError("9223372036854775808", YEAR);
-  ExpectParseError("-9223372036854775809", YEAR);
+  ExpectParseError("9223372036854775808", YEAR, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775809", YEAR, /*allow_nanos=*/false);
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", QUARTER));
-  EXPECT_EQ("0-9 0 0:0:0", ParseToString("3", QUARTER));
-  EXPECT_EQ("-0-9 0 0:0:0", ParseToString("-3", QUARTER));
-  EXPECT_EQ("2-6 0 0:0:0", ParseToString("10", QUARTER));
-  EXPECT_EQ("-2-6 0 0:0:0", ParseToString("-10", QUARTER));
-  EXPECT_EQ("10000-0 0 0:0:0", ParseToString("40000", QUARTER));
-  EXPECT_EQ("-10000-0 0 0:0:0", ParseToString("-40000", QUARTER));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", QUARTER, /*allow_nanos=*/false));
+  EXPECT_EQ("0-9 0 0:0:0", ParseToString("3", QUARTER, /*allow_nanos=*/false));
+  EXPECT_EQ("-0-9 0 0:0:0",
+            ParseToString("-3", QUARTER, /*allow_nanos=*/false));
+  EXPECT_EQ("2-6 0 0:0:0", ParseToString("10", QUARTER, /*allow_nanos=*/false));
+  EXPECT_EQ("-2-6 0 0:0:0",
+            ParseToString("-10", QUARTER, /*allow_nanos=*/false));
+  EXPECT_EQ("10000-0 0 0:0:0",
+            ParseToString("40000", QUARTER, /*allow_nanos=*/false));
+  EXPECT_EQ("-10000-0 0 0:0:0",
+            ParseToString("-40000", QUARTER, /*allow_nanos=*/false));
 
   // exceeds max number of months
-  ExpectParseError("40001", QUARTER);
-  ExpectParseError("-40001", QUARTER);
+  ExpectParseError("40001", QUARTER, /*allow_nanos=*/false);
+  ExpectParseError("-40001", QUARTER, /*allow_nanos=*/false);
   // overflow during multiplication
-  ExpectParseError("9223372036854775807", QUARTER);
-  ExpectParseError("-9223372036854775808", QUARTER);
+  ExpectParseError("9223372036854775807", QUARTER, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775808", QUARTER, /*allow_nanos=*/false);
   // overflow fitting into int64_t at SimpleAtoi
-  ExpectParseError("9223372036854775808", QUARTER);
-  ExpectParseError("-9223372036854775809", QUARTER);
+  ExpectParseError("9223372036854775808", QUARTER, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775809", QUARTER, /*allow_nanos=*/false);
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", MONTH));
-  EXPECT_EQ("0-6 0 0:0:0", ParseToString("6", MONTH));
-  EXPECT_EQ("-0-6 0 0:0:0", ParseToString("-6", MONTH));
-  EXPECT_EQ("40-5 0 0:0:0", ParseToString("485", MONTH));
-  EXPECT_EQ("-40-5 0 0:0:0", ParseToString("-485", MONTH));
-  EXPECT_EQ("10000-0 0 0:0:0", ParseToString("120000", MONTH));
-  EXPECT_EQ("-10000-0 0 0:0:0", ParseToString("-120000", MONTH));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("0-6 0 0:0:0", ParseToString("6", MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("-0-6 0 0:0:0", ParseToString("-6", MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("40-5 0 0:0:0", ParseToString("485", MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("-40-5 0 0:0:0",
+            ParseToString("-485", MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("10000-0 0 0:0:0",
+            ParseToString("120000", MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("-10000-0 0 0:0:0",
+            ParseToString("-120000", MONTH, /*allow_nanos=*/false));
 
   // exceeds max number of months
-  ExpectParseError("120001", MONTH);
-  ExpectParseError("-120001", MONTH);
+  ExpectParseError("120001", MONTH, /*allow_nanos=*/false);
+  ExpectParseError("-120001", MONTH, /*allow_nanos=*/false);
   // overflow fitting into int64_t at SimpleAtoi
-  ExpectParseError("9223372036854775808", MONTH);
-  ExpectParseError("-9223372036854775809", MONTH);
+  ExpectParseError("9223372036854775808", MONTH, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775809", MONTH, /*allow_nanos=*/false);
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", WEEK));
-  EXPECT_EQ("0-0 7 0:0:0", ParseToString("1", WEEK));
-  EXPECT_EQ("0-0 -7 0:0:0", ParseToString("-1", WEEK));
-  EXPECT_EQ("0-0 140 0:0:0", ParseToString("20", WEEK));
-  EXPECT_EQ("0-0 -140 0:0:0", ParseToString("-20", WEEK));
-  EXPECT_EQ("0-0 3659999 0:0:0", ParseToString("522857", WEEK));
-  EXPECT_EQ("0-0 -3659999 0:0:0", ParseToString("-522857", WEEK));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", WEEK, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 7 0:0:0", ParseToString("1", WEEK, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -7 0:0:0", ParseToString("-1", WEEK, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 140 0:0:0", ParseToString("20", WEEK, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -140 0:0:0",
+            ParseToString("-20", WEEK, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 3659999 0:0:0",
+            ParseToString("522857", WEEK, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -3659999 0:0:0",
+            ParseToString("-522857", WEEK, /*allow_nanos=*/false));
 
   // exceeds max number of days
-  ExpectParseError("522858", WEEK);
-  ExpectParseError("-522858", WEEK);
+  ExpectParseError("522858", WEEK, /*allow_nanos=*/false);
+  ExpectParseError("-522858", WEEK, /*allow_nanos=*/false);
   // overflow during multiplication
-  ExpectParseError("9223372036854775807", WEEK);
-  ExpectParseError("-9223372036854775808", WEEK);
+  ExpectParseError("9223372036854775807", WEEK, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775808", WEEK, /*allow_nanos=*/false);
   // overflow fitting into int64_t at SimpleAtoi
-  ExpectParseError("9223372036854775808", WEEK);
-  ExpectParseError("-9223372036854775809", WEEK);
+  ExpectParseError("9223372036854775808", WEEK, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775809", WEEK, /*allow_nanos=*/false);
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", DAY));
-  EXPECT_EQ("0-0 371 0:0:0", ParseToString("371", DAY));
-  EXPECT_EQ("0-0 -371 0:0:0", ParseToString("-371", DAY));
-  EXPECT_EQ("0-0 3660000 0:0:0", ParseToString("3660000", DAY));
-  EXPECT_EQ("0-0 -3660000 0:0:0", ParseToString("-3660000", DAY));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 371 0:0:0", ParseToString("371", DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -371 0:0:0",
+            ParseToString("-371", DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 3660000 0:0:0",
+            ParseToString("3660000", DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -3660000 0:0:0",
+            ParseToString("-3660000", DAY, /*allow_nanos=*/false));
 
   // exceeds max number of days
-  ExpectParseError("3660001", DAY);
-  ExpectParseError("-3660001", DAY);
+  ExpectParseError("3660001", DAY, /*allow_nanos=*/false);
+  ExpectParseError("-3660001", DAY, /*allow_nanos=*/false);
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", HOUR));
-  EXPECT_EQ("0-0 0 25:0:0", ParseToString("25", HOUR));
-  EXPECT_EQ("0-0 0 -25:0:0", ParseToString("-25", HOUR));
-  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("87840000", HOUR));
-  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("-87840000", HOUR));
-
-  // exceeds max number of micros
-  ExpectParseError("87840001", HOUR);
-  ExpectParseError("-87840001", HOUR);
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", MINUTE));
-  EXPECT_EQ("0-0 0 0:3:0", ParseToString("3", MINUTE));
-  EXPECT_EQ("0-0 0 -0:3:0", ParseToString("-3", MINUTE));
-  EXPECT_EQ("0-0 0 1:12:0", ParseToString("72", MINUTE));
-  EXPECT_EQ("0-0 0 -1:12:0", ParseToString("-72", MINUTE));
-  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("5270400000", MINUTE));
-  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("-5270400000", MINUTE));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 25:0:0", ParseToString("25", HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -25:0:0", ParseToString("-25", HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("87840000", HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("-87840000", HOUR, /*allow_nanos=*/false));
 
   // exceeds max number of micros
-  ExpectParseError("5270400001", MINUTE);
-  ExpectParseError("-5270400001", MINUTE);
+  ExpectParseError("87840001", HOUR, /*allow_nanos=*/false);
+  ExpectParseError("-87840001", HOUR, /*allow_nanos=*/false);
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("+0", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0.0", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0.0", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("+0.0", SECOND));
-  EXPECT_EQ("0-0 0 0:0:1", ParseToString("1", SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1", ParseToString("-1", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0.1", SECOND));
-  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("-0.1", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.120", ParseToString("+.12", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.120", ParseToString(".12", SECOND));
-  EXPECT_EQ("0-0 0 -0:0:0.120", ParseToString("-.12", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("+0.1", SECOND));
-  EXPECT_EQ("0-0 0 0:0:1.200", ParseToString("1.2", SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1.200", ParseToString("-1.2", SECOND));
-  EXPECT_EQ("0-0 0 0:0:1.230", ParseToString("1.23", SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1.230", ParseToString("-1.23", SECOND));
-  EXPECT_EQ("0-0 0 0:0:1.234", ParseToString("1.23400", SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1.234", ParseToString("-1.23400", SECOND));
-  EXPECT_EQ("0-0 0 0:0:1.234560", ParseToString("1.23456", SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1.234560", ParseToString("-1.23456", SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.123456789", ParseToString("0.123456789", SECOND));
-  EXPECT_EQ("0-0 0 -0:0:0.123456789", ParseToString("-0.123456789", SECOND));
-  EXPECT_EQ("0-0 0 27777777:46:39", ParseToString("99999999999", SECOND));
-  EXPECT_EQ("0-0 0 -27777777:46:39", ParseToString("-99999999999", SECOND));
-  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("316224000000", SECOND));
-  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("-316224000000", SECOND));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:3:0", ParseToString("3", MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:3:0", ParseToString("-3", MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 1:12:0", ParseToString("72", MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -1:12:0",
+            ParseToString("-72", MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("5270400000", MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("-5270400000", MINUTE, /*allow_nanos=*/false));
 
-  ExpectParseError("", SECOND);
-  ExpectParseError(" 1", SECOND);
-  ExpectParseError("1 ", SECOND);
-  ExpectParseError(" 1.1", SECOND);
-  ExpectParseError("1.1 ", SECOND);
-  ExpectParseError(".", SECOND);
-  ExpectParseError("1. 2", SECOND);
-  ExpectParseError("1.", SECOND);
-  ExpectParseError("-1.", SECOND);
-  ExpectParseError("+1.", SECOND);
-  ExpectParseError("\t1.1", SECOND);
-  ExpectParseError("1.1\t", SECOND);
-  ExpectParseError("\n1.1", SECOND);
-  ExpectParseError("1.1\n", SECOND);
+  // exceeds max number of micros
+  ExpectParseError("5270400001", MINUTE, /*allow_nanos=*/false);
+  ExpectParseError("-5270400001", MINUTE, /*allow_nanos=*/false);
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("+0", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0.0", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("-0.0", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("+0.0", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1", ParseToString("1", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:1", ParseToString("-1", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.100",
+            ParseToString("0.1", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:0.100",
+            ParseToString("-0.1", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.120",
+            ParseToString("+.12", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.120",
+            ParseToString(".12", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:0.120",
+            ParseToString("-.12", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.100",
+            ParseToString("+0.1", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1.200",
+            ParseToString("1.2", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:1.200",
+            ParseToString("-1.2", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1.230",
+            ParseToString("1.23", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:1.230",
+            ParseToString("-1.23", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1.234",
+            ParseToString("1.23400", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:1.234",
+            ParseToString("-1.23400", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1.234560",
+            ParseToString("1.23456", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:1.234560",
+            ParseToString("-1.23456", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.123456789",
+            ParseToString("0.123456789", SECOND, /*allow_nanos=*/true));
+  EXPECT_EQ("0-0 0 -0:0:0.123456789",
+            ParseToString("-0.123456789", SECOND, /*allow_nanos=*/true));
+  EXPECT_EQ("0-0 0 27777777:46:39",
+            ParseToString("99999999999", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -27777777:46:39",
+            ParseToString("-99999999999", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("316224000000", SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("-316224000000", SECOND, /*allow_nanos=*/false));
+
+  ExpectParseError("", SECOND, /*allow_nanos=*/false);
+  ExpectParseError(" 1", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("1 ", SECOND, /*allow_nanos=*/false);
+  ExpectParseError(" 1.1", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("1.1 ", SECOND, /*allow_nanos=*/false);
+  ExpectParseError(".", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("1. 2", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("1.", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("-1.", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("+1.", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("\t1.1", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("1.1\t", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("\n1.1", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("1.1\n", SECOND, /*allow_nanos=*/false);
   // more than 9 fractional digits
-  ExpectParseError("0.1234567890", SECOND);
+  ExpectParseError("0.1234567890", SECOND, /*allow_nanos=*/true);
+  // unexpected nanos
+  ExpectParseError("0-0 0 0:0:0.123456789", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0-0 0 -0:0:0.123456789", SECOND, /*allow_nanos=*/false);
   // exceeds max number of seconds
-  ExpectParseError("316224000000.000001", SECOND);
-  ExpectParseError("-316224000000.000001", SECOND);
+  ExpectParseError("316224000000.000001", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("-316224000000.000001", SECOND, /*allow_nanos=*/false);
   // overflow fitting into int64_t at SimpleAtoi
-  ExpectParseError("9223372036854775808", SECOND);
-  ExpectParseError("-9223372036854775809", SECOND);
+  ExpectParseError("9223372036854775808", SECOND, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775809", SECOND, /*allow_nanos=*/false);
 
   // Unsupported dateparts
-  ExpectParseError("0", functions::DAYOFWEEK);
-  ExpectParseError("0", functions::DAYOFYEAR);
-  ExpectParseError("0", functions::MILLISECOND);
-  ExpectParseError("0", functions::MICROSECOND);
-  ExpectParseError("0", functions::NANOSECOND);
-  ExpectParseError("0", functions::DATE);
-  ExpectParseError("0", functions::DATETIME);
-  ExpectParseError("0", functions::TIME);
-  ExpectParseError("0", functions::ISOYEAR);
-  ExpectParseError("0", functions::ISOWEEK);
-  ExpectParseError("0", functions::WEEK_MONDAY);
-  ExpectParseError("0", functions::WEEK_TUESDAY);
-  ExpectParseError("0", functions::WEEK_WEDNESDAY);
-  ExpectParseError("0", functions::WEEK_THURSDAY);
-  ExpectParseError("0", functions::WEEK_FRIDAY);
-  ExpectParseError("0", functions::WEEK_SATURDAY);
+  ExpectParseError("0", functions::DAYOFWEEK, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::DAYOFYEAR, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::MILLISECOND, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::MICROSECOND, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::NANOSECOND, /*allow_nanos=*/true);
+  ExpectParseError("0", functions::DATE, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::DATETIME, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::TIME, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::ISOYEAR, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::ISOWEEK, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::WEEK_MONDAY, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::WEEK_TUESDAY, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::WEEK_WEDNESDAY, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::WEEK_THURSDAY, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::WEEK_FRIDAY, /*allow_nanos=*/false);
+  ExpectParseError("0", functions::WEEK_SATURDAY, /*allow_nanos=*/false);
 }
 
 std::string ParseToString(absl::string_view input,
                           functions::DateTimestampPart from,
-                          functions::DateTimestampPart to) {
-  return IntervalValue::ParseFromString(input, from, to).value().ToString();
+                          functions::DateTimestampPart to, bool allow_nanos) {
+  return IntervalValue::ParseFromString(input, from, to, allow_nanos)
+      .value()
+      .ToString();
 }
 
 void ExpectParseError(absl::string_view input,
                       functions::DateTimestampPart from,
-                      functions::DateTimestampPart to) {
-  EXPECT_THAT(IntervalValue::ParseFromString(input, from, to),
+                      functions::DateTimestampPart to, bool allow_nanos) {
+  EXPECT_THAT(IntervalValue::ParseFromString(input, from, to, allow_nanos),
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(IntervalValueTest, ParseFromString2) {
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0", YEAR, MONTH));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0-0", YEAR, MONTH));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("+0-0", YEAR, MONTH));
-  EXPECT_EQ("1-0 0 0:0:0", ParseToString("1-0", YEAR, MONTH));
-  EXPECT_EQ("1-0 0 0:0:0", ParseToString("+1-0", YEAR, MONTH));
-  EXPECT_EQ("-1-0 0 0:0:0", ParseToString("-1-0", YEAR, MONTH));
-  EXPECT_EQ("0-1 0 0:0:0", ParseToString("0-1", YEAR, MONTH));
-  EXPECT_EQ("0-1 0 0:0:0", ParseToString("+0-1", YEAR, MONTH));
-  EXPECT_EQ("-0-1 0 0:0:0", ParseToString("-0-1", YEAR, MONTH));
-  EXPECT_EQ("1-0 0 0:0:0", ParseToString("0-12", YEAR, MONTH));
-  EXPECT_EQ("-1-0 0 0:0:0", ParseToString("-0-12", YEAR, MONTH));
-  EXPECT_EQ("1-8 0 0:0:0", ParseToString("0-20", YEAR, MONTH));
-  EXPECT_EQ("-1-8 0 0:0:0", ParseToString("-0-20", YEAR, MONTH));
-  EXPECT_EQ("10000-0 0 0:0:0", ParseToString("9999-12", YEAR, MONTH));
-  EXPECT_EQ("-10000-0 0 0:0:0", ParseToString("-9999-12", YEAR, MONTH));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0", YEAR, DAY));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 -0", YEAR, DAY));
-  EXPECT_EQ("0-0 7 0:0:0", ParseToString("0-0 7", YEAR, DAY));
-  EXPECT_EQ("0-0 -7 0:0:0", ParseToString("0-0 -7", YEAR, DAY));
-  EXPECT_EQ("0-0 7 0:0:0", ParseToString("-0-0 +7", YEAR, DAY));
-  EXPECT_EQ("11-8 30 0:0:0", ParseToString("10-20 30", YEAR, DAY));
-  EXPECT_EQ("11-8 -30 0:0:0", ParseToString("10-20 -30", YEAR, DAY));
-  EXPECT_EQ("-11-8 -30 0:0:0", ParseToString("-10-20 -30", YEAR, DAY));
-  EXPECT_EQ("0-0 3660000 0:0:0", ParseToString("0-0 3660000", YEAR, DAY));
-  EXPECT_EQ("0-0 -3660000 0:0:0", ParseToString("0-0 -3660000", YEAR, DAY));
+  // YEAR to MONTH with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0-0", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("-0-0", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("+0-0", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("1-0 0 0:0:0",
+            ParseToString("1-0", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("1-0 0 0:0:0",
+            ParseToString("+1-0", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("-1-0 0 0:0:0",
+            ParseToString("-1-0", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("0-1 0 0:0:0",
+            ParseToString("0-1", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("0-1 0 0:0:0",
+            ParseToString("+0-1", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("-0-1 0 0:0:0",
+            ParseToString("-0-1", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("1-0 0 0:0:0",
+            ParseToString("0-12", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("-1-0 0 0:0:0",
+            ParseToString("-0-12", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("1-8 0 0:0:0",
+            ParseToString("0-20", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("-1-8 0 0:0:0",
+            ParseToString("-0-20", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("10000-0 0 0:0:0",
+            ParseToString("9999-12", YEAR, MONTH, /*allow_nanos=*/false));
+  EXPECT_EQ("-10000-0 0 0:0:0",
+            ParseToString("-9999-12", YEAR, MONTH, /*allow_nanos=*/false));
+  // YEAR to DAY with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0-0 0", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0-0 -0", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 7 0:0:0",
+            ParseToString("0-0 7", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -7 0:0:0",
+            ParseToString("0-0 -7", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 7 0:0:0",
+            ParseToString("-0-0 +7", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("11-8 30 0:0:0",
+            ParseToString("10-20 30", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("11-8 -30 0:0:0",
+            ParseToString("10-20 -30", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("-11-8 -30 0:0:0",
+            ParseToString("-10-20 -30", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 3660000 0:0:0",
+            ParseToString("0-0 3660000", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -3660000 0:0:0",
+            ParseToString("0-0 -3660000", YEAR, DAY, /*allow_nanos=*/false));
   EXPECT_EQ("10000-0 3660000 0:0:0",
-            ParseToString("10000-0 3660000", YEAR, DAY));
-  EXPECT_EQ("-10000-0 -3660000 0:0:0",
-            ParseToString("-10000-0 -3660000", YEAR, DAY));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 0", YEAR, HOUR));
-  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0-0 0 24", YEAR, HOUR));
-  EXPECT_EQ("0-0 0 -24:0:0", ParseToString("0-0 0 -24", YEAR, HOUR));
-  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0-0 0 +24", YEAR, HOUR));
-  EXPECT_EQ("1-2 3 4:0:0", ParseToString("1-2 3 4", YEAR, HOUR));
-  EXPECT_EQ("-1-2 -3 -4:0:0", ParseToString("-1-2 -3 -4", YEAR, HOUR));
-  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0-0 0 87840000", YEAR, HOUR));
-  EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("0-0 0 -87840000", YEAR, HOUR));
+            ParseToString("10000-0 3660000", YEAR, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "-10000-0 -3660000 0:0:0",
+      ParseToString("-10000-0 -3660000", YEAR, DAY, /*allow_nanos=*/false));
+  // YEAR to HOUR with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0-0 0 0", YEAR, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 24:0:0",
+            ParseToString("0-0 0 24", YEAR, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -24:0:0",
+            ParseToString("0-0 0 -24", YEAR, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 24:0:0",
+            ParseToString("0-0 0 +24", YEAR, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("1-2 3 4:0:0",
+            ParseToString("1-2 3 4", YEAR, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("-1-2 -3 -4:0:0",
+            ParseToString("-1-2 -3 -4", YEAR, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("0-0 0 87840000", YEAR, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("0-0 0 -87840000", YEAR, HOUR,
+                                                 /*allow_nanos=*/false));
   EXPECT_EQ("10000-0 3660000 87840000:0:0",
-            ParseToString("10000-0 3660000 87840000", YEAR, HOUR));
+            ParseToString("10000-0 3660000 87840000", YEAR, HOUR,
+                          /*allow_nanos=*/false));
   EXPECT_EQ("-10000-0 -3660000 -87840000:0:0",
-            ParseToString("-10000-0 -3660000 -87840000", YEAR, HOUR));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 0:0", YEAR, MINUTE));
-  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0-0 0 12:34", YEAR, MINUTE));
-  EXPECT_EQ("0-0 0 -12:34:0", ParseToString("0-0 0 -12:34", YEAR, MINUTE));
-  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0-0 0 +12:34", YEAR, MINUTE));
-  EXPECT_EQ("0-0 0 101:40:0", ParseToString("0-0 0 100:100", YEAR, MINUTE));
-  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("0-0 0 -100:100", YEAR, MINUTE));
-  EXPECT_EQ("10-2 30 43:21:0", ParseToString("10-2 30 43:21", YEAR, MINUTE));
-  EXPECT_EQ("10-2 30 -43:21:0", ParseToString("10-2 30 -43:21", YEAR, MINUTE));
-  EXPECT_EQ("0-0 0 87840000:0:0",
-            ParseToString("0-0 0 0:5270400000", YEAR, MINUTE));
+            ParseToString("-10000-0 -3660000 -87840000", YEAR, HOUR,
+                          /*allow_nanos=*/false));
+  // YEAR to MINUTE with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0-0 0 0:0", YEAR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:0",
+            ParseToString("0-0 0 12:34", YEAR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -12:34:0",
+            ParseToString("0-0 0 -12:34", YEAR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:0",
+            ParseToString("0-0 0 +12:34", YEAR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 101:40:0", ParseToString("0-0 0 100:100", YEAR, MINUTE,
+                                            /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("0-0 0 -100:100", YEAR, MINUTE,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("10-2 30 43:21:0", ParseToString("10-2 30 43:21", YEAR, MINUTE,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("10-2 30 -43:21:0", ParseToString("10-2 30 -43:21", YEAR, MINUTE,
+                                              /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0-0 0 0:5270400000", YEAR,
+                                                MINUTE, /*allow_nanos=*/false));
   EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("0-0 0 -0:5270400000", YEAR, MINUTE));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 0:0:0", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0-0 0 0:0:9", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0-0 0 -0:0:9", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0-0 0 0:0:09", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0-0 0 -0:0:09", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0-0 0 0:0:59", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("0-0 0 -0:0:59", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0-0 0 0:0:123", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("0-0 0 -0:0:123", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0-0 0 1:2:3", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0-0 0 -1:2:3", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0-0 0 01:02:03", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0-0 0 -01:02:03", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0-0 0 12:34:56", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("0-0 0 -12:34:56", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0-0 0 +12:34:56", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 101:41:40",
-            ParseToString("0-0 0 100:100:100", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -101:41:40",
-            ParseToString("0-0 0 -100:100:100", YEAR, SECOND));
-  EXPECT_EQ("10-2 30 4:56:7", ParseToString("10-2 30 4:56:7", YEAR, SECOND));
-  EXPECT_EQ("10-2 30 -4:56:7", ParseToString("10-2 30 -4:56:7", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 87840000:0:0",
-            ParseToString("0-0 0 0:0:316224000000", YEAR, SECOND));
+            ParseToString("0-0 0 -0:5270400000", YEAR, MINUTE,
+                          /*allow_nanos=*/false));
+  // YEAR to SECOND with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0-0 0 0:0:0", YEAR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0-0 0 0:0:9", YEAR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9",
+            ParseToString("0-0 0 -0:0:9", YEAR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0-0 0 0:0:09", YEAR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0-0 0 -0:0:09", YEAR, SECOND,
+                                          /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:59",
+            ParseToString("0-0 0 0:0:59", YEAR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("0-0 0 -0:0:59", YEAR, SECOND,
+                                           /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0-0 0 0:0:123", YEAR, SECOND,
+                                         /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("0-0 0 -0:0:123", YEAR, SECOND,
+                                          /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 1:2:3",
+            ParseToString("0-0 0 1:2:3", YEAR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -1:2:3",
+            ParseToString("0-0 0 -1:2:3", YEAR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0-0 0 01:02:03", YEAR, SECOND,
+                                         /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0-0 0 -01:02:03", YEAR, SECOND,
+                                          /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0-0 0 12:34:56", YEAR, SECOND,
+                                            /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("0-0 0 -12:34:56", YEAR, SECOND,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0-0 0 +12:34:56", YEAR, SECOND,
+                                            /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 101:41:40", ParseToString("0-0 0 100:100:100", YEAR, SECOND,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -101:41:40", ParseToString("0-0 0 -100:100:100", YEAR,
+                                              SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("10-2 30 4:56:7", ParseToString("10-2 30 4:56:7", YEAR, SECOND,
+                                            /*allow_nanos=*/false));
+  EXPECT_EQ("10-2 30 -4:56:7", ParseToString("10-2 30 -4:56:7", YEAR, SECOND,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0-0 0 0:0:316224000000", YEAR,
+                                                SECOND, /*allow_nanos=*/false));
   EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("0-0 0 -0:0:316224000000", YEAR, SECOND));
+            ParseToString("0-0 0 -0:0:316224000000", YEAR, SECOND,
+                          /*allow_nanos=*/false));
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 0:0:0.0", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 -0:0:0.0000", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0-0 0 0:0:0.1", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("0-0 0 -0:0:0.1", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:1.234500",
-            ParseToString("0-0 0 0:0:1.2345", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1.234500",
-            ParseToString("0-0 0 -0:0:1.2345", YEAR, SECOND));
-  EXPECT_EQ("0-0 0 0:1:2.345678",
-            ParseToString("0-0 0 0:1:2.345678", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 0:0:0.0", YEAR, SECOND,
+                                         /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 -0:0:0.0000", YEAR, SECOND,
+                                         /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0-0 0 0:0:0.1", YEAR, SECOND,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("0-0 0 -0:0:0.1", YEAR, SECOND,
+                                              /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1.234500", ParseToString("0-0 0 0:0:1.2345", YEAR,
+                                                SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -0:0:1.234500",
+      ParseToString("0-0 0 -0:0:1.2345", YEAR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:1:2.345678", ParseToString("0-0 0 0:1:2.345678", YEAR,
+                                                SECOND, /*allow_nanos=*/false));
   EXPECT_EQ("0-0 0 -0:1:2.345678",
-            ParseToString("0-0 0 -0:1:2.345678", YEAR, SECOND));
+            ParseToString("0-0 0 -0:1:2.345678", YEAR, SECOND,
+                          /*allow_nanos=*/false));
+  // YEAR to SECOND with allow_nanos=true.
   EXPECT_EQ("0-0 0 1:2:3.000456789",
-            ParseToString("0-0 0 1:2:3.000456789", YEAR, SECOND));
+            ParseToString("0-0 0 1:2:3.000456789", YEAR, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 -1:2:3.000456789",
-            ParseToString("0-0 0 -1:2:3.000456789", YEAR, SECOND));
+            ParseToString("0-0 0 -1:2:3.000456789", YEAR, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("10-2 30 4:56:7.891234500",
-            ParseToString("10-2 30 4:56:7.8912345", YEAR, SECOND));
+            ParseToString("10-2 30 4:56:7.8912345", YEAR, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("10-2 30 -4:56:7.891234500",
-            ParseToString("10-2 30 -4:56:7.8912345", YEAR, SECOND));
+            ParseToString("10-2 30 -4:56:7.8912345", YEAR, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 87839999:59:1.999999999",
-            ParseToString("0-0 0 0:0:316223999941.999999999", YEAR, SECOND));
+            ParseToString("0-0 0 0:0:316223999941.999999999", YEAR, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
-            ParseToString("0-0 0 -0:0:316223999941.999999999", YEAR, SECOND));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0", MONTH, DAY));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 -0", MONTH, DAY));
-  EXPECT_EQ("0-0 7 0:0:0", ParseToString("0 7", MONTH, DAY));
-  EXPECT_EQ("0-0 -7 0:0:0", ParseToString("0 -7", MONTH, DAY));
-  EXPECT_EQ("0-0 7 0:0:0", ParseToString("-0 +7", MONTH, DAY));
-  EXPECT_EQ("11-8 30 0:0:0", ParseToString("140 30", MONTH, DAY));
-  EXPECT_EQ("11-8 -30 0:0:0", ParseToString("140 -30", MONTH, DAY));
-  EXPECT_EQ("-11-8 -30 0:0:0", ParseToString("-140 -30", MONTH, DAY));
-  EXPECT_EQ("0-0 3660000 0:0:0", ParseToString("0 3660000", MONTH, DAY));
-  EXPECT_EQ("0-0 -3660000 0:0:0", ParseToString("0 -3660000", MONTH, DAY));
+            ParseToString("0-0 0 -0:0:316223999941.999999999", YEAR, SECOND,
+                          /*allow_nanos=*/true));
+  // MONTH to DAY with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 0", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 -0", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 7 0:0:0",
+            ParseToString("0 7", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -7 0:0:0",
+            ParseToString("0 -7", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 7 0:0:0",
+            ParseToString("-0 +7", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("11-8 30 0:0:0",
+            ParseToString("140 30", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("11-8 -30 0:0:0",
+            ParseToString("140 -30", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("-11-8 -30 0:0:0",
+            ParseToString("-140 -30", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 3660000 0:0:0",
+            ParseToString("0 3660000", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -3660000 0:0:0",
+            ParseToString("0 -3660000", MONTH, DAY, /*allow_nanos=*/false));
   EXPECT_EQ("10000-0 3660000 0:0:0",
-            ParseToString("120000 3660000", MONTH, DAY));
-  EXPECT_EQ("-10000-0 -3660000 0:0:0",
-            ParseToString("-120000 -3660000", MONTH, DAY));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 0", MONTH, HOUR));
-  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0 0 24", MONTH, HOUR));
-  EXPECT_EQ("0-0 0 -24:0:0", ParseToString("0 0 -24", MONTH, HOUR));
-  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0 0 +24", MONTH, HOUR));
-  EXPECT_EQ("1-0 3 4:0:0", ParseToString("12 3 4", MONTH, HOUR));
-  EXPECT_EQ("-1-0 -3 -4:0:0", ParseToString("-12 -3 -4", MONTH, HOUR));
-  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 0 87840000", MONTH, HOUR));
-  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("0 0 -87840000", MONTH, HOUR));
+            ParseToString("120000 3660000", MONTH, DAY, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "-10000-0 -3660000 0:0:0",
+      ParseToString("-120000 -3660000", MONTH, DAY, /*allow_nanos=*/false));
+  // MONTH to HOUR with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 0 0", MONTH, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 24:0:0",
+            ParseToString("0 0 24", MONTH, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -24:0:0",
+            ParseToString("0 0 -24", MONTH, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 24:0:0",
+            ParseToString("0 0 +24", MONTH, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("1-0 3 4:0:0",
+            ParseToString("12 3 4", MONTH, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("-1-0 -3 -4:0:0",
+            ParseToString("-12 -3 -4", MONTH, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("0 0 87840000", MONTH, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("0 0 -87840000", MONTH, HOUR, /*allow_nanos=*/false));
   EXPECT_EQ("10000-0 3660000 87840000:0:0",
-            ParseToString("120000 3660000 87840000", MONTH, HOUR));
+            ParseToString("120000 3660000 87840000", MONTH, HOUR,
+                          /*allow_nanos=*/false));
   EXPECT_EQ("-10000-0 -3660000 -87840000:0:0",
-            ParseToString("-120000 -3660000 -87840000", MONTH, HOUR));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 0:0", MONTH, MINUTE));
-  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0 0 12:34", MONTH, MINUTE));
-  EXPECT_EQ("0-0 0 -12:34:0", ParseToString("0 0 -12:34", MONTH, MINUTE));
-  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0 0 +12:34", MONTH, MINUTE));
-  EXPECT_EQ("0-0 0 101:40:0", ParseToString("0 0 100:100", MONTH, MINUTE));
-  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("0 0 -100:100", MONTH, MINUTE));
-  EXPECT_EQ("10-2 30 43:21:0", ParseToString("122 30 43:21", MONTH, MINUTE));
-  EXPECT_EQ("10-2 30 -43:21:0", ParseToString("122 30 -43:21", MONTH, MINUTE));
-  EXPECT_EQ("0-0 0 87840000:0:0",
-            ParseToString("0 0 0:5270400000", MONTH, MINUTE));
+            ParseToString("-120000 -3660000 -87840000", MONTH, HOUR,
+                          /*allow_nanos=*/false));
+  // MONTH to MINUTE with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 0 0:0", MONTH, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:0",
+            ParseToString("0 0 12:34", MONTH, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -12:34:0",
+            ParseToString("0 0 -12:34", MONTH, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:0",
+            ParseToString("0 0 +12:34", MONTH, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 101:40:0",
+            ParseToString("0 0 100:100", MONTH, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("0 0 -100:100", MONTH, MINUTE,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("10-2 30 43:21:0", ParseToString("122 30 43:21", MONTH, MINUTE,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("10-2 30 -43:21:0", ParseToString("122 30 -43:21", MONTH, MINUTE,
+                                              /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 0 0:5270400000", MONTH,
+                                                MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -87840000:0:0",
+      ParseToString("0 0 -0:5270400000", MONTH, MINUTE, /*allow_nanos=*/false));
+  // MONTH to SECOND with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 0 0:0:0", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0 0 0:0:9", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9",
+            ParseToString("0 0 -0:0:9", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0 0 0:0:09", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9",
+            ParseToString("0 0 -0:0:09", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:59",
+            ParseToString("0 0 0:0:59", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:59",
+            ParseToString("0 0 -0:0:59", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:2:3",
+            ParseToString("0 0 0:0:123", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("0 0 -0:0:123", MONTH, SECOND,
+                                          /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 1:2:3",
+            ParseToString("0 0 1:2:3", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -1:2:3",
+            ParseToString("0 0 -1:2:3", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0 0 01:02:03", MONTH, SECOND,
+                                         /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0 0 -01:02:03", MONTH, SECOND,
+                                          /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 0 12:34:56", MONTH, SECOND,
+                                            /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("0 0 -12:34:56", MONTH, SECOND,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 0 +12:34:56", MONTH, SECOND,
+                                            /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 101:41:40", ParseToString("0 0 100:100:100", MONTH, SECOND,
+                                             /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -101:41:40", ParseToString("0 0 -100:100:100", MONTH, SECOND,
+                                              /*allow_nanos=*/false));
+  EXPECT_EQ("1-8 30 4:56:7", ParseToString("20 30 4:56:7", MONTH, SECOND,
+                                           /*allow_nanos=*/false));
+  EXPECT_EQ("1-8 30 -4:56:7", ParseToString("20 30 -4:56:7", MONTH, SECOND,
+                                            /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 0 0:0:316224000000", MONTH,
+                                                SECOND, /*allow_nanos=*/false));
   EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("0 0 -0:5270400000", MONTH, MINUTE));
+            ParseToString("0 0 -0:0:316224000000", MONTH, SECOND,
+                          /*allow_nanos=*/false));
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 0:0:0", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0 0 0:0:9", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0 0 -0:0:9", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0 0 0:0:09", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0 0 -0:0:09", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0 0 0:0:59", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("0 0 -0:0:59", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0 0 0:0:123", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("0 0 -0:0:123", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0 0 1:2:3", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0 0 -1:2:3", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0 0 01:02:03", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0 0 -01:02:03", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 0 12:34:56", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("0 0 -12:34:56", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 0 +12:34:56", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 101:41:40", ParseToString("0 0 100:100:100", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -101:41:40",
-            ParseToString("0 0 -100:100:100", MONTH, SECOND));
-  EXPECT_EQ("1-8 30 4:56:7", ParseToString("20 30 4:56:7", MONTH, SECOND));
-  EXPECT_EQ("1-8 30 -4:56:7", ParseToString("20 30 -4:56:7", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 87840000:0:0",
-            ParseToString("0 0 0:0:316224000000", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("0 0 -0:0:316224000000", MONTH, SECOND));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 0:0:0.0", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 -0:0:0.0000", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0 0 0:0:0.1", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("0 0 -0:0:0.1", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 0:0:1.234500",
-            ParseToString("0 0 0:0:1.2345", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1.234500",
-            ParseToString("0 0 -0:0:1.2345", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 0:1:2.345678",
-            ParseToString("0 0 0:1:2.345678", MONTH, SECOND));
-  EXPECT_EQ("0-0 0 -0:1:2.345678",
-            ParseToString("0 0 -0:1:2.345678", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 0 0:0:0.0", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 -0:0:0.0000", MONTH, SECOND,
+                                         /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.100",
+            ParseToString("0 0 0:0:0.1", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("0 0 -0:0:0.1", MONTH, SECOND,
+                                              /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1.234500", ParseToString("0 0 0:0:1.2345", MONTH, SECOND,
+                                                /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -0:0:1.234500",
+      ParseToString("0 0 -0:0:1.2345", MONTH, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:1:2.345678", ParseToString("0 0 0:1:2.345678", MONTH,
+                                                SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -0:1:2.345678",
+      ParseToString("0 0 -0:1:2.345678", MONTH, SECOND, /*allow_nanos=*/false));
+  // MONTH to SECOND with allow_nanos=true.
   EXPECT_EQ("0-0 0 1:2:3.000456789",
-            ParseToString("0 0 1:2:3.000456789", MONTH, SECOND));
+            ParseToString("0 0 1:2:3.000456789", MONTH, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 -1:2:3.000456789",
-            ParseToString("0 0 -1:2:3.000456789", MONTH, SECOND));
+            ParseToString("0 0 -1:2:3.000456789", MONTH, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("1-8 30 4:56:7.891234500",
-            ParseToString("20 30 4:56:7.8912345", MONTH, SECOND));
+            ParseToString("20 30 4:56:7.8912345", MONTH, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("1-8 30 -4:56:7.891234500",
-            ParseToString("20 30 -4:56:7.8912345", MONTH, SECOND));
+            ParseToString("20 30 -4:56:7.8912345", MONTH, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 87839999:59:1.999999999",
-            ParseToString("0 0 0:0:316223999941.999999999", MONTH, SECOND));
+            ParseToString("0 0 0:0:316223999941.999999999", MONTH, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
-            ParseToString("0 0 -0:0:316223999941.999999999", MONTH, SECOND));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0", DAY, HOUR));
-  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0 24", DAY, HOUR));
-  EXPECT_EQ("0-0 0 -24:0:0", ParseToString("0 -24", DAY, HOUR));
-  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0 +24", DAY, HOUR));
-  EXPECT_EQ("0-0 3 4:0:0", ParseToString("3 4", DAY, HOUR));
-  EXPECT_EQ("0-0 -3 -4:0:0", ParseToString("-3 -4", DAY, HOUR));
-  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 87840000", DAY, HOUR));
-  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("0 -87840000", DAY, HOUR));
-  EXPECT_EQ("0-0 3660000 87840000:0:0",
-            ParseToString("3660000 87840000", DAY, HOUR));
-  EXPECT_EQ("0-0 -3660000 -87840000:0:0",
-            ParseToString("-3660000 -87840000", DAY, HOUR));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0:0", DAY, MINUTE));
-  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0 12:34", DAY, MINUTE));
-  EXPECT_EQ("0-0 0 -12:34:0", ParseToString("0 -12:34", DAY, MINUTE));
-  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0 +12:34", DAY, MINUTE));
-  EXPECT_EQ("0-0 0 101:40:0", ParseToString("0 100:100", DAY, MINUTE));
-  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("0 -100:100", DAY, MINUTE));
-  EXPECT_EQ("0-0 30 43:21:0", ParseToString("30 43:21", DAY, MINUTE));
-  EXPECT_EQ("0-0 30 -43:21:0", ParseToString("30 -43:21", DAY, MINUTE));
-  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 0:5270400000", DAY, MINUTE));
-  EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("0 -0:5270400000", DAY, MINUTE));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0:0:0", DAY, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0 0:0:9", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0 -0:0:9", DAY, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0 0:0:09", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0 -0:0:09", DAY, SECOND));
-  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0 0:0:59", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("0 -0:0:59", DAY, SECOND));
-  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0 0:0:123", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("0 -0:0:123", DAY, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0 1:2:3", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0 -1:2:3", DAY, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0 01:02:03", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0 -01:02:03", DAY, SECOND));
-  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 12:34:56", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("0 -12:34:56", DAY, SECOND));
-  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 +12:34:56", DAY, SECOND));
-  EXPECT_EQ("0-0 0 101:41:40", ParseToString("0 100:100:100", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -101:41:40", ParseToString("0 -100:100:100", DAY, SECOND));
-  EXPECT_EQ("0-0 30 4:56:7", ParseToString("30 4:56:7", DAY, SECOND));
-  EXPECT_EQ("0-0 30 -4:56:7", ParseToString("30 -4:56:7", DAY, SECOND));
+            ParseToString("0 0 -0:0:316223999941.999999999", MONTH, SECOND,
+                          /*allow_nanos=*/true));
+  // DAY to HOUR with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 0", DAY, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 24:0:0",
+            ParseToString("0 24", DAY, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -24:0:0",
+            ParseToString("0 -24", DAY, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 24:0:0",
+            ParseToString("0 +24", DAY, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 3 4:0:0",
+            ParseToString("3 4", DAY, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 -3 -4:0:0",
+            ParseToString("-3 -4", DAY, HOUR, /*allow_nanos=*/false));
   EXPECT_EQ("0-0 0 87840000:0:0",
-            ParseToString("0 0:0:316224000000", DAY, SECOND));
+            ParseToString("0 87840000", DAY, HOUR, /*allow_nanos=*/false));
   EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("0 -0:0:316224000000", DAY, SECOND));
+            ParseToString("0 -87840000", DAY, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 3660000 87840000:0:0",
+      ParseToString("3660000 87840000", DAY, HOUR, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 -3660000 -87840000:0:0",
+      ParseToString("-3660000 -87840000", DAY, HOUR, /*allow_nanos=*/false));
+  // DAY to MINUTE with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 0:0", DAY, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:0",
+            ParseToString("0 12:34", DAY, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -12:34:0",
+            ParseToString("0 -12:34", DAY, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:0",
+            ParseToString("0 +12:34", DAY, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 101:40:0",
+            ParseToString("0 100:100", DAY, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -101:40:0",
+            ParseToString("0 -100:100", DAY, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 30 43:21:0",
+            ParseToString("30 43:21", DAY, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 30 -43:21:0",
+            ParseToString("30 -43:21", DAY, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 0:5270400000", DAY, MINUTE,
+                                                /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("0 -0:5270400000", DAY, MINUTE,
+                                                 /*allow_nanos=*/false));
+  // DAY to SECOND with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 0:0:0", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0 0:0:9", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9",
+            ParseToString("0 -0:0:9", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0 0:0:09", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9",
+            ParseToString("0 -0:0:09", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:59",
+            ParseToString("0 0:0:59", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:59",
+            ParseToString("0 -0:0:59", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:2:3",
+            ParseToString("0 0:0:123", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:2:3",
+            ParseToString("0 -0:0:123", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 1:2:3",
+            ParseToString("0 1:2:3", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -1:2:3",
+            ParseToString("0 -1:2:3", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 1:2:3",
+            ParseToString("0 01:02:03", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -1:2:3",
+            ParseToString("0 -01:02:03", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:56",
+            ParseToString("0 12:34:56", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -12:34:56",
+            ParseToString("0 -12:34:56", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:56",
+            ParseToString("0 +12:34:56", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 101:41:40",
+            ParseToString("0 100:100:100", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -101:41:40", ParseToString("0 -100:100:100", DAY, SECOND,
+                                              /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 30 4:56:7",
+            ParseToString("30 4:56:7", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 30 -4:56:7",
+            ParseToString("30 -4:56:7", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 0:0:316224000000", DAY,
+                                                SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -87840000:0:0",
+      ParseToString("0 -0:0:316224000000", DAY, SECOND, /*allow_nanos=*/false));
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0:0:0.0", DAY, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 -0:0:0.0000", DAY, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0 0:0:0.1", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("0 -0:0:0.1", DAY, SECOND));
-  EXPECT_EQ("0-0 0 0:0:1.234500", ParseToString("0 0:0:1.2345", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1.234500", ParseToString("0 -0:0:1.2345", DAY, SECOND));
-  EXPECT_EQ("0-0 0 0:1:2.345678", ParseToString("0 0:1:2.345678", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -0:1:2.345678",
-            ParseToString("0 -0:1:2.345678", DAY, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3.000456789",
-            ParseToString("0 1:2:3.000456789", DAY, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3.000456789",
-            ParseToString("0 -1:2:3.000456789", DAY, SECOND));
-  EXPECT_EQ("0-0 30 4:56:7.891234500",
-            ParseToString("30 4:56:7.8912345", DAY, SECOND));
-  EXPECT_EQ("0-0 30 -4:56:7.891234500",
-            ParseToString("30 -4:56:7.8912345", DAY, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 0:0:0.0", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0 -0:0:0.0000", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.100",
+            ParseToString("0 0:0:0.1", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:0.100",
+            ParseToString("0 -0:0:0.1", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1.234500",
+            ParseToString("0 0:0:1.2345", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:1.234500",
+            ParseToString("0 -0:0:1.2345", DAY, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:1:2.345678", ParseToString("0 0:1:2.345678", DAY, SECOND,
+                                                /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:1:2.345678", ParseToString("0 -0:1:2.345678", DAY, SECOND,
+                                                 /*allow_nanos=*/false));
+  // DAY to SECOND with allow_nanos=true.
+  EXPECT_EQ(
+      "0-0 0 1:2:3.000456789",
+      ParseToString("0 1:2:3.000456789", DAY, SECOND, /*allow_nanos=*/true));
+  EXPECT_EQ(
+      "0-0 0 -1:2:3.000456789",
+      ParseToString("0 -1:2:3.000456789", DAY, SECOND, /*allow_nanos=*/true));
+  EXPECT_EQ(
+      "0-0 30 4:56:7.891234500",
+      ParseToString("30 4:56:7.8912345", DAY, SECOND, /*allow_nanos=*/true));
+  EXPECT_EQ(
+      "0-0 30 -4:56:7.891234500",
+      ParseToString("30 -4:56:7.8912345", DAY, SECOND, /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 87839999:59:1.999999999",
-            ParseToString("0 0:0:316223999941.999999999", DAY, SECOND));
+            ParseToString("0 0:0:316223999941.999999999", DAY, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
-            ParseToString("0 -0:0:316223999941.999999999", DAY, SECOND));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0", HOUR, MINUTE));
-  EXPECT_EQ("0-0 0 12:34:0", ParseToString("12:34", HOUR, MINUTE));
-  EXPECT_EQ("0-0 0 -12:34:0", ParseToString("-12:34", HOUR, MINUTE));
-  EXPECT_EQ("0-0 0 12:34:0", ParseToString("+12:34", HOUR, MINUTE));
-  EXPECT_EQ("0-0 0 101:40:0", ParseToString("100:100", HOUR, MINUTE));
-  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("-100:100", HOUR, MINUTE));
-  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0:5270400000", HOUR, MINUTE));
-  EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("-0:5270400000", HOUR, MINUTE));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0:0", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0:0:9", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("-0:0:9", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0:0:09", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("-0:0:09", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0:0:59", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("-0:0:59", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0:0:123", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("-0:0:123", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3", ParseToString("1:2:3", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("-1:2:3", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3", ParseToString("01:02:03", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("-01:02:03", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 12:34:56", ParseToString("12:34:56", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("-12:34:56", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 12:34:56", ParseToString("+12:34:56", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 101:41:40", ParseToString("100:100:100", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -101:41:40", ParseToString("-100:100:100", HOUR, SECOND));
+            ParseToString("0 -0:0:316223999941.999999999", DAY, SECOND,
+                          /*allow_nanos=*/true));
+  // HOUR to MINUTE with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0:0", HOUR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:0",
+            ParseToString("12:34", HOUR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -12:34:0",
+            ParseToString("-12:34", HOUR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:0",
+            ParseToString("+12:34", HOUR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 101:40:0",
+            ParseToString("100:100", HOUR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -101:40:0",
+            ParseToString("-100:100", HOUR, MINUTE, /*allow_nanos=*/false));
   EXPECT_EQ("0-0 0 87840000:0:0",
-            ParseToString("0:0:316224000000", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("-0:0:316224000000", HOUR, SECOND));
+            ParseToString("0:5270400000", HOUR, MINUTE, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("-0:5270400000", HOUR, MINUTE,
+                                                 /*allow_nanos=*/false));
+  // HOUR to SECOND with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0:0:0", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0:0:9", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9",
+            ParseToString("-0:0:9", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0:0:09", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9",
+            ParseToString("-0:0:09", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:59",
+            ParseToString("0:0:59", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:59",
+            ParseToString("-0:0:59", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:2:3",
+            ParseToString("0:0:123", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:2:3",
+            ParseToString("-0:0:123", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 1:2:3",
+            ParseToString("1:2:3", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -1:2:3",
+            ParseToString("-1:2:3", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 1:2:3",
+            ParseToString("01:02:03", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -1:2:3",
+            ParseToString("-01:02:03", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:56",
+            ParseToString("12:34:56", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -12:34:56",
+            ParseToString("-12:34:56", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 12:34:56",
+            ParseToString("+12:34:56", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 101:41:40",
+            ParseToString("100:100:100", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -101:41:40",
+            ParseToString("-100:100:100", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0:0:316224000000", HOUR,
+                                                SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -87840000:0:0",
+      ParseToString("-0:0:316224000000", HOUR, SECOND, /*allow_nanos=*/false));
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0:0.0", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0:0:0.0000", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0:0:0.1", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("-0:0:0.1", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 0:0:1.234500", ParseToString("0:0:1.2345", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1.234500", ParseToString("-0:0:1.2345", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 0:1:2.345678", ParseToString("0:1:2.345678", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -0:1:2.345678",
-            ParseToString("-0:1:2.345678", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 1:2:3.000456789",
-            ParseToString("1:2:3.000456789", HOUR, SECOND));
-  EXPECT_EQ("0-0 0 -1:2:3.000456789",
-            ParseToString("-1:2:3.000456789", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0:0:0.0", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("-0:0:0.0000", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.100",
+            ParseToString("0:0:0.1", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:0.100",
+            ParseToString("-0:0:0.1", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1.234500",
+            ParseToString("0:0:1.2345", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:1.234500",
+            ParseToString("-0:0:1.2345", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:1:2.345678",
+            ParseToString("0:1:2.345678", HOUR, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:1:2.345678", ParseToString("-0:1:2.345678", HOUR, SECOND,
+                                                 /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 1:2:3.000456789",
+      ParseToString("1:2:3.000456789", HOUR, SECOND, /*allow_nanos=*/true));
+  EXPECT_EQ(
+      "0-0 0 -1:2:3.000456789",
+      ParseToString("-1:2:3.000456789", HOUR, SECOND, /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 87839999:59:1.999999999",
-            ParseToString("0:0:316223999941.999999999", HOUR, SECOND));
+            ParseToString("0:0:316223999941.999999999", HOUR, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
-            ParseToString("-0:0:316223999941.999999999", HOUR, SECOND));
+            ParseToString("-0:0:316223999941.999999999", HOUR, SECOND,
+                          /*allow_nanos=*/true));
+  // MINUTE to SECOND with allow_nanos=false.
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0:0", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0:9", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9",
+            ParseToString("-0:9", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:9",
+            ParseToString("0:09", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:9",
+            ParseToString("-0:09", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:59",
+            ParseToString("0:59", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:59",
+            ParseToString("-0:59", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:2:3",
+            ParseToString("0:123", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:2:3",
+            ParseToString("-0:123", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:2:3",
+            ParseToString("2:3", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:2:3",
+            ParseToString("-2:3", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:2:3",
+            ParseToString("02:03", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:2:3",
+            ParseToString("-02:03", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 20:34:56",
+            ParseToString("1234:56", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -20:34:56",
+            ParseToString("-1234:56", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 20:34:56",
+            ParseToString("+1234:56", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0:316224000000", MINUTE,
+                                                SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -87840000:0:0",
+      ParseToString("-0:316224000000", MINUTE, SECOND, /*allow_nanos=*/false));
 
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0:9", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("-0:9", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0:09", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("-0:09", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0:59", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("-0:59", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0:123", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("-0:123", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:2:3", ParseToString("2:3", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("-2:3", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:2:3", ParseToString("02:03", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("-02:03", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 20:34:56", ParseToString("1234:56", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -20:34:56", ParseToString("-1234:56", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 20:34:56", ParseToString("+1234:56", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 87840000:0:0",
-            ParseToString("0:316224000000", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -87840000:0:0",
-            ParseToString("-0:316224000000", MINUTE, SECOND));
-
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0.0", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0:0.0000", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0:0.1", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("-0:0.1", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:0:1.234500", ParseToString("0:1.2345", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -0:0:1.234500", ParseToString("-0:1.2345", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 0:1:2.345678", ParseToString("1:2.345678", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -0:1:2.345678",
-            ParseToString("-1:2.345678", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 2:0:3.000456789",
-            ParseToString("120:3.000456789", MINUTE, SECOND));
-  EXPECT_EQ("0-0 0 -2:0:3.000456789",
-            ParseToString("-120:3.000456789", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("0:0.0", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0",
+            ParseToString("-0:0.0000", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:0.100",
+            ParseToString("0:0.1", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:0.100",
+            ParseToString("-0:0.1", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:0:1.234500",
+            ParseToString("0:1.2345", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:1.234500",
+            ParseToString("-0:1.2345", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 0:1:2.345678",
+            ParseToString("1:2.345678", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:1:2.345678", ParseToString("-1:2.345678", MINUTE, SECOND,
+                                                 /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -2:0:3.456789",
+      ParseToString("-120:3.456789", MINUTE, SECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87839999:59:1.999999",
+            ParseToString("0:316223999941.999999", MINUTE, SECOND,
+                          /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -87839999:59:1.999999",
+            ParseToString("-0:316223999941.999999", MINUTE, SECOND,
+                          /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 2:0:3.456789", ParseToString("120:3.456789", MINUTE, SECOND,
+                                                /*allow_nanos=*/false));
+  // MINUTE to SECOND with allow_nanos=true.
+  EXPECT_EQ(
+      "0-0 0 2:0:3.000456789",
+      ParseToString("120:3.000456789", MINUTE, SECOND, /*allow_nanos=*/true));
+  EXPECT_EQ(
+      "0-0 0 -2:0:3.000456789",
+      ParseToString("-120:3.000456789", MINUTE, SECOND, /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 87839999:59:1.999999999",
-            ParseToString("0:316223999941.999999999", MINUTE, SECOND));
+            ParseToString("0:316223999941.999999999", MINUTE, SECOND,
+                          /*allow_nanos=*/true));
   EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
-            ParseToString("-0:316223999941.999999999", MINUTE, SECOND));
+            ParseToString("-0:316223999941.999999999", MINUTE, SECOND,
+                          /*allow_nanos=*/true));
 
   std::array<functions::DateTimestampPart, 6> parts = {YEAR, MONTH,  DAY,
                                                        HOUR, MINUTE, SECOND};
   for (int i = 0; i < parts.size(); i++) {
     for (int j = i + 1; j < parts.size(); j++) {
-      ExpectParseError("", parts[i], parts[j]);
-      ExpectParseError(" ", parts[i], parts[j]);
-      ExpectParseError("0", parts[i], parts[j]);
-      ExpectParseError(".", parts[i], parts[j]);
+      ExpectParseError("", parts[i], parts[j], /*allow_nanos=*/false);
+      ExpectParseError(" ", parts[i], parts[j], /*allow_nanos=*/false);
+      ExpectParseError("0", parts[i], parts[j], /*allow_nanos=*/false);
+      ExpectParseError(".", parts[i], parts[j], /*allow_nanos=*/false);
     }
   }
 
   // Whitespace padding
-  ExpectParseError(" 0-0", YEAR, MONTH);
-  ExpectParseError("0-0 ", YEAR, MONTH);
-  ExpectParseError("\t0-0", YEAR, MONTH);
-  ExpectParseError("0-0\t", YEAR, MONTH);
-  ExpectParseError("0- 0", YEAR, MONTH);
-  ExpectParseError("- 0-0", YEAR, MONTH);
+  ExpectParseError(" 0-0", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("0-0 ", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("\t0-0", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("0-0\t", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("0- 0", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("- 0-0", YEAR, MONTH, /*allow_nanos=*/false);
 
   // Exceeds maximum allowed value
-  ExpectParseError("10001-0", YEAR, MONTH);
-  ExpectParseError("-10001-0", YEAR, MONTH);
-  ExpectParseError("0-120001", YEAR, MONTH);
-  ExpectParseError("-0-120001", YEAR, MONTH);
-  ExpectParseError("10000-1", YEAR, MONTH);
-  ExpectParseError("-10000-1", YEAR, MONTH);
-  ExpectParseError("0 3660001", MONTH, DAY);
-  ExpectParseError("0 -3660001", MONTH, DAY);
-  ExpectParseError("0 87840001:0:0", DAY, SECOND);
-  ExpectParseError("0 -87840001:0:0", DAY, SECOND);
-  ExpectParseError("0 0:5270400001:0", DAY, SECOND);
-  ExpectParseError("0 -0:5270400001:0", DAY, SECOND);
-  ExpectParseError("0 0:0:316224000001", DAY, SECOND);
-  ExpectParseError("0 -0:0:316224000001", DAY, SECOND);
-  ExpectParseError("0 0:0:316224000000.000000001", DAY, SECOND);
-  ExpectParseError("0 -0:0:316224000000.000000001", DAY, SECOND);
-  ExpectParseError("0 87840000:0:0.000000001", DAY, SECOND);
-  ExpectParseError("0 -87840000:0:0.000000001", DAY, SECOND);
+  ExpectParseError("10001-0", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("-10001-0", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("0-120001", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("-0-120001", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("10000-1", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("-10000-1", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("0 3660001", MONTH, DAY, /*allow_nanos=*/false);
+  ExpectParseError("0 -3660001", MONTH, DAY, /*allow_nanos=*/false);
+  ExpectParseError("0 87840001:0:0", DAY, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 -87840001:0:0", DAY, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 0:5270400001:0", DAY, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 -0:5270400001:0", DAY, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 0:0:316224000001", DAY, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 -0:0:316224000001", DAY, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 0:0:316224000000.000000001", DAY, SECOND,
+                   /*allow_nanos=*/true);
+  ExpectParseError("0 -0:0:316224000000.000000001", DAY, SECOND,
+                   /*allow_nanos=*/true);
+  ExpectParseError("0 87840000:0:0.000000001", DAY, SECOND,
+                   /*allow_nanos=*/true);
+  ExpectParseError("0 -87840000:0:0.000000001", DAY, SECOND,
+                   /*allow_nanos=*/true);
 
   // Numbers too large to fit into int64_t
-  ExpectParseError("9223372036854775808-0", YEAR, MONTH);
-  ExpectParseError("-9223372036854775808-0", YEAR, MONTH);
-  ExpectParseError("0-9223372036854775808", YEAR, MONTH);
-  ExpectParseError("-0-9223372036854775808", YEAR, MONTH);
-  ExpectParseError("0 9223372036854775808", MONTH, DAY);
-  ExpectParseError("0 -9223372036854775808", MONTH, DAY);
-  ExpectParseError("0 9223372036854775808:0:0", DAY, SECOND);
-  ExpectParseError("0 -9223372036854775808:0:0", DAY, SECOND);
-  ExpectParseError("0 0:9223372036854775808:0", DAY, SECOND);
-  ExpectParseError("0 -0:9223372036854775808:0", DAY, SECOND);
-  ExpectParseError("0 0:0:9223372036854775808", DAY, SECOND);
-  ExpectParseError("0 -0:0:9223372036854775808", DAY, SECOND);
+  ExpectParseError("9223372036854775808-0", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775808-0", YEAR, MONTH,
+                   /*allow_nanos=*/false);
+  ExpectParseError("0-9223372036854775808", YEAR, MONTH, /*allow_nanos=*/false);
+  ExpectParseError("-0-9223372036854775808", YEAR, MONTH,
+                   /*allow_nanos=*/false);
+  ExpectParseError("0 9223372036854775808", MONTH, DAY, /*allow_nanos=*/false);
+  ExpectParseError("0 -9223372036854775808", MONTH, DAY, /*allow_nanos=*/false);
+  ExpectParseError("0 9223372036854775808:0:0", DAY, SECOND,
+                   /*allow_nanos=*/false);
+  ExpectParseError("0 -9223372036854775808:0:0", DAY, SECOND,
+                   /*allow_nanos=*/false);
+  ExpectParseError("0 0:9223372036854775808:0", DAY, SECOND,
+                   /*allow_nanos=*/false);
+  ExpectParseError("0 -0:9223372036854775808:0", DAY, SECOND,
+                   /*allow_nanos=*/false);
+  ExpectParseError("0 0:0:9223372036854775808", DAY, SECOND,
+                   /*allow_nanos=*/false);
+  ExpectParseError("0 -0:0:9223372036854775808", DAY, SECOND,
+                   /*allow_nanos=*/false);
 
   // Too many fractional digits
-  ExpectParseError("0-0 0 0:0:0.0000000000", YEAR, SECOND);
-  ExpectParseError("0 0 0:0:0.0000000000", MONTH, SECOND);
-  ExpectParseError("0 0:0:0.0000000000", DAY, SECOND);
-  ExpectParseError("0:0:0.0000000000", HOUR, SECOND);
-  ExpectParseError("0:0.0000000000", MINUTE, SECOND);
+  ExpectParseError("0-0 0 0:0:0.0000000000", YEAR, SECOND,
+                   /*allow_nanos=*/true);
+  ExpectParseError("0 0 0:0:0.0000000000", MONTH, SECOND, /*allow_nanos=*/true);
+  ExpectParseError("0 0:0:0.0000000000", DAY, SECOND, /*allow_nanos=*/true);
+  ExpectParseError("0:0:0.0000000000", HOUR, SECOND, /*allow_nanos=*/true);
+  ExpectParseError("0:0.0000000000", MINUTE, SECOND, /*allow_nanos=*/true);
+  // Unexpected nanos
+  ExpectParseError("0-0 0 0:0:0.1234567", YEAR, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 0 0:0:0.1234567", MONTH, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 0:0:0.1234567", DAY, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0:0:0.1234567", HOUR, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0:0.1234567", MINUTE, SECOND, /*allow_nanos=*/false);
 
   // Trailing dot
-  ExpectParseError("0-0 0 0:0:0.", YEAR, SECOND);
-  ExpectParseError("0 0 0:0:0.", MONTH, SECOND);
-  ExpectParseError("0 0:0:0.", DAY, SECOND);
-  ExpectParseError("0:0:0.", HOUR, SECOND);
-  ExpectParseError("0:0.", MINUTE, SECOND);
+  ExpectParseError("0-0 0 0:0:0.", YEAR, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 0 0:0:0.", MONTH, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0 0:0:0.", DAY, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0:0:0.", HOUR, SECOND, /*allow_nanos=*/false);
+  ExpectParseError("0:0.", MINUTE, SECOND, /*allow_nanos=*/false);
 
   // Unsupported combinations of dateparts
   for (int i = 0; i < parts.size(); i++) {
     // same part cannot be used twice
-    ExpectParseError("0", parts[i], parts[i]);
+    ExpectParseError("0", parts[i], parts[i], /*allow_nanos=*/false);
     for (int j = i + 1; j < parts.size(); j++) {
       // reverse order of parts
-      ExpectParseError("0", parts[j], parts[i]);
+      ExpectParseError("0", parts[j], parts[i], /*allow_nanos=*/false);
     }
   }
 }
 
 void TestRoundtrip(const IntervalValue& interval) {
   std::string interval_text = interval.ToString();
-  ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue interval_reparsed,
-                       IntervalValue::ParseFromString(
-                           interval_text, functions::YEAR, functions::SECOND));
+  bool requires_nanos = interval.get_nano_fractions() != 0;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      IntervalValue interval_reparsed,
+      IntervalValue::ParseFromString(interval_text, functions::YEAR,
+                                     functions::SECOND, requires_nanos));
+  if (requires_nanos) {
+    EXPECT_THAT(IntervalValue::ParseFromString(interval_text, functions::YEAR,
+                                               functions::SECOND,
+                                               /*allow_nanos=*/false),
+                StatusIs(absl::StatusCode::kOutOfRange));
+  }
   EXPECT_EQ(interval, interval_reparsed);
   EXPECT_EQ(interval_text, interval_reparsed.ToString());
 }
@@ -1771,68 +2157,78 @@ TEST(IntervalValueTest, ParseFromStringYearToSecond) {
   }
 }
 
-void ExpectParseFromString(absl::string_view expected,
-                           absl::string_view input) {
-  EXPECT_EQ(expected, (*IntervalValue::ParseFromString(input)).ToString());
-  EXPECT_EQ(expected, (*IntervalValue::Parse(input)).ToString());
+void ExpectParseFromString(absl::string_view expected, absl::string_view input,
+                           bool allow_nanos) {
+  EXPECT_EQ(expected,
+            (*IntervalValue::ParseFromString(input, allow_nanos)).ToString());
+  EXPECT_EQ(expected, (*IntervalValue::Parse(input, allow_nanos)).ToString());
 }
 
-void ExpectParseError(absl::string_view input) {
-  EXPECT_THAT(IntervalValue::ParseFromString(input),
+void ExpectParseError(absl::string_view input, bool allow_nanos) {
+  EXPECT_THAT(IntervalValue::ParseFromString(input, allow_nanos),
               StatusIs(absl::StatusCode::kOutOfRange));
-  EXPECT_THAT(IntervalValue::Parse(input),
+  EXPECT_THAT(IntervalValue::Parse(input, allow_nanos),
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 void ExpectParseErrorMessage(absl::string_view input,
                              absl::string_view expected_message) {
-  EXPECT_THAT(IntervalValue::ParseFromString(input),
+  EXPECT_THAT(IntervalValue::ParseFromString(input, /*allow_nanos=*/true),
               StatusIs(absl::StatusCode::kOutOfRange,
                        testing::HasSubstr(expected_message)))
       << input;
 }
 
 TEST(IntervalValueTest, ParseFromString) {
-  ExpectParseFromString("1-2 3 4:5:6", "1-2 3 4:5:6");
-  ExpectParseFromString("-1-2 3 4:5:6.700", "-1-2 3 4:5:6.7");
-  ExpectParseFromString("1-2 3 -4:5:6.780", "1-2 3 -4:5:6.78");
-  ExpectParseFromString("-1-2 -3 4:5:6.789", "-1-2 -3 +4:5:6.78900");
-  ExpectParseFromString("1-2 3 4:5:0", "1-2 3 4:5");
-  ExpectParseFromString("1-2 3 -4:5:0", "1-2 3 -4:5");
-  ExpectParseFromString("1-2 3 4:0:0", "1-2 3 4");
-  ExpectParseFromString("1-2 3 -4:0:0", "1-2 3 -4");
-  ExpectParseFromString("1-2 3 0:0:0", "1-2 3");
-  ExpectParseFromString("-1-2 -3 0:0:0", "-1-2 -3");
-  ExpectParseFromString("1-2 0 0:0:0", "1-2");
-  ExpectParseFromString("1-2 0 0:0:0", "+1-2");
-  ExpectParseFromString("-1-2 0 0:0:0", "-1-2");
-  ExpectParseFromString("0-1 2 3:0:0", "1 2 3");
-  ExpectParseFromString("0-1 -2 3:0:0", "1 -2 3");
-  ExpectParseFromString("-0-1 -2 -3:0:0", "-1 -2 -3");
-  ExpectParseFromString("0-1 2 3:4:0", "1 2 3:4");
-  ExpectParseFromString("0-1 2 -3:4:0", "1 2 -3:4");
-  ExpectParseFromString("0-1 2 3:4:5", "1 2 3:4:5");
-  ExpectParseFromString("0-1 2 -3:4:5.600", "1 2 -3:4:5.6");
-  ExpectParseFromString("0-0 1 2:3:0", "1 2:3");
-  ExpectParseFromString("0-0 -1 -2:3:0", "-1 -2:3");
-  ExpectParseFromString("0-0 1 2:3:4", "1 2:3:4");
-  ExpectParseFromString("0-0 -1 2:3:4.567800", "-1 2:3:4.5678");
-  ExpectParseFromString("0-0 0 1:2:3", "1:2:3");
-  ExpectParseFromString("0-0 0 -1:2:3", "-1:2:3");
-  ExpectParseFromString("0-0 0 -1:2:3.456", "-1:2:3.456");
-  ExpectParseFromString("0-0 0 -1:2:3.456789100", "-1:2:3.4567891");
+  ExpectParseFromString("1-2 3 4:5:6", "1-2 3 4:5:6", /*allow_nanos=*/false);
+  ExpectParseFromString("-1-2 3 4:5:6.700", "-1-2 3 4:5:6.7",
+                        /*allow_nanos=*/false);
+  ExpectParseFromString("1-2 3 -4:5:6.780", "1-2 3 -4:5:6.78",
+                        /*allow_nanos=*/false);
+  ExpectParseFromString("-1-2 -3 4:5:6.789", "-1-2 -3 +4:5:6.78900",
+                        /*allow_nanos=*/false);
+  ExpectParseFromString("1-2 3 4:5:0", "1-2 3 4:5", /*allow_nanos=*/false);
+  ExpectParseFromString("1-2 3 -4:5:0", "1-2 3 -4:5", /*allow_nanos=*/false);
+  ExpectParseFromString("1-2 3 4:0:0", "1-2 3 4", /*allow_nanos=*/false);
+  ExpectParseFromString("1-2 3 -4:0:0", "1-2 3 -4", /*allow_nanos=*/false);
+  ExpectParseFromString("1-2 3 0:0:0", "1-2 3", /*allow_nanos=*/false);
+  ExpectParseFromString("-1-2 -3 0:0:0", "-1-2 -3", /*allow_nanos=*/false);
+  ExpectParseFromString("1-2 0 0:0:0", "1-2", /*allow_nanos=*/false);
+  ExpectParseFromString("1-2 0 0:0:0", "+1-2", /*allow_nanos=*/false);
+  ExpectParseFromString("-1-2 0 0:0:0", "-1-2", /*allow_nanos=*/false);
+  ExpectParseFromString("0-1 2 3:0:0", "1 2 3", /*allow_nanos=*/false);
+  ExpectParseFromString("0-1 -2 3:0:0", "1 -2 3", /*allow_nanos=*/false);
+  ExpectParseFromString("-0-1 -2 -3:0:0", "-1 -2 -3", /*allow_nanos=*/false);
+  ExpectParseFromString("0-1 2 3:4:0", "1 2 3:4", /*allow_nanos=*/false);
+  ExpectParseFromString("0-1 2 -3:4:0", "1 2 -3:4", /*allow_nanos=*/false);
+  ExpectParseFromString("0-1 2 3:4:5", "1 2 3:4:5", /*allow_nanos=*/false);
+  ExpectParseFromString("0-1 2 -3:4:5.600", "1 2 -3:4:5.6",
+                        /*allow_nanos=*/false);
+  ExpectParseFromString("0-0 1 2:3:0", "1 2:3", /*allow_nanos=*/false);
+  ExpectParseFromString("0-0 -1 -2:3:0", "-1 -2:3", /*allow_nanos=*/false);
+  ExpectParseFromString("0-0 1 2:3:4", "1 2:3:4", /*allow_nanos=*/false);
+  ExpectParseFromString("0-0 -1 2:3:4.567800", "-1 2:3:4.5678",
+                        /*allow_nanos=*/false);
+  ExpectParseFromString("0-0 0 1:2:3", "1:2:3", /*allow_nanos=*/false);
+  ExpectParseFromString("0-0 0 -1:2:3", "-1:2:3", /*allow_nanos=*/false);
+  ExpectParseFromString("0-0 0 -1:2:3.456", "-1:2:3.456",
+                        /*allow_nanos=*/false);
+  ExpectParseFromString("0-0 0 -1:2:3.456789100", "-1:2:3.4567891",
+                        /*allow_nanos=*/true);
 
   // Ambiguous: Could be MONTH TO DAY or DAY TO HOUR
-  ExpectParseError("1 2");
+  ExpectParseError("1 2", /*allow_nanos=*/false);
   // Ambiguous: Could be HOUR TO MINUTE or MINUTE TO SECOND
-  ExpectParseError("1:2");
+  ExpectParseError("1:2", /*allow_nanos=*/false);
   // Good number of spaces/colons/dashes, but wrong format
-  ExpectParseError("1:2:3 2");
-  ExpectParseError("1 2-3");
-  ExpectParseError("1-2  1:2:3");
+  ExpectParseError("1:2:3 2", /*allow_nanos=*/false);
+  ExpectParseError("1 2-3", /*allow_nanos=*/false);
+  ExpectParseError("1-2  1:2:3", /*allow_nanos=*/false);
   // Unexpected number of spaces/colons/dashes
-  ExpectParseError("1-2 1:2:3");
-  ExpectParseError("1-2-3");
+  ExpectParseError("1-2 1:2:3", /*allow_nanos=*/false);
+  ExpectParseError("1-2-3", /*allow_nanos=*/false);
+  // Unexpected nanos
+  ExpectParseError("0-0 0 -1:2:3.456789100", /*allow_nanos=*/false);
 
   ExpectParseErrorMessage("1:2<3", "Invalid INTERVAL value '1:2<3'");
   ExpectParseErrorMessage("1 2-3", "Invalid INTERVAL value '1 2-3'");
@@ -1841,9 +2237,16 @@ TEST(IntervalValueTest, ParseFromString) {
 
 void ExpectToISO8601(absl::string_view expected, IntervalValue interval) {
   EXPECT_EQ(expected, interval.ToISO8601());
-  // Check roundtriping by parsing the expected string back and comparing with
+  // Check roundtripping by parsing the expected string back and comparing with
   // original interval.
-  EXPECT_EQ(interval, *IntervalValue::ParseFromISO8601(expected));
+  bool requires_nanos = interval.get_nano_fractions() != 0;
+  EXPECT_EQ(interval,
+            *IntervalValue::ParseFromISO8601(expected, requires_nanos));
+  if (requires_nanos) {
+    EXPECT_THAT(
+        IntervalValue::ParseFromISO8601(expected, /*allow_nanos=*/false),
+        StatusIs(absl::StatusCode::kOutOfRange));
+  }
 }
 
 TEST(IntervalValueTest, ToISO8601) {
@@ -1938,59 +2341,67 @@ TEST(IntervalValueTest, ToISO8601) {
                   Interval("-1-2 -3 -4:5:6.789123456"));
 }
 
-void ExpectFromISO8601(absl::string_view expected, absl::string_view input) {
+void ExpectFromISO8601(absl::string_view expected, absl::string_view input,
+                       bool allow_nanos) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue interval,
-                       IntervalValue::ParseFromISO8601(input));
+                       IntervalValue::ParseFromISO8601(input, allow_nanos));
   EXPECT_EQ(expected, interval.ToString());
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(interval, IntervalValue::Parse(input));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(interval, IntervalValue::Parse(input, allow_nanos));
   EXPECT_EQ(expected, interval.ToString());
 }
 
 void ExpectFromISO8601Error(absl::string_view input,
-                            const std::string& error_text) {
+                            const std::string& error_text, bool allow_nanos) {
   EXPECT_THAT(
-      IntervalValue::ParseFromISO8601(input),
+      IntervalValue::ParseFromISO8601(input, allow_nanos),
       StatusIs(absl::StatusCode::kOutOfRange, testing::HasSubstr(error_text)))
       << input;
 
-  EXPECT_THAT(IntervalValue::Parse(input),
+  EXPECT_THAT(IntervalValue::Parse(input, allow_nanos),
               StatusIs(absl::StatusCode::kOutOfRange))
       << input;
 }
 
 TEST(IntervalValueTest, ParseFromISO8601) {
-  ExpectFromISO8601("0-0 0 0:0:0", "PT");
-  ExpectFromISO8601("0-0 0 0:0:0", "P0Y");
-  ExpectFromISO8601("0-0 0 0:0:0", "P-1Y2Y-1Y");
-  ExpectFromISO8601("1-0 0 0:0:0", "P1Y");
-  ExpectFromISO8601("-1-0 0 0:0:0", "P-1Y");
-  ExpectFromISO8601("1-0 0 0:0:0", "P100Y1M-1M-99Y");
-  ExpectFromISO8601("0-2 0 0:0:0", "P2M");
-  ExpectFromISO8601("-0-2 0 0:0:0", "P2M-4M");
-  ExpectFromISO8601("2-1 0 0:0:0", "P25M");
-  ExpectFromISO8601("0-11 0 0:0:0", "P1Y-1M");
-  ExpectFromISO8601("0-0 70 0:0:0", "P10W");
-  ExpectFromISO8601("0-0 -70 0:0:0", "P-10W");
-  ExpectFromISO8601("0-0 3 0:0:0", "P3D");
-  ExpectFromISO8601("0-0 -3 0:0:0", "P-1D-1D-1D");
-  ExpectFromISO8601("0-0 123456 0:0:0", "P123456D");
-  ExpectFromISO8601("0-0 0 -4:0:0", "PT-4H");
-  ExpectFromISO8601("0-0 0 4:0:0", "PT3H60M");
-  ExpectFromISO8601("0-0 0 100000:0:0", "PT100000H");
-  ExpectFromISO8601("0-0 0 0:5:0", "PT5M");
-  ExpectFromISO8601("0-0 0 -0:5:0", "PT5M-10M");
-  ExpectFromISO8601("0-0 0 0:0:6", "PT6S");
-  ExpectFromISO8601("0-0 0 -0:0:6", "PT-6S");
-  ExpectFromISO8601("0-0 0 0:0:0.100", "PT0.1S");
-  ExpectFromISO8601("0-0 0 -0:0:0.100", "PT-0,1S");
-  ExpectFromISO8601("0-0 0 0:0:1.234", "PT1.234S");
-  ExpectFromISO8601("0-0 0 0:0:10.987654321", "PT10,987654321S");
-  ExpectFromISO8601("1-2 3 4:5:6.789", "P3D2M1YT6,789S5M4H");
-  ExpectFromISO8601("-1-2 -3 -4:5:6.789", "P-3D-2M-1YT-6.789S-5M-4H");
+  ExpectFromISO8601("0-0 0 0:0:0", "PT", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 0:0:0", "P0Y", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 0:0:0", "P-1Y2Y-1Y", /*allow_nanos=*/false);
+  ExpectFromISO8601("1-0 0 0:0:0", "P1Y", /*allow_nanos=*/false);
+  ExpectFromISO8601("-1-0 0 0:0:0", "P-1Y", /*allow_nanos=*/false);
+  ExpectFromISO8601("1-0 0 0:0:0", "P100Y1M-1M-99Y", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-2 0 0:0:0", "P2M", /*allow_nanos=*/false);
+  ExpectFromISO8601("-0-2 0 0:0:0", "P2M-4M", /*allow_nanos=*/false);
+  ExpectFromISO8601("2-1 0 0:0:0", "P25M", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-11 0 0:0:0", "P1Y-1M", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 70 0:0:0", "P10W", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 -70 0:0:0", "P-10W", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 3 0:0:0", "P3D", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 -3 0:0:0", "P-1D-1D-1D", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 123456 0:0:0", "P123456D", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 -4:0:0", "PT-4H", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 4:0:0", "PT3H60M", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 100000:0:0", "PT100000H", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 0:5:0", "PT5M", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 -0:5:0", "PT5M-10M", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 0:0:6", "PT6S", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 -0:0:6", "PT-6S", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 0:0:0.100", "PT0.1S", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 -0:0:0.100", "PT-0,1S", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 0:0:1.234", "PT1.234S", /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 0 0:0:10.987654321", "PT10,987654321S",
+                    /*allow_nanos=*/true);
+  ExpectFromISO8601("0-0 0 0:0:10.654321", "PT10,654321S",
+                    /*allow_nanos=*/false);
+  ExpectFromISO8601("1-2 3 4:5:6.789", "P3D2M1YT6,789S5M4H",
+                    /*allow_nanos=*/false);
+  ExpectFromISO8601("-1-2 -3 -4:5:6.789", "P-3D-2M-1YT-6.789S-5M-4H",
+                    /*allow_nanos=*/false);
   // Handle intermediate overflows
-  ExpectFromISO8601("9900-0 0 0:0:0", "P10000Y100Y-200Y");
-  ExpectFromISO8601("0-0 -3659999 0:0:0", "P-3660000D-1D2D");
+  ExpectFromISO8601("9900-0 0 0:0:0", "P10000Y100Y-200Y",
+                    /*allow_nanos=*/false);
+  ExpectFromISO8601("0-0 -3659999 0:0:0", "P-3660000D-1D2D",
+                    /*allow_nanos=*/false);
 
   // Input can be of unbounded length because same datetime part can appear
   // multiple times. Test for scalability/robustness in big inputs.
@@ -2002,43 +2413,69 @@ TEST(IntervalValueTest, ParseFromISO8601) {
     for (int i = 0; i < n; i++) {
       absl::StrAppend(&input, "-", i, "S");
     }
-    ExpectFromISO8601("0-0 0 1:0:0", input);
+    ExpectFromISO8601("0-0 0 1:0:0", input, /*allow_nanos=*/false);
   }
 
   // Errors
-  ExpectFromISO8601Error("", "Interval must start with 'P'");
-  ExpectFromISO8601Error("1Y", "Interval must start with 'P'");
-  ExpectFromISO8601Error("T", "Interval must start with 'P'");
-  ExpectFromISO8601Error("P", "At least one datetime part must be defined");
-  ExpectFromISO8601Error("P--1Y", "Expected number");
-  ExpectFromISO8601Error("P-", "Expected number");
-  ExpectFromISO8601Error("P1", "Unexpected end of input in the date portion");
-  ExpectFromISO8601Error("PTT", "Unexpected duplicate time separator");
-  ExpectFromISO8601Error("PT1HT1M", "Unexpected duplicate time separator");
-  ExpectFromISO8601Error("P1YM", "Unexpected 'M'");
-  ExpectFromISO8601Error("P1YT2MS", "Unexpected 'S'");
-  ExpectFromISO8601Error("P1M ", "Unexpected ' '");
-  ExpectFromISO8601Error("PT.1S", "Unexpected '.'");
-  ExpectFromISO8601Error("PT99999999999999999999999999999H", "Cannot convert");
-  ExpectFromISO8601Error("PT-99999999999999999999999999999H", "Cannot convert");
-  ExpectFromISO8601Error("P-1S", "Unexpected 'S' in the date portion");
-  ExpectFromISO8601Error("P1H2", "Unexpected 'H' in the date portion");
-  ExpectFromISO8601Error("PT1D", "Unexpected 'D' in the time portion");
-  ExpectFromISO8601Error("P123", "Unexpected end of input in the date portion");
-  ExpectFromISO8601Error("P9223372036854775807D1D", "int64 overflow");
-  ExpectFromISO8601Error("PT0.1234567890S", "Invalid INTERVAL");
-  ExpectFromISO8601Error("PT1.S", "Invalid INTERVAL");
-  ExpectFromISO8601Error("P1.Y", "Fractional values are only allowed");
-  ExpectFromISO8601Error("PT1.M", "Fractional values are only allowed");
-  ExpectFromISO8601Error("P9223372036854775807Y", "int64 overflow");
-  ExpectFromISO8601Error("P9223372036854775807W", "int64 overflow");
-  ExpectFromISO8601Error("P9223372036854775807D1W", "int64 overflow");
-  ExpectFromISO8601Error("P-10001Y", "is out of range");
-  ExpectFromISO8601Error("P-9999999M", "is out of range");
-  ExpectFromISO8601Error("P-987654321D", "is out of range");
-  ExpectFromISO8601Error("PT-99999999999H", "is out of range");
+  ExpectFromISO8601Error("", "Interval must start with 'P'",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("1Y", "Interval must start with 'P'",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("T", "Interval must start with 'P'",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P", "At least one datetime part must be defined",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P--1Y", "Expected number", /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P-", "Expected number", /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P1", "Unexpected end of input in the date portion",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PTT", "Unexpected duplicate time separator",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PT1HT1M", "Unexpected duplicate time separator",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P1YM", "Unexpected 'M'", /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P1YT2MS", "Unexpected 'S'", /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P1M ", "Unexpected ' '", /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PT.1S", "Unexpected '.'", /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PT99999999999999999999999999999H", "Cannot convert",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PT-99999999999999999999999999999H", "Cannot convert",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P-1S", "Unexpected 'S' in the date portion",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P1H2", "Unexpected 'H' in the date portion",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PT1D", "Unexpected 'D' in the time portion",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P123", "Unexpected end of input in the date portion",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P9223372036854775807D1D", "int64 overflow",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PT0.1234567890S", "Invalid INTERVAL",
+                         /*allow_nanos=*/true);
+  ExpectFromISO8601Error("PT0.1234567S", "Invalid INTERVAL",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PT1.S", "Invalid INTERVAL", /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P1.Y", "Fractional values are only allowed",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PT1.M", "Fractional values are only allowed",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P9223372036854775807Y", "int64 overflow",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P9223372036854775807W", "int64 overflow",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P9223372036854775807D1W", "int64 overflow",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P-10001Y", "is out of range", /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P-9999999M", "is out of range",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("P-987654321D", "is out of range",
+                         /*allow_nanos=*/false);
+  ExpectFromISO8601Error("PT-99999999999H", "is out of range",
+                         /*allow_nanos=*/false);
   ExpectFromISO8601Error("P1Y2M<3D",
-                         "Invalid INTERVAL value 'P1Y2M<3D': Unexpected '<'");
+                         "Invalid INTERVAL value 'P1Y2M<3D': Unexpected '<'",
+                         /*allow_nanos=*/false);
 }
 
 std::vector<IntervalValue>* kInterestingIntervals =
@@ -2102,8 +2539,13 @@ TEST(IntervalValueTest, HashCode) {
 TEST(IntervalValueTest, ToStringParseRoundtrip) {
   for (IntervalValue value : *kInterestingIntervals) {
     std::string str = value.ToString();
+    bool requires_nanos = value.get_nano_fractions() != 0;
     ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue roundtrip_value,
-                         IntervalValue::ParseFromString(str));
+                         IntervalValue::ParseFromString(str, requires_nanos));
+    if (requires_nanos) {
+      EXPECT_THAT(IntervalValue::ParseFromString(str, /*allow_nanos=*/false),
+                  StatusIs(absl::StatusCode::kOutOfRange));
+    }
     EXPECT_EQ(value, roundtrip_value);
   }
 }

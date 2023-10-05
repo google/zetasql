@@ -32,6 +32,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_format.h"
+#include "absl/types/span.h"
 
 using testing::AllOf;
 using testing::AnyOf;
@@ -88,13 +89,12 @@ struct StmtPromptInput final {
 // Run ExecuteQueryStatementPrompt returning the given inputs and expecting the
 // given return values or parser errors. All inputs, return values and parser
 // errors must be consumed.
-void TestStmtPrompt(
-    const std::vector<StmtPromptInput>& inputs,
-    const std::vector<::testing::Matcher<ReadResultType>>& want) {
+void TestStmtPrompt(absl::Span<const StmtPromptInput> inputs,
+                    absl::Span<const ::testing::Matcher<ReadResultType>> want) {
   std::unique_ptr<ExecuteQueryStatementPrompt> prompt;
 
   auto cur_input = inputs.cbegin();
-  auto readfunc = [&prompt, &inputs,
+  auto readfunc = [&prompt, inputs,
                    &cur_input](bool continuation) -> ReadResultType {
     EXPECT_NE(cur_input, inputs.cend()) << "Can't read beyond input";
     EXPECT_EQ(continuation, cur_input->want_continuation);

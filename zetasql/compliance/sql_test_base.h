@@ -97,6 +97,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "file_based_test_driver/file_based_test_driver.h"  
 #include "file_based_test_driver/run_test_case_result.h"
 #include "file_based_test_driver/test_case_options.h"
@@ -177,7 +178,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Each engine should call this method to specify engine-specific known error
   // files. Will die if a file does not exist.
-  void LoadKnownErrorFiles(const std::vector<std::string>& files);
+  void LoadKnownErrorFiles(absl::Span<const std::string> files);
 
   // By default, SetUp() calls CreateDatabase(TestDatabase{}) to clean up
   // existing database, so every TEST_F(...) or TEST_P(...) has a clean
@@ -767,8 +768,8 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Return a set of effective labels, include <filename>:<statement_name>,
   // labels, and global_labels.
   absl::btree_set<std::string> EffectiveLabels(
-      absl::string_view full_name, const std::vector<std::string>& labels,
-      const std::vector<std::string>& global_labels) const;
+      absl::string_view full_name, absl::Span<const std::string> labels,
+      absl::Span<const std::string> global_labels) const;
 
   // Log a set of strings as a single line with a prefix.
   template <typename ContainerType>

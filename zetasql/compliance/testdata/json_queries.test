@@ -560,7 +560,7 @@ SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]')
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
 SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]', NULL)
 --
-ARRAY<STRUCT<JSON>>[{NULL}]
+ARRAY<STRUCT<JSON>>[{[{"a":[10]},null,{"b":20,"c":"foo"}]}]
 ==
 [name=json_remove_key]
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]

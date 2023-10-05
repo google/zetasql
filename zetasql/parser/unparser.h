@@ -88,13 +88,19 @@ class Formatter {
   // some content remains in buffer_.
   void FlushLine();
 
+  // Set a flag so that if the next character is a newline, it'll be skipped.
+  void SetSuppressNextNewline() { suppress_next_newline_ = true; }
+
  private:
   // Checks if last token in buffer_ is a separator, where it is appropriate to
   // insert a line break or a space before open paren.
   bool LastTokenIsSeparator();
 
-  void Indent();
-  void Dedent();
+  static const int kNumColumnLimit = 100;
+  static const int kDefaultNumIndentSpaces = 2;
+
+  void Indent(int spaces = kDefaultNumIndentSpaces);
+  void Dedent(int spaces = kDefaultNumIndentSpaces);
 
   // Indentation that will be prepended to a new line.
   std::string indentation_;
@@ -104,6 +110,9 @@ class Formatter {
 
   // If the last call to the formatter was AddUnary with a single character.
   bool last_was_single_char_unary_ = false;
+
+  // If true and the next character is a newline, skip it.
+  bool suppress_next_newline_ = false;
 
   // The length of indentation at the beginning of buffer_. We have to save it
   // in a variable since indentation_ is dynamically changing.
@@ -174,6 +183,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTSequenceArg(const ASTSequenceArg* node, void* data) override;
   void visitASTCreateTableStatement(const ASTCreateTableStatement* node,
                                     void* data) override;
+  void visitASTCreateSnapshotStatement(const ASTCreateSnapshotStatement* node,
+                                       void* data) override;
   void visitASTCreateSnapshotTableStatement(
       const ASTCreateSnapshotTableStatement* node, void* data) override;
   void visitASTCreateEntityStatement(const ASTCreateEntityStatement* node,
@@ -246,6 +257,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTAlterColumnSetDefaultAction* node, void* data) override;
   void visitASTAlterColumnDropDefaultAction(
       const ASTAlterColumnDropDefaultAction* node, void* data) override;
+  void visitASTAlterColumnDropGeneratedAction(
+      const ASTAlterColumnDropGeneratedAction* node, void* data) override;
   void visitASTDropColumnAction(const ASTDropColumnAction* node,
                                 void* data) override;
   void visitASTRenameColumnAction(const ASTRenameColumnAction* node,
@@ -317,6 +330,16 @@ class Unparser : public ParseTreeVisitor {
   void visitASTCube(const ASTCube* node, void* data) override;
   void visitASTGeneratedColumnInfo(const ASTGeneratedColumnInfo* node,
                                    void* data) override;
+  void visitASTIdentityColumnInfo(const ASTIdentityColumnInfo* node,
+                                  void* data) override;
+  void visitASTIdentityColumnStartWith(const ASTIdentityColumnStartWith* node,
+                                       void* data) override;
+  void visitASTIdentityColumnIncrementBy(
+      const ASTIdentityColumnIncrementBy* node, void* data) override;
+  void visitASTIdentityColumnMaxValue(const ASTIdentityColumnMaxValue* node,
+                                      void* data) override;
+  void visitASTIdentityColumnMinValue(const ASTIdentityColumnMinValue* node,
+                                      void* data) override;
   void visitASTGroupingItem(const ASTGroupingItem* node, void* data) override;
   void visitASTGroupingSet(const ASTGroupingSet* node, void* data) override;
   void visitASTGroupingSetList(const ASTGroupingSetList* node,
@@ -792,7 +815,8 @@ class Unparser : public ParseTreeVisitor {
 
   template <class NodeType>
   void UnparseVectorWithSeparator(absl::Span<const NodeType* const> node_vector,
-                                  void* data, absl::string_view separator) {
+                                  void* data, absl::string_view separator,
+                                  bool break_line = false) {
     if (!ThreadHasEnoughStack()) {
       println("<Complex nested expression truncated>");
       return;
@@ -802,7 +826,11 @@ class Unparser : public ParseTreeVisitor {
       if (first) {
         first = false;
       } else {
-        print(separator);
+        if (!break_line) {
+          print(separator);
+        } else {
+          println(separator);
+        }
       }
       node->Accept(this, data);
     }

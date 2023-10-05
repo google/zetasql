@@ -2443,7 +2443,8 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
   Argument types: INT64, STRING, o1 => BOOL
   Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([T1, ...], [T2, ...], [o1 => T1])
-    Unable to find common supertype for templated argument <T1> [at 3:3]
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, BOOL} [at 3:3]
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>true);
   ^
 ==
@@ -2462,7 +2463,8 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
   Argument types: INT64, STRING, INT64, STRING, o1 => BOOL
   Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([T1, ...], [T2, ...], [o1 => T1])
-    Unable to find common supertype for templated argument <T1> [at 3:3]
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, BOOL} [at 3:3]
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>true);
   ^
 ==
@@ -2481,7 +2483,8 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
   Argument types: INT64, STRING, BOOL, STRING, o1 => INT64
   Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([T1, ...], [T2, ...], [o1 => T1])
-    Unable to find common supertype for templated argument <T1> [at 3:3]
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, BOOL} [at 3:3]
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", true, "3", o1=>1);
   ^
 ==

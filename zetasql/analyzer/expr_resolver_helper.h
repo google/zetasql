@@ -28,6 +28,7 @@
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/select_with_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
@@ -387,6 +388,10 @@ class ResolvedTVFArg {
 // This comes from the final identifier used in a path expression.
 // Returns empty string if this node doesn't have a default alias.
 IdString GetAliasForExpression(const ASTNode* node);
+
+// Returns true if the input `node` is ASTNamedArgument and its `expr` field is
+// an ASTLambda.
+bool IsNamedLambda(const ASTNode* node);
 
 }  // namespace zetasql
 

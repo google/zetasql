@@ -27,6 +27,7 @@
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
@@ -82,7 +83,7 @@ ParserOutput::ParserOutput(
                  std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
         node,
     std::unique_ptr<std::vector<absl::Status>> warnings,
-    ParserRuntimeInfo runtime_info)
+    std::unique_ptr<ParserRuntimeInfo> runtime_info)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       other_allocated_ast_nodes_(std::move(other_allocated_ast_nodes)),

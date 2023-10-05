@@ -105,6 +105,187 @@ ARRAY<STRUCT<
  }]
 ==
 
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TableAllNullRanges AS
+SELECT CAST(1 as int64) as row_id,
+       CAST(NULL AS RANGE<DATE>) as range_date_val,
+       CAST(NULL AS RANGE<TIMESTAMP>) as range_timestamp_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>[{1, NULL, NULL}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TableAllNullDatetimeRange AS
+SELECT CAST(1 as int64) as row_id,
+       CAST(NULL AS RANGE<DATETIME>) as range_datetime_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>
+      >>[{1, NULL}]
+==
+
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TableOneValueRanges AS
+SELECT CAST(1 as int64) as row_id,
+       RANGE<DATE> '[2020-01-01, 2020-12-31)' as range_date_val,
+       RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)' as range_timestamp_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>
+[{1,
+  [2020-01-01, 2020-12-31),
+  [
+    2020-01-01 08:00:00+00,
+    2020-12-31 08:00:00+00
+  )}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TableOneValueDatetimeRange AS
+SELECT CAST(1 as int64) as row_id,
+       RANGE<DATETIME> '[2020-01-01, 2020-12-31)' as range_datetime_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>
+      >>
+[{
+   1,
+   [2020-01-01 00:00:00, 2020-12-31 00:00:00)
+ }]
+==
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TableRangeTypes AS
+SELECT CAST(1 AS int64) as row_id,
+       true AS bool_val,
+       CAST(NULL AS RANGE<DATE>) AS range_date_val,
+       CAST(NULL AS RANGE<TIMESTAMP>) AS range_timestamp_val UNION ALL
+SELECT 2, true, RANGE<DATE> '[UNBOUNDED, 0001-01-01)', RANGE<TIMESTAMP> '[UNBOUNDED, 0001-01-01 00:00:00+00)' UNION ALL
+SELECT 3, true, RANGE<DATE> '[UNBOUNDED, 2020-01-01)', RANGE<TIMESTAMP> '[UNBOUNDED, 2020-01-01 00:00:00+00)' UNION ALL
+SELECT 4, true, RANGE<DATE> '[UNBOUNDED, 9999-12-31)', RANGE<TIMESTAMP> '[UNBOUNDED, 9999-12-31 23:59:59.999999+00)' UNION ALL
+SELECT 5, false, RANGE<DATE> '[UNBOUNDED, UNBOUNDED)', RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)' UNION ALL
+SELECT 6, false, RANGE<DATE> '[0001-01-01, 2020-01-01)', RANGE<TIMESTAMP> '[0001-01-01 00:00:00+00, 2020-01-01 00:00:00+00)' UNION ALL
+SELECT 7, false, RANGE<DATE> '[2020-01-01, 9999-12-31)', RANGE<TIMESTAMP> '[2020-01-01 00:00:00+00, 9999-12-31 23:59:59.999999+00)' UNION ALL
+SELECT 8, false, RANGE<DATE> '[9999-12-31, UNBOUNDED)', RANGE<TIMESTAMP> '[9999-12-31 23:59:59.999999+00, UNBOUNDED)'
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>
+[{1, true, NULL, NULL},
+ {2,
+  true,
+  [NULL, 0001-01-01),
+  [
+    NULL,
+    0001-01-01 00:00:00+00
+  )},
+ {3,
+  true,
+  [NULL, 2020-01-01),
+  [
+    NULL,
+    2020-01-01 00:00:00+00
+  )},
+ {4,
+  true,
+  [NULL, 9999-12-31),
+  [
+    NULL,
+    9999-12-31 23:59:59.999999+00
+  )},
+ {5, false, [NULL, NULL), [NULL, NULL)},
+ {6,
+  false,
+  [0001-01-01, 2020-01-01),
+  [
+    0001-01-01 00:00:00+00,
+    2020-01-01 00:00:00+00
+  )},
+ {7,
+  false,
+  [2020-01-01, 9999-12-31),
+  [
+    2020-01-01 00:00:00+00,
+    9999-12-31 23:59:59.999999+00
+  )},
+ {8,
+  false,
+  [9999-12-31, NULL),
+  [
+    9999-12-31 23:59:59.999999+00,
+    NULL
+  )}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TableDatetimeRangeTypes AS
+SELECT CAST(1 AS int64) as row_id,
+       true AS bool_val,
+       CAST(NULL AS RANGE<DATETIME>) AS range_datetime_val UNION ALL
+SELECT 2, true, RANGE<DATETIME> '[UNBOUNDED, 0001-01-01)' UNION ALL
+SELECT 3, true, RANGE<DATETIME> '[UNBOUNDED, 2020-01-01)' UNION ALL
+SELECT 4, true, RANGE<DATETIME> '[UNBOUNDED, 9999-12-31 23:59:59.999999)' UNION ALL
+SELECT 5, false, RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)' UNION ALL
+SELECT 6, false, RANGE<DATETIME> '[0001-01-01, 2020-01-01)' UNION ALL
+SELECT 7, false, RANGE<DATETIME> '[2020-01-01, 9999-12-31 23:59:59.999999)' UNION ALL
+SELECT 8, false, RANGE<DATETIME> '[9999-12-31 23:59:59.999999, UNBOUNDED)'
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_datetime_val RANGE<DATETIME>
+      >>
+[{1, true, NULL},
+ {
+   2,
+   true,
+   [NULL, 0001-01-01 00:00:00)
+ },
+ {
+   3,
+   true,
+   [NULL, 2020-01-01 00:00:00)
+ },
+ {4,
+  true,
+  [
+    NULL,
+    9999-12-31 23:59:59.999999
+  )},
+ {5, false, [NULL, NULL)},
+ {
+   6,
+   false,
+   [0001-01-01 00:00:00, 2020-01-01 00:00:00)
+ },
+ {7,
+  false,
+  [
+    2020-01-01 00:00:00,
+    9999-12-31 23:59:59.999999
+  )},
+ {8,
+  false,
+  [
+    9999-12-31 23:59:59.999999,
+    NULL
+  )}]
+==
+
 # ----------------------------------------------------------------------------
 # MIN
 # ----------------------------------------------------------------------------
@@ -684,6 +865,360 @@ ARRAY<STRUCT<row_id INT64, BYTES, DATE, TIMESTAMP>>[unknown order:
     2013-01-01 08:00:01.011011+00
   }
 ]
+==
+
+[name=analytic_min_range_null_date_timestamp]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+SELECT row_id,
+MIN(range_date_val) OVER (ORDER BY row_id),
+MIN(range_timestamp_val) OVER (ORDER BY row_id)
+FROM TableAllNullRanges
+--
+ARRAY<STRUCT<row_id INT64, RANGE<DATE>, RANGE<TIMESTAMP>>>[{1, NULL, NULL}]
+==
+
+[name=analytic_min_range_null_datetime]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT row_id,
+MIN(range_datetime_val) OVER (ORDER BY row_id)
+FROM TableAllNullDatetimeRange
+--
+ARRAY<STRUCT<row_id INT64, RANGE<DATETIME>>>[{1, NULL}]
+==
+
+[name=analytic_min_range_multiple_ids]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+SELECT row_id, range_date_val, range_timestamp_val,
+MIN(range_date_val) OVER (ORDER BY row_id),
+MIN(range_timestamp_val) OVER (ORDER BY row_id)
+FROM TableRangeTypes
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<DATE>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{1, NULL, NULL, NULL, NULL},
+               {2,
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                ),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {3,
+                [NULL, 2020-01-01),
+                [
+                  NULL,
+                  2020-01-01 00:00:00+00
+                ),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {4,
+                [NULL, 9999-12-31),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {5,
+                [NULL, NULL),
+                [NULL, NULL),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {6,
+                [0001-01-01, 2020-01-01),
+                [
+                  0001-01-01 00:00:00+00,
+                  2020-01-01 00:00:00+00
+                ),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {7,
+                [2020-01-01, 9999-12-31),
+                [
+                  2020-01-01 00:00:00+00,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {8,
+                [9999-12-31, NULL),
+                [
+                  9999-12-31 23:59:59.999999+00,
+                  NULL
+                ),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )}]
+==
+
+[name=analytic_min_range_datetime_multiple_ids]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT row_id, range_datetime_val,
+MIN(range_datetime_val) OVER (ORDER BY row_id)
+FROM TableDatetimeRangeTypes
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{1, NULL, NULL},
+               {
+                 2,
+                 [NULL, 0001-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00)
+               },
+               {
+                 3,
+                 [NULL, 2020-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00)
+               },
+               {4,
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                ),
+                [NULL, 0001-01-01 00:00:00)},
+               {
+                 5,
+                 [NULL, NULL),
+                 [NULL, 0001-01-01 00:00:00)
+               },
+               {
+                 6,
+                 [0001-01-01 00:00:00, 2020-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00)
+               },
+               {7,
+                [
+                  2020-01-01 00:00:00,
+                  9999-12-31 23:59:59.999999
+                ),
+                [NULL, 0001-01-01 00:00:00)},
+               {8,
+                [
+                  9999-12-31 23:59:59.999999,
+                  NULL
+                ),
+                [NULL, 0001-01-01 00:00:00)}]
+==
+
+[name=analytic_min_range_bounded_start]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+SELECT row_id, range_date_val, range_timestamp_val,
+MIN(range_date_val) OVER (ORDER BY row_id ROWS 4 PRECEDING),
+MIN(range_date_val) OVER (ORDER BY row_id ROWS 2 PRECEDING),
+MIN(range_timestamp_val) OVER (ORDER BY row_id ROWS 4 PRECEDING),
+MIN(range_timestamp_val) OVER (ORDER BY row_id ROWS 2 PRECEDING)
+FROM TableRangeTypes
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<DATE>,
+        RANGE<DATE>,
+        RANGE<TIMESTAMP>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{1, NULL, NULL, NULL, NULL, NULL, NULL},
+               {2,
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                ),
+                [NULL, 0001-01-01),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                ),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {3,
+                [NULL, 2020-01-01),
+                [
+                  NULL,
+                  2020-01-01 00:00:00+00
+                ),
+                [NULL, 0001-01-01),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                ),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {4,
+                [NULL, 9999-12-31),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                [NULL, 0001-01-01),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                ),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {5,
+                [NULL, NULL),
+                [NULL, NULL),
+                [NULL, 0001-01-01),
+                [NULL, 2020-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                ),
+                [
+                  NULL,
+                  2020-01-01 00:00:00+00
+                )},
+               {6,
+                [0001-01-01, 2020-01-01),
+                [
+                  0001-01-01 00:00:00+00,
+                  2020-01-01 00:00:00+00
+                ),
+                [NULL, 0001-01-01),
+                [NULL, 9999-12-31),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                ),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999+00
+                )},
+               {7,
+                [2020-01-01, 9999-12-31),
+                [
+                  2020-01-01 00:00:00+00,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                [NULL, 2020-01-01),
+                [NULL, NULL),
+                [
+                  NULL,
+                  2020-01-01 00:00:00+00
+                ),
+                [NULL, NULL)},
+               {8,
+                [9999-12-31, NULL),
+                [
+                  9999-12-31 23:59:59.999999+00,
+                  NULL
+                ),
+                [NULL, 9999-12-31),
+                [0001-01-01, 2020-01-01),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                [
+                  0001-01-01 00:00:00+00,
+                  2020-01-01 00:00:00+00
+                )}]
+==
+
+[name=analytic_min_range_datetime_bounded_start]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT row_id, range_datetime_val,
+MIN(range_datetime_val) OVER (ORDER BY row_id ROWS 4 PRECEDING),
+MIN(range_datetime_val) OVER (ORDER BY row_id ROWS 2 PRECEDING)
+FROM TableDatetimeRangeTypes
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{1, NULL, NULL, NULL},
+               {
+                 2,
+                 [NULL, 0001-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00)
+               },
+               {
+                 3,
+                 [NULL, 2020-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00)
+               },
+               {4,
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                ),
+                [NULL, 0001-01-01 00:00:00),
+                [NULL, 0001-01-01 00:00:00)},
+               {
+                 5,
+                 [NULL, NULL),
+                 [NULL, 0001-01-01 00:00:00),
+                 [NULL, 2020-01-01 00:00:00)
+               },
+               {6,
+                [0001-01-01 00:00:00, 2020-01-01 00:00:00),
+                [NULL, 0001-01-01 00:00:00),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                )},
+               {7,
+                [
+                  2020-01-01 00:00:00,
+                  9999-12-31 23:59:59.999999
+                ),
+                [NULL, 2020-01-01 00:00:00),
+                [NULL, NULL)},
+               {8,
+                [
+                  9999-12-31 23:59:59.999999,
+                  NULL
+                ),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                ),
+                [0001-01-01 00:00:00, 2020-01-01 00:00:00)}]
 ==
 
 # ----------------------------------------------------------------------------
@@ -1449,3 +1984,239 @@ ARRAY<STRUCT<row_id INT64, val ARRAY<>, ARRAY<>, ARRAY<>>>[known order:
   {5, ARRAY<DOUBLE>[inf], ARRAY<DOUBLE>[], ARRAY<DOUBLE>[inf]},
   {6, ARRAY<DOUBLE>[], ARRAY<DOUBLE>[], ARRAY<DOUBLE>[]}
 ]
+==
+
+[name=analytic_max_range_null_date_timestamp]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+SELECT row_id,
+MAX(range_date_val) OVER (ORDER BY row_id),
+MAX(range_timestamp_val) OVER (ORDER BY row_id)
+FROM TableAllNullRanges
+--
+ARRAY<STRUCT<row_id INT64, RANGE<DATE>, RANGE<TIMESTAMP>>>[{1, NULL, NULL}]
+==
+
+[name=analytic_max_range_null_datetime]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT row_id,
+MAX(range_datetime_val) OVER (ORDER BY row_id)
+FROM TableAllNullDatetimeRange
+--
+ARRAY<STRUCT<row_id INT64, RANGE<DATETIME>>>[{1, NULL}]
+==
+
+[name=analytic_max_range_multiple_ids]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+SELECT row_id, range_date_val, range_timestamp_val,
+MAX(range_date_val) OVER (ORDER BY row_id),
+MAX(range_timestamp_val) OVER (ORDER BY row_id)
+FROM TableRangeTypes
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<DATE>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{1, NULL, NULL, NULL, NULL},
+               {2,
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                ),
+                [NULL, 0001-01-01),
+                [
+                  NULL,
+                  0001-01-01 00:00:00+00
+                )},
+               {3,
+                [NULL, 2020-01-01),
+                [
+                  NULL,
+                  2020-01-01 00:00:00+00
+                ),
+                [NULL, 2020-01-01),
+                [
+                  NULL,
+                  2020-01-01 00:00:00+00
+                )},
+               {4,
+                [NULL, 9999-12-31),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                [NULL, 9999-12-31),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999+00
+                )},
+               {5, [NULL, NULL), [NULL, NULL), [NULL, NULL), [NULL, NULL)},
+               {6,
+                [0001-01-01, 2020-01-01),
+                [
+                  0001-01-01 00:00:00+00,
+                  2020-01-01 00:00:00+00
+                ),
+                [0001-01-01, 2020-01-01),
+                [
+                  0001-01-01 00:00:00+00,
+                  2020-01-01 00:00:00+00
+                )},
+               {7,
+                [2020-01-01, 9999-12-31),
+                [
+                  2020-01-01 00:00:00+00,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                [2020-01-01, 9999-12-31),
+                [
+                  2020-01-01 00:00:00+00,
+                  9999-12-31 23:59:59.999999+00
+                )},
+               {8,
+                [9999-12-31, NULL),
+                [
+                  9999-12-31 23:59:59.999999+00,
+                  NULL
+                ),
+                [9999-12-31, NULL),
+                [
+                  9999-12-31 23:59:59.999999+00,
+                  NULL
+                )}]
+==
+
+[name=analytic_max_range_datetime_multiple_ids]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT row_id, range_datetime_val,
+MAX(range_datetime_val) OVER (ORDER BY row_id)
+FROM TableDatetimeRangeTypes
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{1, NULL, NULL},
+               {
+                 2,
+                 [NULL, 0001-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00)
+               },
+               {
+                 3,
+                 [NULL, 2020-01-01 00:00:00),
+                 [NULL, 2020-01-01 00:00:00)
+               },
+               {4,
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                ),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                )},
+               {5, [NULL, NULL), [NULL, NULL)},
+               {
+                 6,
+                 [0001-01-01 00:00:00, 2020-01-01 00:00:00),
+                 [0001-01-01 00:00:00, 2020-01-01 00:00:00)
+               },
+               {7,
+                [
+                  2020-01-01 00:00:00,
+                  9999-12-31 23:59:59.999999
+                ),
+                [
+                  2020-01-01 00:00:00,
+                  9999-12-31 23:59:59.999999
+                )},
+               {8,
+                [
+                  9999-12-31 23:59:59.999999,
+                  NULL
+                ),
+                [
+                  9999-12-31 23:59:59.999999,
+                  NULL
+                )}]
+==
+
+[name=analytic_max_range_datetime_bounded_start]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT row_id, range_datetime_val,
+MAX(range_datetime_val) OVER (ORDER BY row_id ROWS 4 PRECEDING),
+MAX(range_datetime_val) OVER (ORDER BY row_id ROWS 2 PRECEDING),
+FROM TableDatetimeRangeTypes
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{1, NULL, NULL, NULL},
+               {
+                 2,
+                 [NULL, 0001-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00),
+                 [NULL, 0001-01-01 00:00:00)
+               },
+               {
+                 3,
+                 [NULL, 2020-01-01 00:00:00),
+                 [NULL, 2020-01-01 00:00:00),
+                 [NULL, 2020-01-01 00:00:00)
+               },
+               {4,
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                ),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                ),
+                [
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                )},
+               {5, [NULL, NULL), [NULL, NULL), [NULL, NULL)},
+               {
+                 6,
+                 [0001-01-01 00:00:00, 2020-01-01 00:00:00),
+                 [0001-01-01 00:00:00, 2020-01-01 00:00:00),
+                 [0001-01-01 00:00:00, 2020-01-01 00:00:00)
+               },
+               {7,
+                [
+                  2020-01-01 00:00:00,
+                  9999-12-31 23:59:59.999999
+                ),
+                [
+                  2020-01-01 00:00:00,
+                  9999-12-31 23:59:59.999999
+                ),
+                [
+                  2020-01-01 00:00:00,
+                  9999-12-31 23:59:59.999999
+                )},
+               {8,
+                [
+                  9999-12-31 23:59:59.999999,
+                  NULL
+                ),
+                [
+                  9999-12-31 23:59:59.999999,
+                  NULL
+                ),
+                [
+                  9999-12-31 23:59:59.999999,
+                  NULL
+                )}]
+==
+

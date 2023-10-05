@@ -53,9 +53,9 @@ UNION ALL CORRESPONDING BY (a, b, c)
 --
 ALTERNATION GROUP: V_1_4_CORRESPONDING_BY
 --
-ERROR: CORRESPONDING BY is not implemented [at 2:11]
+ERROR: The identifier a from the CORRESPONDING BY list does not appear in the input query 1. All columns in the BY list must appear in each input query unless FULL CORRESPONDING or LEFT CORRESPONDING is specified [at 2:29]
 UNION ALL CORRESPONDING BY (a, b, c)
-          ^
+                            ^
 ==
 
 # CORRESPONDING BY in multiple operations
@@ -74,7 +74,7 @@ UNION ALL CORRESPONDING BY (a, b, c)
 --
 ALTERNATION GROUP: V_1_4_CORRESPONDING_BY
 --
-ERROR: CORRESPONDING BY is not implemented [at 4:11]
+ERROR: Different column match modes cannot be used in the same query without using parentheses for grouping [at 4:11]
 UNION ALL CORRESPONDING BY (a, b, c)
           ^
 ==
@@ -239,9 +239,9 @@ UNION ALL STRICT CORRESPONDING
 --
 ALTERNATION GROUP: V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE
 --
-ERROR: STRICT mode for set operations is not implemented [at 2:11]
-UNION ALL STRICT CORRESPONDING
-          ^
+ERROR: Anonymous columns are not allowed in set operations when CORRESPONDING is used: query 1, column 1 [at 1:1]
+SELECT 1
+^
 ==
 
 [default language_features=V_1_4_CORRESPONDING]
@@ -3337,7 +3337,6 @@ QueryStmt
 
 # TODO: Enable sqlbuilder when its implementation for FULL
 # is ready.
-[default no_run_unparser]
 [default language_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
 # CORRESPONDING: Basic FULL mode: no common columns.
 SELECT 1 AS a
@@ -3385,7 +3384,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.a#6, $union_all2.b#2]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -3466,7 +3464,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -3538,7 +3535,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.int64#39, SimpleTypes.int32#19]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -3622,7 +3618,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -3698,7 +3693,6 @@ QueryStmt
     |   +-output_column_list=SimpleTypes.[int64#20, int32#19]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -3799,7 +3793,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.int64#60, SimpleTypes.int32#37, SimpleTypes.uint64#40]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -3916,7 +3909,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.int64#63, SimpleTypes.int32#37, $null_column_for_outer_set_op.uint64#64, SimpleTypes.float#44]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -4048,7 +4040,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -4169,7 +4160,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -4272,7 +4262,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.a#45, $union_all2_cast.int32#42, $null_column_for_outer_set_op.c#46, $union_all2_cast.int32#43, SimpleTypes.int32#19]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -4412,7 +4401,6 @@ QueryStmt
     |   +-output_column_list=[$intersect_all.int64#57, $null_column_for_outer_set_op.int32#71, $intersect_all.float#55, $intersect_all.double#56, $intersect_all.bool#58]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -4578,7 +4566,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.float#69, $null_column_for_outer_set_op.double#70, SimpleTypes.int64#46, $null_column_for_outer_set_op.bool#71, SimpleTypes.int32#45]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -6900,3 +6887,1280 @@ QueryStmt
         |           +-input_scan=
         |             +-SingleRowScan
         +-output_column_list=[$union_all2_cast.A#6, $null_column_for_outer_set_op.B#7]
+==
+
+# TODO: Enable sqlbuilder when its implementation for STRICT is
+# ready.
+[default no_run_unparser]
+# CORRESPONDING: Basic STRICT.
+SELECT 1 AS a, 2 AS b
+UNION ALL STRICT CORRESPONDING
+SELECT 2 AS b, 1 AS a
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.a#5 AS a [INT64]
+| +-$union_all.b#6 AS b [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#5, b#6]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=$union_all1.[a#1, b#2]
+    | | |   +-expr_list=
+    | | |   | +-a#1 := Literal(type=INT64, value=1)
+    | | |   | +-b#2 := Literal(type=INT64, value=2)
+    | | |   +-input_scan=
+    | | |     +-SingleRowScan
+    | | +-output_column_list=$union_all1.[a#1, b#2]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=$union_all2.[b#3, a#4]
+    |   |   +-expr_list=
+    |   |   | +-b#3 := Literal(type=INT64, value=2)
+    |   |   | +-a#4 := Literal(type=INT64, value=1)
+    |   |   +-input_scan=
+    |   |     +-SingleRowScan
+    |   +-output_column_list=$union_all2.[a#4, b#3]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$union_all.a#5 AS a [INT64]
+| +-$union_all.b#6 AS b [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#5, b#6]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=$union_all1.[a#1, b#2]
+      | |   +-expr_list=
+      | |   | +-a#1 := Literal(type=INT64, value=1)
+      | |   | +-b#2 := Literal(type=INT64, value=2)
+      | |   +-input_scan=
+      | |     +-SingleRowScan
+      | +-output_column_list=$union_all1.[a#1, b#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$union_all2.[a#4, b#3]
+        |   +-input_scan=
+        |     +-ProjectScan
+        |       +-column_list=$union_all2.[b#3, a#4]
+        |       +-expr_list=
+        |       | +-b#3 := Literal(type=INT64, value=2)
+        |       | +-a#4 := Literal(type=INT64, value=1)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-output_column_list=$union_all2.[a#4, b#3]
+==
+
+# CORRESPONDING: Basic STRICT: column names must be identical.
+SELECT 1 AS a, 2 AS b
+UNION ALL STRICT CORRESPONDING
+SELECT 2 AS b
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a, b] and query 2 has [b] [at 2:1]
+UNION ALL STRICT CORRESPONDING
+^
+==
+
+# CORRESPONDING: Basic STRICT: column names must be identical.
+SELECT 1 AS a
+UNION ALL STRICT CORRESPONDING
+SELECT 2 AS b, 3 AS c, 2 AS a
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a] and query 2 has [b, c, a] [at 2:1]
+UNION ALL STRICT CORRESPONDING
+^
+==
+
+# CORRESPONDING: Basic STRICT: column names must be identical.
+SELECT 1 AS a, 2 AS b
+UNION ALL STRICT CORRESPONDING
+SELECT 2 AS b, 3 AS c
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a, b] and query 2 has [b, c] [at 2:1]
+UNION ALL STRICT CORRESPONDING
+^
+==
+
+# CORRESPONDING: STRICT mode with multiple queries.
+SELECT 1 AS a, 2 AS b
+UNION ALL STRICT CORRESPONDING
+SELECT 2 AS B, 3 AS a
+UNION ALL STRICT CORRESPONDING
+SELECT 3 AS A, 1 AS B
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.a#7 AS a [INT64]
+| +-$union_all.b#8 AS b [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#7, b#8]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=$union_all1.[a#1, b#2]
+    | | |   +-expr_list=
+    | | |   | +-a#1 := Literal(type=INT64, value=1)
+    | | |   | +-b#2 := Literal(type=INT64, value=2)
+    | | |   +-input_scan=
+    | | |     +-SingleRowScan
+    | | +-output_column_list=$union_all1.[a#1, b#2]
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=$union_all2.[B#3, a#4]
+    | | |   +-expr_list=
+    | | |   | +-B#3 := Literal(type=INT64, value=2)
+    | | |   | +-a#4 := Literal(type=INT64, value=3)
+    | | |   +-input_scan=
+    | | |     +-SingleRowScan
+    | | +-output_column_list=$union_all2.[a#4, B#3]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=$union_all3.[A#5, B#6]
+    |   |   +-expr_list=
+    |   |   | +-A#5 := Literal(type=INT64, value=3)
+    |   |   | +-B#6 := Literal(type=INT64, value=1)
+    |   |   +-input_scan=
+    |   |     +-SingleRowScan
+    |   +-output_column_list=$union_all3.[A#5, B#6]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$union_all.a#7 AS a [INT64]
+| +-$union_all.b#8 AS b [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#7, b#8]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=$union_all1.[a#1, b#2]
+      | |   +-expr_list=
+      | |   | +-a#1 := Literal(type=INT64, value=1)
+      | |   | +-b#2 := Literal(type=INT64, value=2)
+      | |   +-input_scan=
+      | |     +-SingleRowScan
+      | +-output_column_list=$union_all1.[a#1, b#2]
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=$union_all2.[a#4, B#3]
+      | |   +-input_scan=
+      | |     +-ProjectScan
+      | |       +-column_list=$union_all2.[B#3, a#4]
+      | |       +-expr_list=
+      | |       | +-B#3 := Literal(type=INT64, value=2)
+      | |       | +-a#4 := Literal(type=INT64, value=3)
+      | |       +-input_scan=
+      | |         +-SingleRowScan
+      | +-output_column_list=$union_all2.[a#4, B#3]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$union_all3.[A#5, B#6]
+        |   +-expr_list=
+        |   | +-A#5 := Literal(type=INT64, value=3)
+        |   | +-B#6 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=$union_all3.[A#5, B#6]
+==
+
+# CORRESPONDING: STRICT mode with multiple queries: column lists are not the same.
+SELECT 1 AS a, 2 AS b
+UNION ALL STRICT CORRESPONDING
+SELECT 2 AS B, 3 AS a
+UNION ALL STRICT CORRESPONDING
+SELECT 3 AS A, 1 AS B, 3 AS c
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a, b] and query 3 has [A, B, c] [at 2:1]
+UNION ALL STRICT CORRESPONDING
+^
+==
+
+# CORRESPONDING: nested set operations.
+(
+  SELECT 1 AS a, 2 AS b, 3 AS c
+  UNION ALL CORRESPONDING
+  SELECT 2 AS c, 3 AS b
+)
+EXCEPT DISTINCT STRICT CORRESPONDING
+SELECT 1 AS B, 3 AS c
+--
+QueryStmt
++-output_column_list=
+| +-$except_distinct.b#10 AS b [INT64]
+| +-$except_distinct.c#11 AS c [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[b#10, c#11]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-SetOperationScan
+    | | |   +-column_list=$union_all.[b#6, c#7]
+    | | |   +-op_type=UNION_ALL
+    | | |   +-input_item_list=
+    | | |   | +-SetOperationItem
+    | | |   | | +-scan=
+    | | |   | | | +-ProjectScan
+    | | |   | | |   +-column_list=$union_all1.[a#1, b#2, c#3]
+    | | |   | | |   +-expr_list=
+    | | |   | | |   | +-a#1 := Literal(type=INT64, value=1)
+    | | |   | | |   | +-b#2 := Literal(type=INT64, value=2)
+    | | |   | | |   | +-c#3 := Literal(type=INT64, value=3)
+    | | |   | | |   +-input_scan=
+    | | |   | | |     +-SingleRowScan
+    | | |   | | +-output_column_list=$union_all1.[b#2, c#3]
+    | | |   | +-SetOperationItem
+    | | |   |   +-scan=
+    | | |   |   | +-ProjectScan
+    | | |   |   |   +-column_list=$union_all2.[c#4, b#5]
+    | | |   |   |   +-expr_list=
+    | | |   |   |   | +-c#4 := Literal(type=INT64, value=2)
+    | | |   |   |   | +-b#5 := Literal(type=INT64, value=3)
+    | | |   |   |   +-input_scan=
+    | | |   |   |     +-SingleRowScan
+    | | |   |   +-output_column_list=$union_all2.[b#5, c#4]
+    | | |   +-column_match_mode=CORRESPONDING
+    | | |   +-column_propagation_mode=INNER
+    | | +-output_column_list=$union_all.[b#6, c#7]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=$except_distinct2.[B#8, c#9]
+    |   |   +-expr_list=
+    |   |   | +-B#8 := Literal(type=INT64, value=1)
+    |   |   | +-c#9 := Literal(type=INT64, value=3)
+    |   |   +-input_scan=
+    |   |     +-SingleRowScan
+    |   +-output_column_list=$except_distinct2.[B#8, c#9]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$except_distinct.b#10 AS b [INT64]
+| +-$except_distinct.c#11 AS c [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[b#10, c#11]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-SetOperationScan
+      | |   +-column_list=$union_all.[b#6, c#7]
+      | |   +-op_type=UNION_ALL
+      | |   +-input_item_list=
+      | |     +-SetOperationItem
+      | |     | +-scan=
+      | |     | | +-ProjectScan
+      | |     | |   +-column_list=$union_all1.[b#2, c#3]
+      | |     | |   +-input_scan=
+      | |     | |     +-ProjectScan
+      | |     | |       +-column_list=$union_all1.[a#1, b#2, c#3]
+      | |     | |       +-expr_list=
+      | |     | |       | +-a#1 := Literal(type=INT64, value=1)
+      | |     | |       | +-b#2 := Literal(type=INT64, value=2)
+      | |     | |       | +-c#3 := Literal(type=INT64, value=3)
+      | |     | |       +-input_scan=
+      | |     | |         +-SingleRowScan
+      | |     | +-output_column_list=$union_all1.[b#2, c#3]
+      | |     +-SetOperationItem
+      | |       +-scan=
+      | |       | +-ProjectScan
+      | |       |   +-column_list=$union_all2.[b#5, c#4]
+      | |       |   +-input_scan=
+      | |       |     +-ProjectScan
+      | |       |       +-column_list=$union_all2.[c#4, b#5]
+      | |       |       +-expr_list=
+      | |       |       | +-c#4 := Literal(type=INT64, value=2)
+      | |       |       | +-b#5 := Literal(type=INT64, value=3)
+      | |       |       +-input_scan=
+      | |       |         +-SingleRowScan
+      | |       +-output_column_list=$union_all2.[b#5, c#4]
+      | +-output_column_list=$union_all.[b#6, c#7]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$except_distinct2.[B#8, c#9]
+        |   +-expr_list=
+        |   | +-B#8 := Literal(type=INT64, value=1)
+        |   | +-c#9 := Literal(type=INT64, value=3)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=$except_distinct2.[B#8, c#9]
+==
+
+# CORRESPONDING: nested set operations.
+SELECT 1 AS B, 3 AS c
+EXCEPT DISTINCT STRICT CORRESPONDING
+(
+  SELECT 1 AS a, 2 AS b, 3 AS c
+  UNION ALL CORRESPONDING
+  SELECT 2 AS c, 3 AS b
+)
+--
+QueryStmt
++-output_column_list=
+| +-$except_distinct.B#10 AS B [INT64]
+| +-$except_distinct.c#11 AS c [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[B#10, c#11]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=$except_distinct1.[B#1, c#2]
+    | | |   +-expr_list=
+    | | |   | +-B#1 := Literal(type=INT64, value=1)
+    | | |   | +-c#2 := Literal(type=INT64, value=3)
+    | | |   +-input_scan=
+    | | |     +-SingleRowScan
+    | | +-output_column_list=$except_distinct1.[B#1, c#2]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-SetOperationScan
+    |   |   +-column_list=$union_all.[b#8, c#9]
+    |   |   +-op_type=UNION_ALL
+    |   |   +-input_item_list=
+    |   |   | +-SetOperationItem
+    |   |   | | +-scan=
+    |   |   | | | +-ProjectScan
+    |   |   | | |   +-column_list=$union_all1.[a#3, b#4, c#5]
+    |   |   | | |   +-expr_list=
+    |   |   | | |   | +-a#3 := Literal(type=INT64, value=1)
+    |   |   | | |   | +-b#4 := Literal(type=INT64, value=2)
+    |   |   | | |   | +-c#5 := Literal(type=INT64, value=3)
+    |   |   | | |   +-input_scan=
+    |   |   | | |     +-SingleRowScan
+    |   |   | | +-output_column_list=$union_all1.[b#4, c#5]
+    |   |   | +-SetOperationItem
+    |   |   |   +-scan=
+    |   |   |   | +-ProjectScan
+    |   |   |   |   +-column_list=$union_all2.[c#6, b#7]
+    |   |   |   |   +-expr_list=
+    |   |   |   |   | +-c#6 := Literal(type=INT64, value=2)
+    |   |   |   |   | +-b#7 := Literal(type=INT64, value=3)
+    |   |   |   |   +-input_scan=
+    |   |   |   |     +-SingleRowScan
+    |   |   |   +-output_column_list=$union_all2.[b#7, c#6]
+    |   |   +-column_match_mode=CORRESPONDING
+    |   |   +-column_propagation_mode=INNER
+    |   +-output_column_list=$union_all.[b#8, c#9]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$except_distinct.B#10 AS B [INT64]
+| +-$except_distinct.c#11 AS c [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[B#10, c#11]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=$except_distinct1.[B#1, c#2]
+      | |   +-expr_list=
+      | |   | +-B#1 := Literal(type=INT64, value=1)
+      | |   | +-c#2 := Literal(type=INT64, value=3)
+      | |   +-input_scan=
+      | |     +-SingleRowScan
+      | +-output_column_list=$except_distinct1.[B#1, c#2]
+      +-SetOperationItem
+        +-scan=
+        | +-SetOperationScan
+        |   +-column_list=$union_all.[b#8, c#9]
+        |   +-op_type=UNION_ALL
+        |   +-input_item_list=
+        |     +-SetOperationItem
+        |     | +-scan=
+        |     | | +-ProjectScan
+        |     | |   +-column_list=$union_all1.[b#4, c#5]
+        |     | |   +-input_scan=
+        |     | |     +-ProjectScan
+        |     | |       +-column_list=$union_all1.[a#3, b#4, c#5]
+        |     | |       +-expr_list=
+        |     | |       | +-a#3 := Literal(type=INT64, value=1)
+        |     | |       | +-b#4 := Literal(type=INT64, value=2)
+        |     | |       | +-c#5 := Literal(type=INT64, value=3)
+        |     | |       +-input_scan=
+        |     | |         +-SingleRowScan
+        |     | +-output_column_list=$union_all1.[b#4, c#5]
+        |     +-SetOperationItem
+        |       +-scan=
+        |       | +-ProjectScan
+        |       |   +-column_list=$union_all2.[b#7, c#6]
+        |       |   +-input_scan=
+        |       |     +-ProjectScan
+        |       |       +-column_list=$union_all2.[c#6, b#7]
+        |       |       +-expr_list=
+        |       |       | +-c#6 := Literal(type=INT64, value=2)
+        |       |       | +-b#7 := Literal(type=INT64, value=3)
+        |       |       +-input_scan=
+        |       |         +-SingleRowScan
+        |       +-output_column_list=$union_all2.[b#7, c#6]
+        +-output_column_list=$union_all.[b#8, c#9]
+==
+
+# CORRESPONDING: nested set operations: column lists are not the same.
+(
+  SELECT 1 AS a, 2 AS b, 3 AS c
+  UNION ALL CORRESPONDING
+  SELECT 2 AS c, 3 AS b
+)
+EXCEPT DISTINCT STRICT CORRESPONDING
+SELECT 1 AS a, 3 AS C
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [b, c] and query 2 has [a, C] [at 6:1]
+EXCEPT DISTINCT STRICT CORRESPONDING
+^
+==
+
+# CORRESPONDING: nested set operations: column lists are not the same.
+SELECT 1 AS a, 3 AS C
+EXCEPT DISTINCT STRICT CORRESPONDING
+(
+  SELECT 1 AS a, 2 AS b, 3 AS c
+  UNION ALL CORRESPONDING
+  SELECT 2 AS c, 3 AS b
+)
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [a, C] and query 2 has [b, c] [at 2:1]
+EXCEPT DISTINCT STRICT CORRESPONDING
+^
+==
+
+# CORRESPONDING: INNER + STRICT
+(
+  SELECT 1 AS A, 2 AS B, 3 AS C
+  INTERSECT ALL CORRESPONDING
+  SELECT 2 AS B, 1 AS A
+)
+UNION ALL STRICT CORRESPONDING
+SELECT 1 AS A, 2 AS B
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.A#10 AS A [INT64]
+| +-$union_all.B#11 AS B [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[A#10, B#11]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-SetOperationScan
+    | | |   +-column_list=$intersect_all.[A#6, B#7]
+    | | |   +-op_type=INTERSECT_ALL
+    | | |   +-input_item_list=
+    | | |   | +-SetOperationItem
+    | | |   | | +-scan=
+    | | |   | | | +-ProjectScan
+    | | |   | | |   +-column_list=$intersect_all1.[A#1, B#2, C#3]
+    | | |   | | |   +-expr_list=
+    | | |   | | |   | +-A#1 := Literal(type=INT64, value=1)
+    | | |   | | |   | +-B#2 := Literal(type=INT64, value=2)
+    | | |   | | |   | +-C#3 := Literal(type=INT64, value=3)
+    | | |   | | |   +-input_scan=
+    | | |   | | |     +-SingleRowScan
+    | | |   | | +-output_column_list=$intersect_all1.[A#1, B#2]
+    | | |   | +-SetOperationItem
+    | | |   |   +-scan=
+    | | |   |   | +-ProjectScan
+    | | |   |   |   +-column_list=$intersect_all2.[B#4, A#5]
+    | | |   |   |   +-expr_list=
+    | | |   |   |   | +-B#4 := Literal(type=INT64, value=2)
+    | | |   |   |   | +-A#5 := Literal(type=INT64, value=1)
+    | | |   |   |   +-input_scan=
+    | | |   |   |     +-SingleRowScan
+    | | |   |   +-output_column_list=$intersect_all2.[A#5, B#4]
+    | | |   +-column_match_mode=CORRESPONDING
+    | | |   +-column_propagation_mode=INNER
+    | | +-output_column_list=$intersect_all.[A#6, B#7]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=$union_all2.[A#8, B#9]
+    |   |   +-expr_list=
+    |   |   | +-A#8 := Literal(type=INT64, value=1)
+    |   |   | +-B#9 := Literal(type=INT64, value=2)
+    |   |   +-input_scan=
+    |   |     +-SingleRowScan
+    |   +-output_column_list=$union_all2.[A#8, B#9]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$union_all.A#10 AS A [INT64]
+| +-$union_all.B#11 AS B [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[A#10, B#11]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-SetOperationScan
+      | |   +-column_list=$intersect_all.[A#6, B#7]
+      | |   +-op_type=INTERSECT_ALL
+      | |   +-input_item_list=
+      | |     +-SetOperationItem
+      | |     | +-scan=
+      | |     | | +-ProjectScan
+      | |     | |   +-column_list=$intersect_all1.[A#1, B#2]
+      | |     | |   +-input_scan=
+      | |     | |     +-ProjectScan
+      | |     | |       +-column_list=$intersect_all1.[A#1, B#2, C#3]
+      | |     | |       +-expr_list=
+      | |     | |       | +-A#1 := Literal(type=INT64, value=1)
+      | |     | |       | +-B#2 := Literal(type=INT64, value=2)
+      | |     | |       | +-C#3 := Literal(type=INT64, value=3)
+      | |     | |       +-input_scan=
+      | |     | |         +-SingleRowScan
+      | |     | +-output_column_list=$intersect_all1.[A#1, B#2]
+      | |     +-SetOperationItem
+      | |       +-scan=
+      | |       | +-ProjectScan
+      | |       |   +-column_list=$intersect_all2.[A#5, B#4]
+      | |       |   +-input_scan=
+      | |       |     +-ProjectScan
+      | |       |       +-column_list=$intersect_all2.[B#4, A#5]
+      | |       |       +-expr_list=
+      | |       |       | +-B#4 := Literal(type=INT64, value=2)
+      | |       |       | +-A#5 := Literal(type=INT64, value=1)
+      | |       |       +-input_scan=
+      | |       |         +-SingleRowScan
+      | |       +-output_column_list=$intersect_all2.[A#5, B#4]
+      | +-output_column_list=$intersect_all.[A#6, B#7]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$union_all2.[A#8, B#9]
+        |   +-expr_list=
+        |   | +-A#8 := Literal(type=INT64, value=1)
+        |   | +-B#9 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=$union_all2.[A#8, B#9]
+==
+
+# CORRESPONDING: INNER + STRICT
+SELECT 1 AS A, 2 AS B
+UNION ALL STRICT CORRESPONDING
+(
+  SELECT 1 AS A, 2 AS B, 3 AS C
+  INTERSECT ALL CORRESPONDING
+  SELECT 2 AS B, 1 AS A
+)
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.A#10 AS A [INT64]
+| +-$union_all.B#11 AS B [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[A#10, B#11]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=$union_all1.[A#1, B#2]
+    | | |   +-expr_list=
+    | | |   | +-A#1 := Literal(type=INT64, value=1)
+    | | |   | +-B#2 := Literal(type=INT64, value=2)
+    | | |   +-input_scan=
+    | | |     +-SingleRowScan
+    | | +-output_column_list=$union_all1.[A#1, B#2]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-SetOperationScan
+    |   |   +-column_list=$intersect_all.[A#8, B#9]
+    |   |   +-op_type=INTERSECT_ALL
+    |   |   +-input_item_list=
+    |   |   | +-SetOperationItem
+    |   |   | | +-scan=
+    |   |   | | | +-ProjectScan
+    |   |   | | |   +-column_list=$intersect_all1.[A#3, B#4, C#5]
+    |   |   | | |   +-expr_list=
+    |   |   | | |   | +-A#3 := Literal(type=INT64, value=1)
+    |   |   | | |   | +-B#4 := Literal(type=INT64, value=2)
+    |   |   | | |   | +-C#5 := Literal(type=INT64, value=3)
+    |   |   | | |   +-input_scan=
+    |   |   | | |     +-SingleRowScan
+    |   |   | | +-output_column_list=$intersect_all1.[A#3, B#4]
+    |   |   | +-SetOperationItem
+    |   |   |   +-scan=
+    |   |   |   | +-ProjectScan
+    |   |   |   |   +-column_list=$intersect_all2.[B#6, A#7]
+    |   |   |   |   +-expr_list=
+    |   |   |   |   | +-B#6 := Literal(type=INT64, value=2)
+    |   |   |   |   | +-A#7 := Literal(type=INT64, value=1)
+    |   |   |   |   +-input_scan=
+    |   |   |   |     +-SingleRowScan
+    |   |   |   +-output_column_list=$intersect_all2.[A#7, B#6]
+    |   |   +-column_match_mode=CORRESPONDING
+    |   |   +-column_propagation_mode=INNER
+    |   +-output_column_list=$intersect_all.[A#8, B#9]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$union_all.A#10 AS A [INT64]
+| +-$union_all.B#11 AS B [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[A#10, B#11]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=$union_all1.[A#1, B#2]
+      | |   +-expr_list=
+      | |   | +-A#1 := Literal(type=INT64, value=1)
+      | |   | +-B#2 := Literal(type=INT64, value=2)
+      | |   +-input_scan=
+      | |     +-SingleRowScan
+      | +-output_column_list=$union_all1.[A#1, B#2]
+      +-SetOperationItem
+        +-scan=
+        | +-SetOperationScan
+        |   +-column_list=$intersect_all.[A#8, B#9]
+        |   +-op_type=INTERSECT_ALL
+        |   +-input_item_list=
+        |     +-SetOperationItem
+        |     | +-scan=
+        |     | | +-ProjectScan
+        |     | |   +-column_list=$intersect_all1.[A#3, B#4]
+        |     | |   +-input_scan=
+        |     | |     +-ProjectScan
+        |     | |       +-column_list=$intersect_all1.[A#3, B#4, C#5]
+        |     | |       +-expr_list=
+        |     | |       | +-A#3 := Literal(type=INT64, value=1)
+        |     | |       | +-B#4 := Literal(type=INT64, value=2)
+        |     | |       | +-C#5 := Literal(type=INT64, value=3)
+        |     | |       +-input_scan=
+        |     | |         +-SingleRowScan
+        |     | +-output_column_list=$intersect_all1.[A#3, B#4]
+        |     +-SetOperationItem
+        |       +-scan=
+        |       | +-ProjectScan
+        |       |   +-column_list=$intersect_all2.[A#7, B#6]
+        |       |   +-input_scan=
+        |       |     +-ProjectScan
+        |       |       +-column_list=$intersect_all2.[B#6, A#7]
+        |       |       +-expr_list=
+        |       |       | +-B#6 := Literal(type=INT64, value=2)
+        |       |       | +-A#7 := Literal(type=INT64, value=1)
+        |       |       +-input_scan=
+        |       |         +-SingleRowScan
+        |       +-output_column_list=$intersect_all2.[A#7, B#6]
+        +-output_column_list=$intersect_all.[A#8, B#9]
+==
+
+# CORRESPONDING: FULL + STRICT
+(
+  SELECT 1 AS A, 3 AS C
+  FULL INTERSECT DISTINCT CORRESPONDING
+  SELECT 2 AS B
+)
+UNION ALL STRICT CORRESPONDING
+SELECT 3 AS C, 1 AS B, 2 AS A
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.A#13 AS A [INT64]
+| +-$union_all.C#14 AS C [INT64]
+| +-$union_all.B#15 AS B [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[A#13, C#14, B#15]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-SetOperationScan
+    | | |   +-column_list=$intersect_distinct.[A#4, C#5, B#6]
+    | | |   +-op_type=INTERSECT_DISTINCT
+    | | |   +-input_item_list=
+    | | |   | +-SetOperationItem
+    | | |   | | +-scan=
+    | | |   | | | +-ProjectScan
+    | | |   | | |   +-column_list=[$intersect_distinct1.A#1, $intersect_distinct1.C#2, $null_column_for_outer_set_op.B#7]
+    | | |   | | |   +-node_source="resolver_set_operation_corresponding"
+    | | |   | | |   +-expr_list=
+    | | |   | | |   | +-B#7 := Literal(type=INT64, value=NULL)
+    | | |   | | |   +-input_scan=
+    | | |   | | |     +-ProjectScan
+    | | |   | | |       +-column_list=$intersect_distinct1.[A#1, C#2]
+    | | |   | | |       +-expr_list=
+    | | |   | | |       | +-A#1 := Literal(type=INT64, value=1)
+    | | |   | | |       | +-C#2 := Literal(type=INT64, value=3)
+    | | |   | | |       +-input_scan=
+    | | |   | | |         +-SingleRowScan
+    | | |   | | +-output_column_list=[$intersect_distinct1.A#1, $intersect_distinct1.C#2, $null_column_for_outer_set_op.B#7]
+    | | |   | +-SetOperationItem
+    | | |   |   +-scan=
+    | | |   |   | +-ProjectScan
+    | | |   |   |   +-column_list=[$null_column_for_outer_set_op.A#8, $null_column_for_outer_set_op.C#9, $intersect_distinct2.B#3]
+    | | |   |   |   +-node_source="resolver_set_operation_corresponding"
+    | | |   |   |   +-expr_list=
+    | | |   |   |   | +-A#8 := Literal(type=INT64, value=NULL)
+    | | |   |   |   | +-C#9 := Literal(type=INT64, value=NULL)
+    | | |   |   |   +-input_scan=
+    | | |   |   |     +-ProjectScan
+    | | |   |   |       +-column_list=[$intersect_distinct2.B#3]
+    | | |   |   |       +-expr_list=
+    | | |   |   |       | +-B#3 := Literal(type=INT64, value=2)
+    | | |   |   |       +-input_scan=
+    | | |   |   |         +-SingleRowScan
+    | | |   |   +-output_column_list=[$null_column_for_outer_set_op.A#8, $null_column_for_outer_set_op.C#9, $intersect_distinct2.B#3]
+    | | |   +-column_match_mode=CORRESPONDING
+    | | |   +-column_propagation_mode=FULL
+    | | +-output_column_list=$intersect_distinct.[A#4, C#5, B#6]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=$union_all2.[C#10, B#11, A#12]
+    |   |   +-expr_list=
+    |   |   | +-C#10 := Literal(type=INT64, value=3)
+    |   |   | +-B#11 := Literal(type=INT64, value=1)
+    |   |   | +-A#12 := Literal(type=INT64, value=2)
+    |   |   +-input_scan=
+    |   |     +-SingleRowScan
+    |   +-output_column_list=$union_all2.[A#12, C#10, B#11]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$union_all.A#13 AS A [INT64]
+| +-$union_all.C#14 AS C [INT64]
+| +-$union_all.B#15 AS B [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[A#13, C#14, B#15]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-SetOperationScan
+      | |   +-column_list=$intersect_distinct.[A#4, C#5, B#6]
+      | |   +-op_type=INTERSECT_DISTINCT
+      | |   +-input_item_list=
+      | |     +-SetOperationItem
+      | |     | +-scan=
+      | |     | | +-ProjectScan
+      | |     | |   +-column_list=[$intersect_distinct1.A#1, $intersect_distinct1.C#2, $null_column_for_outer_set_op.B#7]
+      | |     | |   +-node_source="resolver_set_operation_corresponding"
+      | |     | |   +-expr_list=
+      | |     | |   | +-B#7 := Literal(type=INT64, value=NULL)
+      | |     | |   +-input_scan=
+      | |     | |     +-ProjectScan
+      | |     | |       +-column_list=$intersect_distinct1.[A#1, C#2]
+      | |     | |       +-expr_list=
+      | |     | |       | +-A#1 := Literal(type=INT64, value=1)
+      | |     | |       | +-C#2 := Literal(type=INT64, value=3)
+      | |     | |       +-input_scan=
+      | |     | |         +-SingleRowScan
+      | |     | +-output_column_list=[$intersect_distinct1.A#1, $intersect_distinct1.C#2, $null_column_for_outer_set_op.B#7]
+      | |     +-SetOperationItem
+      | |       +-scan=
+      | |       | +-ProjectScan
+      | |       |   +-column_list=[$null_column_for_outer_set_op.A#8, $null_column_for_outer_set_op.C#9, $intersect_distinct2.B#3]
+      | |       |   +-node_source="resolver_set_operation_corresponding"
+      | |       |   +-expr_list=
+      | |       |   | +-A#8 := Literal(type=INT64, value=NULL)
+      | |       |   | +-C#9 := Literal(type=INT64, value=NULL)
+      | |       |   +-input_scan=
+      | |       |     +-ProjectScan
+      | |       |       +-column_list=[$intersect_distinct2.B#3]
+      | |       |       +-expr_list=
+      | |       |       | +-B#3 := Literal(type=INT64, value=2)
+      | |       |       +-input_scan=
+      | |       |         +-SingleRowScan
+      | |       +-output_column_list=[$null_column_for_outer_set_op.A#8, $null_column_for_outer_set_op.C#9, $intersect_distinct2.B#3]
+      | +-output_column_list=$intersect_distinct.[A#4, C#5, B#6]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$union_all2.[A#12, C#10, B#11]
+        |   +-input_scan=
+        |     +-ProjectScan
+        |       +-column_list=$union_all2.[C#10, B#11, A#12]
+        |       +-expr_list=
+        |       | +-C#10 := Literal(type=INT64, value=3)
+        |       | +-B#11 := Literal(type=INT64, value=1)
+        |       | +-A#12 := Literal(type=INT64, value=2)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-output_column_list=$union_all2.[A#12, C#10, B#11]
+==
+
+# CORRESPONDING: INNER + STRICT columns not identical.
+SELECT 1 AS B, 2 AS A
+UNION ALL STRICT CORRESPONDING
+(
+  SELECT 1 AS A, 3 AS C
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT 2 AS B, 3 AS A
+)
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [B, A] and query 2 has [A] [at 2:1]
+UNION ALL STRICT CORRESPONDING
+^
+==
+
+# CORRESPONDING: FULL + STRICT
+SELECT 3 AS C, 1 AS B, 2 AS A
+UNION ALL STRICT CORRESPONDING
+(
+  SELECT 1 AS A, 3 AS C
+  FULL INTERSECT DISTINCT CORRESPONDING
+  SELECT 2 AS B
+)
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.C#13 AS C [INT64]
+| +-$union_all.B#14 AS B [INT64]
+| +-$union_all.A#15 AS A [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[C#13, B#14, A#15]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=$union_all1.[C#1, B#2, A#3]
+    | | |   +-expr_list=
+    | | |   | +-C#1 := Literal(type=INT64, value=3)
+    | | |   | +-B#2 := Literal(type=INT64, value=1)
+    | | |   | +-A#3 := Literal(type=INT64, value=2)
+    | | |   +-input_scan=
+    | | |     +-SingleRowScan
+    | | +-output_column_list=$union_all1.[C#1, B#2, A#3]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-SetOperationScan
+    |   |   +-column_list=$intersect_distinct.[A#7, C#8, B#9]
+    |   |   +-op_type=INTERSECT_DISTINCT
+    |   |   +-input_item_list=
+    |   |   | +-SetOperationItem
+    |   |   | | +-scan=
+    |   |   | | | +-ProjectScan
+    |   |   | | |   +-column_list=[$intersect_distinct1.A#4, $intersect_distinct1.C#5, $null_column_for_outer_set_op.B#10]
+    |   |   | | |   +-node_source="resolver_set_operation_corresponding"
+    |   |   | | |   +-expr_list=
+    |   |   | | |   | +-B#10 := Literal(type=INT64, value=NULL)
+    |   |   | | |   +-input_scan=
+    |   |   | | |     +-ProjectScan
+    |   |   | | |       +-column_list=$intersect_distinct1.[A#4, C#5]
+    |   |   | | |       +-expr_list=
+    |   |   | | |       | +-A#4 := Literal(type=INT64, value=1)
+    |   |   | | |       | +-C#5 := Literal(type=INT64, value=3)
+    |   |   | | |       +-input_scan=
+    |   |   | | |         +-SingleRowScan
+    |   |   | | +-output_column_list=[$intersect_distinct1.A#4, $intersect_distinct1.C#5, $null_column_for_outer_set_op.B#10]
+    |   |   | +-SetOperationItem
+    |   |   |   +-scan=
+    |   |   |   | +-ProjectScan
+    |   |   |   |   +-column_list=[$null_column_for_outer_set_op.A#11, $null_column_for_outer_set_op.C#12, $intersect_distinct2.B#6]
+    |   |   |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   |   |   +-expr_list=
+    |   |   |   |   | +-A#11 := Literal(type=INT64, value=NULL)
+    |   |   |   |   | +-C#12 := Literal(type=INT64, value=NULL)
+    |   |   |   |   +-input_scan=
+    |   |   |   |     +-ProjectScan
+    |   |   |   |       +-column_list=[$intersect_distinct2.B#6]
+    |   |   |   |       +-expr_list=
+    |   |   |   |       | +-B#6 := Literal(type=INT64, value=2)
+    |   |   |   |       +-input_scan=
+    |   |   |   |         +-SingleRowScan
+    |   |   |   +-output_column_list=[$null_column_for_outer_set_op.A#11, $null_column_for_outer_set_op.C#12, $intersect_distinct2.B#6]
+    |   |   +-column_match_mode=CORRESPONDING
+    |   |   +-column_propagation_mode=FULL
+    |   +-output_column_list=$intersect_distinct.[C#8, B#9, A#7]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$union_all.C#13 AS C [INT64]
+| +-$union_all.B#14 AS B [INT64]
+| +-$union_all.A#15 AS A [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[C#13, B#14, A#15]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=$union_all1.[C#1, B#2, A#3]
+      | |   +-expr_list=
+      | |   | +-C#1 := Literal(type=INT64, value=3)
+      | |   | +-B#2 := Literal(type=INT64, value=1)
+      | |   | +-A#3 := Literal(type=INT64, value=2)
+      | |   +-input_scan=
+      | |     +-SingleRowScan
+      | +-output_column_list=$union_all1.[C#1, B#2, A#3]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$intersect_distinct.[C#8, B#9, A#7]
+        |   +-input_scan=
+        |     +-SetOperationScan
+        |       +-column_list=$intersect_distinct.[A#7, C#8, B#9]
+        |       +-op_type=INTERSECT_DISTINCT
+        |       +-input_item_list=
+        |         +-SetOperationItem
+        |         | +-scan=
+        |         | | +-ProjectScan
+        |         | |   +-column_list=[$intersect_distinct1.A#4, $intersect_distinct1.C#5, $null_column_for_outer_set_op.B#10]
+        |         | |   +-node_source="resolver_set_operation_corresponding"
+        |         | |   +-expr_list=
+        |         | |   | +-B#10 := Literal(type=INT64, value=NULL)
+        |         | |   +-input_scan=
+        |         | |     +-ProjectScan
+        |         | |       +-column_list=$intersect_distinct1.[A#4, C#5]
+        |         | |       +-expr_list=
+        |         | |       | +-A#4 := Literal(type=INT64, value=1)
+        |         | |       | +-C#5 := Literal(type=INT64, value=3)
+        |         | |       +-input_scan=
+        |         | |         +-SingleRowScan
+        |         | +-output_column_list=[$intersect_distinct1.A#4, $intersect_distinct1.C#5, $null_column_for_outer_set_op.B#10]
+        |         +-SetOperationItem
+        |           +-scan=
+        |           | +-ProjectScan
+        |           |   +-column_list=[$null_column_for_outer_set_op.A#11, $null_column_for_outer_set_op.C#12, $intersect_distinct2.B#6]
+        |           |   +-node_source="resolver_set_operation_corresponding"
+        |           |   +-expr_list=
+        |           |   | +-A#11 := Literal(type=INT64, value=NULL)
+        |           |   | +-C#12 := Literal(type=INT64, value=NULL)
+        |           |   +-input_scan=
+        |           |     +-ProjectScan
+        |           |       +-column_list=[$intersect_distinct2.B#6]
+        |           |       +-expr_list=
+        |           |       | +-B#6 := Literal(type=INT64, value=2)
+        |           |       +-input_scan=
+        |           |         +-SingleRowScan
+        |           +-output_column_list=[$null_column_for_outer_set_op.A#11, $null_column_for_outer_set_op.C#12, $intersect_distinct2.B#6]
+        +-output_column_list=$intersect_distinct.[C#8, B#9, A#7]
+==
+
+# CORRESPONDING: FULL + STRICT, not identical columns.
+SELECT 3 AS C, 2 AS A
+UNION ALL STRICT CORRESPONDING
+(
+  SELECT 1 AS A, 3 AS C
+  FULL INTERSECT DISTINCT CORRESPONDING
+  SELECT 2 AS B
+)
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [C, A] and query 2 has [A, C, B] [at 2:1]
+UNION ALL STRICT CORRESPONDING
+^
+==
+
+# CORRESPONDING: LEFT + STRICT
+(
+  SELECT 1 AS A, 2 AS B
+  LEFT EXCEPT ALL CORRESPONDING
+  SELECT 2 AS A, 3 AS C
+)
+INTERSECT DISTINCT STRICT CORRESPONDING
+SELECT 2 AS B, 3 AS A
+--
+QueryStmt
++-output_column_list=
+| +-$intersect_distinct.A#10 AS A [INT64]
+| +-$intersect_distinct.B#11 AS B [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$intersect_distinct.[A#10, B#11]
+    +-op_type=INTERSECT_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-SetOperationScan
+    | | |   +-column_list=$except_all.[A#5, B#6]
+    | | |   +-op_type=EXCEPT_ALL
+    | | |   +-input_item_list=
+    | | |   | +-SetOperationItem
+    | | |   | | +-scan=
+    | | |   | | | +-ProjectScan
+    | | |   | | |   +-column_list=$except_all1.[A#1, B#2]
+    | | |   | | |   +-expr_list=
+    | | |   | | |   | +-A#1 := Literal(type=INT64, value=1)
+    | | |   | | |   | +-B#2 := Literal(type=INT64, value=2)
+    | | |   | | |   +-input_scan=
+    | | |   | | |     +-SingleRowScan
+    | | |   | | +-output_column_list=$except_all1.[A#1, B#2]
+    | | |   | +-SetOperationItem
+    | | |   |   +-scan=
+    | | |   |   | +-ProjectScan
+    | | |   |   |   +-column_list=[$except_all2.A#3, $null_column_for_outer_set_op.B#7]
+    | | |   |   |   +-node_source="resolver_set_operation_corresponding"
+    | | |   |   |   +-expr_list=
+    | | |   |   |   | +-B#7 := Literal(type=INT64, value=NULL)
+    | | |   |   |   +-input_scan=
+    | | |   |   |     +-ProjectScan
+    | | |   |   |       +-column_list=$except_all2.[A#3, C#4]
+    | | |   |   |       +-expr_list=
+    | | |   |   |       | +-A#3 := Literal(type=INT64, value=2)
+    | | |   |   |       | +-C#4 := Literal(type=INT64, value=3)
+    | | |   |   |       +-input_scan=
+    | | |   |   |         +-SingleRowScan
+    | | |   |   +-output_column_list=[$except_all2.A#3, $null_column_for_outer_set_op.B#7]
+    | | |   +-column_match_mode=CORRESPONDING
+    | | |   +-column_propagation_mode=LEFT
+    | | +-output_column_list=$except_all.[A#5, B#6]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=$intersect_distinct2.[B#8, A#9]
+    |   |   +-expr_list=
+    |   |   | +-B#8 := Literal(type=INT64, value=2)
+    |   |   | +-A#9 := Literal(type=INT64, value=3)
+    |   |   +-input_scan=
+    |   |     +-SingleRowScan
+    |   +-output_column_list=$intersect_distinct2.[A#9, B#8]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$intersect_distinct.A#10 AS A [INT64]
+| +-$intersect_distinct.B#11 AS B [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$intersect_distinct.[A#10, B#11]
+    +-op_type=INTERSECT_DISTINCT
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-SetOperationScan
+      | |   +-column_list=$except_all.[A#5, B#6]
+      | |   +-op_type=EXCEPT_ALL
+      | |   +-input_item_list=
+      | |     +-SetOperationItem
+      | |     | +-scan=
+      | |     | | +-ProjectScan
+      | |     | |   +-column_list=$except_all1.[A#1, B#2]
+      | |     | |   +-expr_list=
+      | |     | |   | +-A#1 := Literal(type=INT64, value=1)
+      | |     | |   | +-B#2 := Literal(type=INT64, value=2)
+      | |     | |   +-input_scan=
+      | |     | |     +-SingleRowScan
+      | |     | +-output_column_list=$except_all1.[A#1, B#2]
+      | |     +-SetOperationItem
+      | |       +-scan=
+      | |       | +-ProjectScan
+      | |       |   +-column_list=[$except_all2.A#3, $null_column_for_outer_set_op.B#7]
+      | |       |   +-node_source="resolver_set_operation_corresponding"
+      | |       |   +-expr_list=
+      | |       |   | +-B#7 := Literal(type=INT64, value=NULL)
+      | |       |   +-input_scan=
+      | |       |     +-ProjectScan
+      | |       |       +-column_list=$except_all2.[A#3, C#4]
+      | |       |       +-expr_list=
+      | |       |       | +-A#3 := Literal(type=INT64, value=2)
+      | |       |       | +-C#4 := Literal(type=INT64, value=3)
+      | |       |       +-input_scan=
+      | |       |         +-SingleRowScan
+      | |       +-output_column_list=[$except_all2.A#3, $null_column_for_outer_set_op.B#7]
+      | +-output_column_list=$except_all.[A#5, B#6]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$intersect_distinct2.[A#9, B#8]
+        |   +-input_scan=
+        |     +-ProjectScan
+        |       +-column_list=$intersect_distinct2.[B#8, A#9]
+        |       +-expr_list=
+        |       | +-B#8 := Literal(type=INT64, value=2)
+        |       | +-A#9 := Literal(type=INT64, value=3)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-output_column_list=$intersect_distinct2.[A#9, B#8]
+==
+
+# CORRESPONDING: LEFT + STRICT
+SELECT 2 AS B, 3 AS A
+INTERSECT ALL STRICT CORRESPONDING
+(
+  SELECT 1 AS A, 2 AS B
+  LEFT EXCEPT ALL CORRESPONDING
+  SELECT 2 AS A, 3 AS C
+)
+--
+QueryStmt
++-output_column_list=
+| +-$intersect_all.B#10 AS B [INT64]
+| +-$intersect_all.A#11 AS A [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$intersect_all.[B#10, A#11]
+    +-op_type=INTERSECT_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=$intersect_all1.[B#1, A#2]
+    | | |   +-expr_list=
+    | | |   | +-B#1 := Literal(type=INT64, value=2)
+    | | |   | +-A#2 := Literal(type=INT64, value=3)
+    | | |   +-input_scan=
+    | | |     +-SingleRowScan
+    | | +-output_column_list=$intersect_all1.[B#1, A#2]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-SetOperationScan
+    |   |   +-column_list=$except_all.[A#7, B#8]
+    |   |   +-op_type=EXCEPT_ALL
+    |   |   +-input_item_list=
+    |   |   | +-SetOperationItem
+    |   |   | | +-scan=
+    |   |   | | | +-ProjectScan
+    |   |   | | |   +-column_list=$except_all1.[A#3, B#4]
+    |   |   | | |   +-expr_list=
+    |   |   | | |   | +-A#3 := Literal(type=INT64, value=1)
+    |   |   | | |   | +-B#4 := Literal(type=INT64, value=2)
+    |   |   | | |   +-input_scan=
+    |   |   | | |     +-SingleRowScan
+    |   |   | | +-output_column_list=$except_all1.[A#3, B#4]
+    |   |   | +-SetOperationItem
+    |   |   |   +-scan=
+    |   |   |   | +-ProjectScan
+    |   |   |   |   +-column_list=[$except_all2.A#5, $null_column_for_outer_set_op.B#9]
+    |   |   |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   |   |   +-expr_list=
+    |   |   |   |   | +-B#9 := Literal(type=INT64, value=NULL)
+    |   |   |   |   +-input_scan=
+    |   |   |   |     +-ProjectScan
+    |   |   |   |       +-column_list=$except_all2.[A#5, C#6]
+    |   |   |   |       +-expr_list=
+    |   |   |   |       | +-A#5 := Literal(type=INT64, value=2)
+    |   |   |   |       | +-C#6 := Literal(type=INT64, value=3)
+    |   |   |   |       +-input_scan=
+    |   |   |   |         +-SingleRowScan
+    |   |   |   +-output_column_list=[$except_all2.A#5, $null_column_for_outer_set_op.B#9]
+    |   |   +-column_match_mode=CORRESPONDING
+    |   |   +-column_propagation_mode=LEFT
+    |   +-output_column_list=$except_all.[B#8, A#7]
+    +-column_match_mode=CORRESPONDING
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$intersect_all.B#10 AS B [INT64]
+| +-$intersect_all.A#11 AS A [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$intersect_all.[B#10, A#11]
+    +-op_type=INTERSECT_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=$intersect_all1.[B#1, A#2]
+      | |   +-expr_list=
+      | |   | +-B#1 := Literal(type=INT64, value=2)
+      | |   | +-A#2 := Literal(type=INT64, value=3)
+      | |   +-input_scan=
+      | |     +-SingleRowScan
+      | +-output_column_list=$intersect_all1.[B#1, A#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$except_all.[B#8, A#7]
+        |   +-input_scan=
+        |     +-SetOperationScan
+        |       +-column_list=$except_all.[A#7, B#8]
+        |       +-op_type=EXCEPT_ALL
+        |       +-input_item_list=
+        |         +-SetOperationItem
+        |         | +-scan=
+        |         | | +-ProjectScan
+        |         | |   +-column_list=$except_all1.[A#3, B#4]
+        |         | |   +-expr_list=
+        |         | |   | +-A#3 := Literal(type=INT64, value=1)
+        |         | |   | +-B#4 := Literal(type=INT64, value=2)
+        |         | |   +-input_scan=
+        |         | |     +-SingleRowScan
+        |         | +-output_column_list=$except_all1.[A#3, B#4]
+        |         +-SetOperationItem
+        |           +-scan=
+        |           | +-ProjectScan
+        |           |   +-column_list=[$except_all2.A#5, $null_column_for_outer_set_op.B#9]
+        |           |   +-node_source="resolver_set_operation_corresponding"
+        |           |   +-expr_list=
+        |           |   | +-B#9 := Literal(type=INT64, value=NULL)
+        |           |   +-input_scan=
+        |           |     +-ProjectScan
+        |           |       +-column_list=$except_all2.[A#5, C#6]
+        |           |       +-expr_list=
+        |           |       | +-A#5 := Literal(type=INT64, value=2)
+        |           |       | +-C#6 := Literal(type=INT64, value=3)
+        |           |       +-input_scan=
+        |           |         +-SingleRowScan
+        |           +-output_column_list=[$except_all2.A#5, $null_column_for_outer_set_op.B#9]
+        +-output_column_list=$except_all.[B#8, A#7]
+==
+
+# CORRESPONDING: LEFT + STRICT, not identical columns
+(
+  SELECT 1 AS A, 2 AS B, 3 AS C
+  LEFT EXCEPT ALL CORRESPONDING
+  SELECT 2 AS A, 3 AS C
+)
+INTERSECT DISTINCT STRICT CORRESPONDING
+SELECT 2 AS B, 3 AS A
+--
+ERROR: STRICT CORRESPONDING requires all input queries to have identical column names, but the first query has [A, B, C] and query 2 has [B, A] [at 6:1]
+INTERSECT DISTINCT STRICT CORRESPONDING
+^

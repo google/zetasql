@@ -24,7 +24,6 @@
 
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/type.pb.h"
-#include <cstdint>
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
 

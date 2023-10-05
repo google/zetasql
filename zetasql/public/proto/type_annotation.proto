@@ -108,10 +108,10 @@ message FieldFormat {
     // See zetasql/public/civil_time.h for encoding methods.
     // Can be applied to a field with ctype int64.
     //
-    // NOTE: The value 0 decodes to NULL in this format.  (Otherwise it would
-    // be an invalid datetime.)
-    // To have the default DATETIME value at 1970-01-01 00:00:00, use
-    // 138630961515462656 as the default integer value.
+    // NOTE: An explicitly-set 0 value is an invalid datetime. An unset field
+    // with a proto default 0 value decodes to NULL. To have the default
+    // DATETIME value at 1970-01-01 00:00:00, use 138630961515462656 as the
+    // default.
     DATETIME_MICROS = 8;
 
     // A ZetaSQL GEOGRAPHY encoded using either C++'s

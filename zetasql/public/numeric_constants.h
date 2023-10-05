@@ -17,10 +17,8 @@
 #ifndef ZETASQL_PUBLIC_NUMERIC_CONSTANTS_H_
 #define ZETASQL_PUBLIC_NUMERIC_CONSTANTS_H_
 
-
 #include <cstdint>
 
-#include <cstdint>  
 
 // Common constants used by numeric_parser and numeric_value libraries.
 namespace zetasql {

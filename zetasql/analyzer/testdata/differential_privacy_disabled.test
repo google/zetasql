@@ -1,6 +1,7 @@
+[default also_show_signature_mismatch_details]
 # Anonymization query without the feature flag turned on
 select with differential_privacy sum() from table;
 --
-ERROR: Unexpected keyword WITH [at 1:8]
+ERROR: Unexpected keyword WITH [at 2:8]
 select with differential_privacy sum() from table;
        ^

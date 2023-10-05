@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -332,7 +333,7 @@ absl::Status GetCollatedFunctionNameAndArguments(
              function_name == "array_max" || function_name == "array_offset" ||
              function_name == "array_find" ||
              function_name == "array_offsets" ||
-             function_name == "array_find_all" || function_name == "nullif") {
+             function_name == "array_find_all") {
     // For function $case_with_value and $in_array we do not make changes to its
     // arguments or function name here. The arguments may be transformed at a
     // later stage.
@@ -525,8 +526,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
   } else if (name == "ifnull" || name == "zeroifnull") {
     return AlgebrizeIfNull(function_call->type(), std::move(arguments));
   } else if (name == "nullif" || name == "nullifzero") {
-    return AlgebrizeNullIf(function_call->type(), std::move(arguments),
-                           function_call->collation_list());
+    return AlgebrizeNullIf(function_call->type(), std::move(arguments));
   } else if (name == "nulliferror") {
     return CreateNullIfErrorExpr(std::move(arguments));
   } else if (name == "coalesce") {
@@ -776,8 +776,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIfNull(
 
 // NullIf(v0, v1) = WithExpr(x:=v0, IfExpr(x=v1, NULL, x))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeNullIf(
-    const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args,
-    const std::vector<ResolvedCollation>& collation_list) {
+    const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
   // If NullIfZero is being invoked, we augment args with the value 0 based on
   // the appropriate type.
   // NullIfZero = NullIf(v0, 0)
@@ -794,16 +793,6 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeNullIf(
   std::vector<std::unique_ptr<ValueExpr>> equal_args;
   equal_args.push_back(std::move(deref_x));
   equal_args.push_back(std::move(args[1]));
-
-  if (!collation_list.empty()) {
-    std::string collated_function_name;
-    std::vector<std::unique_ptr<ValueExpr>> collated_equal_args;
-    ZETASQL_RETURN_IF_ERROR(GetCollatedFunctionNameAndArguments(
-        "$equal", std::move(equal_args), collation_list, language_options_,
-        &collated_function_name, &collated_equal_args));
-    ZETASQL_RET_CHECK_EQ(collated_function_name, "$equal");
-    equal_args = std::move(collated_equal_args);
-  }
 
   ZETASQL_ASSIGN_OR_RETURN(auto equal, BuiltinScalarFunction::CreateCall(
                                    FunctionKind::kEqual, language_options_,
@@ -3366,6 +3355,14 @@ absl::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
       anonymization_options.group_selection_strategy =
           option->value()->GetAs<ResolvedLiteral>()->value();
+    } else if (absl::AsciiStrToLower(option->name()) ==
+               "min_privacy_units_per_group") {
+      ZETASQL_RET_CHECK(!anonymization_options.min_privacy_units_per_group.has_value())
+          << "Anonymization option MIN_PRIVACY_UNITS_PER_GROUP can only be set "
+             "once";
+      ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+      anonymization_options.min_privacy_units_per_group =
+          option->value()->GetAs<ResolvedLiteral>()->value();
     } else {
       return zetasql_base::InvalidArgumentErrorBuilder()
              << "Unknown or invalid anonymization option found: "
@@ -3387,10 +3384,37 @@ absl::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
            << "Anonymization option DELTA or K_THRESHOLD must be set";
   }
 
+  // If `max_privacy_units_per_group` is set, then delta must be set instead of
+  // the k_threshold. This is so, because setting both would imply the two
+  // thresholds to be `max_privacy_units_per_group` and
+  // k_threshold + (max_privacy_units_per_group - 1). This is potentially
+  // confusing behaviour. So it is forbidden. The check should be performed by
+  // ZetaSQL, not necessarily by the engine. Thus we check here.
+  ZETASQL_RET_CHECK(!(anonymization_options.group_selection_threshold.has_value() &&
+              anonymization_options.min_privacy_units_per_group.has_value()))
+      << "Option MIN_PRIVACY_UNITS_PER_GROUP can only be "
+         "set if DELTA is set, but not if K_THRESHOLD is set";
+
   // Split epsilon across each aggregate function.
+  //
+  // If the `min_privacy_units_per_group` option is set, then the rewriter
+  // added a column to the aggregate list counting the exact number of
+  // distinct users per group/partition. Thus, in that case, the
+  // `aggregate_list` contains #anon_aggregate_functions + 1 items. We have
+  // to subtract 1 to get the true number of anon_aggregate_functions. This
+  // is important, because the number is used in splitting the privacy
+  // budget.
+  int64_t number_anonymization_aggregate_functions =
+      aggregate_scan->aggregate_list_size();
+  if (anonymization_options.min_privacy_units_per_group.has_value() &&
+      !anonymization_options.min_privacy_units_per_group->is_null()) {
+    ZETASQL_RET_CHECK(anonymization_options.min_privacy_units_per_group->is_valid());
+    number_anonymization_aggregate_functions =
+        aggregate_scan->aggregate_list_size() - 1;
+  }
   anonymization_options.epsilon =
       Value::Double(anonymization_options.epsilon->double_value() /
-                    aggregate_scan->aggregate_list_size());
+                    number_anonymization_aggregate_functions);
 
   // Compute group_selection_threshold from
   // delta/epsilon/max_groups_contributed, if needed.
@@ -3445,7 +3469,8 @@ absl::StatusOr<AnonymizationOptions> GetDifferentialPrivacyOptions(
     } else if (absl::AsciiStrToLower(option->name()) ==
                "max_rows_contributed") {
       ZETASQL_RET_CHECK(!anonymization_options.max_rows_contributed.has_value())
-          << "Anonymization option MAX_ROWS_CONTRIBUTED can only be set once";
+          << "Differential privacy option MAX_ROWS_CONTRIBUTED can only be set "
+             "once";
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
     } else if (absl::AsciiStrToLower(option->name()) ==
                "group_selection_strategy") {
@@ -3454,6 +3479,14 @@ absl::StatusOr<AnonymizationOptions> GetDifferentialPrivacyOptions(
              "set once";
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
       anonymization_options.group_selection_strategy =
+          option->value()->GetAs<ResolvedLiteral>()->value();
+    } else if (absl::AsciiStrToLower(option->name()) ==
+               "min_privacy_units_per_group") {
+      ZETASQL_RET_CHECK(!anonymization_options.min_privacy_units_per_group.has_value())
+          << "Differential privacy option MIN_PRIVACY_UNITS_PER_GROUP can only "
+             "be set once";
+      ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+      anonymization_options.min_privacy_units_per_group =
           option->value()->GetAs<ResolvedLiteral>()->value();
     } else {
       return zetasql_base::InvalidArgumentErrorBuilder()
@@ -3491,9 +3524,26 @@ absl::StatusOr<AnonymizationOptions> GetDifferentialPrivacyOptions(
   }
 
   // Split epsilon across each aggregate function.
+  //
+  // If the `min_privacy_units_per_group` option is set, then the rewriter
+  // added a column to the aggregate list counting the exact number of
+  // distinct users per group/partition. Thus, in that case, the
+  // `aggregate_list` contains #anon_aggregate_functions + 1 items. We have
+  // to subtract 1 to get the true number of anon_aggregate_functions. This
+  // is important, because the number is used in splitting the privacy
+  // budget.
+
+  int64_t number_anonymization_aggregate_functions =
+      aggregate_scan->aggregate_list_size();
+  if (anonymization_options.min_privacy_units_per_group.has_value() &&
+      !anonymization_options.min_privacy_units_per_group->is_null()) {
+    ZETASQL_RET_CHECK(anonymization_options.min_privacy_units_per_group->is_valid());
+    number_anonymization_aggregate_functions =
+        aggregate_scan->aggregate_list_size() - 1;
+  }
   anonymization_options.epsilon =
       Value::Double(anonymization_options.epsilon->double_value() /
-                    aggregate_scan->aggregate_list_size());
+                    number_anonymization_aggregate_functions);
 
   const Value max_groups_contributed =
       (anonymization_options.max_groups_contributed.has_value() &&
@@ -3686,8 +3736,14 @@ Algebrizer::AlgebrizeAnonymizedAggregateScan(
               aggregate_scan->k_threshold_expr(), anonymization_options));
       break;
     }
-    case functions::DifferentialPrivacyEnums::PUBLIC_GROUPS:
+    case functions::DifferentialPrivacyEnums::PUBLIC_GROUPS: {
+      // The following should have been already checked in the ZetaSQL
+      // analyzer. Thus we ZETASQL_RET_CHECK here.
+      ZETASQL_RET_CHECK(!anonymization_options.min_privacy_units_per_group.has_value())
+          << "The MIN_PRIVACY_UNITS_PER_GROUP option must not be specified if "
+             "GROUP_SELECTION_STRATEGY=PUBLIC_GROUPS";
       break;
+    }
     default:
       ZETASQL_RET_CHECK_FAIL()
           << "Group selection strategy "
@@ -3721,8 +3777,14 @@ Algebrizer::AlgebrizeDifferentialPrivacyAggregateScan(
                            anonymization_options));
       break;
     }
-    case functions::DifferentialPrivacyEnums::PUBLIC_GROUPS:
+    case functions::DifferentialPrivacyEnums::PUBLIC_GROUPS: {
+      // The following should have been already checked in the ZetaSQL
+      // analyzer. Thus we ZETASQL_RET_CHECK here.
+      ZETASQL_RET_CHECK(!anonymization_options.min_privacy_units_per_group.has_value())
+          << "The MIN_PRIVACY_UNITS_PER_GROUP option must not be specified if "
+             "GROUP_SELECTION_STRATEGY=PUBLIC_GROUPS";
       break;
+    }
     default:
       ZETASQL_RET_CHECK_FAIL()
           << "Group selection strategy "
@@ -5144,6 +5206,7 @@ Algebrizer::AlgebrizeQueryStatementAsRelation(
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLStatement(
     const ResolvedStatement* ast_root, IdStringPool* id_string_pool) {
   const ResolvedTableScan* resolved_table_scan;
+  // TODO: Combine these in a single struct.
   auto resolved_scan_map = std::make_unique<ResolvedScanMap>();
   auto resolved_expr_map = std::make_unique<ResolvedExprMap>();
   auto column_expr_map = std::make_unique<ColumnExprMap>();
@@ -5280,8 +5343,10 @@ absl::Status Algebrizer::AlgebrizeDescendantsOfDMLStatement(
       if (resolved_table_scan_or_null != nullptr) {
         ZETASQL_RETURN_IF_ERROR(PopulateResolvedScanMap(resolved_table_scan_or_null,
                                                 resolved_scan_map));
-        ZETASQL_RETURN_IF_ERROR(AlgebrizeDefaultExpressions(resolved_table_scan_or_null,
-                                                    column_expr_map));
+        ZETASQL_RETURN_IF_ERROR(AlgebrizeDefaultAndGeneratedExpressions(
+            resolved_table_scan_or_null, column_expr_map,
+            /*generated_column_exprs=*/{},
+            /*topologically_sorted_generated_column_ids=*/{}));
       }
 
       if (stmt->from_scan() != nullptr) {
@@ -5319,8 +5384,10 @@ absl::Status Algebrizer::AlgebrizeDescendantsOfDMLStatement(
       if (resolved_table_scan_or_null != nullptr) {
         ZETASQL_RETURN_IF_ERROR(
             PopulateResolvedScanMap(stmt->table_scan(), resolved_scan_map));
-        ZETASQL_RETURN_IF_ERROR(AlgebrizeDefaultExpressions(resolved_table_scan_or_null,
-                                                    column_expr_map));
+        ZETASQL_RETURN_IF_ERROR(AlgebrizeDefaultAndGeneratedExpressions(
+            resolved_table_scan_or_null, column_expr_map,
+            stmt->generated_column_expr_list(),
+            stmt->topologically_sorted_generated_column_id_list()));
       }
 
       if (stmt->query() != nullptr) {
@@ -5526,8 +5593,11 @@ absl::Status Algebrizer::PopulateResolvedExprMap(
   return absl::OkStatus();
 }
 
-absl::Status Algebrizer::AlgebrizeDefaultExpressions(
-    const ResolvedTableScan* table_scan, ColumnExprMap* column_expr_map) {
+absl::Status Algebrizer::AlgebrizeDefaultAndGeneratedExpressions(
+    const ResolvedTableScan* table_scan, ColumnExprMap* column_expr_map,
+    const std::vector<std::unique_ptr<const ResolvedExpr>>&
+        generated_column_exprs,
+    std::vector<int> topologically_sorted_generated_column_ids) {
   ZETASQL_RET_CHECK(column_expr_map != nullptr);
   const Table* table = table_scan->table();
 
@@ -5538,10 +5608,19 @@ absl::Status Algebrizer::AlgebrizeDefaultExpressions(
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value_expr,
                        AlgebrizeExpression(
                            column->GetExpression()->GetResolvedExpression()));
-      const auto& [iterator, is_inserted] = column_expr_map->emplace(
+      const auto& [_, is_inserted] = column_expr_map->emplace(
           resolved_column.column_id(), std::move(value_expr));
       ZETASQL_RET_CHECK(is_inserted);
     }
+  }
+  ZETASQL_RET_CHECK(topologically_sorted_generated_column_ids.size() ==
+            generated_column_exprs.size());
+  for (int i = 0; i < topologically_sorted_generated_column_ids.size(); ++i) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value_expr,
+                     AlgebrizeExpression(generated_column_exprs[i].get()));
+    const auto& [_, is_inserted] = column_expr_map->emplace(
+        topologically_sorted_generated_column_ids[i], std::move(value_expr));
+    ZETASQL_RET_CHECK(is_inserted);
   }
 
   return absl::OkStatus();

@@ -132,6 +132,10 @@ message ResolvedGeneratedColumnInfoEnums {
     STORED = 1;
     STORED_VOLATILE = 2;
   }
+  enum GeneratedMode {
+    ALWAYS = 0;
+    BY_DEFAULT = 1;
+  }
 }
 
 message ResolvedDropStmtEnums {
@@ -289,5 +293,13 @@ message ResolvedDropIndexStmtEnums {
     INDEX_DEFAULT = 0;
     INDEX_SEARCH = 1;
     INDEX_VECTOR = 2;
+  }
+}
+
+message ResolvedOptionEnums {
+  enum AssignmentOp {
+    DEFAULT_ASSIGN = 0;  // "="
+    ADD_ASSIGN = 1;      // "+="
+    SUB_ASSIGN = 2;      // "-="
   }
 }

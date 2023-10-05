@@ -159,6 +159,154 @@ ARRAY<STRUCT<
   }}]
 ==
 
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TableRanges AS
+SELECT cast(1 as int64) as row_id,
+       cast(null as bool) as bool_val,
+       cast(null as range<date>) as range_date_val,
+       cast(null as range<timestamp>) as range_timestamp_val UNION ALL
+  SELECT 2,  true,  range<date> '[UNBOUNDED, 2020-01-01)', range<timestamp> '[UNBOUNDED, 2020-01-01)' UNION ALL
+  SELECT 3,  false, range<date> '[UNBOUNDED, UNBOUNDED)', range<timestamp> '[UNBOUNDED, UNBOUNDED)' UNION ALL
+  SELECT 4,  true,  range<date> '[2020-01-01, 2020-01-02)', range<timestamp> '[2020-01-01, 2020-01-02)' UNION ALL
+  SELECT 5,  false, range<date> '[2020-01-02, 2020-01-03)', range<timestamp> '[2020-01-02, 2020-01-03)' UNION ALL
+  SELECT 6,  true,  range<date> '[2020-01-03, 2020-01-04)', range<timestamp> '[2020-01-03, 2020-01-04)' UNION ALL
+  SELECT 7,  false, range<date> '[2020-01-04, 2020-01-05)', range<timestamp> '[2020-01-04, 2020-01-05)' UNION ALL
+  SELECT 8,  true,  range<date> '[2020-01-05, 2020-01-06)', range<timestamp> '[2020-01-05, 2020-01-06)' UNION ALL
+  SELECT 9,  false, range<date> '[2020-01-06, 2020-01-07)', range<timestamp> '[2020-01-06, 2020-01-07)' UNION ALL
+  SELECT 10, true,  range<date> '[2020-01-07, UNBOUNDED)', range<timestamp> '[2020-01-07, UNBOUNDED)';
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>
+[{1, NULL, NULL, NULL},
+ {2,
+  true,
+  [NULL, 2020-01-01),
+  [
+    NULL,
+    2020-01-01 08:00:00+00
+  )},
+ {3, false, [NULL, NULL), [NULL, NULL)},
+ {4,
+  true,
+  [2020-01-01, 2020-01-02),
+  [
+    2020-01-01 08:00:00+00,
+    2020-01-02 08:00:00+00
+  )},
+ {5,
+  false,
+  [2020-01-02, 2020-01-03),
+  [
+    2020-01-02 08:00:00+00,
+    2020-01-03 08:00:00+00
+  )},
+ {6,
+  true,
+  [2020-01-03, 2020-01-04),
+  [
+    2020-01-03 08:00:00+00,
+    2020-01-04 08:00:00+00
+  )},
+ {7,
+  false,
+  [2020-01-04, 2020-01-05),
+  [
+    2020-01-04 08:00:00+00,
+    2020-01-05 08:00:00+00
+  )},
+ {8,
+  true,
+  [2020-01-05, 2020-01-06),
+  [
+    2020-01-05 08:00:00+00,
+    2020-01-06 08:00:00+00
+  )},
+ {9,
+  false,
+  [2020-01-06, 2020-01-07),
+  [
+    2020-01-06 08:00:00+00,
+    2020-01-07 08:00:00+00
+  )},
+ {10,
+  true,
+  [2020-01-07, NULL),
+  [
+    2020-01-07 08:00:00+00,
+    NULL
+  )}]
+==
+
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TableDatetimeRanges AS
+SELECT cast(1 as int64) as row_id,
+       cast(null as bool) as bool_val,
+       cast(null as range<datetime>) as range_datetime_val UNION ALL
+  SELECT 2,  true,  range<datetime> '[UNBOUNDED, 2020-01-01)' UNION ALL
+  SELECT 3,  false, range<datetime> '[UNBOUNDED, UNBOUNDED)' UNION ALL
+  SELECT 4,  true,  range<datetime> '[2020-01-01, 2020-01-02)' UNION ALL
+  SELECT 5,  false, range<datetime> '[2020-01-02, 2020-01-03)' UNION ALL
+  SELECT 6,  true,  range<datetime> '[2020-01-03, 2020-01-04)' UNION ALL
+  SELECT 7,  false, range<datetime> '[2020-01-04, 2020-01-05)' UNION ALL
+  SELECT 8,  true,  range<datetime> '[2020-01-05, 2020-01-06)' UNION ALL
+  SELECT 9,  false, range<datetime> '[2020-01-06, 2020-01-07)' UNION ALL
+  SELECT 10, true,  range<datetime> '[2020-01-07, UNBOUNDED)';
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_datetime_val RANGE<DATETIME>
+      >>
+[{1, NULL, NULL},
+ {
+   2,
+   true,
+   [NULL, 2020-01-01 00:00:00)
+ },
+ {3, false, [NULL, NULL)},
+ {
+   4,
+   true,
+   [2020-01-01 00:00:00, 2020-01-02 00:00:00)
+ },
+ {
+   5,
+   false,
+   [2020-01-02 00:00:00, 2020-01-03 00:00:00)
+ },
+ {
+   6,
+   true,
+   [2020-01-03 00:00:00, 2020-01-04 00:00:00)
+ },
+ {
+   7,
+   false,
+   [2020-01-04 00:00:00, 2020-01-05 00:00:00)
+ },
+ {
+   8,
+   true,
+   [2020-01-05 00:00:00, 2020-01-06 00:00:00)
+ },
+ {
+   9,
+   false,
+   [2020-01-06 00:00:00, 2020-01-07 00:00:00)
+ },
+ {
+   10,
+   true,
+   [2020-01-07 00:00:00, NULL)
+ }]
+==
+
 [default required_features=ANALYTIC_FUNCTIONS]
 [name=lag_offset_zero_offset]
 SELECT row_id, LAG(row_id, 0) OVER test_window
@@ -826,6 +974,807 @@ ARRAY<STRUCT<row_id INT64, array_val ARRAY<>, ARRAY<>>>[unknown order:
   },
   {7, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
 ]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=lag_range_date]
+SELECT row_id, range_date_val,
+       LAG(range_date_val, 2) OVER (ORDER BY row_id)
+FROM TableRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        RANGE<DATE>
+      >>
+[unknown order:{1, NULL, NULL},
+               {2, [NULL, 2020-01-01), NULL},
+               {3, [NULL, NULL), NULL},
+               {
+                 4,
+                 [2020-01-01, 2020-01-02),
+                 [NULL, 2020-01-01)
+               },
+               {
+                 5,
+                 [2020-01-02, 2020-01-03),
+                 [NULL, NULL)
+               },
+               {
+                 6,
+                 [2020-01-03, 2020-01-04),
+                 [2020-01-01, 2020-01-02)
+               },
+               {
+                 7,
+                 [2020-01-04, 2020-01-05),
+                 [2020-01-02, 2020-01-03)
+               },
+               {
+                 8,
+                 [2020-01-05, 2020-01-06),
+                 [2020-01-03, 2020-01-04)
+               },
+               {
+                 9,
+                 [2020-01-06, 2020-01-07),
+                 [2020-01-04, 2020-01-05)
+               },
+               {
+                 10,
+                 [2020-01-07, NULL),
+                 [2020-01-05, 2020-01-06)
+               }]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=lag_range_date_partition_by]
+SELECT row_id, bool_val, range_date_val,
+       LAG(range_date_val, 2) OVER (PARTITION BY bool_val ORDER BY row_id)
+FROM TableRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_date_val RANGE<DATE>,
+        RANGE<DATE>
+      >>
+[unknown order:{1, NULL, NULL, NULL},
+               {3, false, [NULL, NULL), NULL},
+               {
+                 5,
+                 false,
+                 [2020-01-02, 2020-01-03),
+                 NULL
+               },
+               {
+                 7,
+                 false,
+                 [2020-01-04, 2020-01-05),
+                 [NULL, NULL)
+               },
+               {
+                 9,
+                 false,
+                 [2020-01-06, 2020-01-07),
+                 [2020-01-02, 2020-01-03)
+               },
+               {2, true, [NULL, 2020-01-01), NULL},
+               {
+                 4,
+                 true,
+                 [2020-01-01, 2020-01-02),
+                 NULL
+               },
+               {
+                 6,
+                 true,
+                 [2020-01-03, 2020-01-04),
+                 [NULL, 2020-01-01)
+               },
+               {
+                 8,
+                 true,
+                 [2020-01-05, 2020-01-06),
+                 [2020-01-01, 2020-01-02)
+               },
+               {
+                 10,
+                 true,
+                 [2020-01-07, NULL),
+                 [2020-01-03, 2020-01-04)
+               }]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[name=lag_range_date_nulls_last]
+SELECT row_id, range_date_val,
+       LAG(range_date_val, 2) OVER (ORDER BY range_date_val NULLS LAST)
+FROM TableRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        RANGE<DATE>
+      >>
+[unknown order:{2, [NULL, 2020-01-01), NULL},
+               {3, [NULL, NULL), NULL},
+               {
+                 4,
+                 [2020-01-01, 2020-01-02),
+                 [NULL, 2020-01-01)
+               },
+               {
+                 5,
+                 [2020-01-02, 2020-01-03),
+                 [NULL, NULL)
+               },
+               {
+                 6,
+                 [2020-01-03, 2020-01-04),
+                 [2020-01-01, 2020-01-02)
+               },
+               {
+                 7,
+                 [2020-01-04, 2020-01-05),
+                 [2020-01-02, 2020-01-03)
+               },
+               {
+                 8,
+                 [2020-01-05, 2020-01-06),
+                 [2020-01-03, 2020-01-04)
+               },
+               {
+                 9,
+                 [2020-01-06, 2020-01-07),
+                 [2020-01-04, 2020-01-05)
+               },
+               {
+                 10,
+                 [2020-01-07, NULL),
+                 [2020-01-05, 2020-01-06)
+               },
+               {
+                 1,
+                 NULL,
+                 [2020-01-06, 2020-01-07)
+               }]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=lag_range_date_default_expression]
+SELECT row_id, range_date_val,
+       LAG(range_date_val, 2, range<date> '[1000-01-01, 1100-01-01)') OVER (ORDER BY row_id)
+FROM TableRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        RANGE<DATE>
+      >>
+[unknown order:{
+                 1,
+                 NULL,
+                 [1000-01-01, 1100-01-01)
+               },
+               {
+                 2,
+                 [NULL, 2020-01-01),
+                 [1000-01-01, 1100-01-01)
+               },
+               {3, [NULL, NULL), NULL},
+               {
+                 4,
+                 [2020-01-01, 2020-01-02),
+                 [NULL, 2020-01-01)
+               },
+               {
+                 5,
+                 [2020-01-02, 2020-01-03),
+                 [NULL, NULL)
+               },
+               {
+                 6,
+                 [2020-01-03, 2020-01-04),
+                 [2020-01-01, 2020-01-02)
+               },
+               {
+                 7,
+                 [2020-01-04, 2020-01-05),
+                 [2020-01-02, 2020-01-03)
+               },
+               {
+                 8,
+                 [2020-01-05, 2020-01-06),
+                 [2020-01-03, 2020-01-04)
+               },
+               {
+                 9,
+                 [2020-01-06, 2020-01-07),
+                 [2020-01-04, 2020-01-05)
+               },
+               {
+                 10,
+                 [2020-01-07, NULL),
+                 [2020-01-05, 2020-01-06)
+               }]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=lag_range_timestamp]
+SELECT row_id, range_timestamp_val,
+       LAG(range_timestamp_val, 2) OVER (ORDER BY row_id)
+FROM TableRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{1, NULL, NULL},
+               {2,
+                [
+                  NULL,
+                  2020-01-01 08:00:00+00
+                ),
+                NULL},
+               {3, [NULL, NULL), NULL},
+               {4,
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-01-02 08:00:00+00
+                ),
+                [
+                  NULL,
+                  2020-01-01 08:00:00+00
+                )},
+               {5,
+                [
+                  2020-01-02 08:00:00+00,
+                  2020-01-03 08:00:00+00
+                ),
+                [NULL, NULL)},
+               {6,
+                [
+                  2020-01-03 08:00:00+00,
+                  2020-01-04 08:00:00+00
+                ),
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-01-02 08:00:00+00
+                )},
+               {7,
+                [
+                  2020-01-04 08:00:00+00,
+                  2020-01-05 08:00:00+00
+                ),
+                [
+                  2020-01-02 08:00:00+00,
+                  2020-01-03 08:00:00+00
+                )},
+               {8,
+                [
+                  2020-01-05 08:00:00+00,
+                  2020-01-06 08:00:00+00
+                ),
+                [
+                  2020-01-03 08:00:00+00,
+                  2020-01-04 08:00:00+00
+                )},
+               {9,
+                [
+                  2020-01-06 08:00:00+00,
+                  2020-01-07 08:00:00+00
+                ),
+                [
+                  2020-01-04 08:00:00+00,
+                  2020-01-05 08:00:00+00
+                )},
+               {10,
+                [
+                  2020-01-07 08:00:00+00,
+                  NULL
+                ),
+                [
+                  2020-01-05 08:00:00+00,
+                  2020-01-06 08:00:00+00
+                )}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=lag_range_timestamp_partition_by]
+SELECT row_id, bool_val, range_timestamp_val,
+       LAG(range_timestamp_val, 2) OVER (PARTITION BY bool_val ORDER BY row_id)
+FROM TableRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{1, NULL, NULL, NULL},
+               {3, false, [NULL, NULL), NULL},
+               {5,
+                false,
+                [
+                  2020-01-02 08:00:00+00,
+                  2020-01-03 08:00:00+00
+                ),
+                NULL},
+               {7,
+                false,
+                [
+                  2020-01-04 08:00:00+00,
+                  2020-01-05 08:00:00+00
+                ),
+                [NULL, NULL)},
+               {9,
+                false,
+                [
+                  2020-01-06 08:00:00+00,
+                  2020-01-07 08:00:00+00
+                ),
+                [
+                  2020-01-02 08:00:00+00,
+                  2020-01-03 08:00:00+00
+                )},
+               {2,
+                true,
+                [
+                  NULL,
+                  2020-01-01 08:00:00+00
+                ),
+                NULL},
+               {4,
+                true,
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-01-02 08:00:00+00
+                ),
+                NULL},
+               {6,
+                true,
+                [
+                  2020-01-03 08:00:00+00,
+                  2020-01-04 08:00:00+00
+                ),
+                [
+                  NULL,
+                  2020-01-01 08:00:00+00
+                )},
+               {8,
+                true,
+                [
+                  2020-01-05 08:00:00+00,
+                  2020-01-06 08:00:00+00
+                ),
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-01-02 08:00:00+00
+                )},
+               {10,
+                true,
+                [
+                  2020-01-07 08:00:00+00,
+                  NULL
+                ),
+                [
+                  2020-01-03 08:00:00+00,
+                  2020-01-04 08:00:00+00
+                )}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[name=lag_range_timestamp_nulls_last]
+SELECT row_id, range_timestamp_val,
+       LAG(range_timestamp_val, 2) OVER (ORDER BY range_timestamp_val NULLS LAST)
+FROM TableRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{2,
+                [
+                  NULL,
+                  2020-01-01 08:00:00+00
+                ),
+                NULL},
+               {3, [NULL, NULL), NULL},
+               {4,
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-01-02 08:00:00+00
+                ),
+                [
+                  NULL,
+                  2020-01-01 08:00:00+00
+                )},
+               {5,
+                [
+                  2020-01-02 08:00:00+00,
+                  2020-01-03 08:00:00+00
+                ),
+                [NULL, NULL)},
+               {6,
+                [
+                  2020-01-03 08:00:00+00,
+                  2020-01-04 08:00:00+00
+                ),
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-01-02 08:00:00+00
+                )},
+               {7,
+                [
+                  2020-01-04 08:00:00+00,
+                  2020-01-05 08:00:00+00
+                ),
+                [
+                  2020-01-02 08:00:00+00,
+                  2020-01-03 08:00:00+00
+                )},
+               {8,
+                [
+                  2020-01-05 08:00:00+00,
+                  2020-01-06 08:00:00+00
+                ),
+                [
+                  2020-01-03 08:00:00+00,
+                  2020-01-04 08:00:00+00
+                )},
+               {9,
+                [
+                  2020-01-06 08:00:00+00,
+                  2020-01-07 08:00:00+00
+                ),
+                [
+                  2020-01-04 08:00:00+00,
+                  2020-01-05 08:00:00+00
+                )},
+               {10,
+                [
+                  2020-01-07 08:00:00+00,
+                  NULL
+                ),
+                [
+                  2020-01-05 08:00:00+00,
+                  2020-01-06 08:00:00+00
+                )},
+               {1,
+                NULL,
+                [
+                  2020-01-06 08:00:00+00,
+                  2020-01-07 08:00:00+00
+                )}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE]
+[name=lag_range_timestamp_default_expression]
+SELECT row_id, range_timestamp_val,
+       LAG(range_timestamp_val, 2, range<timestamp> '[1000-01-01, 1100-01-01)') OVER (ORDER BY row_id)
+FROM TableRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_timestamp_val RANGE<TIMESTAMP>,
+        RANGE<TIMESTAMP>
+      >>
+[unknown order:{1,
+                NULL,
+                [
+                  1000-01-01 07:52:58+00,
+                  1100-01-01 07:52:58+00
+                )},
+               {2,
+                [
+                  NULL,
+                  2020-01-01 08:00:00+00
+                ),
+                [
+                  1000-01-01 07:52:58+00,
+                  1100-01-01 07:52:58+00
+                )},
+               {3, [NULL, NULL), NULL},
+               {4,
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-01-02 08:00:00+00
+                ),
+                [
+                  NULL,
+                  2020-01-01 08:00:00+00
+                )},
+               {5,
+                [
+                  2020-01-02 08:00:00+00,
+                  2020-01-03 08:00:00+00
+                ),
+                [NULL, NULL)},
+               {6,
+                [
+                  2020-01-03 08:00:00+00,
+                  2020-01-04 08:00:00+00
+                ),
+                [
+                  2020-01-01 08:00:00+00,
+                  2020-01-02 08:00:00+00
+                )},
+               {7,
+                [
+                  2020-01-04 08:00:00+00,
+                  2020-01-05 08:00:00+00
+                ),
+                [
+                  2020-01-02 08:00:00+00,
+                  2020-01-03 08:00:00+00
+                )},
+               {8,
+                [
+                  2020-01-05 08:00:00+00,
+                  2020-01-06 08:00:00+00
+                ),
+                [
+                  2020-01-03 08:00:00+00,
+                  2020-01-04 08:00:00+00
+                )},
+               {9,
+                [
+                  2020-01-06 08:00:00+00,
+                  2020-01-07 08:00:00+00
+                ),
+                [
+                  2020-01-04 08:00:00+00,
+                  2020-01-05 08:00:00+00
+                )},
+               {10,
+                [
+                  2020-01-07 08:00:00+00,
+                  NULL
+                ),
+                [
+                  2020-01-05 08:00:00+00,
+                  2020-01-06 08:00:00+00
+                )}]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=lag_range_datetime]
+SELECT row_id, range_datetime_val,
+       LAG(range_datetime_val, 2) OVER (ORDER BY row_id)
+FROM TableDatetimeRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{1, NULL, NULL},
+               {
+                 2,
+                 [NULL, 2020-01-01 00:00:00),
+                 NULL
+               },
+               {3, [NULL, NULL), NULL},
+               {
+                 4,
+                 [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+                 [NULL, 2020-01-01 00:00:00)
+               },
+               {
+                 5,
+                 [2020-01-02 00:00:00, 2020-01-03 00:00:00),
+                 [NULL, NULL)
+               },
+               {
+                 6,
+                 [2020-01-03 00:00:00, 2020-01-04 00:00:00),
+                 [2020-01-01 00:00:00, 2020-01-02 00:00:00)
+               },
+               {
+                 7,
+                 [2020-01-04 00:00:00, 2020-01-05 00:00:00),
+                 [2020-01-02 00:00:00, 2020-01-03 00:00:00)
+               },
+               {
+                 8,
+                 [2020-01-05 00:00:00, 2020-01-06 00:00:00),
+                 [2020-01-03 00:00:00, 2020-01-04 00:00:00)
+               },
+               {
+                 9,
+                 [2020-01-06 00:00:00, 2020-01-07 00:00:00),
+                 [2020-01-04 00:00:00, 2020-01-05 00:00:00)
+               },
+               {
+                 10,
+                 [2020-01-07 00:00:00, NULL),
+                 [2020-01-05 00:00:00, 2020-01-06 00:00:00)
+               }]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=lag_range_datetime_partition_by]
+SELECT row_id, bool_val, range_datetime_val,
+       LAG(range_datetime_val, 2) OVER (PARTITION BY bool_val ORDER BY row_id)
+FROM TableDatetimeRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{1, NULL, NULL, NULL},
+               {3, false, [NULL, NULL), NULL},
+               {
+                 5,
+                 false,
+                 [2020-01-02 00:00:00, 2020-01-03 00:00:00),
+                 NULL
+               },
+               {
+                 7,
+                 false,
+                 [2020-01-04 00:00:00, 2020-01-05 00:00:00),
+                 [NULL, NULL)
+               },
+               {
+                 9,
+                 false,
+                 [2020-01-06 00:00:00, 2020-01-07 00:00:00),
+                 [2020-01-02 00:00:00, 2020-01-03 00:00:00)
+               },
+               {
+                 2,
+                 true,
+                 [NULL, 2020-01-01 00:00:00),
+                 NULL
+               },
+               {
+                 4,
+                 true,
+                 [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+                 NULL
+               },
+               {
+                 6,
+                 true,
+                 [2020-01-03 00:00:00, 2020-01-04 00:00:00),
+                 [NULL, 2020-01-01 00:00:00)
+               },
+               {
+                 8,
+                 true,
+                 [2020-01-05 00:00:00, 2020-01-06 00:00:00),
+                 [2020-01-01 00:00:00, 2020-01-02 00:00:00)
+               },
+               {
+                 10,
+                 true,
+                 [2020-01-07 00:00:00, NULL),
+                 [2020-01-03 00:00:00, 2020-01-04 00:00:00)
+               }]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[name=lag_range_datetime_nulls_last]
+SELECT row_id, range_datetime_val,
+       LAG(range_datetime_val, 2) OVER (ORDER BY range_datetime_val NULLS LAST)
+FROM TableDatetimeRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{
+                 2,
+                 [NULL, 2020-01-01 00:00:00),
+                 NULL
+               },
+               {3, [NULL, NULL), NULL},
+               {
+                 4,
+                 [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+                 [NULL, 2020-01-01 00:00:00)
+               },
+               {
+                 5,
+                 [2020-01-02 00:00:00, 2020-01-03 00:00:00),
+                 [NULL, NULL)
+               },
+               {
+                 6,
+                 [2020-01-03 00:00:00, 2020-01-04 00:00:00),
+                 [2020-01-01 00:00:00, 2020-01-02 00:00:00)
+               },
+               {
+                 7,
+                 [2020-01-04 00:00:00, 2020-01-05 00:00:00),
+                 [2020-01-02 00:00:00, 2020-01-03 00:00:00)
+               },
+               {
+                 8,
+                 [2020-01-05 00:00:00, 2020-01-06 00:00:00),
+                 [2020-01-03 00:00:00, 2020-01-04 00:00:00)
+               },
+               {
+                 9,
+                 [2020-01-06 00:00:00, 2020-01-07 00:00:00),
+                 [2020-01-04 00:00:00, 2020-01-05 00:00:00)
+               },
+               {
+                 10,
+                 [2020-01-07 00:00:00, NULL),
+                 [2020-01-05 00:00:00, 2020-01-06 00:00:00)
+               },
+               {
+                 1,
+                 NULL,
+                 [2020-01-06 00:00:00, 2020-01-07 00:00:00)
+               }]
+==
+
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=lag_range_datetime_default_expression]
+SELECT row_id, range_datetime_val,
+       LAG(range_datetime_val, 2, range<datetime> '[1000-01-01, 1100-01-01)') OVER (ORDER BY row_id)
+FROM TableDatetimeRanges
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>,
+        RANGE<DATETIME>
+      >>
+[unknown order:{
+                 1,
+                 NULL,
+                 [1000-01-01 00:00:00, 1100-01-01 00:00:00)
+               },
+               {
+                 2,
+                 [NULL, 2020-01-01 00:00:00),
+                 [1000-01-01 00:00:00, 1100-01-01 00:00:00)
+               },
+               {3, [NULL, NULL), NULL},
+               {
+                 4,
+                 [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+                 [NULL, 2020-01-01 00:00:00)
+               },
+               {
+                 5,
+                 [2020-01-02 00:00:00, 2020-01-03 00:00:00),
+                 [NULL, NULL)
+               },
+               {
+                 6,
+                 [2020-01-03 00:00:00, 2020-01-04 00:00:00),
+                 [2020-01-01 00:00:00, 2020-01-02 00:00:00)
+               },
+               {
+                 7,
+                 [2020-01-04 00:00:00, 2020-01-05 00:00:00),
+                 [2020-01-02 00:00:00, 2020-01-03 00:00:00)
+               },
+               {
+                 8,
+                 [2020-01-05 00:00:00, 2020-01-06 00:00:00),
+                 [2020-01-03 00:00:00, 2020-01-04 00:00:00)
+               },
+               {
+                 9,
+                 [2020-01-06 00:00:00, 2020-01-07 00:00:00),
+                 [2020-01-04 00:00:00, 2020-01-05 00:00:00)
+               },
+               {
+                 10,
+                 [2020-01-07 00:00:00, NULL),
+                 [2020-01-05 00:00:00, 2020-01-06 00:00:00)
+               }]
 ==
 
 [name=lag_partitionby]

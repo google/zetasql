@@ -27,20 +27,30 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/proto/anon_output_with_report.pb.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/array_zip_mode.pb.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
@@ -170,9 +180,9 @@ void GetArrayMiscFunctions(TypeFactory* type_factory,
           &CheckArrayIsDistinctArguments));
 
   FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
   FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
 
   // Usage: generate_array(begin_range, end_range, [step]).
   // Returns an array spanning the range [begin_range, end_range] with a step
@@ -1094,6 +1104,680 @@ void GetArrayIncludesFunctions(TypeFactory* type_factory,
                  FunctionOptions().set_supports_safe_error_mode(
                      options.language_options.LanguageFeatureEnabled(
                          FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+}
+
+// TODO: Add signatures as we implement ARRAY_ZIP.
+static absl::StatusOr<bool> ArrayZipSignatureHasLambda(
+    const FunctionSignature& signature) {
+  switch (signature.context_id()) {
+    case FN_ARRAY_ZIP_TWO_ARRAY:
+    case FN_ARRAY_ZIP_THREE_ARRAY:
+    case FN_ARRAY_ZIP_FOUR_ARRAY:
+      return false;
+    case FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA:
+    case FN_ARRAY_ZIP_TWO_ARRAY_MODE_LAMBDA:
+    case FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA:
+    case FN_ARRAY_ZIP_THREE_ARRAY_MODE_LAMBDA:
+    case FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA:
+    case FN_ARRAY_ZIP_FOUR_ARRAY_MODE_LAMBDA:
+      return true;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Invalid ARRAY_ZIP signature "
+                       << signature.DebugString();
+  }
+}
+
+// The `ComputeResultTypeCallback` used by the ARRAY_ZIP(<arr_1>, ..., <arr_n>,
+// [mode=><mode>]) signatures. If the input element types are <alias_1,
+// T1>, ..., <alias_n, Tn>, the returned ARRAY has element type = STRUCT<alias_1
+// T1, ..., alias_n TN>.
+static absl::StatusOr<const Type*> ComputeArrayZipOutputType(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_ASSIGN_OR_RETURN(bool has_lambda, ArrayZipSignatureHasLambda(signature));
+  if (has_lambda) {
+    // The return type is determined by lambda.
+    return signature.result_type().type();
+  }
+  std::vector<StructField> fields;
+  fields.reserve(arguments.size());
+  for (int i = 0; i < arguments.size(); ++i) {
+    const Type* argument_type = arguments[i].type();
+    // Only the last argument can be non-array.
+    if (i == arguments.size() - 1 && argument_type->IsEnum()) {
+      continue;
+    }
+    ZETASQL_RET_CHECK(argument_type->IsArray());
+    fields.push_back(StructField(arguments[i].argument_alias()->ToString(),
+                                 argument_type->AsArray()->element_type()));
+  }
+
+  const StructType* element_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(fields, &element_type));
+  const Type* result_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(element_type, &result_type));
+  return result_type;
+}
+
+// The `ComputeResultAnnotationsCallback` used by the ARRAY_ZIP(<arr_1>, ...,
+// <arr_n>, [mode=><mode>]) signatures.
+// ARRAY_ZIP(ARRAY<collation_1>, ..., ARRAY<collation_n>) ->
+// ARRAY<STRUCT<collation_1, ..., collation_n>>.
+static absl::StatusOr<const AnnotationMap*> ComputeArrayZipOutputAnnotations(
+    const AnnotationCallbackArgs& args, TypeFactory& type_factory) {
+  const Type* result_type = args.result_type;
+  // The last argument is array_zip_mode, so exclude it.
+  const absl::Span<const AnnotationMap* const> array_annotations =
+      absl::MakeSpan(args.argument_annotations)
+          .subspan(0, args.argument_annotations.size() - 1);
+
+  // The return type must be ARRAY<STRUCT>.
+  ZETASQL_RET_CHECK(result_type->IsArray());
+  ZETASQL_RET_CHECK(result_type->AsArray()->element_type()->IsStruct());
+  ZETASQL_RET_CHECK_EQ(result_type->AsArray()->element_type()->AsStruct()->num_fields(),
+               array_annotations.size());
+
+  // Currently collation is the only supported annotation in the resolver.
+  const int kCollationAnnotationId = CollationAnnotation::GetId();
+  for (const AnnotationMap* argument : array_annotations) {
+    if (argument == nullptr) {
+      continue;
+    }
+    ZETASQL_RET_CHECK(argument->IsArrayMap());
+    // Only the array elements may have collations, not the array themselves.
+    ZETASQL_RET_CHECK_EQ(argument->AsArrayMap()->GetAnnotation(kCollationAnnotationId),
+                 nullptr);
+  }
+
+  std::unique_ptr<AnnotationMap> annotation_map =
+      AnnotationMap::Create(result_type);
+  ZETASQL_RET_CHECK(annotation_map->IsArrayMap());
+  ZETASQL_RET_CHECK(annotation_map->AsArrayMap()->element()->IsStructMap());
+  ArrayAnnotationMap* array_annotation_map = annotation_map->AsArrayMap();
+  StructAnnotationMap* element_struct_annotation_map =
+      array_annotation_map->mutable_element()->AsStructMap();
+  // The annotations of each array become the field annotations for the result
+  // struct element.
+  ZETASQL_RET_CHECK_EQ(element_struct_annotation_map->num_fields(),
+               array_annotations.size());
+
+  // Propagate the array element collations to the elements of the result array.
+  for (int i = 0; i < array_annotations.size(); ++i) {
+    if (array_annotations[i] == nullptr) {
+      continue;
+    }
+    const AnnotationMap* argument_element_annotation_map =
+        array_annotations[i]->AsArrayMap()->element();
+    if (argument_element_annotation_map == nullptr ||
+        argument_element_annotation_map->GetAnnotation(
+            kCollationAnnotationId) == nullptr) {
+      continue;
+    }
+    element_struct_annotation_map->mutable_field(i)->SetAnnotation(
+        kCollationAnnotationId, *argument_element_annotation_map->GetAnnotation(
+                                    kCollationAnnotationId));
+  }
+  if (annotation_map->Empty()) {
+    // Use nullptr rather than an empty annotation map when there are no
+    // annotations.
+    return nullptr;
+  }
+  return type_factory.TakeOwnership(std::move(annotation_map));
+}
+
+// Adds the no-lambda array zip signatures to `signatures`.
+static void AddArrayZipNoLambdaSignatures(
+    const Type* array_zip_mode_type,
+    const ZetaSQLBuiltinFunctionOptions& options,
+    std::vector<FunctionSignatureOnHeap>& signatures) {
+  FunctionArgumentType array_zip_mode_arg(
+      array_zip_mode_type,
+      FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+          .set_default(Value::Enum(
+              array_zip_mode_type->AsEnum(),
+              static_cast<int>(zetasql::functions::ArrayZipEnums::STRICT)))
+          .set_argument_name("mode", kPositionalOrNamed));
+
+  // The result annotations are calculated by the custom annotation callback, so
+  // all array arguments should have `argument_collation_mode` = AFFECTS_NONE.
+  FunctionArgumentType input_array_1(
+      ARG_ARRAY_TYPE_ANY_1,
+      FunctionArgumentTypeOptions()
+          .set_argument_name("input_array_1", kPositionalOnly)
+          .set_argument_collation_mode(FunctionEnums::AFFECTS_NONE)
+          .set_argument_alias_kind(FunctionEnums::ARGUMENT_ALIASED));
+  FunctionArgumentType input_array_2(
+      ARG_ARRAY_TYPE_ANY_2,
+      FunctionArgumentTypeOptions()
+          .set_argument_name("input_array_2", kPositionalOnly)
+          .set_argument_collation_mode(FunctionEnums::AFFECTS_NONE)
+          .set_argument_alias_kind(FunctionEnums::ARGUMENT_ALIASED));
+
+  // The concrete return type will be determined by the
+  // `ComputeArrayZipOutputType` function during function resolution.
+  FunctionArgumentType output_array(ARG_TYPE_ARBITRARY);
+
+  // 2-array: ARRAY_ZIP(arr1, arr2[, mode])
+  constexpr absl::string_view kTwoArray = R"sql(
+    IF(
+      (input_array_1 IS NULL) OR (input_array_2 IS NULL) OR (mode IS NULL),
+      NULL,
+      CASE mode
+        WHEN 'STRICT'
+          THEN
+            IF(
+              ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2),
+              ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
+              ARRAY(
+                SELECT STRUCT(e1, e2)
+                FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                  USING (offset)
+                ORDER BY offset
+              ))
+        WHEN 'TRUNCATE'
+          THEN
+            ARRAY(
+              SELECT STRUCT(e1, e2)
+              FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+              INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                USING (offset)
+              ORDER BY offset
+            )
+        WHEN 'PAD'
+          THEN
+            ARRAY(
+              SELECT STRUCT(e1, e2)
+              FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+              FULL JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                USING (offset)
+              ORDER BY offset
+            )
+        ELSE ERROR(CONCAT('Unrecognized mode: ', CAST(mode AS STRING)))
+        END)
+      )sql";
+  signatures.push_back(FunctionSignatureOnHeap(
+      output_array, {input_array_1, input_array_2, array_zip_mode_arg},
+      FN_ARRAY_ZIP_TWO_ARRAY,
+      SetDefinitionForInlining(
+          kTwoArray, IsRewriteEnabled(FN_ARRAY_ZIP_TWO_ARRAY, options))
+          .set_compute_result_annotations_callback(
+              &ComputeArrayZipOutputAnnotations)));
+
+  // 3-array: ARRAY_ZIP(arr1, arr2, arr3[, mode])
+  FunctionArgumentType input_array_3(
+      ARG_ARRAY_TYPE_ANY_3,
+      FunctionArgumentTypeOptions()
+          .set_argument_name("input_array_3", kPositionalOnly)
+          .set_argument_collation_mode(FunctionEnums::AFFECTS_NONE)
+          .set_argument_alias_kind(FunctionEnums::ARGUMENT_ALIASED));
+  constexpr absl::string_view kThreeArray = R"sql(
+    IF(
+      (input_array_1 IS NULL) OR (input_array_2 IS NULL) OR
+      (input_array_3 IS NULL) OR (mode IS NULL),
+      NULL,
+      CASE mode
+        WHEN 'STRICT'
+          THEN
+            IF(
+              ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2) OR
+              ARRAY_LENGTH(input_array_2) != ARRAY_LENGTH(input_array_3),
+              ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
+              ARRAY(
+                SELECT STRUCT(e1, e2, e3)
+                FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                  USING (OFFSET)
+                INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                  USING (OFFSET)
+                ORDER BY offset
+              ))
+        WHEN 'TRUNCATE'
+          THEN
+            ARRAY(
+              SELECT STRUCT(e1, e2, e3)
+              FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+              INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                USING (OFFSET)
+              INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                USING (offset)
+              ORDER BY offset
+            )
+        WHEN 'PAD'
+          THEN
+            ARRAY(
+              SELECT STRUCT(e1, e2, e3)
+              FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+              FULL JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                USING (offset)
+              FULL JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                USING (offset)
+              ORDER BY offset
+            )
+        ELSE ERROR(CONCAT('Unrecognized mode: ', CAST(mode AS STRING)))
+        END)
+      )sql";
+  signatures.push_back(FunctionSignatureOnHeap(
+      output_array,
+      {input_array_1, input_array_2, input_array_3, array_zip_mode_arg},
+      FN_ARRAY_ZIP_THREE_ARRAY,
+      SetDefinitionForInlining(
+          kThreeArray, IsRewriteEnabled(FN_ARRAY_ZIP_THREE_ARRAY, options))
+          .set_compute_result_annotations_callback(
+              &ComputeArrayZipOutputAnnotations)));
+
+  // 4-array: ARRAY_ZIP(arr1, arr2, arr3, arr4[, mode])
+  FunctionArgumentType input_array_4(
+      ARG_ARRAY_TYPE_ANY_4,
+      FunctionArgumentTypeOptions()
+          .set_argument_name("input_array_4", kPositionalOnly)
+          .set_argument_collation_mode(FunctionEnums::AFFECTS_NONE)
+          .set_argument_alias_kind(FunctionEnums::ARGUMENT_ALIASED));
+  constexpr absl::string_view kFourArray = R"sql(
+    IF(
+      (input_array_1 IS NULL) OR (input_array_2 IS NULL) OR
+      (input_array_3 IS NULL) OR (input_array_4 IS NULL) OR (mode IS NULL),
+      NULL,
+      CASE mode
+        WHEN 'STRICT'
+          THEN
+            IF(
+              ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2) OR
+              ARRAY_LENGTH(input_array_2) != ARRAY_LENGTH(input_array_3) OR
+              ARRAY_LENGTH(input_array_3) != ARRAY_LENGTH(input_array_4),
+              ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
+              ARRAY(
+                SELECT STRUCT(e1, e2, e3, e4)
+                FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                  USING (OFFSET)
+                INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                  USING (OFFSET)
+                INNER JOIN UNNEST(input_array_4) AS e4 WITH OFFSET
+                  USING (OFFSET)
+                ORDER BY offset
+              ))
+        WHEN 'TRUNCATE'
+          THEN
+            ARRAY(
+              SELECT STRUCT(e1, e2, e3, e4)
+              FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+              INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                USING (OFFSET)
+              INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                USING (offset)
+              INNER JOIN UNNEST(input_array_4) AS e4 WITH OFFSET
+                USING (offset)
+              ORDER BY offset
+            )
+        WHEN 'PAD'
+          THEN
+            ARRAY(
+              SELECT STRUCT(e1, e2, e3, e4)
+              FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+              FULL JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                USING (offset)
+              FULL JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                USING (offset)
+              FULL JOIN UNNEST(input_array_4) AS e4 WITH OFFSET
+                USING (offset)
+              ORDER BY offset
+            )
+        ELSE ERROR(CONCAT('Unrecognized mode: ', CAST(mode AS STRING)))
+        END)
+      )sql";
+  signatures.push_back(FunctionSignatureOnHeap(
+      output_array,
+      {input_array_1, input_array_2, input_array_3, input_array_4,
+       array_zip_mode_arg},
+      FN_ARRAY_ZIP_FOUR_ARRAY,
+      SetDefinitionForInlining(
+          kFourArray, IsRewriteEnabled(FN_ARRAY_ZIP_FOUR_ARRAY, options))
+          .set_compute_result_annotations_callback(
+              &ComputeArrayZipOutputAnnotations)));
+}
+
+// Adds the array zip signatures with lambda to `signatures`.
+static void AddArrayZipModeLambdaSignatures(
+    const Type* array_zip_mode_type,
+    const ZetaSQLBuiltinFunctionOptions& options,
+    std::vector<FunctionSignatureOnHeap>& signatures) {
+  FunctionArgumentType array_zip_mode_arg(
+      array_zip_mode_type, FunctionArgumentTypeOptions().set_argument_name(
+                               "mode", kPositionalOrNamed));
+  // The return type (including annotations) is determined by the lambda,
+  // so all array arguments must have `argument_collation_mode` =
+  // AFFECTS_NONE. However, currently lambda does not propagate collations:
+  // b/258733832, so the annotations are lost.
+  //
+  // Note conflicting annotations will still rewrite errors even though array
+  // arguments has `argument_collation_mode` = AFFECTS_NONE. For example, the
+  // following SQL will fail to rewrite:
+  //
+  // ```SQL
+  // ARRAY_ZIP([COLLATE('s', 'und:ci')], [COLLATE('s', 'und:ci')], (e1, e2) ->
+  // e1)
+  // ```
+  //
+  // due to `Collation conflict: "binary" vs. "und:ci"`.
+  FunctionArgumentType input_array_1(
+      ARG_ARRAY_TYPE_ANY_1,
+      FunctionArgumentTypeOptions()
+          .set_argument_name("input_array_1", kPositionalOnly)
+          .set_argument_collation_mode(FunctionEnums::AFFECTS_NONE));
+  FunctionArgumentType input_array_2(
+      ARG_ARRAY_TYPE_ANY_2,
+      FunctionArgumentTypeOptions()
+          .set_argument_name("input_array_2", kPositionalOnly)
+          .set_argument_collation_mode(FunctionEnums::AFFECTS_NONE));
+
+  FunctionArgumentType two_array_transformation = FunctionArgumentType::Lambda(
+      {ARG_TYPE_ANY_1, ARG_TYPE_ANY_2}, ARG_TYPE_ANY_3,
+      FunctionArgumentTypeOptions().set_argument_name("transformation",
+                                                      kPositionalOrNamed));
+
+  // 2 array without mode: ARRAY_ZIP(ARRA<T1>, ARRAY<T2>, transformation =>
+  // LAMBDA(T1, T2) -> T3)) -> ARRAY<T3>.
+  constexpr absl::string_view kTwoArrayNoMode = R"sql(
+      IF(
+        (input_array_1 IS NULL) OR (input_array_2 IS NULL),
+        NULL,
+        IF(
+          ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2),
+          ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
+          ARRAY(
+            SELECT transformation(e1, e2)
+            FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+            INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+              USING (offset)
+            ORDER BY offset
+          )))
+      )sql";
+  signatures.push_back(FunctionSignatureOnHeap(
+      ARG_ARRAY_TYPE_ANY_3,
+      {input_array_1, input_array_2, two_array_transformation},
+      FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA,
+      SetDefinitionForInlining(
+          kTwoArrayNoMode,
+          IsRewriteEnabled(FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA, options))));
+
+  // 2 array with mode: ARRAY_ZIP(ARRAY<T1>, ARRAY<T2>, mode => <mode>,
+  // transformation => LAMBDA(T1, T2) -> T3) -> ARRAY<T3>
+  constexpr absl::string_view kTwoArrayWithMode = R"sql(
+      IF(
+        (input_array_1 IS NULL) OR (input_array_2 IS NULL) OR (mode IS NULL),
+        NULL,
+        CASE mode
+          WHEN 'STRICT'
+            THEN
+              IF(
+                ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2),
+                ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
+                ARRAY(
+                  SELECT transformation(e1, e2)
+                  FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                  INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                    USING (offset)
+                  ORDER BY offset
+                ))
+          WHEN 'TRUNCATE'
+            THEN
+              ARRAY(
+                SELECT transformation(e1, e2)
+                FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                  USING (offset)
+                ORDER BY offset
+              )
+          WHEN 'PAD'
+            THEN
+              ARRAY(
+                SELECT transformation(e1, e2)
+                FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                FULL JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                  USING (offset)
+                ORDER BY offset
+              )
+          ELSE ERROR(CONCAT('Unrecognized mode: ', CAST(mode AS STRING)))
+          END)
+      )sql";
+  signatures.push_back(FunctionSignatureOnHeap(
+      ARG_ARRAY_TYPE_ANY_3,
+      {input_array_1, input_array_2, array_zip_mode_arg,
+       two_array_transformation},
+      FN_ARRAY_ZIP_TWO_ARRAY_MODE_LAMBDA,
+      SetDefinitionForInlining(
+          kTwoArrayWithMode,
+          IsRewriteEnabled(FN_ARRAY_ZIP_TWO_ARRAY_MODE_LAMBDA, options))));
+
+  FunctionArgumentType input_array_3(
+      ARG_ARRAY_TYPE_ANY_3,
+      FunctionArgumentTypeOptions()
+          .set_argument_name("input_array_3", kPositionalOnly)
+          .set_argument_collation_mode(FunctionEnums::AFFECTS_NONE));
+
+  FunctionArgumentType three_array_transformation =
+      FunctionArgumentType::Lambda(
+          {ARG_TYPE_ANY_1, ARG_TYPE_ANY_2, ARG_TYPE_ANY_3}, ARG_TYPE_ANY_4,
+          FunctionArgumentTypeOptions().set_argument_name("transformation",
+                                                          kPositionalOrNamed));
+
+  // 3-array without mode: ARRAY_ZIP(array<T1>, array<T2>, array<T3>, LAMBDA(T1,
+  // T2, T3) -> T4) -> ARRAY<T4>
+  constexpr absl::string_view kThreeArrayNoMode = R"sql(
+      IF(
+        (input_array_1 IS NULL) OR (input_array_2 IS NULL)
+        OR (input_array_3 IS NULL),
+        NULL,
+        IF(
+          ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2)
+          OR ARRAY_LENGTH(input_array_2) != ARRAY_LENGTH(input_array_3),
+          ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
+          ARRAY(
+            SELECT transformation(e1, e2, e3)
+            FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+            INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+              USING (offset)
+            INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+              USING (offset)
+            ORDER BY offset
+          )))
+      )sql";
+  signatures.push_back(FunctionSignatureOnHeap(
+      ARG_ARRAY_TYPE_ANY_4,
+      {input_array_1, input_array_2, input_array_3, three_array_transformation},
+      FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA,
+      SetDefinitionForInlining(
+          kThreeArrayNoMode,
+          IsRewriteEnabled(FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA, options))));
+
+  // 3-array with mode: ARRAY_ZIP(array<T1>, array<T2>, array<T3>,
+  // ARRAY_ZIP_MODE, LAMBDA(T1, T2, T3) -> T4) -> ARRAY<T4>
+  constexpr absl::string_view kThreeArrayWithMode = R"sql(
+      IF(
+        (input_array_1 IS NULL) OR (input_array_2 IS NULL)
+        OR (input_array_3 IS NULL) OR (mode IS NULL),
+        NULL,
+        CASE mode
+          WHEN 'STRICT'
+            THEN
+              IF(
+                ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2)
+                OR ARRAY_LENGTH(input_array_2) != ARRAY_LENGTH(input_array_3),
+                ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
+                ARRAY(
+                  SELECT transformation(e1, e2, e3)
+                  FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                  INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                    USING (offset)
+                  INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                    USING (offset)
+                  ORDER BY offset
+                ))
+          WHEN 'TRUNCATE'
+            THEN
+              ARRAY(
+                SELECT transformation(e1, e2, e3)
+                FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                  USING (offset)
+                INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                  USING (offset)
+                ORDER BY offset
+              )
+          WHEN 'PAD'
+            THEN
+              ARRAY(
+                SELECT transformation(e1, e2, e3)
+                FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                FULL JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                  USING (offset)
+                FULL JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                  USING (offset)
+                ORDER BY offset
+              )
+          ELSE ERROR(CONCAT('Unrecognized mode: ', CAST(mode AS STRING)))
+          END)
+      )sql";
+  signatures.push_back(FunctionSignatureOnHeap(
+      ARG_ARRAY_TYPE_ANY_4,
+      {input_array_1, input_array_2, input_array_3, array_zip_mode_arg,
+       three_array_transformation},
+      FN_ARRAY_ZIP_THREE_ARRAY_MODE_LAMBDA,
+      SetDefinitionForInlining(
+          kThreeArrayWithMode,
+          IsRewriteEnabled(FN_ARRAY_ZIP_THREE_ARRAY_MODE_LAMBDA, options))));
+
+  FunctionArgumentType input_array_4(
+      ARG_ARRAY_TYPE_ANY_4,
+      FunctionArgumentTypeOptions()
+          .set_argument_name("input_array_4", kPositionalOnly)
+          .set_argument_collation_mode(FunctionEnums::AFFECTS_NONE));
+  FunctionArgumentType four_array_transformation = FunctionArgumentType::Lambda(
+      {ARG_TYPE_ANY_1, ARG_TYPE_ANY_2, ARG_TYPE_ANY_3, ARG_TYPE_ANY_4},
+      ARG_TYPE_ANY_5,
+      FunctionArgumentTypeOptions().set_argument_name("transformation",
+                                                      kPositionalOrNamed));
+
+  // 4-array without mode: ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>,
+  // LAMBDA(T1, T2, T3, T4) -> T5) -> ARRAY<T5>
+  constexpr absl::string_view kFourArrayNoMode = R"sql(
+      IF(
+        (input_array_1 IS NULL) OR (input_array_2 IS NULL)
+        OR (input_array_3 IS NULL) OR (input_array_4 IS NULL),
+        NULL,
+        IF(
+          ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2)
+          OR ARRAY_LENGTH(input_array_2) != ARRAY_LENGTH(input_array_3)
+          OR ARRAY_LENGTH(input_array_3) != ARRAY_LENGTH(input_array_4),
+          ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
+          ARRAY(
+            SELECT transformation(e1, e2, e3, e4)
+            FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+            INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+              USING (offset)
+            INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+              USING (offset)
+            INNER JOIN UNNEST(input_array_4) AS e4 WITH OFFSET
+              USING (offset)
+            ORDER BY offset
+          )))
+      )sql";
+  signatures.push_back(FunctionSignatureOnHeap(
+      ARG_ARRAY_TYPE_ANY_5,
+      {input_array_1, input_array_2, input_array_3, input_array_4,
+       four_array_transformation},
+      FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA,
+      SetDefinitionForInlining(
+          kFourArrayNoMode,
+          IsRewriteEnabled(FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA, options))));
+
+  // 4-array with mode: ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>,
+  // ARRAY_ZIP_MODE, LAMBDA(T1, T2, T3, T4) -> T5) -> ARRAY<T5>
+  constexpr absl::string_view kFourArrayWithMode = R"sql(
+      IF(
+        (input_array_1 IS NULL) OR (input_array_2 IS NULL)
+        OR (input_array_3 IS NULL) OR (input_array_4 IS NULL) OR (mode IS NULL),
+        NULL,
+        CASE mode
+          WHEN 'STRICT'
+            THEN
+              IF(
+                ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2)
+                OR ARRAY_LENGTH(input_array_2) != ARRAY_LENGTH(input_array_3)
+                OR ARRAY_LENGTH(input_array_3) != ARRAY_LENGTH(input_array_4),
+                ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
+                ARRAY(
+                  SELECT transformation(e1, e2, e3, e4)
+                  FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                  INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                    USING (offset)
+                  INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                    USING (offset)
+                  INNER JOIN UNNEST(input_array_4) AS e4 WITH OFFSET
+                    USING (offset)
+                  ORDER BY offset
+                ))
+          WHEN 'TRUNCATE'
+            THEN
+              ARRAY(
+                SELECT transformation(e1, e2, e3, e4)
+                FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                  USING (offset)
+                INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                  USING (offset)
+                INNER JOIN UNNEST(input_array_4) AS e4 WITH OFFSET
+                  USING (offset)
+                ORDER BY offset
+              )
+          WHEN 'PAD'
+            THEN
+              ARRAY(
+                SELECT transformation(e1, e2, e3, e4)
+                FROM UNNEST(input_array_1) AS e1 WITH OFFSET
+                FULL JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
+                  USING (offset)
+                FULL JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
+                  USING (offset)
+                FULL JOIN UNNEST(input_array_4) AS e4 WITH OFFSET
+                  USING (offset)
+                ORDER BY offset
+              )
+          ELSE ERROR(CONCAT('Unrecognized mode: ', CAST(mode AS STRING)))
+          END)
+      )sql";
+  signatures.push_back(FunctionSignatureOnHeap(
+      ARG_ARRAY_TYPE_ANY_5,
+      {input_array_1, input_array_2, input_array_3, input_array_4,
+       array_zip_mode_arg, four_array_transformation},
+      FN_ARRAY_ZIP_FOUR_ARRAY_MODE_LAMBDA,
+      SetDefinitionForInlining(
+          kFourArrayWithMode,
+          IsRewriteEnabled(FN_ARRAY_ZIP_FOUR_ARRAY_MODE_LAMBDA, options))));
+}
+
+absl::Status GetArrayZipFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions, NameToTypeMap* types) {
+  const Type* array_zip_mode_type = types::ArrayZipModeEnumType();
+  std::vector<FunctionSignatureOnHeap> signatures;
+  AddArrayZipNoLambdaSignatures(array_zip_mode_type, options, signatures);
+  AddArrayZipModeLambdaSignatures(array_zip_mode_type, options, signatures);
+  return InsertFunctionAndTypes(
+      functions, types, options, "array_zip", Function::SCALAR, signatures,
+      FunctionOptions()
+          .set_supports_safe_error_mode(
+              // `supports_safe_error_mode` is set at the function level, not
+              // the signature level. So, even though ARRAY_ZIP has signatures
+              // without lambdas, safe_error_mode cannot be enabled without
+              // activating FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS.
+              options.language_options.LanguageFeatureEnabled(
+                  FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS))
+          .set_compute_result_type_callback(&ComputeArrayZipOutputType),
+      /*types_to_insert=*/{array_zip_mode_type});
 }
 
 }  // namespace zetasql

@@ -1087,6 +1087,11 @@ absl::Status Resolver::ResolveExpr(
       // expression part of the argument. The function resolver will apply
       // special handling to inspect the name part and integrate into function
       // signature matching appropriately.
+      //
+      // Named lambdas should be filtered out already. They will be resolved
+      // in the function resolver instead.
+      ZETASQL_RET_CHECK(
+          !ast_expr->GetAsOrDie<ASTNamedArgument>()->expr()->Is<ASTLambda>());
       ZETASQL_RETURN_IF_ERROR(
           ResolveExpr(ast_expr->GetAsOrDie<ASTNamedArgument>()->expr(),
                       expr_resolution_info.get(), resolved_expr_out));
@@ -3252,6 +3257,12 @@ absl::Status Resolver::ResolveInExpr(
         expr_resolution_info, &resolved_in_expr));
   }
 
+  if (analyzer_options_.parse_location_record_type() ==
+      PARSE_LOCATION_RECORD_FULL_NODE_SCOPE) {
+    MaybeRecordParseLocation(in_expr,
+                             const_cast<ResolvedExpr*>(resolved_in_expr.get()));
+  }
+
   if (in_expr->is_not()) {
     return MakeNotExpr(in_expr, std::move(resolved_in_expr),
                        expr_resolution_info, resolved_expr_out);
@@ -3624,6 +3635,13 @@ absl::Status Resolver::ResolveBetweenExpr(
   ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallWithLiteralRetry(
       between_expr->between_location(), "$between", between_arguments,
       *kEmptyArgumentOptionMap, expr_resolution_info, &resolved_between_expr));
+
+  if (analyzer_options_.parse_location_record_type() ==
+      PARSE_LOCATION_RECORD_FULL_NODE_SCOPE) {
+    MaybeRecordParseLocation(
+        between_expr, const_cast<ResolvedExpr*>(resolved_between_expr.get()));
+  }
+
   if (between_expr->is_not()) {
     return MakeNotExpr(between_expr, std::move(resolved_between_expr),
                        expr_resolution_info, resolved_expr_out);
@@ -5165,6 +5183,37 @@ absl::Status Resolver::ResolveFunctionCall(
       /*with_group_rows_correlation_references=*/{}, resolved_expr_out);
 }
 
+// Validates that no named lambda arguments are provided for aggregate and
+// window function calls.
+static absl::Status ValidateNamedLambdas(
+    const Function* function,
+    const absl::Span<const ASTExpression* const> function_arguments) {
+  if (!function->IsAggregate() && !function->IsAnalytic()) {
+    // Only scalar functions are allowed to have named lambda arguments.
+    return absl::OkStatus();
+  }
+  auto first_named_lambda =
+      std::find_if(function_arguments.begin(), function_arguments.end(),
+                   [](const ASTExpression* arg) { return IsNamedLambda(arg); });
+  if (first_named_lambda == function_arguments.end()) {
+    return absl::OkStatus();
+  }
+  ZETASQL_RET_CHECK((*first_named_lambda)->Is<ASTNamedArgument>());
+  // Lambdas arguments are not implemented for window or aggregate functions, so
+  // we should report the error at the lambda instead of at the name.
+  const ASTNode* error_location =
+      (*first_named_lambda)->GetAsOrDie<ASTNamedArgument>()->expr();
+  if (function->IsAggregate()) {
+    return MakeSqlErrorAt(error_location)
+           << "Lambda arguments are not implemented for aggregate "
+              "functions";
+  } else {
+    // Window functions.
+    return MakeSqlErrorAt(error_location)
+           << "Lambda arguments are not implemented for window functions";
+  }
+}
+
 // TODO: The noinline attribute is to prevent the stack usage
 // being added to its caller "Resolver::ResolveExpr" which is a recursive
 // function. Now the attribute has to be added for all callees. Hopefully
@@ -5241,6 +5290,7 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
                                    named_arg);
     }
   }
+  ZETASQL_RETURN_IF_ERROR(ValidateNamedLambdas(function, function_arguments));
 
   std::vector<const ASTNode*> ast_arguments;
   {
@@ -7455,6 +7505,18 @@ absl::Status Resolver::ResolveExpressionArgument(
   return absl::OkStatus();
 }
 
+// If the `arg` is an ASTLambda or it is an ASTNamedArgument with an ASTLambda
+// `expr`, returns the ASTLambda. Otherwise returns nullptr.
+static const ASTLambda* GetLambdaArgument(const ASTExpression* arg) {
+  if (arg->Is<ASTLambda>()) {
+    return arg->GetAsOrDie<ASTLambda>();
+  }
+  if (arg->Is<ASTNamedArgument>()) {
+    return GetLambdaArgument(arg->GetAsOrDie<ASTNamedArgument>()->expr());
+  }
+  return nullptr;
+}
+
 absl::Status Resolver::ResolveExpressionArguments(
     ExprResolutionInfo* expr_resolution_info,
     const absl::Span<const ASTExpression* const> arguments,
@@ -7502,13 +7564,16 @@ absl::Status Resolver::ResolveExpressionArguments(
       }
       resolved_arguments_out->push_back(nullptr);
       ast_arguments_out->push_back(arg);
-    } else if (arg->Is<ASTLambda>()) {
+    } else if (const ASTLambda* lambda = GetLambdaArgument(arg);
+               lambda != nullptr) {
+      // Report error at `lambda` even if `arg` itself is a named argument
+      // because validation errors in this branch, if any, are related to
+      // lambda, not the name of the argument.
       if (!language().LanguageFeatureEnabled(
               FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT)) {
-        return MakeSqlErrorAt(arg) << "Lambda is not supported";
+        return MakeSqlErrorAt(lambda) << "Lambda is not supported";
       }
-      ZETASQL_RETURN_IF_ERROR(
-          ValidateLambdaArgumentListIsIdentifierList(arg->GetAs<ASTLambda>()));
+      ZETASQL_RETURN_IF_ERROR(ValidateLambdaArgumentListIsIdentifierList(lambda));
       // Normally all function arguments are resolved, then signatures are
       // matched against them. Lambdas, such as `e->e>0`, don't have explicit
       // types for the arguments. Types of arguments of lambda can only be
@@ -7521,7 +7586,7 @@ absl::Status Resolver::ResolveExpressionArguments(
       // matching.
       //
       resolved_arguments_out->push_back(nullptr);
-      ast_arguments_out->push_back(arg);
+      ast_arguments_out->push_back(lambda);
     } else {
       ZETASQL_RETURN_IF_ERROR(ResolveExpressionArgument(arg, expr_resolution_info,
                                                 resolved_arguments_out));
@@ -8011,6 +8076,7 @@ absl::Status Resolver::ResolveFunctionCallImpl(
                                    named_arg);
     }
   }
+  ZETASQL_RETURN_IF_ERROR(ValidateNamedLambdas(function, arguments));
 
   if ((function->Is<SQLFunctionInterface>() ||
        function->Is<TemplatedSQLFunction>()) &&
@@ -8301,13 +8367,17 @@ absl::Status Resolver::ResolveIntervalExpr(
   const ResolvedLiteral* interval_value_literal =
       resolved_interval_value->GetAs<ResolvedLiteral>();
   absl::StatusOr<IntervalValue> interval_value_or_status;
+  bool allow_nanos =
+      language().LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS) ||
+      !language().LanguageFeatureEnabled(
+          FEATURE_ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE);
   if (interval_expr->date_part_name_to() == nullptr) {
     interval_value_or_status = IntervalValue::ParseFromString(
-        interval_value_literal->value().string_value(), date_part);
+        interval_value_literal->value().string_value(), date_part, allow_nanos);
   } else {
     interval_value_or_status = IntervalValue::ParseFromString(
-        interval_value_literal->value().string_value(), date_part,
-        date_part_to);
+        interval_value_literal->value().string_value(), date_part, date_part_to,
+        allow_nanos);
   }
   // Not using ZETASQL_ASSIGN_OR_RETURN, because we need to translate OutOfRange error
   // into InvalidArgument error, and add location.

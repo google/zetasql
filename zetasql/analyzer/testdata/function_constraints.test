@@ -92,7 +92,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
   Argument types: STRING
   Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([STRING], [INT64], [DOUBLE])
-    Argument constraints are not satisfied [at 2:3]
+    Argument `o2_int64`: NULL argument is not allowed [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints("o1")
   ^
 ==
@@ -112,7 +112,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
   Argument types: o1_string => STRING
   Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([[o1_string=>]STRING], [[o2_int64=>]INT64], [[o3_double=>]DOUBLE])
-    Argument constraints are not satisfied [at 2:3]
+    Argument `o2_int64`: NULL argument is not allowed [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o1_string => "o1")
   ^
 ==
@@ -132,7 +132,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
   Argument types: o2_int64 => INT64, o1_string => STRING
   Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([[o1_string=>]STRING], [[o2_int64=>]INT64], [[o3_double=>]DOUBLE])
-    Argument constraints are not satisfied [at 2:3]
+    Argument `o3_double`: NULL argument is not allowed [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o2_int64 => 1, o1_string ...
   ^
 ==
@@ -152,7 +152,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
   Argument types: o2_int64 => INT64, o1_string => STRING
   Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([[o1_string=>]STRING], [[o2_int64=>]INT64], [[o3_double=>]DOUBLE])
-    Argument constraints are not satisfied [at 2:3]
+    Argument `o3_double`: NULL argument is not allowed [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o2_int64 => 1, o1_string ...
   ^
 ==
@@ -172,7 +172,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
   Argument types: STRING, o3_double => DOUBLE
   Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([[o1_string=>]STRING], [[o2_int64=>]INT64], [[o3_double=>]DOUBLE])
-    Argument constraints are not satisfied [at 2:3]
+    Argument `o2_int64`: NULL argument is not allowed [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints("o1", o3_double => 3.14)
   ^
 ==
@@ -192,7 +192,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
   Argument types: o3_double => DOUBLE
   Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([[o1_string=>]STRING], [[o2_int64=>]INT64], [[o3_double=>]DOUBLE])
-    Argument constraints are not satisfied [at 2:3]
+    Argument `o1_string`: NULL argument is not allowed [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o3_double => 3.14)
   ^
 ==
@@ -212,7 +212,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
   Argument types: o3_double => DOUBLE, o2_int64 => INT64
   Signature: FN_NAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([[o1_string=>]STRING], [[o2_int64=>]INT64], [[o3_double=>]DOUBLE])
-    Argument constraints are not satisfied [at 2:3]
+    Argument `o1_string`: NULL argument is not allowed [at 2:3]
   fn_named_opt_args_nonnull_nonnegative_constraints(o3_double => 3.14, o2_int...
   ^
 ==
@@ -277,7 +277,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_UNNAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS
   Argument types: STRING, NULL
   Signature: FN_UNNAMED_OPT_ARGS_NONNULL_NONNEGATIVE_CONSTRAINTS([STRING], [INT64], [DOUBLE])
-    Argument constraints are not satisfied [at 2:3]
+    Argument 2: NULL argument is not allowed [at 2:3]
   fn_unnamed_opt_args_nonnull_nonnegative_constraints("o1", NULL)
   ^
 ==

@@ -2104,15 +2104,18 @@ class AnalyzeGeneratedColumnTest : public testing::Test {
     ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
     catalog_.AddOwnedTable(std::move(test_table));
   }
-  absl::Status GetColumnNamesFromIndices(
-      std::vector<int> indices, std::vector<std::string>& column_names) {
-    const Table* table;
-    ZETASQL_RETURN_IF_ERROR(catalog_.FindTable({"test_table"}, &table));
-    ZETASQL_RET_CHECK_NE(table, nullptr);
-    for (int index : indices) {
-      const Column* column = table->GetColumn(index);
-      ZETASQL_RET_CHECK(column != nullptr);
-      column_names.push_back(column->Name());
+  absl::Status GetColumnNamesFromResolvedIds(
+      std::vector<int> resolved_ids, const ResolvedTableScan* table_scan,
+      std::vector<std::string>& column_names) {
+    for (int resolved_id : resolved_ids) {
+      bool id_found = false;
+      for (const ResolvedColumn& column : table_scan->column_list()) {
+        if (column.column_id() == resolved_id) {
+          id_found = true;
+          column_names.push_back(column.name());
+        }
+      }
+      ZETASQL_RET_CHECK(id_found);
     }
     return absl::OkStatus();
   }
@@ -2131,12 +2134,36 @@ TEST_F(AnalyzeGeneratedColumnTest, TopologicalOrderOfGeneratedColumns) {
 
   ZETASQL_ASSERT_OK(AnalyzeStatement(sql, analyzer_options_, &catalog_,
                              catalog_.type_factory(), &analyzer_output));
-  ZETASQL_ASSERT_OK(GetColumnNamesFromIndices(
-      analyzer_output->resolved_statement()
-          ->GetAs<ResolvedInsertStmt>()
-          ->topologically_sorted_generated_column_index_list(),
-      topologically_sorted_columns));
+  const ResolvedInsertStmt* insert_statement =
+      analyzer_output->resolved_statement()->GetAs<ResolvedInsertStmt>();
+  ASSERT_NE(insert_statement, nullptr);
+  ZETASQL_ASSERT_OK(GetColumnNamesFromResolvedIds(
+      insert_statement->topologically_sorted_generated_column_id_list(),
+      insert_statement->table_scan(), topologically_sorted_columns));
   EXPECT_THAT(topologically_sorted_columns, ElementsAre("B", "A", "D"));
+  EXPECT_EQ(
+      insert_statement->topologically_sorted_generated_column_id_list().size(),
+      3);
+  // resolved expression for generated column `B = C+1`
+  EXPECT_EQ(insert_statement->generated_column_expr_list()[0]->DebugString(),
+            R"(FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-ColumnRef(type=INT64, column=test_table.C#3)
++-Literal(type=INT64, value=1)
+)");
+  // resolved expression for generated column `A = B+C`
+  EXPECT_EQ(insert_statement->generated_column_expr_list()[1]->DebugString(),
+            R"(FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-ColumnRef(type=INT64, column=test_table.B#2)
++-ColumnRef(type=INT64, column=test_table.C#3)
+)");
+  // resolved expression for generated column `D = A+B+C`
+  EXPECT_EQ(insert_statement->generated_column_expr_list()[2]->DebugString(),
+            R"(FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+| +-ColumnRef(type=INT64, column=test_table.A#1)
+| +-ColumnRef(type=INT64, column=test_table.B#2)
++-ColumnRef(type=INT64, column=test_table.C#3)
+)");
 }
 
 TEST_F(AnalyzeGeneratedColumnTest,
@@ -2170,7 +2197,7 @@ TEST_F(AnalyzeGeneratedColumnTest,
                              catalog_.type_factory(), &analyzer_output));
   EXPECT_THAT(analyzer_output->resolved_statement()
                   ->GetAs<ResolvedInsertStmt>()
-                  ->topologically_sorted_generated_column_index_list(),
+                  ->topologically_sorted_generated_column_id_list(),
               IsEmpty());
 }
 

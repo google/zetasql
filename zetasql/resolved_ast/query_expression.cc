@@ -61,6 +61,7 @@ absl::StatusOr<QueryExpression::QueryType> QueryExpression::GetQueryType()
     ZETASQL_RET_CHECK(!select_list_.empty());
     ZETASQL_RET_CHECK(set_op_type_.empty());
     ZETASQL_RET_CHECK(set_op_column_match_mode_.empty());
+    ZETASQL_RET_CHECK(set_op_column_propagation_mode_.empty());
     ZETASQL_RET_CHECK(corresponding_set_op_output_column_list_.empty());
     return QueryExpression::kDefaultQueryType;
   }
@@ -90,6 +91,7 @@ void QueryExpression::ClearAllClauses() {
   set_op_type_.clear();
   set_op_modifier_.clear();
   set_op_column_match_mode_.clear();
+  set_op_column_propagation_mode_.clear();
   set_op_scan_list_.clear();
   corresponding_set_op_output_column_list_.clear();
   group_by_list_.clear();
@@ -142,11 +144,18 @@ std::string QueryExpression::GetSQLQuery() const {
         }
       }
       if (i > 0) {
+        if (set_op_column_propagation_mode_ == "FULL" ||
+            set_op_column_propagation_mode_ == "LEFT") {
+          absl::StrAppend(&sql, " ", set_op_column_propagation_mode_);
+        }
         absl::StrAppend(&sql, " ", set_op_type_);
         if (i == 1) {
           absl::StrAppend(&sql, " ", query_hints_);
         }
         absl::StrAppend(&sql, " ", set_op_modifier_);
+        if (set_op_column_propagation_mode_ == "STRICT") {
+          absl::StrAppend(&sql, " ", set_op_column_propagation_mode_);
+        }
         if (!set_op_column_match_mode_.empty()) {
           absl::StrAppend(&sql, " ", set_op_column_match_mode_);
         }
@@ -343,6 +352,7 @@ bool QueryExpression::TrySetSetOpScanList(
     std::vector<std::unique_ptr<QueryExpression>>* set_op_scan_list,
     const std::string& set_op_type, const std::string& set_op_modifier,
     const std::string& set_op_column_match_mode,
+    const std::string& set_op_column_propagation_mode,
     const std::string& query_hints) {
   if (!CanSetSetOpScanList()) {
     return false;
@@ -355,6 +365,7 @@ bool QueryExpression::TrySetSetOpScanList(
   set_op_type_ = set_op_type;
   set_op_modifier_ = set_op_modifier;
   set_op_column_match_mode_ = set_op_column_match_mode;
+  set_op_column_propagation_mode_ = set_op_column_propagation_mode;
   query_hints_ = query_hints;
   return true;
 }

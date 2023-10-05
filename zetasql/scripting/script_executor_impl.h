@@ -40,6 +40,7 @@
 #include "zetasql/scripting/stack_frame.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 #include "zetasql/base/flat_set.h"
 #include "zetasql/base/status.h"
 
@@ -376,7 +377,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // over its size limit.
   absl::Status MakeNoSizeRemainingError(
       const ASTNode* node, int64_t total_size_limit,
-      const std::vector<StackFrameImpl>& callstack);
+      absl::Span<const StackFrameImpl> callstack);
 
   // Returns an error at the location of <node>, indicating that <var_name> is
   // too large.
@@ -450,7 +451,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // Helper function for resetting iterator sizes after a call to SetState().
   absl::Status ResetIteratorSizes(
       const ASTNode* node,
-      const std::vector<std::unique_ptr<EvaluatorTableIterator>>& iterator_vec);
+      absl::Span<const std::unique_ptr<EvaluatorTableIterator>> iterator_vec);
 
   absl::Status UpdateAndCheckMemorySize(const ASTNode* node,
                                         int64_t current_memory_size,
@@ -510,7 +511,8 @@ class ScriptExecutorImpl : public ScriptExecutor {
       const ScriptException::Internal& internal_exception);
 
   // Unwraps NamedArguments, if necessary.
-  ScriptSegment SegmentForScalarExpression(const ASTExpression* expr) const;
+  absl::StatusOr<ScriptSegment> SegmentForScalarExpression(
+      const ASTExpression* expr) const;
 
   absl::StatusOr<Value> EvaluateProcedureArgument(
       absl::string_view argument_name,

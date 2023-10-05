@@ -1831,8 +1831,9 @@ class ResolvedAggregateScan : public <a href="#ResolvedAggregateScanBase">Resolv
 // from input_scan, and output anonymized rows.
 // Spec: (broken link)
 //
-// &lt;k_threshold_expr&gt; when non-null, points to a function call in
-// the &lt;aggregate_list&gt; and adds a filter that acts like:
+// &lt;k_threshold_expr&gt; when non-null, is a function call that uses one or more
+// items from the &lt;aggregate_list&gt; as arguments.
+// The engine then adds a filter that acts like:
 //   HAVING &lt;k_threshold_expr&gt; &gt;= &lt;implementation-defined k-threshold&gt;
 // omitting any rows that would not pass this condition.
 // TODO: Update this comment after splitting the rewriter out
@@ -1860,8 +1861,10 @@ class ResolvedAnonymizedAggregateScan : public <a href="#ResolvedAggregateScanBa
 // from input_scan, and output anonymized rows.
 // Spec: (broken link)
 //
-// &lt;group_selection_threshold_expr&gt; when non-null, points to a function call
-// in the &lt;aggregate_list&gt; and adds a filter that acts like:
+//
+// &lt;group_selection_threshold_expr&gt; when non-null, is a function call that
+// uses one or more items from the &lt;aggregate_list&gt; as arguments.
+// The engine then adds a filter that acts like:
 //   HAVING &lt;group_selection_threshold_expr&gt; &gt;=
 //   &lt;implementation-defined group_selection_threshold&gt;
 // omitting any rows that would not pass this condition.
@@ -2278,19 +2281,33 @@ class ResolvedColumnAnnotations : public <a href="#ResolvedArgument">ResolvedArg
 //        function (e.g. RAND).
 //   - &#39;STORED_VOLATILE&#39;: The &lt;expression&gt; must be computed at write time and
 //        may call volatile functions (e.g. RAND).
+//
+// `generated_mode` dictates how the generated column is populated. Values
+// are:
+//   - &#39;ALWAYS&#39; the generated value is always applied to the column,
+//       meaning users cannot write to the column.
+//   - &#39;BY_DEFAULT&#39;, the generated value is applied to to the column only if
+//        the user does not write to the column.
+//   This field is set to ALWAYS by default.
+//
 // See (broken link) and
 // (broken link).</font>
 class ResolvedGeneratedColumnInfo : public <a href="#ResolvedArgument">ResolvedArgument</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_GENERATED_COLUMN_INFO;
 
   typedef ResolvedGeneratedColumnInfoEnums::StoredMode StoredMode;
+  typedef ResolvedGeneratedColumnInfoEnums::GeneratedMode GeneratedMode;
   static const StoredMode NON_STORED = ResolvedGeneratedColumnInfoEnums::NON_STORED;
   static const StoredMode STORED = ResolvedGeneratedColumnInfoEnums::STORED;
   static const StoredMode STORED_VOLATILE = ResolvedGeneratedColumnInfoEnums::STORED_VOLATILE;
+  static const GeneratedMode ALWAYS = ResolvedGeneratedColumnInfoEnums::ALWAYS;
+  static const GeneratedMode BY_DEFAULT = ResolvedGeneratedColumnInfoEnums::BY_DEFAULT;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* expression() const;
 
   <a href="#ResolvedGeneratedColumnInfo">ResolvedGeneratedColumnInfo</a>::StoredMode stored_mode() const;
+
+  <a href="#ResolvedGeneratedColumnInfo">ResolvedGeneratedColumnInfo</a>::GeneratedMode generated_mode() const;
 };
 </code></pre></p>
 
@@ -4052,7 +4069,7 @@ class ResolvedWithEntry : public <a href="#ResolvedArgument">ResolvedArgument</a
 <a id="ResolvedOption"></a>
 
 <p><pre><code class="lang-c++">
-<font color="brown">// This represents one SQL hint key/value pair.
+<font color="brown">// This represents one SQL hint or option key/value pair.
 // The SQL syntax @{ key1=value1, key2=value2, some_db.key3=value3 }
 // will expand to three ResolvedOptions.  Keyword hints (e.g. LOOKUP JOIN)
 // are interpreted as shorthand, and will be expanded to a ResolvedOption
@@ -4063,16 +4080,20 @@ class ResolvedWithEntry : public <a href="#ResolvedArgument">ResolvedArgument</a
 // See (broken link) for more detail.
 // Hint semantics are implementation defined.
 //
-// Each hint is resolved as a [&lt;qualifier&gt;.]&lt;name&gt;:=&lt;value&gt; pair.
+// Each hint or option is resolved as a [&lt;qualifier&gt;.]&lt;name&gt;:=&lt;value&gt; pair.
 //   &lt;qualifier&gt; will be empty if no qualifier was present.
 //   &lt;name&gt; is always non-empty.
 //   &lt;value&gt; can be a ResolvedLiteral or a ResolvedParameter,
 //           a cast of a ResolvedParameter (for typed hints only),
 //           or a general expression (on constant inputs).
+//   &lt;assignment_op&gt; is an enum that indicates the assignment operation for
+//                   array type options.
 //
 // If AllowedHintsAndOptions was set in AnalyzerOptions, and this hint or
 // option was included there and had an expected type, the type of &lt;value&gt;
-// will match that expected type.  Unknown hints (not listed in
+// will match that expected type. For assignment_op that&#39;s not the default
+// value, also checks whether the expected type is Array and whether
+// allow_alter_array is true. Unknown hints and options(not listed in
 // AllowedHintsAndOptions) are not stripped and will still show up here.
 //
 // If non-empty, &lt;qualifier&gt; should be interpreted as a target system name,
@@ -4082,16 +4103,28 @@ class ResolvedWithEntry : public <a href="#ResolvedArgument">ResolvedArgument</a
 // &lt;qualifier&gt; is set only for hints, and will always be empty in options
 // lists.
 //
+// &lt;assignment_op&gt; will always be DEFAULT_ASSIGN (i.e. &#34;=&#34;) for hints, and
+//                 defaults to the same value for options. Can be set to
+//                 ADD_ASSIGN (&#34;+=&#34;) and SUB_ASSIGN (&#34;-=&#34;) for options with
+//                 Array type.
+//
 // The SQL syntax allows using an identifier as a hint value.
 // Such values are stored here as ResolvedLiterals with string type.</font>
 class ResolvedOption : public <a href="#ResolvedArgument">ResolvedArgument</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_OPTION;
+
+  typedef ResolvedOptionEnums::AssignmentOp AssignmentOp;
+  static const AssignmentOp DEFAULT_ASSIGN = ResolvedOptionEnums::DEFAULT_ASSIGN;
+  static const AssignmentOp ADD_ASSIGN = ResolvedOptionEnums::ADD_ASSIGN;
+  static const AssignmentOp SUB_ASSIGN = ResolvedOptionEnums::SUB_ASSIGN;
 
   const std::string&amp; qualifier() const;
 
   const std::string&amp; name() const;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* value() const;
+
+  <a href="#ResolvedOption">ResolvedOption</a>::AssignmentOp assignment_op() const;
 };
 </code></pre></p>
 
@@ -4362,6 +4395,12 @@ class ResolvedInsertRow : public <a href="#ResolvedArgument">ResolvedArgument</a
 //
 // The returning clause has a &lt;output_column_list&gt; to represent the data
 // sent back to clients. It can only access columns from the &lt;table_scan&gt;.
+// &lt;topologically_sorted_generated_column_id_list&gt; is set for queries to
+// tables having generated columns. It provides the resolved column ids of
+// the generated columns in topological order.
+// &lt;generated_expr_list&gt; has generated expressions for the corresponding
+// generated column in the topologically_sorted_generated_column_id_list.
+// Hence, these lists have the same size.
 //
 // &lt;column_access_list&gt; indicates for each column in &lt;table_scan.column_list&gt;
 // whether it was read and/or written. The query engine may also require
@@ -4412,7 +4451,7 @@ class ResolvedInsertStmt : public <a href="#ResolvedStatement">ResolvedStatement
   <a href="#ResolvedStatement">ResolvedStatement</a>::ObjectAccess column_access_list(int i) const;
 
 <font color="brown">  // This returns a topologically sorted list of generated columns
-  //  indexes in the table accessed by insert statement.
+  //  resolved ids in the table accessed by insert statement.
   //  For example for below table
   //  CREATE TABLE T(
   //  k1 INT64 NOT NULL,
@@ -4426,9 +4465,21 @@ class ResolvedInsertStmt : public <a href="#ResolvedStatement">ResolvedStatement
   //   *  -------------------------------&gt;gen3
   // the vector would have corresponding indexes of one of these values
   // gen1 gen2 gen3 OR gen1 gen3 gen2.</font>
-  const std::vector&lt;int&gt;&amp; topologically_sorted_generated_column_index_list() const;
-  int topologically_sorted_generated_column_index_list_size() const;
-  int topologically_sorted_generated_column_index_list(int i) const;
+  const std::vector&lt;int&gt;&amp; topologically_sorted_generated_column_id_list() const;
+  int topologically_sorted_generated_column_id_list_size() const;
+  int topologically_sorted_generated_column_id_list(int i) const;
+
+<font color="brown">  // This field returns the vector of generated column expressions
+  // corresponding to the column ids in
+  // topologically_sorted_generated_column_id_list. Both the lists have
+  // the same size and 1-to-1 mapping for the column id with its
+  // corresponding expression. This field is not directly accessed
+  // from the catalog since these expressions are rewritten to replace
+  // the ResolvedExpressionColumn for the referred columns in the
+  // catalog to corresponding ResolvedColumnRef.</font>
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedExpr">ResolvedExpr</a>&gt;&gt;&amp; generated_column_expr_list() const;
+  int generated_column_expr_list_size() const;
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* generated_column_expr_list(int i) const;
 };
 </code></pre></p>
 

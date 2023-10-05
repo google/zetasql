@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -43,6 +44,14 @@ absl::Status MultiCatalog::Create(
 void MultiCatalog::AppendCatalog(Catalog* catalog) {
   ABSL_CHECK(catalog != nullptr);
   catalog_list_.push_back(catalog);
+}
+
+absl::Status MultiCatalog::AppendOwnedCatalog(
+    std::unique_ptr<Catalog> catalog) {
+  ZETASQL_RET_CHECK(catalog != nullptr) << "Catalog must not be null.";
+  AppendCatalog(catalog.get());
+  owned_catalogs_.push_back(std::move(catalog));
+  return absl::OkStatus();
 }
 
 absl::Status MultiCatalog::FindTable(const absl::Span<const std::string>& path,

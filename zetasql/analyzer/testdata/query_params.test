@@ -94,6 +94,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: STRING, BYTES
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
   Signature: INT64 = UINT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: UINT64 = INT64

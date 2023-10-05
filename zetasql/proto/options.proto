@@ -73,6 +73,10 @@ message AllowedHintsAndOptionsProto {
       FROM_NAME_SCOPE_IDENTIFIER = 1;
     }
     optional ResolvingKind resolving_kind = 3;
+
+    // Indicates whether the "+=" and "-=" assignment operators are allowed for
+    // fields of Array type.
+    optional bool allow_alter_array = 4;
   }
 
   optional bool disallow_unknown_options = 1;

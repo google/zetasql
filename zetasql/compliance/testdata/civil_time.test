@@ -3,6 +3,9 @@
 [default global_labels=civil_time_types_and_functions]
 [default required_features=V_1_2_CIVIL_TIME]
 
+[load_proto_files=zetasql/testdata/test_schema.proto]
+[load_proto_names=zetasql_test__.CivilTimeTypesSinkPB]
+
 [name=civil_time_literals]
 SELECT TIME '01:02:03.123456',
        DATETIME '2006-01-02 03:04:05.123456'
@@ -1542,3 +1545,23 @@ select
   datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
 --
 ARRAY<STRUCT<DATETIME>>[{2020-02-15 00:00:00}]
+==
+
+# A proto with a DATETIME_MICROS type annotation should produce an error when
+# an explicit-0 value is encoded for the field, as this is not valid.
+[required_features=V_1_2_CIVIL_TIME]
+[name=datetime_micros_annotation_explicit_0_value]
+select
+  CAST(b'\x18\x00' AS zetasql_test__.CivilTimeTypesSinkPB).datetime_micros AS datetime_micros
+--
+ERROR: generic::out_of_range: Corrupted protocol buffer: Failed to interpret value for field zetasql_test__.CivilTimeTypesSinkPB.datetime_micros with field format DATETIME_MICROS: 0
+==
+
+# A proto with a DATETIME_MICROS type annotation should produce a NULL when
+# a default-0 value is encoded for the field.
+[required_features=V_1_2_CIVIL_TIME]
+[name=datetime_micros_annotation_default_0_value]
+select
+  CAST(b'' AS zetasql_test__.CivilTimeTypesSinkPB).datetime_micros AS datetime_micros
+--
+ARRAY<STRUCT<datetime_micros DATETIME>>[{NULL}]

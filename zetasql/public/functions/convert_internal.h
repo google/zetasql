@@ -21,7 +21,6 @@
 #include <limits>
 
 #include "zetasql/base/logging.h"
-#include <cstdint>
 
 namespace zetasql {
 // Do not use any methods from the convert_internal namespace.

@@ -27,6 +27,30 @@ ARRAY<STRUCT<
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 ]
 ==
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TableAllNullRanges AS
+SELECT CAST(1 as int64) as row_id,
+       CAST(NULL AS RANGE<DATE>) as range_date_val,
+       CAST(NULL AS RANGE<TIMESTAMP>) as range_timestamp_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>[{1, NULL, NULL}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TableAllNullDatetimeRange AS
+SELECT CAST(1 as int64) as row_id,
+       CAST(NULL AS RANGE<DATETIME>) as range_datetime_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>
+      >>[{1, NULL}]
+==
 [prepare_database]
 CREATE TABLE TableOneValue AS
 SELECT CAST(1 as int64) as row_id,
@@ -64,6 +88,40 @@ ARRAY<STRUCT<
    b"1",
    2001-01-01,
    2001-01-01 00:00:00+00
+ }]
+==
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TableOneValueRanges AS
+SELECT CAST(1 as int64) as row_id,
+       RANGE<DATE> '[2020-01-01, 2020-12-31)' as range_date_val,
+       RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)' as range_timestamp_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>
+[{1,
+  [2020-01-01, 2020-12-31),
+  [
+    2020-01-01 08:00:00+00,
+    2020-12-31 08:00:00+00
+  )}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TableOneValueDatetimeRange AS
+SELECT CAST(1 as int64) as row_id,
+       RANGE<DATETIME> '[2020-01-01, 2020-12-31)' as range_datetime_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        range_datetime_val RANGE<DATETIME>
+      >>
+[{
+   1,
+   [2020-01-01 00:00:00, 2020-12-31 00:00:00)
  }]
 ==
 [prepare_database]
@@ -503,10 +561,179 @@ ARRAY<STRUCT<
  },
  {17, NULL, -1, NULL, 1, NULL, 0, NULL, "1", NULL, 2014-02-04, NULL}]
 ==
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TableRangeTypes AS
+SELECT CAST(1 AS int64) as row_id,
+       true AS bool_val,
+       CAST(NULL AS RANGE<DATE>) AS range_date_val,
+       CAST(NULL AS RANGE<TIMESTAMP>) AS range_timestamp_val UNION ALL
+SELECT 2, true, RANGE<DATE> '[UNBOUNDED, 0001-01-01)', RANGE<TIMESTAMP> '[UNBOUNDED, 0001-01-01 00:00:00+00)' UNION ALL
+SELECT 3, true, RANGE<DATE> '[UNBOUNDED, 2020-01-01)', RANGE<TIMESTAMP> '[UNBOUNDED, 2020-01-01 00:00:00+00)' UNION ALL
+SELECT 4, true, RANGE<DATE> '[UNBOUNDED, 9999-12-31)', RANGE<TIMESTAMP> '[UNBOUNDED, 9999-12-31 23:59:59.999999+00)' UNION ALL
+SELECT 5, false, RANGE<DATE> '[UNBOUNDED, UNBOUNDED)', RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)' UNION ALL
+SELECT 6, false, RANGE<DATE> '[0001-01-01, 2020-01-01)', RANGE<TIMESTAMP> '[0001-01-01 00:00:00+00, 2020-01-01 00:00:00+00)' UNION ALL
+SELECT 7, false, RANGE<DATE> '[2020-01-01, 9999-12-31)', RANGE<TIMESTAMP> '[2020-01-01, 9999-12-31 23:59:59.999999+00)' UNION ALL
+SELECT 8, false, RANGE<DATE> '[9999-12-31, UNBOUNDED)', RANGE<TIMESTAMP> '[9999-12-31 23:59:59.999999+00, UNBOUNDED)' UNION ALL
+SELECT 9, true, RANGE<DATE> '[0001-01-01, 2020-01-01)', RANGE<TIMESTAMP> '[0001-01-01 00:00:00+00, 2020-01-01 00:00:00+00)' UNION ALL
+SELECT 10, false, RANGE<DATE> '[2020-01-01, 9999-12-31)', RANGE<TIMESTAMP> '[2020-01-01, 9999-12-31 23:59:59.999999+00)'
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>
+[{1, true, NULL, NULL},
+ {2,
+  true,
+  [NULL, 0001-01-01),
+  [
+    NULL,
+    0001-01-01 00:00:00+00
+  )},
+ {3,
+  true,
+  [NULL, 2020-01-01),
+  [
+    NULL,
+    2020-01-01 00:00:00+00
+  )},
+ {4,
+  true,
+  [NULL, 9999-12-31),
+  [
+    NULL,
+    9999-12-31 23:59:59.999999+00
+  )},
+ {5, false, [NULL, NULL), [NULL, NULL)},
+ {6,
+  false,
+  [0001-01-01, 2020-01-01),
+  [
+    0001-01-01 00:00:00+00,
+    2020-01-01 00:00:00+00
+  )},
+ {7,
+  false,
+  [2020-01-01, 9999-12-31),
+  [
+    2020-01-01 08:00:00+00,
+    9999-12-31 23:59:59.999999+00
+  )},
+ {8,
+  false,
+  [9999-12-31, NULL),
+  [
+    9999-12-31 23:59:59.999999+00,
+    NULL
+  )},
+ {9,
+  true,
+  [0001-01-01, 2020-01-01),
+  [
+    0001-01-01 00:00:00+00,
+    2020-01-01 00:00:00+00
+  )},
+ {10,
+  false,
+  [2020-01-01, 9999-12-31),
+  [
+    2020-01-01 08:00:00+00,
+    9999-12-31 23:59:59.999999+00
+  )}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TableDatetimeRangeTypes AS
+SELECT CAST(1 AS int64) as row_id,
+       true AS bool_val,
+       CAST(NULL AS RANGE<DATETIME>) AS range_datetime_val UNION ALL
+SELECT 2, true, RANGE<DATETIME> '[UNBOUNDED, 0001-01-01)' UNION ALL
+SELECT 3, true, RANGE<DATETIME> '[UNBOUNDED, 2020-01-01)' UNION ALL
+SELECT 4, true, RANGE<DATETIME> '[UNBOUNDED, 9999-12-31 23:59:59.999999)' UNION ALL
+SELECT 5, false, RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)' UNION ALL
+SELECT 6, false, RANGE<DATETIME> '[0001-01-01, 2020-01-01)' UNION ALL
+SELECT 7, false, RANGE<DATETIME> '[2020-01-01, 9999-12-31 23:59:59.999999)' UNION ALL
+SELECT 8, false, RANGE<DATETIME> '[9999-12-31 23:59:59.999999, UNBOUNDED)' UNION ALL
+SELECT 9, true, RANGE<DATETIME> '[0001-01-01, 2020-01-01)' UNION ALL
+SELECT 10, false, RANGE<DATETIME> '[2020-01-01, 9999-12-31 23:59:59.999999)'
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        range_datetime_val RANGE<DATETIME>
+      >>
+[{1, true, NULL},
+ {
+   2,
+   true,
+   [NULL, 0001-01-01 00:00:00)
+ },
+ {
+   3,
+   true,
+   [NULL, 2020-01-01 00:00:00)
+ },
+ {4,
+  true,
+  [
+    NULL,
+    9999-12-31 23:59:59.999999
+  )},
+ {5, false, [NULL, NULL)},
+ {
+   6,
+   false,
+   [0001-01-01 00:00:00, 2020-01-01 00:00:00)
+ },
+ {7,
+  false,
+  [
+    2020-01-01 00:00:00,
+    9999-12-31 23:59:59.999999
+  )},
+ {8,
+  false,
+  [
+    9999-12-31 23:59:59.999999,
+    NULL
+  )},
+ {
+   9,
+   true,
+   [0001-01-01 00:00:00, 2020-01-01 00:00:00)
+ },
+ {10,
+  false,
+  [
+    2020-01-01 00:00:00,
+    9999-12-31 23:59:59.999999
+  )}]
+==
 [prepare_database]
 CREATE TABLE TableEmpty AS SELECT val FROM (SELECT 1 as val) WHERE false
 --
 ARRAY<STRUCT<val INT64>>[]
+==
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TableEmptyRanges AS SELECT range_date_val, range_timestamp_val
+FROM (SELECT RANGE<DATE> '[UNBOUNDED, UNBOUNDED)' as range_date_val,
+RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)' as range_timestamp_val)
+WHERE false
+--
+ARRAY<STRUCT<
+        range_date_val RANGE<DATE>,
+        range_timestamp_val RANGE<TIMESTAMP>
+      >>[]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE TableEmptyDatetimeRange AS SELECT range_datetime_val
+ FROM (SELECT RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)' as range_datetime_val) WHERE false
+--
+ARRAY<STRUCT<range_datetime_val RANGE<DATETIME>>>[]
 ==
 [prepare_database]
 CREATE TABLE TableLarge AS
@@ -859,6 +1086,290 @@ SELECT COUNT(arr) FROM (SELECT ["foo", "bar"] arr UNION ALL SELECT NULL)
 --
 ARRAY<STRUCT<INT64>>[{1}]
 ==
+[required_features=RANGE_TYPE]
+[name=aggregation_count_range]
+SELECT COUNT(range_date_val), COUNT(range_timestamp_val), COUNT(*)
+FROM TableRangeTypes
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{9, 9, 10}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_count_range_datetime]
+SELECT COUNT(range_datetime_val), COUNT(*) FROM TableDatetimeRangeTypes
+--
+ARRAY<STRUCT<INT64, INT64>>[{9, 10}]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_count_range_all_null]
+SELECT COUNT(range_date_val), COUNT(range_timestamp_val), COUNT(*)
+FROM TableAllNullRanges
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{0, 0, 1}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_count_range_datetime_all_null]
+SELECT COUNT(range_datetime_val), COUNT(*) FROM TableAllNullDatetimeRange
+--
+ARRAY<STRUCT<INT64, INT64>>[{0, 1}]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_count_range_empty]
+SELECT COUNT(range_date_val), COUNT(range_timestamp_val), COUNT(*)
+FROM TableEmptyRanges
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{0, 0, 0}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_count_range_datetime_empty]
+SELECT COUNT(range_datetime_val), COUNT(*) FROM TableEmptyDatetimeRange
+--
+ARRAY<STRUCT<INT64, INT64>>[{0, 0}]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_count_range_group_by]
+SELECT bool_val, COUNT(range_date_val), COUNT(range_timestamp_val), COUNT(*)
+FROM TableRangeTypes
+GROUP BY bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, INT64, INT64, INT64>>[unknown order:
+  {false, 5, 5, 5},
+  {true, 4, 4, 5}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_count_range_datetime_group_by]
+SELECT bool_val, COUNT(range_datetime_val), COUNT(*) FROM TableDatetimeRangeTypes
+GROUP BY bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, INT64, INT64>>[unknown order:
+  {false, 5, 5},
+  {true, 4, 5}
+]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_count_range_group_by_having]
+SELECT bool_val, COUNT(range_date_val), COUNT(range_timestamp_val), COUNT(*)
+FROM TableRangeTypes
+GROUP BY bool_val HAVING bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, INT64, INT64, INT64>>[{true, 4, 4, 5}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_count_range_datetime_group_by_having]
+SELECT bool_val, COUNT(range_datetime_val), COUNT(*) FROM TableDatetimeRangeTypes
+GROUP BY bool_val HAVING bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, INT64, INT64>>[{true, 4, 5}]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_count_range_group_by_range_date]
+SELECT range_date_val, COUNT(range_date_val), COUNT(*)
+FROM TableRangeTypes
+GROUP BY range_date_val
+--
+ARRAY<STRUCT<
+        range_date_val RANGE<DATE>,
+        INT64,
+        INT64
+      >>
+[unknown order:{NULL, 0, 1},
+               {[NULL, 0001-01-01), 1, 1},
+               {[NULL, 2020-01-01), 1, 1},
+               {[NULL, 9999-12-31), 1, 1},
+               {[NULL, NULL), 1, 1},
+               {
+                 [0001-01-01, 2020-01-01),
+                 2,
+                 2
+               },
+               {
+                 [2020-01-01, 9999-12-31),
+                 2,
+                 2
+               },
+               {[9999-12-31, NULL), 1, 1}]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_count_range_group_by_range_timestamp]
+SELECT range_timestamp_val, COUNT(range_timestamp_val), COUNT(*)
+FROM TableRangeTypes
+GROUP BY range_timestamp_val
+--
+ARRAY<STRUCT<
+        range_timestamp_val RANGE<TIMESTAMP>,
+        INT64,
+        INT64
+      >>
+[unknown order:{NULL, 0, 1},
+               {[
+                  NULL,
+                  0001-01-01 00:00:00+00
+                ),
+                1,
+                1},
+               {[
+                  NULL,
+                  2020-01-01 00:00:00+00
+                ),
+                1,
+                1},
+               {[
+                  NULL,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                1,
+                1},
+               {[NULL, NULL), 1, 1},
+               {[
+                  0001-01-01 00:00:00+00,
+                  2020-01-01 00:00:00+00
+                ),
+                2,
+                2},
+               {[
+                  2020-01-01 08:00:00+00,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                2,
+                2},
+               {[
+                  9999-12-31 23:59:59.999999+00,
+                  NULL
+                ),
+                1,
+                1}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_count_range_datetime_group_by_range_datetime]
+SELECT range_datetime_val, COUNT(range_datetime_val), COUNT(*) FROM TableDatetimeRangeTypes
+GROUP BY range_datetime_val
+--
+ARRAY<STRUCT<
+        range_datetime_val RANGE<DATETIME>,
+        INT64,
+        INT64
+      >>
+[unknown order:{NULL, 0, 1},
+               {
+                 [NULL, 0001-01-01 00:00:00),
+                 1,
+                 1
+               },
+               {
+                 [NULL, 2020-01-01 00:00:00),
+                 1,
+                 1
+               },
+               {[
+                  NULL,
+                  9999-12-31 23:59:59.999999
+                ),
+                1,
+                1},
+               {[NULL, NULL), 1, 1},
+               {
+                 [0001-01-01 00:00:00, 2020-01-01 00:00:00),
+                 2,
+                 2
+               },
+               {[
+                  2020-01-01 00:00:00,
+                  9999-12-31 23:59:59.999999
+                ),
+                2,
+                2},
+               {[
+                  9999-12-31 23:59:59.999999,
+                  NULL
+                ),
+                1,
+                1}]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_count_range_group_by_having_range_date]
+SELECT range_date_val, COUNT(range_date_val), COUNT(*)
+FROM TableRangeTypes
+GROUP BY range_date_val
+HAVING range_date_val > RANGE<DATE> '[UNBOUNDED, UNBOUNDED)'
+--
+ARRAY<STRUCT<
+        range_date_val RANGE<DATE>,
+        INT64,
+        INT64
+      >>
+[unknown order:{
+                 [0001-01-01, 2020-01-01),
+                 2,
+                 2
+               },
+               {[9999-12-31, NULL), 1, 1},
+               {
+                 [2020-01-01, 9999-12-31),
+                 2,
+                 2
+               }]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_count_range_group_by_having_range_timestamp]
+SELECT range_timestamp_val, COUNT(range_timestamp_val), COUNT(*)
+FROM TableRangeTypes
+GROUP BY range_timestamp_val
+HAVING range_timestamp_val > RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)'
+--
+ARRAY<STRUCT<
+        range_timestamp_val RANGE<TIMESTAMP>,
+        INT64,
+        INT64
+      >>
+[unknown order:{[
+                  0001-01-01 00:00:00+00,
+                  2020-01-01 00:00:00+00
+                ),
+                2,
+                2},
+               {[
+                  9999-12-31 23:59:59.999999+00,
+                  NULL
+                ),
+                1,
+                1},
+               {[
+                  2020-01-01 08:00:00+00,
+                  9999-12-31 23:59:59.999999+00
+                ),
+                2,
+                2}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_count_range_datetime_group_by_having_range]
+SELECT range_datetime_val, COUNT(range_datetime_val), COUNT(*)
+FROM TableDatetimeRangeTypes
+GROUP BY range_datetime_val
+HAVING range_datetime_val > RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)'
+--
+ARRAY<STRUCT<
+        range_datetime_val RANGE<DATETIME>,
+        INT64,
+        INT64
+      >>
+[unknown order:{
+                 [0001-01-01 00:00:00, 2020-01-01 00:00:00),
+                 2,
+                 2
+               },
+               {[
+                  9999-12-31 23:59:59.999999,
+                  NULL
+                ),
+                1,
+                1},
+               {[
+                  2020-01-01 00:00:00,
+                  9999-12-31 23:59:59.999999
+                ),
+                2,
+                2}]
+==
 
 # ----------------------------------------------------------------------------
 # MAX, MIN
@@ -1045,6 +1556,148 @@ SELECT MIN(int32_val), bool_val FROM TableAllTypes
   GROUP BY bool_val having MAX(uint32_val) > 30 ORDER BY bool_val
 --
 ARRAY<STRUCT<INT32, bool_val BOOL>>[known order:{-24, false}, {-3, true}]
+==
+[name=aggregation_min_max_range_date_with_group_by]
+[required_features=RANGE_TYPE]
+SELECT bool_val,
+       MIN(range_date_val), MAX(range_date_val)
+FROM TableRangeTypes GROUP BY bool_val;
+--
+ARRAY<STRUCT<bool_val BOOL, RANGE<DATE>, RANGE<DATE>>>[unknown order:
+  {false, [NULL, NULL), [9999-12-31, NULL)},
+  {
+    true,
+    [NULL, 0001-01-01),
+    [0001-01-01, 2020-01-01)
+  }
+]
+==
+[name=aggregation_min_max_range_timestamp_with_group_by]
+[required_features=RANGE_TYPE]
+SELECT bool_val,
+       MIN(range_timestamp_val), MAX(range_timestamp_val)
+FROM TableRangeTypes GROUP BY bool_val;
+--
+ARRAY<STRUCT<bool_val BOOL, RANGE<TIMESTAMP>, RANGE<TIMESTAMP>>>[unknown order:
+  {false,
+   [NULL, NULL),
+   [
+     9999-12-31 23:59:59.999999+00,
+     NULL
+   )},
+  {true,
+   [
+     NULL,
+     0001-01-01 00:00:00+00
+   ),
+   [
+     0001-01-01 00:00:00+00,
+     2020-01-01 00:00:00+00
+   )}
+]
+==
+[name=aggregation_min_max_range_datetime_with_groupby]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT bool_val,
+       MIN(range_datetime_val), MAX(range_datetime_val)
+FROM TableDatetimeRangeTypes GROUP BY bool_val;
+--
+ARRAY<STRUCT<bool_val BOOL, RANGE<DATETIME>, RANGE<DATETIME>>>[unknown order:
+  {false,
+   [NULL, NULL),
+   [
+     9999-12-31 23:59:59.999999,
+     NULL
+   )},
+  {
+    true,
+    [NULL, 0001-01-01 00:00:00),
+    [0001-01-01 00:00:00, 2020-01-01 00:00:00)
+  }
+]
+==
+[name=aggregation_min_max_range_date_with_group_by_and_having]
+[required_features=RANGE_TYPE]
+SELECT row_id,
+       MIN(range_date_val), MAX(range_date_val)
+FROM TableRangeTypes
+GROUP BY row_id
+HAVING MIN(range_date_val) >= RANGE<DATE> '[2020-01-01, 2020-01-02)'
+ORDER BY row_id;
+--
+ARRAY<STRUCT<row_id INT64, RANGE<DATE>, RANGE<DATE>>>[known order:
+  {
+    7,
+    [2020-01-01, 9999-12-31),
+    [2020-01-01, 9999-12-31)
+  },
+  {8, [9999-12-31, NULL), [9999-12-31, NULL)},
+  {
+    10,
+    [2020-01-01, 9999-12-31),
+    [2020-01-01, 9999-12-31)
+  }
+]
+==
+[name=aggregation_min_max_range_timestamp_with_group_by_and_having]
+[required_features=RANGE_TYPE]
+SELECT row_id,
+       MIN(range_timestamp_val), MAX(range_timestamp_val)
+FROM TableRangeTypes
+GROUP BY row_id
+HAVING MIN(range_timestamp_val) >= RANGE<TIMESTAMP> '[2020-01-01 10:00:00+00, 2020-12-31 10:00:00+00)'
+ORDER BY row_id;
+--
+ARRAY<STRUCT<row_id INT64, RANGE<TIMESTAMP>, RANGE<TIMESTAMP>>>[
+  {8,
+   [
+     9999-12-31 23:59:59.999999+00,
+     NULL
+   ),
+   [
+     9999-12-31 23:59:59.999999+00,
+     NULL
+   )}
+]
+==
+[name=aggregation_min_max_range_datetime_with_groupby_and_having]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT row_id,
+       MIN(range_datetime_val), MAX(range_datetime_val)
+FROM TableDatetimeRangeTypes
+GROUP BY row_id
+HAVING MIN(range_datetime_val) >= RANGE<DATETIME> '[2020-01-01, 2020-01-02)'
+ORDER BY row_id;
+--
+ARRAY<STRUCT<row_id INT64, RANGE<DATETIME>, RANGE<DATETIME>>>[known order:
+  {7,
+   [
+     2020-01-01 00:00:00,
+     9999-12-31 23:59:59.999999
+   ),
+   [
+     2020-01-01 00:00:00,
+     9999-12-31 23:59:59.999999
+   )},
+  {8,
+   [
+     9999-12-31 23:59:59.999999,
+     NULL
+   ),
+   [
+     9999-12-31 23:59:59.999999,
+     NULL
+   )},
+  {10,
+   [
+     2020-01-01 00:00:00,
+     9999-12-31 23:59:59.999999
+   ),
+   [
+     2020-01-01 00:00:00,
+     9999-12-31 23:59:59.999999
+   )}
+]
 ==
 [name=aggregation_min_max_double_float_nan]
 SELECT MIN(double_val), MAX(double_val), MIN(float_val), MAX(float_val)
@@ -1263,6 +1916,71 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
     ARRAY<DOUBLE>[known order:1, -inf]
   }
 ]
+==
+[name=aggregation_min_max_range_date]
+[required_features=RANGE_TYPE]
+SELECT min(range_date_val), max(range_date_val) FROM TableRangeTypes
+--
+ARRAY<STRUCT<RANGE<DATE>, RANGE<DATE>>>[
+  {[NULL, 0001-01-01), [9999-12-31, NULL)}
+]
+==
+[name=aggregation_min_max_range_datetime]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT min(range_datetime_val), max(range_datetime_val) FROM TableDatetimeRangeTypes
+--
+ARRAY<STRUCT<RANGE<DATETIME>, RANGE<DATETIME>>>[
+  {[NULL, 0001-01-01 00:00:00),
+   [
+     9999-12-31 23:59:59.999999,
+     NULL
+   )}
+]
+==
+[name=aggregation_min_max_range_timestamp]
+[required_features=RANGE_TYPE]
+SELECT min(range_timestamp_val), max(range_timestamp_val) FROM TableRangeTypes
+--
+ARRAY<STRUCT<RANGE<TIMESTAMP>, RANGE<TIMESTAMP>>>[
+  {[
+     NULL,
+     0001-01-01 00:00:00+00
+   ),
+   [
+     9999-12-31 23:59:59.999999+00,
+     NULL
+   )}
+]
+==
+[name=aggregation_min_max_range_date_all_null]
+[required_features=RANGE_TYPE]
+SELECT MAX(range_date_val) AS max_NULL,
+       MIN(range_date_val) AS min_NULL
+FROM TableAllNullRanges
+--
+ARRAY<STRUCT<max_NULL RANGE<DATE>, min_NULL RANGE<DATE>>>[{NULL, NULL}]
+==
+[name=aggregation_min_max_range_datetime_all_null]
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+SELECT MAX(range_datetime_val) AS max_NULL,
+       MIN(range_datetime_val) AS min_NULL
+FROM TableAllNullDatetimeRange
+--
+ARRAY<STRUCT<
+        max_NULL RANGE<DATETIME>,
+        min_NULL RANGE<DATETIME>
+      >>[{NULL, NULL}]
+==
+[name=aggregation_min_max_range_timestamp_all_null]
+[required_features=RANGE_TYPE]
+SELECT MAX(range_timestamp_val) AS max_NULL,
+       MIN(range_timestamp_val) AS min_NULL
+FROM TableAllNullRanges
+--
+ARRAY<STRUCT<
+        max_NULL RANGE<TIMESTAMP>,
+        min_NULL RANGE<TIMESTAMP>
+      >>[{NULL, NULL}]
 ==
 # ----------------------------------------------------------------------------
 # ARRAY_AGG
@@ -2407,6 +3125,222 @@ SELECT ANY_VALUE(x) FROM (
 SELECT CAST(NULL AS JSON) x)
 --
 ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_any_value_range]
+SELECT ANY_VALUE(range_date_val), ANY_VALUE(range_timestamp_val) FROM (
+SELECT RANGE<DATE> '[2020-01-01, 2020-12-31)' range_date_val,
+       RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)' range_timestamp_val UNION ALL
+SELECT RANGE<DATE> '[2020-01-01, 2020-12-31)' range_date_val,
+       RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)' range_timestamp_val)
+--
+ARRAY<STRUCT<RANGE<DATE>, RANGE<TIMESTAMP>>>[
+  {[2020-01-01, 2020-12-31),
+   [
+     2020-01-01 08:00:00+00,
+     2020-12-31 08:00:00+00
+   )}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_any_value_range_datetime]
+SELECT ANY_VALUE(range_datetime_val) FROM (
+SELECT RANGE<DATETIME> '[2020-01-01, 2020-12-31)' range_datetime_val UNION ALL
+SELECT RANGE<DATETIME> '[2020-01-01, 2020-12-31)' range_datetime_val)
+--
+ARRAY<STRUCT<RANGE<DATETIME>>>[{[2020-01-01 00:00:00, 2020-12-31 00:00:00)}]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_any_value_range_null]
+SELECT ANY_VALUE(range_date_val), ANY_VALUE(range_timestamp_val) FROM (
+SELECT CAST(NULL AS RANGE<DATE>) range_date_val,
+       CAST(NULL AS RANGE<TIMESTAMP>) range_timestamp_val)
+--
+ARRAY<STRUCT<RANGE<DATE>, RANGE<TIMESTAMP>>>[{NULL, NULL}]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_any_value_range_datetime_null]
+SELECT ANY_VALUE(range_datetime_val) FROM (
+SELECT CAST(NULL AS RANGE<DATETIME>) range_datetime_val)
+--
+ARRAY<STRUCT<RANGE<DATETIME>>>[{NULL}]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_any_value_range_date_group_by]
+SELECT bool_val, ANY_VALUE(range_date_val)
+FROM (
+  SELECT true bool_val, RANGE<DATE> '[2020-01-01, 2020-02-01)' range_date_val UNION ALL
+  SELECT true bool_val, RANGE<DATE> '[2020-01-01, 2020-02-01)' range_date_val UNION ALL
+  SELECT false bool_val, RANGE<DATE> '[2020-02-01, 2020-03-01)' range_date_val UNION ALL
+  SELECT false bool_val, RANGE<DATE> '[2020-02-01, 2020-03-01)' range_date_val
+)
+GROUP BY bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, RANGE<DATE>>>[unknown order:
+  {
+    false,
+    [2020-02-01, 2020-03-01)
+  },
+  {
+    true,
+    [2020-01-01, 2020-02-01)
+  }
+]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_any_value_range_timestamp_group_by]
+SELECT bool_val, ANY_VALUE(range_timestamp_val)
+FROM (
+  SELECT true bool_val, RANGE<TIMESTAMP> '[2020-01-01, 2020-02-01)' range_timestamp_val UNION ALL
+  SELECT true bool_val, RANGE<TIMESTAMP> '[2020-01-01, 2020-02-01)' range_timestamp_val UNION ALL
+  SELECT false bool_val, RANGE<TIMESTAMP> '[2020-02-01, 2020-03-01)' range_timestamp_val UNION ALL
+  SELECT false bool_val, RANGE<TIMESTAMP> '[2020-02-01, 2020-03-01)' range_timestamp_val
+)
+GROUP BY bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, RANGE<TIMESTAMP>>>[unknown order:
+  {false,
+   [
+     2020-02-01 08:00:00+00,
+     2020-03-01 08:00:00+00
+   )},
+  {true,
+   [
+     2020-01-01 08:00:00+00,
+     2020-02-01 08:00:00+00
+   )}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_any_value_range_datetime_group_by]
+SELECT bool_val, ANY_VALUE(range_datetime_val)
+FROM (
+  SELECT true bool_val, RANGE<DATETIME> '[2020-01-01, 2020-02-01)' range_datetime_val UNION ALL
+  SELECT true bool_val, RANGE<DATETIME> '[2020-01-01, 2020-02-01)' range_datetime_val UNION ALL
+  SELECT false bool_val, RANGE<DATETIME> '[2020-02-01, 2020-03-01)' range_datetime_val UNION ALL
+  SELECT false bool_val, RANGE<DATETIME> '[2020-02-01, 2020-03-01)' range_datetime_val
+)
+GROUP BY bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, RANGE<DATETIME>>>[unknown order:
+  {
+    false,
+    [2020-02-01 00:00:00, 2020-03-01 00:00:00)
+  },
+  {
+    true,
+    [2020-01-01 00:00:00, 2020-02-01 00:00:00)
+  }
+]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_any_value_range_date_group_by_having]
+SELECT bool_val, ANY_VALUE(range_date_val)
+FROM (
+  SELECT true bool_val, RANGE<DATE> '[2020-01-01, 2020-02-01)' range_date_val UNION ALL
+  SELECT true bool_val, RANGE<DATE> '[2020-01-01, 2020-02-01)' range_date_val UNION ALL
+  SELECT false bool_val, RANGE<DATE> '[2020-02-01, 2020-03-01)' range_date_val UNION ALL
+  SELECT false bool_val, RANGE<DATE> '[2020-02-01, 2020-03-01)' range_date_val
+)
+GROUP BY bool_val HAVING bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, RANGE<DATE>>>[
+  {
+    true,
+    [2020-01-01, 2020-02-01)
+  }
+]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_any_value_range_timestamp_group_by_having]
+SELECT bool_val, ANY_VALUE(range_timestamp_val)
+FROM (
+  SELECT true bool_val, RANGE<TIMESTAMP> '[2020-01-01, 2020-02-01)' range_timestamp_val UNION ALL
+  SELECT true bool_val, RANGE<TIMESTAMP> '[2020-01-01, 2020-02-01)' range_timestamp_val UNION ALL
+  SELECT false bool_val, RANGE<TIMESTAMP> '[2020-02-01, 2020-03-01)' range_timestamp_val UNION ALL
+  SELECT false bool_val, RANGE<TIMESTAMP> '[2020-02-01, 2020-03-01)' range_timestamp_val
+)
+GROUP BY bool_val HAVING bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, RANGE<TIMESTAMP>>>[
+  {true,
+   [
+     2020-01-01 08:00:00+00,
+     2020-02-01 08:00:00+00
+   )}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_any_value_range_datetime_group_by_having]
+SELECT bool_val, ANY_VALUE(range_datetime_val)
+FROM (
+  SELECT true bool_val, RANGE<DATETIME> '[2020-01-01, 2020-02-01)' range_datetime_val UNION ALL
+  SELECT true bool_val, RANGE<DATETIME> '[2020-01-01, 2020-02-01)' range_datetime_val UNION ALL
+  SELECT false bool_val, RANGE<DATETIME> '[2020-02-01, 2020-03-01)' range_datetime_val UNION ALL
+  SELECT false bool_val, RANGE<DATETIME> '[2020-02-01, 2020-03-01)' range_datetime_val
+)
+GROUP BY bool_val HAVING bool_val
+--
+ARRAY<STRUCT<bool_val BOOL, RANGE<DATETIME>>>[
+  {
+    true,
+    [2020-01-01 00:00:00, 2020-02-01 00:00:00)
+  }
+]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_any_value_range_date_group_by_range]
+SELECT ANY_VALUE(range_date_val)
+FROM (
+  SELECT RANGE<DATE> '[2020-01-01, 2020-02-01)' range_date_val UNION ALL
+  SELECT RANGE<DATE> '[2020-01-01, 2020-02-01)' range_date_val UNION ALL
+  SELECT RANGE<DATE> '[2020-02-01, 2020-03-01)' range_date_val UNION ALL
+  SELECT RANGE<DATE> '[2020-02-01, 2020-03-01)' range_date_val
+)
+GROUP BY range_date_val
+--
+ARRAY<STRUCT<RANGE<DATE>>>[unknown order:
+  {[2020-01-01, 2020-02-01)},
+  {[2020-02-01, 2020-03-01)}
+]
+==
+[required_features=RANGE_TYPE]
+[name=aggregation_any_value_range_timestamp_group_by_range]
+SELECT ANY_VALUE(range_timestamp_val)
+FROM (
+  SELECT RANGE<TIMESTAMP> '[2020-01-01, 2020-02-01)' range_timestamp_val UNION ALL
+  SELECT RANGE<TIMESTAMP> '[2020-01-01, 2020-02-01)' range_timestamp_val UNION ALL
+  SELECT RANGE<TIMESTAMP> '[2020-02-01, 2020-03-01)' range_timestamp_val UNION ALL
+  SELECT RANGE<TIMESTAMP> '[2020-02-01, 2020-03-01)' range_timestamp_val
+)
+GROUP BY range_timestamp_val
+--
+ARRAY<STRUCT<RANGE<TIMESTAMP>>>[unknown order:
+  {[
+     2020-01-01 08:00:00+00,
+     2020-02-01 08:00:00+00
+   )},
+  {[
+     2020-02-01 08:00:00+00,
+     2020-03-01 08:00:00+00
+   )}
+]
+==
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=aggregation_any_value_range_datetime_group_by_range]
+SELECT ANY_VALUE(range_datetime_val)
+FROM (
+  SELECT RANGE<DATETIME> '[2020-01-01, 2020-02-01)' range_datetime_val UNION ALL
+  SELECT RANGE<DATETIME> '[2020-01-01, 2020-02-01)' range_datetime_val UNION ALL
+  SELECT RANGE<DATETIME> '[2020-02-01, 2020-03-01)' range_datetime_val UNION ALL
+  SELECT RANGE<DATETIME> '[2020-02-01, 2020-03-01)' range_datetime_val
+)
+GROUP BY range_datetime_val
+--
+ARRAY<STRUCT<RANGE<DATETIME>>>[unknown order:
+  {[2020-01-01 00:00:00, 2020-02-01 00:00:00)},
+  {[2020-02-01 00:00:00, 2020-03-01 00:00:00)}
+]
 ==
 
 # ----------------------------------------------------------------------------

@@ -86,6 +86,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
@@ -1601,6 +1602,16 @@ absl::Status SQLBuilder::AppendColumnSchema(
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                      ProcessNode(generated_column_info->expression()));
 
+    absl::StrAppend(text, " GENERATED");
+    switch (generated_column_info->generated_mode()) {
+      case ASTGeneratedColumnInfo::ALWAYS:
+        absl::StrAppend(text, " ALWAYS");
+        break;
+      case ASTGeneratedColumnInfo::BY_DEFAULT:
+        absl::StrAppend(text, " BY DEFAULT");
+        break;
+    }
+
     absl::StrAppend(text, " AS (", result->GetSQL(), ")");
 
     switch (generated_column_info->stored_mode()) {
@@ -1686,7 +1697,20 @@ absl::Status SQLBuilder::VisitResolvedOption(const ResolvedOption* node) {
   if (!node->qualifier().empty()) {
     absl::StrAppend(&text, ToIdentifierLiteral(node->qualifier()), ".");
   }
-  absl::StrAppend(&text, ToIdentifierLiteral(node->name()), "=");
+  std::string assignment_operator_string;
+  switch (node->assignment_op()) {
+    case ResolvedOptionEnums::ADD_ASSIGN:
+      assignment_operator_string = "+=";
+      break;
+    case ResolvedOptionEnums::SUB_ASSIGN:
+      assignment_operator_string = "-=";
+      break;
+    default:
+      assignment_operator_string = "=";
+      break;
+  }
+  absl::StrAppend(&text, ToIdentifierLiteral(node->name()),
+                  assignment_operator_string);
 
   // If we have a CAST, strip it off and just print the value.  CASTs are
   // not allowed as part of the hint syntax so they must have been added
@@ -2998,35 +3022,45 @@ static bool HasDuplicateAliases(const std::vector<absl::string_view>& aliases) {
   return false;
 }
 
-// Assigns the aliases in `column_aliases` to `scan_columns` so that a column in
-// `scan_columns` is assigned with the alias of `column_aliases[i]` if they have
-// the same column id. Returns
+// Maps from column ids to their aliases. A column_id can be assigned with
+// different column aliases for different occurrences, so the value type is
+// a container.
+using ColumnIdToAliasesMap =
+    absl::flat_hash_map</*column_id*/ int,
+                        /*alias*/ std::deque<absl::string_view>>;
+
+// An ordered list of <column_id, alias>.
+using ColumnAliasList = std::vector<std::pair</*column_id*/ int,
+                                              /*alias*/ absl::string_view>>;
+
+static absl::flat_hash_map<int, std::deque<absl::string_view>>
+GetColumnIdToAliasMap(const ColumnAliasList& column_alias_list) {
+  ColumnIdToAliasesMap id_to_aliases;
+  for (auto [column_id, alias] : column_alias_list) {
+    id_to_aliases[column_id].push_back(alias);
+  }
+  return id_to_aliases;
+}
+
+// Assigns the aliases in `id_to_aliases` to the columns in `scan_columns` by
+// their column ids, and returns
 // - a mapping from column_index to the assigned alias,
 // - or std::nullopt if not all aliases in in `column_aliases` are assigned
 //
-// When there are duplicate column_id's in `scan_columns` or
-// `column_aliases`, there can be multiple ways to assign aliases. For example,
-// `scan_columns` = [id=10, id=10, id=10], `column_aliases` = [(id=10, "a"),
-// (id=10, "b")], "a" and "b" can be assigned to any two columns of the
-// `scan_columns` (so the column order in `column_aliases` is "ignored"). For
-// example, both the following return values are correct:
-// - {/*index*/ 0: "a", /*index*/ 1: "b"}: "a" is assigned to the column at
-//   index 0, and "b" is assigned to the column at index 1.
-// - {/*index*/ 2: "a", /*index*/ 1: "b"}: "a" is assigned to the column at
-//   index 2,, and "b" is assigned to the column at index 1.
+// If a column_id corresponds to multiple column aliases in `id_to_aliases`,
+// i.e. `id_to_aliases[column_id].size() > 1`, each alias is used once.
+//
+// `excluded_scan_column_indexes`: contains the column indexes of `scan_columns`
+// that we will not assign aliases to.
 static std::optional<absl::flat_hash_map<int, absl::string_view>>
-TryAssignAliasIgnoreOrder(
-    const ResolvedColumnList& scan_columns,
-    const std::vector<std::pair</*column_id*/ int,
-                                /*alias*/ absl::string_view>>& column_aliases) {
-  absl::flat_hash_map</*column_id*/ int, std::deque<absl::string_view>>
-      id_to_aliases;
-  for (auto [column_id, alias] : column_aliases) {
-    id_to_aliases[column_id].push_back(alias);
-  }
-
+AssignColumnAliasesByColumnId(
+    const ResolvedColumnList& scan_columns, ColumnIdToAliasesMap id_to_aliases,
+    const absl::flat_hash_set<int>& excluded_scan_column_indexes = {}) {
   absl::flat_hash_map<int, absl::string_view> new_aliases;
   for (int i = 0; i < scan_columns.size(); ++i) {
+    if (excluded_scan_column_indexes.contains(i)) {
+      continue;
+    }
     auto provided_alias = id_to_aliases.find(scan_columns[i].column_id());
     if (provided_alias == id_to_aliases.end() ||
         provided_alias->second.empty()) {
@@ -3044,32 +3078,33 @@ TryAssignAliasIgnoreOrder(
   return new_aliases;
 }
 
-// Assigns the aliases in `column_aliases` to the `scan_columns` so that
-// - The alias of `column_aliases[i]` is assigned to the column in
-//   `scan_columns` with the same columnd_id.
-// - The aliases are assigned according to their order in `column_aliases`.
+// Similar to AssignColumnAliasByColumnId, assigns the aliases in
+// `column_aliases` to the columns with the same column_id in `scan_columns`.
+// REQUIRES: `column_aliases` are ordered by the order of the columns that
+// showed up in the set operation item's output_column_list.
+//
+// For example, `column_aliases` = [(1, "A"), (2, "B")]. Then we must assign
+// "A" to a column with column_id = 1 before assigning "B" to a column with
+// column_id = 2.
 //
 // Returns
 // - a mapping from column_index to the assigned alias,
 // - or std::nullopt if not all aliases in in `column_aliases` are assigned.
-//
-// For example, `scan_columns` = [id=10, id=11, id=10] and `column_aliases` =
-// [(id=11, "a"), (id=10, "b")]. The return value will be {/*index*/1: "a",
-// /*index*/2: "b"}, not {1: "a", 0: "b"}, i.e. the column_id = 10 at index 2 of
-// `scan_columns` will be assigned with the alias "b", not the one at index 0
-// because "a" should be assigned before "b" to "preserve order" in
-// `column_aliases`.
 static std::optional<absl::flat_hash_map<int, absl::string_view>>
-TryAssignAliasPreserveOrder(
+AssignColumnAliasByColumnIdAndOrder(
     const ResolvedColumnList& scan_columns,
-    const std::vector<std::pair</*column_id*/ int,
-                                /*alias*/ absl::string_view>>& column_aliases) {
-  absl::flat_hash_map<int, absl::string_view> new_aliases;
+    absl::Span<const std::pair</*column_id*/ int,
+                               /*alias*/ absl::string_view>>
+        column_aliases) {
+  absl::flat_hash_map</*scan column index*/ int, absl::string_view> new_aliases;
+  // Index w.r.t. `column_aliases`. `column_aliases[next_alias_index]` is the
+  // next alias to assign.
   int next_alias_index = 0;
   for (int i = 0;
        i < scan_columns.size() && next_alias_index < column_aliases.size();
        ++i) {
-    if (scan_columns[i].column_id() == column_aliases[next_alias_index].first) {
+    const int output_column_id = column_aliases[next_alias_index].first;
+    if (scan_columns[i].column_id() == output_column_id) {
       new_aliases[i] = column_aliases[next_alias_index].second;
       next_alias_index++;
     }
@@ -3115,17 +3150,285 @@ TryAssignAliasesInner(
   ZETASQL_ASSIGN_OR_RETURN(column_aliases,
                    GetColumnAliases(output_column_list, final_column_list));
   if (preserve_order) {
-    return TryAssignAliasPreserveOrder(scan_column_list, column_aliases);
+    return AssignColumnAliasByColumnIdAndOrder(scan_column_list,
+                                               column_aliases);
   } else {
-    return TryAssignAliasIgnoreOrder(scan_column_list, column_aliases);
+    return AssignColumnAliasesByColumnId(scan_column_list,
+                                         GetColumnIdToAliasMap(column_aliases));
   }
+}
+
+// This class stores the columns of a scan and provides a method to check
+// whether a column belongs to the stored scan.
+class ScanColumnChecker {
+ public:
+  explicit ScanColumnChecker(const ResolvedColumnList& scan_columns) {
+    for (const ResolvedColumn& column : scan_columns) {
+      scan_column_ids_.insert(column.column_id());
+    }
+  }
+
+  bool ColumnInScan(int column_id) const {
+    return scan_column_ids_.contains(column_id);
+  }
+
+  // Returns the column_aliases in `output_column_aliases[0, end)` that are of
+  // the columns from the input scan.
+  ColumnIdToAliasesMap GetScanColumnAliases(
+      const ColumnAliasList& output_column_aliases, int end) const {
+    ColumnIdToAliasesMap scan_column_aliases;
+    for (int i = 0; i < end; ++i) {
+      auto [column_id, alias] = output_column_aliases[i];
+      if (!ColumnInScan(column_id)) {
+        // This is a padded NULL column not from the scan, skip it.
+        continue;
+      }
+      scan_column_aliases[column_id].push_back(alias);
+    }
+    return scan_column_aliases;
+  }
+
+ private:
+  absl::flat_hash_set<int> scan_column_ids_;
+};
+
+// Tries assigning aliases stored in `output_column_aliases` to all columns in
+// `scan_column_list`. Returns
+// - a mapping from the column index w.r.t. `scan_column_list` to its assigned
+//   alias.
+// - or std::nullopt if not all aliases are assigned. This indicates the input
+//   `scan_column_list` misses some columns of the original input scan (see more
+//   explanation in the next paragraph).
+// - or errors if any, for example when `first_seen_col_(start|end)` is invalid.
+//
+//  Due to b/36095506, not all aliases are assigned. For example, the resolved
+//  AST for `SELECT DISTINCT key AS a, key AS b, value FROM KeyValue` is
+//  ```
+//  output_column_list = [a, b, value]
+//  scan
+//    column_list = [key, value]
+//  ```
+//  meaning `scan.column_list` misses one `key` column. As a result, not all
+//  aliases in `output_column_list` can be assigned.
+//
+// `scan_column_list`: the columns to assign alias to.
+// `output_column_aliases`: the aliases of all the columns this set operation
+//  item outputs. Some columns are from the input scan, others are padded NULL
+//  columns, as determined by `scan_column_checker`.
+// `first_seen_col_start` and `first_seen_col_end`: [first_seen_col_start,
+//   first_seen_col_end) of `output_column_aliases` represents the columns whose
+//   name does not appear in previous queries.
+static absl::StatusOr<
+    std::optional<absl::flat_hash_map<int, absl::string_view>>>
+TryAssignAliasesFull(const ResolvedColumnList& scan_column_list,
+                     const ColumnAliasList& output_column_aliases,
+                     int first_seen_col_start, int first_seen_col_end,
+                     const ScanColumnChecker& scan_column_checker) {
+  ZETASQL_RET_CHECK_LE(first_seen_col_start, first_seen_col_end);
+
+  // The columns in `output_column_aliases` can be categorized into two parts:
+  // - columns whose name has appeared in previous scans.
+  // - columns whose name first shows up in the current scan.
+
+  // First assign aliases to the columns in [first_seen_col_start,
+  // first_seen_col_end). These columns have the aliases that do not show up in
+  // previous queries, and their alias order will affect the final column order
+  // of the resolved set operation scan, so we need to preserve the column order
+  // in `output_column_aliases`.
+  std::optional<absl::flat_hash_map<int, absl::string_view>>
+      first_seen_column_index_to_alias;
+  {
+    // `output_column_aliases` in the half open range [first_seen_col_start,
+    // first_seen_col_end) by definition should only contain columns from the
+    // original query, so we use subvector directly.
+    absl::Span<const std::pair</*column_id*/ int, /*alias*/ absl::string_view>>
+        first_seen_column_aliases =
+            absl::MakeSpan(output_column_aliases)
+                .subspan(first_seen_col_start,
+                         /*len=*/first_seen_col_end - first_seen_col_start);
+    first_seen_column_index_to_alias = AssignColumnAliasByColumnIdAndOrder(
+        scan_column_list, first_seen_column_aliases);
+  }
+  if (!first_seen_column_index_to_alias.has_value()) {
+    return std::nullopt;
+  }
+
+  // The names of the columns in output_column_aliases[0, first_seen_col_start)
+  // have appeared in previous queries, so they will not affect the column order
+  // of the final column list. Assign aliases without worrying about the column
+  // order in `output_column_aliases`.
+  std::optional<absl::flat_hash_map<int, absl::string_view>>
+      seen_column_index_to_alias;
+  {
+    ColumnIdToAliasesMap seen_column_aliases =
+        scan_column_checker.GetScanColumnAliases(output_column_aliases,
+                                                 /*end=*/first_seen_col_start);
+    absl::flat_hash_set<int> indexes_already_assigned_alias;
+    for (const auto [index, unused] : *first_seen_column_index_to_alias) {
+      indexes_already_assigned_alias.insert(index);
+    }
+    seen_column_index_to_alias = AssignColumnAliasesByColumnId(
+        scan_column_list, seen_column_aliases,
+        /*excluded_scan_column_indexes=*/indexes_already_assigned_alias);
+  }
+  if (!seen_column_index_to_alias.has_value()) {
+    return std::nullopt;
+  }
+  absl::flat_hash_map<int, absl::string_view> column_index_to_alias;
+  column_index_to_alias.insert(first_seen_column_index_to_alias->begin(),
+                               first_seen_column_index_to_alias->end());
+  column_index_to_alias.insert(seen_column_index_to_alias->begin(),
+                               seen_column_index_to_alias->end());
+  // For FULL mode every column must be assigned with an alias because every
+  // column shows up in the final column list of the set operation.
+  ZETASQL_RET_CHECK_EQ(column_index_to_alias.size(), scan_column_list.size());
+  return column_index_to_alias;
+}
+
+absl::StatusOr<const ResolvedScan*>
+SQLBuilder::GetOriginalInputScanForCorresponding(const ResolvedScan* scan) {
+  if (!scan->Is<ResolvedProjectScan>()) {
+    return scan;
+  }
+  const ResolvedProjectScan* project_scan = scan->GetAs<ResolvedProjectScan>();
+  if (project_scan->node_source() ==
+      kNodeSourceResolverSetOperationCorresponding) {
+    // This ProjectScan is added by the resolver to match columns. Its
+    // `input_scan` is the original scan for the set operation.
+    for (const std::unique_ptr<const ResolvedComputedColumn>& expr :
+         project_scan->expr_list()) {
+      // Visit `expr_list` otherwise `CheckFieldsAccessed` will fail.
+      ZETASQL_RETURN_IF_ERROR(ProcessNode(expr.get()).status());
+    }
+    return project_scan->input_scan();
+  }
+  return scan;
+}
+
+// Returns the columns of `output_column_list` that belong to the input scan,
+// as determined by `checker`, and populates the `column_index_to_alias`, which
+// maps from the column indexes in the returned list to their column aliases.
+static absl::StatusOr<ResolvedColumnList> GetScanColumnsFromOutputColumnList(
+    const ResolvedColumnList& output_column_list,
+    const ColumnAliasList& output_column_aliases,
+    const ScanColumnChecker& checker,
+    absl::flat_hash_map</*column index*/ int, /*alias*/ absl::string_view>&
+        column_index_to_alias) {
+  ZETASQL_RET_CHECK_EQ(output_column_list.size(), output_column_aliases.size());
+
+  std::vector<ResolvedColumn> scan_columns;
+  scan_columns.reserve(output_column_list.size());
+  std::vector<absl::string_view> aliases;
+  aliases.reserve(output_column_list.size());
+
+  for (int i = 0; i < output_column_list.size(); ++i) {
+    const ResolvedColumn& column = output_column_list[i];
+    if (!checker.ColumnInScan(column.column_id())) {
+      continue;
+    }
+    scan_columns.push_back(column);
+    aliases.push_back(output_column_aliases[i].second);
+  }
+  for (int i = 0; i < aliases.size(); ++i) {
+    column_index_to_alias[i] = aliases[i];
+  }
+  return scan_columns;
 }
 
 absl::Status SQLBuilder::RenameSetOperationItemsFullMode(
     const ResolvedSetOperationScan* node,
     const std::vector<std::pair<std::string, std::string>>& final_column_list,
     std::vector<std::unique_ptr<QueryExpression>>& set_op_scan_list) {
-  return absl::UnimplementedError("FULL is not implemented");
+  // `final_column_list` positionally matches and is equivalent to the
+  // `output_column_list` of each set operation item. Their structures can be
+  // viewed as having n partitions:
+  // [<first_seen_columns_1>, <first_seen_columns_2>, ...,
+  // <first_seen_columns_n>], where n is the number of scans.
+  // <first_seen_columns_i> represents the columns whose names first appear
+  // in the i-th scan of the set operation. <first_seen_columns_1> must be
+  // non-empty, whereas other <first_seen_columns_i> can be empty.
+
+  // Represents the start of the current <first_seen_columns>.
+  int first_seen_column_start = 0;
+  for (int query_idx = 0; query_idx < node->input_item_list_size();
+       ++query_idx) {
+    const ResolvedSetOperationItem* input_item =
+        node->input_item_list(query_idx);
+    ZETASQL_RET_CHECK_EQ(input_item->output_column_list_size(),
+                 node->column_list_size());
+    ZETASQL_ASSIGN_OR_RETURN(const ResolvedScan* scan,
+                     GetOriginalInputScanForCorresponding(input_item->scan()));
+
+    // First unparse the scan of the current set operation item.
+    std::unique_ptr<QueryExpression> scan_query_expression = nullptr;
+    {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> scan_query_fragment,
+                       ProcessNode(scan));
+      scan_query_expression = std::move(scan_query_fragment->query_expression);
+      ZETASQL_RETURN_IF_ERROR(AddSelectListIfNeeded(scan->column_list(),
+                                            scan_query_expression.get()));
+    }
+
+    // Now we need to figure out which columns of the scan are selected, and
+    // assign to them the corresponding aliases in `final_column_list`. The
+    // selected columns can be categorized into two parts:
+    // - <first_seen_columns>: Columns whose name first shows up in the current
+    // scan.
+    // - <non_first_seen_columns>: Columns whose name has appeared in previous
+    // scans.
+    const ResolvedColumnList& output_column_list =
+        input_item->output_column_list();
+    ScanColumnChecker checker(scan->column_list());
+
+    // Calculate the end index (exclusive) of the <first_seen_columns> of this
+    // scan by including all the following columns from this scan.
+    // <non_first_seen_columns> are the non-placeholder
+    // columns in output_column_list[0, first_seen_column_start).
+    //
+    // It is guaranteed that size_of(input_item::output_column_list) >=
+    // size_of(scan::column_list).
+    //
+    // If a column in output_column_list[first_seen_column_start, max_size) does
+    // not exist in scan::column_list, it's a NULL padded column in current
+    // query item, and it has not shown up in any previous item or current item.
+    int first_seen_column_end = first_seen_column_start;
+    while (first_seen_column_end < output_column_list.size() &&
+           checker.ColumnInScan(
+               output_column_list[first_seen_column_end].column_id())) {
+      ++first_seen_column_end;
+    }
+
+    // Now we know which columns of this scan are first seen, and which ones are
+    // not, we can assign aliases to them based on this attribute.
+    std::optional<
+        absl::flat_hash_map</*column index*/ int, /*alias*/ absl::string_view>>
+        column_index_to_alias;
+    ZETASQL_ASSIGN_OR_RETURN(ColumnAliasList output_column_aliases,
+                     GetColumnAliases(output_column_list, final_column_list));
+    ZETASQL_ASSIGN_OR_RETURN(
+        column_index_to_alias,
+        TryAssignAliasesFull(scan->column_list(), output_column_aliases,
+                             first_seen_column_start, first_seen_column_end,
+                             checker));
+    if (!column_index_to_alias.has_value()) {
+      // Assignment failed; some aliases cannot be assigned to the columns
+      // of the scan due to b/36095506. Fall back to using the scan columns in
+      // `output_column_list` directly.
+      column_index_to_alias.emplace();
+      ZETASQL_ASSIGN_OR_RETURN(ResolvedColumnList columns_from_scan,
+                       GetScanColumnsFromOutputColumnList(
+                           output_column_list, output_column_aliases, checker,
+                           *column_index_to_alias));
+      ZETASQL_RETURN_IF_ERROR(WrapQueryExpression(scan, scan_query_expression.get()));
+      ZETASQL_RETURN_IF_ERROR(AddSelectListIfNeeded(columns_from_scan,
+                                            scan_query_expression.get()));
+    }
+    ZETASQL_RET_CHECK_OK(
+        scan_query_expression->SetAliasesForSelectList(*column_index_to_alias));
+    set_op_scan_list.push_back(std::move(scan_query_expression));
+    first_seen_column_start = first_seen_column_end;
+  }
+  return absl::OkStatus();
 }
 
 absl::Status SQLBuilder::RenameSetOperationItemsNonFullMode(
@@ -3183,6 +3486,27 @@ absl::Status SQLBuilder::RenameSetOperationItemsNonFullMode(
   }
   ZETASQL_RET_CHECK_GT(set_op_scan_list.size(), 0);
   return absl::OkStatus();
+}
+
+static std::string GetSetOperationColumnPropagationMode(
+    ResolvedSetOperationScan::SetOperationColumnMatchMode column_match_mode,
+    ResolvedSetOperationScan::SetOperationColumnPropagationMode
+        column_propagation_mode) {
+  if (column_match_mode == ResolvedSetOperationScan::BY_POSITION) {
+    // Only STRICT is allowed for BY_POSITION, and we do not print it because
+    // grammar does not allow it.
+    return "";
+  }
+  switch (column_propagation_mode) {
+    case ResolvedSetOperationScan::INNER:
+      return "";
+    case ResolvedSetOperationScan::FULL:
+      return "FULL";
+    case ResolvedSetOperationScan::LEFT:
+      return "LEFT";
+    case ResolvedSetOperationScan::STRICT:
+      return "STRICT";
+  }
 }
 
 absl::Status SQLBuilder::VisitResolvedSetOperationScan(
@@ -3269,7 +3593,10 @@ absl::Status SQLBuilder::VisitResolvedSetOperationScan(
   const auto& pair = GetOpTypePair(node->op_type());
   ZETASQL_RET_CHECK(query_expression->TrySetSetOpScanList(
       &set_op_scan_list, pair.first, pair.second,
-      GetSetOperationColumnMatchMode(node->column_match_mode()), query_hints));
+      GetSetOperationColumnMatchMode(node->column_match_mode()),
+      GetSetOperationColumnPropagationMode(node->column_match_mode(),
+                                           node->column_propagation_mode()),
+      query_hints));
   PushSQLForQueryExpression(node, query_expression.release());
   return absl::OkStatus();
 }
@@ -5946,6 +6273,13 @@ absl::Status SQLBuilder::VisitResolvedInsertStmt(
     absl::StrAppend(&sql, result->GetSQL());
   }
 
+  // Dummy access for topologically_sorted_generated_column_id_list &
+  // generated_column_expr_list.
+  node->topologically_sorted_generated_column_id_list();
+  for (const auto& generated_expr : node->generated_column_expr_list()) {
+    generated_expr->MarkFieldsAccessed();
+  }
+
   if (node->assert_rows_modified() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> assert_rows_modified,
                      ProcessNode(node->assert_rows_modified()));
@@ -6918,7 +7252,8 @@ absl::Status SQLBuilder::VisitResolvedRecursiveScan(
   // ResolvedRecurisveScan node once we add that field to ResolvedRecursiveScan.
   ZETASQL_RET_CHECK(query_expression->TrySetSetOpScanList(
       &set_op_scan_list, pair.first, pair.second,
-      /*set_op_column_match_mode=*/"", query_hints));
+      /*set_op_column_match_mode=*/"", /*set_op_column_propagation_mode=*/"",
+      query_hints));
   PushSQLForQueryExpression(node, query_expression.release());
   return absl::OkStatus();
 }

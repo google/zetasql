@@ -20,7 +20,6 @@
 #include <limits>
 
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "zetasql/base/status.h"
 
 namespace zetasql {

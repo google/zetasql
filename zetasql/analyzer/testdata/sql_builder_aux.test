@@ -494,7 +494,7 @@ create table function `my func` ( a int64 )
 CREATE TABLE FUNCTION `my func`(a INT64)
 RETURNS TABLE< INT64 > AS
   SELECT
-    a + 2 AS result;
+    a + 2 AS a_1;
 ==
 
 # Create SQL table function with quoted variable.
@@ -506,7 +506,7 @@ create table function myfunc ( `my var` int64 )
 CREATE TABLE FUNCTION myfunc(`my var` INT64)
 RETURNS TABLE< INT64 > AS
   SELECT
-    (`my var`) + 2 AS result;
+    (`my var`) + 2 AS a_1;
 ==
 
 # Create SQL table function with explicit return type.

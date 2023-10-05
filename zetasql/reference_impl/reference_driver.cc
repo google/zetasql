@@ -539,7 +539,9 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
       (options.primary_key_mode == PrimaryKeyMode::FIRST_COLUMN_IS_PRIMARY_KEY);
   evaluation_options.scramble_undefined_orderings = true;
   evaluation_options.always_use_stable_sort = true;
-  evaluation_options.max_value_byte_size = std::numeric_limits<int64_t>::max();
+  // Use a reasonably large value to accommodate all test cases, but also small
+  // enough to avoid hard to debug OOM test failures.
+  evaluation_options.max_value_byte_size = 256 * 1024 * 1024;  // 256Mb
   evaluation_options.max_intermediate_byte_size =
       std::numeric_limits<int64_t>::max();
 

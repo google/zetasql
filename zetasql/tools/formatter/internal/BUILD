@@ -99,11 +99,11 @@ cc_library(
         "//zetasql/public:parse_location",
         "//zetasql/public:parse_resume_location",
         "//zetasql/public:value",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
         "@com_googlesource_code_re2//:re2",
         "@icu//:unicode",
     ],
@@ -143,6 +143,7 @@ cc_library(
         ":token",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
     ],
 )
 

@@ -1,3 +1,4 @@
+[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 CREATE MODEL foo_model AS

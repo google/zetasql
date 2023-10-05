@@ -45,6 +45,7 @@
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/anon_function.h"
 #include "zetasql/public/anonymization_utils.h"
+#include "zetasql/public/builtin_function.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
@@ -378,8 +379,37 @@ class PublicGroupsState {
 //   a. The input scan is set to the (possibly sampled) per-user scan
 //   b. The first argument for each ANON_* function call in the anon node is
 //      re-resolved to point to the appropriate intermediate column
-//   c. A group selection threshold computing ANON_COUNT(*) function call is
-//      added
+//   c. If the `group_selection_strategy` option not set to PUBLIC_GROUPS, then
+//      a group selection threshold expression is added. Otherwise, it's not.
+//      The `group_selection_threshold_expr` is computed for every
+//      group that may appear in the output. Whether or not a group actually
+//      appears in the output is determined by the engine. In particular,
+//      engines are supposed to keep a group if and only if
+//      `group_selection_threshold_expr >= group_selection_threshold`, where
+//      `group_selection_threshold` is implementation-defined and usually
+//      computed from the ResolvedAnonymizedAggregateScan's options.
+//      The `group_selection_threshold_expr` is determined as follows:
+//      CASE 1) If the `min_privacy_units_per_group` option is unspecified or
+//         null, `group_selection_threshold_expr` means "noisy count of distinct
+//         privacy units per group". Since the input_scan to the step (5) is a
+//         per-user aggregate scan, it can be computed as follows (or any of its
+//         equivalent functions):
+//             ANON_SUM(1 CLAMPED BETWEEN 0 AND 1)
+//      CASE 2) If `min_privacy_units_per_group` is specified, the meaning of
+//         `group_selection_threshold_expr` does not change but it needs to pass
+//         two conditions to have a non-zero value:
+//          - the exact count of distinct privacy units per group needs to be
+//         greater than or equal to `min_privacy_units_per_group`
+//          - the difference between
+//          `noisy_count_distinct_privacy_units_per_group`
+//         and the `min_privacy_units_per_group` threshold is at least as large
+//         as the difference between `group_selection_threshold` and 1
+//         After combining the two conditions, it can be computed as follows:
+//             IF(exact_count_distinct_privacy_units_per_group >=
+//                  min_privacy_units_per_group,
+//                noisy_count_distinct_privacy_units_per_group -
+//                  (min_privacy_units_per_group - 1),
+//                NULL)
 //
 // If we consider the scans in the original AST as a linked list as:
 //
@@ -504,6 +534,14 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
       const OuterAggregateListRewriterVisitor& outer_rewriter_visitor,
       std::vector<std::unique_ptr<ResolvedComputedColumn>>&
           outer_aggregate_list);
+
+  // Adds a new column containing the exact number of distinct privacy ids per
+  // group to the outer_aggregate_list. A reference to that column is returned.
+  absl::StatusOr<std::unique_ptr<ResolvedExpr>>
+  AddExactCountDistinctPrivacyIdsColumnToAggregateList(
+      std::vector<std::unique_ptr<ResolvedComputedColumn>>&
+          outer_aggregate_list);
+
   // Returns the expression that should be added to the DP aggregate
   // scan as the `group_selection_threshold_expr`.
   // As a side effect, this function may add additional columns to the
@@ -513,6 +551,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   absl::StatusOr<std::unique_ptr<ResolvedExpr>> AddGroupSelectionThresholding(
       const NodeType* original_input_scan,
       const OuterAggregateListRewriterVisitor& outer_rewriter_visitor,
+      std::optional<int64_t> min_privacy_units_per_group,
       std::vector<std::unique_ptr<ResolvedComputedColumn>>&
           outer_aggregate_list);
 
@@ -3245,6 +3284,14 @@ struct PrivacyOptionSpec {
   // default value will be used.
   std::optional<int64_t> max_rows_contributed;
 
+  // The minimal number of privacy units that must contribute to a group for
+  // that group to be potentially included in the query result.
+  //
+  // If nullopt, no minimal number will be enforced. However, since only
+  // existing groups can potentially be included in the query result, this is
+  // equivalent to setting min_privacy_units_per_group to 1.
+  std::optional<int64_t> min_privacy_units_per_group;
+
   // The group selection strategy, which defaults to Laplace thresholding.
   DifferentialPrivacyEnums::GroupSelectionStrategy group_selection_strategy =
       DifferentialPrivacyEnums::LAPLACE_THRESHOLD;
@@ -3263,6 +3310,7 @@ absl::StatusOr<PrivacyOptionSpec> PrivacyOptionSpec::FromScanOptions(
     const LanguageOptions& language_options) {
   std::optional<Value> max_groups_contributed;
   std::optional<Value> max_rows_contributed;
+  std::optional<Value> min_privacy_units_per_group;
   std::optional<DifferentialPrivacyEnums::GroupSelectionStrategy>
       group_selection_strategy;
   for (const auto& option : scan_options) {
@@ -3284,6 +3332,18 @@ absl::StatusOr<PrivacyOptionSpec> PrivacyOptionSpec::FromScanOptions(
           max_rows_contributed,
           ValidatePositiveInt32Option(*option, "Option MAX_ROWS_CONTRIBUTED"));
     } else if (zetasql_base::CaseEqual(option->name(),
+                                      "min_privacy_units_per_group")) {
+      // The following two conditions were already checked in the resolver.
+      ZETASQL_RET_CHECK(language_options.LanguageFeatureEnabled(
+          FEATURE_DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP))
+          << "FEATURE DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP is not "
+             "enabled.";
+      ZETASQL_RET_CHECK(!min_privacy_units_per_group.has_value())
+          << "min_privacy_units_per_group can only be set once";
+      ZETASQL_ASSIGN_OR_RETURN(min_privacy_units_per_group,
+                       ValidatePositiveInt32Option(
+                           *option, "Option MIN_PRIVACY_UNITS_PER_GROUP"));
+    } else if (zetasql_base::CaseEqual(option->name(),
                                       "group_selection_strategy")) {
       ZETASQL_ASSIGN_OR_RETURN(
           group_selection_strategy,
@@ -3294,6 +3354,18 @@ absl::StatusOr<PrivacyOptionSpec> PrivacyOptionSpec::FromScanOptions(
   }
 
   PrivacyOptionSpec privacy_option_spec;
+  if (!min_privacy_units_per_group.has_value()) {
+    // Option not found, return no value.
+    privacy_option_spec.min_privacy_units_per_group = std::nullopt;
+  } else if (min_privacy_units_per_group->is_null()) {
+    // Null values are interpreted as if min_privacy_units_per_group were
+    // omitted.
+    privacy_option_spec.min_privacy_units_per_group = std::nullopt;
+  } else {
+    privacy_option_spec.min_privacy_units_per_group =
+        min_privacy_units_per_group->int64_value();
+  }
+
   // This condition was already checked in the resolver.
   ZETASQL_RET_CHECK(
       !(max_groups_contributed.has_value() && max_rows_contributed.has_value()))
@@ -4018,7 +4090,7 @@ absl::Status ExtractPublicGroupColumns(
     return MakeSqlErrorAtNode(*node)
            << error_prefix
            << " PUBLIC_GROUPS only allows column names out of the public group "
-              "SELECT DISINTCT subquery in the GROUP BY list.";
+              "SELECT DISTINCT subquery in the GROUP BY list.";
   }
   public_group_columns.insert(node->GetAs<ResolvedColumnRef>()->column());
   return absl::OkStatus();
@@ -4228,17 +4300,73 @@ RewriterVisitor::IdentifyOrAddNoisyCountDistinctPrivacyIdsColumnToAggregateList(
   }
   return noisy_count_distinct_privacy_ids_column;
 }
+
+absl::StatusOr<std::unique_ptr<ResolvedExpr>>
+RewriterVisitor::AddExactCountDistinctPrivacyIdsColumnToAggregateList(
+    std::vector<std::unique_ptr<ResolvedComputedColumn>>&
+        outer_aggregate_list) {
+  // Create aggregate function call SUM(1). Since the "outer aggregation"
+  // aggregates over the per privacy unit aggregates, this counts the number
+  // of distinct privacy ids in each group.
+  std::vector<std::unique_ptr<const ResolvedExpr>> argument_list;
+  argument_list.emplace_back(MakeResolvedLiteral(Value::Int64(1)));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> sum,
+                   ResolveFunctionCall(FunctionSignatureIdToName(FN_SUM_INT64),
+                                       std::move(argument_list),
+                                       /*named_arguments=*/{}, resolver_));
+
+  ResolvedColumn exact_count_distinct_privacy_units_col = allocator_->MakeCol(
+      "$anon", "$exact_count_distinct_privacy_units_col", sum->type());
+  outer_aggregate_list.emplace_back(MakeResolvedComputedColumn(
+      exact_count_distinct_privacy_units_col, std::move(sum)));
+  return MakeColRef(outer_aggregate_list.back()->column());
+}
+
 template <typename NodeType>
 absl::StatusOr<std::unique_ptr<ResolvedExpr>>
 RewriterVisitor::AddGroupSelectionThresholding(
     const NodeType* original_input_scan,
     const OuterAggregateListRewriterVisitor& outer_rewriter_visitor,
+    std::optional<int64_t> min_privacy_units_per_group,
     std::vector<std::unique_ptr<ResolvedComputedColumn>>&
         outer_aggregate_list) {
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedExpr> noisy_count_distinct_privacy_ids_expr,
       IdentifyOrAddNoisyCountDistinctPrivacyIdsColumnToAggregateList(
           original_input_scan, outer_rewriter_visitor, outer_aggregate_list));
+
+  // Use the "pre-thresholding strategy" if max_privacy_units_per_group has a
+  // value.
+  if (analyzer_options_->language().LanguageFeatureEnabled(
+          FEATURE_DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP) &&
+      min_privacy_units_per_group.has_value()) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<ResolvedExpr> exact_count_distinct_privacy_ids_expr,
+        AddExactCountDistinctPrivacyIdsColumnToAggregateList(
+            outer_aggregate_list));
+    FunctionCallBuilder builder(*analyzer_options_, *catalog_, *type_factory_);
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedExpr> condition,
+        builder.GreaterOrEqual(
+            std::move(exact_count_distinct_privacy_ids_expr),
+            MakeResolvedLiteral(Value::Int64(*min_privacy_units_per_group))));
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedExpr> then,
+        builder.SafeSubtract(std::move(noisy_count_distinct_privacy_ids_expr),
+                             MakeResolvedLiteral(Value::Int64(
+                                 *min_privacy_units_per_group - 1))));
+
+    // Note that the else part yields NULL. The crucial underlying assumption
+    // here is that the engine will drop pratitions/groups if the
+    // `group_selection_thresholding_expr` (the return value of this function)
+    // is NULL. This assumed behaviour is justified by the contract that the
+    // engine is supposed to act as if the we added a `HAVING
+    // group_selection_thresholding_expr >= <engine-defined-threshold>` and that
+    // according to the ZetaSQL documentation a NULL value in a HAVING clause
+    // is interpreted as false.
+    return builder.If(std::move(condition), std::move(then),
+                      /*else*/ MakeResolvedLiteral(Value::NullInt64()));
+  }
   return noisy_count_distinct_privacy_ids_expr;
 }
 
@@ -4328,10 +4456,11 @@ RewriterVisitor::BoundGroupsContributedToInputScan(
 
   std::unique_ptr<ResolvedExpr> group_selection_threshold_expr;
   if (public_groups_state_ == nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        group_selection_threshold_expr,
-        AddGroupSelectionThresholding(
-            original_input_scan, outer_rewriter_visitor, outer_aggregate_list));
+    ZETASQL_ASSIGN_OR_RETURN(group_selection_threshold_expr,
+                     AddGroupSelectionThresholding(
+                         original_input_scan, outer_rewriter_visitor,
+                         privacy_option_spec.min_privacy_units_per_group,
+                         outer_aggregate_list));
   }
 
   // GROUP BY columns in the cross-user scan are always simple column
@@ -4429,6 +4558,11 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
 
   if (privacy_options_spec.group_selection_strategy ==
       DifferentialPrivacyEnums::PUBLIC_GROUPS) {
+    if (privacy_options_spec.min_privacy_units_per_group.has_value()) {
+      return MakeSqlErrorAtNode(*node)
+             << "The MIN_PRIVACY_UNITS_PER_GROUP option must not be specified "
+                "if GROUP_SELECTION_STRATEGY=PUBLIC_GROUPS";
+    }
     const bool bound_contribution_across_groups =
         privacy_options_spec.max_groups_contributed.has_value();
     ZETASQL_ASSIGN_OR_RETURN(
@@ -4452,6 +4586,14 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
         << "There is no way to bound max rows without explicitly specifying "
            "max_rows_contributed, since the default contribution bounding "
            "strategy is BOUNDING_MAX_GROUPS.";
+    if (privacy_options_spec.min_privacy_units_per_group.has_value()) {
+      // TODO: Implement this as part of the implementation of l1
+      // contribution bounding.
+      return absl::UnimplementedError(
+          "MIN_PRIVACY_UNITS_PER_GROUP is not yet implemented for the "
+          "contribution bounding strategy BOUNDING_MAX_ROWS");
+    }
+
     ZETASQL_ASSIGN_OR_RETURN(result,
                      BoundRowsContributedToInputScan(
                          node, std::move(rewrite_per_user_result),

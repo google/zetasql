@@ -55,11 +55,6 @@ known_errors {
   label: "pivot_test:pivot_st_nearest_neighbors"
 }
 known_errors {
-  reason: "UUID support not yet open source (b/174486477)"
-  # UUID
-  label: ".*uuid.*"
-}
-known_errors {
   reason: "Named Extension support not yet open source (b/174488632)"
   # Proto Named Extensions
   label: "replace_fields_test:replace_fields_proto_named_extension"

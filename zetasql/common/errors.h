@@ -252,15 +252,6 @@ inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
                                      input_string, new_status);
 }
 
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
-    ErrorMessageMode mode, absl::string_view input_string,
-    const absl::Status& status) {
-  return ConvertInternalErrorLocationAndAdjustErrorString(
-      mode, /*keep_error_location_payload=*/mode == ERROR_MESSAGE_WITH_PAYLOAD,
-      input_string, status);
-}
-
 // Same as above, but for a vector of absl::Statuses.
 inline std::vector<absl::Status>
 ConvertInternalErrorLocationsAndAdjustErrorStrings(

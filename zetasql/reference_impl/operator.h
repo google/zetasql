@@ -64,7 +64,6 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
-#include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/hash/hash.h"
@@ -1277,7 +1276,7 @@ class EvaluatorTableScanOp final : public RelationalOp {
   // Returns a ColumnFilter corresponding to the intersection of 'filters'. This
   // method is only public for unit testing purposes.
   static absl::StatusOr<std::unique_ptr<ColumnFilter>> IntersectColumnFilters(
-      const std::vector<std::unique_ptr<ColumnFilter>>& filters);
+      absl::Span<const std::unique_ptr<ColumnFilter>> filters);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -3356,7 +3355,7 @@ class DMLValueExpr : public ValueExpr {
 
   // Looks up a column expression by ResolveColumn's 'column_id'. Returns NULL
   // if the column doesn't have an expression associated with it.
-  ValueExpr* LookupDefaultExpr(int resolved_column_id) const;
+  ValueExpr* LookupDefaultOrGeneratedExpr(int resolved_column_id) const;
 
   // Returns a absl::Status corresponding to whether 'actual_num_rows_modified'
   // matches 'assert_rows_modified' (which may be NULL, which results in

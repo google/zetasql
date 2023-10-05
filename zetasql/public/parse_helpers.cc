@@ -312,6 +312,7 @@ absl::Status GetNextStatementProperties(
     case AST_DROP_STATEMENT:
     case AST_UNDROP_STATEMENT:
     case AST_RENAME_STATEMENT:
+    case AST_CREATE_SNAPSHOT_STATEMENT:
       statement_properties->statement_category = StatementProperties::DDL;
       break;
     case AST_DELETE_STATEMENT:

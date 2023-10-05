@@ -728,6 +728,16 @@ TEST(StringToTimestampTests, EmptyStringViewTests) {
   }
 }
 
+TEST(StringToTimeTest, ErrorMessageDetail) {
+  TimeValue time_value;
+  EXPECT_THAT(
+      ParseStringToTime("abcd", "abee", kMicroseconds, &time_value),
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          HasSubstr("Mismatch between format character 'c' and string "
+                    "character 'e' at string index: 2 with format: 'abcd'")));
+}
+
 TEST(StringToTimestampTests, LeadingAndTrailingWhitespaceTests) {
   // %n and %t both consume arbitrary whitespace
   absl::string_view format0("");

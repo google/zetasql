@@ -42,7 +42,12 @@ TEST(ScopedTimer, ScopedTimerWallTimeApproxCorrect) {
     TimedValue accumulate;
     {
       auto timer = MakeScopedTimerStarted(&accumulate);
-      absl::SleepFor(sleep_duration);
+      int64_t counter = 0;
+      absl::Time end = absl::Now() + sleep_duration;
+      do {
+        ++counter;
+      } while (absl::Now() < end);
+      EXPECT_GT(counter, 0);
     }
     const absl::Duration measured_wall =
         ProtoDurationToAbseil(accumulate.ToExecutionStatsProto().wall_time());
@@ -50,11 +55,11 @@ TEST(ScopedTimer, ScopedTimerWallTimeApproxCorrect) {
         ProtoDurationToAbseil(accumulate.ToExecutionStatsProto().cpu_time());
     EXPECT_GE(measured_wall, sleep_duration);
     EXPECT_GE(measured_wall, measured_cpu);
-    EXPECT_GE(measured_cpu, absl::ZeroDuration());
+    EXPECT_GT(measured_cpu, absl::ZeroDuration());
     EXPECT_GT(accumulate.ToExecutionStatsProto().stack_available_bytes(), 0);
     EXPECT_GE(accumulate.ToExecutionStatsProto().stack_peak_used_bytes(), 0);
     const absl::Duration expected = sleep_duration;
-    const absl::Duration tolerance = absl::Milliseconds(30);
+    const absl::Duration tolerance = absl::Milliseconds(50);
 
     if (absl::AbsDuration(expected - measured_wall) < tolerance) {
       return;

@@ -44,7 +44,6 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.h"  
-#include <cstdint>
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"

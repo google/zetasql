@@ -186,11 +186,6 @@ class ResolvedNode {
         DebugStringConfig{.annotations = {}, .print_accessed = false});
   }
 
-  ABSL_DEPRECATED("Inline me!")
-  std::string DebugString(absl::Span<const NodeAnnotation> annotations) const {
-    return DebugString(DebugStringConfig{annotations, false});
-  }
-
   // Check if any semantically meaningful fields have not been accessed in
   // this node or its children. If so, return a descriptive error indicating
   // some feature is unimplemented.
