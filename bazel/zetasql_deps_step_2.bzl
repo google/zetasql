@@ -16,6 +16,7 @@
 
 """ Step 2 to load ZetaSQL dependencies. """
 
+load("@bazel_gazelle//:deps.bzl", "go_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Followup from zetasql_deps_step_1.bzl
@@ -407,6 +408,11 @@ alias(
         m4_register_toolchains(version = "1.4.18")
         flex_register_toolchains(version = "2.6.4")
         bison_register_toolchains(version = "3.3.2")
+        go_repository(
+            name = "com_github_inspirer_textmapper",
+            commit = "e0aa14dc6db169c7afdf6908e810b5d12bbae2db",
+            importpath = "github.com/inspirer/textmapper",
+        )
 
         ##########################################################################
         # Rules which depend on rules_foreign_cc

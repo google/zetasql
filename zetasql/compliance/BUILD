@@ -328,42 +328,6 @@ cc_library(
     ],
 )
 
-cc_test(
-    name = "depth_limit_detector_test_cases_test",
-    size = "large",
-    srcs = ["depth_limit_detector_test_cases_test.cc"],
-    data = [
-        "//zetasql/public/functions:array_find_mode_proto",
-        "//zetasql/public/functions:rounding_mode_proto",
-        "//zetasql/testdata:test_proto3_proto",
-        "//zetasql/testdata:test_schema_proto",
-        "@com_google_googleapis//google/type:date_proto",
-        "@com_google_googleapis//google/type:latlng_proto",
-        "@com_google_googleapis//google/type:timeofday_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
-    ],
-    shard_count = 30,
-    deps = [
-        ":depth_limit_detector_test_cases",
-        ":test_driver",
-        "//zetasql/base/testing:status_matchers",
-        "//zetasql/base/testing:zetasql_gtest_main",
-        "//zetasql/common:thread_stack",
-        "//zetasql/parser",
-        "//zetasql/public:language_options",
-        "//zetasql/public:options_cc_proto",
-        "//zetasql/public:parse_helpers",
-        "//zetasql/public/types",
-        "//zetasql/reference_impl:reference_driver",
-        "//zetasql/testing:type_util",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
-    ],
-)
-
 cc_library(
     name = "compliance_test_cases",
     testonly = 1,

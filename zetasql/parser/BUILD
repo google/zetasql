@@ -20,6 +20,7 @@
 # Placeholder: load py_test
 load("//bazel:bison.bzl", "genyacc")
 load("//bazel:flex.bzl", "genlex")
+load("//bazel:textmapper.bzl", "tm_syntax")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load(":builddefs.bzl", "gen_parser_test")
 

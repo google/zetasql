@@ -26,6 +26,28 @@ load("@com_google_zetasql//bazel:zetasql_bazel_version.bzl", "zetasql_bazel_vers
 def zetasql_deps_step_1(add_bazel_version = True):
     if add_bazel_version:
         zetasql_bazel_version()
+
+    # Install newer versions of io_bazel_rules_go and gazelle to import Textmapper from github
+    # Make sure this is installed first. Otherwise, grpc_deps.bzl would attempt to use older
+    # versions, which have some bugs when downloading the go toolchains.
+    http_archive(
+        name = "io_bazel_rules_go",
+        sha256 = "278b7ff5a826f3dc10f04feaf0b70d48b68748ccd512d7f98bf442077f043fe3",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
+        ],
+    )
+
+    http_archive(
+        name = "bazel_gazelle",
+        sha256 = "d3fa66a39028e97d76f9e2db8f1b0c11c099e8e01bf363a923074784e451f809",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.33.0/bazel-gazelle-v0.33.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.33.0/bazel-gazelle-v0.33.0.tar.gz",
+        ],
+    )
+
     http_archive(
         name = "platforms",
         sha256 = "5308fc1d8865406a49427ba24a9ab53087f17f5266a7aabbfc28823f3916e1ca",

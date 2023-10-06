@@ -29,6 +29,7 @@ exports_files([
     "bison.bzl",
     "flex.bzl",
     "maven_install.json",
+    "textmapper.bzl",
     "zetasql_deps_step_1.bzl",
     "zetasql_deps_step_2.bzl",
     "zetasql_deps_step_3.bzl",
