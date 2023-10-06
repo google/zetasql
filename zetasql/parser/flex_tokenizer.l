@@ -40,15 +40,16 @@
    the normal rules. */
 %x DOT_IDENTIFIER
 
-/* This inclusive state is for in ARRAY<...> and STRUCT<...>. It turns off the
-   parsing of <<, >>, and <>, but leaves everything else the same. Doing this in
-   the tokenizer avoids complicated rules and duplication at the parser level.
+/* This inclusive state is for in ARRAY<...>, STRUCT<...>, and RANGE<...>. It
+   turns off the parsing of <<, >>, and <>, but leaves everything else the same.
+   Doing this in the tokenizer avoids complicated rules and duplication at the
+   parser level.
 
    This state is marked %s, which means that all rules are active unless they
    provide an explicit list of states that do not include
-   IN_ARRAY_OR_STRUCT_TYPE.
+   IN_TEMPLATED_TYPE.
 */
-%s IN_ARRAY_OR_STRUCT_TYPE
+%s IN_TEMPLATED_TYPE
 
 /* This inclusive state is for BETWEEN...AND. In this state, everything works
    as normal, but the "AND" keyword is returned as KW_AND_FOR_BETWEEN instead of
@@ -895,10 +896,11 @@ zone { return BisonParserImpl::token::KW_ZONE; }
  /* Don't recognize these in ARRAY<> or STRUCT<> context. */
 "<>"                      {
   if (prev_flex_token_ == BisonParserImpl::token::KW_ARRAY ||
-      prev_flex_token_ == BisonParserImpl::token::KW_STRUCT) {
+      prev_flex_token_ == BisonParserImpl::token::KW_STRUCT ||
+      prev_flex_token_ == BisonParserImpl::token::KW_RANGE) {
     // Match only the '<', and move to the same state that that production would
     // have moved to.
-    yy_push_state(IN_ARRAY_OR_STRUCT_TYPE);
+    yy_push_state(IN_TEMPLATED_TYPE);
     SET_RETURN_PREFIX_LENGTH(1);
     return '<';
   }
@@ -914,18 +916,19 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 }
 "<"                       {
   if (prev_flex_token_ == BisonParserImpl::token::KW_ARRAY ||
-      prev_flex_token_ == BisonParserImpl::token::KW_STRUCT) {
+      prev_flex_token_ == BisonParserImpl::token::KW_STRUCT ||
+      prev_flex_token_ == BisonParserImpl::token::KW_RANGE) {
     // Switch to a mode that does not recognize >>. This only works as long as
     // there are no legal "independent" < and > inside array or struct types
     // (i.e., without ARRAY or STRUCT preceding) in the grammar. If there are,
     // then the state pushes and pops would become unbalanced, because ">" pops
     // this state.
-    yy_push_state(IN_ARRAY_OR_STRUCT_TYPE);
+    yy_push_state(IN_TEMPLATED_TYPE);
   }
   return '<';
 }
 ">"                       {
-  if (YY_START == IN_ARRAY_OR_STRUCT_TYPE) yy_pop_state();
+  if (YY_START == IN_TEMPLATED_TYPE) yy_pop_state();
   return '>';
 }
 ">="                      { return BisonParserImpl::token::KW_GREATER_EQUALS; }

@@ -6620,6 +6620,19 @@ value.
       fields=[])
 
   gen.AddNode(
+      name='ResolvedAlterColumnDropGeneratedAction',
+      tag_id=243,
+      parent='ResolvedAlterColumnAction',
+      comment="""
+      This ALTER action:
+        ALTER COLUMN [IF EXISTS] <column> DROP GENERATED
+
+      Removes the generated value (either an expression or identity column)
+      from the given column.
+              """,
+      fields=[])
+
+  gen.AddNode(
       name='ResolvedAlterColumnSetDataTypeAction',
       tag_id=181,
       parent='ResolvedAlterColumnAction',

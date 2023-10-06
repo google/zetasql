@@ -1523,6 +1523,12 @@ class Resolver {
       const Table* table, const ASTAlterColumnDropDefaultAction* action,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
+  // `table` can be nullptr. If the table does not exist in the catalog, we try
+  // to resolve the ALTER statement anyway.
+  absl::Status ResolveAlterColumnDropGeneratedAction(
+      const Table* table, const ASTAlterColumnDropGeneratedAction& action,
+      std::unique_ptr<const ResolvedAlterAction>& alter_action);
+
   absl::Status ResolveSetCollateClause(
       const ASTSetCollateClause* action,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);

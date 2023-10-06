@@ -30,138 +30,224 @@ literals and parameters can also be coerced. See
 [parameter coercion][con-rules-link-to-parameter-coercion] for details.
 
 <table>
-<thead>
-<tr>
-<th>From type</th>
-<th>Cast to</th>
-<th>Coerce to</th>
-</tr>
-</thead>
-<tbody>
+  <thead>
+    <tr>
+      <th>From type</th>
+      <th>Cast to</th>
+      <th>Coerce to</th>
+    </tr>
+  </thead>
+  <tbody>
 
-<tr>
-<td>INT32</td>
-<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>INT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>DOUBLE</span><br /></td>
-</tr>
+    <tr>
+      <td><code>INT32</code></td>
+      <td>
 
-<tr>
-<td>INT64</td>
-<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>DOUBLE</span><br /></td>
-</tr>
+<span><code>BOOL</code></span><br /><span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br /><span><code>ENUM</code></span><br />
+</td>
+      <td>
 
-<tr>
-<td>UINT32</td>
-<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>INT64</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>DOUBLE</span><br /></td>
-</tr>
+<span><code>INT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
+    </tr>
 
-<tr>
-<td>UINT64</td>
-<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>DOUBLE</span><br /></td>
-</tr>
+    <tr>
+      <td><code>INT64</code></td>
+      <td>
 
-<tr>
-<td>NUMERIC</td>
-<td><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /></td>
-<td><span>BIGNUMERIC</span><br /><span>DOUBLE</span><br /></td>
-</tr>
+<span><code>BOOL</code></span><br /><span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br /><span><code>ENUM</code></span><br />
+</td>
+      <td>
 
-<tr>
-<td>BIGNUMERIC</td>
-<td><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /></td>
-<td><span>DOUBLE</span><br /></td>
-</tr>
+<span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
+    </tr>
 
-<tr>
-<td>FLOAT</td>
-<td><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /></td>
-<td><span>DOUBLE</span><br /></td>
-</tr>
+    <tr>
+      <td><code>UINT32</code></td>
+      <td>
 
-<tr>
-<td>DOUBLE</td>
-<td><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /></td>
-<td>&nbsp;</td>
-</tr>
+<span><code>BOOL</code></span><br /><span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br /><span><code>ENUM</code></span><br />
+</td>
+      <td>
 
-<tr>
-<td>BOOL</td>
-<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>STRING</span><br /></td>
-<td>&nbsp;</td>
-</tr>
+<span><code>INT64</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
+    </tr>
 
-<tr>
-<td>STRING</td>
-<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>BIGNUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>BYTES</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /><span>ENUM</span><br /><span>PROTO</span><br /></td>
-<td>&nbsp;</td>
-</tr>
+    <tr>
+      <td><code>UINT64</code></td>
+      <td>
 
-<tr>
-<td>BYTES</td>
-<td><span>STRING</span><br /><span>BYTES</span><br /><span>PROTO</span><br /></td>
-<td>&nbsp;</td>
-</tr>
+<span><code>BOOL</code></span><br /><span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br /><span><code>ENUM</code></span><br />
+</td>
+      <td>
 
-<tr>
-<td>DATE</td>
-<td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIMESTAMP</span><br /></td>
-<td><span>DATETIME</span><br /></td>
-</tr>
+<span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
+    </tr>
 
-<tr>
-<td>DATETIME</td>
-<td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
-<td>&nbsp;</td>
-</tr>
+    <tr>
+      <td><code>NUMERIC</code></td>
+      <td>
 
-<tr>
-<td>TIME</td>
-<td><span>STRING</span><br /><span>TIME</span><br /></td>
-<td>&nbsp;</td>
-</tr>
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br />
+</td>
+      <td>
 
-<tr>
-<td>TIMESTAMP</td>
-<td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
-<td>&nbsp;</td>
-</tr>
+<span><code>BIGNUMERIC</code></span><br /><span><code>DOUBLE</code></span><br />
+</td>
+    </tr>
 
-<tr>
-<td>ARRAY</td>
-<td>ARRAY</td>
-<td>&nbsp;</td>
-</tr>
+    <tr>
+      <td><code>BIGNUMERIC</code></td>
+      <td>
 
-<tr>
-<td>ENUM</td>
-<td><span>
-ENUM
-(with the same ENUM name)
-</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>STRING</span><br /></td>
-<td>ENUM
-(with the same ENUM name)</td>
-</tr>
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br />
+</td>
+      <td>
 
-<tr>
-<td>STRUCT</td>
-<td>STRUCT</td>
-<td>&nbsp;</td>
-</tr>
+<span><code>DOUBLE</code></span><br />
+</td>
+    </tr>
 
-<tr>
-<td>PROTO</td>
-<td><span>
-PROTO
-(with the same PROTO name)
-</span><br /><span>STRING</span><br /><span>BYTES</span><br /></td>
-<td>PROTO
-(with the same PROTO name)</td>
-</tr>
+    <tr>
+      <td><code>FLOAT</code></td>
+      <td>
 
-</tbody>
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br />
+</td>
+      <td>
+
+<span><code>DOUBLE</code></span><br />
+</td>
+    </tr>
+
+    <tr>
+      <td><code>DOUBLE</code></td>
+      <td>
+
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br />
+</td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td><code>BOOL</code></td>
+      <td>
+
+<span><code>BOOL</code></span><br /><span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>STRING</code></span><br />
+</td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td><code>STRING</code></td>
+      <td>
+
+<span><code>BOOL</code></span><br /><span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br /><span><code>BYTES</code></span><br /><span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIME</code></span><br /><span><code>TIMESTAMP</code></span><br /><span><code>ENUM</code></span><br /><span><code>PROTO</code></span><br />
+
+      </td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td><code>BYTES</code></td>
+      <td>
+
+<span><code>STRING</code></span><br /><span><code>BYTES</code></span><br /><span><code>PROTO</code></span><br />
+</td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td><code>DATE</code></td>
+      <td>
+
+<span><code>STRING</code></span><br /><span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIMESTAMP</code></span><br />
+</td>
+      <td>
+
+<span><code>DATETIME</code></span><br />
+</td>
+    </tr>
+
+    <tr>
+      <td><code>DATETIME</code></td>
+      <td>
+
+<span><code>STRING</code></span><br /><span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIME</code></span><br /><span><code>TIMESTAMP</code></span><br />
+</td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td><code>TIME</code></td>
+      <td>
+
+<span><code>STRING</code></span><br /><span><code>TIME</code></span><br />
+</td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td><code>TIMESTAMP</code></td>
+      <td>
+
+<span><code>STRING</code></span><br /><span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIME</code></span><br /><span><code>TIMESTAMP</code></span><br />
+</td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td><code>ARRAY</code></td>
+      <td>
+
+<span><code>ARRAY</code></span><br />
+</td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td><code>ENUM</code></td>
+      <td>
+        <span>
+          <code>ENUM</code>
+          (with the same <code>ENUM</code> name)
+        </span><br />
+        
+
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>STRING</code></span><br />
+
+      </td>
+      <td><code>ENUM</code> (with the same <code>ENUM</code> name)</td>
+    </tr>
+
+    <tr>
+      <td><code>STRUCT</code></td>
+      <td>
+
+<span><code>STRUCT</code></span><br />
+</td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr>
+      <td><code>PROTO</code></td>
+      <td>
+        <span>
+          <code>PROTO</code>
+          (with the same <code>PROTO</code> name)
+        </span><br />
+        
+
+<span><code>STRING</code></span><br /><span><code>BYTES</code></span><br />
+
+      </td>
+      <td><code>PROTO</code> (with the same <code>PROTO</code> name)</td>
+    </tr>
+
+  </tbody>
 </table>
 
 ### Casting
@@ -187,58 +273,64 @@ coerced to `DOUBLE` type before `func()` is computed.
 ZetaSQL supports the following literal coercions:
 
 <table>
-<thead>
-<tr>
-<th>Input data type</th>
-<th>Result data type</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
+  <thead>
+    <tr>
+      <th>Input data type</th>
+      <th>Result data type</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
 
-<tr>
-<td>Integer literal</td>
-<td><span> INT32</span><br /><span> UINT32</span><br /><span> UINT64</span><br /><span> ENUM</span><br /></td>
-<td>
+  <tr>
+    <td>Integer literal</td>
+    <td>
 
-Integer literals will implicitly coerce to ENUM type when necessary, or can
-be explicitly CAST to a specific ENUM type name.
-
+<span><code>INT32</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>ENUM</code></span><br />
 </td>
-</tr>
+    <td>
+      
+      Integer literals will implicitly coerce to <code>ENUM</code> type when
+      necessary, or can be explicitly cast to a specific
+      <code>ENUM</code> type name.
+      
+    </td>
+  </tr>
 
-<tr>
-<td>DOUBLE literal</td>
-<td>
+  <tr>
+    <td><code>DOUBLE</code> literal</td>
+    <td>
 
-<span> NUMERIC</span><br />
-
-<span> FLOAT</span><br />
-
+<span><code>NUMERIC</code></span><br /><span><code>FLOAT</code></span><br />
 </td>
-<td>Coercion may not be exact, and returns a close value.</td>
-</tr>
+    <td>Coercion may not be exact, and returns a close value.</td>
+  </tr>
 
-<tr>
-<td>STRING literal</td>
-<td><span> DATE</span><br /><span> DATETIME</span><br /><span> TIME</span><br /><span> TIMESTAMP</span><br /><span> ENUM</span><br /><span> PROTO</span><br /></td>
-<td>
+  <tr>
+    <td><code>STRING</code> literal</td>
+    <td>
 
-String literals will implicitly coerce to PROTO
-or ENUM type when necessary, or can
-be explicitly CAST to a specific PROTO or
-ENUM type name.
-
+<span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIME</code></span><br /><span><code>TIMESTAMP</code></span><br /><span><code>ENUM</code></span><br /><span><code>PROTO</code></span><br />
 </td>
-</tr>
+    <td>
+      
+      String literals will implicitly coerce to <code>PROTO</code> or
+      <code>ENUM</code> type when necessary, or can be explicitly cast to a specific
+      <code>PROTO</code> or <code>ENUM</code> type name.
+      
+    </td>
+  </tr>
 
-<tr>
-<td>BYTES literal</td>
-<td>PROTO</td>
-<td>&nbsp;</td>
-</tr>
+  <tr>
+    <td><code>BYTES</code> literal</td>
+    <td>
 
-</tbody>
+<span><code>PROTO</code></span><br />
+</td>
+    <td>&nbsp;</td>
+  </tr>
+
+  </tbody>
 </table>
 
 Literal coercion is needed when the actual literal type is different from the
@@ -258,35 +350,44 @@ Note: String literals do not coerce to numeric types.
 ZetaSQL supports the following parameter coercions:
 
 <table>
-<thead>
-<tr>
-<th>Input data type</th>
-<th>Result data type</th>
-</tr>
-</thead>
-<tbody>
+  <thead>
+    <tr>
+      <th>Input data type</th>
+      <th>Result data type</th>
+    </tr>
+  </thead>
+  <tbody>
 
-<tr>
-<td>INT32 parameter</td>
-<td>ENUM</td>
-</tr>
+    <tr>
+      <td><code>INT32</code> parameter</td>
+      <td>
 
-<tr>
-<td>INT64 parameter</td>
-<td>ENUM</td>
-</tr>
+<span><code>ENUM</code></span><br />
+</td>
+    </tr>
 
-<tr>
-<td>STRING parameter</td>
-<td><span> DATE</span><br /><span> DATETIME</span><br /><span> TIME</span><br /><span> TIMESTAMP</span><br /><span> ENUM</span><br /><span> PROTO</span><br /></td>
-</tr>
+    <tr>
+      <td><code>INT64</code> parameter</td>
+      <td>
 
-<tr>
-<td>BYTES parameter</td>
-<td>PROTO</td>
-</tr>
+<span><code>ENUM</code></span><br />
+</td>
+    </tr>
 
-</tbody>
+    <tr>
+      <td><code>STRING parameter</code></td>
+      <td>
+
+<span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIME</code></span><br /><span><code>TIMESTAMP</code></span><br /><span><code>ENUM</code></span><br /><span><code>PROTO</code></span><br />
+</td>
+    </tr>
+
+    <tr>
+      <td><code>BYTES</code> parameter</td>
+      <td><code>PROTO</code></td>
+    </tr>
+
+  </tbody>
 </table>
 
 If the parameter value cannot be coerced successfully to the target type, an
@@ -307,183 +408,179 @@ or more supertypes, including itself, which defines its set of supertypes.
     </tr>
   </thead>
   <tbody>
-    
+
     <tr>
-      <td>BOOL</td>
-      <td>BOOL</td>
+      <td><code>BOOL</code></td>
+      <td>
+
+<span><code>BOOL</code></span><br />
+</td>
     </tr>
-    
-    
+
     <tr>
-      <td>INT32</td>
+      <td><code>INT32</code></td>
       <td>
 
 <span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>INT64</td>
+      <td><code>INT64</code></td>
       <td>
 
 <span><code>INT64</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>UINT32</td>
+      <td><code>UINT32</code></td>
       <td>
 
 <span><code>UINT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT64</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>UINT64</td>
+      <td><code>UINT64</code></td>
       <td>
 
 <span><code>UINT64</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>FLOAT</td>
+      <td><code>FLOAT</code></td>
       <td>
 
 <span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>DOUBLE</td>
+      <td><code>DOUBLE</code></td>
       <td>
 
 <span><code>DOUBLE</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>NUMERIC</td>
+      <td><code>NUMERIC</code></td>
       <td>
 
 <span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>DECIMAL</td>
+      <td><code>DECIMAL</code></td>
       <td>
 
 <span><code>DECIMAL</code></span><br /><span><code>BIGDECIMAL</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>BIGNUMERIC</td>
+      <td><code>BIGNUMERIC</code></td>
       <td>
 
 <span><code>BIGNUMERIC</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>BIGDECIMAL</td>
+      <td><code>BIGDECIMAL</code></td>
       <td>
 
 <span><code>BIGDECIMAL</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
-    
-    
+
     <tr>
-      <td>STRING</td>
-      <td>STRING</td>
-    </tr>
-    
-    
-    <tr>
-      <td>DATE</td>
-      <td>DATE</td>
-    </tr>
-    
-    
-    <tr>
-      <td>TIME</td>
-      <td>TIME</td>
-    </tr>
-    
-    
-    <tr>
-      <td>DATETIME</td>
-      <td>DATETIME</td>
-    </tr>
-    
-    
-    <tr>
-      <td>TIMESTAMP</td>
-      <td>TIMESTAMP</td>
-    </tr>
-    
-    
-    <tr>
-      <td>ENUM</td>
+      <td><code>STRING</code></td>
       <td>
-        ENUM with the same name. The resulting enum supertype is the one that
-        occurred first.
+
+<span><code>STRING</code></span><br />
+</td>
+    </tr>
+
+    <tr>
+      <td><code>DATE</code></td>
+      <td>
+
+<span><code>DATE</code></span><br />
+</td>
+    </tr>
+
+    <tr>
+      <td><code>TIME</code></td>
+      <td>
+
+<span><code>TIME</code></span><br />
+</td>
+    </tr>
+
+    <tr>
+      <td><code>DATETIME</code></td>
+      <td>
+
+<span><code>DATETIME</code></span><br />
+</td>
+    </tr>
+
+    <tr>
+      <td><code>TIMESTAMP</code></td>
+      <td>
+
+<span><code>TIMESTAMP</code></span><br />
+</td>
+    </tr>
+
+    <tr>
+      <td><code>ENUM</code></td>
+      <td>
+        <code>ENUM</code> with the same name. The resulting enum supertype is
+        the one that occurred first.
       </td>
     </tr>
-    
-    
+
     <tr>
-      <td>BYTES</td>
-      <td>BYTES</td>
-    </tr>
-    
-    
-    <tr>
-      <td>STRUCT</td>
+      <td><code>BYTES</code></td>
       <td>
-        STRUCT with the same field position types.
+
+<span><code>BYTES</code></span><br />
+</td>
+    </tr>
+
+    <tr>
+      <td><code>STRUCT</code></td>
+      <td><code>STRUCT</code> with the same field position types.</td>
+    </tr>
+
+    <tr>
+      <td><code>ARRAY</code></td>
+      <td><code>ARRAY</code> with the same element types.</td>
+    </tr>
+
+    <tr>
+      <td><code>PROTO</code></td>
+      <td>
+        <code>PROTO</code> with the same name. The resulting <code>PROTO</code>
+        supertype is the one that occurred first. For example, the first
+        occurrence could be in the first branch of a set operation or the first
+        result expression in a <code>CASE</code> statement.
       </td>
     </tr>
-    
-    
+
     <tr>
-      <td>ARRAY</td>
+      <td><code>GEOGRAPHY</code></td>
       <td>
-        ARRAY with the same element types.
-      </td>
+
+<span><code>GEOGRAPHY</code></span><br />
+</td>
     </tr>
-    
-    
-    <tr>
-      <td>PROTO</td>
-      <td>
-        PROTO with the same name. The resulting PROTO supertype is the one that
-        occurred first. For example, the first occurrence could be in the
-        first branch of a set operation or the first result expression in
-        a CASE statement.
-      </td>
-    </tr>
-    
-    
-    <tr>
-      <td>GEOGRAPHY</td>
-      <td>
-        GEOGRAPHY
-      </td>
-    </tr>
-    
-    
+
   </tbody>
 </table>
 
@@ -512,12 +609,12 @@ the most specific type is the type with the most restrictive domain.
 
 <span><code>INT64</code></span><br /><span><code>FLOAT</code></span><br />
 </td>
-      <td>DOUBLE</td>
-      <td>DOUBLE</td>
+      <td><code>DOUBLE</code></td>
+      <td><code>DOUBLE</code></td>
       <td>
-        If you apply supertyping to INT64 and FLOAT, supertyping
-        succeeds because they they share a supertype,
-        DOUBLE.
+        If you apply supertyping to <code>INT64</code> and <code>FLOAT</code>,
+        supertyping succeeds because they they share a supertype,
+        <code>DOUBLE</code>.
       </td>
     </tr>
     
@@ -526,12 +623,13 @@ the most specific type is the type with the most restrictive domain.
 
 <span><code>INT64</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
-      <td>DOUBLE</td>
-      <td>DOUBLE</td>
+      <td><code>DOUBLE</code></td>
+      <td><code>DOUBLE</code></td>
       <td>
-        If you apply supertyping to INT64 and DOUBLE,
+        If you apply supertyping to <code>INT64</code> and
+        <code>DOUBLE</code>,
         supertyping succeeds because they they share a supertype,
-        DOUBLE.
+        <code>DOUBLE</code>.
       </td>
     </tr>
     <tr>
@@ -542,8 +640,8 @@ the most specific type is the type with the most restrictive domain.
       <td>None</td>
       <td>Error</td>
       <td>
-        If you apply supertyping to INT64 and BOOL, supertyping
-        fails because they do not share a common supertype.
+        If you apply supertyping to <code>INT64</code> and <code>BOOL</code>,
+        supertyping fails because they do not share a common supertype.
       </td>
     </tr>
   </tbody>
@@ -596,12 +694,13 @@ The following table contains a list of exact and inexact numeric data types.
 
 <span><code>UINT64</code></span><br /><span><code>INT64</code></span><br />
 </td>
-      <td>DOUBLE</td>
+      <td><code>DOUBLE</code></td>
       <td>Error</td>
       <td>
-        If you apply supertyping to INT64 and UINT64, supertyping fails
-        because they are both exact numeric types and the only shared supertype
-        is DOUBLE, which is an inexact numeric type.
+        If you apply supertyping to <code>INT64</code> and <code>UINT64</code>,
+        supertyping fails because they are both exact numeric types and the only
+        shared supertype is <code>DOUBLE</code>, which
+        is an inexact numeric type.
       </td>
     </tr>
     
@@ -611,12 +710,12 @@ The following table contains a list of exact and inexact numeric data types.
 
 <span><code>UINT32</code></span><br /><span><code>INT32</code></span><br />
 </td>
-      <td>INT64</td>
-      <td>INT64</td>
+      <td><code>INT64</code></td>
+      <td><code>INT64</code></td>
       <td>
-        If you apply supertyping to INT32 and UINT32, supertyping
-        succeeds because they are both exact numeric types and they share an
-        exact supertype, INT64.
+        If you apply supertyping to <code>INT32</code> and <code>UINT32</code>,
+        supertyping succeeds because they are both exact numeric types and they
+        share an exact supertype, <code>INT64</code>.
       </td>
     </tr>
     
@@ -625,12 +724,12 @@ The following table contains a list of exact and inexact numeric data types.
 
 <span><code>INT64</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
-      <td>DOUBLE</td>
-      <td>DOUBLE</td>
+      <td><code>DOUBLE</code></td>
+      <td><code>DOUBLE</code></td>
       <td>
-        If supertyping is applied to INT64 and DOUBLE, supertyping
-        succeeds because there are exact and inexact numeric types being
-        supertyped.
+        If supertyping is applied to <code>INT64</code> and <code>DOUBLE</code>,
+        supertyping succeeds because there are exact and inexact numeric types
+        being supertyped.
       </td>
     </tr>
     
@@ -639,12 +738,12 @@ The following table contains a list of exact and inexact numeric data types.
 
 <span><code>UINT64</code></span><br /><span><code>INT64</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
-      <td>DOUBLE</td>
-      <td>DOUBLE</td>
+      <td><code>DOUBLE</code></td>
+      <td><code>DOUBLE</code></td>
       <td>
-        If supertyping is applied to INT64, UINT64, and
-        DOUBLE, supertyping succeeds because there are
-        exact and inexact numeric types being supertyped.
+        If supertyping is applied to <code>INT64</code>, <code>UINT64</code>,
+        and <code>DOUBLE</code>, supertyping succeeds
+        because there are exact and inexact numeric types being supertyped.
       </td>
     </tr>
     
@@ -692,84 +791,84 @@ when the input set of types includes types related to literals:
     
     <tr>
       <td>
-        INT64 literal<br />
-        INT32 expression<br />
+        <code>INT64</code> literal<br />
+        <code>INT32</code> expression<br />
       </td>
-      <td>INT32</td>
-      <td>INT32</td>
+      <td><code>INT32</code></td>
+      <td><code>INT32</code></td>
     </tr>
     
     
     <tr>
       <td>
-        INT64 literal<br />
-        UINT32 expression<br />
+        <code>INT64</code> literal<br />
+        <code>UINT32</code> expression<br />
       </td>
-      <td>UINT32</td>
-      <td>UINT32</td>
+      <td><code>UINT32</code></td>
+      <td><code>UINT32</code></td>
     </tr>
     
     <tr>
       <td>
-        INT64 literal<br />
-        UINT64 expression<br />
+        <code>INT64</code> literal<br />
+        <code>UINT64</code> expression<br />
       </td>
-      <td>UINT64</td>
-      <td>UINT64</td>
+      <td><code>UINT64</code></td>
+      <td><code>UINT64</code></td>
     </tr>
     
     <tr>
       <td>
+        <code>DOUBLE</code> literal<br />
+        <code>FLOAT</code> expression<br />
+      </td>
+      <td><code>FLOAT</code></td>
+      <td><code>FLOAT</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td>
+        <code>INT64</code> literal<br />
+        <code>DOUBLE</code> literal<br />
+      </td>
+      <td><code>DOUBLE</code></td>
+      <td><code>DOUBLE</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td>
+        <code>INT64</code> expression<br />
+        <code>UINT64</code> expression<br />
         DOUBLE literal<br />
-        FLOAT expression<br />
       </td>
-      <td>FLOAT</td>
-      <td>FLOAT</td>
+      <td><code>DOUBLE</code></td>
+      <td><code>DOUBLE</code></td>
     </tr>
     
     
     <tr>
       <td>
-        INT64 literal<br />
-        DOUBLE literal<br />
+        <code>TIMESTAMP</code> expression<br />
+        <code>STRING</code> literal<br />
       </td>
-      <td>DOUBLE</td>
-      <td>DOUBLE</td>
-    </tr>
-    
-    
-    <tr>
-      <td>
-        INT64 expression<br />
-        UINT64 expression<br />
-        DOUBLE literal<br />
-      </td>
-      <td>DOUBLE</td>
-      <td>DOUBLE</td>
-    </tr>
-    
-    
-    <tr>
-      <td>
-        TIMESTAMP expression<br />
-        STRING literal<br />
-      </td>
-      <td>TIMESTAMP</td>
-      <td>TIMESTAMP</td>
+      <td><code>TIMESTAMP</code></td>
+      <td><code>TIMESTAMP</code></td>
     </tr>
     
     <tr>
       <td>
-        NULL literal<br />
-        NULL literal<br />
+        <code>NULL</code> literal<br />
+        <code>NULL</code> literal<br />
       </td>
-      <td>INT64</td>
-      <td>INT64</td>
+      <td><code>INT64</code></td>
+      <td><code>INT64</code></td>
     </tr>
     <tr>
       <td>
-        BOOL literal<br />
-        TIMESTAMP literal<br />
+        <code>BOOL</code> literal<br />
+        <code>TIMESTAMP</code> literal<br />
       </td>
       <td>None</td>
       <td>Error</td>

@@ -6673,6 +6673,13 @@ absl::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
           "ALTER COLUMN ", action->is_if_exists() ? "IF EXISTS " : "",
           action->column(), " DROP DEFAULT");
     } break;
+    case RESOLVED_ALTER_COLUMN_DROP_GENERATED_ACTION: {
+      auto* action =
+          alter_action->GetAs<ResolvedAlterColumnDropGeneratedAction>();
+      alter_action_sql = absl::StrCat(
+          "ALTER COLUMN ", action->is_if_exists() ? "IF EXISTS " : "",
+          action->column(), " DROP GENERATED");
+    } break;
     case RESOLVED_SET_COLLATE_CLAUSE: {
       auto* action = alter_action->GetAs<ResolvedSetCollateClause>();
       std::string action_sql = "SET DEFAULT COLLATE ";

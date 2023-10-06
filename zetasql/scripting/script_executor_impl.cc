@@ -833,6 +833,10 @@ absl::Status ThrowErrorIfASTTypeHasCollation(const ASTType* type) {
       return ThrowErrorIfASTTypeHasCollation(
           type->GetAsOrDie<ASTArrayType>()->element_type());
     }
+    case AST_RANGE_TYPE: {
+      return ThrowErrorIfASTTypeHasCollation(
+          type->GetAsOrDie<ASTRangeType>()->element_type());
+    }
     case AST_STRUCT_TYPE: {
       for (auto struct_field :
            type->GetAsOrDie<ASTStructType>()->struct_fields()) {

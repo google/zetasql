@@ -5991,6 +5991,12 @@ absl::Status Validator::ValidateResolvedAlterAction(
                                ->column()
                                .empty());
       break;
+    case RESOLVED_ALTER_COLUMN_DROP_GENERATED_ACTION:
+      VALIDATOR_RET_CHECK(
+          !action->GetAs<ResolvedAlterColumnDropGeneratedAction>()
+               ->column()
+               .empty());
+      break;
     case RESOLVED_SET_COLLATE_CLAUSE:
       VALIDATOR_RET_CHECK(
           action->GetAs<ResolvedSetCollateClause>()->collation_name() !=

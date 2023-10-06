@@ -217,12 +217,12 @@ py_library(
         if not native.existing_rule("boringssl"):
             http_archive(
                 name = "boringssl",
-                # Commit from 2021-11-01
+                # Commit from 2023-09-05
                 urls = [
-                    "https://github.com/google/boringssl/archive/4fb158925f7753d80fb858cb0239dff893ef9f15.tar.gz",
+                    "https://github.com/google/boringssl/archive/dc1b9afb3a3c7f9daa7574eced74ba31a586d246.tar.gz",
                 ],
-                sha256 = "e168777eb0fc14ea5a65749a2f53c095935a6ea65f38899a289808fb0c221dc4",
-                strip_prefix = "boringssl-4fb158925f7753d80fb858cb0239dff893ef9f15",
+                sha256 = "f2a229b4f2209c7f23b899ab4eef418eb1237b405933bfda23fc3c3963ff70c4",
+                strip_prefix = "boringssl-dc1b9afb3a3c7f9daa7574eced74ba31a586d246",
             )
 
         # Farmhash

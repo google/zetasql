@@ -636,6 +636,11 @@ enum LanguageFeature {
   // FEATURE_TIMESTAMP_NANOS is not enabled.
   FEATURE_ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE = 105;
 
+  // Enables dropping the generated attribute of a generated column
+  // Example:
+  // ALTER TABLE table ALTER COLUMN col DROP GENERATED;
+  FEATURE_ALTER_COLUMN_DROP_GENERATED = 106;
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.

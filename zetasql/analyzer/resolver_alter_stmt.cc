@@ -441,9 +441,24 @@ absl::Status Resolver::ResolveAlterActions(
         alter_actions->push_back(std::move(resolved_action));
       } break;
       case AST_ALTER_COLUMN_DROP_GENERATED_ACTION: {
-        return MakeSqlErrorAt(action)
-               << "ALTER " << alter_statement_kind << " does not support "
-               << action->GetSQLForAlterAction();
+        if (!language().LanguageFeatureEnabled(
+                FEATURE_ALTER_COLUMN_DROP_GENERATED) ||
+            ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
+          // Views, models, etc don't support ALTER COLUMN... DROP GENERATED ...
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
+        }
+        if (!is_if_exists) {
+          ZETASQL_RETURN_IF_ERROR(table_status);
+        }
+        std::unique_ptr<const ResolvedAlterAction> resolved_action;
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnDropGeneratedAction(
+            altered_table,
+            *action->GetAsOrDie<ASTAlterColumnDropGeneratedAction>(),
+            resolved_action));
+        alter_actions->push_back(std::move(resolved_action));
+        break;
       }
       case AST_SET_COLLATE_CLAUSE: {
         if (!language().LanguageFeatureEnabled(
@@ -992,6 +1007,33 @@ absl::Status Resolver::ResolveAlterColumnDropDefaultAction(
   }
   *alter_action = MakeResolvedAlterColumnDropDefaultAction(
       action->is_if_exists(), column_name.ToString());
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterColumnDropGeneratedAction(
+    const Table* table, const ASTAlterColumnDropGeneratedAction& action,
+    std::unique_ptr<const ResolvedAlterAction>& alter_action) {
+  ZETASQL_RET_CHECK(alter_action == nullptr);
+  const IdString column_name = action.column_name()->GetAsIdString();
+  std::unique_ptr<ResolvedColumnRef> column_reference;
+  // If the table is present, verify that the column exists and can be modified.
+  if (table != nullptr) {
+    const Column* column = table->FindColumnByName(column_name.ToString());
+    if (column == nullptr) {
+      // Silently ignore the NOT FOUND error if this is an ALTER COLUMN IF
+      // EXISTS action. Otherwise, return an error.
+      if (!action.is_if_exists()) {
+        return MakeSqlErrorAt(action.column_name())
+               << "Column not found: " << column_name;
+      }
+    } else if (column->IsPseudoColumn()) {
+      return MakeSqlErrorAt(action.column_name())
+             << "ALTER COLUMN DROP GENERATED is not supported for "
+             << "pseudo-column " << column_name;
+    }
+  }
+  alter_action = MakeResolvedAlterColumnDropGeneratedAction(
+      action.is_if_exists(), column_name.ToString());
   return absl::OkStatus();
 }
 
