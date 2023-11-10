@@ -669,6 +669,15 @@ class Value {
   // null values, then the range is unbounded on that end respectively.
   static absl::StatusOr<Value> MakeRange(const Value& start, const Value& end);
 
+  // Creates a Range given 'start' and 'end' values with the 'range_type'.
+  // Range preconditions are only tested during debug mode, and will result in
+  // undefined behavior at a later time if they are violated.
+  // This is an optimization, but it is dangerous and should only be used
+  // when a demonstrated performance concern requires it. 'range_type' must
+  // outlive the returned object.
+  static absl::StatusOr<Value> MakeRangeFromValidatedInputs(
+      const RangeType* range_type, const Value& start, const Value& end);
+
   // Creates a null of the given 'type'.
   static Value Null(const Type* type);
   // Creates an invalid value.
@@ -814,6 +823,14 @@ class Value {
   static absl::StatusOr<Value> MakeStructInternal(bool already_validated,
                                                   const StructType* struct_type,
                                                   std::vector<Value> values);
+
+  // Creates a Range given 'start' and 'end' values. Each value must have the
+  // proper type, and the 'start' value must be smaller than the 'end' value.
+  // This property is validated if 'is_validated' is false or in debug mode.
+  // 'range_type' is only provided when calling MakeRangeFromValidatedInputs.
+  static absl::StatusOr<Value> MakeRangeInternal(
+      bool is_validated, const Value& start, const Value& end,
+      const RangeType* range_type = nullptr);
 
   // Returns a pretty-printed (e.g. wrapped) string for the value
   // indented a number of spaces according to the 'indent' parameter.

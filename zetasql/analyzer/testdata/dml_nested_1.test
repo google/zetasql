@@ -205,14 +205,14 @@ UpdateStmt
         |       +-input_scan=
         |         +-ArrayScan
         |           +-column_list=[$array.repeated_int64_val#5]
-        |           +-array_expr=
+        |           +-array_expr_list=
         |           | +-GetProtoField
         |           |   +-type=ARRAY<INT64>
         |           |   +-expr=
         |           |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |           |   +-field_descriptor=repeated_int64_val
         |           |   +-default_value=[]
-        |           +-element_column=$array.repeated_int64_val#5
+        |           +-element_column_list=[$array.repeated_int64_val#5]
         +-query_output_column_list=[$insert_cast.repeated_int64_val#6]
 ==
 
@@ -745,14 +745,14 @@ UpdateStmt
                       +-input_scan=
                       | +-ArrayScan
                       |   +-column_list=[$array.val#5]
-                      |   +-array_expr=
+                      |   +-array_expr_list=
                       |   | +-GetProtoField
                       |   |   +-type=ARRAY<INT32>
                       |   |   +-expr=
                       |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                       |   |   +-field_descriptor=repeated_int32_val
                       |   |   +-default_value=[]
-                      |   +-element_column=$array.val#5
+                      |   +-element_column_list=[$array.val#5]
                       +-aggregate_list=
                         +-$agg1#6 :=
                           +-AggregateFunctionCall(ZetaSQL:max(INT32) -> INT32)
@@ -810,14 +810,14 @@ UpdateStmt
                             +-input_scan=
                             | +-ArrayScan
                             |   +-column_list=[$array.val#5]
-                            |   +-array_expr=
+                            |   +-array_expr_list=
                             |   | +-GetProtoField
                             |   |   +-type=ARRAY<INT32>
                             |   |   +-expr=
                             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                             |   |   +-field_descriptor=repeated_int32_val
                             |   |   +-default_value=[]
-                            |   +-element_column=$array.val#5
+                            |   +-element_column_list=[$array.val#5]
                             +-aggregate_list=
                               +-$agg1#6 :=
                                 +-AggregateFunctionCall(ZetaSQL:max(INT32) -> INT32)
@@ -870,14 +870,14 @@ UpdateStmt
                             +-input_scan=
                             | +-ArrayScan
                             |   +-column_list=[$array.val#5]
-                            |   +-array_expr=
+                            |   +-array_expr_list=
                             |   | +-GetProtoField
                             |   |   +-type=ARRAY<INT32>
                             |   |   +-expr=
                             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                             |   |   +-field_descriptor=repeated_int32_val
                             |   |   +-default_value=[]
-                            |   +-element_column=$array.val#5
+                            |   +-element_column_list=[$array.val#5]
                             +-aggregate_list=
                               +-$agg1#6 :=
                                 +-AggregateFunctionCall(ZetaSQL:max(INT32) -> INT32)
@@ -1200,14 +1200,14 @@ UpdateStmt
 |           +-input_scan=
 |           | +-ArrayScan
 |           |   +-column_list=[$array.c#4]
-|           |   +-array_expr=
+|           |   +-array_expr_list=
 |           |   | +-GetProtoField
 |           |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
 |           |   |   +-expr=
 |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
 |           |   |   +-field_descriptor=nested_repeated_group
 |           |   |   +-default_value=[]
-|           |   +-element_column=$array.c#4
+|           |   +-element_column_list=[$array.c#4]
 |           +-filter_expr=
 |             +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
 |               +-GetProtoField
@@ -1302,14 +1302,14 @@ UpdateStmt
 |           +-input_scan=
 |           | +-ArrayScan
 |           |   +-column_list=[$array.c#4]
-|           |   +-array_expr=
+|           |   +-array_expr_list=
 |           |   | +-GetProtoField
 |           |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
 |           |   |   +-expr=
 |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
 |           |   |   +-field_descriptor=nested_repeated_group
 |           |   |   +-default_value=[]
-|           |   +-element_column=$array.c#4
+|           |   +-element_column_list=[$array.c#4]
 |           +-filter_expr=
 |             +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
 |               +-GetProtoField

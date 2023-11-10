@@ -130,9 +130,6 @@ select KLL_QUANTILES.extract_int64(b"" AS sketch, 2)
                                        ^
 ==
 
-# TODO: The aliases in the following test cases are not stored in
-# the resolved asts or restored by the sqlbuilder yet; they will be addressed in
-# a follow up CL.
 # Optional argument not provided.
 SELECT fn_for_argument_alias(TRUE AS alias1, FALSE)
 --
@@ -145,8 +142,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_for_argument_alias(BOOL, BOOL, optional(0) STRING) -> BOOL)
-    |     +-Literal(type=BOOL, value=true)
-    |     +-Literal(type=BOOL, value=false)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=BOOL, value=true)
+    |     | +-argument_alias="alias1"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=BOOL, value=false)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -163,9 +165,16 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_for_argument_alias(BOOL, BOOL, optional(1) STRING) -> BOOL)
-    |     +-Literal(type=BOOL, value=true)
-    |     +-Literal(type=BOOL, value=false)
-    |     +-Literal(type=STRING, value="STRING")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=BOOL, value=true)
+    |     | +-argument_alias="alias1"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=BOOL, value=false)
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=STRING, value="STRING")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -182,9 +191,17 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_for_argument_alias(BOOL, BOOL, optional(1) STRING) -> BOOL)
-    |     +-Literal(type=BOOL, value=true)
-    |     +-Literal(type=BOOL, value=false)
-    |     +-Literal(type=STRING, value="STRING")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=BOOL, value=true)
+    |     | +-argument_alias="alias1"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=BOOL, value=false)
+    |     +-FunctionArgument
+    |       +-expr=
+    |       | +-Literal(type=STRING, value="STRING")
+    |       +-argument_alias="alias2"
     +-input_scan=
       +-SingleRowScan
 ==
@@ -209,8 +226,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(0) INT64) -> BOOL)
-    |     +-Literal(type=STRING, value="STRING")
-    |     +-Literal(type=BOOL, value=false)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=STRING, value="STRING")
+    |     | +-argument_alias="alias1"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=BOOL, value=false)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -227,9 +249,16 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(1) INT64) -> BOOL)
-    |     +-Literal(type=STRING, value="STRING")
-    |     +-Literal(type=BOOL, value=false)
-    |     +-Literal(type=INT64, value=1)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=STRING, value="STRING")
+    |     | +-argument_alias="alias1"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=BOOL, value=false)
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=1)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -246,9 +275,17 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(1) INT64) -> BOOL)
-    |     +-Literal(type=STRING, value="STRING")
-    |     +-Literal(type=BOOL, value=false)
-    |     +-Literal(type=INT64, value=1)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=STRING, value="STRING")
+    |     | +-argument_alias="alias1"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=BOOL, value=false)
+    |     +-FunctionArgument
+    |       +-expr=
+    |       | +-Literal(type=INT64, value=1)
+    |       +-argument_alias="alias2"
     +-input_scan=
       +-SingleRowScan
 ==
@@ -265,10 +302,21 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(2) INT64) -> BOOL)
-    |     +-Literal(type=STRING, value="STRING")
-    |     +-Literal(type=BOOL, value=false)
-    |     +-Literal(type=INT64, value=1)
-    |     +-Literal(type=INT64, value=2)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=STRING, value="STRING")
+    |     | +-argument_alias="alias1"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=BOOL, value=false)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=INT64, value=1)
+    |     | +-argument_alias="alias2"
+    |     +-FunctionArgument
+    |       +-expr=
+    |       | +-Literal(type=INT64, value=2)
+    |       +-argument_alias="alias3"
     +-input_scan=
       +-SingleRowScan
 ==
@@ -285,10 +333,20 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(2) INT64) -> BOOL)
-    |     +-Literal(type=STRING, value="STRING")
-    |     +-Literal(type=BOOL, value=false)
-    |     +-Literal(type=INT64, value=1)
-    |     +-Literal(type=INT64, value=2)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=STRING, value="STRING")
+    |     | +-argument_alias="alias1"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=BOOL, value=false)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=INT64, value=1)
+    |     | +-argument_alias="alias2"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=2)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -305,10 +363,20 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_for_argument_alias(STRING, BOOL, repeated(2) INT64) -> BOOL)
-    |     +-Literal(type=STRING, value="STRING")
-    |     +-Literal(type=BOOL, value=false)
-    |     +-Literal(type=INT64, value=1)
-    |     +-Literal(type=INT64, value=2)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=STRING, value="STRING")
+    |     | +-argument_alias="alias1"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=BOOL, value=false)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=INT64, value=1)
+    |     +-FunctionArgument
+    |       +-expr=
+    |       | +-Literal(type=INT64, value=2)
+    |       +-argument_alias="alias2"
     +-input_scan=
       +-SingleRowScan
 ==
@@ -346,6 +414,9 @@ QueryStmt
 
 # Argument aliases on aggregate functions: ok to provide an alias for the
 # aliased argument.
+# TODO: Note the argument alias information is not stored in the
+# resolved ast because aggregate functions do not support
+# `generic_argument_list` yet.
 SELECT aggregate_fn_for_argument_alias(key AS alias, value)
 FROM keyvalue
 --
@@ -411,7 +482,8 @@ QueryStmt
 
 [language_features=ANALYTIC_FUNCTIONS]
 # Argument aliases on analytic functions: ok to provide an alias for the aliased
-# argument.
+# argument. Note the argument alias information is not stored in the resolved
+# ast because window functions do not support `generic_argument_list` yet.
 SELECT analytic_fn_for_argument_alias(key AS alias, value) over (ORDER BY key)
 FROM keyvalue
 --
@@ -465,8 +537,12 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:nested_catalog.fn_for_argument_alias(INT64, STRING) -> INT64)
-    |     +-Literal(type=INT64, value=1)
-    |     +-Literal(type=STRING, value="string")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=INT64, value=1)
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=STRING, value="string")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -484,8 +560,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:nested_catalog.fn_for_argument_alias(INT64, STRING) -> INT64)
-    |     +-Literal(type=INT64, value=1)
-    |     +-Literal(type=STRING, value="string")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=INT64, value=1)
+    |     | +-argument_alias="alias"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=STRING, value="string")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -548,8 +629,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<int64 INT64, no_alias_1 INT64>)
-    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    |     +-Literal(type=INT64, value=2)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-argument_alias="int64"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=2)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 ==
@@ -569,9 +655,14 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<int32 INT64, no_alias_1 INT64>)
-    |     +-Cast(INT32 -> INT64)
-    |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |     +-Literal(type=INT64, value=2)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Cast(INT32 -> INT64)
+    |     | |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     | +-argument_alias="int32"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=2)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 ==
@@ -590,8 +681,12 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<INT64, no_alias_1 INT64>)
-    |     +-Literal(type=INT64, value=1)
-    |     +-Literal(type=INT64, value=2)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=INT64, value=1)
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=2)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -611,8 +706,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<alias_0 INT64, no_alias_1 INT64>)
-    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    |     +-Literal(type=INT64, value=2)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-argument_alias="alias_0"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=2)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 ==
@@ -631,9 +731,14 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<alias_0 INT64, no_alias_1 INT64>)
-    |     +-Cast(INT32 -> INT64)
-    |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |     +-Literal(type=INT64, value=2)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Cast(INT32 -> INT64)
+    |     | |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     | +-argument_alias="alias_0"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=2)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 ==
@@ -651,8 +756,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<alias_0 INT64, no_alias_1 INT64>)
-    |     +-Literal(type=INT64, value=1)
-    |     +-Literal(type=INT64, value=2)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=INT64, value=1)
+    |     | +-argument_alias="alias_0"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=2)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -672,8 +782,14 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(STRING, STRING) -> STRUCT<string STRING, string STRING>)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     | +-argument_alias="string"
+    |     +-FunctionArgument
+    |       +-expr=
+    |       | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |       +-argument_alias="string"
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
@@ -693,8 +809,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(STRING, STRING) -> STRUCT<STRING, alias_1 STRING>)
-    |     +-Literal(type=STRING, value="a")
-    |     +-Literal(type=STRING, value="b")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="a")
+    |     +-FunctionArgument
+    |       +-expr=
+    |       | +-Literal(type=STRING, value="b")
+    |       +-argument_alias="alias_1"
     +-input_scan=
       +-SingleRowScan
 ==
@@ -713,8 +834,14 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(STRING, STRING) -> STRUCT<alias_0 STRING, alias_1 STRING>)
-    |     +-Literal(type=STRING, value="a")
-    |     +-Literal(type=STRING, value="b")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=STRING, value="a")
+    |     | +-argument_alias="alias_0"
+    |     +-FunctionArgument
+    |       +-expr=
+    |       | +-Literal(type=STRING, value="b")
+    |       +-argument_alias="alias_1"
     +-input_scan=
       +-SingleRowScan
 ==
@@ -734,8 +861,12 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<STRING, no_alias_1 INT64>)
-    |     +-Literal(type=STRING, value="default_string")
-    |     +-Literal(type=INT64, value=100)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="default_string")
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=100)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -755,8 +886,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<string STRING, no_alias_1 INT64>)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    |     +-Literal(type=INT64, value=100)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     | +-argument_alias="string"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=100)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
@@ -776,8 +912,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<string STRING, no_alias_1 INT64>)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    |     +-Literal(type=INT64, value=1)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     | +-argument_alias="string"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=1)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
@@ -797,8 +938,13 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<alias_0 STRING, no_alias_1 INT64>)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    |     +-Literal(type=INT64, value=1)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     | +-argument_alias="alias_0"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=INT64, value=1)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
@@ -816,7 +962,9 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(0) INT64, repeated(0) STRING) -> STRUCT<no_alias_0 BYTES>)
-    |     +-Literal(type=BYTES, value=b"")
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=BYTES, value=b"")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -835,9 +983,15 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(1) INT64, repeated(1) STRING) -> STRUCT<no_alias_0 BYTES, INT64, no_alias_2 STRING>)
-    |     +-Literal(type=BYTES, value=b"")
-    |     +-Literal(type=INT64, value=1)
-    |     +-Literal(type=STRING, value="string")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=BYTES, value=b"")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=INT64, value=1)
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=STRING, value="string")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -855,9 +1009,16 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(1) INT64, repeated(1) STRING) -> STRUCT<no_alias_0 BYTES, alias_1 INT64, no_alias_2 STRING>)
-    |     +-Literal(type=BYTES, value=b"")
-    |     +-Literal(type=INT64, value=1)
-    |     +-Literal(type=STRING, value="string")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=BYTES, value=b"")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-Literal(type=INT64, value=1)
+    |     | +-argument_alias="alias_1"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=STRING, value="string")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -877,11 +1038,23 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(2) INT64, repeated(2) STRING) -> STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, int64 INT64, no_alias_4 STRING>)
-    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
-    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-argument_alias="int64"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-argument_alias="int64"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int64#2, string#5, bytes#6], table=SimpleTypes, column_index_list=[1, 4, 5])
 ==
@@ -900,11 +1073,23 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(2) INT64, repeated(2) STRING) -> STRUCT<no_alias_0 BYTES, alias_1 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>)
-    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
-    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-argument_alias="alias_1"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-argument_alias="alias_3"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int64#2, string#5, bytes#6], table=SimpleTypes, column_index_list=[1, 4, 5])
 ==
@@ -924,10 +1109,22 @@ QueryStmt
     +-expr_list=
     | +-$col1#19 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(2) INT64, repeated(2) STRING) -> STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>)
-    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
-    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-argument_alias="int64"
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     | | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-argument_alias="alias_3"
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int64#2, string#5, bytes#6], table=SimpleTypes, column_index_list=[1, 4, 5])

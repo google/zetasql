@@ -128,6 +128,12 @@ absl::Status CollectColumnRefs(
     std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs,
     bool correlate = false);
 
+// Removes column refs from `column_refs` that are not used in `node`.
+// Uses `CollectColumnRefs` for collecting used column references in `node`.
+absl::Status RemoveUnusedColumnRefs(
+    const ResolvedNode& node,
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>& column_refs);
+
 // Sorts and removes duplicates from the ResolvedColumnRefs in 'column_refs'.
 // This is used in conjunction with 'CollectColumnRefs' to construct an
 // appropriate parameter list for a subquery expression. Among other potential

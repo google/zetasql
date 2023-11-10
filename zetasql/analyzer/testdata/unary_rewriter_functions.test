@@ -492,9 +492,9 @@ QueryStmt
     |         |               +-input_scan=
     |         |               | +-ArrayScan
     |         |               |   +-column_list=[$array.e#3]
-    |         |               |   +-array_expr=
+    |         |               |   +-array_expr_list=
     |         |               |   | +-ColumnRef(type=ARRAY<FLOAT>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |               |   +-element_column=$array.e#3
+    |         |               |   +-element_column_list=[$array.e#3]
     |         |               +-aggregate_list=
     |         |                 +-$agg1#4 :=
     |         |                   +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
@@ -561,9 +561,9 @@ QueryStmt
     |         |     |           +-input_scan=
     |         |     |           | +-ArrayScan
     |         |     |           |   +-column_list=[$array.e#3]
-    |         |     |           |   +-array_expr=
+    |         |     |           |   +-array_expr_list=
     |         |     |           |   | +-ColumnRef(type=ARRAY<FLOAT>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |     |           |   +-element_column=$array.e#3
+    |         |     |           |   +-element_column_list=[$array.e#3]
     |         |     |           +-aggregate_list=
     |         |     |             +-$agg1#4 :=
     |         |     |               +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
@@ -646,9 +646,9 @@ QueryStmt
     |         |               +-input_scan=
     |         |               | +-ArrayScan
     |         |               |   +-column_list=[$array.e#3]
-    |         |               |   +-array_expr=
+    |         |               |   +-array_expr_list=
     |         |               |   | +-ColumnRef(type=ARRAY<FLOAT>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |               |   +-element_column=$array.e#3
+    |         |               |   +-element_column_list=[$array.e#3]
     |         |               +-aggregate_list=
     |         |                 +-$agg1#4 :=
     |         |                   +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
@@ -715,9 +715,9 @@ QueryStmt
     |         |     |           +-input_scan=
     |         |     |           | +-ArrayScan
     |         |     |           |   +-column_list=[$array.e#3]
-    |         |     |           |   +-array_expr=
+    |         |     |           |   +-array_expr_list=
     |         |     |           |   | +-ColumnRef(type=ARRAY<FLOAT>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |     |           |   +-element_column=$array.e#3
+    |         |     |           |   +-element_column_list=[$array.e#3]
     |         |     |           +-aggregate_list=
     |         |     |             +-$agg1#4 :=
     |         |     |               +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
@@ -792,9 +792,9 @@ QueryStmt
     |         |           |   |   +-input_scan=
     |         |           |   |   | +-ArrayScan
     |         |           |   |   |   +-column_list=[$array.e#3, $array_offset.idx#4]
-    |         |           |   |   |   +-array_expr=
+    |         |           |   |   |   +-array_expr_list=
     |         |           |   |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |           |   |   |   +-element_column=$array.e#3
+    |         |           |   |   |   +-element_column_list=[$array.e#3]
     |         |           |   |   |   +-array_offset_column=
     |         |           |   |   |     +-ColumnHolder(column=$array_offset.idx#4)
     |         |           |   |   +-filter_expr=
@@ -875,9 +875,9 @@ QueryStmt
     |         |     |       |   |   +-input_scan=
     |         |     |       |   |   | +-ArrayScan
     |         |     |       |   |   |   +-column_list=[$array.e#3, $array_offset.idx#4]
-    |         |     |       |   |   |   +-array_expr=
+    |         |     |       |   |   |   +-array_expr_list=
     |         |     |       |   |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |     |       |   |   |   +-element_column=$array.e#3
+    |         |     |       |   |   |   +-element_column_list=[$array.e#3]
     |         |     |       |   |   |   +-array_offset_column=
     |         |     |       |   |   |     +-ColumnHolder(column=$array_offset.idx#4)
     |         |     |       |   |   +-filter_expr=
@@ -960,9 +960,9 @@ QueryStmt
     |         |           |   |   +-input_scan=
     |         |           |   |   | +-ArrayScan
     |         |           |   |   |   +-column_list=[$array.e#3, $array_offset.idx#4]
-    |         |           |   |   |   +-array_expr=
+    |         |           |   |   |   +-array_expr_list=
     |         |           |   |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |           |   |   |   +-element_column=$array.e#3
+    |         |           |   |   |   +-element_column_list=[$array.e#3]
     |         |           |   |   |   +-array_offset_column=
     |         |           |   |   |     +-ColumnHolder(column=$array_offset.idx#4)
     |         |           |   |   +-filter_expr=
@@ -1052,9 +1052,9 @@ QueryStmt
     |         |           |   |       +-input_scan=
     |         |           |   |       | +-ArrayScan
     |         |           |   |       |   +-column_list=[$array.e#3, $array_offset.idx#4]
-    |         |           |   |       |   +-array_expr=
+    |         |           |   |       |   +-array_expr_list=
     |         |           |   |       |   | +-ColumnRef(type=ARRAY<DOUBLE>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |           |   |       |   +-element_column=$array.e#3
+    |         |           |   |       |   +-element_column_list=[$array.e#3]
     |         |           |   |       |   +-array_offset_column=
     |         |           |   |       |     +-ColumnHolder(column=$array_offset.idx#4)
     |         |           |   |       +-filter_expr=

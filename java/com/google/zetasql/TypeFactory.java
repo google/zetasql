@@ -39,6 +39,7 @@ import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.ArrayTypeProto;
 import com.google.zetasql.ZetaSQLType.EnumTypeProto;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
+import com.google.zetasql.ZetaSQLType.RangeTypeProto;
 import com.google.zetasql.ZetaSQLType.StructFieldProto;
 import com.google.zetasql.ZetaSQLType.StructTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
@@ -178,6 +179,10 @@ public abstract class TypeFactory implements Serializable {
     return new StructType(fields);
   }
 
+  public static RangeType createRangeType(Type elementType) {
+    return new RangeType(elementType);
+  }
+
   /**
    * Returns a ProtoType with a proto message descriptor that is loaded from FileDescriptorSet with
    * {@link DescriptorPool}.
@@ -310,6 +315,9 @@ public abstract class TypeFactory implements Serializable {
         case TYPE_PROTO:
           return deserializeProtoType(proto, pools);
 
+        case TYPE_RANGE:
+          return deserializeRangeType(proto, pools);
+
         default:
           throw new IllegalArgumentException(
               String.format("proto.type_kind: %s", proto.getTypeKind()));
@@ -395,6 +403,11 @@ public abstract class TypeFactory implements Serializable {
           filename);
 
       return createProtoType(descriptor.getDescriptor(), pool);
+    }
+
+    private RangeType deserializeRangeType(TypeProto proto, List<? extends DescriptorPool> pools) {
+      RangeTypeProto rangeType = proto.getRangeType();
+      return createRangeType(deserialize(rangeType.getElementType(), pools));
     }
   }
 

@@ -18,6 +18,7 @@
 
 #include <ctype.h>
 
+#include <cstddef>
 #include <set>
 #include <string>
 #include <utility>
@@ -36,6 +37,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 
 ABSL_DECLARE_FLAG(bool, output_asc_explicitly);
@@ -494,6 +496,20 @@ void Unparser::visitASTCreateSchemaStatement(
   if (node->collate() != nullptr) {
     print("DEFAULT");
     visitASTCollate(node->collate(), data);
+  }
+  if (node->options_list() != nullptr) {
+    println();
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTCreateExternalSchemaStatement(
+    const ASTCreateExternalSchemaStatement* node, void* data) {
+  print(GetCreateStatementPrefix(node, "EXTERNAL SCHEMA"));
+  node->name()->Accept(this, data);
+  if (node->with_connection_clause() != nullptr) {
+    visitASTWithConnectionClause(node->with_connection_clause(), data);
   }
   if (node->options_list() != nullptr) {
     println();

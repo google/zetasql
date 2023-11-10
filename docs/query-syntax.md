@@ -2139,7 +2139,10 @@ GROUP BY <span class="var">group_by_specification</span>
 <span class="var">group_by_specification</span>:
   {
     <span class="var">groupable_items</span>
+    | <span class="var">grouping_sets_specification</span>
     | <span class="var">rollup_specification</span>
+    | <span class="var">cube_specification</span>
+    | ()
   }
 </pre>
 
@@ -2156,8 +2159,15 @@ present in the `SELECT` list, or to eliminate redundancy in the output.
 + `groupable_items`: Group rows in a table that share common values
   for certain columns. To learn more, see
   [Group rows by groupable items][group-by-groupable-item].
++ `grouping_sets_specification`: Group rows with the
+  `GROUP BY GROUPING SETS` clause. To learn more, see
+  [Group rows by `GROUPING SETS`][group-by-grouping-sets].
 + `rollup_specification`: Group rows with the `GROUP BY ROLLUP` clause.
   To learn more, see [Group rows by `ROLLUP`][group-by-rollup].
++ `cube_specification`: Group rows with the `GROUP BY CUBE` clause.
+  To learn more, see [Group rows by `CUBE`][group-by-cube].
++ `()`: Group all rows and produce a grand total. Equivalent to no
+  `group_by_specification`.
 
 ### Group rows by groupable items 
 <a id="group_by_grouping_item"></a>
@@ -2291,11 +2301,330 @@ GROUP BY 2, 3;
  +--------------+----------+-----------*/
 ```
 
+### Group rows by `GROUPING SETS` 
+<a id="group_by_grouping_sets"></a>
+
+<pre>
+GROUP BY GROUPING SETS ( <span class="var">grouping_list</span> )
+
+<span class="var">grouping_list</span>:
+  {
+    <span class="var">rollup_specification</span>
+    | <span class="var">cube_specification</span>
+    | <span class="var">groupable_item</span>
+    | <span class="var">groupable_item_set</span>
+  }[, ...]
+
+<span class="var">groupable_item_set</span>:
+  ( [ <span class="var">groupable_item</span>[, ...] ] )
+</pre>
+
+**Description**
+
+The `GROUP BY GROUPING SETS` clause produces aggregated data for one or more
+_grouping sets_. A grouping set is a group of columns by which rows can
+be grouped together. This clause is helpful if you want to produce
+aggregated data for sets of data without using the `UNION` operation.
+For example, `GROUP BY GROUPING SETS(x,y)` is roughly equivalent to
+`GROUP BY x UNION ALL GROUP BY y`.
+
+**Definitions**
+
++ `grouping_list`: A list of items that you can add to the
+  `GROUPING SETS` clause. Grouping sets are generated based upon what is in
+  this list.
++ `rollup_specification`: Group rows with the `ROLLUP` clause.
+  Don't include `GROUP BY` if you use this inside the `GROUPING SETS` clause.
+  To learn more, see [Group rows by `ROLLUP`][group-by-rollup].
++ `cube_specification`: Group rows with the `CUBE` clause.
+  Don't include `GROUP BY` if you use this inside the `GROUPING SETS` clause.
+  To learn more, see [Group rows by `CUBE`][group-by-cube].
++ `groupable_item`: Group rows in a table that share common values
+  for certain columns. To learn more, see
+  [Group rows by groupable items][group-by-groupable-item].
+  [Anonymous `STRUCT` values][tuple-struct] are not allowed.
++ `groupable_item_set`: Group rows by a set of
+  [groupable items][group-by-groupable-item]. If the set contains no
+  groupable items, group all rows and produce a grand total.
+
+**Details**
+
+`GROUP BY GROUPING SETS` works by taking a grouping list, generating
+grouping sets from it, and then producing a table as a union of queries
+grouped by each grouping set.
+
+For example, `GROUP BY GROUPING SETS (a, b, c)` generates the
+following grouping sets from the grouping list, `a, b, c`, and
+then produces aggregated rows for each of them:
+
++ `(a)`
++ `(b)`
++ `(c)`
+
+Here is an example that includes groupable item sets in
+`GROUP BY GROUPING SETS (a, (b, c), d)`:
+
+Conceptual grouping sets | Actual grouping sets
+------------------------ | --------------
+`(a)`                    | `(a)`
+`((b, c))`               | `(b, c)`
+`(d)`                    | `(d)`
+
+`GROUP BY GROUPING SETS` can include `ROLLUP` and `CUBE` operations, which
+generate grouping sets. If `ROLLUP` is added, it generates rolled up
+grouping sets. If `CUBE` is added, it generates grouping set permutations.
+
+The following grouping sets are generated for
+`GROUP BY GROUPING SETS (a, ROLLUP(b, c), d)`.
+
+Conceptual grouping sets | Actual grouping sets
+------------------------ | --------------
+`(a)`                    | `(a)`
+`((b, c))`               | `(b, c)`
+`((b))`                  | `(b)`
+`(())`                   | `()`
+`(d)`                    | `(d)`
+
+The following grouping sets are generated for
+`GROUP BY GROUPING SETS (a, CUBE(b, c), d)`:
+
+Conceptual grouping sets | Actual grouping sets
+------------------------ | --------------
+`(a)`                    | `(a)`
+`((b, c))`               | `(b, c)`
+`((b))`                  | `(b)`
+`((c))`                  | `(c)`
+`(())`                   | `()`
+`(d)`                    | `(d)`
+
+When evaluating the results for a particular grouping set,
+expressions that are not in the grouping set are aggregated and produce a
+`NULL` placeholder.
+
+You can filter results for specific groupable items. To learn more, see the
+[`GROUPING` function][grouping-function]
+
+**Examples**
+
+The following queries produce the same results, but
+the first one uses `GROUP BY GROUPING SETS` and the second one doesn't:
+
+```sql
+-- GROUP BY with GROUPING SETS
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY GROUPING SETS (product_type, product_name)
+ORDER BY product_name
+
+/*--------------+--------------+-------------+
+ | product_type | product_name | product_sum |
+ +--------------+--------------+-------------+
+ | shirt        | NULL         | 36          |
+ | pants        | NULL         | 6           |
+ | NULL         | jeans        | 6           |
+ | NULL         | polo         | 25          |
+ | NULL         | t-shirt      | 11          |
+ +--------------+--------------+-------------*/
+```
+
+```sql
+-- GROUP BY without GROUPING SETS
+-- (produces the same results as GROUPING SETS)
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, NULL, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY product_type
+UNION ALL
+SELECT NULL, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY product_name
+ORDER BY product_name
+```
+
+You can include groupable item sets in a `GROUP BY GROUPING SETS` clause.
+In the example below, `(product_type, product_name)` is a groupable item set.
+
+```sql
+-- GROUP BY with GROUPING SETS and a groupable item set
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY GROUPING SETS (
+  product_type,
+  (product_type, product_name))
+ORDER BY product_type, product_name;
+
+/*--------------+--------------+-------------+
+ | product_type | product_name | product_sum |
+ +--------------+--------------+-------------+
+ | pants        | NULL         | 6           |
+ | pants        | jeans        | 6           |
+ | shirt        | NULL         | 36          |
+ | shirt        | polo         | 25          |
+ | shirt        | t-shirt      | 11          |
+ +--------------+--------------+-------------*/
+```
+
+```sql
+-- GROUP BY with GROUPING SETS but without a groupable item set
+-- (produces the same results as GROUPING SETS with a groupable item set)
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, NULL, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY product_type
+UNION ALL
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY product_type, product_name
+ORDER BY product_type, product_name;
+```
+
+You can include [`ROLLUP`][group-by-rollup] in a
+`GROUP BY GROUPING SETS` clause. For example:
+
+```sql
+-- GROUP BY with GROUPING SETS and ROLLUP
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY GROUPING SETS (
+  product_type,
+  ROLLUP (product_type, product_name))
+ORDER BY product_type, product_name;
+
+/*--------------+--------------+-------------+
+ | product_type | product_name | product_sum |
+ +--------------+--------------+-------------+
+ | NULL         | NULL         | 42          |
+ | pants        | NULL         | 6           |
+ | pants        | NULL         | 6           |
+ | pants        | jeans        | 6           |
+ | shirt        | NULL         | 36          |
+ | shirt        | NULL         | 36          |
+ | shirt        | polo         | 25          |
+ | shirt        | t-shirt      | 11          |
+ +--------------+--------------+-------------*/
+```
+
+```sql
+-- GROUP BY with GROUPING SETS, but without ROLLUP
+-- (produces the same results as GROUPING SETS with ROLLUP)
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY GROUPING SETS(
+  product_type,
+  (product_type, product_name),
+  product_type,
+  ())
+ORDER BY product_type, product_name;
+```
+
+You can include [`CUBE`][group-by-cube] in a `GROUP BY GROUPING SETS` clause.
+For example:
+
+```sql
+-- GROUP BY with GROUPING SETS and CUBE
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY GROUPING SETS (
+  product_type,
+  CUBE (product_type, product_name))
+ORDER BY product_type, product_name;
+
+/*--------------+--------------+-------------+
+ | product_type | product_name | product_sum |
+ +--------------+--------------+-------------+
+ | NULL         | NULL         | 42          |
+ | NULL         | jeans        | 6           |
+ | NULL         | polo         | 25          |
+ | NULL         | t-shirt      | 11          |
+ | pants        | NULL         | 6           |
+ | pants        | NULL         | 6           |
+ | pants        | jeans        | 6           |
+ | shirt        | NULL         | 36          |
+ | shirt        | NULL         | 36          |
+ | shirt        | polo         | 25          |
+ | shirt        | t-shirt      | 11          |
+ +--------------+--------------+-------------*/
+```
+
+```sql
+-- GROUP BY with GROUPING SETS, but without CUBE
+-- (produces the same results as GROUPING SETS with CUBE)
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY GROUPING SETS(
+  product_type,
+  (product_type, product_name),
+  product_type,
+  product_name,
+  ())
+ORDER BY product_type, product_name;
+```
+
 ### Group rows by `ROLLUP` 
 <a id="group_by_rollup"></a>
 
 <pre>
-GROUP BY ROLLUP ( <span class="var">groupable_item[, ...]</span> )
+GROUP BY ROLLUP ( <span class="var">grouping_list</span> )
+
+<span class="var">grouping_list</span>:
+  { <span class="var">groupable_item</span> | <span class="var">groupable_item_set</span> }[, ...]
+
+<span class="var">groupable_item_set</span>:
+  ( <span class="var">groupable_item</span>[, ...] )
 </pre>
 
 **Description**
@@ -2307,9 +2636,15 @@ in a set of data.
 
 **Definitions**
 
++ `grouping_list`: A list of items that you can add to the
+  `GROUPING SETS` clause. This is used to create a generated list
+  of grouping sets when the query is run.
 + `groupable_item`: Group rows in a table that share common values
   for certain columns. To learn more, see
-  [Group rows by groupable items][group-by-groupable-item].
+  [Group rows by groupable items][group-by-groupable-item].[anonymous `STRUCT` values][tuple-struct]
+  are not allowed.
++ `groupable_item_set`: Group rows by a subset of
+  [groupable items][group-by-groupable-item].
 
 **Details**
 
@@ -2341,6 +2676,9 @@ Conceptual grouping sets | Actual grouping sets
 When evaluating the results for a particular grouping set,
 expressions that are not in the grouping set are aggregated and produce a
 `NULL` placeholder.
+
+You can filter results by specific groupable items. To learn more, see the
+[`GROUPING` function][grouping-function]
 
 **Examples**
 
@@ -2392,6 +2730,174 @@ GROUP BY product_type
 UNION ALL
 SELECT NULL, NULL, SUM(product_count) FROM Products
 ORDER BY product_type, product_name;
+```
+
+You can include groupable item sets in a `GROUP BY ROLLUP` clause.
+In the following example, `(product_type, product_name)` is a
+groupable item set.
+
+```sql
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY ROLLUP (product_type, (product_type, product_name))
+ORDER BY product_type, product_name;
+
+/*--------------+--------------+-------------+
+ | product_type | product_name | product_sum |
+ +--------------+--------------+-------------+
+ | NULL         | NULL         | 42          |
+ | pants        | NULL         | 6           |
+ | pants        | jeans        | 6           |
+ | shirt        | NULL         | 36          |
+ | shirt        | polo         | 25          |
+ | shirt        | t-shirt      | 11          |
+ +--------------+--------------+-------------*/
+```
+
+### Group rows by `CUBE` 
+<a id="group_by_cube"></a>
+
+<pre>
+GROUP BY CUBE ( <span class="var">grouping_list</span> )
+
+<span class="var">grouping_list</span>:
+  { <span class="var">groupable_item</span> | <span class="var">groupable_item_set</span> }[, ...]
+
+<span class="var">groupable_item_set</span>:
+  ( <span class="var">groupable_item</span>[, ...] )
+</pre>
+
+**Description**
+
+The `GROUP BY CUBE` clause produces aggregated data for all _grouping set_
+permutations. A grouping set is a group of columns by which rows
+can be grouped together. This clause is helpful if you need to create a
+[contingency table][contingency-table]{: .external} to find interrelationships
+between items in a set of data.
+
+**Definitions**
+
++ `grouping_list`: A list of items that you can add to the
+  `GROUPING SETS` clause. This is used to create a generated list
+  of grouping sets when the query is run.
++ `groupable_item`: Group rows in a table that share common values
+  for certain columns. To learn more, see
+  [Group rows by groupable items][group-by-groupable-item].
+  [Anonymous `STRUCT` values][tuple-struct] are not allowed.
++ `groupable_item_set`: Group rows by a set of
+  [groupable items][group-by-groupable-item].
+
+**Details**
+
+`GROUP BY CUBE` is similar to `GROUP BY ROLLUP`, except that it takes a
+grouping list and generates grouping sets from all permutations in this
+list, including an empty grouping set. In the empty grouping set, all rows
+are aggregated down to a single group.
+
+For example, `GROUP BY CUBE (a, b, c)` generates the following
+grouping sets from the grouping list, `a, b, c`, and then produces
+aggregated rows for each of them:
+
++ `(a, b, c)`
++ `(a, b)`
++ `(a)`
++ `(b, c)`
++ `(b)`
++ `(c)`
++ `()`
+
+Here is an example that includes groupable item sets in
+`GROUP BY CUBE (a, (b, c), d)`:
+
+Conceptual grouping sets | Actual grouping sets
+------------------------ | --------------
+`(a, (b, c), d)`         | `(a, b, c, d)`
+`(a, (b, c))`            | `(a, b, c)`
+`(a, d)`                 | `(a, d)`
+`(a)`                    | `(a)`
+`((b, c), d)`            | `(b, c, d)`
+`((b, c))`               | `(b, c)`
+`(d)`                    | `(d)`
+`()`                     | `()`
+
+When evaluating the results for a particular grouping set,
+expressions that are not in the grouping set are aggregated and produce a
+`NULL` placeholder.
+
+You can filter results by specific groupable items. To learn more, see the
+[`GROUPING` function][grouping-function]
+
+**Examples**
+
+The following query groups rows by all combinations of `product_type` and
+`product_name` to produce a contingency table:
+
+```sql
+-- GROUP BY with CUBE
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY CUBE (product_type, product_name)
+ORDER BY product_type, product_name;
+
+/*--------------+--------------+-------------+
+ | product_type | product_name | product_sum |
+ +--------------+--------------+-------------+
+ | NULL         | NULL         | 42          |
+ | NULL         | jeans        | 6           |
+ | NULL         | polo         | 25          |
+ | NULL         | t-shirt      | 11          |
+ | pants        | NULL         | 6           |
+ | pants        | jeans        | 6           |
+ | shirt        | NULL         | 36          |
+ | shirt        | polo         | 25          |
+ | shirt        | t-shirt      | 11          |
+ +--------------+--------------+-------------*/
+```
+
+You can include groupable item sets in a `GROUP BY CUBE` clause.
+In the following example, `(product_type, product_name)` is a
+groupable item set.
+
+```sql
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT product_type, product_name, SUM(product_count) AS product_sum
+FROM Products
+GROUP BY CUBE (product_type, (product_type, product_name))
+ORDER BY product_type, product_name;
+
+/*--------------+--------------+-------------+
+ | product_type | product_name | product_sum |
+ +--------------+--------------+-------------+
+ | NULL         | NULL         | 42          |
+ | pants        | NULL         | 6           |
+ | pants        | jeans        | 6           |
+ | pants        | jeans        | 6           |
+ | shirt        | NULL         | 36          |
+ | shirt        | polo         | 25          |
+ | shirt        | polo         | 25          |
+ | shirt        | t-shirt      | 11          |
+ | shirt        | t-shirt      | 11          |
+ +--------------+--------------+-------------*/
 ```
 
 ## `HAVING` clause 
@@ -3767,11 +4273,7 @@ WITH ANONYMIZATION OPTIONS( <a href="#dp_privacy_parameters"><span class="var">p
 <a href="#dp_privacy_parameters"><span class="var">privacy_parameters</span></a>:
   <span class="var">epsilon</span> = <span class="var">expression</span>,
   { <span class="var">delta</span> = <span class="var">expression</span> | <span class="var">k_threshold</span> = <span class="var">expression</span> },
-  [ { <span class="var">kappa</span> = <span class="var">expression</span> | <span class="var">max_groups_contributed</span> = <span class="var">expression</span> } ]
-<a href="#dp_privacy_parameters">privacy_parameters</a>:
-  epsilon = expression,
-  { delta = expression | k_threshold = expression },
-  [ { kappa = expression | max_groups_contributed = expression } ],
+  [ { <span class="var">kappa</span> = <span class="var">expression</span> | <span class="var">max_groups_contributed</span> = <span class="var">expression</span> } ],
 </pre>
 
 **Differential privacy clause**
@@ -4884,6 +5386,16 @@ Results:
 [group-by-col-ordinals]: #group_by_col_ordinals
 
 [group-by-rollup]: #group_by_rollup
+
+[group-by-cube]: #group_by_cube
+
+[group-by-grouping-sets]: #group_by_grouping_sets
+
+[contingency-table]: https://en.wikipedia.org/wiki/Contingency_table
+
+[tuple-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#tuple_syntax
+
+[grouping-function]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#grouping
 
 [unpivot-operator]: #unpivot_operator
 

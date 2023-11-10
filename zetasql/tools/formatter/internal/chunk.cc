@@ -94,7 +94,8 @@ bool IsTopLevelClauseKeyword(const Token& token) {
        "JOIN", "LIMIT", "ORDER", "PARTITION", "QUALIFY", "RANGE", "ROWS",
        "SELECT", "SET", "TO", "WHERE", "WINDOW"});
   return token.Is(Token::Type::TOP_LEVEL_KEYWORD) ||
-         (!token.IsOneOf({Token::Type::KEYWORD_AS_IDENTIFIER_FRAGMENT,
+         (!token.IsOneOf({Token::Type::COMPARISON_OPERATOR,
+                          Token::Type::KEYWORD_AS_IDENTIFIER_FRAGMENT,
                           Token::Type::PRIVILEGE_TYPE_KEYWORD,
                           Token::Type::DDL_KEYWORD}) &&
           allowed->contains(token.GetKeyword()));
@@ -392,7 +393,11 @@ bool Chunk::SpaceBetweenTokens(const Token& token_before,
     return false;
   }
   if (token_after.GetKeyword() == "[") {
-    if (token_before.MayBeIdentifier() ||
+    if ((token_before.MayBeIdentifier() &&
+         // Script names can be escaped with squared brackets
+         // (i.e. `RUN [script_name]()`). In these cases we shouldn't remove the
+         // space before the bracket.
+         token_before.GetKeyword() != "RUN") ||
         token_before.GetKeyword() == "ARRAY" ||
         token_before.GetKeyword() == ")" || token_before.GetKeyword() == "]" ||
         !AllowSpaceAfter(token_before.GetKeyword())) {
@@ -778,6 +783,7 @@ bool ShouldNeverBeFollowedByNewline(const Token& token) {
   static const auto* only_if_top_level = new zetasql_base::flat_set<absl::string_view>(
       {"INSERT", "LANGUAGE", "LOAD", "MODULE", "RUN", "SHOW", "SOURCE"});
   return allowed->contains(token.GetKeyword()) ||
+         token.Is(Token::Type::COMPARISON_OPERATOR) ||
          (token.Is(Token::Type::TOP_LEVEL_KEYWORD) &&
           only_if_top_level->contains(token.GetKeyword()));
 }
@@ -1660,7 +1666,8 @@ void MarkAllKeywordsUsedAsParams(const TokensView& tokens_view) {
 // Annotates as comparison operators:
 // * "AND" within BETWEEN..AND operator;
 // * "NOT", which is part of "NOT BETWEEN", "NOT IN" or "NOT LIKE" operators.
-void MarkBetweenAndNotAsComparisonOperators(const TokensView& tokens_view) {
+// * "FROM", which is part of "IS DISTINCT FROM" operator.
+void MarkBetweenAndNotFromAsComparisonOperators(const TokensView& tokens_view) {
   const std::vector<Token*>& tokens = tokens_view.WithoutComments();
 
   for (int t = 0; t < tokens.size(); ++t) {
@@ -1685,6 +1692,18 @@ void MarkBetweenAndNotAsComparisonOperators(const TokensView& tokens_view) {
         } else if (tokens[i]->GetKeyword() == ")") {
           brackets_depth--;
         }
+      }
+    } else if (current_keyword == "DISTINCT" && t + 1 < tokens.size() &&
+               t > 0) {
+      absl::string_view maybe_is = tokens[t - 1]->GetKeyword();
+      const absl::string_view next_keyword = tokens[t + 1]->GetKeyword();
+      if (maybe_is == "NOT" && t > 1) {
+        maybe_is = tokens[t - 2]->GetKeyword();
+      }
+      if (maybe_is == "IS" && next_keyword == "FROM") {
+        // Mark FROM after IS DISTINCT or IS NOT DISTINCT as a part of
+        // comparison operator.
+        tokens[t + 1]->SetType(Token::Type::COMPARISON_OPERATOR);
       }
     }
   }
@@ -2192,6 +2211,35 @@ void MarkAllSlashedIdentifiers(const TokensView& tokens_view) {
   }
 }
 
+// Marks all script name identifiers in RUN statements.
+// Script names may contain several symbols such as dashes ('-'), colons (':')
+// or dots, and should not be split.
+void MarkAllComplexScriptNames(const TokensView& tokens_view) {
+  const std::vector<Token*>& tokens = tokens_view.WithoutComments();
+  if (tokens.size() < 3) {
+    return;
+  }
+  static const auto* kIdentifierTerminators =
+      new zetasql_base::flat_set<absl::string_view>({";", "("});
+  for (int t = 0; t < tokens.size(); ++t) {
+    if (tokens[t]->Is(Token::Type::TOP_LEVEL_KEYWORD) &&
+        tokens[t]->GetKeyword() == "RUN") {
+      ++t;
+      // Find the end of identifier. Look only for tokens that don't have any
+      // spaces in between in the original input.
+      int end = t + 1;
+      while (end < tokens.size() &&
+             !SpaceBetweenTokensInInput(*tokens[end - 1], *tokens[end]) &&
+             !kIdentifierTerminators->contains(tokens[end]->GetKeyword())) {
+        ++end;
+      }
+      for (int i = t + 1; i < end; ++i) {
+        tokens[i]->SetType(Token::Type::COMPLEX_TOKEN_CONTINUATION);
+      }
+    }
+  }
+}
+
 // Marks all colons and field names inside braced constructors.
 void MarkTokensInBracedConstructors(const TokensView& tokens_view) {
   const std::vector<Token*>& tokens = tokens_view.WithoutComments();
@@ -2334,12 +2382,13 @@ void AnnotateTokens(const TokensView& tokens,
   MarkAllMacroCallsThatShouldBeFused(tokens);
   MarkAllMacroBodiesThatShouldBeFused(tokens);
   MarkAllStatementStarts(tokens, location_translator);
+  MarkAllComplexScriptNames(tokens);
   MarkAllTopLevelWithKeywords(tokens);
   MarkAllPrivilegeTypeKeywords(tokens);
   MarkAllSelectStarModifiers(tokens);
   MarkAllAssignmentOperators(tokens);
   MarkAllProtoExtensionParentheses(tokens);
-  MarkBetweenAndNotAsComparisonOperators(tokens);
+  MarkBetweenAndNotFromAsComparisonOperators(tokens);
   MarkAllTokensStartingAList(tokens);
   MarkUnquotedPaths(tokens);
   MarkAllTopLevelValuesClauses(tokens);

@@ -20,6 +20,7 @@ package com.google.zetasql;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.zetasql.TypeTestBase.getDescriptorPoolWithTypeProtoAndTypeKind;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
@@ -2261,6 +2262,404 @@ public class ValueTest {
   }
 
   @Test
+  public void testRangeDateValue() {
+    Value rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+            Value.createDateValue(1),
+            Value.createDateValue(2));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)));
+    assertThat(rangeValue.isValid()).isTrue();
+
+    rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATE),
+            Value.createDateValue(2));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)));
+    assertThat(rangeValue.isValid()).isTrue();
+
+    rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+            Value.createDateValue(1),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATE));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)));
+    assertThat(rangeValue.isValid()).isTrue();
+
+    rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATE),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATE));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)));
+    assertThat(rangeValue.isValid()).isTrue();
+  }
+
+  @Test
+  public void testRangeDatetimeValue() {
+    Value rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+            Value.createDatetimeValue(1512345678, 0),
+            Value.createDatetimeValue(1512355678, 0));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)));
+    assertThat(rangeValue.isValid()).isTrue();
+
+    rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATETIME),
+            Value.createDatetimeValue(1512355678, 0));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)));
+    assertThat(rangeValue.isValid()).isTrue();
+
+    rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+            Value.createDatetimeValue(1512345678, 0),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATETIME));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)));
+    assertThat(rangeValue.isValid()).isTrue();
+
+    rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATETIME),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATETIME));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)));
+    assertThat(rangeValue.isValid()).isTrue();
+  }
+
+  @Test
+  public void testRangeTimestampValue() {
+    Value rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+            Value.createTimestampValueFromUnixMicros(1000000001),
+            Value.createTimestampValueFromUnixMicros(2000000001));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)));
+    assertThat(rangeValue.isValid()).isTrue();
+
+    rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+            Value.createSimpleNullValue(TypeKind.TYPE_TIMESTAMP),
+            Value.createTimestampValueFromUnixMicros(2000000001));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)));
+    assertThat(rangeValue.isValid()).isTrue();
+
+    rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+            Value.createTimestampValueFromUnixMicros(1000000001),
+            Value.createSimpleNullValue(TypeKind.TYPE_TIMESTAMP));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)));
+    assertThat(rangeValue.isValid()).isTrue();
+
+    rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+            Value.createSimpleNullValue(TypeKind.TYPE_TIMESTAMP),
+            Value.createSimpleNullValue(TypeKind.TYPE_TIMESTAMP));
+
+    assertThat(rangeValue).isNotNull();
+    assertThat(rangeValue.isNull()).isFalse();
+    assertThat(rangeValue.getType())
+        .isEqualTo(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)));
+    assertThat(rangeValue.isValid()).isTrue();
+  }
+
+  @Test
+  public void testRangeDateValueRoundTripsSerialization() {
+    Value rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+            Value.createDateValue(1),
+            Value.createDateValue(2));
+    Value unboundedEndRangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+            Value.createDateValue(1),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATE));
+    Value unboundedStartRangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATE),
+            Value.createDateValue(2));
+    Value unboundedRangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATE),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATE));
+    checkSerializeAndDeserialize(rangeValue);
+    checkSerializeAndDeserialize(unboundedEndRangeValue);
+    checkSerializeAndDeserialize(unboundedStartRangeValue);
+    checkSerializeAndDeserialize(unboundedRangeValue);
+  }
+
+  @Test
+  public void testRangeDatetimeValueRoundTripsSerialization() {
+    Value rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+            Value.createDatetimeValue(1512345678, 0),
+            Value.createDatetimeValue(1512355678, 0));
+    Value unboundedEndRangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+            Value.createDatetimeValue(1512345678, 0),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATETIME));
+    Value unboundedStartRangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATETIME),
+            Value.createDatetimeValue(1512355678, 0));
+    Value unboundedRangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATETIME),
+            Value.createSimpleNullValue(TypeKind.TYPE_DATETIME));
+    checkSerializeAndDeserialize(rangeValue);
+    checkSerializeAndDeserialize(unboundedEndRangeValue);
+    checkSerializeAndDeserialize(unboundedStartRangeValue);
+    checkSerializeAndDeserialize(unboundedRangeValue);
+  }
+
+  @Test
+  public void testRangeTimestampValueRoundTripsSerialization() {
+    Value rangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+            Value.createTimestampValueFromUnixMicros(1),
+            Value.createTimestampValueFromUnixMicros(2));
+    Value unboundedEndRangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+            Value.createTimestampValueFromUnixMicros(1),
+            Value.createSimpleNullValue(TypeKind.TYPE_TIMESTAMP));
+    Value unboundedStartRangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+            Value.createSimpleNullValue(TypeKind.TYPE_TIMESTAMP),
+            Value.createTimestampValueFromUnixMicros(2));
+    Value unboundedRangeValue =
+        Value.createRangeValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+            Value.createSimpleNullValue(TypeKind.TYPE_TIMESTAMP),
+            Value.createSimpleNullValue(TypeKind.TYPE_TIMESTAMP));
+    checkSerializeAndDeserialize(rangeValue);
+    checkSerializeAndDeserialize(unboundedEndRangeValue);
+    checkSerializeAndDeserialize(unboundedStartRangeValue);
+    checkSerializeAndDeserialize(unboundedRangeValue);
+  }
+
+  @Test
+  public void testCreateInvalidRangeValues() {
+    // Invalid range types.
+    assertThrows(
+        NullPointerException.class,
+        () -> Value.createRangeValue(null, Value.createDateValue(1), Value.createDateValue(2)));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_INT32)),
+                Value.createDateValue(1),
+                Value.createDateValue(2)));
+    // Invalid start or end values.
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+                null,
+                Value.createDateValue(2)));
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+                Value.createDateValue(1),
+                null));
+
+    // Start is different type from end.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+                Value.createDateValue(1),
+                Value.createTimestampValueFromUnixMicros(2)));
+
+    // Start type is different from range element type.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+                Value.createDateValue(1),
+                Value.createTimestampValueFromUnixMicros(2)));
+
+    // End type is different from range element type.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+                Value.createDateValue(1),
+                Value.createTimestampValueFromUnixMicros(2)));
+
+    // Date start is greater than date end.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+                Value.createDateValue(2),
+                Value.createDateValue(1)));
+    // Date start is equal to date end.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)),
+                Value.createDateValue(1),
+                Value.createDateValue(1)));
+    // Datetime start is greater than datetime end.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+                Value.createDatetimeValue(1512355678, 2),
+                Value.createDatetimeValue(1512345678, 2)));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+                Value.createDatetimeValue(1512345678, 2),
+                Value.createDatetimeValue(1512345678, 0)));
+    // Datetime start is equal to datetime end.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)),
+                Value.createDatetimeValue(1512345678, 2),
+                Value.createDatetimeValue(1512345678, 2)));
+    // Timestamp start is greater than timestamp end.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+                Value.createTimestampValueFromUnixMicros(2),
+                Value.createTimestampValueFromUnixMicros(1)));
+    // Timestamp start is equal to timestamp end.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.createRangeValue(
+                TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)),
+                Value.createTimestampValueFromUnixMicros(1),
+                Value.createTimestampValueFromUnixMicros(1)));
+  }
+
+  @Test
+  public void testDeserializeRangeDateValue() throws Exception {
+    RangeType rangeType =
+        TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE));
+
+    // Verify no errors thrown.
+    Value.deserialize(
+        rangeType,
+        valueProtoFromText(
+            "range_value {"
+                + "  start {"
+                + "    date_value: 1"
+                + "  }"
+                + "  end {"
+                + "    date_value: 2"
+                + "  }"
+                + "}"));
+    Value.deserialize(
+        rangeType, valueProtoFromText("range_value { start { date_value: 1 } end { } }"));
+    Value.deserialize(
+        rangeType, valueProtoFromText("range_value { start { } end { date_value: 2 } }"));
+    Value.deserialize(rangeType, valueProtoFromText("range_value { start { } end { } }"));
+    Value.deserialize(rangeType, valueProtoFromText("range_value { start { } }"));
+    Value.deserialize(rangeType, valueProtoFromText("range_value { end { } }"));
+    Value.deserialize(rangeType, valueProtoFromText("range_value { }"));
+
+    // Invalid/mismatched range types.
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Value.deserialize(
+                rangeType, valueProtoFromText("range_value { start { int32_value: 1 } end { } }")));
+    assertThrows(
+        AssertionError.class,
+        () ->
+            Value.deserialize(
+                rangeType,
+                valueProtoFromText("range_value { start { timestamp_value: 1 } end { } }")));
+  }
+
+  @Test
   public void testCreateNullValue() {
     SimpleType int32 = TypeFactory.createSimpleType(TypeKind.TYPE_INT32);
     Value int32Null = Value.createNullValue(int32);
@@ -2333,6 +2732,42 @@ public class ValueTest {
         }
       }
     }
+  }
+
+  @Test
+  public void testCreateNullRangeDateValue() {
+    Type rangeDateType =
+        TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE));
+    Value rangeDateNull =
+        Value.createNullValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)));
+    assertThat(rangeDateNull.isNull()).isTrue();
+    assertThat(rangeDateNull.getType()).isEqualTo(rangeDateType);
+    assertThat(valueProtoFromText("")).isEqualTo(rangeDateNull.getProto());
+  }
+
+  @Test
+  public void testCreateNullRangeDatetimeValue() {
+    Type rangeDatetimeType =
+        TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME));
+    Value rangeDatetimeNull =
+        Value.createNullValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME)));
+    assertThat(rangeDatetimeNull.isNull()).isTrue();
+    assertThat(rangeDatetimeNull.getType()).isEqualTo(rangeDatetimeType);
+    assertThat(valueProtoFromText("")).isEqualTo(rangeDatetimeNull.getProto());
+  }
+
+  @Test
+  public void testCreateNullRangeTimestampValue() {
+    Type rangeTimestampType =
+        TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP));
+    Value rangeTimestampNull =
+        Value.createNullValue(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP)));
+    assertThat(rangeTimestampNull.isNull()).isTrue();
+    assertThat(rangeTimestampNull.getType()).isEqualTo(rangeTimestampType);
+    assertThat(valueProtoFromText("")).isEqualTo(rangeTimestampNull.getProto());
   }
 
   public static void checkSerializeAndDeserialize(Value v1, Value v2) {
@@ -2585,10 +3020,15 @@ public class ValueTest {
         .that(ValueProto.Struct.getDescriptor().getFields())
         .hasSize(1);
     assertWithMessage(
+            "The number of fields of ValueProto::Range has changed, "
+                + "please also update the serialization code accordingly.")
+        .that(ValueProto.Range.getDescriptor().getFields())
+        .hasSize(2);
+    assertWithMessage(
             "The number of fields in Value class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(Value.class))
-        .isEqualTo(7);
+        .isEqualTo(9);
   }
 
   private static TypeProto typeProtoFromText(String textProto) {

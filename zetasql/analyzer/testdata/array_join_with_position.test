@@ -13,14 +13,14 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.value#4, $array_offset.pos#5]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
-        +-element_column=$array.value#4
+        +-element_column_list=[$array.value#4]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.pos#5)
 ==
@@ -43,14 +43,14 @@ QueryStmt
         +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.value#4, $array_offset.offset#5]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
-        +-element_column=$array.value#4
+        +-element_column_list=[$array.value#4]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.offset#5)
 ==
@@ -80,19 +80,19 @@ QueryStmt
         |   +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.val1#4, $array_offset.pos1#5]
         |   +-input_scan=
         |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<INT32>
         |   |   +-expr=
         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_int32_val
         |   |   +-default_value=[]
-        |   +-element_column=$array.val1#4
+        |   +-element_column_list=[$array.val1#4]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos1#5)
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        +-element_column=$array.val2#6
+        +-element_column_list=[$array.val2#6]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos2#7)
         +-join_expr=
@@ -129,22 +129,22 @@ QueryStmt
         |   +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.val1#4, $array_offset.pos1#5]
         |   +-input_scan=
         |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<INT32>
         |   |   +-expr=
         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_int32_val
         |   |   +-default_value=[]
-        |   +-element_column=$array.val1#4
+        |   +-element_column_list=[$array.val1#4]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos1#5)
         +-right_scan=
         | +-ArrayScan
         |   +-column_list=[$array.val2#6, $array_offset.pos2#7]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        |   +-element_column=$array.val2#6
+        |   +-element_column_list=[$array.val2#6]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos2#7)
         +-join_expr=
@@ -172,14 +172,14 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.$unnest1#1, $array_offset.pos#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.$unnest1#1
+        |   +-element_column_list=[$array.$unnest1#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#2)
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[4, 5])
-        +-element_column=$array.$unnest2#3
+        +-element_column_list=[$array.$unnest2#3]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos#4)
         +-join_expr=
@@ -208,17 +208,17 @@ QueryStmt
         +-left_scan=
         | +-ArrayScan
         |   +-column_list=[$array.$unnest1#1, $array_offset.pos#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.$unnest1#1
+        |   +-element_column_list=[$array.$unnest1#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#2)
         +-right_scan=
         | +-ArrayScan
         |   +-column_list=[$array.$unnest2#3, $array_offset.pos#4]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[4, 5])
-        |   +-element_column=$array.$unnest2#3
+        |   +-element_column_list=[$array.$unnest2#3]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#4)
         +-join_expr=
@@ -245,12 +245,12 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.t1#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT32>, value=[1], has_explicit_type=TRUE)
-        |   +-element_column=$array.t1#1
-        +-array_expr=
+        |   +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-Literal(type=ARRAY<UINT32>, value=[1], has_explicit_type=TRUE)
-        +-element_column=$array.t1#2
+        +-element_column_list=[$array.t1#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
             +-Cast(INT32 -> INT64)
@@ -278,15 +278,15 @@ QueryStmt
         +-left_scan=
         | +-ArrayScan
         |   +-column_list=[$array.t1#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT32>, value=[1], has_explicit_type=TRUE)
-        |   +-element_column=$array.t1#1
+        |   +-element_column_list=[$array.t1#1]
         +-right_scan=
         | +-ArrayScan
         |   +-column_list=[$array.t1#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<UINT32>, value=[1, 2], has_explicit_type=TRUE)
-        |   +-element_column=$array.t1#2
+        |   +-element_column_list=[$array.t1#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
             +-Cast(INT32 -> INT64)
@@ -318,10 +318,10 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.t1#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1])
-        |   +-element_column=$array.t1#1
-        +-array_expr=
+        |   +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a STRING, t1 DOUBLE>) -> ARRAY<STRUCT<a STRING, t1 DOUBLE>>)
         |   +-SubqueryExpr
         |     +-type=STRUCT<a STRING, t1 DOUBLE>
@@ -344,7 +344,7 @@ QueryStmt
         |             | +-t1#3 := Literal(type=DOUBLE, value=2)
         |             +-input_scan=
         |               +-SingleRowScan
-        +-element_column=$array.t2#5
+        +-element_column_list=[$array.t2#5]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
             +-Cast(INT64 -> DOUBLE)
@@ -377,10 +377,10 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.t1#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<DOUBLE>, value=[1])
-        |   +-element_column=$array.t1#1
-        +-array_expr=
+        |   +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a STRING, t1 INT64>) -> ARRAY<STRUCT<a STRING, t1 INT64>>)
         |   +-SubqueryExpr
         |     +-type=STRUCT<a STRING, t1 INT64>
@@ -403,7 +403,7 @@ QueryStmt
         |             | +-t1#3 := Literal(type=INT64, value=2)
         |             +-input_scan=
         |               +-SingleRowScan
-        +-element_column=$array.t2#5
+        +-element_column_list=[$array.t2#5]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
             +-ColumnRef(type=DOUBLE, column=$array.t1#1)
@@ -434,14 +434,14 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.$unnest1#1, $array_offset.pos1#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.$unnest1#1
+        |   +-element_column_list=[$array.$unnest1#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos1#2)
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[4, 5])
-        +-element_column=$array.$unnest2#3
+        +-element_column_list=[$array.$unnest2#3]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos2#4)
         +-join_expr=
@@ -471,17 +471,17 @@ QueryStmt
         +-left_scan=
         | +-ArrayScan
         |   +-column_list=[$array.$unnest1#1, $array_offset.pos1#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.$unnest1#1
+        |   +-element_column_list=[$array.$unnest1#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos1#2)
         +-right_scan=
         | +-ArrayScan
         |   +-column_list=[$array.$unnest2#3, $array_offset.pos2#4]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[4, 5])
-        |   +-element_column=$array.$unnest2#3
+        |   +-element_column_list=[$array.$unnest2#3]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos2#4)
         +-join_expr=
@@ -508,14 +508,14 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.val#1, $array_offset.pos#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.val#1
+        |   +-element_column_list=[$array.val#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#2)
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        +-element_column=$array.val#3
+        +-element_column_list=[$array.val#3]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos#4)
         +-join_expr=
@@ -548,17 +548,17 @@ QueryStmt
         +-left_scan=
         | +-ArrayScan
         |   +-column_list=[$array.val#1, $array_offset.pos#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.val#1
+        |   +-element_column_list=[$array.val#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#2)
         +-right_scan=
         | +-ArrayScan
         |   +-column_list=[$array.val#3, $array_offset.pos#4]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        |   +-element_column=$array.val#3
+        |   +-element_column_list=[$array.val#3]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#4)
         +-join_expr=
@@ -590,14 +590,14 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.val1#1, $array_offset.pos1#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.val1#1
+        |   +-element_column_list=[$array.val1#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos1#2)
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        +-element_column=$array.val2#3
+        +-element_column_list=[$array.val2#3]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos2#4)
         +-join_expr=
@@ -632,17 +632,17 @@ QueryStmt
         +-left_scan=
         | +-ArrayScan
         |   +-column_list=[$array.val1#1, $array_offset.pos1#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.val1#1
+        |   +-element_column_list=[$array.val1#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos1#2)
         +-right_scan=
         | +-ArrayScan
         |   +-column_list=[$array.val2#3, $array_offset.pos2#4]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        |   +-element_column=$array.val2#3
+        |   +-element_column_list=[$array.val2#3]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos2#4)
         +-join_expr=
@@ -675,14 +675,14 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.$unnest1#1, $array_offset.offset#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.$unnest1#1
+        |   +-element_column_list=[$array.$unnest1#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.offset#2)
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[4, 5])
-        +-element_column=$array.$unnest2#3
+        +-element_column_list=[$array.$unnest2#3]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.offset#4)
         +-join_expr=
@@ -753,7 +753,7 @@ QueryStmt
         +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.d#4, $array_offset.key#5]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<DATE>
         |   +-expr=
@@ -761,7 +761,7 @@ QueryStmt
         |   +-field_descriptor=repeated_date
         |   +-default_value=[]
         |   +-format=DATE
-        +-element_column=$array.d#4
+        +-element_column_list=[$array.d#4]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.key#5)
 ==
@@ -802,14 +802,14 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.nrv#4, $array_offset.offset#5]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
-        +-element_column=$array.nrv#4
+        +-element_column_list=[$array.nrv#4]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.offset#5)
 ==
@@ -859,19 +859,19 @@ QueryStmt
         |   +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.repeated_int64_val#4, $array_offset.pos#5]
         |   +-input_scan=
         |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<INT64>
         |   |   +-expr=
         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_int64_val
         |   |   +-default_value=[]
-        |   +-element_column=$array.repeated_int64_val#4
+        |   +-element_column_list=[$array.repeated_int64_val#4]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#5)
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        +-element_column=$array.$unnest1#6
+        +-element_column_list=[$array.$unnest1#6]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos#7)
         +-join_expr=
@@ -902,24 +902,24 @@ QueryStmt
         |   +-column_list=[TestTable.KitchenSink#3, $array.arr1#4, $array_offset.pos#5]
         |   +-input_scan=
         |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<INT64>
         |   |   +-expr=
         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_int64_val
         |   |   +-default_value=[]
-        |   +-element_column=$array.arr1#4
+        |   +-element_column_list=[$array.arr1#4]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#5)
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int64_val
         |   +-default_value=[]
-        +-element_column=$array.arr2#6
+        +-element_column_list=[$array.arr2#6]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos#7)
         +-join_expr=
@@ -954,24 +954,24 @@ QueryStmt
         |   +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.arr1#4, $array_offset.pos1#5]
         |   +-input_scan=
         |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<INT64>
         |   |   +-expr=
         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_int64_val
         |   |   +-default_value=[]
-        |   +-element_column=$array.arr1#4
+        |   +-element_column_list=[$array.arr1#4]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos1#5)
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int64_val
         |   +-default_value=[]
-        +-element_column=$array.arr2#6
+        +-element_column_list=[$array.arr2#6]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos2#7)
         +-join_expr=
@@ -1022,7 +1022,7 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.K#9]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<STRUCT<pos INT64, arr1 INT64, arr2 INT64>>
         |   +-subquery_type=ARRAY
@@ -1048,31 +1048,31 @@ QueryStmt
         |               +-input_scan=
         |               | +-ArrayScan
         |               |   +-column_list=[$array.arr1#4, $array_offset.pos#5]
-        |               |   +-array_expr=
+        |               |   +-array_expr_list=
         |               |   | +-GetProtoField
         |               |   |   +-type=ARRAY<INT64>
         |               |   |   +-expr=
         |               |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |               |   |   +-field_descriptor=repeated_int64_val
         |               |   |   +-default_value=[]
-        |               |   +-element_column=$array.arr1#4
+        |               |   +-element_column_list=[$array.arr1#4]
         |               |   +-array_offset_column=
         |               |     +-ColumnHolder(column=$array_offset.pos#5)
-        |               +-array_expr=
+        |               +-array_expr_list=
         |               | +-GetProtoField
         |               |   +-type=ARRAY<INT64>
         |               |   +-expr=
         |               |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |               |   +-field_descriptor=repeated_int64_val
         |               |   +-default_value=[]
-        |               +-element_column=$array.arr2#6
+        |               +-element_column_list=[$array.arr2#6]
         |               +-array_offset_column=
         |               | +-ColumnHolder(column=$array_offset.pos#7)
         |               +-join_expr=
         |                 +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
         |                   +-ColumnRef(type=INT64, column=$array_offset.pos#5)
         |                   +-ColumnRef(type=INT64, column=$array_offset.pos#7)
-        +-element_column=$array.K#9
+        +-element_column_list=[$array.K#9]
 ==
 
 select arr, pos
@@ -1092,14 +1092,14 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.arr#4, $array_offset.pos#5]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int64_val
         |   +-default_value=[]
-        +-element_column=$array.arr#4
+        +-element_column_list=[$array.arr#4]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos#5)
         +-join_expr=

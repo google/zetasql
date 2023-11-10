@@ -2825,6 +2825,33 @@ TEST_F(ValueTest, RangeConstructionSucceeds) {
   EXPECT_EQ(Value::UnboundedEndDate(), result.end());
 }
 
+TEST_F(ValueTest, MakeRangeFromValidatedInputsSucceeds) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value result, Value::MakeRangeFromValidatedInputs(types::DateRangeType(),
+                                                        Date(1), Date(2)));
+  EXPECT_EQ(Date(1), result.start());
+  EXPECT_EQ(Date(2), result.end());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      result, Value::MakeRangeFromValidatedInputs(
+                  types::DateRangeType(), Date(1), Value::UnboundedEndDate()));
+  EXPECT_EQ(Date(1), result.start());
+  EXPECT_EQ(Value::UnboundedEndDate(), result.end());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(result, Value::MakeRangeFromValidatedInputs(
+                                   types::DateRangeType(),
+                                   Value::UnboundedStartDate(), Date(2)));
+  EXPECT_EQ(Value::UnboundedStartDate(), result.start());
+  EXPECT_EQ(Date(2), result.end());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      result, Value::MakeRangeFromValidatedInputs(types::DateRangeType(),
+                                                  Value::UnboundedStartDate(),
+                                                  Value::UnboundedEndDate()));
+  EXPECT_EQ(Value::UnboundedStartDate(), result.start());
+  EXPECT_EQ(Value::UnboundedEndDate(), result.end());
+}
+
 TEST_F(ValueTest, RangeConstructionUnequalTypesFails) {
   EXPECT_THAT(Value::MakeRange(Datetime(DatetimeValue::FromYMDHMSAndNanos(
                                    1, 2, 3, 4, 5, 6, 7)),
@@ -2851,6 +2878,38 @@ TEST_F(ValueTest, RangeConstructionUnequalTypesFail) {
           absl::StatusCode::kInvalidArgument,
           HasSubstr(
               "Range start element must be smaller than range end element")));
+}
+
+TEST_F(ValueTest, MakeRangeFromInvalidInputs) {
+// Different range element types
+#ifndef NDEBUG
+  EXPECT_THAT(
+      Value::MakeRangeFromValidatedInputs(
+          types::DateRangeType(),
+          Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)),
+          Date(99999)),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("must have the same type")));
+#else
+  ZETASQL_EXPECT_OK(Value::MakeRangeFromValidatedInputs(
+      types::DateRangeType(),
+      Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)),
+      Date(99999)));
+#endif
+
+// Start value is not smaller than end value
+#ifndef NDEBUG
+  EXPECT_THAT(
+      Value::MakeRangeFromValidatedInputs(types::DateRangeType(), Date(1),
+                                          Date(1)),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr(
+              "Range start element must be smaller than range end element")));
+#else
+  ZETASQL_EXPECT_OK(Value::MakeRangeFromValidatedInputs(types::DateRangeType(), Date(1),
+                                                Date(1)));
+#endif
 }
 
 TEST_F(ValueTest, RangeCopyAssign) {

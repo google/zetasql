@@ -235,6 +235,25 @@ absl::Status CollectColumnRefs(
   return node.Accept(&column_ref_collector);
 }
 
+absl::Status RemoveUnusedColumnRefs(
+    const ResolvedNode& node,
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>& column_refs) {
+  std::vector<std::unique_ptr<const ResolvedColumnRef>> refs;
+  ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(node, &refs));
+  absl::flat_hash_set<int> referenced_column_ids;
+  for (const auto& ref : refs) {
+    referenced_column_ids.insert(ref->column().column_id());
+  }
+
+  column_refs.erase(std::remove_if(column_refs.begin(), column_refs.end(),
+                                   [&](const auto& ref) {
+                                     return !referenced_column_ids.contains(
+                                         ref->column().column_id());
+                                   }),
+                    column_refs.end());
+  return absl::OkStatus();
+}
+
 void SortUniqueColumnRefs(
     std::vector<std::unique_ptr<const ResolvedColumnRef>>& column_refs) {
   // Compare two referenced columns.

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/compliance/runtime_expected_errors.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
@@ -210,6 +211,72 @@ TEST(ErrorMatcherTest, ProtoFieldIsDefaultMatcher) {
   EXPECT_TRUE(matcher.HasMatches());
   EXPECT_EQ(1, matcher.MatchCount());
   ABSL_LOG(INFO) << matcher.MatcherSummary();
+}
+
+// This test can be used to validate new matchers added to
+// `RuntimeExpectedErrorMatcher` for failing queries that are found
+// during randomized testing.
+TEST(ErrorMatcherTest, RuntimeExpectedErrorMatcher) {
+  std::unique_ptr<MatcherBase<absl::Status>> matcher =
+      RuntimeExpectedErrorMatcher("RuntimeErrors");
+  EXPECT_FALSE(matcher->HasMatches());
+  EXPECT_EQ(0, matcher->MatchCount());
+
+  EXPECT_FALSE(matcher->Matches(
+      absl::Status(absl::StatusCode::kOutOfRange,
+                   "This is a fake error message and should not match")));
+  EXPECT_FALSE(matcher->HasMatches());
+  EXPECT_EQ(0, matcher->MatchCount());
+
+  EXPECT_TRUE(
+      matcher->Matches(absl::Status(absl::StatusCode::kOutOfRange,
+                                    "Bitwise binary operator for BYTES "
+                                    "requires equal length of the inputs")));
+  EXPECT_TRUE(matcher->HasMatches());
+  EXPECT_EQ(1, matcher->MatchCount());
+
+  EXPECT_TRUE(matcher->Matches(
+      absl::Status(absl::StatusCode::kOutOfRange,
+                   "LOG10 is undefined for zero or negative value")));
+  EXPECT_TRUE(matcher->HasMatches());
+  EXPECT_EQ(2, matcher->MatchCount());
+
+  // Error matcher for COSINE_DISTANCE
+  const std::string cosine_distance_error_message = R"(Duplicate index 17
+  18
+  19
+  found in the input array.)";
+  EXPECT_TRUE(matcher->Matches(absl::Status(absl::StatusCode::kOutOfRange,
+                                            cosine_distance_error_message)));
+  EXPECT_TRUE(matcher->HasMatches());
+  EXPECT_EQ(3, matcher->MatchCount());
+
+  ABSL_LOG(INFO) << matcher->MatcherSummary();
+}
+
+// This test can be used to validate new matchers added to
+// `RuntimeDMLExpectedErrorMatcher` for failing queries that are found
+// during randomized testing.
+TEST(ErrorMatcherTest, RuntimeDMLExpectedErrorMatcher) {
+  std::unique_ptr<MatcherBase<absl::Status>> matcher =
+      RuntimeDMLExpectedErrorMatcher("DMLRuntimeErrors");
+  EXPECT_FALSE(matcher->HasMatches());
+  EXPECT_EQ(0, matcher->MatchCount());
+
+  EXPECT_FALSE(matcher->Matches(
+      absl::Status(absl::StatusCode::kOutOfRange,
+                   "This is a fake error message and should not match")));
+  EXPECT_FALSE(matcher->HasMatches());
+  EXPECT_EQ(0, matcher->MatchCount());
+
+  EXPECT_TRUE(
+      matcher->Matches(absl::Status(absl::StatusCode::kOutOfRange,
+                                    "INSERT OR REPLACE is not allowed because "
+                                    "the table does not have a primary key")));
+  EXPECT_TRUE(matcher->HasMatches());
+  EXPECT_EQ(1, matcher->MatchCount());
+
+  ABSL_LOG(INFO) << matcher->MatcherSummary();
 }
 
 }  // namespace zetasql

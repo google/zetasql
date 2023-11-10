@@ -25,6 +25,8 @@
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -94,6 +96,7 @@ void QueryExpression::ClearAllClauses() {
   set_op_column_propagation_mode_.clear();
   set_op_scan_list_.clear();
   corresponding_set_op_output_column_list_.clear();
+  group_by_all_ = false;
   group_by_list_.clear();
   group_by_hints_.clear();
   order_by_list_.clear();
@@ -158,6 +161,18 @@ std::string QueryExpression::GetSQLQuery() const {
         }
         if (!set_op_column_match_mode_.empty()) {
           absl::StrAppend(&sql, " ", set_op_column_match_mode_);
+          if (set_op_column_match_mode_ == "CORRESPONDING BY") {
+            absl::StrAppend(
+                &sql, " (",
+                absl::StrJoin(
+                    corresponding_set_op_output_column_list_, ", ",
+                    [](std::string* out,
+                       const std::pair</*column path*/ std::string,
+                                       /*column alias*/ std::string>& column) {
+                      absl::StrAppend(out, column.second);
+                    }),
+                ")");
+          }
         }
       }
       absl::StrAppend(&sql, "(", qe->GetSQLQuery(), ")");
@@ -179,7 +194,12 @@ std::string QueryExpression::GetSQLQuery() const {
     absl::StrAppend(&sql, " WHERE ", where_);
   }
 
-  if (!group_by_list_.empty()) {
+  if (group_by_all_) {
+    absl::StrAppend(
+        &sql, " GROUP ",
+        group_by_hints_.empty() ? "" : absl::StrCat(group_by_hints_, " "),
+        "BY ALL");
+  } else if (!group_by_list_.empty()) {
     absl::StrAppend(
         &sql, " GROUP ",
         group_by_hints_.empty() ? "" : absl::StrCat(group_by_hints_, " "),
@@ -384,6 +404,17 @@ bool QueryExpression::TrySetGroupByClause(
   grouping_set_id_list_ = grouping_set_id_list;
   rollup_column_id_list_ = rollup_column_id_list;
   return true;
+}
+
+absl::Status QueryExpression::SetGroupByAllClause(
+    const std::map<int, std::string>& group_by_list,
+    const std::string& group_by_hints) {
+  ZETASQL_RET_CHECK(CanSetGroupByClause());
+  group_by_all_ = true;
+  group_by_list_ = group_by_list;
+  ABSL_DCHECK(group_by_hints_.empty());
+  group_by_hints_ = group_by_hints;
+  return absl::OkStatus();
 }
 
 bool QueryExpression::TrySetOrderByClause(

@@ -1667,4 +1667,14 @@ FunctionSignature::GetArgumentsUserFacingTextWithCardinality(
   return argument_texts;
 }
 
+bool SignatureSupportsArgumentAliases(const FunctionSignature& signature) {
+  for (const FunctionArgumentType& argument : signature.arguments()) {
+    if (argument.options().argument_alias_kind() ==
+        FunctionEnums::ARGUMENT_ALIASED) {
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace zetasql

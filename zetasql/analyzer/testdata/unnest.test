@@ -10,7 +10,7 @@ QueryStmt
     | +-$col1#3 := Literal(type=INT64, value=1)
     +-input_scan=
       +-ArrayScan
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<INT64>
         |   +-subquery_type=ARRAY
@@ -21,7 +21,7 @@ QueryStmt
         |       | +-$col1#1 := Literal(type=INT64, value=2)
         |       +-input_scan=
         |         +-SingleRowScan
-        +-element_column=$array.$unnest1#2
+        +-element_column_list=[$array.$unnest1#2]
 ==
 
 select 1
@@ -41,15 +41,15 @@ QueryStmt
         | +-ArrayScan
         |   +-input_scan=
         |   | +-ArrayScan
-        |   |   +-array_expr=
+        |   |   +-array_expr_list=
         |   |   | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        |   |   +-element_column=$array.a#1
-        |   +-array_expr=
+        |   |   +-element_column_list=[$array.a#1]
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        |   +-element_column=$array.b#2
-        +-array_expr=
+        |   +-element_column_list=[$array.b#2]
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT32>, value=[1, 2], has_explicit_type=TRUE)
-        +-element_column=$array.c#3
+        +-element_column_list=[$array.c#3]
 ==
 
 # Using UNNEST with an alias and with WITH OFFSET.
@@ -108,7 +108,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.arr#4, $array_offset.pos#5]
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<STRUCT<x INT64, y INT64>>
         |   +-subquery_type=ARRAY
@@ -130,7 +130,7 @@ QueryStmt
         |           | +-y#2 := Literal(type=INT64, value=2)
         |           +-input_scan=
         |             +-SingleRowScan
-        +-element_column=$array.arr#4
+        +-element_column_list=[$array.arr#4]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.pos#5)
 ==
@@ -154,9 +154,9 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.$unnest1#1]
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[])
-        +-element_column=$array.$unnest1#1
+        +-element_column_list=[$array.$unnest1#1]
 ==
 
 select * from UNNEST([1, 2]) with offset
@@ -171,9 +171,9 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.$unnest1#1, $array_offset.offset#2]
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        +-element_column=$array.$unnest1#1
+        +-element_column_list=[$array.$unnest1#1]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.offset#2)
 ==
@@ -191,9 +191,9 @@ QueryStmt
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
         | +-ArrayScan
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[NULL], has_explicit_type=TRUE)
-        |   +-element_column=$array.$unnest1#1
+        |   +-element_column_list=[$array.$unnest1#1]
         +-aggregate_list=
           +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==
@@ -209,9 +209,9 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.$unnest1#1]
-        +-array_expr=
+        +-array_expr_list=
         | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-        +-element_column=$array.$unnest1#1
+        +-element_column_list=[$array.$unnest1#1]
 ==
 
 select *
@@ -235,15 +235,15 @@ QueryStmt
         |   +-input_scan=
         |   | +-ArrayScan
         |   |   +-column_list=[$array.a1#1]
-        |   |   +-array_expr=
+        |   |   +-array_expr_list=
         |   |   | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-        |   |   +-element_column=$array.a1#1
-        |   +-array_expr=
+        |   |   +-element_column_list=[$array.a1#1]
+        |   +-array_expr_list=
         |   | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-        |   +-element_column=$array.a2#2
-        +-array_expr=
+        |   +-element_column_list=[$array.a2#2]
+        +-array_expr_list=
         | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-        +-element_column=$array.a3#3
+        +-element_column_list=[$array.a3#3]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$less(INT32, INT32) -> BOOL)
             +-ColumnRef(type=INT32, column=$array.a2#2)
@@ -275,14 +275,14 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.a1#1, $array_offset.pos#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-        |   +-element_column=$array.a1#1
+        |   +-element_column_list=[$array.a1#1]
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#2)
-        +-array_expr=
+        +-array_expr_list=
         | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-        +-element_column=$array.a2#3
+        +-element_column_list=[$array.a2#3]
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos#4)
         +-join_expr=
@@ -313,14 +313,14 @@ QueryStmt
         |   +-input_scan=
         |   | +-ArrayScan
         |   |   +-column_list=[$array.a1#1, $array_offset.pos1#2]
-        |   |   +-array_expr=
+        |   |   +-array_expr_list=
         |   |   | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-        |   |   +-element_column=$array.a1#1
+        |   |   +-element_column_list=[$array.a1#1]
         |   |   +-array_offset_column=
         |   |     +-ColumnHolder(column=$array_offset.pos1#2)
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-        |   +-element_column=$array.a2#3
+        |   +-element_column_list=[$array.a2#3]
         |   +-array_offset_column=
         |   | +-ColumnHolder(column=$array_offset.pos2#4)
         |   +-join_expr=
@@ -378,9 +378,9 @@ QueryStmt
     | |           +-input_scan=
     | |           | +-ArrayScan
     | |           |   +-column_list=[$array.x#3]
-    | |           |   +-array_expr=
+    | |           |   +-array_expr_list=
     | |           |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.arr#2, is_correlated=TRUE)
-    | |           |   +-element_column=$array.x#3
+    | |           |   +-element_column_list=[$array.x#3]
     | |           +-aggregate_list=
     | |             +-$agg1#4 :=
     | |               +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
@@ -400,9 +400,9 @@ QueryStmt
     |             +-input_scan=
     |             | +-ArrayScan
     |             |   +-column_list=[$array.x#5]
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.arr#2, is_correlated=TRUE)
-    |             |   +-element_column=$array.x#5
+    |             |   +-element_column_list=[$array.x#5]
     |             +-filter_expr=
     |               +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
     |                 +-ColumnRef(type=INT64, column=$array.x#5)
@@ -446,7 +446,7 @@ QueryStmt
         +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.d#4]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="tt")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<DATE>
         |   +-expr=
@@ -454,7 +454,7 @@ QueryStmt
         |   +-field_descriptor=repeated_date
         |   +-default_value=[]
         |   +-format=DATE
-        +-element_column=$array.d#4
+        +-element_column_list=[$array.d#4]
 ==
 
 select *
@@ -522,22 +522,22 @@ QueryStmt
         |   +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.nrv#4]
         |   +-input_scan=
         |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="tt")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   +-expr=
         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=nested_repeated_value
         |   |   +-default_value=[]
-        |   +-element_column=$array.nrv#4
-        +-array_expr=
+        |   +-element_column_list=[$array.nrv#4]
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
-        +-element_column=$array.$unnest1#5
+        +-element_column_list=[$array.$unnest1#5]
 --
 ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
 --
@@ -591,22 +591,22 @@ QueryStmt
         |   +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.nrv#4]
         |   +-input_scan=
         |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="tt")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   +-expr=
         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=nested_repeated_value
         |   |   +-default_value=[]
-        |   +-element_column=$array.nrv#4
-        +-array_expr=
+        |   +-element_column_list=[$array.nrv#4]
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
-        +-element_column=$array.nested_repeated_int64#5
+        +-element_column_list=[$array.nested_repeated_int64#5]
 ==
 
 # Unlike with path expressions to reference arrays, UNNEST expressions can
@@ -650,7 +650,7 @@ QueryStmt
         +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.$unnest1#5]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="tt")
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<INT32>
         |   +-subquery_type=ARRAY
@@ -662,15 +662,15 @@ QueryStmt
         |       +-input_scan=
         |         +-ArrayScan
         |           +-column_list=[$array.repeated_int32_val#4]
-        |           +-array_expr=
+        |           +-array_expr_list=
         |           | +-GetProtoField
         |           |   +-type=ARRAY<INT32>
         |           |   +-expr=
         |           |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |           |   +-field_descriptor=repeated_int32_val
         |           |   +-default_value=[]
-        |           +-element_column=$array.repeated_int32_val#4
-        +-element_column=$array.$unnest1#5
+        |           +-element_column_list=[$array.repeated_int32_val#4]
+        +-element_column_list=[$array.$unnest1#5]
 ==
 
 select (select count(*) from KitchenSink.repeated_int32_val)
@@ -708,14 +708,14 @@ QueryStmt
     |             +-column_list=[$aggregate.$agg1#5]
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-GetProtoField
     |             |   |   +-type=ARRAY<INT32>
     |             |   |   +-expr=
     |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
     |             |   |   +-field_descriptor=repeated_int32_val
     |             |   |   +-default_value=[]
-    |             |   +-element_column=$array.$unnest1#4
+    |             |   +-element_column_list=[$array.$unnest1#4]
     |             +-aggregate_list=
     |               +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-input_scan=
@@ -744,14 +744,14 @@ QueryStmt
     |             +-column_list=[$aggregate.$agg1#5]
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-GetProtoField
     |             |   |   +-type=ARRAY<INT32>
     |             |   |   +-expr=
     |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
     |             |   |   +-field_descriptor=repeated_int32_val
     |             |   |   +-default_value=[]
-    |             |   +-element_column=$array.repeated_int32_val#4
+    |             |   +-element_column_list=[$array.repeated_int32_val#4]
     |             +-aggregate_list=
     |               +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-input_scan=
@@ -777,14 +777,14 @@ QueryStmt
         +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.$unnest1#4]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
-        +-element_column=$array.$unnest1#4
+        +-element_column_list=[$array.$unnest1#4]
 --
 ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
 --
@@ -802,14 +802,14 @@ QueryStmt
         +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.repeated_int32_val#4]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
-        +-element_column=$array.repeated_int32_val#4
+        +-element_column_list=[$array.repeated_int32_val#4]
 ==
 
 # Scoping: Column names that show up in two preceding tables will be ambiguous.
@@ -883,9 +883,9 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.t#1]
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRING>, value=NULL, has_explicit_type=TRUE)
-        +-element_column=$array.t#1
+        +-element_column_list=[$array.t#1]
 ==
 
 select *
@@ -905,7 +905,7 @@ QueryStmt
         +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.$unnest1#3]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
-        +-array_expr=
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
         |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |   +-Cast(INT32 -> INT64)
@@ -914,7 +914,7 @@ QueryStmt
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |     +-Cast(INT32 -> INT64)
         |       +-Parameter(type=INT32, name="test_param_int32")
-        +-element_column=$array.$unnest1#3
+        +-element_column_list=[$array.$unnest1#3]
 ==
 
 # Test case for b/18945421, we provide a normal (non-INTERNAL) error message
@@ -949,7 +949,7 @@ QueryStmt
     |         +-input_scan=
     |           +-ArrayScan
     |             +-column_list=[$array.arr#4]
-    |             +-array_expr=
+    |             +-array_expr_list=
     |             | +-GetProtoField
     |             |   +-type=ARRAY<INT64>
     |             |   +-expr=
@@ -963,7 +963,7 @@ QueryStmt
     |             |   |   +-Literal(type=INT64, value=1)
     |             |   +-field_descriptor=nested_repeated_int64
     |             |   +-default_value=[]
-    |             +-element_column=$array.arr#4
+    |             +-element_column_list=[$array.arr#4]
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
 ==
@@ -999,7 +999,7 @@ QueryStmt
     |         +-input_scan=
     |           +-ArrayScan
     |             +-column_list=[$array.nested_repeated_int64#4]
-    |             +-array_expr=
+    |             +-array_expr_list=
     |             | +-GetProtoField
     |             |   +-type=ARRAY<INT64>
     |             |   +-expr=
@@ -1013,7 +1013,7 @@ QueryStmt
     |             |   |   +-Literal(type=INT64, value=1)
     |             |   +-field_descriptor=nested_repeated_int64
     |             |   +-default_value=[]
-    |             +-element_column=$array.nested_repeated_int64#4
+    |             +-element_column_list=[$array.nested_repeated_int64#4]
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
 ==
@@ -1035,7 +1035,7 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.v#4]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -1049,7 +1049,7 @@ QueryStmt
         |   |   +-Literal(type=INT64, value=0)
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
-        +-element_column=$array.v#4
+        +-element_column_list=[$array.v#4]
 ==
 
 select nested_repeated_int64
@@ -1078,7 +1078,7 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.v#4]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -1090,7 +1090,7 @@ QueryStmt
         |   |   +-default_value=NULL
         |   +-field_descriptor=repeated_value
         |   +-default_value=[]
-        +-element_column=$array.v#4
+        +-element_column_list=[$array.v#4]
 ==
 
 select v
@@ -1124,7 +1124,7 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.v#4]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -1138,7 +1138,7 @@ QueryStmt
         |   |   +-Literal(type=INT64, value=2)
         |   +-field_descriptor=repeated_value
         |   +-default_value=[]
-        +-element_column=$array.v#4
+        +-element_column_list=[$array.v#4]
 ==
 
 # When UNNEST expression is not a path expression, there is no alias to be inferred.
@@ -1155,73 +1155,9 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.$unnest1#1]
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        +-element_column=$array.$unnest1#1
-==
-
-# Multiple expressions in UNNEST are not implemented.
-SELECT *
-FROM UNNEST([1, 2, 3], [2, 3])
---
-ERROR: Multiple arguments in UNNEST in FROM clause is not implemented [at 2:24]
-FROM UNNEST([1, 2, 3], [2, 3])
-                       ^
-==
-
-# Column alias is not implemented: single column.
-SELECT *
-FROM UNNEST([1,2] AS array_alias)
---
-ERROR: Argument alias in UNNEST in FROM clause is not implemented [at 2:19]
-FROM UNNEST([1,2] AS array_alias)
-                  ^
-==
-
-# Multiple columns with and without alias are not allowed.
-SELECT *
-FROM UNNEST([1, 2, 3] AS literal_array, TestTable.KitchenSink.repeated_int32_val)
---
-ERROR: Multiple arguments in UNNEST in FROM clause is not implemented [at 2:41]
-FROM UNNEST([1, 2, 3] AS literal_array, TestTable.KitchenSink.repeated_int32_...
-                                        ^
-==
-
-# Table alias is not allowed when the expression in UNNEST has alias.
-SELECT *
-FROM UNNEST([1, 2] AS col_alias) AS table_alias
---
-ERROR: Table alias in UNNEST in FROM clause is not allowed when arguments in UNNEST have alias [at 2:34]
-FROM UNNEST([1, 2] AS col_alias) AS table_alias
-                                 ^
-==
-
-# Table alias is not allowed when UNNEST has multiple expressions with aliases.
-SELECT *
-FROM UNNEST([1, 2] AS col_alias, [2, 3] AS another_col_alias) AS table_alias
---
-ERROR: Table alias in UNNEST in FROM clause is not allowed when UNNEST contains multiple arguments [at 2:63]
-FROM UNNEST([1, 2] AS col_alias, [2, 3] AS another_col_alias) AS table_alias
-                                                              ^
-==
-
-# Table alias is not allowed when UNNEST has multiple expressions, some with
-# alias some not.
-SELECT *
-FROM UNNEST([1, 2] AS col_alias, [2, 3]) AS table_alias
---
-ERROR: Table alias in UNNEST in FROM clause is not allowed when UNNEST contains multiple arguments [at 2:42]
-FROM UNNEST([1, 2] AS col_alias, [2, 3]) AS table_alias
-                                         ^
-==
-
-# Table alias is not allowed when UNNEST contains multiple expressions.
-SELECT *
-FROM UNNEST([1,2], [3,4]) AS table_alias
---
-ERROR: Table alias in UNNEST in FROM clause is not allowed when UNNEST contains multiple arguments [at 2:27]
-FROM UNNEST([1,2], [3,4]) AS table_alias
-                          ^
+        +-element_column_list=[$array.$unnest1#1]
 ==
 
 # Legacy table_alias allowed when there is exactly one expression in UNNEST and
@@ -1238,38 +1174,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.legacy_alias#1]
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[1, 2])
-        +-element_column=$array.legacy_alias#1
+        +-element_column_list=[$array.legacy_alias#1]
 ==
-
-# Array zip mode is not implemented.
-SELECT *
-FROM UNNEST([1,2], mode => {{"STRICT"|"TRUNCATE"|"PAD"}});
---
-ALTERNATION GROUP: "STRICT"
---
-ERROR: The named argument `mode` used in UNNEST is not implemented [at 2:20]
-FROM UNNEST([1,2], mode => "STRICT");
-                   ^
---
-ALTERNATION GROUP: "TRUNCATE"
---
-ERROR: The named argument `mode` used in UNNEST is not implemented [at 2:20]
-FROM UNNEST([1,2], mode => "TRUNCATE");
-                   ^
---
-ALTERNATION GROUP: "PAD"
---
-ERROR: The named argument `mode` used in UNNEST is not implemented [at 2:20]
-FROM UNNEST([1,2], mode => "PAD");
-                   ^
-==
-
-# Named arguments other than `mode` are not supported.
-SELECT *
-FROM UNNEST([1, 2], unsupported_named_argument => "PAD");
---
-ERROR: Unsupported named argument `unsupported_named_argument` in UNNEST [at 2:21]
-FROM UNNEST([1, 2], unsupported_named_argument => "PAD");
-                    ^

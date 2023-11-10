@@ -803,15 +803,15 @@ QueryStmt
     |                 +-left_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.arr1#3]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=s.arr1#1, is_correlated=TRUE)
-    |                 |   +-element_column=$array.arr1#3
+    |                 |   +-element_column_list=[$array.arr1#3]
     |                 +-right_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.arr2#4]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=s.arr2#2, is_correlated=TRUE)
-    |                 |   +-element_column=$array.arr2#4
+    |                 |   +-element_column_list=[$array.arr2#4]
     |                 +-join_expr=
     |                   +-Literal(type=BOOL, value=true)
     +-input_scan=

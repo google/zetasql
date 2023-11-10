@@ -3335,8 +3335,6 @@ QueryStmt
         +-output_column_list=[$union_all3.col#3]
 ==
 
-# TODO: Enable sqlbuilder when its implementation for FULL
-# is ready.
 [default language_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
 # CORRESPONDING: Basic FULL mode: no common columns.
 SELECT 1 AS a
@@ -4645,8 +4643,6 @@ QueryStmt
 ==
 
 # CORRESPONDING: Basic LEFT mode: no common columns.
-# TODO: Remove the check once the SQLBuilder implementation is done for LEFT.
-[default no_run_unparser]
 SELECT 1 AS a
 LEFT UNION ALL CORRESPONDING
 SELECT 1 AS b
@@ -4690,7 +4686,6 @@ QueryStmt
     |   +-output_column_list=[$union_all2.a#2]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -4766,7 +4761,6 @@ QueryStmt
     |   +-output_column_list=[$union_all2.a#3, $null_column_for_outer_set_op.b#6]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -4846,7 +4840,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.a#6, $union_all2.b#3]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -4928,7 +4921,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -5003,7 +4995,6 @@ QueryStmt
     |   +-output_column_list=$union_all2.[a#4, b#3]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -5100,7 +5091,6 @@ QueryStmt
     |   +-output_column_list=[$union_all3.a#6, $null_column_for_outer_set_op.b#10]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -5241,7 +5231,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -5347,7 +5336,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.int64#58, SimpleTypes.int32#37]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -5467,7 +5455,6 @@ QueryStmt
     |   +-output_column_list=$intersect_all3_cast.[float#61, uint32#60]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -5615,7 +5602,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -5729,7 +5715,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -5818,7 +5803,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.a#43, $union_all2_cast.int32#41, $null_column_for_outer_set_op.c#44, $union_all2_cast.int32#42]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -5934,7 +5918,6 @@ QueryStmt
     |   +-output_column_list=[$intersect_all.int64#57, $null_column_for_outer_set_op.int32#63]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -6069,7 +6052,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -6190,7 +6172,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -6276,7 +6257,6 @@ QueryStmt
     |   +-output_column_list=[$intersect_all2_cast.A#8, $intersect_all2.B#3]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -6370,7 +6350,6 @@ QueryStmt
     |   +-output_column_list=$union_all2.[A#3, B#2]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -6468,7 +6447,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -6561,7 +6539,6 @@ QueryStmt
     |   +-output_column_list=[$null_column_for_outer_set_op.A#7, $union_distinct2_cast.B#6]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -6656,7 +6633,6 @@ QueryStmt
     |   +-output_column_list=[$union_distinct2_cast.A#10, $union_distinct2_cast.B#9, $union_distinct2.C#5]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=FULL
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -6755,7 +6731,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -6846,7 +6821,6 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=LEFT
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -6889,9 +6863,6 @@ QueryStmt
         +-output_column_list=[$union_all2_cast.A#6, $null_column_for_outer_set_op.B#7]
 ==
 
-# TODO: Enable sqlbuilder when its implementation for STRICT is
-# ready.
-[default no_run_unparser]
 # CORRESPONDING: Basic STRICT.
 SELECT 1 AS a, 2 AS b
 UNION ALL STRICT CORRESPONDING
@@ -6927,7 +6898,6 @@ QueryStmt
     |   |     +-SingleRowScan
     |   +-output_column_list=$union_all2.[a#4, b#3]
     +-column_match_mode=CORRESPONDING
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -7041,7 +7011,6 @@ QueryStmt
     |   |     +-SingleRowScan
     |   +-output_column_list=$union_all3.[A#5, B#6]
     +-column_match_mode=CORRESPONDING
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -7160,7 +7129,6 @@ QueryStmt
     |   +-output_column_list=$except_distinct2.[B#8, c#9]
     +-column_match_mode=CORRESPONDING
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -7276,7 +7244,6 @@ QueryStmt
     |   |   +-column_propagation_mode=INNER
     |   +-output_column_list=$union_all.[b#8, c#9]
     +-column_match_mode=CORRESPONDING
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -7422,7 +7389,6 @@ QueryStmt
     |   +-output_column_list=$union_all2.[A#8, B#9]
     +-column_match_mode=CORRESPONDING
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -7538,7 +7504,6 @@ QueryStmt
     |   |   +-column_propagation_mode=INNER
     |   +-output_column_list=$intersect_all.[A#8, B#9]
     +-column_match_mode=CORRESPONDING
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -7668,7 +7633,6 @@ QueryStmt
     |   |     +-SingleRowScan
     |   +-output_column_list=$union_all2.[A#12, C#10, B#11]
     +-column_match_mode=CORRESPONDING
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -7823,7 +7787,6 @@ QueryStmt
     |   +-output_column_list=$intersect_distinct.[C#8, B#9, A#7]
     +-column_match_mode=CORRESPONDING
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -7969,7 +7932,6 @@ QueryStmt
     |   +-output_column_list=$intersect_distinct2.[A#9, B#8]
     +-column_match_mode=CORRESPONDING
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -8092,7 +8054,6 @@ QueryStmt
     |   |   +-column_propagation_mode=LEFT
     |   +-output_column_list=$except_all.[B#8, A#7]
     +-column_match_mode=CORRESPONDING
-
 
 [REWRITTEN AST]
 QueryStmt

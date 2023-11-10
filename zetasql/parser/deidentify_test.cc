@@ -36,6 +36,17 @@ FROM
 )"));
 }
 
+TEST(Deidentify, AsExample) {
+  EXPECT_THAT(DeidentifySQLIdentifiersAndLiterals(
+                  "SELECT X AS private_name FROM business.financial"),
+              zetasql_base::testing::IsOkAndHolds(
+                  R"(SELECT
+  A AS B
+FROM
+  C.D
+)"));
+}
+
 TEST(Deidentify, BigExample) {
   EXPECT_THAT(
       DeidentifySQLIdentifiersAndLiterals(

@@ -1717,6 +1717,10 @@ absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     SignatureMatchResult* signature_match_result,
     std::vector<ArgIndexEntry>* arg_index_mapping,
     std::vector<FunctionArgumentOverride>* arg_overrides) {
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
+      "Out of stack space due to deeply nested query expression "
+      "during function signature resolution");
+
   FunctionSignatureMatcher signature_matcher(
       language_options, coercer, allow_argument_coercion, type_factory);
   return signature_matcher.SignatureMatches(

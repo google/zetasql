@@ -1846,4 +1846,62 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> GroupRowsOp::CreateIterator(
   return MaybeReorder(std::move(iter), context);
 }
 
+std::unique_ptr<RowsForUdaOp> RowsForUdaOp::Create(
+    std::vector<std::string> argument_names) {
+  // Using `new` here because make_unique cannot access the private
+  // constructor of `RowsForUdaOp`.
+  return absl::WrapUnique(new RowsForUdaOp(std::move(argument_names)));
+}
+
+RowsForUdaOp::RowsForUdaOp(std::vector<std::string> argument_names) {
+  argument_names_ = std::move(argument_names);
+}
+
+std::unique_ptr<TupleSchema> RowsForUdaOp::CreateOutputSchema() const {
+  std::vector<VariableId> vars;
+  vars.reserve(argument_names_.size());
+  for (const std::string& argument_name : argument_names_) {
+    vars.push_back(VariableId(argument_name));
+  }
+  return std::make_unique<TupleSchema>(vars);
+}
+
+std::vector<std::string> RowsForUdaOp::argument_names() const {
+  return argument_names_;
+}
+
+absl::Status RowsForUdaOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  return absl::OkStatus();
+}
+
+std::string RowsForUdaOp::DebugInternal(const std::string& indent,
+                                        bool verbose) const {
+  return absl::StrCat(indent, "RowsForUDAOp");
+}
+
+std::string RowsForUdaOp::GetIteratorDebugString(
+    absl::string_view input_iter_debug_string) {
+  return absl::StrCat("RowsForUDA=TupleIterator(", input_iter_debug_string,
+                      ")");
+}
+
+std::string RowsForUdaOp::IteratorDebugString() const {
+  return GetIteratorDebugString("<outer_from_clause>");
+}
+
+absl::StatusOr<std::unique_ptr<TupleIterator>> RowsForUdaOp::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  if (context->active_group_rows() == nullptr) {
+    return zetasql_base::OutOfRangeErrorBuilder()
+           << "RowsForUdaOp: Cannot read rows from the current context";
+  }
+
+  auto iter = std::make_unique<TupleDataDequeIterator>(
+      *context->active_group_rows(), num_extra_slots, CreateOutputSchema(),
+      context);
+  return MaybeReorder(std::move(iter), context);
+}
+
 }  // namespace zetasql

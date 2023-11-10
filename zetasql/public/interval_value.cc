@@ -386,7 +386,7 @@ absl::StatusOr<IntervalValue> IntervalValue::DeserializeFromBytes(
   return interval;
 }
 
-std::string IntervalValue::ToString() const {
+void IntervalValue::AppendToString(std::string* output) const {
   // Interval conversion to string always uses fully expanded form:
   // [<sign>]x-x [<sign>]x [<sign>]x:x:x[.ddd[ddd[ddd]]]
 
@@ -417,20 +417,19 @@ std::string IntervalValue::ToString() const {
   int64_t micros = total_nanos / kNanosInMicro;
   int64_t nanos = total_nanos % kNanosInMicro;
 
-  std::string result = absl::StrFormat(
-      "%s%d-%d %d %s%d:%d:%d", get_months() < 0 ? "-" : "", years, months,
-      get_days(), negative_nanos ? "-" : "", hours, minutes, seconds);
+  absl::StrAppendFormat(output, "%s%d-%d %d %s%d:%d:%d",
+                        get_months() < 0 ? "-" : "", years, months, get_days(),
+                        negative_nanos ? "-" : "", hours, minutes, seconds);
   // Fractions of second always come in group of 3
   if (has_millis) {
-    absl::StrAppendFormat(&result, ".%03d", millis);
+    absl::StrAppendFormat(output, ".%03d", millis);
     if (has_micros) {
-      absl::StrAppendFormat(&result, "%03d", micros);
+      absl::StrAppendFormat(output, "%03d", micros);
       if (nanos != 0) {
-        absl::StrAppendFormat(&result, "%03d", nanos);
+        absl::StrAppendFormat(output, "%03d", nanos);
       }
     }
   }
-  return result;
 }
 
 std::string IntervalValue::ToISO8601() const {

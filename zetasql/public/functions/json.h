@@ -31,6 +31,7 @@
 #include "zetasql/public/functions/to_json.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/base/string_numbers.h"  
+#include "absl/base/attributes.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -50,35 +51,6 @@ class ValidJSONPathIterator;
 class JsonPathEvaluator {
  public:
   ~JsonPathEvaluator();
-  // Creates a new evaluator for a constant json_path. json_path does not need
-  // to persist beyond the call to Create().
-  //
-  // sql_standard_mode: The JSON Path is interpreted differently with this
-  // flag. For full details please see (broken link)
-  // 1) True: Only number subscripts are allowed. It allows the . child
-  // operator as a quoted field name. The previous example could be rewritten
-  // as $.a."b"
-  // 2) False: String subscripts are allowed. For example: $.a["b"] is a valid
-  // JSON path in this mode and equivalent to $.a.b
-  //
-  // New callers to this API should be using sql_standard_mode = true.
-  //
-  // Error cases:
-  // * OUT_OF_RANGE - json_path is malformed.
-  // * OUT_OF_RANGE - json_path uses a (currently) unsupported expression type.
-  //
-  // Note: By default special character escaping is disabled for both keys and
-  // values.
-  //
-  // TODO: Once all users are inlined, change each of the booleans
-  // in this definition to 'true' and remove the deprecation annotation.
-  ABSL_DEPRECATED("Inline me!")
-  static absl::StatusOr<std::unique_ptr<JsonPathEvaluator>> Create(
-      absl::string_view json_path, bool sql_standard_mode) {
-    return Create(json_path, sql_standard_mode,
-                  /*enable_special_character_escaping_in_values=*/false,
-                  /*enable_special_character_escaping_in_keys=*/false);
-  }
 
   // Creates a new evaluator for a constant `json_path`. `json_path` does not
   // need to persist beyond the call to `Create()`.
@@ -498,9 +470,11 @@ absl::Status JsonAppendArrayElement(
     const Value& value, const LanguageOptions& language_options,
     bool canonicalize_zero, bool append_each_element = true);
 
-// Inserts or replaces data in `input` pointed to by `path_iterator` with
-// `value`. If the path does not exist or points to a JSON 'null' in the `input`
-// it is recursively created.
+// Replaces data in `input` pointed to by `path_iterator` with `value`. If
+// `create_if_missing` is set to true and the path does not exist or points
+// to a JSON 'null' in the `input` it is recursively created. If
+// `create_if_missing` is set to false, set operations for non-existent paths
+// are ignored.
 //
 // If the set operation is invalid, the operation is ignored, and the function
 // does nothing. An operation is invalid if there is a type mismatch between
@@ -509,10 +483,8 @@ absl::Status JsonAppendArrayElement(
 // The expected type of subpath "$.a" is an object but JSON token at subpath is
 // an array.
 //
-// If a given suffix of path doesn't exist, it is recursively created before
-// inserting `value`.
-// Example 1:
-// JsonSet(JSON '{"a": {}}', "$.a.b.c", 2, ...)
+// In all the below examples the value of `create_if_missing` is set to true.
+// Example 1: JsonSet(JSON '{"a": {}}', "$.a.b.c", 2, ...)
 // Result: JSON '{"a": {"b": {"c": 2}}}'
 // Reasoning: Suffix ".b.c" doesn't exist so it is created.
 //
@@ -544,6 +516,13 @@ absl::Status JsonAppendArrayElement(
 // converting a numeric type to JSON.
 // TODO : remove canonicalize_zero flag when all
 // engines have rolled out this new behavior.
+absl::Status JsonSet(JSONValueRef input,
+                     json_internal::StrictJSONPathIterator& path_iterator,
+                     const Value& value, bool create_if_missing,
+                     const LanguageOptions& language_options,
+                     bool canonicalize_zero);
+
+ABSL_DEPRECATED("Use above version of JsonSet() instead")
 absl::Status JsonSet(JSONValueRef input,
                      json_internal::StrictJSONPathIterator& path_iterator,
                      const Value& value,

@@ -29,7 +29,6 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "absl/base/attributes.h"
-#include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
 #include "absl/status/statusor.h"
@@ -73,16 +72,6 @@ absl::Status GetProtoFieldTypeAndDefault(
     const google::protobuf::FieldDescriptor* field,
     absl::Span<const std::string> catalog_name_path, TypeFactory* type_factory,
     const Type** type, Value* default_value = nullptr);
-
-// Prefer the one taking the parent ProtoType's <catalog_name_path>.
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status GetProtoFieldTypeAndDefault(
-    const ProtoFieldDefaultOptions& options,
-    const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
-    const Type** type, Value* default_value = nullptr) {
-  return GetProtoFieldTypeAndDefault(options, field, /*catalog_name_path=*/{},
-                                     type_factory, type, default_value);
-}
 
 // Represents a proto field access. If 'get_has_bit' is false, 'type' and
 // 'default_value' must be populated by GetProtoFieldTypeAndDefault().

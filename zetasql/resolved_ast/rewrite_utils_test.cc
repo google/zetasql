@@ -25,6 +25,7 @@
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/simple_type.h"
@@ -42,7 +43,9 @@
 namespace zetasql {
 namespace {
 
+using ::testing::IsEmpty;
 using ::testing::Not;
+using ::testing::SizeIs;
 using ::testing::Values;
 using ::zetasql_base::testing::IsOk;
 using ::zetasql_base::testing::StatusIs;
@@ -197,6 +200,40 @@ TEST(RewriteUtilsTest, CopyAndReplaceColumns) {
     EXPECT_EQ(map.size(), i);
     input = std::move(output);
   }
+}
+
+TEST(RewriteUtilsTest, RemoveUnusedColumnRefs) {
+  const Type* type = types::BoolType();
+  zetasql_base::SequenceNumber sequence;
+  IdStringPool id_string_pool;
+  ColumnFactory factory(0, &id_string_pool, &sequence);
+  ResolvedColumn cola = factory.MakeCol("table", "cola", type);
+  ResolvedColumn colb = factory.MakeCol("table", "colb", type);
+  std::vector<std::unique_ptr<const ResolvedColumnRef>> column_refs;
+  column_refs.emplace_back(
+      MakeResolvedColumnRef(type, cola, /*is_correlated=*/true));
+  column_refs.emplace_back(
+      MakeResolvedColumnRef(type, colb, /*is_correlated=*/false));
+
+  std::unique_ptr<const ResolvedScan> single_row_scan =
+      MakeResolvedSingleRowScan(/*column_list=*/{});
+  ZETASQL_ASSERT_OK(RemoveUnusedColumnRefs(*single_row_scan, column_refs));
+  EXPECT_THAT(column_refs, IsEmpty());
+
+  std::unique_ptr<const ResolvedExpr> filter_expr =
+      MakeResolvedColumnRef(type, colb, /*is_correlated=*/true);
+  std::unique_ptr<const ResolvedScan> filter_scan =
+      MakeResolvedFilterScan(/*column_list=*/{},
+                             /*input_scan=*/std::move(single_row_scan),
+                             /*filter_expr=*/std::move(filter_expr));
+
+  column_refs.emplace_back(
+      MakeResolvedColumnRef(type, cola, /*is_correlated=*/true));
+  column_refs.emplace_back(
+      MakeResolvedColumnRef(type, colb, /*is_correlated=*/false));
+  ZETASQL_ASSERT_OK(RemoveUnusedColumnRefs(*filter_scan, column_refs));
+  EXPECT_THAT(column_refs, SizeIs(1));
+  EXPECT_EQ(column_refs.front()->column(), colb);
 }
 
 TEST(RewriteUtilsTest, SortUniqueColumnRefs) {

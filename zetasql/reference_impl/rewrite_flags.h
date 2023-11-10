@@ -26,6 +26,8 @@
 
 namespace zetasql {
 
+absl::btree_set<ResolvedASTRewrite> MinimalRewritesForReference();
+
 // Wrapper around a set of ResolvedASTRewrite to represent the value
 // of the 'rewrites' flag. It is necessary to allow AbslParseFlag() and
 // AbslUnparseFlag() to go in the zetasql namespace instead of the absl

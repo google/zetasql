@@ -85,7 +85,9 @@ absl::Status Resolver::ResolveDMLTargetTable(
     const ASTPathExpression* target_path, const ASTAlias* target_path_alias,
     const ASTHint* hint, IdString* alias,
     std::unique_ptr<const ResolvedTableScan>* resolved_table_scan,
-    std::shared_ptr<const NameList>* name_list) {
+    std::shared_ptr<const NameList>* name_list,
+    ResolvedColumnToCatalogColumnHashMap&
+        resolved_columns_to_catalog_columns_for_target_scan) {
   ZETASQL_RET_CHECK(target_path != nullptr);
   ZETASQL_RET_CHECK(alias != nullptr);
   ZETASQL_RET_CHECK(resolved_table_scan != nullptr);
@@ -108,7 +110,8 @@ absl::Status Resolver::ResolveDMLTargetTable(
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
       target_path, *alias, has_explicit_alias, alias_location, hint,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, resolved_table_scan, name_list));
+      /*remaining_names=*/nullptr, resolved_table_scan, name_list,
+      resolved_columns_to_catalog_columns_for_target_scan));
   ZETASQL_RET_CHECK((*name_list)->HasRangeVariable(*alias));
   return absl::OkStatus();
 }
@@ -121,9 +124,9 @@ absl::Status Resolver::ResolveDeleteStatement(
   std::shared_ptr<const NameList> name_list;
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* target_path,
                    ast_statement->GetTargetPathForNonNested());
-  ZETASQL_RETURN_IF_ERROR(ResolveDMLTargetTable(target_path, ast_statement->alias(),
-                                        ast_statement->hint(), &target_alias,
-                                        &resolved_table_scan, &name_list));
+  ZETASQL_RETURN_IF_ERROR(ResolveDMLTargetTable(
+      target_path, ast_statement->alias(), ast_statement->hint(), &target_alias,
+      &resolved_table_scan, &name_list, resolved_columns_from_table_scans_));
   if (ast_statement->offset() != nullptr) {
     return MakeSqlErrorAt(ast_statement->offset())
            << "Non-nested DELETE statement does not support WITH OFFSET";
@@ -233,7 +236,8 @@ absl::Status Resolver::ResolveTruncateStatement(
       name_path, GetAliasForExpression(name_path), /*has_explicit_alias=*/false,
       /*alias_location=*/name_path, /*hints=*/nullptr,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list));
+      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
+      resolved_columns_from_table_scans_));
 
   const NameScope truncate_scope(*name_list);
   std::unique_ptr<const ResolvedExpr> resolved_where_expr;
@@ -589,11 +593,19 @@ absl::Status Resolver::ResolveInsertStatement(
 
   IdString target_alias = GetAliasForExpression(target_path);
   std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
+  ResolvedColumnToCatalogColumnHashMap
+      out_resolved_columns_to_catalog_columns_for_target_scan;
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
       target_path, target_alias, /*has_explicit_alias=*/false,
       /*alias_location=*/target_path, ast_statement->hint(),
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list));
+      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
+      out_resolved_columns_to_catalog_columns_for_target_scan));
+
+  // Insert the resolved columns from current scan to all scans map.
+  resolved_columns_from_table_scans_.insert(
+      out_resolved_columns_to_catalog_columns_for_target_scan.begin(),
+      out_resolved_columns_to_catalog_columns_for_target_scan.end());
 
   IdStringHashMapCase<ResolvedColumn> table_scan_columns;
   IdStringHashSetCase ambiguous_column_names;
@@ -682,10 +694,11 @@ absl::Status Resolver::ResolveInsertStatement(
   // inserting into.
   RecordColumnAccess(insert_columns, ResolvedStatement::WRITE);
 
-  return ResolveInsertStatementImpl(ast_statement, target_alias, name_list,
-                                    std::move(resolved_table_scan),
-                                    insert_columns,
-                                    /*nested_scope=*/nullptr, output);
+  return ResolveInsertStatementImpl(
+      ast_statement, target_alias, name_list, std::move(resolved_table_scan),
+      insert_columns,
+      /*nested_scope=*/nullptr,
+      out_resolved_columns_to_catalog_columns_for_target_scan, output);
 }
 
 absl::Status Resolver::ResolveInsertStatementImpl(
@@ -693,6 +706,8 @@ absl::Status Resolver::ResolveInsertStatementImpl(
     const std::shared_ptr<const NameList>& target_name_list,
     std::unique_ptr<const ResolvedTableScan> resolved_table_scan,
     const ResolvedColumnList& insert_columns, const NameScope* nested_scope,
+    ResolvedColumnToCatalogColumnHashMap&
+        resolved_columns_to_catalog_columns_for_target_scan,
     std::unique_ptr<ResolvedInsertStmt>* output) {
   ResolvedInsertStmt::InsertMode insert_mode;
   switch (ast_statement->insert_mode()) {
@@ -781,56 +796,16 @@ absl::Status Resolver::ResolveInsertStatementImpl(
   // ResolvedInsertStmt.insert_columns is implicit.
   ZETASQL_RET_CHECK(!is_nested || insert_columns.size() == 1);
 
-  // Check cycles and topologically sort generated columns.
-  std::vector<int> generated_column_indices;
-  absl::node_hash_map<const Column*, ResolvedColumn>
-      catalog_columns_to_resolved_columns_map;
-  for (auto const& [resolved_column, catalog_column] :
-       resolved_columns_from_table_scans_) {
-    auto itr = catalog_columns_to_resolved_columns_map.find(catalog_column);
-    if (itr == catalog_columns_to_resolved_columns_map.end()) {
-      catalog_columns_to_resolved_columns_map[catalog_column] = resolved_column;
-    } else if (itr->second.column_id() > resolved_column.column_id()) {
-      // Replace the current inserted resolved column with first created
-      // resolved column corresponding to a catalog column.
-      catalog_columns_to_resolved_columns_map[catalog_column] = resolved_column;
-    }
-    if (catalog_column->HasGeneratedExpression()) {
-      int column_index = -1;
-      bool duplicate = false;
-      FindColumnIndex(resolved_table_scan->table(), catalog_column->Name(),
-                      &column_index, &duplicate);
-      ZETASQL_RET_CHECK_GE(column_index, 0);
-      ZETASQL_RET_CHECK(!duplicate);
-      generated_column_indices.push_back(column_index);
-    }
-  }
-
-  CycleDetector* cycle_detector =
-      analyzer_options_.find_options().cycle_detector();
-  ZETASQL_RET_CHECK(cycle_detector != nullptr)
-      << "Cycle detector needs to be set in analyzer options";
   std::vector<int> out_topologically_sorted_generated_column_ids;
   std::vector<std::unique_ptr<const ResolvedExpr>>
       out_generated_column_expr_list;
   if (resolved_table_scan != nullptr) {
-    std::vector<GeneratedColumnIndexAndResolvedId>
-        topologically_sorted_generated_columns;
-    ZETASQL_RETURN_IF_ERROR(TopologicallySortGeneratedColumns(
-        generated_column_indices, resolved_table_scan->table(), cycle_detector,
-        catalog_columns_to_resolved_columns_map,
-        topologically_sorted_generated_columns));
-    out_topologically_sorted_generated_column_ids.reserve(
-        topologically_sorted_generated_columns.size());
-    out_generated_column_expr_list.reserve(
-        topologically_sorted_generated_columns.size());
-    ZETASQL_RETURN_IF_ERROR(RewriteGeneratedColumnExpressions(
-        topologically_sorted_generated_columns, resolved_table_scan->table(),
-        catalog_columns_to_resolved_columns_map, out_generated_column_expr_list,
-        out_topologically_sorted_generated_column_ids,
-        [this](const ResolvedColumn& c) { return MakeColumnRef(c); }));
-    ZETASQL_RET_CHECK(out_generated_column_expr_list.size() ==
-              out_topologically_sorted_generated_column_ids.size());
+    // Cases like nested DML on proto may have resolved table as NULL.
+    ZETASQL_RETURN_IF_ERROR(ResolveGeneratedColumnsForDml(
+        resolved_table_scan->table(),
+        resolved_columns_to_catalog_columns_for_target_scan,
+        &out_topologically_sorted_generated_column_ids,
+        &out_generated_column_expr_list));
   }
 
   *output = MakeResolvedInsertStmt(
@@ -1732,7 +1707,7 @@ absl::Status Resolver::MergeWithUpdateItem(
           ast_input_update_item->update_statement(), /*is_nested=*/true,
           target_alias, &nested_target_scope, /*target_name_list=*/nullptr,
           nested_dml_scope, /*table_scan=*/nullptr, /*from_scan=*/nullptr,
-          &resolved_stmt));
+          resolved_columns_from_table_scans_, &resolved_stmt));
       resolved_update_item.add_update_list(std::move(resolved_stmt));
     } else {
       ZETASQL_RET_CHECK(is_nested_insert);
@@ -1749,7 +1724,7 @@ absl::Status Resolver::MergeWithUpdateItem(
       ZETASQL_RETURN_IF_ERROR(ResolveInsertStatementImpl(
           ast_input_update_item->insert_statement(), target_alias,
           /*target_name_list=*/nullptr, /*table_scan=*/nullptr, insert_columns,
-          nested_dml_scope,
+          nested_dml_scope, resolved_columns_from_table_scans_,
           &resolved_stmt));
       resolved_update_item.add_insert_list(std::move(resolved_stmt));
     }
@@ -1766,9 +1741,17 @@ absl::Status Resolver::ResolveUpdateStatement(
   IdString target_alias;
   std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
   std::shared_ptr<const NameList> target_name_list;
+  ResolvedColumnToCatalogColumnHashMap
+      out_resolved_columns_to_catalog_columns_for_target_scan;
   ZETASQL_RETURN_IF_ERROR(ResolveDMLTargetTable(
       target_path, ast_statement->alias(), ast_statement->hint(), &target_alias,
-      &resolved_table_scan, &target_name_list));
+      &resolved_table_scan, &target_name_list,
+      out_resolved_columns_to_catalog_columns_for_target_scan));
+
+  // Insert the resolved columns from current scan to all scans map.
+  resolved_columns_from_table_scans_.insert(
+      out_resolved_columns_to_catalog_columns_for_target_scan.begin(),
+      out_resolved_columns_to_catalog_columns_for_target_scan.end());
 
   if (ast_statement->offset() != nullptr) {
     return MakeSqlErrorAt(ast_statement->offset())
@@ -1815,7 +1798,8 @@ absl::Status Resolver::ResolveUpdateStatement(
   return ResolveUpdateStatementImpl(
       ast_statement, /*is_nested=*/false, target_alias, target_scope.get(),
       target_name_list, update_scope.get(), std::move(resolved_table_scan),
-      std::move(resolved_from_scan), output);
+      std::move(resolved_from_scan),
+      out_resolved_columns_to_catalog_columns_for_target_scan, output);
 }
 
 absl::Status Resolver::ResolveUpdateStatementImpl(
@@ -1825,6 +1809,8 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
     const NameScope* update_scope,
     std::unique_ptr<const ResolvedTableScan> resolved_table_scan,
     std::unique_ptr<const ResolvedScan> resolved_from_scan,
+    ResolvedColumnToCatalogColumnHashMap&
+        resolved_columns_to_catalog_columns_for_target_scan,
     std::unique_ptr<ResolvedUpdateStmt>* output) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
@@ -1913,11 +1899,24 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
                                         is_nested, target_scope, update_scope,
                                         &update_item_list));
 
+  std::vector<int> out_topologically_sorted_generated_column_ids;
+  std::vector<std::unique_ptr<const ResolvedExpr>>
+      out_generated_column_expr_list;
+  if (resolved_table_scan != nullptr) {
+    // Cases like nested DML on proto may have resolved table as NULL.
+    ZETASQL_RETURN_IF_ERROR(ResolveGeneratedColumnsForDml(
+        resolved_table_scan->table(), resolved_columns_from_table_scans_,
+        &out_topologically_sorted_generated_column_ids,
+        &out_generated_column_expr_list));
+  }
+
   *output = MakeResolvedUpdateStmt(
       std::move(resolved_table_scan), std::move(resolved_assert_rows_modified),
       std::move(resolved_returning_clause),
       std::move(resolved_array_offset_column), std::move(resolved_where_expr),
-      std::move(update_item_list), std::move(resolved_from_scan));
+      std::move(update_item_list), std::move(resolved_from_scan),
+      out_topologically_sorted_generated_column_ids,
+      std::move(out_generated_column_expr_list));
   return absl::OkStatus();
 }
 
@@ -1928,10 +1927,10 @@ absl::Status Resolver::ResolveMergeStatement(
   IdString alias;
   std::unique_ptr<const ResolvedTableScan> resolved_target_table_scan;
   std::shared_ptr<const NameList> target_name_list;
-  ZETASQL_RETURN_IF_ERROR(ResolveDMLTargetTable(target_path, statement->alias(),
-                                        /*hint=*/nullptr, &alias,
-                                        &resolved_target_table_scan,
-                                        &target_name_list));
+  ZETASQL_RETURN_IF_ERROR(ResolveDMLTargetTable(
+      target_path, statement->alias(),
+      /*hint=*/nullptr, &alias, &resolved_target_table_scan, &target_name_list,
+      resolved_columns_from_table_scans_));
 
   std::unique_ptr<const ResolvedScan> resolved_from_scan;
   std::shared_ptr<const NameList> source_name_list(new NameList);
@@ -2311,6 +2310,66 @@ absl::Status Resolver::ResolveReturningClause(
   *output = MakeResolvedReturningClause(std::move(output_column_list),
                                         std::move(action_column),
                                         std::move(computed_columns));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveGeneratedColumnsForDml(
+    const Table* target_table,
+    const ResolvedColumnToCatalogColumnHashMap&
+        resolved_columns_to_catalog_columns_for_target_scan,
+    std::vector<int>* out_topologically_sorted_generated_column_ids,
+    std::vector<std::unique_ptr<const ResolvedExpr>>*
+        out_generated_column_expr_list) {
+  ZETASQL_RET_CHECK_NE(target_table, nullptr);
+  ZETASQL_RET_CHECK(out_generated_column_expr_list != nullptr);
+  ZETASQL_RET_CHECK(out_topologically_sorted_generated_column_ids != nullptr);
+
+  // Check cycles and topologically sort generated columns.
+  std::vector<int> generated_column_indices;
+  absl::node_hash_map<const Column*, ResolvedColumn>
+      catalog_columns_to_resolved_columns_map;
+  for (auto const& [resolved_column, catalog_column] :
+       resolved_columns_to_catalog_columns_for_target_scan) {
+    auto itr = catalog_columns_to_resolved_columns_map.find(catalog_column);
+    if (itr == catalog_columns_to_resolved_columns_map.end()) {
+      const auto [_, success] = catalog_columns_to_resolved_columns_map.insert(
+          {catalog_column, resolved_column});
+      ZETASQL_RET_CHECK(success);
+    }
+    if (catalog_column->HasGeneratedExpression()) {
+      int column_index = -1;
+      bool duplicate = false;
+      FindColumnIndex(target_table, catalog_column->Name(), &column_index,
+                      &duplicate);
+      ZETASQL_RET_CHECK_GE(column_index, 0);
+      ZETASQL_RET_CHECK(!duplicate);
+      generated_column_indices.push_back(column_index);
+    }
+  }
+
+  CycleDetector* cycle_detector =
+      analyzer_options_.find_options().cycle_detector();
+  ZETASQL_RET_CHECK(cycle_detector != nullptr)
+      << "Cycle detector needs to be set in analyzer options";
+
+  std::vector<GeneratedColumnIndexAndResolvedId>
+      topologically_sorted_generated_columns;
+  ZETASQL_RETURN_IF_ERROR(TopologicallySortGeneratedColumns(
+      generated_column_indices, target_table, cycle_detector,
+      catalog_columns_to_resolved_columns_map,
+      topologically_sorted_generated_columns));
+  out_topologically_sorted_generated_column_ids->reserve(
+      topologically_sorted_generated_columns.size());
+  out_generated_column_expr_list->reserve(
+      topologically_sorted_generated_columns.size());
+  ZETASQL_RETURN_IF_ERROR(RewriteGeneratedColumnExpressions(
+      topologically_sorted_generated_columns, target_table,
+      catalog_columns_to_resolved_columns_map, *out_generated_column_expr_list,
+      *out_topologically_sorted_generated_column_ids,
+      [this](const ResolvedColumn& c) { return MakeColumnRef(c); }));
+  ZETASQL_RET_CHECK_EQ(out_generated_column_expr_list->size(),
+               out_topologically_sorted_generated_column_ids->size());
+
   return absl::OkStatus();
 }
 

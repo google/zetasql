@@ -262,6 +262,33 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "uda_evaluation",
+    srcs = [
+        "uda_evaluation.cc",
+    ],
+    hdrs = [
+        "uda_evaluation.h",
+    ],
+    deps = [
+        ":evaluation",
+        ":type_helpers",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:function",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:differential_privacy_cc_proto",
+        "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:serialization_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
 cc_test(
     name = "function_evaluation_test",
     srcs = ["function_test.cc"],
@@ -308,6 +335,7 @@ cc_library(
         ":parameters",
         ":proto_util",
         ":type_helpers",
+        ":uda_evaluation",
         ":variable_generator",
         "//zetasql/analyzer:resolver",
         "//zetasql/base",
@@ -429,6 +457,7 @@ cc_library(
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
+        "//zetasql/public:error_helpers",
         "//zetasql/public:language_options",
         "//zetasql/public:multi_catalog",
         "//zetasql/public:options_cc_proto",
@@ -722,6 +751,7 @@ cc_test(
         ":algebrizer",
         "//zetasql/base",
         "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -729,6 +759,7 @@ cc_test(
         "//zetasql/public:analyzer",
         "//zetasql/public:builtin_function",
         "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:catalog",
         "//zetasql/public:civil_time",
         "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
@@ -744,6 +775,7 @@ cc_test(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
     ],
 )
 

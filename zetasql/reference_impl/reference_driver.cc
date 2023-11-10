@@ -34,6 +34,7 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/multi_catalog.h"
@@ -59,6 +60,7 @@
 #include "zetasql/scripting/error_helpers.h"
 #include "zetasql/scripting/script_executor.h"
 #include "zetasql/testing/test_value.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "zetasql/base/check.h"
@@ -104,9 +106,12 @@ LanguageOptions ReferenceDriver::DefaultLanguageOptions() {
   return options;
 }
 
-ReferenceDriver::ReferenceDriver(LanguageOptions options)
+ReferenceDriver::ReferenceDriver(
+    LanguageOptions options,
+    absl::btree_set<ResolvedASTRewrite> enabled_rewrites)
     : type_factory_(new TypeFactory),
       language_options_(std::move(options)),
+      enabled_rewrites_(std::move(enabled_rewrites)),
       catalog_(type_factory_.get()),
       default_time_zone_(GetDefaultDefaultTimeZone()),
       statement_evaluation_timeout_(absl::Seconds(
@@ -279,7 +284,7 @@ absl::StatusOr<AnalyzerOptions> ReferenceDriver::GetAnalyzerOptions(
     const std::map<std::string, Value>& parameters,
     std::optional<bool>& uses_unsupported_type) const {
   AnalyzerOptions analyzer_options(language_options_);
-  analyzer_options.set_enabled_rewrites(absl::GetFlag(FLAGS_rewrites));
+  analyzer_options.set_enabled_rewrites(enabled_rewrites_);
   analyzer_options.set_error_message_mode(
       ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
   analyzer_options.set_default_time_zone(default_time_zone_);
@@ -841,10 +846,8 @@ absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
   // line and column numbers to be stored explicitly - not embedded in a string
   // - so that we can convert the error locations to be relative to the script,
   // rather than just the single line.
-  ErrorMessageMode orig_error_message_mode =
-      analyzer_options.error_message_mode();
-  bool orig_keep_error_location_payload =
-      analyzer_options.attach_error_location_payload();
+  ErrorMessageOptions orig_error_message_options =
+      analyzer_options.error_message_options();
 
   analyzer_options.set_error_message_mode(ERROR_MESSAGE_WITH_PAYLOAD);
   analyzer_options.set_attach_error_location_payload(true);
@@ -861,8 +864,7 @@ absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
       /*analyzed_input=*/nullptr, aux_output);
   if (!result.result.status().ok()) {
     result.result = MaybeUpdateErrorFromPayload(
-        orig_error_message_mode, orig_keep_error_location_payload,
-        segment.script(),
+        orig_error_message_options, segment.script(),
         absl::Status(zetasql_base::StatusBuilder(result.result.status())
                          .With(ConvertLocalErrorToScriptError(segment))));
   }

@@ -63,6 +63,10 @@ TEST(SimpleBuiltinFunctionTests, ConstructWithProtoTest) {
   proto.add_include_function_ids(FunctionSignatureId::FN_EQUAL);
   proto.add_exclude_function_ids(FunctionSignatureId::FN_ABS_DOUBLE);
   proto.add_exclude_function_ids(FunctionSignatureId::FN_AND);
+
+  // Deprecated function.
+  proto.add_exclude_function_ids(FunctionSignatureId::FN_ST_ACCUM);
+
   proto.mutable_language_options()->add_enabled_language_features(
       LanguageFeature::FEATURE_TABLESAMPLE);
   proto.mutable_language_options()->add_supported_statement_kinds(
@@ -79,7 +83,7 @@ TEST(SimpleBuiltinFunctionTests, ConstructWithProtoTest) {
   *proto.add_enabled_rewrites_map_entry() = rewrite_proto_2;
 
   ZetaSQLBuiltinFunctionOptions option1(proto);
-  EXPECT_EQ(2, option1.exclude_function_ids.size());
+  EXPECT_EQ(3, option1.exclude_function_ids.size());
   EXPECT_EQ(3, option1.include_function_ids.size());
   EXPECT_EQ(2, option1.rewrite_enabled.size());
   EXPECT_TRUE(
@@ -239,6 +243,8 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
     switch (id) {
       case __FunctionSignatureId__switch_must_have_a_default__:
       case FN_INVALID_FUNCTION_ID:
+        continue;
+      case FN_ST_ACCUM:
         continue;
       // TODO: Remove FN_TIME_FROM_STRING when there are no more
       // references to it.

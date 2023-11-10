@@ -17,12 +17,11 @@
 #include "zetasql/scripting/script_executor_impl.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <numeric>
 #include <optional>
 #include <set>
-#include <stack>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -30,12 +29,12 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_decls.h"
 #include "zetasql/parser/parse_tree_errors.h"
-#include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
@@ -66,9 +65,7 @@
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/status_payload.h"
 
 namespace zetasql {
 namespace {
@@ -408,9 +405,11 @@ bool ScriptExecutorImpl::IsComplete() const {
 absl::Status ScriptExecutorImpl::ExecuteNext() {
   absl::Status status = ExecuteNextImpl();
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options_.error_message_mode(),
-      /*keep_error_location_payload=*/options_.error_message_mode() ==
-          ERROR_MESSAGE_WITH_PAYLOAD,
+      ErrorMessageOptions{
+          .mode = options_.error_message_mode(),
+          .attach_error_location_payload =
+              options_.error_message_mode() == ERROR_MESSAGE_WITH_PAYLOAD,
+          .stability = ERROR_MESSAGE_STABILITY_PRODUCTION},
       CurrentScript()->script_text(), status);
 }
 

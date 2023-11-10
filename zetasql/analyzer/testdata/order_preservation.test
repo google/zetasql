@@ -431,9 +431,9 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.$unnest1#1]
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        +-element_column=$array.$unnest1#1
+        +-element_column_list=[$array.$unnest1#1]
 ==
 
 # The OrderByScan here does not have is_ordered because we do not
@@ -456,9 +456,9 @@ QueryStmt
         |   +-input_scan=
         |   | +-ArrayScan
         |   |   +-column_list=[$array.x#1, $array_offset.y#2]
-        |   |   +-array_expr=
+        |   |   +-array_expr_list=
         |   |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   |   +-element_column=$array.x#1
+        |   |   +-element_column_list=[$array.x#1]
         |   |   +-array_offset_column=
         |   |     +-ColumnHolder(column=$array_offset.y#2)
         |   +-order_by_item_list=
@@ -484,7 +484,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.$unnest1#4]
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<INT32>
         |   +-subquery_type=ARRAY
@@ -498,4 +498,4 @@ QueryStmt
         |         +-OrderByItem
         |           +-column_ref=
         |             +-ColumnRef(type=INT32, column=TestTable.key#1)
-        +-element_column=$array.$unnest1#4
+        +-element_column_list=[$array.$unnest1#4]

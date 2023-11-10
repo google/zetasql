@@ -55,9 +55,8 @@ static std::string FormatErrorLocation(const ErrorLocation& location,
 }
 
 std::string FormatErrorLocation(const ErrorLocation& location) {
-  return (location.has_filename() ?
-          FormatErrorLocation(location, "$0:$1:$2") :
-          FormatErrorLocation(location, "$1:$2"));
+  return (location.has_filename() ? FormatErrorLocation(location, "$0:$1:$2")
+                                  : FormatErrorLocation(location, "$1:$2"));
 }
 
 // Internal helper function to format the ErrorLocation string with format
@@ -174,9 +173,7 @@ void ClearErrorLocation(absl::Status* status) {
   return internal::ErasePayloadTyped<ErrorLocation>(status);
 }
 
-static bool IsWordChar(char c) {
-  return isalnum(c) || c == '_';
-}
+static bool IsWordChar(char c) { return isalnum(c) || c == '_'; }
 
 // Return true if <column> (0-based) in <str> starts a word.
 static bool IsWordStart(const std::string& str, int column) {
@@ -268,7 +265,19 @@ std::string GetErrorStringWithCaret(absl::string_view input,
   return GetErrorStringFromErrorLineAndColumn(error_line, error_column);
 }
 
-// Updates the <status> error string based on <input_text> and <mode>.
+// Returns a new status with all the payloads, but with the given message.
+static absl::Status UpdateMessage(const absl::Status& status,
+                                  absl::string_view message) {
+  absl::Status new_status =
+      absl::Status(status.code(), message);
+  // Copy payloads
+  status.ForEachPayload([&new_status](
+      absl::string_view type_url, const absl::Cord& payload) {
+    new_status.SetPayload(type_url, payload);});
+  return new_status;
+}
+
+// Updates the `status` error string based on `input_text` and `mode`.
 // See header comment for MaybeUpdateErrorFromPayload for details.
 static absl::Status UpdateErrorFromPayload(absl::Status status,
                                            absl::string_view input_text,
@@ -278,6 +287,18 @@ static absl::Status UpdateErrorFromPayload(absl::Status status,
     return status;
   }
 
+  // Some callers want the payload to stay even as location is added to the
+  // message, as indicated by 'keep_error_location_payload'. Callers also
+  // expect this function to be idempotent, so multiple calls shout NOT result
+  // in a status message looking like:
+  //   "INVALID_ARGUMENT: unexpected END [at 1:35] [at 1:35] [at 1:35]"
+  // This problem became possible thanks to the ability of keeping the payload
+  // after updating the message, so now more information is needed to mark
+  // already-processed statuses.
+  // To accomplish this, this function tags any status the first time it sees
+  // it. Subsequent calls check the tag to make sure the mode is the same, and
+  // become a NOOP. This is to avoid adding the location information multiple
+  // times.
   std::optional<absl::Cord> applied_mode_payload =
       status.GetPayload(kErrorMessageModeUrl);
   if (applied_mode_payload.has_value()) {
@@ -311,12 +332,7 @@ static absl::Status UpdateErrorFromPayload(absl::Status status,
   std::string new_message = absl::StrCat(
       status.message(), " ", FormatErrorLocation(location, input_text, mode));
   // Update the message.  Leave everything else as is.
-  absl::Status new_status =
-      absl::Status(status.code(), new_message);
-  // Copy payloads
-  status.ForEachPayload([&new_status](
-      absl::string_view type_url, const absl::Cord& payload) {
-    new_status.SetPayload(type_url, payload);});
+  absl::Status new_status = UpdateMessage(status, new_message);
   ErrorMessageModeForPayload mode_wrapper;
   mode_wrapper.set_mode(mode);
   new_status.SetPayload(kErrorMessageModeUrl, mode_wrapper.SerializeAsCord());
@@ -326,8 +342,35 @@ static absl::Status UpdateErrorFromPayload(absl::Status status,
   return new_status;
 }
 
-absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
-                                         bool keep_error_location_payload,
+// Returns a status with the same payloads, but the message changed if needed
+// to apply the given stability_mode. For example: TEST_REDACTED ensures the
+// relevant errors are redacted, usually for file-based tests that depend on
+// ZetaSQL but not about the exact message text.
+static absl::Status ApplyErrorMessageStabilityMode(
+    const absl::Status& status, ErrorMessageStability stability_mode) {
+  if (status.ok()) {
+    return status;
+  }
+
+  switch (stability_mode) {
+    case ERROR_MESSAGE_STABILITY_UNSPECIFIED:
+    case ERROR_MESSAGE_STABILITY_PRODUCTION:
+      return status;
+    case ERROR_MESSAGE_STABILITY_TEST_REDACTED:
+      switch (status.code()) {
+        case absl::StatusCode::kInvalidArgument:
+        case absl::StatusCode::kAlreadyExists:
+        case absl::StatusCode::kNotFound:
+          return UpdateMessage(status, "SQL ERROR");
+        default:
+          return status;
+      }
+      ZETASQL_RET_CHECK_FAIL() << "Must return from within the switch on status code.";
+  }
+  ZETASQL_RET_CHECK_FAIL() << "Must return from within the switch on mode";
+}
+
+absl::Status MaybeUpdateErrorFromPayload(ErrorMessageOptions options,
                                          absl::string_view input_text,
                                          const absl::Status& status) {
   if (status.ok()) {
@@ -337,8 +380,21 @@ absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
     return status;
   }
 
-  return UpdateErrorFromPayload(status, input_text, mode,
-                                keep_error_location_payload);
+  return ApplyErrorMessageStabilityMode(
+      UpdateErrorFromPayload(status, input_text, options.mode,
+                             options.attach_error_location_payload),
+      options.stability);
+}
+
+absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
+                                         bool keep_error_location_payload,
+                                         absl::string_view input_text,
+                                         const absl::Status& status) {
+  return MaybeUpdateErrorFromPayload(
+      ErrorMessageOptions{
+          .mode = mode,
+          .attach_error_location_payload = keep_error_location_payload},
+      input_text, status);
 }
 
 absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(

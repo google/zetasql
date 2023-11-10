@@ -1,0 +1,470 @@
+[default show_unparsed]
+[default no_show_resolved_ast]
+[default language_features=V_1_4_GROUP_BY_ALL]
+
+select kv.key, key{{| AS alias}} from KeyValue kv where true
+GROUP BY ALL
+--
+ALTERNATION GROUP: <empty>
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_3.a_2 AS key,
+  aggregatescan_3.a_2 AS key
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_2
+    FROM
+      KeyValue
+    WHERE
+      true
+    GROUP BY ALL
+  ) AS aggregatescan_3;
+--
+ALTERNATION GROUP:  AS alias
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_3.a_2 AS key,
+  aggregatescan_3.a_2 AS alias
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_2
+    FROM
+      KeyValue
+    WHERE
+      true
+    GROUP BY ALL
+  ) AS aggregatescan_3;
+==
+
+select DISTINCT key, key
+from TestTable
+GROUP BY ALL
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_6.a_5 AS key,
+  aggregatescan_6.a_5 AS key
+FROM
+  (
+    SELECT
+      aggregatescan_4.a_3 AS a_5
+    FROM
+      (
+        SELECT
+          testtable_2.a_1 AS a_3
+        FROM
+          (
+            SELECT
+              TestTable.key AS a_1
+            FROM
+              TestTable
+          ) AS testtable_2
+        GROUP BY ALL
+      ) AS aggregatescan_4
+    GROUP BY 1
+  ) AS aggregatescan_6;
+==
+
+select value, cast(count(*) as double) from KeyValue group by all
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_5.a_3 AS value,
+  CAST(aggregatescan_5.a_4 AS DOUBLE) AS a_6
+FROM
+  (
+    SELECT
+      keyvalue_2.a_1 AS a_3,
+      COUNT(*) AS a_4
+    FROM
+      (
+        SELECT
+          KeyValue.Value AS a_1
+        FROM
+          KeyValue
+      ) AS keyvalue_2
+    GROUP BY ALL
+  ) AS aggregatescan_5;
+==
+
+select cast(count(*) as double) from KeyValue group by all
+--
+[UNPARSED_SQL]
+SELECT
+  CAST(aggregatescan_2.a_1 AS DOUBLE) AS a_3
+FROM
+  (
+    SELECT
+      COUNT(*) AS a_1
+    FROM
+      KeyValue
+    GROUP BY ALL
+  ) AS aggregatescan_2;
+==
+
+[language_features=V_1_4_GROUP_BY_ALL,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+# SELECT with EXCEPT
+SELECT * EXCEPT (a)
+FROM (
+  SELECT 1 AS a, 2 AS b
+)
+GROUP BY ALL
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_5.a_4 AS b
+FROM
+  (
+    SELECT
+      projectscan_3.a_2 AS a_4
+    FROM
+      (
+        SELECT
+          1 AS a_1,
+          2 AS a_2
+      ) AS projectscan_3
+    GROUP BY ALL
+  ) AS aggregatescan_5;
+==
+
+[language_features=V_1_4_GROUP_BY_ALL,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+# SELECT with REPLACE
+SELECT * REPLACE (0 AS a)
+FROM (
+  SELECT 1 AS a, 2 AS `all`
+)
+GROUP BY {{`all`|ALL}}
+--
+ALTERNATION GROUP: `all`
+--
+[UNPARSED_SQL]
+SELECT
+  0 AS a,
+  aggregatescan_5.a_4 AS `all`
+FROM
+  (
+    SELECT
+      projectscan_3.a_2 AS a_4
+    FROM
+      (
+        SELECT
+          1 AS a_1,
+          2 AS a_2
+      ) AS projectscan_3
+    GROUP BY 1
+  ) AS aggregatescan_5;
+--
+ALTERNATION GROUP: ALL
+--
+[UNPARSED_SQL]
+SELECT
+  0 AS a,
+  aggregatescan_5.a_4 AS `all`
+FROM
+  (
+    SELECT
+      projectscan_3.a_2 AS a_4
+    FROM
+      (
+        SELECT
+          1 AS a_1,
+          2 AS a_2
+      ) AS projectscan_3
+    GROUP BY ALL
+  ) AS aggregatescan_5;
+==
+
+# Having clause that references a non-selected column
+SELECT {{a|*}}
+FROM (
+  SELECT 1 AS a, 2 AS b
+)
+GROUP BY ALL
+HAVING SUM(b) > 1
+--
+ALTERNATION GROUP: a
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_6.a_4 AS a
+FROM
+  (
+    SELECT
+      projectscan_3.a_1 AS a_4,
+      SUM(projectscan_3.a_2) AS a_5
+    FROM
+      (
+        SELECT
+          1 AS a_1,
+          2 AS a_2
+      ) AS projectscan_3
+    GROUP BY ALL
+  ) AS aggregatescan_6
+WHERE
+  (aggregatescan_6.a_5) > 1;
+--
+ALTERNATION GROUP: *
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_7.a_4 AS a,
+  aggregatescan_7.a_5 AS b
+FROM
+  (
+    SELECT
+      projectscan_3.a_1 AS a_4,
+      projectscan_3.a_2 AS a_5,
+      SUM(projectscan_3.a_2) AS a_6
+    FROM
+      (
+        SELECT
+          1 AS a_1,
+          2 AS a_2
+      ) AS projectscan_3
+    GROUP BY ALL
+  ) AS aggregatescan_7
+WHERE
+  (aggregatescan_7.a_6) > 1;
+==
+
+# GROUP BY ALL in subquery
+SELECT *
+FROM (
+  SELECT *, COUNT(*)
+  FROM (
+    SELECT 1 AS a, 2 AS b
+  )
+  GROUP BY ALL
+)
+--
+[UNPARSED_SQL]
+SELECT
+  projectscan_8.a_4 AS a,
+  projectscan_8.a_5 AS b,
+  projectscan_8.a_6 AS a_6
+FROM
+  (
+    SELECT
+      aggregatescan_7.a_4 AS a_4,
+      aggregatescan_7.a_5 AS a_5,
+      aggregatescan_7.a_6 AS a_6
+    FROM
+      (
+        SELECT
+          projectscan_3.a_1 AS a_4,
+          projectscan_3.a_2 AS a_5,
+          COUNT(*) AS a_6
+        FROM
+          (
+            SELECT
+              1 AS a_1,
+              2 AS a_2
+          ) AS projectscan_3
+        GROUP BY ALL
+      ) AS aggregatescan_7
+  ) AS projectscan_8;
+==
+
+# GROUP BY ALL in the outermost query and its direct table subquery.
+SELECT *
+FROM (
+  SELECT int32, COUNT(*)
+  FROM SimpleTypes
+  GROUP BY ALL
+)
+GROUP BY ALL
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_9.a_7 AS int32,
+  aggregatescan_9.a_8 AS a_8
+FROM
+  (
+    SELECT
+      projectscan_6.a_3 AS a_7,
+      projectscan_6.a_4 AS a_8
+    FROM
+      (
+        SELECT
+          aggregatescan_5.a_3 AS a_3,
+          aggregatescan_5.a_4 AS a_4
+        FROM
+          (
+            SELECT
+              simpletypes_2.a_1 AS a_3,
+              COUNT(*) AS a_4
+            FROM
+              (
+                SELECT
+                  SimpleTypes.int32 AS a_1
+                FROM
+                  SimpleTypes
+              ) AS simpletypes_2
+            GROUP BY ALL
+          ) AS aggregatescan_5
+      ) AS projectscan_6
+    GROUP BY ALL
+  ) AS aggregatescan_9;
+==
+
+# GROUP BY ALL in inner subquery and outermost query.
+SELECT *
+FROM (
+  SELECT *
+  FROM (
+    SELECT *, COUNT(*)
+    FROM (
+      SELECT 1 AS a, 2 AS b
+    )
+    GROUP BY ALL
+  )
+)
+GROUP BY ALL
+--
+[UNPARSED_SQL]
+SELECT
+  aggregatescan_13.a_10 AS a,
+  aggregatescan_13.a_11 AS b,
+  aggregatescan_13.a_12 AS a_12
+FROM
+  (
+    SELECT
+      projectscan_9.a_4 AS a_10,
+      projectscan_9.a_5 AS a_11,
+      projectscan_9.a_6 AS a_12
+    FROM
+      (
+        SELECT
+          projectscan_8.a_4 AS a_4,
+          projectscan_8.a_5 AS a_5,
+          projectscan_8.a_6 AS a_6
+        FROM
+          (
+            SELECT
+              aggregatescan_7.a_4 AS a_4,
+              aggregatescan_7.a_5 AS a_5,
+              aggregatescan_7.a_6 AS a_6
+            FROM
+              (
+                SELECT
+                  projectscan_3.a_1 AS a_4,
+                  projectscan_3.a_2 AS a_5,
+                  COUNT(*) AS a_6
+                FROM
+                  (
+                    SELECT
+                      1 AS a_1,
+                      2 AS a_2
+                  ) AS projectscan_3
+                GROUP BY ALL
+              ) AS aggregatescan_7
+          ) AS projectscan_8
+      ) AS projectscan_9
+    GROUP BY ALL
+  ) AS aggregatescan_13;
+==
+
+[language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+WITH T AS (
+  SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
+)
+SELECT x.a2.b1, x.a1, x.a2, SUM(y)
+FROM T
+GROUP BY ALL
+--
+[UNPARSED_SQL]
+WITH
+  T AS (
+    SELECT
+      STRUCT< a1 INT64, a2 STRUCT< b1 STRUCT< c1 INT64, c2 INT64 >, b2 INT64 > > (1, STRUCT< b1 STRUCT< c1 INT64,
+        c2 INT64 >, b2 INT64 > (STRUCT< c1 INT64, c2 INT64 > (1, 1), 1)) AS a_1,
+      1 AS a_2
+  )
+SELECT
+  aggregatescan_7.a_5.b1 AS b1,
+  aggregatescan_7.a_4 AS a1,
+  aggregatescan_7.a_5 AS a2,
+  aggregatescan_7.a_6 AS a_6
+FROM
+  (
+    SELECT
+      withrefscan_3.a_1.a1 AS a_4,
+      withrefscan_3.a_1.a2 AS a_5,
+      SUM(withrefscan_3.a_2) AS a_6
+    FROM
+      T AS withrefscan_3
+    GROUP BY ALL
+  ) AS aggregatescan_7;
+==
+
+[language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+SELECT (SELECT x.a2.b1), [x.a2.b1.c1, x.a2.b2], x.a2, SUM(y)
+FROM (
+  SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
+) AS T
+GROUP BY ALL
+--
+[UNPARSED_SQL]
+SELECT
+  (
+    SELECT
+      aggregatescan_6.a_4.b1 AS a_8
+  ) AS a_7,
+  ARRAY< INT64 >[aggregatescan_6.a_4.b1.c1, aggregatescan_6.a_4.b2] AS a_9,
+  aggregatescan_6.a_4 AS a2,
+  aggregatescan_6.a_5 AS a_5
+FROM
+  (
+    SELECT
+      projectscan_3.a_1.a2 AS a_4,
+      SUM(projectscan_3.a_2) AS a_5
+    FROM
+      (
+        SELECT
+          STRUCT< a1 INT64, a2 STRUCT< b1 STRUCT< c1 INT64, c2 INT64 >, b2 INT64 > > (1, STRUCT< b1 STRUCT< c1 INT64,
+            c2 INT64 >, b2 INT64 > (STRUCT< c1 INT64, c2 INT64 > (1, 1), 1)) AS a_1,
+          1 AS a_2
+      ) AS projectscan_3
+    GROUP BY ALL
+  ) AS aggregatescan_6;
+==
+
+[language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+WITH T AS (
+  SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
+)
+SELECT x.a2.b1, (SELECT x), SUM(y)
+FROM T
+GROUP BY ALL
+--
+[UNPARSED_SQL]
+WITH
+  T AS (
+    SELECT
+      STRUCT< a1 INT64, a2 STRUCT< b1 STRUCT< c1 INT64, c2 INT64 >, b2 INT64 > > (1, STRUCT< b1 STRUCT< c1 INT64,
+        c2 INT64 >, b2 INT64 > (STRUCT< c1 INT64, c2 INT64 > (1, 1), 1)) AS a_1,
+      1 AS a_2
+  )
+SELECT
+  aggregatescan_8.a_5 AS b1,
+  aggregatescan_8.a_6 AS a_6,
+  aggregatescan_8.a_7 AS a_7
+FROM
+  (
+    SELECT
+      withrefscan_3.a_1.a2.b1 AS a_5,
+      (
+        SELECT
+          withrefscan_3.a_1 AS a_4
+      ) AS a_6,
+      SUM(withrefscan_3.a_2) AS a_7
+    FROM
+      T AS withrefscan_3
+    GROUP BY ALL
+  ) AS aggregatescan_8;
+==
+

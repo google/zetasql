@@ -56,6 +56,9 @@ class FilePart {
   // Returns the entire sql this file part is part of.
   absl::string_view Sql() const { return sql_; }
 
+  // Returns the part of original sql this FilePart corresponds to.
+  absl::string_view Image() const;
+
   // Returns start offset of this file part.
   int StartOffset() const { return start_offset_; }
   // Returns end offset of this file part.
@@ -70,17 +73,11 @@ class FilePart {
 // Represents an unparsed region of input file.
 class UnparsedRegion : public FilePart {
  public:
-  UnparsedRegion(absl::string_view sql, int start_offset, int end_offset);
+  using FilePart::FilePart;
 
   // See documentation in the parent class (FilePart).
   std::string DebugString() const override;
   absl::Status Accept(ParsedFileVisitor* visitor) const override;
-
-  // Returns the raw input string this region corresponds to.
-  absl::string_view Image() const { return image_; }
-
- private:
-  absl::string_view image_;
 };
 
 // Stores all parts of a tokenized sql statement: tokens, chunks and chunk block
@@ -116,6 +113,10 @@ class TokenizedStmt : public FilePart {
   // Used for testing only. Allows modifying chunks and blocks belonging to the
   // statement.
   ChunkBlock* BlockTree() { return block_factory_.Top(); }
+
+  // Returns false if the current statement should not be formatted and should
+  // be left verbatim in the formatter output.
+  bool ShouldFormat() const;
 
   // See documentation in the parent class (FilePart).
   std::string DebugString() const override;

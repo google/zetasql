@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/algebrizer.h"
 
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -31,6 +32,7 @@
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
@@ -51,7 +53,9 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 using ::testing::HasSubstr;
@@ -855,6 +859,9 @@ class AlgebrizerTestFunctions
   static const Function* fn_and;
   static const Function* fn_not;
   static const Function* fn_or;
+  static const Function* fn_sequence_;
+  static const Function* fn_with_expr_arg_;
+  static const Sequence* test_sequence_;
 
   static std::vector<std::unique_ptr<const ResolvedExpr>> OneInt64Literal() {
     return MakeNodeVectorP<const ResolvedExpr>(
@@ -888,6 +895,27 @@ class AlgebrizerTestFunctions
         MakeResolvedLiteral(Value::Double(0.01)),
         MakeResolvedLiteral(Value::Double(2.71828)));
   }
+
+  static std::vector<std::unique_ptr<const ResolvedFunctionArgument>>
+  OneSequenceArg() {
+    std::unique_ptr<const ResolvedSequence> resolved_sequence =
+        MakeResolvedSequence(test_sequence_);
+    std::unique_ptr<ResolvedFunctionArgument> arg =
+        MakeResolvedFunctionArgument();
+    arg->set_sequence(std::move(resolved_sequence));
+    return MakeNodeVectorP<const ResolvedFunctionArgument>(std::move(arg));
+  }
+
+  static std::vector<std::unique_ptr<const ResolvedFunctionArgument>>
+  OneFunctionExpressionArg() {
+    std::unique_ptr<const ResolvedLiteral> resolved_bool_true =
+        MakeResolvedLiteral(Value::Bool(true));
+    std::unique_ptr<ResolvedFunctionArgument> arg =
+        MakeResolvedFunctionArgument();
+    arg->set_expr(std::move(resolved_bool_true));
+    return MakeNodeVectorP<const ResolvedFunctionArgument>(std::move(arg));
+  }
+
   static std::vector<FunctionTest> AllFunctionTests() {
     FunctionSignature bool_int64_int64(BoolType(), {Int64Type(), Int64Type()},
                                        -1 /* context_id */);
@@ -909,6 +937,9 @@ class AlgebrizerTestFunctions
     FunctionSignature double_double_double(DoubleType(),
                                            {DoubleType(), DoubleType()},
                                            -1 /* context_id */);
+    FunctionSignature int64_sequence(Int64Type(),
+                                     {FunctionArgumentType::AnySequence()},
+                                     -1 /* context_id */);
 
     std::vector<FunctionTest> functions = {
         // "Equal" function.
@@ -969,10 +1000,79 @@ class AlgebrizerTestFunctions
                                   TwoBoolLiterals(), DEFAULT_ERROR_MODE)
              .release(),
          "BOOL", "Or(ConstExpr(true), ConstExpr(false))"},
+
+        // Sequence functions
+        {MakeResolvedFunctionCall(
+             Int64Type(), fn_sequence_, int64_sequence,
+             /*argument_list=*/{}, OneSequenceArg(), DEFAULT_ERROR_MODE,
+             /*function_call_info=*/
+             {std::make_shared<ResolvedFunctionCallInfo>()})
+             .release(),
+         "INT64",
+         "UDF[get_next_sequence_value](ConstExpr("
+         "\"_sequence_test_sequence\"))"},
+
+        // A function with expr arg
+        {MakeResolvedFunctionCall(
+             BoolType(), fn_with_expr_arg_, bool_bool,
+             /*argument_list=*/{}, OneFunctionExpressionArg(),
+             DEFAULT_ERROR_MODE, /*function_call_info=*/
+             {std::make_shared<ResolvedFunctionCallInfo>()})
+             .release(),
+         "BOOL", "UDF[an_expr_arg_function](ConstExpr(true))"},
     };
     return functions;
   }
 };
+
+Function* GetNextSequenceValueFunction() {
+  FunctionOptions function_options;
+
+  std::function<absl::StatusOr<zetasql::Value>(
+      const absl::Span<const zetasql::Value>)>
+      evaluator = [&](absl::Span<const zetasql::Value> args)
+      -> absl::StatusOr<zetasql::Value> {
+    // The sequence identifier is algebrized into a string
+    ZETASQL_RET_CHECK(args.size() == 1 && args[0].type()->IsString());
+    // Return 1 just for testing purposes.
+    return zetasql::Value::Int64(1);
+  };
+
+  function_options.set_evaluator(zetasql::FunctionEvaluator(evaluator));
+
+  return new Function(
+      "get_next_sequence_value", /*group=*/"udf", zetasql::Function::SCALAR,
+      std::vector<zetasql::FunctionSignature>{zetasql::FunctionSignature{
+          zetasql::types::Int64Type(),
+          {zetasql::FunctionArgumentType::AnySequence()},
+          nullptr}},
+      function_options);
+}
+
+Function* GetAFunctionWithExprArgument() {
+  FunctionOptions function_options;
+
+  std::function<absl::StatusOr<zetasql::Value>(
+      const absl::Span<const zetasql::Value>)>
+      evaluator = [&](absl::Span<const zetasql::Value> args)
+      -> absl::StatusOr<zetasql::Value> {
+    // Return true just for testing purposes.
+    return zetasql::Value::Bool(true);
+  };
+
+  function_options.set_evaluator(zetasql::FunctionEvaluator(evaluator));
+
+  return new Function(
+      "an_expr_arg_function", /*group=*/"udf", zetasql::Function::SCALAR,
+      std::vector<zetasql::FunctionSignature>{
+          zetasql::FunctionSignature{zetasql::types::BoolType(),
+                                       {zetasql::types::BoolType()},
+                                       nullptr}},
+      function_options);
+}
+
+const Sequence* AlgebrizerTestFunctions::test_sequence_ =
+    new SimpleSequence("test_sequence");
 
 const Function* AlgebrizerTestFunctions::fn_equal =
     new Function("$equal", Function::kZetaSQLFunctionGroupName,
@@ -995,6 +1095,10 @@ const Function* AlgebrizerTestFunctions::fn_not =
 const Function* AlgebrizerTestFunctions::fn_or =
     new Function("$or", Function::kZetaSQLFunctionGroupName,
                  Function::SCALAR);
+const Function* AlgebrizerTestFunctions::fn_sequence_ =
+    GetNextSequenceValueFunction();
+const Function* AlgebrizerTestFunctions::fn_with_expr_arg_ =
+    GetAFunctionWithExprArgument();
 
 // This test algebrizes functions in isolation.
 TEST_P(AlgebrizerTestFunctions, Functions) {

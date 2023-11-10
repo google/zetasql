@@ -63,12 +63,6 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::TimeZone default_timezone,
                                     bool parse_version2, int64_t* timestamp);
-ABSL_DEPRECATED("Inline me!")
-absl::Status ParseStringToTimestamp(absl::string_view format_string,
-                                    absl::string_view timestamp_string,
-                                    absl::TimeZone default_timezone,
-                                    int64_t* timestamp,
-                                    bool parse_version2 = false);
 
 // Invokes MakeTimeZone() on <default_timezone_string> and invokes the prior
 // function.  Returns error status if <default_timezone_string> is invalid
@@ -77,35 +71,17 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
                                     bool parse_version2, int64_t* timestamp);
-ABSL_DEPRECATED("Inline me!")
-absl::Status ParseStringToTimestamp(absl::string_view format_string,
-                                    absl::string_view timestamp_string,
-                                    absl::string_view default_timezone_string,
-                                    int64_t* timestamp,
-                                    bool parse_version2 = false);
 
 // The 2 functions below support nanoseconds precision.
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
                                     bool parse_version2, absl::Time* timestamp);
-ABSL_DEPRECATED("Inline me!")
-absl::Status ParseStringToTimestamp(absl::string_view format_string,
-                                    absl::string_view timestamp_string,
-                                    absl::string_view default_timezone_string,
-                                    absl::Time* timestamp,
-                                    bool parse_version2 = false);
 
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::TimeZone default_timezone,
                                     bool parse_version2, absl::Time* timestamp);
-ABSL_DEPRECATED("Inline me!")
-absl::Status ParseStringToTimestamp(absl::string_view format_string,
-                                    absl::string_view timestamp_string,
-                                    absl::TimeZone default_timezone,
-                                    absl::Time* timestamp,
-                                    bool parse_version2 = false);
 
 // Parses an input <date_string> with the given input <format_string>,
 // and produces the appropriate date as output. Date parts that are

@@ -2685,9 +2685,9 @@ QueryStmt
         |         |         +-input_scan=
         |         |         | +-ArrayScan
         |         |         |   +-column_list=[$array.v#1]
-        |         |         |   +-array_expr=
+        |         |         |   +-array_expr_list=
         |         |         |   | +-Literal(type=ARRAY<STRING>, value=[""])
-        |         |         |   +-element_column=$array.v#1
+        |         |         |   +-element_column_list=[$array.v#1]
         |         |         +-filter_expr=
         |         |           +-FunctionCall(ZetaSQL:$not_equal(STRING, STRING) -> BOOL)
         |         |             +-ColumnRef(type=STRING, column=$array.v#1)
@@ -2713,9 +2713,9 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.col#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<STRING>, value=["a", "b", "c", "f"])
-        |   +-element_column=$array.col#1
+        |   +-element_column_list=[$array.col#1]
         +-aggregate_list=
           +-result#2 :=
             +-AggregateFunctionCall(Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 delta, optional(1) BOOL allow_nulls) -> STRING)
@@ -2779,9 +2779,9 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.col#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<STRING>, value=["a", "b", "c", "f"])
-        |   +-element_column=$array.col#1
+        |   +-element_column_list=[$array.col#1]
         +-aggregate_list=
           +-result#2 :=
             +-AggregateFunctionCall(Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 delta, optional(1) BOOL allow_nulls) -> STRING)
@@ -2845,9 +2845,9 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.col#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<STRING>, value=["a", "b", "c", "f"])
-        |   +-element_column=$array.col#1
+        |   +-element_column_list=[$array.col#1]
         +-aggregate_list=
           +-result#2 :=
             +-AggregateFunctionCall(Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 delta, optional(1) BOOL allow_nulls) -> STRING)
@@ -2936,9 +2936,9 @@ QueryStmt
     |         |         +-input_scan=
     |         |         | +-ArrayScan
     |         |         |   +-column_list=[$array.v#1]
-    |         |         |   +-array_expr=
+    |         |         |   +-array_expr_list=
     |         |         |   | +-Literal(type=ARRAY<STRING>, value=[""])
-    |         |         |   +-element_column=$array.v#1
+    |         |         |   +-element_column_list=[$array.v#1]
     |         |         +-filter_expr=
     |         |           +-FunctionCall(ZetaSQL:$not_equal(STRING, STRING) -> BOOL)
     |         |             +-ColumnRef(type=STRING, column=$array.v#1)

@@ -2129,4 +2129,24 @@ TEST(FunctionSignatureTests, LambdaArgumentTypeConstructedDirectlyIsInvalid) {
       lambda.IsValid(PRODUCT_INTERNAL),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("constructed directly")));
 }
+
+TEST(FunctionSignatureTests, SignatureSupportsArgumentAlias) {
+  FunctionSignature support_alias(
+      FunctionArgumentType(ARG_TYPE_ANY_1),
+      {{ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_alias_kind(
+                            FunctionEnums::ARGUMENT_ALIASED)},
+       {ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_alias_kind(
+                            FunctionEnums::ARGUMENT_NON_ALIASED)}},
+      /*context_id=*/-1);
+  EXPECT_TRUE(SignatureSupportsArgumentAliases(support_alias));
+
+  FunctionSignature unsupport_alias(
+      FunctionArgumentType(ARG_TYPE_ANY_1),
+      {{ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_alias_kind(
+                            FunctionEnums::ARGUMENT_NON_ALIASED)},
+       {ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_alias_kind(
+                            FunctionEnums::ARGUMENT_NON_ALIASED)}},
+      /*context_id=*/-1);
+  EXPECT_FALSE(SignatureSupportsArgumentAliases(unsupport_alias));
+}
 }  // namespace zetasql

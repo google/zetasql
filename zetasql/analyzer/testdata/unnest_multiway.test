@@ -1,0 +1,100 @@
+
+# ============== UNNEST with builtin enum mode argument =========
+# Array zip mode is not implemented.
+SELECT *
+FROM UNNEST([1,2], mode => {{"STRICT"|"TRUNCATE"|"PAD"}});
+--
+ALTERNATION GROUP: "STRICT"
+--
+ERROR: The named argument `mode` used in UNNEST is not implemented [at 2:20]
+FROM UNNEST([1,2], mode => "STRICT");
+                   ^
+--
+ALTERNATION GROUP: "TRUNCATE"
+--
+ERROR: The named argument `mode` used in UNNEST is not implemented [at 2:20]
+FROM UNNEST([1,2], mode => "TRUNCATE");
+                   ^
+--
+ALTERNATION GROUP: "PAD"
+--
+ERROR: The named argument `mode` used in UNNEST is not implemented [at 2:20]
+FROM UNNEST([1,2], mode => "PAD");
+                   ^
+==
+
+# Named arguments other than `mode` are not supported.
+SELECT *
+FROM UNNEST([1, 2], unsupported_named_argument => "PAD");
+--
+ERROR: Unsupported named argument `unsupported_named_argument` in UNNEST [at 2:21]
+FROM UNNEST([1, 2], unsupported_named_argument => "PAD");
+                    ^
+==
+
+# ============== UNNEST with array argument alias =========
+# Column alias is not implemented: single column.
+SELECT *
+FROM UNNEST([1,2] AS array_alias)
+--
+ERROR: Argument alias in UNNEST in FROM clause is not implemented [at 2:19]
+FROM UNNEST([1,2] AS array_alias)
+                  ^
+==
+
+# Table alias is not allowed when the expression in UNNEST has alias.
+SELECT *
+FROM UNNEST([1, 2] AS col_alias) AS table_alias
+--
+ERROR: Table alias in UNNEST in FROM clause is not allowed when arguments in UNNEST have alias [at 2:34]
+FROM UNNEST([1, 2] AS col_alias) AS table_alias
+                                 ^
+==
+
+# ============== UNNEST with multiple array arguments =========
+# Multiple expressions in UNNEST are not implemented.
+SELECT *
+FROM UNNEST([1, 2, 3], [2, 3])
+--
+ERROR: Multiple arguments in UNNEST in FROM clause is not implemented [at 2:24]
+FROM UNNEST([1, 2, 3], [2, 3])
+                       ^
+==
+
+# Multiple columns with and without alias are not allowed.
+SELECT *
+FROM UNNEST([1, 2, 3] AS literal_array, TestTable.KitchenSink.repeated_int32_val)
+--
+ERROR: Multiple arguments in UNNEST in FROM clause is not implemented [at 2:41]
+FROM UNNEST([1, 2, 3] AS literal_array, TestTable.KitchenSink.repeated_int32_...
+                                        ^
+==
+
+# Table alias is not allowed when UNNEST contains multiple expressions.
+SELECT *
+FROM UNNEST([1,2], [3,4]) AS table_alias
+--
+ERROR: Table alias in UNNEST in FROM clause is not allowed when UNNEST contains multiple arguments [at 2:27]
+FROM UNNEST([1,2], [3,4]) AS table_alias
+                          ^
+==
+
+# Table alias is not allowed when UNNEST has multiple expressions with aliases.
+SELECT *
+FROM UNNEST([1, 2] AS col_alias, [2, 3] AS another_col_alias) AS table_alias
+--
+ERROR: Table alias in UNNEST in FROM clause is not allowed when UNNEST contains multiple arguments [at 2:63]
+FROM UNNEST([1, 2] AS col_alias, [2, 3] AS another_col_alias) AS table_alias
+                                                              ^
+==
+
+# Table alias is not allowed when UNNEST has multiple expressions, some with
+# alias some not.
+SELECT *
+FROM UNNEST([1, 2] AS col_alias, [2, 3]) AS table_alias
+--
+ERROR: Table alias in UNNEST in FROM clause is not allowed when UNNEST contains multiple arguments [at 2:42]
+FROM UNNEST([1, 2] AS col_alias, [2, 3]) AS table_alias
+                                         ^
+==
+

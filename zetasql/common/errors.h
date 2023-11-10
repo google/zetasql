@@ -59,21 +59,18 @@
 #include <string_view>
 #include <vector>
 
-#include "google/protobuf/repeated_field.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
-#include "absl/base/attributes.h"
 #include "absl/base/macros.h"
-#include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
@@ -237,35 +234,58 @@ StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
 // updates the Status error string to include the external ErrorLocation
 // info (line/offset), then clears the ErrorLocation payload from the
 // Status and returns that Status.
+// Same as above but accepts AnalyzerOptions.
 inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
-    ErrorMessageMode mode, bool keep_error_location_payload,
-    absl::string_view input_string, const absl::Status& status) {
+    const ErrorMessageOptions options, absl::string_view input_string,
+    const absl::Status& status) {
   if (status.ok()) return status;
 
   const absl::Status new_status =
       ConvertInternalErrorLocationToExternal(status, input_string);
-  if (mode == ERROR_MESSAGE_WITH_PAYLOAD) {
-    return new_status;
-  }
+  return MaybeUpdateErrorFromPayload(options, input_string, new_status);
+}
 
-  return MaybeUpdateErrorFromPayload(mode, keep_error_location_payload,
-                                     input_string, new_status);
+// DEPRECATED: Please use the overload using ErrorMessageOptions
+ABSL_DEPRECATED("Inline me!")
+inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
+    ErrorMessageMode error_message_mode, bool attach_error_location_payload,
+    absl::string_view input_string, const absl::Status& status) {
+  return ConvertInternalErrorLocationAndAdjustErrorString(
+      ErrorMessageOptions{
+          .mode = error_message_mode,
+          .attach_error_location_payload = attach_error_location_payload,
+          .stability = ERROR_MESSAGE_STABILITY_UNSPECIFIED},
+      input_string, status);
 }
 
 // Same as above, but for a vector of absl::Statuses.
 inline std::vector<absl::Status>
 ConvertInternalErrorLocationsAndAdjustErrorStrings(
-    ErrorMessageMode mode, bool keep_error_location_payload,
-    absl::string_view input_string, const std::vector<absl::Status>& statuses) {
+    const ErrorMessageOptions& options, absl::string_view input_string,
+    const std::vector<absl::Status>& statuses) {
   if (statuses.empty()) return statuses;
 
   std::vector<absl::Status> new_statuses;
   new_statuses.reserve(statuses.size());
   for (const absl::Status& status : statuses) {
     new_statuses.push_back(ConvertInternalErrorLocationAndAdjustErrorString(
-        mode, keep_error_location_payload, input_string, status));
+        options, input_string, status));
   }
   return new_statuses;
+}
+
+// DEPRECATED: Please use the overload using ErrorMessageOptions
+ABSL_DEPRECATED("Inline me!")
+inline std::vector<absl::Status>
+ConvertInternalErrorLocationsAndAdjustErrorStrings(
+    ErrorMessageMode mode, bool attach_error_location_payload,
+    absl::string_view input_string, const std::vector<absl::Status>& statuses) {
+  return ConvertInternalErrorLocationsAndAdjustErrorStrings(
+      ErrorMessageOptions{
+          .mode = mode,
+          .attach_error_location_payload = attach_error_location_payload,
+          .stability = ERROR_MESSAGE_STABILITY_UNSPECIFIED},
+      input_string, statuses);
 }
 
 }  // namespace zetasql

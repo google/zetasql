@@ -716,3 +716,102 @@ FROM C
 ERROR: Syntax error: STRICT cannot be used with outer mode in set operations [at 6:16]
 FULL UNION ALL STRICT CORRESPONDING BY (a, b, c)
                ^
+==
+
+# OUTER is interpreted as FULL.
+SELECT 1 AS A
+OUTER UNION ALL CORRESPONDING
+SELECT 2 AS A
+--
+QueryStatement [0-57] [SELECT 1 AS...SELECT 2 AS A]
+  Query [0-57] [SELECT 1 AS...SELECT 2 AS A]
+    SetOperation(UNION ALL) [0-57] [SELECT 1 AS...SELECT 2 AS A]
+      SetOperationMetadataList [14-43] [OUTER UNION ALL CORRESPONDING]
+        SetOperationMetadata [14-43] [OUTER UNION ALL CORRESPONDING]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-29] [ALL]
+          SetOperationColumnMatchMode [30-43] [CORRESPONDING]
+          SetOperationColumnPropagationMode [14-19] [OUTER]
+      Select [0-13] [SELECT 1 AS A]
+        SelectList [7-13] [1 AS A]
+          SelectColumn [7-13] [1 AS A]
+            IntLiteral(1) [7-8] [1]
+            Alias [9-13] [AS A]
+              Identifier(A) [12-13] [A]
+      Select [44-57] [SELECT 2 AS A]
+        SelectList [51-57] [2 AS A]
+          SelectColumn [51-57] [2 AS A]
+            IntLiteral(2) [51-52] [2]
+            Alias [53-57] [AS A]
+              Identifier(A) [56-57] [A]
+--
+SELECT
+  1 AS A
+FULL UNION ALL CORRESPONDING
+SELECT
+  2 AS A
+==
+
+# OUTER and FULL used together in multiple inputs.
+SELECT 1 AS A
+OUTER UNION ALL CORRESPONDING BY (A)
+SELECT 1 AS A, 2 AS C
+FULL OUTER UNION ALL CORRESPONDING BY (A)
+SELECT 1 AS B, 1 AS A
+
+--
+QueryStatement [0-136] [SELECT 1 AS...B, 1 AS A]
+  Query [0-136] [SELECT 1 AS...B, 1 AS A]
+    SetOperation(UNION ALL) [0-136] [SELECT 1 AS...B, 1 AS A]
+      SetOperationMetadataList [14-114] [OUTER UNION...ESPONDING BY (A)]
+        SetOperationMetadata [14-50] [OUTER UNION...ESPONDING BY (A)]
+          SetOperationType [20-25] [UNION]
+          SetOperationAllOrDistinct [26-29] [ALL]
+          SetOperationColumnMatchMode [30-46] [CORRESPONDING BY]
+          SetOperationColumnPropagationMode [14-19] [OUTER]
+          ColumnList [47-50] [(A)]
+            Identifier(A) [48-49] [A]
+        SetOperationMetadata [73-114] [FULL OUTER...RESPONDING BY (A)]
+          SetOperationType [84-89] [UNION]
+          SetOperationAllOrDistinct [90-93] [ALL]
+          SetOperationColumnMatchMode [94-110] [CORRESPONDING BY]
+          SetOperationColumnPropagationMode [73-83] [FULL OUTER]
+          ColumnList [111-114] [(A)]
+            Identifier(A) [112-113] [A]
+      Select [0-13] [SELECT 1 AS A]
+        SelectList [7-13] [1 AS A]
+          SelectColumn [7-13] [1 AS A]
+            IntLiteral(1) [7-8] [1]
+            Alias [9-13] [AS A]
+              Identifier(A) [12-13] [A]
+      Select [51-72] [SELECT 1 AS A, 2 AS C]
+        SelectList [58-72] [1 AS A, 2 AS C]
+          SelectColumn [58-64] [1 AS A]
+            IntLiteral(1) [58-59] [1]
+            Alias [60-64] [AS A]
+              Identifier(A) [63-64] [A]
+          SelectColumn [66-72] [2 AS C]
+            IntLiteral(2) [66-67] [2]
+            Alias [68-72] [AS C]
+              Identifier(C) [71-72] [C]
+      Select [115-136] [SELECT 1 AS B, 1 AS A]
+        SelectList [122-136] [1 AS B, 1 AS A]
+          SelectColumn [122-128] [1 AS B]
+            IntLiteral(1) [122-123] [1]
+            Alias [124-128] [AS B]
+              Identifier(B) [127-128] [B]
+          SelectColumn [130-136] [1 AS A]
+            IntLiteral(1) [130-131] [1]
+            Alias [132-136] [AS A]
+              Identifier(A) [135-136] [A]
+--
+SELECT
+  1 AS A
+FULL UNION ALL CORRESPONDING BY (A)
+SELECT
+  1 AS A,
+  2 AS C
+FULL UNION ALL CORRESPONDING BY (A)
+SELECT
+  1 AS B,
+  1 AS A

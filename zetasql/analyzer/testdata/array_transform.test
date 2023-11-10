@@ -67,9 +67,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#4, $array_offset.off#5]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#3, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#4
+    |         |           |       +-element_column_list=[$array.element#4]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#5)
     |         |           +-order_by_item_list=
@@ -154,9 +154,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#5, $array_offset.off#6]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#5
+    |         |           |       +-element_column_list=[$array.element#5]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#6)
     |         |           +-order_by_item_list=
@@ -246,9 +246,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#6, $array_offset.off#7]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#6
+    |         |           |       +-element_column_list=[$array.element#6]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#7)
     |         |           +-order_by_item_list=
@@ -342,9 +342,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#7, $array_offset.off#8]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#6, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#7
+    |         |           |       +-element_column_list=[$array.element#7]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#8)
     |         |           +-order_by_item_list=
@@ -434,9 +434,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#6, $array_offset.off#7]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#6
+    |         |           |       +-element_column_list=[$array.element#6]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#7)
     |         |           +-order_by_item_list=
@@ -532,9 +532,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#6, $array_offset.off#7]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#6
+    |         |           |       +-element_column_list=[$array.element#6]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#7)
     |         |           +-order_by_item_list=
@@ -640,9 +640,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#12, $array_offset.off#13]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#11, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#12
+    |         |           |       +-element_column_list=[$array.element#12]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#13)
     |         |           +-order_by_item_list=
@@ -688,9 +688,9 @@ QueryStmt
     |             |         |           |   +-input_scan=
     |             |         |           |     +-ArrayScan
     |             |         |           |       +-column_list=[$array.element#7, $array_offset.off#8]
-    |             |         |           |       +-array_expr=
+    |             |         |           |       +-array_expr_list=
     |             |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#6, is_correlated=TRUE)
-    |             |         |           |       +-element_column=$array.element#7
+    |             |         |           |       +-element_column_list=[$array.element#7]
     |             |         |           |       +-array_offset_column=
     |             |         |           |         +-ColumnHolder(column=$array_offset.off#8)
     |             |         |           +-order_by_item_list=
@@ -820,9 +820,9 @@ QueryStmt
     |         |         |           |   +-input_scan=
     |         |         |           |     +-ArrayScan
     |         |         |           |       +-column_list=[$array.element#13, $array_offset.off#14]
-    |         |         |           |       +-array_expr=
+    |         |         |           |       +-array_expr_list=
     |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#12, is_correlated=TRUE)
-    |         |         |           |       +-element_column=$array.element#13
+    |         |         |           |       +-element_column_list=[$array.element#13]
     |         |         |           |       +-array_offset_column=
     |         |         |           |         +-ColumnHolder(column=$array_offset.off#14)
     |         |         |           +-order_by_item_list=
@@ -868,9 +868,9 @@ QueryStmt
     |         |             |         |           |   +-input_scan=
     |         |             |         |           |     +-ArrayScan
     |         |             |         |           |       +-column_list=[$array.element#8, $array_offset.off#9]
-    |         |             |         |           |       +-array_expr=
+    |         |             |         |           |       +-array_expr_list=
     |         |             |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#7, is_correlated=TRUE)
-    |         |             |         |           |       +-element_column=$array.element#8
+    |         |             |         |           |       +-element_column_list=[$array.element#8]
     |         |             |         |           |       +-array_offset_column=
     |         |             |         |           |         +-ColumnHolder(column=$array_offset.off#9)
     |         |             |         |           +-order_by_item_list=
@@ -1015,9 +1015,9 @@ QueryStmt
     |         |           |   |             |           |   +-input_scan=
     |         |           |   |             |           |     +-ArrayScan
     |         |           |   |             |           |       +-column_list=[$array.element#19, $array_offset.off#20]
-    |         |           |   |             |           |       +-array_expr=
+    |         |           |   |             |           |       +-array_expr_list=
     |         |           |   |             |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#17, is_correlated=TRUE)
-    |         |           |   |             |           |       +-element_column=$array.element#19
+    |         |           |   |             |           |       +-element_column_list=[$array.element#19]
     |         |           |   |             |           |       +-array_offset_column=
     |         |           |   |             |           |         +-ColumnHolder(column=$array_offset.off#20)
     |         |           |   |             |           +-order_by_item_list=
@@ -1038,9 +1038,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#12, $array_offset.off#13]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#11, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#12
+    |         |           |       +-element_column_list=[$array.element#12]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#13)
     |         |           +-order_by_item_list=
@@ -1198,9 +1198,9 @@ QueryStmt
     |         |         |           |   |             |           |   +-input_scan=
     |         |         |           |   |             |           |     +-ArrayScan
     |         |         |           |   |             |           |       +-column_list=[$array.element#20, $array_offset.off#21]
-    |         |         |           |   |             |           |       +-array_expr=
+    |         |         |           |   |             |           |       +-array_expr_list=
     |         |         |           |   |             |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#18, is_correlated=TRUE)
-    |         |         |           |   |             |           |       +-element_column=$array.element#20
+    |         |         |           |   |             |           |       +-element_column_list=[$array.element#20]
     |         |         |           |   |             |           |       +-array_offset_column=
     |         |         |           |   |             |           |         +-ColumnHolder(column=$array_offset.off#21)
     |         |         |           |   |             |           +-order_by_item_list=
@@ -1221,9 +1221,9 @@ QueryStmt
     |         |         |           |   +-input_scan=
     |         |         |           |     +-ArrayScan
     |         |         |           |       +-column_list=[$array.element#13, $array_offset.off#14]
-    |         |         |           |       +-array_expr=
+    |         |         |           |       +-array_expr_list=
     |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#12, is_correlated=TRUE)
-    |         |         |           |       +-element_column=$array.element#13
+    |         |         |           |       +-element_column_list=[$array.element#13]
     |         |         |           |       +-array_offset_column=
     |         |         |           |         +-ColumnHolder(column=$array_offset.off#14)
     |         |         |           +-order_by_item_list=
@@ -1338,9 +1338,9 @@ QueryStmt
     |         |         |           |   +-input_scan=
     |         |         |           |     +-ArrayScan
     |         |         |           |       +-column_list=[$array.element#7, $array_offset.off#8]
-    |         |         |           |       +-array_expr=
+    |         |         |           |       +-array_expr_list=
     |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#6, is_correlated=TRUE)
-    |         |         |           |       +-element_column=$array.element#7
+    |         |         |           |       +-element_column_list=[$array.element#7]
     |         |         |           |       +-array_offset_column=
     |         |         |           |         +-ColumnHolder(column=$array_offset.off#8)
     |         |         |           +-order_by_item_list=
@@ -1462,9 +1462,9 @@ QueryStmt
     |         |         |           |   +-input_scan=
     |         |         |           |     +-ArrayScan
     |         |         |           |       +-column_list=[$array.element#7, $array_offset.off#8]
-    |         |         |           |       +-array_expr=
+    |         |         |           |       +-array_expr_list=
     |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#6, is_correlated=TRUE)
-    |         |         |           |       +-element_column=$array.element#7
+    |         |         |           |       +-element_column_list=[$array.element#7]
     |         |         |           |       +-array_offset_column=
     |         |         |           |         +-ColumnHolder(column=$array_offset.off#8)
     |         |         |           +-order_by_item_list=

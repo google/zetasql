@@ -490,7 +490,6 @@ create external table t(a int64, FOREIGN KEY (b) REFERENCES Value (value))
 ==
 
 [language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
-[no_java]
 create external table projectid.datasetid.tablename(x int64)
 with partition columns
 with connection conn
@@ -502,7 +501,6 @@ with connection conn
 ==
 
 [language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
-[no_java]
 create external table projectid.datasetid.tablename(x int64)
 with connection connection1
 options (x=foo)
@@ -519,7 +517,6 @@ CreateExternalTableStmt
 ==
 
 [language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
-[no_java]
 create external table projectid.datasetid.tablename(x int64)
 with connection `connection2`
 with partition columns
@@ -532,7 +529,6 @@ with connection `connection2`
 ==
 
 [language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
-[no_java]
 create external table projectid.datasetid.tablename(x int64)
 with partition columns
 with connection `connection2`
@@ -552,7 +548,6 @@ CreateExternalTableStmt
 ==
 
 [language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
-[no_java]
 create external table t(x int64)
 with partition columns (
   y int64
@@ -576,7 +571,6 @@ CreateExternalTableStmt
 ==
 
 [language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
-[no_java]
 create external table t(x int64)
 with partition columns (
   y int64

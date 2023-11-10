@@ -22,14 +22,9 @@
 namespace zetasql {
 
 // Returns true if the given aggregate function is known to ignore all rows
-// where at least one input argument is NULL.
-//
-// The current implementation works as follows:
-// - If a null-handling modifier is present, follow it.
-// - Otherwise, consider it to respect nulls if it is a ZetaSQL builtin and
-//     its name falls within a hard-coded list of null-respecting
-//     functions. All ZetaSQL builtins not in this list are assumed to ignore
-//     nulls.
+// where at least one input argument is NULL. A false value doesn't necessarily
+// mean that the function respects NULLs, and could also mean that we don't
+// know whether it ignores NULLs.
 bool IgnoresNullArguments(
     const ResolvedNonScalarFunctionCallBase* aggregate_function);
 

@@ -885,22 +885,22 @@ QueryStmt
         |   | +-j1 := Literal(type=INT64, value=1)
         |   +-input_scan=
         |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   +-expr=
         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=nested_repeated_value
         |   |   +-default_value=[]
-        |   +-element_column=$array.nested_repeated_value#4
-        +-array_expr=
+        |   +-element_column_list=[$array.nested_repeated_value#4]
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
-        +-element_column=$array.nested_repeated_int64#5
+        +-element_column_list=[$array.nested_repeated_int64#5]
         +-is_outer=TRUE
 ==
 
@@ -925,14 +925,14 @@ QueryStmt
         | +-j1 := Literal(type=INT64, value=1)
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
-        +-element_column=$array.nested_repeated_value#4
+        +-element_column_list=[$array.nested_repeated_value#4]
         +-is_outer=TRUE
 ==
 
@@ -1270,14 +1270,14 @@ QueryStmt
         | +-abc := Literal(type=INT64, value=123)
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
-        +-element_column=$array.nested_repeated_value#4
+        +-element_column_list=[$array.nested_repeated_value#4]
         +-is_outer=TRUE
 ==
 
@@ -1310,7 +1310,7 @@ QueryStmt
     | |           | +-ArrayScan
     | |           |   +-hint_list=
     | |           |   | +-num_shards := Literal(type=INT64, value=10)
-    | |           |   +-array_expr=
+    | |           |   +-array_expr_list=
     | |           |   | +-GetProtoField
     | |           |   |   +-type=ARRAY<DATE>
     | |           |   |   +-expr=
@@ -1318,7 +1318,7 @@ QueryStmt
     | |           |   |   +-field_descriptor=repeated_date
     | |           |   |   +-default_value=[]
     | |           |   |   +-format=DATE
-    | |           |   +-element_column=$array.repeated_date#4
+    | |           |   +-element_column_list=[$array.repeated_date#4]
     | |           +-aggregate_list=
     | |             +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     | +-$col2#8 :=
@@ -1335,7 +1335,7 @@ QueryStmt
     |             +-column_list=[$array.d#6]
     |             +-hint_list=
     |             | +-a := Literal(type=INT64, value=2)
-    |             +-array_expr=
+    |             +-array_expr_list=
     |             | +-GetProtoField
     |             |   +-type=ARRAY<DATE>
     |             |   +-expr=
@@ -1343,7 +1343,7 @@ QueryStmt
     |             |   +-field_descriptor=repeated_date
     |             |   +-default_value=[]
     |             |   +-format=DATE
-    |             +-element_column=$array.d#6
+    |             +-element_column_list=[$array.d#6]
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="tt")
 ==
@@ -1393,14 +1393,14 @@ QueryStmt
         |   | +-num_shards := Literal(type=INT64, value=555)
         |   +-table=TestTable
         |   +-column_index_list=[2]
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
-        +-element_column=$array.nested_repeated_value#4
+        +-element_column_list=[$array.nested_repeated_value#4]
 ==
 
 with w as (select * from KeyValue @123)
@@ -1623,14 +1623,14 @@ QueryStmt
             |   +-input_scan=
             |     +-ArrayScan
             |       +-column_list=[$array.repeated_int32_val#4]
-            |       +-array_expr=
+            |       +-array_expr_list=
             |       | +-GetProtoField
             |       |   +-type=ARRAY<INT32>
             |       |   +-expr=
             |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |       |   +-field_descriptor=repeated_int32_val
             |       |   +-default_value=[]
-            |       +-element_column=$array.repeated_int32_val#4
+            |       +-element_column_list=[$array.repeated_int32_val#4]
             +-hint_list=
               +-a := Literal(type=INT64, value=1)
               +-b := Literal(type=STRING, value="c")
@@ -1786,14 +1786,14 @@ QueryStmt
               |   +-input_scan=
               |     +-ArrayScan
               |       +-column_list=[$array.repeated_int32_val#4]
-              |       +-array_expr=
+              |       +-array_expr_list=
               |       | +-GetProtoField
               |       |   +-type=ARRAY<INT32>
               |       |   +-expr=
               |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
               |       |   +-field_descriptor=repeated_int32_val
               |       |   +-default_value=[]
-              |       +-element_column=$array.repeated_int32_val#4
+              |       +-element_column_list=[$array.repeated_int32_val#4]
               +-hint_list=
                 +-a := Literal(type=INT64, value=1)
                 +-b := Literal(type=STRING, value="c")
@@ -1980,14 +1980,14 @@ QueryStmt
             |   +-input_scan=
             |     +-ArrayScan
             |       +-column_list=[$array.repeated_int32_val#4]
-            |       +-array_expr=
+            |       +-array_expr_list=
             |       | +-GetProtoField
             |       |   +-type=ARRAY<INT32>
             |       |   +-expr=
             |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |       |   +-field_descriptor=repeated_int32_val
             |       |   +-default_value=[]
-            |       +-element_column=$array.repeated_int32_val#4
+            |       +-element_column_list=[$array.repeated_int32_val#4]
             +-hint_list=
               +-a := Literal(type=INT64, value=1)
               +-b := Literal(type=STRING, value="c")

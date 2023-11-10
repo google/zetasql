@@ -168,9 +168,9 @@ QueryStmt
         |   |   | +-FunctionCall(ZetaSQL:current_timestamp() -> TIMESTAMP)
         |   |   +-column_index_list=[3]
         |   |   +-alias="t"
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4)
-        |   +-element_column=$array.Int32Array#7
+        |   +-element_column_list=[$array.Int32Array#7]
         +-aggregate_list=
           +-$agg1#8 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==

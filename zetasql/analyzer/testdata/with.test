@@ -549,9 +549,9 @@ QueryStmt
             |         +-Q1#7 :=
             |           +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
             |             +-Literal(type=INT64, value=5)
-            +-array_expr=
+            +-array_expr_list=
             | +-ColumnRef(type=ARRAY<INT64>, column=$aggregate.Q1#7)
-            +-element_column=$array.Q3#8
+            +-element_column_list=[$array.Q3#8]
 ==
 
 # With subquery alias hiding a table name.

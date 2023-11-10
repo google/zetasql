@@ -940,10 +940,11 @@ absl::StatusOr<Value> JsonArrayInsertAppendFunction::Eval(
 absl::StatusOr<Value> JsonSetFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  // Num of args: 2n + 3, n >= 0
-  ZETASQL_RET_CHECK_GE(args.size(), 3);
-  ZETASQL_RET_CHECK_EQ(args.size() % 2, 1);
+  ZETASQL_RET_CHECK_GE(args.size(), 4);
   ZETASQL_RET_CHECK(args[0].type()->IsJson());
+  // Function Signature: JSON_SET(JSON json_doc, path, value[, path, value]...,
+  // create_if_missing => {true, false}). Paths and values must come in pairs.
+  ZETASQL_RET_CHECK_EQ((args.size() - 4) % 2, 0);
 
   const size_t num_value_pairs = (args.size() - 1) / 2;
 
@@ -966,6 +967,7 @@ absl::StatusOr<Value> JsonSetFunction::Eval(
     ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2 * i + 2], context));
   }
 
+  // Check if input JSON is NULL.
   if (args[0].is_null()) {
     return Value::NullJson();
   }
@@ -975,14 +977,22 @@ absl::StatusOr<Value> JsonSetFunction::Eval(
                    GetJSONValueCopy(args[0], language_options));
   JSONValueRef ref = result.GetRef();
 
+  ZETASQL_RET_CHECK(args.back().type()->IsBool());
+  // Check if `create_if_missing` is NULL.
+  if (args.back().is_null()) {
+    return Value::Json(std::move(result));
+  }
+
+  const bool create_if_missing = args.back().bool_value();
   for (int i = 0; i < num_value_pairs; ++i) {
     if (path_iterators[i] == nullptr) {
       // Ignore NULL path operation.
       continue;
     }
-    if (absl::Status status = functions::JsonSet(
-            ref, *path_iterators[i], args[2 * i + 2], language_options,
-            /*canonicalize_zero=*/true);
+    if (absl::Status status =
+            functions::JsonSet(ref, *path_iterators[i], args[2 * i + 2],
+                               create_if_missing, language_options,
+                               /*canonicalize_zero=*/true);
         !status.ok()) {
       return MakeEvalError()
              << "Invalid input to JSON_SET: " << status.message();

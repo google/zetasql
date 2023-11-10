@@ -252,6 +252,7 @@ cc_library(
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
         "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:target_syntax",
         "//zetasql/scripting:parsed_script",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base",
@@ -262,7 +263,6 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
@@ -273,6 +273,7 @@ cc_library(
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "@com_google_absl//absl/types:variant",
+        "@com_google_googletest//:gtest",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
@@ -295,6 +296,7 @@ cc_library(
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
     ],
 )
 

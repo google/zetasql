@@ -897,6 +897,7 @@ using namespace zetasql::parser_internal;
 %type <node> create_external_table_function_statement
 %type <node> create_index_statement
 %type <node> create_schema_statement
+%type <node> create_external_schema_statement
 %type <node> create_table_function_statement
 %type <node> create_model_statement
 %type <node> create_snapshot_statement
@@ -1573,6 +1574,7 @@ sql_statement_body:
     | create_external_table_function_statement
     | create_model_statement
     | create_schema_statement
+    | create_external_schema_statement
     | create_snapshot_statement
     | create_table_function_statement
     | create_table_statement
@@ -2911,6 +2913,18 @@ create_schema_statement:
         auto* create = MAKE_NODE(ASTCreateSchemaStatement, @$, {$5, $6, $7});
         create->set_is_or_replace($2);
         create->set_is_if_not_exists($4);
+        $$ = create;
+      }
+    ;
+
+create_external_schema_statement:
+    "CREATE" opt_or_replace opt_create_scope "EXTERNAL" "SCHEMA" opt_if_not_exists path_expression
+    with_connection_clause options
+      {
+        auto* create = MAKE_NODE(ASTCreateExternalSchemaStatement, @$, {$7, $8, $9});
+        create->set_is_or_replace($2);
+        create->set_scope($3);
+        create->set_is_if_not_exists($6);
         $$ = create;
       }
     ;
@@ -4605,6 +4619,11 @@ query:
 
 opt_corresponding_outer_mode:
     KW_FULL_IN_SET_OP opt_outer
+      {
+        $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
+        $$->set_value(zetasql::ASTSetOperation::FULL);
+      }
+    | KW_OUTER
       {
         $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
         $$->set_value(zetasql::ASTSetOperation::FULL);
@@ -7814,6 +7833,11 @@ braced_constructor:
       {
         $$ = parser->WithEndLocation($1, @2);
       }
+    // Allow trailing comma
+    | braced_constructor_prefix "," "}"
+      {
+        $$ = parser->WithEndLocation($1, @3);
+      }
     ;
 
 braced_new_constructor:
@@ -10509,9 +10533,13 @@ next_statement_kind_without_hint:
       {
         $$ = zetasql::ASTCreateTableFunctionStatement::kConcreteNodeKind;
       }
-    | "CREATE" next_statement_kind_create_modifiers "EXTERNAL"
+    | "CREATE" next_statement_kind_create_modifiers "EXTERNAL" "TABLE"
       {
         $$ = zetasql::ASTCreateExternalTableStatement::kConcreteNodeKind;
+      }
+    | "CREATE" next_statement_kind_create_modifiers "EXTERNAL" "SCHEMA"
+      {
+        $$ = zetasql::ASTCreateExternalSchemaStatement::kConcreteNodeKind;
       }
     | "CREATE" opt_or_replace "PRIVILEGE"
       {

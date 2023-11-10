@@ -18,9 +18,12 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "zetasql/common/float_margin.h"
+#include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -49,37 +52,49 @@ Value ValueOrDie(absl::StatusOr<Value>& s) {
   return s.value();
 }
 
-Value MakeArray(std::vector<double> arr, bool is_null = false,
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+Value MakeArray(std::vector<T> arr, bool is_null = false,
                 bool ends_with_null = false) {
   if (is_null) {
+    if constexpr (std::is_same_v<T, float>) {
+      return Value::Null(types::FloatArrayType());
+    }
     return Value::Null(types::DoubleArrayType());
   }
   std::vector<Value> values;
   values.reserve(arr.size());
   for (const auto& v : arr) {
-    values.push_back(Value::Double(v));
+    values.push_back(Value::Make<T>(v));
   }
   if (ends_with_null) {
-    values.push_back(Value::Null(types::DoubleType()));
+    values.push_back(Value::MakeNull<T>());
   }
-  auto array = Value::MakeArray(types::DoubleArrayType(), values);
+  absl::StatusOr<Value> array;
+  if constexpr (std::is_same_v<T, float>) {
+    array = Value::MakeArray(types::FloatArrayType(), values);
+  } else {
+    array = Value::MakeArray(types::DoubleArrayType(), values);
+  }
   return ValueOrDie(array);
 }
 
-Value MakeRepeatedArray(double value, int64_t repeated_count) {
-  std::vector<double> values;
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+Value MakeRepeatedArray(T value, int64_t repeated_count) {
+  std::vector<T> values;
   values.reserve(repeated_count);
   for (int64_t i = 0; i < repeated_count; ++i) {
     values.push_back(value);
   }
-  return MakeArray(values);
+  return MakeArray<T>(values);
 }
 
-Value MakeArrayEndingWithNull(std::vector<double> arr) {
-  return MakeArray(arr, /*is_null=*/false, /*ends_with_null=*/true);
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+Value MakeArrayEndingWithNull(std::vector<T> arr) {
+  return MakeArray<T>(arr, /*is_null=*/false, /*ends_with_null=*/true);
 }
 
-Value MakeNullDoubleArray() { return MakeArray({}, /*is_null=*/true); }
+Value MakeNullDoubleArray() { return MakeArray<double>({}, /*is_null=*/true); }
+Value MakeNullFloatArray() { return MakeArray<float>({}, /*is_null=*/true); }
 
 Value MakeArray(std::vector<Int64DoubleKeyValuePair> arr, bool is_null = false,
                 bool ends_with_null = false,
@@ -197,16 +212,16 @@ std::vector<FunctionTestCall> GetFunctionTestsCosineDistance() {
   std::vector<FunctionTestCall> tests = {
       // NULL inputs
       {"cosine_distance",
-       {MakeNullDoubleArray(), MakeArray({3.0, 4.0})},
+       {MakeNullDoubleArray(), MakeArray<double>({3.0, 4.0})},
        values::NullDouble()},
       {"cosine_distance",
-       {MakeArray({5.0, 6.0}), MakeNullDoubleArray()},
+       {MakeArray<double>({5.0, 6.0}), MakeNullDoubleArray()},
        values::NullDouble()},
       {"cosine_distance",
        {MakeNullDoubleArray(), MakeNullDoubleArray()},
        values::NullDouble()},
       {"cosine_distance",
-       {MakeArray({5.0, 6.0}),
+       {MakeArray<double>({5.0, 6.0}),
         MakeArrayEndingWithNull(std::vector<double>{3.0})},
        values::NullDouble(),
        absl::OutOfRangeError("NULL array element.")},
@@ -271,14 +286,14 @@ std::vector<FunctionTestCall> GetFunctionTestsCosineDistance() {
 
       // Zero length vector
       {"cosine_distance",
-       {MakeArray({0.0, 0.0}), MakeArray({1.0, 2.0})},
+       {MakeArray<double>({0.0, 0.0}), MakeArray<double>({1.0, 2.0})},
        values::NullDouble(),
        absl::OutOfRangeError(
            "Cannot compute cosine distance against zero vector.")},
 
       // Mismatch length vector
       {"cosine_distance",
-       {MakeArray({1.0, 2.0}), MakeArray({1.0, 2.0, 3.0})},
+       {MakeArray<double>({1.0, 2.0}), MakeArray<double>({1.0, 2.0, 3.0})},
        values::NullDouble(),
        absl::OutOfRangeError("Array length mismatch 2 and 3.")},
 
@@ -292,42 +307,58 @@ std::vector<FunctionTestCall> GetFunctionTestsCosineDistance() {
 
       // NaN
       {"cosine_distance",
-       {MakeArray({1.0, std::numeric_limits<double>::quiet_NaN()}),
-        MakeArray({3.0, 4.0})},
+       {MakeArray<double>({1.0, std::numeric_limits<double>::quiet_NaN()}),
+        MakeArray<double>({3.0, 4.0})},
        std::numeric_limits<double>::quiet_NaN()},
 
       // Inf
       {"cosine_distance",
-       {MakeArray({1.0, std::numeric_limits<double>::infinity()}),
-        MakeArray({3.0, 4.0})},
+       {MakeArray<double>({1.0, std::numeric_limits<double>::infinity()}),
+        MakeArray<double>({3.0, 4.0})},
        std::numeric_limits<double>::quiet_NaN()},
 
       // Overflow
       {"cosine_distance",
-       {MakeArray({std::numeric_limits<double>::max(), 0.0}),
-        MakeArray({0.0, std::numeric_limits<double>::max()})},
+       {MakeArray<double>({std::numeric_limits<double>::max(), 0.0}),
+        MakeArray<double>({0.0, std::numeric_limits<double>::max()})},
        values::NullDouble(),
        absl::OutOfRangeError("double overflow: 1.79769e+308 * 1.79769e+308")},
 
       // Dense array
       {"cosine_distance",
-       {MakeArray({1.0, 2.0}), MakeArray({3.0, 4.0})},
+       {MakeArray<double>({1.0, 2.0}), MakeArray<double>({3.0, 4.0})},
        0.01613008990009257,
        kDistanceFloatMargin},
       {"cosine_distance",
-       {MakeArray({5.0, 6.0}), MakeArray({7.0, 8.0})},
+       {MakeArray<double>({5.0, 6.0}), MakeArray<double>({7.0, 8.0})},
        0.0002901915325176363,
        kDistanceFloatMargin},
+      {"cosine_distance",
+       {MakeArray<double>({1.0, 2.0}), MakeArray<double>({-3.0, -4.0})},
+       1.9838699100999073,
+       kDistanceFloatMargin},
+
       // Dense array with significant floating point values difference.
       // The 2 vectors are parallel so cosine distance = 0.
       {"cosine_distance",
-       {MakeArray({1e140, 2.0e140}), MakeArray({1.0e-140, 2.0e-140})},
+       {MakeArray<double>({1e140, 2.0e140}),
+        MakeArray<double>({1.0e-140, 2.0e-140})},
        0.0,
        kDistanceFloatMargin},
+
+      // Dense array with significant floating point values difference.
+      // The 2 vectors are antiparallel so cosine distance = 2.
+      {"cosine_distance",
+       {MakeArray<double>({1e140, 2.0e140}),
+        MakeArray<double>({-1.0e-140, -2.0e-140})},
+       2.0,
+       kDistanceFloatMargin},
+
       // Dense array with significant floating point values difference.
       // The 2 vectors are perpendicular so cosine distance = 1.
       {"cosine_distance",
-       {MakeArray({1e140, 2.0e140}), MakeArray({-2.0e-140, 1.0e-140})},
+       {MakeArray<double>({1e140, 2.0e140}),
+        MakeArray<double>({-2.0e-140, 1.0e-140})},
        1.0,
        kDistanceFloatMargin},
 
@@ -423,6 +454,104 @@ std::vector<FunctionTestCall> GetFunctionTestsCosineDistance() {
                                         "value2")},
        0.01613008990009257,
        kDistanceFloatMargin}};
+
+  std::vector<FunctionTestCall> float_array_tests = {
+      // NULL inputs.
+      {"cosine_distance",
+       {MakeNullFloatArray(), MakeArray<float>({3.0, 4.0})},
+       values::NullDouble()},
+      {"cosine_distance",
+       {MakeArray<float>({5.0, 6.0}), MakeNullFloatArray()},
+       values::NullDouble()},
+      {"cosine_distance",
+       {MakeNullFloatArray(), MakeNullFloatArray()},
+       values::NullDouble()},
+      {"cosine_distance",
+       {MakeArray<float>({5.0, 6.0}),
+        MakeArrayEndingWithNull(std::vector<float>{3.0})},
+       values::NullDouble(),
+       absl::OutOfRangeError("NULL array element.")},
+
+      // Long vector
+      // When 2 vectors are parallel, the angle is 0, so cosine distance is
+      // 1 - cos(0) = 0.
+      {"cosine_distance",
+       {MakeRepeatedArray(1.0f, 128), MakeRepeatedArray(2.0f, 128)},
+       0.0,
+       kDistanceFloatMargin},
+
+      // Zero length vector.
+      {"cosine_distance",
+       {MakeArray<float>({0.0, 0.0}), MakeArray<float>({1.0, 2.0})},
+       values::NullDouble(),
+       absl::OutOfRangeError(
+           "Cannot compute cosine distance against zero vector.")},
+
+      // Mismatched vector length.
+      {"cosine_distance",
+       {MakeArray<float>({1.0, 2.0}), MakeArray<float>({1.0, 2.0, 3.0})},
+       values::NullDouble(),
+       absl::OutOfRangeError("Array length mismatch 2 and 3.")},
+
+      // NaN
+      {"cosine_distance",
+       {MakeArray<float>({1.0, std::numeric_limits<float>::quiet_NaN()}),
+        MakeArray<float>({3.0, 4.0})},
+       std::numeric_limits<double>::quiet_NaN()},
+
+      // Inf
+      {"cosine_distance",
+       {MakeArray<float>({1.0, std::numeric_limits<float>::infinity()}),
+        MakeArray<float>({3.0, 4.0})},
+       std::numeric_limits<double>::quiet_NaN()},
+      {"cosine_distance",
+       {MakeArray<float>({1.0, -std::numeric_limits<float>::infinity()}),
+        MakeArray<float>({3.0, 4.0})},
+       std::numeric_limits<double>::quiet_NaN()},
+
+      // Dense array with float values as input.
+      {"cosine_distance",
+       {MakeArray<float>({1.0, 2.0}), MakeArray<float>({3.0, 4.0})},
+       0.01613008990009257,
+       kDistanceFloatMargin},
+      {"cosine_distance",
+       {MakeArray<float>({5.0, 6.0}), MakeArray<float>({7.0, 8.0})},
+       0.0002901915325176363,
+       kDistanceFloatMargin},
+      {"cosine_distance",
+       {MakeArray<float>({1.0, 2.0}), MakeArray<float>({-3.0, -4.0})},
+       1.9838699100999073,
+       kDistanceFloatMargin},
+
+      // Dense array with significant floating point values difference.
+      // The 2 vectors are parallel so cosine distance = 0.
+      {"cosine_distance",
+       {MakeArray<float>({1e18, 2.0e18}), MakeArray<float>({1.0e-18, 2.0e-18})},
+       0.0,
+       kDistanceFloatMargin},
+
+      // Dense array with significant floating point values difference.
+      // The 2 vectors are antiparallel so cosine distance = 2.
+      {"cosine_distance",
+       {MakeArray<float>({1e18, 2.0e18}),
+        MakeArray<float>({-1.0e-18, -2.0e-18})},
+       2.0,
+       kDistanceFloatMargin},
+
+      // Dense array with significant floating point values difference.
+      // The 2 vectors are perpendicular so cosine distance = 1.
+      {"cosine_distance",
+       {MakeArray<float>({1e18, 2.0e18}),
+        MakeArray<float>({-2.0e-18, 1.0e-18})},
+       1.0,
+       kDistanceFloatMargin}};
+
+  for (auto& test_case : float_array_tests) {
+    test_case.params.AddRequiredFeature(
+        FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS);
+    tests.emplace_back(test_case);
+  }
+
   return tests;
 }
 
@@ -430,16 +559,16 @@ std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance() {
   std::vector<FunctionTestCall> tests = {
       // NULL inputs
       {"euclidean_distance",
-       {MakeNullDoubleArray(), MakeArray({3.0, 4.0})},
+       {MakeNullDoubleArray(), MakeArray<double>({3.0, 4.0})},
        values::NullDouble()},
       {"euclidean_distance",
-       {MakeArray({5.0, 6.0}), MakeNullDoubleArray()},
+       {MakeArray<double>({5.0, 6.0}), MakeNullDoubleArray()},
        values::NullDouble()},
       {"euclidean_distance",
        {MakeNullDoubleArray(), MakeNullDoubleArray()},
        values::NullDouble()},
       {"euclidean_distance",
-       {MakeArray({5.0, 6.0}),
+       {MakeArray<double>({5.0, 6.0}),
         MakeArrayEndingWithNull(std::vector<double>{3.0})},
        values::NullDouble(),
        absl::OutOfRangeError("NULL array element.")},
@@ -495,7 +624,7 @@ std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance() {
        values::NullDouble(),
        absl::OutOfRangeError("NULL struct field.")},
 
-      // Zero length array
+      // Zero length array.
       {"euclidean_distance",
        {MakeArray(std::vector<double>{}), MakeArray(std::vector<double>{})},
        0.0,
@@ -503,30 +632,30 @@ std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance() {
 
       // Zero length vector
       {"euclidean_distance",
-       {MakeArray({0.0, 0.0}), MakeArray({3.0, 4.0})},
+       {MakeArray<double>({0.0, 0.0}), MakeArray<double>({3.0, 4.0})},
        5.0,
        kDistanceFloatMargin},
 
       // Mismatch length vector.
       {"euclidean_distance",
-       {MakeArray({0.0, 0.1}), MakeArray({1.0, 2.0, 3.0})},
+       {MakeArray<double>({0.0, 0.1}), MakeArray<double>({1.0, 2.0, 3.0})},
        values::NullDouble(),
        absl::OutOfRangeError("Array length mismatch 2 and 3.")},
 
       // Inf
       {"euclidean_distance",
-       {MakeArray({1.0, std::numeric_limits<double>::infinity()}),
-        MakeArray({3.0, 4.0})},
+       {MakeArray<double>({1.0, std::numeric_limits<double>::infinity()}),
+        MakeArray<double>({3.0, 4.0})},
        std::numeric_limits<double>::infinity()},
 
       // NaN
       {"euclidean_distance",
-       {MakeArray({1.0, std::numeric_limits<double>::quiet_NaN()}),
-        MakeArray({3.0, 4.0})},
+       {MakeArray<double>({1.0, std::numeric_limits<double>::quiet_NaN()}),
+        MakeArray<double>({3.0, 4.0})},
        std::numeric_limits<double>::quiet_NaN()},
 
       // Long vector
-      // Distance = sqrt(64 * (2 - 1)^2) = 64
+      // Distance = sqrt(64 * 64 * (2 - 1)^2) = 64
       {"euclidean_distance",
        {MakeRepeatedArray(1.0, 64 * 64), MakeRepeatedArray(2.0, 64 * 64)},
        64.0,
@@ -534,23 +663,25 @@ std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance() {
 
       // Overflow
       {"euclidean_distance",
-       {MakeArray({std::numeric_limits<double>::max(), 2.0}),
-        MakeArray({3.0, 4.0})},
+       {MakeArray<double>({std::numeric_limits<double>::max(), 2.0}),
+        MakeArray<double>({3.0, 4.0})},
        values::NullDouble(),
        absl::OutOfRangeError("double overflow: 1.79769e+308 * 1.79769e+308")},
 
       // Dense array
       {"euclidean_distance",
-       {MakeArray({1.0, 2.0}), MakeArray({3.0, 4.0})},
+       {MakeArray<double>({1.0, 2.0}), MakeArray<double>({3.0, 4.0})},
        2.8284271247461903,
        kDistanceFloatMargin},
       {"euclidean_distance",
-       {MakeArray({5.0, 6.0}), MakeArray({7.0, 9.0})},
+       {MakeArray<double>({5.0, 6.0}), MakeArray<double>({7.0, 9.0})},
        3.6055512754639891,
        kDistanceFloatMargin},
+
       // Dense array with significantly different floating point values.
       {"euclidean_distance",
-       {MakeArray({3.0e140, 4.0e140}), MakeArray({7.0e-140, 9.0e-140})},
+       {MakeArray<double>({3.0e140, 4.0e140}),
+        MakeArray<double>({7.0e-140, 9.0e-140})},
        5e140,
        kDistanceFloatMargin},
 
@@ -613,6 +744,82 @@ std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance() {
                                         "value2")},
        2.8284271247461903,
        kDistanceFloatMargin}};
+
+  std::vector<FunctionTestCall> float_array_tests = {
+      // NULL inputs.
+      {"euclidean_distance",
+       {MakeNullFloatArray(), MakeArray<float>({3.0, 4.0})},
+       values::NullDouble()},
+      {"euclidean_distance",
+       {MakeArray<float>({5.0, 6.0}), MakeNullFloatArray()},
+       values::NullDouble()},
+      {"euclidean_distance",
+       {MakeNullFloatArray(), MakeNullFloatArray()},
+       values::NullDouble()},
+      {"euclidean_distance",
+       {MakeArray<float>({5.0, 6.0}),
+        MakeArrayEndingWithNull(std::vector<float>{3.0})},
+       values::NullDouble(),
+       absl::OutOfRangeError("NULL array element.")},
+
+      // Long vector.
+      // Distance = sqrt(64 * 64 * (2 - 1)^2) = 64
+      {"euclidean_distance",
+       {MakeRepeatedArray(1.0f, 64 * 64), MakeRepeatedArray(2.0f, 64 * 64)},
+       64.0,
+       kDistanceFloatMargin},
+
+      // Zero length vector.
+      {"euclidean_distance",
+       {MakeArray<float>({0.0, 0.0}), MakeArray<float>({3.0, 4.0})},
+       5.0,
+       kDistanceFloatMargin},
+
+      // Mismatched vector length.
+      {"euclidean_distance",
+       {MakeArray<float>({0.0, 0.1}), MakeArray<float>({1.0, 2.0, 3.0})},
+       values::NullDouble(),
+       absl::OutOfRangeError("Array length mismatch 2 and 3.")},
+
+      // Inf
+      {"euclidean_distance",
+       {MakeArray<float>({1.0, std::numeric_limits<float>::infinity()}),
+        MakeArray<float>({3.0, 4.0})},
+       std::numeric_limits<double>::infinity()},
+      {"euclidean_distance",
+       {MakeArray<float>({1.0, -std::numeric_limits<float>::infinity()}),
+        MakeArray<float>({3.0, 4.0})},
+       std::numeric_limits<double>::infinity()},
+
+      // NaN
+      {"euclidean_distance",
+       {MakeArray<float>({1.0, std::numeric_limits<float>::quiet_NaN()}),
+        MakeArray<float>({3.0, 4.0})},
+       std::numeric_limits<double>::quiet_NaN()},
+
+      // Dense array with float values as input.
+      {"euclidean_distance",
+       {MakeArray<float>({1.0, 2.0}), MakeArray<float>({3.0, 4.0})},
+       2.8284271247461903,
+       kDistanceFloatMargin},
+      {"euclidean_distance",
+       {MakeArray<float>({5.0, 6.0}), MakeArray<float>({7.0, 9.0})},
+       3.6055512754639891,
+       kDistanceFloatMargin},
+
+      // Dense array with significantly different floating point values.
+      {"euclidean_distance",
+       {MakeArray<float>({3.0e18, 4.0e18}),
+        MakeArray<float>({7.0e-19, 9.0e-19})},
+       5e18,
+       FloatMargin::UlpMargin(30)}};
+
+  for (auto& test_case : float_array_tests) {
+    test_case.params.AddRequiredFeature(
+        FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS);
+    tests.emplace_back(test_case);
+  }
+
   return tests;
 }
 

@@ -30,7 +30,6 @@ import java.io.Serializable;
  *
  * <p>Types can only created by a TypeFactory.
  */
-// TODO: Implement RANGE.
 @Immutable
 public abstract class Type implements Serializable {
   // The valid date range is [ 0001-01-01, 9999-12-31 ].
@@ -78,6 +77,7 @@ public abstract class Type implements Serializable {
     "EXTENDED",
     "JSON",
     "INTERVAL",
+    "RANGE",
   };
 
   /** Returns {@code true} if the given {@code date} value is within valid range. */
@@ -198,6 +198,10 @@ public abstract class Type implements Serializable {
 
   public boolean isProto() {
     return kind == TypeKind.TYPE_PROTO;
+  }
+
+  public boolean isRange() {
+    return kind == TypeKind.TYPE_RANGE;
   }
 
   public boolean isStructOrProto() {
@@ -401,6 +405,11 @@ public abstract class Type implements Serializable {
     return null;
   }
 
+  /** Returns {@code this} cast to RangeType or null for other types. */
+  public RangeType asRange() {
+    return null;
+  }
+
   @SuppressWarnings("ReferenceEquality")
   protected boolean equalsInternal(Type other, boolean equivalent) {
     if (other == this) {
@@ -428,6 +437,8 @@ public abstract class Type implements Serializable {
         return StructType.equalsImpl(this.asStruct(), other.asStruct(), equivalent);
       case TYPE_PROTO:
         return ProtoType.equalsImpl(this.asProto(), other.asProto(), equivalent);
+      case TYPE_RANGE:
+        return RangeType.equalsImpl(this.asRange(), other.asRange(), equivalent);
       default:
         throw new IllegalArgumentException("Shouldn't happen: unsupported type " + other);
     }

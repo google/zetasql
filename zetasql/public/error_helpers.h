@@ -21,8 +21,8 @@
 
 #include "zetasql/public/options.pb.h"
 #include "absl/base/attributes.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -78,6 +78,14 @@ std::string GetErrorStringWithCaret(absl::string_view input,
                                     const ErrorLocation& location,
                                     int max_width_in = 80);
 
+// Encapsulates options controlling the error message, including location and
+// payload.
+struct ErrorMessageOptions {
+  ErrorMessageMode mode = ERROR_MESSAGE_WITH_PAYLOAD;
+  bool attach_error_location_payload = false;
+  ErrorMessageStability stability = ERROR_MESSAGE_STABILITY_UNSPECIFIED;
+};
+
 // Possibly updates the <status> error string based on <input_text> and <mode>.
 //
 // For OK status or <mode> ERROR_MESSAGE_WITH_PAYLOAD, simply returns <status>
@@ -94,24 +102,19 @@ std::string GetErrorStringWithCaret(absl::string_view input,
 // location pointer, as in GetErrorStringWithCaret().
 //
 // An ErrorLocation can have a list of ErrorSource payloads, and the error
-// message for an ErrorSource is also generated based on <mode>.  If there
-// are multiple ErrorSource payloads, then the messages are in order based
-// on their dependencies - if an error has a source error then the source
+// message for an ErrorSource is also generated based on ErrorMessageOptions.
+// If there are multiple ErrorSource payloads, then the messages are in order
+// based on their dependencies - if an error has a source error then the source
 // error message will appear immediately after the original error message.
+absl::Status MaybeUpdateErrorFromPayload(ErrorMessageOptions options,
+                                         absl::string_view input_text,
+                                         const absl::Status& status);
+
+ABSL_DEPRECATED("Please use the overload using ErrorMessageOptions")
 absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
                                          bool keep_error_location_payload,
                                          absl::string_view input_text,
                                          const absl::Status& status);
-
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
-                                                absl::string_view input_text,
-                                                const absl::Status& status) {
-  return MaybeUpdateErrorFromPayload(mode,
-                                     /*keep_error_location_payload=*/
-                                     mode == ERROR_MESSAGE_WITH_PAYLOAD,
-                                     input_text, status);
-}
 
 // If <status> contains an (external) ErrorLocation payload, and if that
 // ErrorLocation does not have a filename, then updates the ErrorLocation

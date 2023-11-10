@@ -36,6 +36,7 @@ TYPES_SRCS = [
     "ZetaSQLStrings.java",
     "IntervalValue.java",
     "ProtoType.java",
+    "RangeType.java",
     "SimpleType.java",
     "StructType.java",
     "Type.java",

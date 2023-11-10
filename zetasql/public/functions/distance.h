@@ -28,7 +28,8 @@ namespace zetasql {
 namespace functions {
 
 // Implementation of:
-// COSINE_DISTANCE(ARRAY<DOUBLE>, ARRAY<DOUBLE>) -> DOUBLE
+// * COSINE_DISTANCE(ARRAY<DOUBLE>, ARRAY<DOUBLE>) -> DOUBLE
+// * COSINE_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>) -> DOUBLE
 absl::StatusOr<Value> CosineDistanceDense(Value vector1, Value vector2);
 
 // Implementation of:
@@ -44,7 +45,8 @@ absl::StatusOr<Value> CosineDistanceSparseStringKey(Value vector1,
                                                     Value vector2);
 
 // Implementation of:
-// COSINE_DISTANCE(ARRAY<DOUBLE>, ARRAY<DOUBLE>) -> DOUBLE
+// * COSINE_DISTANCE(ARRAY<DOUBLE>, ARRAY<DOUBLE>) -> DOUBLE
+// * COSINE_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>) -> DOUBLE
 absl::StatusOr<Value> EuclideanDistanceDense(Value vector1, Value vector2);
 
 // Implementation of:

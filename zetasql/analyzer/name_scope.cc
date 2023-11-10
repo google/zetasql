@@ -1191,6 +1191,7 @@ NameList::~NameList() {
 
 absl::Status NameList::AddColumn(
     IdString name, const ResolvedColumn& column, bool is_explicit) {
+  ZETASQL_RET_CHECK(!is_value_table()) << "Cannot add more columns to a value table";
   columns_.emplace_back(name, column, is_explicit);
   if (!IsInternalAlias(name)) {
     name_scope_.AddColumn(name, column, is_explicit);
@@ -1202,6 +1203,7 @@ absl::Status NameList::AddValueTableColumn(
     IdString range_variable_name, const ResolvedColumn& column,
     const ASTNode* ast_location, const IdStringSetCase& excluded_field_names,
     const NameListPtr& pseudo_columns_name_list) {
+  ZETASQL_RET_CHECK(!is_value_table()) << "Cannot add more columns to a value table";
   if (pseudo_columns_name_list != nullptr) {
     // The only names present in pseudo_columns_name_list should be the
     // pseudo-columns.  No range variables or regular columns.
@@ -1237,7 +1239,7 @@ absl::Status NameList::AddValueTableColumn(
     ZETASQL_RETURN_IF_ERROR(value_table_name_list->MergeFrom(*pseudo_columns_name_list,
                                                      ast_location));
   }
-  value_table_name_list->set_is_value_table(true);
+  ZETASQL_RETURN_IF_ERROR(value_table_name_list->SetIsValueTable());
 
   if (HasRangeVariable(range_variable_name)) {
     return MakeSqlErrorAt(ast_location)
@@ -1264,6 +1266,18 @@ absl::Status NameList::AddValueTableColumn(
   return absl::OkStatus();
 }
 
+absl::Status NameList::AddColumnMaybeValueTable(IdString name,
+                                                const ResolvedColumn& column,
+                                                bool is_explicit,
+                                                const ASTNode* ast_location,
+                                                bool is_value_table_column) {
+  if (is_value_table_column) {
+    return AddValueTableColumn(name, column, ast_location);
+  } else {
+    return AddColumn(name, column, is_explicit);
+  }
+}
+
 absl::Status NameList::AddPseudoColumn(
     IdString name, const ResolvedColumn& column,
     const ASTNode* ast_location) {
@@ -1273,6 +1287,13 @@ absl::Status NameList::AddPseudoColumn(
   if (!IsInternalAlias(name)) {
     name_scope_.AddColumn(name, column, false /* is_explicit */);
   }
+  return absl::OkStatus();
+}
+
+absl::Status NameList::SetIsValueTable() {
+  ZETASQL_RET_CHECK(HasValueTableColumns());
+  ZETASQL_RET_CHECK_EQ(num_columns(), 1);
+  is_value_table_ = true;
   return absl::OkStatus();
 }
 

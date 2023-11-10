@@ -398,6 +398,11 @@ enum LanguageFeature {
   FEATURE_JSON_STRICT_NUMBER_PARSING = 52
       [(language_feature_options).ideally_enabled = false];
 
+  // Enable constant expressions for JSONPaths in JSON functions. If set to
+  // false, only literals and query parameters are valid JSONPaths.
+  // (broken link).
+  FEATURE_ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH = 53;
+
   // Enable support for JSON_EXTRACT_STRING_ARRAY, JSON_VALUE_ARRAY and
   // JSON_QUERY_ARRAY. (broken link)
   FEATURE_JSON_ARRAY_FUNCTIONS = 58;
@@ -640,6 +645,39 @@ enum LanguageFeature {
   // Example:
   // ALTER TABLE table ALTER COLUMN col DROP GENERATED;
   FEATURE_ALTER_COLUMN_DROP_GENERATED = 106;
+
+  // DEPRECATED: This is now a NOOP, as Textmapper is the default parser.
+  // The only way to change it is the opt out flag,
+  // FEATURE_DISABLE_TEXTMAPPER_PARSER.
+  // TODO: deprecate this opt-in flag.
+  FEATURE_TEXTMAPPER_PARSER = 999004;
+
+  // If true, sets the shadow parser to the other alternative from the primary
+  // (Textmapper or Bison)
+  FEATURE_SHADOW_PARSING = 999005
+      [(language_feature_options).ideally_enabled = false];
+
+  // Prevents the TextMapper-generated parser from being used, and resorts to
+  // the Bison-generated parser instead.
+  FEATURE_DISABLE_TEXTMAPPER_PARSER = 107
+      [(language_feature_options).ideally_enabled = false];
+
+  // Prevents the PIVOT rewriter from producing errors when used in conjunction
+  // with functions whose NULL handling behavior is unknown, where the PIVOT
+  // rewriter cannot guarantee that the query returns correct results. Enabling
+  // this feature may allow queries which produce wrong results.
+  // Context: b/307602611
+  FEATURE_DISABLE_PIVOT_REWRITER_UDA_ERRORS = 108
+      [(language_feature_options).ideally_enabled = false];
+
+  // Enables support for IDENTITY columns in CREATE TABLE.
+  // Example:
+  // CREATE TABLE t (
+  //    a AS IDENTITY(
+  //            START WITH 1 INCREMENT BY 2 MAXVALUE 1000 MINVALUE -1 CYCLE
+  //         )
+  // );
+  FEATURE_IDENTITY_COLUMNS = 109;
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -1076,15 +1114,11 @@ enum LanguageFeature {
 
   // Enables outer and strict modes (FULL/LEFT/STRICT) for set operations.
   // (broken link)
-  // TODO: Remove "in_development" flag.
-  FEATURE_V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE = 14023
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE = 14023;
 
   // Enables CORRESPONDING_BY for set operations.
   // (broken link)
-  // TODO: Remove "in_development" flag.
-  FEATURE_V_1_4_CORRESPONDING_BY = 14024
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_CORRESPONDING_BY = 14024;
 
   // Supporting LIKE ANY/SOME/ALL with array of elements.
   // (broken link)
@@ -1155,6 +1189,27 @@ enum LanguageFeature {
   FEATURE_V_1_4_ENABLE_EDIT_DISTANCE_BYTES = 14035
       [(language_feature_options).in_development = true];
 
+  // Enables the following float32 signatures:
+  // * COSINE_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>)
+  // * EUCLIDEAN_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>)
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS = 14037
+      [(language_feature_options).in_development = true];
+
+  // Enables MEASURE syntax.  See (broken link).
+  // This is an EXPERIMENTAL feature in a prototype state.
+  // The language is likely to continue changing.
+  // Do not use for production or store saved queries that cannot be broken.
+  FEATURE_V_1_4_ENABLE_MEASURES = 14038 [
+    (language_feature_options).in_development = true,
+    (language_feature_options).ideally_enabled = false
+  ];
+
+  // Enables standalone GROUP BY ALL clause that is mutually exclusive with all
+  // the other GROUP BY <grouping items> syntax.
+  // (broken link)
+  FEATURE_V_1_4_GROUP_BY_ALL = 14039;
+
   // EXPERIMENTAL FEATURES -
   //    Do not add features in this section. Use the in_development annotation
   //    instead.
@@ -1166,20 +1221,6 @@ enum LanguageFeature {
   // strings to mention modules like "keyword SUCH_AND_SUCH can only be used
   // inside a module".
   FEATURE_EXPERIMENTAL_MODULES = 999002;
-
-  // When set, the textmapper parser is used. Otherwise, the bison parser is
-  // selected.
-  FEATURE_TEXTMAPPER_PARSER = 999004 [(language_feature_options) = {
-    in_development: true,
-    ideally_enabled: false
-  }];
-
-  // If true, sets the shadow parser to the other alternative from the primary
-  // (Textmapper or Bison)
-  FEATURE_SHADOW_PARSING = 999005 [(language_feature_options) = {
-    in_development: true,
-    ideally_enabled: false
-  }];
 
   // These are not real features. They are just for unit testing the handling of
   // various LanguageFeatureOptions.
@@ -1450,6 +1491,22 @@ enum ErrorMessageMode {
 // deserialization as a payload.
 message ErrorMessageModeForPayload {
   optional ErrorMessageMode mode = 1;
+}
+
+// Mode describing how stable the error message text should be.
+// Error messages get updated often to reflect user needs, so external
+// file-based tests should use the ERROR_MESSAGE_STABILITY_UNSPECIFIED mode to
+// avoid tight coupling.
+enum ErrorMessageStability {
+  // When unspecified, ZetaSQL defaults to ERROR_MESSAGE_STABILITY_PRODUCTION.
+  ERROR_MESSAGE_STABILITY_UNSPECIFIED = 0;
+
+  // Show the full error message.
+  ERROR_MESSAGE_STABILITY_PRODUCTION = 1;
+
+  // This mode hides the message details. It is intended for external file-based
+  // tests.
+  ERROR_MESSAGE_STABILITY_TEST_REDACTED = 2;
 }
 
 // Mode describing how parameters are defined and referenced.

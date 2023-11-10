@@ -474,7 +474,7 @@ create view as select 1;
 # Unlike CREATE EXTERNAL TABLE, there is no CREATE EXTERNAL VIEW.
 create external view as select 1;
 --
-ERROR: Syntax error: Expected keyword TABLE but got keyword VIEW [at 1:17]
+ERROR: Syntax error: Expected keyword SCHEMA or keyword TABLE but got keyword VIEW [at 1:17]
 create external view as select 1;
                 ^
 ==

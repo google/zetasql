@@ -29,9 +29,10 @@ namespace zetasql {
 
 inline ExecutionStats::ParserVariant GetPrimaryParser(
     const LanguageOptions& language_options) {
-  return language_options.LanguageFeatureEnabled(FEATURE_TEXTMAPPER_PARSER)
-             ? ExecutionStats::PARSER_TEXTMAPPER
-             : ExecutionStats::PARSER_BISON;
+  return language_options.LanguageFeatureEnabled(
+             FEATURE_DISABLE_TEXTMAPPER_PARSER)
+             ? ExecutionStats::PARSER_BISON
+             : ExecutionStats::PARSER_TEXTMAPPER;
 }
 
 inline ExecutionStats::ParserVariant GetShadowParser(
@@ -39,7 +40,7 @@ inline ExecutionStats::ParserVariant GetShadowParser(
   if (!language_options.LanguageFeatureEnabled(FEATURE_SHADOW_PARSING)) {
     return ExecutionStats::PARSER_UNSPECIFIED;
   }
-  return language_options.LanguageFeatureEnabled(FEATURE_TEXTMAPPER_PARSER)
+  return GetPrimaryParser(language_options) == ExecutionStats::PARSER_TEXTMAPPER
              ? ExecutionStats::PARSER_BISON
              : ExecutionStats::PARSER_TEXTMAPPER;
 }

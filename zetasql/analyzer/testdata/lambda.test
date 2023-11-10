@@ -1331,9 +1331,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#5, $array_offset.off#6]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#5
+    |         |           |       +-element_column_list=[$array.element#5]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#6)
     |         |           +-order_by_item_list=
@@ -1429,9 +1429,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#5, $array_offset.off#6]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#5
+    |         |           |       +-element_column_list=[$array.element#5]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#6)
     |         |           +-order_by_item_list=
@@ -1528,9 +1528,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#5, $array_offset.off#6]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4, is_correlated=TRUE)
-    |         |           |       +-element_column=$array.element#5
+    |         |           |       +-element_column_list=[$array.element#5]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#6)
     |         |           +-order_by_item_list=

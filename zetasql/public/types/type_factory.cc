@@ -304,7 +304,8 @@ const Type* TypeFactory::get_bignumeric() { return types::BigNumericType(); }
 const Type* TypeFactory::get_json() { return types::JsonType(); }
 
 const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
-  ABSL_CHECK(Type::IsSimpleType(kind)) << kind;
+  ABSL_CHECK(Type::IsSimpleType(kind))
+      << TypeKind_Name(kind) << " is not a simple type";
   const Type* type = types::TypeFromSimpleTypeKind(kind);
   ABSL_CHECK(type != nullptr);
   return type;

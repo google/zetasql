@@ -49,6 +49,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
@@ -320,7 +321,7 @@ void SimpleCatalog::AddTable(absl::string_view name, const Table* table) {
   zetasql_base::InsertOrDie(&tables_, canonical_name, table);
 }
 
-void SimpleCatalog::AddModel(const std::string& name, const Model* model) {
+void SimpleCatalog::AddModel(absl::string_view name, const Model* model) {
   absl::MutexLock l(&mutex_);
   zetasql_base::InsertOrDie(&models_, absl::AsciiStrToLower(name), model);
 }
@@ -331,13 +332,13 @@ void SimpleCatalog::AddConnection(const std::string& name,
   zetasql_base::InsertOrDie(&connections_, absl::AsciiStrToLower(name), connection);
 }
 
-void SimpleCatalog::AddSequence(const std::string& name,
+void SimpleCatalog::AddSequence(absl::string_view name,
                                 const Sequence* sequence) {
   absl::MutexLock l(&mutex_);
   zetasql_base::InsertOrDie(&sequences_, absl::AsciiStrToLower(name), sequence);
 }
 
-void SimpleCatalog::AddType(const std::string& name, const Type* type) {
+void SimpleCatalog::AddType(absl::string_view name, const Type* type) {
   absl::MutexLock l(&mutex_);
   ABSL_CHECK(types_.insert({absl::AsciiStrToLower(name), type}).second);
 }
@@ -347,8 +348,7 @@ void SimpleCatalog::AddCatalog(const std::string& name, Catalog* catalog) {
   AddCatalogLocked(name, catalog);
 }
 
-void SimpleCatalog::AddCatalogLocked(const std::string& name,
-                                     Catalog* catalog) {
+void SimpleCatalog::AddCatalogLocked(absl::string_view name, Catalog* catalog) {
   zetasql_base::InsertOrDie(&catalogs_, absl::AsciiStrToLower(name), catalog);
 }
 
@@ -380,7 +380,7 @@ void SimpleCatalog::AddTableValuedFunction(
   AddTableValuedFunctionLocked(name, function);
 }
 
-void SimpleCatalog::AddProcedure(const std::string& name,
+void SimpleCatalog::AddProcedure(absl::string_view name,
                                  const Procedure* procedure) {
   absl::MutexLock l(&mutex_);
   zetasql_base::InsertOrDie(&procedures_, absl::AsciiStrToLower(name), procedure);
@@ -673,7 +673,7 @@ bool SimpleCatalog::AddOwnedTableValuedFunctionIfNotPresent(
                                                  table_function);
 }
 
-bool SimpleCatalog::AddTypeIfNotPresent(const std::string& name,
+bool SimpleCatalog::AddTypeIfNotPresent(absl::string_view name,
                                         const Type* type) {
   absl::MutexLock l(&mutex_);
   return types_.insert({absl::AsciiStrToLower(name), type}).second;
@@ -738,7 +738,7 @@ bool SimpleCatalog::AddOwnedConnectionIfNotPresent(
   return true;
 }
 
-SimpleCatalog* SimpleCatalog::MakeOwnedSimpleCatalog(const std::string& name) {
+SimpleCatalog* SimpleCatalog::MakeOwnedSimpleCatalog(absl::string_view name) {
   SimpleCatalog* new_catalog = new SimpleCatalog(name, type_factory());
   AddOwnedCatalog(new_catalog);
   return new_catalog;
@@ -1740,7 +1740,7 @@ absl::Status SimpleColumn::Serialize(
 }
 
 absl::StatusOr<std::unique_ptr<SimpleColumn>> SimpleColumn::Deserialize(
-    const SimpleColumnProto& proto, const std::string& table_name,
+    const SimpleColumnProto& proto, absl::string_view table_name,
     const TypeDeserializer& type_deserializer) {
   ZETASQL_ASSIGN_OR_RETURN(const Type* type,
                    type_deserializer.Deserialize(proto.type()));

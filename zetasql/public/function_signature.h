@@ -1514,6 +1514,9 @@ class FunctionSignature {
   // Copyable.
 };
 
+// Returns true if the signature has an argument that supports argument aliases.
+bool SignatureSupportsArgumentAliases(const FunctionSignature& signature);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_FUNCTION_SIGNATURE_H_

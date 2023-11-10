@@ -59,10 +59,10 @@ class GetBoundariesTest : public ::testing::Test {
     EXPECT_EQ(expected_end, boundaries.end);
   }
 
-  void TestGetBoundariesError(const absl::string_view input,
-                              const absl::string_view expected_error_message,
-                              absl::StatusCode expected_status_code =
-                                  absl::StatusCode::kInvalidArgument) {
+  void TestGetBoundariesError(
+      const absl::string_view input,
+      const absl::string_view expected_error_message,
+      absl::StatusCode expected_status_code = absl::StatusCode::kOutOfRange) {
     EXPECT_THAT(
         ParseRangeBoundaries(input),
         zetasql_base::testing::StatusIs(expected_status_code,
@@ -293,6 +293,15 @@ TEST_P(SerializeDeserializeRangeInt32Test, TooFewBytes) {
   TestDeserializeRangeTooFewBytes(GetParam());
 }
 
+TEST(SerializeDeserializeRangeInt32Test, DeserializeEmptyFails) {
+  EXPECT_THAT(
+      DeserializeRangeFromBytes<int32_t>(""),
+      zetasql_base::testing::StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          testing::HasSubstr(
+              "Too few bytes to read RANGE content (needed at least 1)")));
+}
+
 class SerializeDeserializeRangeInt64Test
     : public ::testing::TestWithParam<
           SerializeDeserializeRangeTestCase<int64_t>> {};
@@ -361,6 +370,15 @@ TEST_P(SerializeDeserializeRangeInt64Test, SerializeDeserializeSucceeds) {
 
 TEST_P(SerializeDeserializeRangeInt64Test, TooFewBytes) {
   TestDeserializeRangeTooFewBytes(GetParam());
+}
+
+TEST(SerializeDeserializeRangeInt64Test, DeserializeEmptyFails) {
+  EXPECT_THAT(
+      DeserializeRangeFromBytes<int64_t>(""),
+      zetasql_base::testing::StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          testing::HasSubstr(
+              "Too few bytes to read RANGE content (needed at least 1)")));
 }
 
 }  // namespace

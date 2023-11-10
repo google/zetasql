@@ -117,9 +117,9 @@ QueryStmt
     |             +-input_scan=
     |             | +-ArrayScan
     |             |   +-column_list=[$array.e#3]
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-    |             |   +-element_column=$array.e#3
+    |             |   +-element_column_list=[$array.e#3]
     |             +-filter_expr=
     |               +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     |                 +-ColumnRef(type=INT64, column=$array.e#3)
@@ -179,9 +179,9 @@ QueryStmt
     |                 |   +-column_list=[t.arr#4, $array.e#5]
     |                 |   +-input_scan=
     |                 |   | +-WithRefScan(column_list=[t.arr#4], with_query_name="t")
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.arr#4)
-    |                 |   +-element_column=$array.e#5
+    |                 |   +-element_column_list=[$array.e#5]
     |                 +-filter_expr=
     |                   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     |                     +-ColumnRef(type=INT64, column=$array.e#5)
@@ -243,9 +243,9 @@ QueryStmt
     |         |               +-input_scan=
     |         |               | +-ArrayScan
     |         |               |   +-column_list=[$array.element#4]
-    |         |               |   +-array_expr=
+    |         |               |   +-array_expr_list=
     |         |               |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_search#3, is_correlated=TRUE)
-    |         |               |   +-element_column=$array.element#4
+    |         |               |   +-element_column_list=[$array.element#4]
     |         |               +-filter_expr=
     |         |                 +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     |         |                   +-ColumnRef(type=INT64, column=$array.element#4)
@@ -327,9 +327,9 @@ QueryStmt
     | |       |               +-input_scan=
     | |       |               | +-ArrayScan
     | |       |               |   +-column_list=[$array.element#6]
-    | |       |               |   +-array_expr=
+    | |       |               |   +-array_expr_list=
     | |       |               |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_search#5, is_correlated=TRUE)
-    | |       |               |   +-element_column=$array.element#6
+    | |       |               |   +-element_column_list=[$array.element#6]
     | |       |               +-filter_expr=
     | |       |                 +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     | |       |                   +-ColumnRef(type=INT64, column=$array.element#6)
@@ -370,9 +370,9 @@ QueryStmt
     |         |               +-input_scan=
     |         |               | +-ArrayScan
     |         |               |   +-column_list=[$array.element#10]
-    |         |               |   +-array_expr=
+    |         |               |   +-array_expr_list=
     |         |               |   | +-ColumnRef(type=ARRAY<DOUBLE>, column=$subquery1.array_to_search#9, is_correlated=TRUE)
-    |         |               |   +-element_column=$array.element#10
+    |         |               |   +-element_column_list=[$array.element#10]
     |         |               +-filter_expr=
     |         |                 +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
     |         |                   +-ColumnRef(type=DOUBLE, column=$array.element#10)
@@ -1259,9 +1259,9 @@ QueryStmt
     |             |           |   +-input_scan=
     |             |           |     +-ArrayScan
     |             |           |       +-column_list=[$array.element#5, $array_offset.off#6]
-    |             |           |       +-array_expr=
+    |             |           |       +-array_expr_list=
     |             |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4, is_correlated=TRUE)
-    |             |           |       +-element_column=$array.element#5
+    |             |           |       +-element_column_list=[$array.element#5]
     |             |           |       +-array_offset_column=
     |             |           |         +-ColumnHolder(column=$array_offset.off#6)
     |             |           +-order_by_item_list=
@@ -1347,9 +1347,9 @@ QueryStmt
     |             |           |   +-input_scan=
     |             |           |     +-ArrayScan
     |             |           |       +-column_list=[$array.element#6, $array_offset.off#7]
-    |             |           |       +-array_expr=
+    |             |           |       +-array_expr_list=
     |             |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5, is_correlated=TRUE)
-    |             |           |       +-element_column=$array.element#6
+    |             |           |       +-element_column_list=[$array.element#6]
     |             |           |       +-array_offset_column=
     |             |           |         +-ColumnHolder(column=$array_offset.off#7)
     |             |           +-order_by_item_list=

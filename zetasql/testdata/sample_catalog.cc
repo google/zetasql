@@ -17,6 +17,7 @@
 #include "zetasql/testdata/sample_catalog.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -568,10 +569,10 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
           break;
         }
       }
-      ABSL_CHECK(found_field) << message_descriptor_proto.DebugString();
+      ABSL_CHECK(found_field) << message_descriptor_proto;
     }
   }
-  ABSL_CHECK(found_message) << modified_descriptor_proto.DebugString();
+  ABSL_CHECK(found_message) << modified_descriptor_proto;
   ambiguous_has_descriptor_pool_ = std::make_unique<google::protobuf::DescriptorPool>();
   ambiguous_has_descriptor_pool_->BuildFile(modified_descriptor_proto);
 
@@ -1799,7 +1800,7 @@ void SampleCatalog::LoadNestedCatalogs() {
   nested_catalog->AddConnection(
       owned_connections_.find("connection2")->second.get());
   nested_catalog->AddConnection(
-      "NestedConnection", owned_connections_.find("connection3")->second.get());
+      owned_connections_.find("NestedConnection")->second.get());
 
   // Add recursive_catalog which points back to the same catalog.
   // This allows resolving names like
@@ -2899,7 +2900,15 @@ void SampleCatalog::LoadFunctions2() {
   catalog_->AddOwnedFunction(function);
 
   // Adds a function accepting a Sequence argument.
-  function = new Function("fn_with_sequence_arg", "sample_functions", mode);
+  FunctionOptions function_options;
+  std::function<absl::StatusOr<Value>(const absl::Span<const Value>)>
+      evaluator = [&](absl::Span<const Value> args) -> absl::StatusOr<Value> {
+    return Value::Int64(1);
+  };
+  function_options.set_evaluator(FunctionEvaluator(evaluator));
+
+  function = new Function("fn_with_sequence_arg", "sample_functions", mode,
+                          function_options);
   function->AddSignature({{types_->get_int64()},
                           {FunctionArgumentType::AnySequence()},
                           /*context_id=*/-1});
@@ -6841,9 +6850,16 @@ void SampleCatalog::LoadConnections() {
   auto connection1 = std::make_unique<SimpleConnection>("connection1");
   auto connection2 = std::make_unique<SimpleConnection>("connection2");
   auto connection3 = std::make_unique<SimpleConnection>("connection3");
+  auto nested_connection =
+      std::make_unique<SimpleConnection>("NestedConnection");
   owned_connections_[connection1->Name()] = std::move(connection1);
   owned_connections_[connection2->Name()] = std::move(connection2);
   owned_connections_[connection3->Name()] = std::move(connection3);
+  // This connection properly should be ONLY added to the nested catalog (e.g.
+  // skipped in the loop below). But, due to how lookup works with nested
+  // catalogs in simple_catalog currently, it will fail if it's not in the top-
+  // level catalog as well.
+  owned_connections_[nested_connection->Name()] = std::move(nested_connection);
   for (auto it = owned_connections_.begin(); it != owned_connections_.end();
        ++it) {
     catalog_->AddConnection(it->second.get());

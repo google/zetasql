@@ -2416,6 +2416,10 @@ std::optional<double> NumericValue::CorrelationAggregator::GetCorrelation(
         cov_agg_.sum_y_, cov_agg_.sum_y_, sum_square_y_, count);
     FixedInt<64, 12> denominator_square =
         ExtendAndMultiply(variance_numerator_x, variance_numerator_y);
+    if (denominator_square.is_zero()) {
+      return std::numeric_limits<double>::quiet_NaN();
+    }
+
     return static_cast<double>(numerator) /
            std::sqrt(static_cast<double>(denominator_square));
   }

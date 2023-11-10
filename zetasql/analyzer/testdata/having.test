@@ -940,9 +940,9 @@ QueryStmt
         |               +-input_scan=
         |                 +-ArrayScan
         |                   +-column_list=[$array.xs#4]
-        |                   +-array_expr=
+        |                   +-array_expr_list=
         |                   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |                   +-element_column=$array.xs#4
+        |                   +-element_column_list=[$array.xs#4]
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater_or_equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$aggregate.$agg3#5)

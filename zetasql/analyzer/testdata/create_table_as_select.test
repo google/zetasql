@@ -1446,9 +1446,7 @@ with connection connection2
 ^
 ==
 
-# TODO: Make these no_java tests work in java
 [language_features=CREATE_TABLE_WITH_CONNECTION]
-[no_java]
 create table tt
 with connection connection2
 as select 1 a, 2 b;
@@ -1474,7 +1472,6 @@ CreateTableAsSelectStmt
 ==
 
 [language_features=CREATE_TABLE_WITH_CONNECTION]
-[no_java]
 create table tt
 with connection conn
 as select 1 a, 2 b;
@@ -1485,7 +1482,6 @@ with connection conn
 ==
 
 [language_features=CREATE_TABLE_WITH_CONNECTION]
-[no_java]
 create table tt
 with connection `connection2`
 as select 1 a, 2 b;
@@ -1511,7 +1507,6 @@ CreateTableAsSelectStmt
 ==
 
 [language_features=CREATE_TABLE_WITH_CONNECTION]
-[no_java]
 create table tt
 with connection nested_catalog.connection2
 as select 1 a, 2 b;
@@ -1537,7 +1532,6 @@ CreateTableAsSelectStmt
 ==
 
 [language_features=CREATE_TABLE_WITH_CONNECTION]
-[no_java]
 create table tt
 with connection connection2
 options(x=5, y='abc')

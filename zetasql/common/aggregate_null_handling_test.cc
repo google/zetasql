@@ -98,7 +98,7 @@ TEST_F(AggregateNullHandlingTest, NonBuiltinIgnoreNullsImplicit) {
   std::string sql =
       "SELECT uda_valid_templated_return_sum_int64_arg(Key) FROM KeyValue";
   ZETASQL_ASSERT_OK(AnalyzeQuery(sql));
-  EXPECT_TRUE(IgnoresNullArguments(ExtractAggregateFunctionCall()));
+  EXPECT_FALSE(IgnoresNullArguments(ExtractAggregateFunctionCall()));
 }
 
 TEST_F(AggregateNullHandlingTest, NonBuiltinIgnoreNullsExplicit) {

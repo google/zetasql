@@ -30,6 +30,8 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parse_tree_visitor.h"
+#include "zetasql/public/error_helpers.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/scripting/control_flow_graph.h"
 #include "zetasql/scripting/error_helpers.h"
 #include "absl/container/flat_hash_map.h"
@@ -443,9 +445,11 @@ absl::Status ParsedScript::GatherInformationAndRunChecksInternal() {
 
 absl::Status ParsedScript::GatherInformationAndRunChecks() {
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      error_message_mode(),
-      /*keep_error_location_payload=*/error_message_mode() ==
-          ERROR_MESSAGE_WITH_PAYLOAD,
+      ErrorMessageOptions{
+          .mode = error_message_mode(),
+          .attach_error_location_payload =
+              (error_message_mode() == ERROR_MESSAGE_WITH_PAYLOAD),
+          .stability = ERROR_MESSAGE_STABILITY_PRODUCTION},
       script_text(), GatherInformationAndRunChecksInternal());
 }
 
@@ -601,9 +605,11 @@ ParsedScript::StringSet ParsedScript::GetAllNamedParameters() const {
 absl::Status ParsedScript::CheckQueryParameters(
     const ParsedScript::QueryParameters& parameters) const {
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      error_message_mode(),
-      /*keep_error_location_payload=*/error_message_mode() ==
-          ERROR_MESSAGE_WITH_PAYLOAD,
+      ErrorMessageOptions{
+          .mode = error_message_mode(),
+          .attach_error_location_payload =
+              (error_message_mode() == ERROR_MESSAGE_WITH_PAYLOAD),
+          .stability = ERROR_MESSAGE_STABILITY_PRODUCTION},
       script_text(), CheckQueryParametersInternal(parameters));
 }
 

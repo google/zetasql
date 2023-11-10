@@ -815,8 +815,12 @@ Details:
     individual path value pair operation is invalid. For invalid operations,
     the operation is ignored and the function continues to process the rest of
     the path value pairs.
-+   If `json_expr` or `append_each_element` is SQL `NULL`, the function
-    returns SQL `NULL`.
++   If any `json_path` is an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   If `append_each_element` is SQL `NULL`, the function returns `json_expr`.
++   If `json_path` is SQL `NULL`, the `json_path_value_pair` operation is
+    ignored.
 
 **Return type**
 
@@ -1006,8 +1010,12 @@ Details:
 +   If the array index in `json_path` is larger than the size of the array, the
     function extends the length of the array to the index, fills in
     the array with JSON nulls, then adds `value` at the index.
-+   If `json_expr`, `json_path`, or `insert_each_element` is SQL `NULL`, the
-    function returns SQL `NULL`.
++   If any `json_path` is an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   If `insert_each_element` is SQL `NULL`, the function returns `json_expr`.
++   If `json_path` is SQL `NULL`, the `json_path_value_pair` operation is
+    ignored.
 
 **Return type**
 
@@ -2040,9 +2048,9 @@ Details:
     element from the matched array.
 +   If removing the path results in an empty JSON object or empty JSON array,
     the empty structure is preserved.
-+   If `json_expr` or `json_path` is SQL `NULL`, the function returns
-    SQL `NULL`.
-+   If `json_path` is `$`, an error is produced.
++   If `json_path` is `$` or an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_path` is SQL `NULL`, the path operation is ignored.
 
 **Return type**
 
@@ -2229,8 +2237,11 @@ Details:
 +   If a matched path points to a JSON array and the specified index is
     _less than_ the length of the array, replaces the existing JSON array value
     at index with `value`.
-+   If `json_expr` or `json_path` is SQL `NULL`, the function returns
-    SQL `NULL`.
++   If any `json_path` is an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   If `json_path` is SQL `NULL`, the `json_path_value_pair` operation is
+    ignored.
 
 **Return type**
 
@@ -2461,8 +2472,11 @@ Details:
     containers after JSON nulls are removed.
 +   If the function generates JSON with nothing in it, the function returns a
     JSON null.
-+   If any argument is SQL `NULL`, the function returns SQL `NULL`.
-+   If `json_path` is not provided, all JSON nulls are removed from `json_expr`.
++   If `json_path` is an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   If `json_path`, `include_arrays`, or `remove_empty` is SQL `NULL`, the
+    function returns `json_expr`.
 
 **Return type**
 

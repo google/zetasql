@@ -794,7 +794,7 @@ absl::Status JsonAppendArrayElement(JSONValueRef input,
 }
 
 absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
-                     const Value& value,
+                     const Value& value, bool create_if_missing,
                      const LanguageOptions& language_options,
                      bool canonicalize_zero) {
   // Ensure we always start from the beginning of the path.
@@ -855,6 +855,12 @@ absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
     return absl::OkStatus();
   }
 
+  // The path doesn't exist and we only replace existing values. Ignore
+  // operation.
+  if (!path_iterator.End() && !create_if_missing) {
+    return absl::OkStatus();
+  }
+
   if (!path_iterator.End()) {
     // Auto-creation will happen. Make sure it won't create an oversized array.
     size_t path_position = path_iterator.Depth() - 1;
@@ -899,6 +905,14 @@ absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
 
   input.Set(std::move(converted_value));
   return absl::OkStatus();
+}
+
+absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
+                     const Value& value,
+                     const LanguageOptions& language_options,
+                     bool canonicalize_zero) {
+  return JsonSet(input, path_iterator, value, /*create_if_missing==*/true,
+                 language_options, canonicalize_zero);
 }
 
 namespace {

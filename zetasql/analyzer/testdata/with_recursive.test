@@ -23,9 +23,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest1#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[5, 6, 7, 8])
-    | |         +-element_column=$array.$unnest1#1
+    | |         +-element_column_list=[$array.$unnest1#1]
     | +-WithEntry
     | | +-with_query_name="t3"
     | | +-with_subquery=
@@ -34,9 +34,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest2#2]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.$unnest2#2
+    | |         +-element_column_list=[$array.$unnest2#2]
     | +-WithEntry
     | | +-with_query_name="t2"
     | | +-with_subquery=
@@ -207,9 +207,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest1#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.$unnest1#1
+    | |         +-element_column_list=[$array.$unnest1#1]
     | +-WithEntry
     |   +-with_query_name="t1"
     |   +-with_subquery=
@@ -247,9 +247,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest1#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.$unnest1#1
+    | |         +-element_column_list=[$array.$unnest1#1]
     | +-WithEntry
     |   +-with_query_name="t1"
     |   +-with_subquery=
@@ -669,9 +669,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest1#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[5, 6, 7, 8])
-    | |         +-element_column=$array.$unnest1#1
+    | |         +-element_column_list=[$array.$unnest1#1]
     | +-WithEntry
     | | +-with_query_name="t3"
     | | +-with_subquery=
@@ -680,9 +680,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest2#2]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.$unnest2#2
+    | |         +-element_column_list=[$array.$unnest2#2]
     | +-WithEntry
     | | +-with_query_name="t2"
     | | +-with_subquery=
@@ -2634,9 +2634,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<DOUBLE>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -3022,9 +3022,9 @@ QueryStmt
     |           |       |   |       +-input_scan=
     |           |       |   |       | +-ArrayScan
     |           |       |   |       |   +-column_list=[$array.r#3]
-    |           |       |   |       |   +-array_expr=
+    |           |       |   |       |   +-array_expr_list=
     |           |       |   |       |   | +-Literal(type=ARRAY<DOUBLE>, value=[1.1, 1.2, 1.3])
-    |           |       |   |       |   +-element_column=$array.r#3
+    |           |       |   |       |   +-element_column_list=[$array.r#3]
     |           |       |   |       +-function_group_list=
     |           |       |   |         +-AnalyticFunctionGroup
     |           |       |   |           +-analytic_function_list=
@@ -3155,9 +3155,9 @@ QueryStmt
     |           |     | |   |   +-input_scan=
     |           |     | |   |     +-ArrayScan
     |           |     | |   |       +-column_list=[$array.$unnest1#3]
-    |           |     | |   |       +-array_expr=
+    |           |     | |   |       +-array_expr_list=
     |           |     | |   |       | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    |           |     | |   |       +-element_column=$array.$unnest1#3
+    |           |     | |   |       +-element_column_list=[$array.$unnest1#3]
     |           |     | |   +-limit=
     |           |     | |     +-Literal(type=INT64, value=2)
     |           |     | +-output_column_list=[$array.$unnest1#3]
@@ -3416,9 +3416,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -3509,9 +3509,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -3601,9 +3601,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -3661,9 +3661,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -3734,9 +3734,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -3797,9 +3797,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -3882,9 +3882,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -3942,9 +3942,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -4017,9 +4017,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=
@@ -4078,9 +4078,9 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.n#1]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3, 4])
-    | |         +-element_column=$array.n#1
+    | |         +-element_column_list=[$array.n#1]
     | +-WithEntry
     |   +-with_query_name="t"
     |   +-with_subquery=

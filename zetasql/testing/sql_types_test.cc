@@ -36,8 +36,7 @@ namespace zetasql {
 void ZetaSQLTypesTest::SetUp() {
   language_options_.EnableLanguageFeature(
       FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES);
-  coercer_ = std::make_unique<Coercer>(&type_factory_, absl::UTCTimeZone(),
-                                       &language_options_);
+  coercer_ = std::make_unique<Coercer>(&type_factory_, &language_options_);
 
   enum_value = Value::Enum(GetTestEnumType(), 1);
   enum_null = Value::Null(GetTestEnumType());

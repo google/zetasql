@@ -250,10 +250,31 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "pattern too large"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
+      "REGEXP_REPLACE: exceeded maximum output length"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
       "Regular expressions passed into extraction functions must not have more "
       "than 1 capturing group"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "LIKE pattern ends with a backslash"));
+
+  // Expected errors for COSINE_DISTANCE, EUCLIDEAN_DISTANCE, EDIT_DISTANCE.
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "Array length mismatch:"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Cannot compute .* distance against zero vector"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "(?m)Duplicate index (.|\\n)* found in the input array"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "NULL array element"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "NULL struct field"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "max_distance must be non-negative"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "EDIT_DISTANCE .* invalid UTF8 string"));
 
   // TODO: known issue
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -442,6 +463,12 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "No matching signature for function "
       "(ARRAY_FILTER|ARRAY_TRANSFORM|ARRAY_INCLUDES|ARRAY_FIND|ARRAY_FIND_ALL|"
       "ARRAY_OFFSET|ARRAY_OFFSETS) .*"));
+
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Column (.+) which is included in the grouping list by GROUP BY ALL, "
+      "contains a volatile expression which must be explicitly listed as a "
+      "group by key"));
 
   // HLL sketch format errors
   //

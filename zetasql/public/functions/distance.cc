@@ -21,12 +21,14 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/math.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
@@ -114,21 +116,21 @@ double GetValueOrZero(const absl::flat_hash_map<IdxType, double>& map,
   return 0.0;
 }
 
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 absl::StatusOr<Value> ComputeCosineDistance(
-    absl::FunctionRef<
-        absl::StatusOr<std::optional<std::pair<double, double>>>()>
+    absl::FunctionRef<absl::StatusOr<std::optional<std::pair<T, T>>>()>
         array_elements_supplier) {
   double numerator = 0;
   double len_a = 0;
   double len_b = 0;
   while (true) {
-    std::optional<std::pair<double, double>> paired_elements;
+    std::optional<std::pair<T, T>> paired_elements;
     ZETASQL_ASSIGN_OR_RETURN(paired_elements, array_elements_supplier());
     if (!paired_elements.has_value()) {
       break;
     }
-    double a = paired_elements->first;
-    double b = paired_elements->second;
+    double a = (double)paired_elements->first;
+    double b = (double)paired_elements->second;
 
     double mult = 0;
     ZETASQL_RETURN_IF_ERROR(Apply(Multiply<double>, a, b, &mult));
@@ -141,6 +143,7 @@ absl::StatusOr<Value> ComputeCosineDistance(
     ZETASQL_RETURN_IF_ERROR(Apply(Multiply<double>, b, b, &b_square));
     ZETASQL_RETURN_IF_ERROR(Apply(Add<double>, len_b, b_square, &len_b));
   }
+
   if (len_a == 0 || len_b == 0) {
     return absl::InvalidArgumentError(
         "Cannot compute cosine distance against zero vector.");
@@ -185,22 +188,22 @@ absl::StatusOr<Value> ComputeCosineDistanceFunctionSparse(const Value vector1,
       return std::nullopt;
     }
   };
-  return ComputeCosineDistance(array_elements_supplier);
+  return ComputeCosineDistance<double>(array_elements_supplier);
 }
 
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 absl::StatusOr<Value> ComputeEuclideanDistance(
-    absl::FunctionRef<
-        absl::StatusOr<std::optional<std::pair<double, double>>>()>
+    absl::FunctionRef<absl::StatusOr<std::optional<std::pair<T, T>>>()>
         array_elements_supplier) {
   double result = 0;
   while (true) {
-    std::optional<std::pair<double, double>> paired_elements;
+    std::optional<std::pair<T, T>> paired_elements;
     ZETASQL_ASSIGN_OR_RETURN(paired_elements, array_elements_supplier());
     if (!paired_elements.has_value()) {
       break;
     }
-    double a = paired_elements.value().first;
-    double b = paired_elements.value().second;
+    double a = (double)paired_elements.value().first;
+    double b = (double)paired_elements.value().second;
 
     double c;
     ZETASQL_RETURN_IF_ERROR(Apply(Subtract<double>, a, b, &c));
@@ -236,10 +239,32 @@ absl::StatusOr<Value> ComputeEuclideanDistanceFunctionSparse(
     }
   };
 
-  return ComputeEuclideanDistance(array_elements_supplier);
+  return ComputeEuclideanDistance<double>(array_elements_supplier);
 }
 
 }  // namespace
+
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+std::function<absl::StatusOr<std::optional<std::pair<T, T>>>()>
+MakeZippedArrayElementsSupplier(const std::vector<Value>& vector1,
+                                const std::vector<Value>& vector2) {
+  return [v1_it = vector1.begin(), v1_end = vector1.end(),
+          v2_it = vector2.begin(), v2_end = vector2.end()]() mutable
+         -> absl::StatusOr<std::optional<std::pair<T, T>>> {
+    if (v1_it == v1_end || v2_it == v2_end) {
+      return std::nullopt;
+    }
+
+    if (v1_it->is_null() || v2_it->is_null()) {
+      return absl::InvalidArgumentError("NULL array element");
+    }
+
+    auto pair = std::make_pair(v1_it->Get<T>(), v2_it->Get<T>());
+    v1_it++;
+    v2_it++;
+    return pair;
+  };
+}
 
 absl::StatusOr<Value> CosineDistanceDense(Value vector1, Value vector2) {
   if (vector1.num_elements() != vector2.num_elements()) {
@@ -247,24 +272,14 @@ absl::StatusOr<Value> CosineDistanceDense(Value vector1, Value vector2) {
         absl::Substitute("Array length mismatch: $0 and $1.",
                          vector1.num_elements(), vector2.num_elements()));
   }
-
-  int i = 0;
-  auto array_elements_supplier =
-      [&vector1, &vector2,
-       &i]() -> absl::StatusOr<std::optional<std::pair<double, double>>> {
-    if (i < vector1.num_elements()) {
-      if (vector1.element(i).is_null() || vector2.element(i).is_null()) {
-        return absl::InvalidArgumentError("NULL array element");
-      }
-      auto pair = std::make_pair(vector1.element(i).double_value(),
-                                 vector2.element(i).double_value());
-      ++i;
-      return pair;
-    } else {
-      return std::nullopt;
-    }
-  };
-  return ComputeCosineDistance(array_elements_supplier);
+  if (vector1.type()->AsArray()->element_type() == types::DoubleType()) {
+    return ComputeCosineDistance<double>(
+        MakeZippedArrayElementsSupplier<double>(vector1.elements(),
+                                                vector2.elements()));
+  } else {
+    return ComputeCosineDistance<float>(MakeZippedArrayElementsSupplier<float>(
+        vector1.elements(), vector2.elements()));
+  }
 }
 
 absl::StatusOr<Value> CosineDistanceSparseInt64Key(Value vector1,
@@ -283,24 +298,16 @@ absl::StatusOr<Value> EuclideanDistanceDense(Value vector1, Value vector2) {
         absl::Substitute("Array length mismatch: $0 and $1.",
                          vector1.num_elements(), vector2.num_elements()));
   }
-  int i = 0;
-  auto array_elements_supplier =
-      [&vector1, &vector2,
-       &i]() -> absl::StatusOr<std::optional<std::pair<double, double>>> {
-    if (i < vector1.num_elements()) {
-      if (vector1.element(i).is_null() || vector2.element(i).is_null()) {
-        return absl::InvalidArgumentError("NULL array element");
-      }
-      auto pair = std::make_pair(vector1.element(i).double_value(),
-                                 vector2.element(i).double_value());
-      ++i;
-      return pair;
-    } else {
-      return std::nullopt;
-    }
-  };
 
-  return ComputeEuclideanDistance(array_elements_supplier);
+  if (vector1.type()->AsArray()->element_type() == types::DoubleType()) {
+    return ComputeEuclideanDistance<double>(
+        MakeZippedArrayElementsSupplier<double>(vector1.elements(),
+                                                vector2.elements()));
+  } else {
+    return ComputeEuclideanDistance<float>(
+        MakeZippedArrayElementsSupplier<float>(vector1.elements(),
+                                               vector2.elements()));
+  }
 }
 
 absl::StatusOr<Value> EuclideanDistanceSparseInt64Key(Value vector1,

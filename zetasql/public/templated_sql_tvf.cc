@@ -166,8 +166,7 @@ absl::Status TemplatedSQLTVF::Resolve(
   ZETASQL_RETURN_IF_ERROR(ForwardNestedResolutionAnalysisError(
       ParseNextStatement(&this_parse_resume_location, parser_options,
                          &parser_output, &at_end_of_input),
-      analyzer_options->error_message_mode(),
-      analyzer_options->attach_error_location_payload()));
+      analyzer_options->error_message_options()));
   if (parser_output->statement()->node_kind() != AST_QUERY_STATEMENT) {
     // TODO: Attach proper error locations to the returned Status.
     return MakeTVFQueryAnalysisError("SQL body is not a query");
@@ -195,8 +194,7 @@ absl::Status TemplatedSQLTVF::Resolve(
           static_cast<const ASTQueryStatement*>(parser_output->statement()),
           specified_output_schema, allow_query_parameters_, &function_arguments,
           &function_table_arguments, &resolved_sql_body, &tvf_body_name_list),
-      analyzer_options->error_message_mode(),
-      analyzer_options->attach_error_location_payload()));
+      analyzer_options->error_message_options()));
   // TODO: Attach proper error locations to the returned Status.
   ZETASQL_RET_CHECK_EQ(RESOLVED_QUERY_STMT, resolved_sql_body->node_kind());
 
@@ -265,8 +263,7 @@ absl::Status TemplatedSQLTVF::CheckIsValid() const {
 }
 
 absl::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
-    const absl::Status& status, ErrorMessageMode mode,
-    bool keep_error_location_payload) const {
+    const absl::Status& status, ErrorMessageOptions options) const {
   absl::Status new_status;
   if (status.ok()) {
     return absl::OkStatus();
@@ -275,7 +272,7 @@ absl::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
     zetasql::internal::AttachPayload(
         &new_status, SetErrorSourcesFromStatus(
                          zetasql::internal::GetPayload<ErrorLocation>(status),
-                         status, mode, parse_resume_location_.input()));
+                         status, options.mode, parse_resume_location_.input()));
   } else {
     new_status = StatusWithInternalErrorLocation(
         MakeTVFQueryAnalysisError(),
@@ -286,11 +283,11 @@ absl::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
         &new_status,
         SetErrorSourcesFromStatus(
             zetasql::internal::GetPayload<InternalErrorLocation>(new_status),
-            status, mode, parse_resume_location_.input()));
+            status, options.mode, parse_resume_location_.input()));
   }
   // Update the <new_status> based on <mode>.
   return MaybeUpdateErrorFromPayload(
-      mode, keep_error_location_payload, parse_resume_location_.input(),
+      options, parse_resume_location_.input(),
       ConvertInternalErrorLocationToExternal(new_status,
                                              parse_resume_location_.input()));
 }

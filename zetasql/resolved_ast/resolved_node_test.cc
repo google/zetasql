@@ -21,14 +21,22 @@
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
+#include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace zetasql {
+
+using ::testing::Not;
+using ::zetasql_base::testing::IsOk;
 
 static TypeParameters MakeStringTypeParameters(int max_length) {
   StringTypeParametersProto proto;
@@ -52,7 +60,7 @@ static TypeParameters MakeNumericTypeParameters(int precision, int scale) {
 TEST(ResolvedColumnDefinitionTest, TestGetFullTypeParameters) {
   // Column type is STRUCT<INT64, STRING(10), ARRAY<NUMERIC(10,5)>, DATE>
   TypeFactory type_factory;
-  const Type *numeric_array = nullptr;
+  const Type* numeric_array = nullptr;
   ZETASQL_EXPECT_OK(
       type_factory.MakeArrayType(type_factory.get_numeric(), &numeric_array));
   std::vector<StructType::StructField> struct_fields = {
@@ -60,7 +68,7 @@ TEST(ResolvedColumnDefinitionTest, TestGetFullTypeParameters) {
       {"f2", type_factory.get_string()},
       {"f3", numeric_array},
       {"f4", type_factory.get_date()}};
-  const Type *struct_type = nullptr;
+  const Type* struct_type = nullptr;
   ZETASQL_EXPECT_OK(type_factory.MakeStructType(struct_fields, &struct_type));
 
   // Constructs annotation for
@@ -103,6 +111,70 @@ TEST(ResolvedColumnDefinitionTest, TestGetFullTypeParameters) {
   ZETASQL_EXPECT_OK(type_parameters_or_error.status());
   EXPECT_EQ(type_parameters_or_error->DebugString(),
             "[null,(max_length=10),[(precision=10,scale=5)],null]");
+}
+
+TEST(ResolvedArrayScanTest, TestBackwardCompatibility) {
+  TypeFactory type_factory;
+  IdStringPool pool;
+
+  const ArrayType* int64_array_type = types::Int64ArrayType();
+  const ArrayType* string_array_type = types::StringArrayType();
+  const Value array1 = values::Int64Array({1, 2, 3});
+  const Value array2 = values::StringArray({"a", "b"});
+
+  {
+    // `array_expr_list` and `element_column_list` only have one element.
+    std::unique_ptr<const ResolvedExpr> expr1 =
+        MakeResolvedLiteral(int64_array_type, array1);
+    std::vector<std::unique_ptr<const ResolvedExpr>> array_expr_list =
+        MakeNodeVector(std::move(expr1));
+    std::vector<ResolvedColumn> element_column_list{ResolvedColumn(
+        1, pool.Make("$array"), pool.Make("$e1"), type_factory.get_int64())};
+
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedArrayScan> array_scan,
+                         ResolvedArrayScanBuilder()
+                             .set_array_expr_list(std::move(array_expr_list))
+                             .set_element_column_list(element_column_list)
+                             .Build());
+    // Only legacy accessor is called.
+    array_scan->array_expr()->MarkFieldsAccessed();
+    array_scan->element_column();
+    ZETASQL_EXPECT_OK(array_scan->CheckFieldsAccessed());
+  }
+
+  {
+    // `array_expr_list` and `element_column_list` have 2+ element.
+    std::unique_ptr<const ResolvedExpr> expr1 =
+        MakeResolvedLiteral(int64_array_type, array1);
+    std::unique_ptr<const ResolvedExpr> expr2 =
+        MakeResolvedLiteral(string_array_type, array2);
+
+    std::vector<std::unique_ptr<const ResolvedExpr>> array_expr_list =
+        MakeNodeVector(std::move(expr1), std::move(expr2));
+    std::vector<ResolvedColumn> element_column_list = {
+        ResolvedColumn(1, pool.Make("$array"), pool.Make("$e1"),
+                       type_factory.get_int64()),
+        ResolvedColumn(2, pool.Make("$array"), pool.Make("$e2"),
+                       type_factory.get_string())};
+
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedArrayScan> array_scan,
+                         ResolvedArrayScanBuilder()
+                             .set_array_expr_list(std::move(array_expr_list))
+                             .set_element_column_list(element_column_list)
+                             .Build());
+    // Only legacy accessors are called.
+    array_scan->array_expr()->MarkFieldsAccessed();
+    array_scan->element_column();
+    EXPECT_THAT(array_scan->CheckFieldsAccessed(), Not(IsOk()));
+    // Only one vector accessor is called.
+    for (auto& array_expr : array_scan->array_expr_list()) {
+      array_expr->MarkFieldsAccessed();
+    }
+    EXPECT_THAT(array_scan->CheckFieldsAccessed(), Not(IsOk()));
+    // Both vector accessors are called.
+    array_scan->element_column_list();
+    ZETASQL_EXPECT_OK(array_scan->CheckFieldsAccessed());
+  }
 }
 
 }  // namespace zetasql

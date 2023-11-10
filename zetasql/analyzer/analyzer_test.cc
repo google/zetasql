@@ -1201,7 +1201,7 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
   EXPECT_EQ(8, sizeof(AnalyzerOptions))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(24, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(25, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }
@@ -2045,6 +2045,41 @@ class AnalyzeGeneratedColumnTest : public testing::Test {
     // B as (C+1),
     // C int64_t,
     // D as (A+B+C),
+    // ID int64_t,
+    // ) PRIMARY KEY(ID)
+    auto test_table = std::make_unique<SimpleTable>(
+        "test_table", std::vector<SimpleTable::NameAndType>{});
+
+    // Adding column A AS (B+C) to test_table.
+    AddGeneratedColumnToTable("A", {"B", "C"}, "B+C", test_table.get());
+    // Adding column B AS (C+1) to test_table.
+    AddGeneratedColumnToTable("B", {"C"}, "C+1", test_table.get());
+    // Adding column C int64_t to test_table.
+    ZETASQL_ASSERT_OK(test_table->AddColumn(
+        new SimpleColumn(test_table->Name(), "C", types::Int64Type()),
+        /*is_owned=*/true));
+    // Adding column D AS (A+B+C) to test_table.
+    AddGeneratedColumnToTable("D", {"A", "B", "C"}, "A+B+C", test_table.get());
+    // Adding column ID int64_t to test_table.
+    ZETASQL_ASSERT_OK(test_table->AddColumn(
+        new SimpleColumn(test_table->Name(), "ID", types::Int64Type()),
+        /*is_owned=*/true));
+
+    test_table->SetContents(
+        {{values::Int64(3), values::Int64(2), values::Int64(1),
+          values::Int64(6), values::Int64(1)},
+         {values::Int64(5), values::Int64(3), values::Int64(2),
+          values::Int64(10), values::Int64(2)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+  void AddGeneratedColumnsAsPrimaryKeyTestTable() {
+    // Table representation
+    // CREATE TABLE test_table (
+    // A as (B+C),
+    // B as (C+1),
+    // C int64_t,
+    // D as (A+B+C),
     // ) PRIMARY KEY(A,C)
     auto test_table = std::make_unique<SimpleTable>(
         "test_table", std::vector<SimpleTable::NameAndType>{});
@@ -2127,7 +2162,7 @@ class AnalyzeGeneratedColumnTest : public testing::Test {
 };
 
 TEST_F(AnalyzeGeneratedColumnTest, TopologicalOrderOfGeneratedColumns) {
-  AddGeneratedColumnsTestTable();
+  AddGeneratedColumnsAsPrimaryKeyTestTable();
   std::string sql = "INSERT into test_table(C) values(3);";
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
   std::vector<std::string> topologically_sorted_columns;
@@ -2199,6 +2234,67 @@ TEST_F(AnalyzeGeneratedColumnTest,
                   ->GetAs<ResolvedInsertStmt>()
                   ->topologically_sorted_generated_column_id_list(),
               IsEmpty());
+}
+
+TEST_F(AnalyzeGeneratedColumnTest,
+       TopologicalOrderOfGeneratedColumnsForUpdate) {
+  AddGeneratedColumnsTestTable();
+  std::string sql = "UPDATE test_table SET C = 3 WHERE ID = 1;";
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  std::vector<std::string> topologically_sorted_columns;
+
+  ZETASQL_ASSERT_OK(AnalyzeStatement(sql, analyzer_options_, &catalog_,
+                             catalog_.type_factory(), &analyzer_output));
+  const ResolvedUpdateStmt* update_statement =
+      analyzer_output->resolved_statement()->GetAs<ResolvedUpdateStmt>();
+  ASSERT_NE(update_statement, nullptr);
+  ZETASQL_ASSERT_OK(GetColumnNamesFromResolvedIds(
+      update_statement->topologically_sorted_generated_column_id_list(),
+      update_statement->table_scan(), topologically_sorted_columns));
+  EXPECT_THAT(topologically_sorted_columns, ElementsAre("B", "A", "D"));
+  EXPECT_EQ(
+      update_statement->topologically_sorted_generated_column_id_list().size(),
+      3);
+  // resolved expression for generated column `B = C+1`
+  EXPECT_EQ(update_statement->generated_column_expr_list()[0]->DebugString(),
+            R"(FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-ColumnRef(type=INT64, column=test_table.C#3)
++-Literal(type=INT64, value=1)
+)");
+  // resolved expression for generated column `A = B+C`
+  EXPECT_EQ(update_statement->generated_column_expr_list()[1]->DebugString(),
+            R"(FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-ColumnRef(type=INT64, column=test_table.B#2)
++-ColumnRef(type=INT64, column=test_table.C#3)
+)");
+  // resolved expression for generated column `D = A+B+C`
+  EXPECT_EQ(update_statement->generated_column_expr_list()[2]->DebugString(),
+            R"(FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+| +-ColumnRef(type=INT64, column=test_table.A#1)
+| +-ColumnRef(type=INT64, column=test_table.B#2)
++-ColumnRef(type=INT64, column=test_table.C#3)
+)");
+}
+
+TEST_F(AnalyzeGeneratedColumnTest,
+       AnalyzeUpdateStatementFailsWithCyclicGenColInTable) {
+  AddCyclicGeneratedColumnsTable();
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  std::string sql = "UPDATE test_table SET data = 7 WHERE id = 3;";
+
+  // Analyze the update statement - this should fail as generated columns in
+  // table have cycles.
+  EXPECT_THAT(
+      AnalyzeStatement(sql, analyzer_options_, &catalog_,
+                       catalog_.type_factory(), &analyzer_output),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          MatchesRegex(
+              "Recursive dependencies detected while evaluating generated "
+              "column expression values for test_table.gen.. The expression "
+              "indicates the column depends on itself. Columns forming the "
+              "cycle : test_table.gen., test_table.gen.")));
 }
 
 // Verify the catalog name path of the outer proto type will be carried to its

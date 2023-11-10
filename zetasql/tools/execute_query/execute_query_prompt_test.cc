@@ -35,13 +35,9 @@
 #include "absl/types/span.h"
 
 using testing::AllOf;
-using testing::AnyOf;
-using testing::Contains;
-using testing::ElementsAre;
 using testing::Eq;
 using testing::HasSubstr;
 using testing::IsEmpty;
-using testing::IsSupersetOf;
 using testing::Not;
 using zetasql_base::testing::IsOk;
 using zetasql_base::testing::IsOkAndHolds;
@@ -440,7 +436,6 @@ TEST(ExecuteQueryStatementPrompt, RecoverAfterUnclosedString) {
           IsOkAndHolds(std::nullopt),
       });
 }
-
 TEST(ExecuteQueryStatementPrompt, LargeInput) {
   const std::string large(32, 'A');
   unsigned int count = 0;

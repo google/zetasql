@@ -1,4 +1,3 @@
-[no_java]
 export model model.name with connection connection1 options(uri="destination")
 --
 ExportModelStmt
@@ -19,7 +18,6 @@ ExportModelStmt
 ==
 
 # Export Model without the model name
-[no_java]
 export model with connection connection1 options(uri="destination")
 --
 ERROR: Syntax error: Unexpected keyword WITH [at 1:14]
@@ -28,7 +26,6 @@ export model with connection connection1 options(uri="destination")
 ==
 
 # Export Model without any options. (Most engines probably reject this.)
-[no_java]
 export model model.name with connection connection1
 --
 ExportModelStmt
@@ -38,7 +35,6 @@ ExportModelStmt
 ==
 
 # Export Model with an AS statement.
-[no_java]
 export model model.name options(uri="destination") AS
 --
 ERROR: Syntax error: Expected end of input but got keyword AS [at 1:52]

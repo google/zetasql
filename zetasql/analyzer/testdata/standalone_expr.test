@@ -351,7 +351,7 @@ SubqueryExpr
         |   |   | +-ks#1 := ExpressionColumn(parse_location=30-48, type=PROTO<zetasql_test__.KitchenSinkPB>, name="column_kitchensink")
         |   |   +-input_scan=
         |   |     +-SingleRowScan
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-parse_location=60-79
         |   |   +-type=ARRAY<DATE>
@@ -360,7 +360,7 @@ SubqueryExpr
         |   |   +-field_descriptor=repeated_date
         |   |   +-default_value=[]
         |   |   +-format=DATE
-        |   +-element_column=$array.repeated_date#2
+        |   +-element_column_list=[$array.repeated_date#2]
         +-aggregate_list=
           +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=8-16)
 ==
@@ -381,7 +381,7 @@ SubqueryExpr
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
         | +-ArrayScan
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-parse_location=29-61
         |   |   +-type=ARRAY<DATE>
@@ -390,7 +390,7 @@ SubqueryExpr
         |   |   +-field_descriptor=repeated_date
         |   |   +-default_value=[]
         |   |   +-format=DATE
-        |   +-element_column=$array.$unnest1#1
+        |   +-element_column_list=[$array.$unnest1#1]
         +-aggregate_list=
           +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=8-16)
 ==
@@ -893,7 +893,7 @@ SubqueryExpr
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
         | +-ArrayScan
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-parse_location=29-42
         |   |   +-type=ARRAY<DATE>
@@ -902,7 +902,7 @@ SubqueryExpr
         |   |   +-field_descriptor=repeated_date
         |   |   +-default_value=[]
         |   |   +-format=DATE
-        |   +-element_column=$array.$unnest1#1
+        |   +-element_column_list=[$array.$unnest1#1]
         +-aggregate_list=
           +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=8-16)
 ==
@@ -1305,9 +1305,9 @@ SubqueryExpr
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.x#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(parse_location=32-39, type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.x#1
+        |   +-element_column_list=[$array.x#1]
         +-aggregate_list=
           +-$agg1#2 :=
             +-AggregateFunctionCall({SAFE_ERROR_MODE} ZetaSQL:sum(INT64) -> INT64)

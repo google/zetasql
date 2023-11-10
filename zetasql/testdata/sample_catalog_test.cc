@@ -110,4 +110,15 @@ TEST(SampleCatalogTest,
             ResolvedCreateStatementEnums::SQL_SECURITY_DEFINER);
 }
 
+TEST(SampleCatalogTest, SequenceFunction) {
+  LanguageOptions options;
+  options.EnableMaximumLanguageFeatures();
+  TypeFactory type_factory;
+  SampleCatalog sample(options, &type_factory);
+
+  const Function* function = nullptr;
+  ZETASQL_ASSERT_OK(sample.catalog()->GetFunction("fn_with_sequence_arg", &function));
+  EXPECT_NE(function, nullptr);
+}
+
 }  // namespace zetasql

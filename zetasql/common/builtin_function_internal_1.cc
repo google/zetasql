@@ -947,24 +947,6 @@ absl::Status CheckGenerateTimestampArrayArguments(
   return absl::OkStatus();
 }
 
-absl::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
-                                const LanguageOptions& options) {
-  if (arguments.empty() || arguments.size() > 2) {
-    // Let validation happen normally. The resolver will return an error
-    // later.
-    return absl::OkStatus();
-  }
-  // Checking if the JSONPath is literal or query parameter only or will return
-  // an error. Other form of JSONPath is not allowed for now.
-  if (arguments.size() == 2 && !arguments[1].is_literal() &&
-      !arguments[1].is_untyped() && !arguments[1].is_query_parameter()) {
-    return MakeSqlError()
-           << "JSONPath must be a string literal or query parameter";
-  }
-
-  return absl::OkStatus();
-}
-
 absl::Status CheckFormatPostResolutionArguments(
     const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,

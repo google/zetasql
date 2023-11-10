@@ -116,6 +116,16 @@ canonical equivalence.
 </tr>
 
 <tr>
+  <td><a href="#edit_distance"><code>EDIT_DISTANCE</code></a>
+
+</td>
+  <td>
+    Computes the Levenshtein distance between two <code>STRING</code>
+    or <code>BYTES</code> values.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#ends_with"><code>ENDS_WITH</code></a>
 
 </td>
@@ -994,6 +1004,107 @@ FROM Employees;
 ```
 
 [string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
+
+### `EDIT_DISTANCE`
+
+<aside class="beta">
+  <p><strong>Preview</strong></p>
+  <p>
+    This product or feature is subject to the "Pre-GA Offerings Terms"
+    in the General Service Terms section of the
+    <a href="/terms/service-terms">Service Specific Terms</a>.
+    Pre-GA products and features are available "as is" and might have
+    limited support. For more information, see the
+    <a href="/products#product-launch-stages">launch stage descriptions</a>.
+  </p>
+</aside>
+
+```sql
+EDIT_DISTANCE(value1, value2, [max_distance => max_distance_value])
+```
+
+**Description**
+
+Computes the [Levenshtein distance][l-distance] between two `STRING` or
+`BYTES` values.
+
+**Definitions**
+
++   `value1`: The first `STRING` or `BYTES` value to compare.
++   `value2`: The second `STRING` or `BYTES` value to compare.
++   `max_distance`: Optional mandatory-named argument. Takes a non-negative
+    `INT64` value that represents the maximum distance between the two values
+    to compute.
+
+    If this distance is exceeded, the function returns this value.
+    The default value for this argument is the maximum size of
+    `value1` and `value2`.
+
+**Details**
+
+If `value1` or `value2` is `NULL`, `NULL` is returned.
+
+You can only compare values of the same type. Otherwise, an error is produced.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+In the following example, the first character in both strings is different:
+
+```sql
+SELECT EDIT_DISTANCE('a', 'b') AS results;
+
+/*---------*
+ | results |
+ +---------+
+ | 1       |
+ *---------*/
+```
+
+In the following example, the first and second characters in both strings are
+different:
+
+```sql
+SELECT EDIT_DISTANCE('aa', 'b') AS results;
+
+/*---------*
+ | results |
+ +---------+
+ | 2       |
+ *---------*/
+```
+
+In the following example, only the first character in both strings is
+different:
+
+```sql
+SELECT EDIT_DISTANCE('aa', 'ba') AS results;
+
+/*---------*
+ | results |
+ +---------+
+ | 1       |
+ *---------*/
+```
+
+In the following example, the last six characters are different, but because
+the maximum distance is `2`, this function exits early and returns `2`, the
+maximum distance:
+
+```sql
+SELECT EDIT_DISTANCE('abcdefg', 'a', max_distance => 2) AS results;
+
+/*---------*
+ | results |
+ +---------+
+ | 2       |
+ *---------*/
+```
+
+[l-distance]: https://en.wikipedia.org/wiki/Levenshtein_distance
 
 ### `ENDS_WITH`
 

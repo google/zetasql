@@ -139,6 +139,30 @@ CREATE TABLE t
 );
 ==
 
+# Generated Columns: Identity Column empty
+[language_features=V_1_2_GENERATED_COLUMNS,GENERATED_BY_DEFAULT,IDENTITY_COLUMNS]
+[no_enable_literal_replacement]
+create table t (a uint32 as IDENTITY());
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  a UINT32 GENERATED ALWAYS AS IDENTITY(START WITH 1 INCREMENT BY 1 MAXVALUE 4294967295 MINVALUE 0)
+);
+==
+
+# Generated Columns: Identity Column attributes specified
+[language_features=V_1_2_GENERATED_COLUMNS,GENERATED_BY_DEFAULT,IDENTITY_COLUMNS]
+[no_enable_literal_replacement]
+create table t (a int64 AS IDENTITY(START WITH 1 INCREMENT BY 1 MAXVALUE 10 MINVALUE -2 CYCLE));
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  a INT64 GENERATED ALWAYS AS IDENTITY(START WITH 1 INCREMENT BY 1 MAXVALUE 10 MINVALUE -2 CYCLE)
+);
+==
+
 [language_features=FOREIGN_KEYS,CREATE_TABLE_NOT_NULL]
 create table t (
   a int64

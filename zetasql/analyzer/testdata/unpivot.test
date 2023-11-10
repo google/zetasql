@@ -71,14 +71,14 @@ QueryStmt
             |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<a INT64, b STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#6
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#6]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -168,7 +168,7 @@ QueryStmt
             +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             +-input_scan=
             | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-            +-array_expr=
+            +-array_expr_list=
             | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64, c STRING>) -> ARRAY<STRUCT<a INT64, b INT64, c STRING>>)
             |   +-MakeStruct
             |     +-type=STRUCT<a INT64, b INT64, c STRING>
@@ -176,7 +176,7 @@ QueryStmt
             |       +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
             |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |       +-Literal(type=STRING, value="int_a_int_b", has_explicit_type=TRUE)
-            +-element_column=unpivot_array_0.unpivot_unnest#14
+            +-element_column_list=[unpivot_array_0.unpivot_unnest#14]
 ==
 
 SELECT * FROM MultipleColumns UNPIVOT EXCLUDE NULLS((a, b) for c in ((int_a, int_b)));
@@ -261,7 +261,7 @@ QueryStmt
             |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64, c STRING>) -> ARRAY<STRUCT<a INT64, b INT64, c STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<a INT64, b INT64, c STRING>
@@ -269,7 +269,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="int_a_int_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#14
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#14]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -362,7 +362,7 @@ QueryStmt
             |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64, c STRING>) -> ARRAY<STRUCT<a INT64, b INT64, c STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<a INT64, b INT64, c STRING>
@@ -370,7 +370,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
             |   |       +-Literal(type=STRING, value="Label", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#14
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#14]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -465,14 +465,14 @@ QueryStmt
             |   |   +-column_list=KeyValue.[Key#1, Value#2]
             |   |   +-input_scan=
             |   |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<a INT64, b STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#6
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#6]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -559,14 +559,14 @@ QueryStmt
                 |   +-column_list=[KeyValue.Key#3, KeyValue.Value#4, unpivot_array_0.unpivot_unnest#8]
                 |   +-input_scan=
                 |   | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
-                |   +-array_expr=
+                |   +-array_expr_list=
                 |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
                 |   |   +-MakeStruct
                 |   |     +-type=STRUCT<a INT64, b STRING>
                 |   |     +-field_list=
                 |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#3)
                 |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-                |   +-element_column=unpivot_array_0.unpivot_unnest#8
+                |   +-element_column_list=[unpivot_array_0.unpivot_unnest#8]
                 +-filter_expr=
                   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                     +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -683,7 +683,7 @@ QueryStmt
                 |   +-column_list=[t.s1#3, t.s2#4, unpivot_array_0.unpivot_unnest#7]
                 |   +-input_scan=
                 |   | +-WithRefScan(column_list=t.[s1#3, s2#4], with_query_name="t")
-                |   +-array_expr=
+                |   +-array_expr_list=
                 |   | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<x STRUCT<a INT64, b INT64>, y STRING>) -> ARRAY<STRUCT<x STRUCT<a INT64, b INT64>, y STRING>>)
                 |   |   +-MakeStruct
                 |   |   | +-type=STRUCT<x STRUCT<a INT64, b INT64>, y STRING>
@@ -695,7 +695,7 @@ QueryStmt
                 |   |     +-field_list=
                 |   |       +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=t.s2#4)
                 |   |       +-Literal(type=STRING, value="s2", has_explicit_type=TRUE)
-                |   +-element_column=unpivot_array_0.unpivot_unnest#7
+                |   +-element_column_list=[unpivot_array_0.unpivot_unnest#7]
                 +-filter_expr=
                   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                     +-FunctionCall(ZetaSQL:$is_null(STRUCT<a INT64, b INT64>) -> BOOL)
@@ -824,14 +824,14 @@ QueryStmt
             |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<a INT64, b STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#6
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#6]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -934,14 +934,14 @@ QueryStmt
             |   +-column_list=[tvf_no_args.column_bool#1, tvf_no_args.column_bytes#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a BYTES, b STRING>) -> ARRAY<STRUCT<a BYTES, b STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<a BYTES, b STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=BYTES, column=tvf_no_args.column_bytes#2)
             |   |       +-Literal(type=STRING, value="column_bytes", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#6
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#6]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(BYTES) -> BOOL)
@@ -1004,14 +1004,14 @@ QueryStmt
             |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<a INT64, b STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#7
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#7]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -1112,14 +1112,14 @@ QueryStmt
         |   |           |   |   +-column_list=KeyValue.[Key#1, Value#2]
         |   |           |   |   +-input_scan=
         |   |           |   |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-        |   |           |   +-array_expr=
+        |   |           |   +-array_expr_list=
         |   |           |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
         |   |           |   |   +-MakeStruct
         |   |           |   |     +-type=STRUCT<a INT64, b STRING>
         |   |           |   |     +-field_list=
         |   |           |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |   |           |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-        |   |           |   +-element_column=unpivot_array_0.unpivot_unnest#8
+        |   |           |   +-element_column_list=[unpivot_array_0.unpivot_unnest#8]
         |   |           +-filter_expr=
         |   |             +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
         |   |               +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -1207,14 +1207,14 @@ QueryStmt
         |       |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
         |       |   +-input_scan=
         |       |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-        |       |   +-array_expr=
+        |       |   +-array_expr_list=
         |       |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
         |       |   |   +-MakeStruct
         |       |   |     +-type=STRUCT<a INT64, b STRING>
         |       |   |     +-field_list=
         |       |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |       |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-        |       |   +-element_column=unpivot_array_0.unpivot_unnest#6
+        |       |   +-element_column_list=[unpivot_array_0.unpivot_unnest#6]
         |       +-filter_expr=
         |         +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
         |           +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -1311,7 +1311,7 @@ QueryStmt
             |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#12]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<x INT64, y INT64, z STRING>) -> ARRAY<STRUCT<x INT64, y INT64, z STRING>>)
             |   |   +-MakeStruct
             |   |   | +-type=STRUCT<x INT64, y INT64, z STRING>
@@ -1325,7 +1325,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
             |   |       +-Literal(type=STRING, value="int_c_int_d", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#12
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#12]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1424,7 +1424,7 @@ QueryStmt
             |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#12]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<x INT64, y STRING, z STRING>) -> ARRAY<STRUCT<x INT64, y STRING, z STRING>>)
             |   |   +-MakeStruct
             |   |   | +-type=STRUCT<x INT64, y STRING, z STRING>
@@ -1438,7 +1438,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
             |   |       +-Literal(type=STRING, value="int_b_string_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#12
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#12]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1555,14 +1555,14 @@ QueryStmt
             |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<a INT64, b STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Label", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#6
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#6]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -1651,7 +1651,7 @@ QueryStmt
             |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#13]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
             |   |   +-MakeStruct
             |   |   | +-type=STRUCT<a INT64, b INT64>
@@ -1663,7 +1663,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=INT64, value=2, has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#13
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#13]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -1737,14 +1737,14 @@ QueryStmt
             |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b UINT64>) -> ARRAY<STRUCT<a INT64, b UINT64>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<a INT64, b UINT64>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=UINT64, value=9223372036854775808, has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#6
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#6]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -1863,7 +1863,7 @@ QueryStmt
             |   |   +-column_list=MultipleColumns.[int_a#1, int_b#3, int_c#5]
             |   |   +-input_scan=
             |   |     +-TableScan(column_list=MultipleColumns.[int_a#1, int_b#3, int_c#5], table=MultipleColumns, column_index_list=[0, 2, 4])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<int_a INT64, int_c STRING>) -> ARRAY<STRUCT<int_a INT64, int_c STRING>>)
             |   |   +-MakeStruct
             |   |   | +-type=STRUCT<int_a INT64, int_c STRING>
@@ -1875,7 +1875,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="int_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#10
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#10]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -1969,7 +1969,7 @@ QueryStmt
             |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x INT64, x INT64, y STRING>) -> ARRAY<STRUCT<x INT64, x INT64, y STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<x INT64, x INT64, y STRING>
@@ -1977,7 +1977,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="int_a_int_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#14
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#14]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -2074,14 +2074,14 @@ QueryStmt
             |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x INT64, x STRING>) -> ARRAY<STRUCT<x INT64, x STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<x INT64, x STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
             |   |       +-Literal(type=STRING, value="int_a", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#14
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#14]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -2160,14 +2160,14 @@ QueryStmt
             |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<Value INT64, b STRING>) -> ARRAY<STRUCT<Value INT64, b STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<Value INT64, b STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#7
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#7]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -2301,7 +2301,7 @@ QueryStmt
             |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#13]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<x INT64, y STRING>) -> ARRAY<STRUCT<x INT64, y STRING>>)
             |   |   +-MakeStruct
             |   |   | +-type=STRUCT<x INT64, y STRING>
@@ -2313,7 +2313,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="Label1", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#13
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#13]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -2411,14 +2411,14 @@ QueryStmt
             |   |   |     +-Literal(type=INT64, value=1)
             |   |   +-input_scan=
             |   |     +-TableScan(column_list=MultipleColumns.[int_a#1, int_b#3], table=MultipleColumns, column_index_list=[0, 2])
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x INT64, y STRING>) -> ARRAY<STRUCT<x INT64, y STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<x INT64, y STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="int_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#11
+            |   +-element_column_list=[unpivot_array_0.unpivot_unnest#11]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -2537,22 +2537,22 @@ QueryStmt
             |   |           +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#10]
             |   |           +-input_scan=
             |   |           | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            |   |           +-array_expr=
+            |   |           +-array_expr_list=
             |   |           | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
             |   |           |   +-MakeStruct
             |   |           |     +-type=STRUCT<a INT64, b STRING>
             |   |           |     +-field_list=
             |   |           |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |           |       +-Literal(type=STRING, value="Label", has_explicit_type=TRUE)
-            |   |           +-element_column=unpivot_array_0.unpivot_unnest#10
-            |   +-array_expr=
+            |   |           +-element_column_list=[unpivot_array_0.unpivot_unnest#10]
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x INT64, y STRING>) -> ARRAY<STRUCT<x INT64, y STRING>>)
             |   |   +-MakeStruct
             |   |     +-type=STRUCT<x INT64, y STRING>
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=$unpivot.a#3)
             |   |       +-Literal(type=STRING, value="a", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_1.unpivot_unnest#11
+            |   +-element_column_list=[unpivot_array_1.unpivot_unnest#11]
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -2646,14 +2646,14 @@ SubqueryExpr
                 |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
                 |   +-input_scan=
                 |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-                |   +-array_expr=
+                |   +-array_expr_list=
                 |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
                 |   |   +-MakeStruct
                 |   |     +-type=STRUCT<a INT64, b STRING>
                 |   |     +-field_list=
                 |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
                 |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-                |   +-element_column=unpivot_array_0.unpivot_unnest#7
+                |   +-element_column_list=[unpivot_array_0.unpivot_unnest#7]
                 +-filter_expr=
                   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                     +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -2662,3 +2662,16 @@ SubqueryExpr
                         +-expr=
                         | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
                         +-field_idx=0
+==
+
+# Regression test for b/309024915
+WITH Produce AS (
+  SELECT 'Kale' as product, 51 as Q1, 23 as Q2, 45 as Q3, 3 as Q4 UNION ALL
+  SELECT 'Apple', 77, 0, 25, 2),
+  T AS (SELECT 1 AS a)
+SELECT * FROM Produce, T
+UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
+--
+ERROR: Unrecognized name: Q1 [at 6:31]
+UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
+                              ^

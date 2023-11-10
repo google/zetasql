@@ -60,8 +60,12 @@ class FileLayoutBuilder : public ParsedFileVisitor {
   }
 
   absl::Status VisitTokenizedStmt(const TokenizedStmt& file_part) override {
-    layout_->AddPart(
-        std::make_unique<StmtLayout>(file_part, layout_->FormatterOptions()));
+    if (!file_part.ShouldFormat()) {
+      layout_->AddPart(std::make_unique<UnparsedLayout>(file_part));
+    } else {
+      layout_->AddPart(
+          std::make_unique<StmtLayout>(file_part, layout_->FormatterOptions()));
+    }
     return absl::OkStatus();
   }
 
@@ -684,20 +688,26 @@ void StmtLayout::BreakOnMandatoryLineBreaks() {
                      Token::Type::ASSIGNMENT_OPERATOR)) {
         // If there is more than one option in OPTIONS clause, each option
         // should be on a separate line.
-        const ChunkBlock& options_block = *chunk.ChunkBlock()->Parent();
+        const ChunkBlock& parent_block = *chunk.ChunkBlock()->Parent();
+        const ChunkBlock* prev_sibling_block =
+            parent_block.FindPreviousSiblingBlock();
+        if (prev_sibling_block != nullptr && prev_sibling_block->IsLeaf() &&
+            prev_sibling_block->Chunk()->FirstKeyword() == "RUN") {
+          // RUN statement uses same syntax as OPTIONS clause, but unlike
+          // OPTIONS it doesn't require each parameter to be on a separate line.
+          break;
+        }
         absl::btree_set<int> options =
-            ChunkPositions(options_block, line, [](const Chunk& chunk) {
+            ChunkPositions(parent_block, line, [](const Chunk& chunk) {
               return chunk.Tokens().WithoutComments().size() > 1 &&
                      chunk.Tokens().WithoutComments()[1]->Is(
                          Token::Type::ASSIGNMENT_OPERATOR);
             });
         if (options.size() > 1) {
           breakpoints.merge(options);
-          const ChunkBlock* options_keyword =
-              options_block.FindPreviousSiblingBlock();
-          if (options_keyword != nullptr && options_keyword->IsLeaf() &&
-              options_keyword->Chunk()->LastKeywordsAre("OPTIONS", "(")) {
-            breakpoints.insert(options_keyword->Chunk()->PositionInQuery());
+          if (prev_sibling_block != nullptr && prev_sibling_block->IsLeaf() &&
+              prev_sibling_block->Chunk()->LastKeywordsAre("OPTIONS", "(")) {
+            breakpoints.insert(prev_sibling_block->Chunk()->PositionInQuery());
           }
           break;
         }

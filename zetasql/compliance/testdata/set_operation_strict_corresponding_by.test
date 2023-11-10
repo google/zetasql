@@ -1,0 +1,480 @@
+# This file contains the compliance test cases for STRICT CORRESPONDING BY. Test
+# cases are divided into multiple sections.
+
+## ===== Start section: Literal and type coercion for STRICT CORRESPONDING BY =====  ##
+
+# CORRESPONDING BY Literal coercion STRICT mode
+[name=corresponding_by_literal_coercion_strict]
+[default required_features=V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+SELECT 1 AS b, 1 AS a
+UNION ALL STRICT CORRESPONDING BY (b, a)
+SELECT 1 AS a, CAST(1 AS INT32) AS b
+--
+ARRAY<STRUCT<b INT32, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# CORRESPONDING BY Literal coercion STRICT mode literal cocercion with subquery
+[name=corresponding_by_literal_coercion_strict_coercion_with_subquery]
+(
+  SELECT 1 AS a, 1 AS b
+  UNION ALL STRICT CORRESPONDING BY (a, b)
+  SELECT 1 AS b, NULL AS a
+)
+UNION ALL STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS b, CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, 1}, {1, 1}, {1, 1}]
+==
+
+# CORRESPONDING BY Literal coercion STRICT mode with three inputs but without padded NULL in any of the input
+[name=corresponding_by_literal_coercion_strict_three_inputs]
+SELECT NULL AS a
+UNION ALL STRICT CORRESPONDING BY (a)
+SELECT CAST(1 AS FLOAT) AS a
+UNION ALL STRICT CORRESPONDING BY (a)
+SELECT CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a DOUBLE>>[unknown order:{NULL}, {1}, {1}]
+==
+
+# CORRESPONDING BY Type coercion STRICT mode basic type coercion
+[name=corresponding_by_type_coercion_strict_basic_type_coercion]
+SELECT CAST(1 AS INT64) AS a, 1 AS b
+UNION ALL STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS b, CAST(1 AS FLOAT) AS a
+--
+ARRAY<STRUCT<a DOUBLE, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# CORRESPONDING BY Type coercion STRICT mode three inputs
+[name=corresponding_by_type_coercion_strict_three_inputs]
+SELECT CAST(1 AS INT64) AS a, 1 AS b, 1 AS c
+UNION ALL STRICT CORRESPONDING BY (a, b, c)
+SELECT 1 AS b, CAST(1 AS FLOAT) AS a, 1 AS c
+UNION ALL STRICT CORRESPONDING BY (a, b, c)
+SELECT 1 AS c, CAST(1 AS INT32) AS a, 1 AS b
+--
+ARRAY<STRUCT<a DOUBLE, b INT64, c INT64>>[unknown order:
+  {1, 1, 1},
+  {1, 1, 1},
+  {1, 1, 1}
+]
+==
+
+# CORRESPONDING BY Type coercion STRICT mode with subquery
+[name=corresponding_by_type_coercion_strict_subquery]
+SELECT CAST(1 AS FLOAT) AS b, CAST(1 AS INT64) AS a
+UNION ALL STRICT CORRESPONDING BY (b, a)
+(
+  SELECT CAST(1 AS FLOAT) AS a, CAST(1 AS INT32) AS b
+  LEFT UNION ALL CORRESPONDING BY (a, b)
+  SELECT NULL AS a, CAST(1 AS INT64) AS b
+)
+--
+ARRAY<STRUCT<b DOUBLE, a DOUBLE>>[unknown order:{1, 1}, {1, 1}, {1, NULL}]
+==
+
+## ===== Start section: EXCEPT (ALL|DISTINCT) for STRICT CORRESPONDING BY =====  ##
+
+# STRICT CORRESPONDING BY same order [row, row] EXCEPT ALL [row] = [row]
+[name=strict_corresponding_by_same_order_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY same order [row, row] EXCEPT ALL [row, row] = []
+[name=strict_corresponding_by_same_order_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING BY (a, b)
+SELECT a, b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING BY same order [row] EXCEPT ALL [row, row] = []
+[name=strict_corresponding_by_same_order_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL STRICT CORRESPONDING BY (a, b)
+SELECT a, b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING BY same order [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=strict_corresponding_by_same_order_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING BY (a, b)
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING BY same order [row, row] EXCEPT DISTINCT [row] = []
+[name=strict_corresponding_by_same_order_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING BY same order [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=strict_corresponding_by_same_order_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT STRICT CORRESPONDING BY (a, b)
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY different order [row, row] EXCEPT ALL [row] = [row]
+[name=strict_corresponding_by_different_order_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY different order [row, row] EXCEPT ALL [row, row] = []
+[name=strict_corresponding_by_different_order_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# STRICT CORRESPONDING BY different order [row] EXCEPT ALL [row, row] = []
+[name=strict_corresponding_by_different_order_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL STRICT CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# STRICT CORRESPONDING BY different order [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=strict_corresponding_by_different_order_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING BY different order [row, row] EXCEPT DISTINCT [row] = []
+[name=strict_corresponding_by_different_order_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT STRICT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# STRICT CORRESPONDING BY different order [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=strict_corresponding_by_different_order_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT STRICT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+## ===== Start section: UNION (ALL|DISTINCT) for STRICT CORRESPONDING BY =====  ##
+
+# STRICT CORRESPONDING BY same order [row1] UNION ALL [row2] = [row1, row2]
+[name=strict_corresponding_by_same_order_union_all_basic]
+SELECT 1 AS a, 1 AS b
+UNION ALL STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING BY same order [row1, row1] union distinct [row1] = [row1]
+[name=strict_corresponding_by_same_order_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+UNION DISTINCT STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY same order [row1] union distinct [row2] = [row1, row2]
+[name=strict_corresponding_by_same_order_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b
+UNION DISTINCT STRICT CORRESPONDING BY (a, b)
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+# STRICT CORRESPONDING BY different order [row1] UNION ALL [row2] = [row1, row2]
+[name=strict_corresponding_by_different_order_union_all_basic]
+SELECT 1 AS a, 1 AS b
+UNION ALL STRICT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING BY different order [row1, row1] union distinct [row1] = [row1]
+[name=strict_corresponding_by_different_order_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+UNION DISTINCT STRICT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY different order [row1] union distinct [row2] = [row1, row2]
+[name=strict_corresponding_by_different_order_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b
+UNION DISTINCT STRICT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+## ===== Start section: INTERSECT (ALL|DISTINCT) for STRICT CORRESPONDING BY =====  ##
+
+# STRICT CORRESPONDING BY same order [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=strict_corresponding_by_same_order_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING BY (a, b)
+SELECT a, b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING BY same order [row, row] INTERSECT ALL [row] = [row]
+[name=strict_corresponding_by_same_order_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY same order [row1, row1] INTERSECT ALL [row2] = []
+[name=strict_corresponding_by_same_order_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING BY (a, b)
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING BY same order [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=strict_corresponding_by_same_order_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING BY (a, b)
+SELECT a, b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY same order [row, row] INTERSECT DISTINCT [row] = [row]
+[name=strict_corresponding_by_same_order_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY same order [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=strict_corresponding_by_same_order_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING BY (a, b)
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING BY different order [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=strict_corresponding_by_different_order_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING BY different order [row, row] INTERSECT ALL [row] = [row]
+[name=strict_corresponding_by_different_order_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY different order [row1, row1] INTERSECT ALL [row2] = []
+[name=strict_corresponding_by_different_order_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# STRICT CORRESPONDING BY different order [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=strict_corresponding_by_different_order_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY different order [row, row] INTERSECT DISTINCT [row] = [row]
+[name=strict_corresponding_by_different_order_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING BY different order [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=strict_corresponding_by_different_order_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+## ===== Start section: Three-input test cases for STRICT CORRESPONDING BY =====  ##
+
+# Three input CORRESPONDING BY: STRICT mode basic test case
+[name=three_input_corresponding_by_strict_basic_test_case]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS DOUBLE) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 2, 2
+  )
+SELECT a, b, c FROM Table1
+UNION ALL STRICT CORRESPONDING BY (b, c, a)
+SELECT c, a, b FROM Table1
+UNION ALL STRICT CORRESPONDING BY (b, c, a)
+SELECT b, a, c FROM Table1
+--
+ARRAY<STRUCT<b DOUBLE, c INT64, a INT64>>[unknown order:
+  {2, 2, 2},
+  {1, 1, 1},
+  {2, 2, 2},
+  {1, 1, 1},
+  {2, 2, 2},
+  {1, 1, 1}
+]

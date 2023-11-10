@@ -1291,9 +1291,9 @@ QueryStmt
         |   |   |   +-input_scan=
         |   |   |     +-ArrayScan
         |   |   |       +-column_list=[$array.x#1]
-        |   |   |       +-array_expr=
+        |   |   |       +-array_expr_list=
         |   |   |       | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   |   |       +-element_column=$array.x#1
+        |   |   |       +-element_column_list=[$array.x#1]
         |   |   +-argument_column_list=[$array.x#1]
         |   +-column_index_list=[0]
         |   +-alias="tvf_left"
@@ -1310,9 +1310,9 @@ QueryStmt
         |   |   |   +-input_scan=
         |   |   |     +-ArrayScan
         |   |   |       +-column_list=[$array.x#3]
-        |   |   |       +-array_expr=
+        |   |   |       +-array_expr_list=
         |   |   |       | +-Literal(type=ARRAY<INT64>, value=[1, 3, 4])
-        |   |   |       +-element_column=$array.x#3
+        |   |   |       +-element_column_list=[$array.x#3]
         |   |   +-argument_column_list=[$array.x#3]
         |   +-column_index_list=[0]
         |   +-alias="tvf_right"
@@ -2387,6 +2387,79 @@ QueryStmt
 ==
 
 # A TVF accepts one relation argument with a required int64 value table, and
+# the query provides a value table or non-value-table with type int32.
+# Coercion is necessary.
+select * from tvf_one_relation_arg_int64_input_value_table(
+    (select {{|AS VALUE}} cast(5 as int32)))
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_relation_arg_int64_input_value_table.column_bool#3 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_int64_input_value_table.column_bytes#4 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_relation_arg_int64_input_value_table.[column_bool#3, column_bytes#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_relation_arg_int64_input_value_table.[column_bool#3, column_bytes#4]
+        +-tvf=tvf_one_relation_arg_int64_input_value_table((TABLE<INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery2.$col1#2]
+        |   |   +-expr_list=
+        |   |   | +-$col1#2 :=
+        |   |   |   +-Cast(INT32 -> INT64)
+        |   |   |     +-ColumnRef(type=INT32, column=$subquery1.$col1#1)
+        |   |   +-input_scan=
+        |   |     +-ProjectScan
+        |   |       +-column_list=[$subquery1.$col1#1]
+        |   |       +-expr_list=
+        |   |       | +-$col1#1 := Literal(type=INT32, value=5, has_explicit_type=TRUE)
+        |   |       +-input_scan=
+        |   |         +-SingleRowScan
+        |   +-argument_column_list=[$subquery2.$col1#2]
+        +-column_index_list=[0, 1]
+--
+ALTERNATION GROUP: AS VALUE
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_relation_arg_int64_input_value_table.column_bool#3 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_int64_input_value_table.column_bytes#4 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_relation_arg_int64_input_value_table.[column_bool#3, column_bytes#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_relation_arg_int64_input_value_table.[column_bool#3, column_bytes#4]
+        +-tvf=tvf_one_relation_arg_int64_input_value_table((TABLE<INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery2.$value_column#2]
+        |   |   +-expr_list=
+        |   |   | +-$value_column#2 :=
+        |   |   |   +-Cast(INT32 -> INT64)
+        |   |   |     +-ColumnRef(type=INT32, column=$subquery1.$col1#1)
+        |   |   +-input_scan=
+        |   |     +-ProjectScan
+        |   |       +-column_list=[$subquery1.$col1#1]
+        |   |       +-expr_list=
+        |   |       | +-$col1#1 := Literal(type=INT32, value=5, has_explicit_type=TRUE)
+        |   |       +-input_scan=
+        |   |         +-SingleRowScan
+        |   +-argument_column_list=[$subquery2.$value_column#2]
+        +-column_index_list=[0, 1]
+==
+
+# A TVF accepts one relation argument with a required int64 value table, and
 # forwards that relation's input schema to the TVF output schema. The query
 # provides a non-value table with a single column of the required type, and
 # selects from the column in the final enclosing SELECT statement. ZetaSQL
@@ -2724,9 +2797,9 @@ QueryStmt
     |                 |   |   +-input_scan=
     |                 |   |     +-ArrayScan
     |                 |   |       +-column_list=[$array.structval#2]
-    |                 |   |       +-array_expr=
+    |                 |   |       +-array_expr_list=
     |                 |   |       | +-ColumnRef(type=ARRAY<STRUCT<string STRING, int64 INT64>>, column=i.structval#1, is_correlated=TRUE)
-    |                 |   |       +-element_column=$array.structval#2
+    |                 |   |       +-element_column_list=[$array.structval#2]
     |                 |   +-argument_column_list=$subquery1.[string#3, int64#4]
     |                 +-column_index_list=[0]
     +-input_scan=
@@ -2785,7 +2858,7 @@ QueryStmt
         |   | +-structval#1 := Literal(type=ARRAY<STRUCT<string STRING, int64 INT64>>, value=[{string:"e", int64:123}])
         |   +-input_scan=
         |     +-SingleRowScan
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<STRING>>>
         |   +-subquery_type=ARRAY
@@ -2853,12 +2926,12 @@ QueryStmt
         |               |   |   +-input_scan=
         |               |   |     +-ArrayScan
         |               |   |       +-column_list=[$array.$unnest1#2]
-        |               |   |       +-array_expr=
+        |               |   |       +-array_expr_list=
         |               |   |       | +-ColumnRef(type=ARRAY<STRUCT<string STRING, int64 INT64>>, column=i.structval#1, is_correlated=TRUE)
-        |               |   |       +-element_column=$array.$unnest1#2
+        |               |   |       +-element_column_list=[$array.$unnest1#2]
         |               |   +-argument_column_list=$subquery1.[string#3, int64#4]
         |               +-column_index_list=[0]
-        +-element_column=$array.u#10
+        +-element_column_list=[$array.u#10]
 
 ==
 
@@ -2928,9 +3001,9 @@ QueryStmt
     |                 |           +-input_scan=
     |                 |             +-ArrayScan
     |                 |               +-column_list=[$array.val#4]
-    |                 |               +-array_expr=
+    |                 |               +-array_expr_list=
     |                 |               | +-ColumnRef(type=ARRAY<INT64>, column=i.val#1, is_correlated=TRUE)
-    |                 |               +-element_column=$array.val#4
+    |                 |               +-element_column_list=[$array.val#4]
     |                 +-column_index_list=[0, 1]
     +-input_scan=
       +-ProjectScan
@@ -5836,9 +5909,9 @@ QueryStmt
             |   |   +-argument_column_list=t.[a#3, b#4]
             |   +-column_index_list=[0, 1]
             |   +-alias="t0"
-            +-array_expr=
+            +-array_expr_list=
             | +-ColumnRef(type=ARRAY<INT64>, column=tvf_one_relation_arg_output_schema_is_input_schema.b#6)
-            +-element_column=$array.b#7
+            +-element_column_list=[$array.b#7]
 ==
 
 # Test with a named optional table after other optional scalars.

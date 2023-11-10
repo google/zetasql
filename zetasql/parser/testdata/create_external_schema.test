@@ -1,0 +1,209 @@
+# CREATE EXTERNAL SCHEMA
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar.baz OPTIONS ()
+--
+CreateExternalSchemaStatement [0-61] [CREATE EXTERNAL...OPTIONS ()]
+  PathExpression [23-26] [foo]
+    Identifier(foo) [23-26] [foo]
+  WithConnectionClause [27-50] [WITH CONNECTION bar.baz]
+    ConnectionClause [32-50] [CONNECTION bar.baz]
+      PathExpression [43-50] [bar.baz]
+        Identifier(bar) [43-46] [bar]
+        Identifier(baz) [47-50] [baz]
+  OptionsList [59-61] [()]
+--
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar.baz
+OPTIONS()
+==
+
+CREATE EXTERNAL SCHEMA `foo` WITH CONNECTION bar.baz OPTIONS ()
+--
+CreateExternalSchemaStatement [0-63] [CREATE EXTERNAL...OPTIONS ()]
+  PathExpression [23-28] [`foo`]
+    Identifier(foo) [23-28] [`foo`]
+  WithConnectionClause [29-52] [WITH CONNECTION bar.baz]
+    ConnectionClause [34-52] [CONNECTION bar.baz]
+      PathExpression [45-52] [bar.baz]
+        Identifier(bar) [45-48] [bar]
+        Identifier(baz) [49-52] [baz]
+  OptionsList [61-63] [()]
+--
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar.baz
+OPTIONS()
+==
+
+CREATE EXTERNAL SCHEMA `WITH CONNECTION` WITH CONNECTION bar.baz OPTIONS ()
+--
+CreateExternalSchemaStatement [0-75] [CREATE EXTERNAL...OPTIONS ()]
+  PathExpression [23-40] [`WITH CONNECTION`]
+    Identifier(`WITH CONNECTION`) [23-40] [`WITH CONNECTION`]
+  WithConnectionClause [41-64] [WITH CONNECTION bar.baz]
+    ConnectionClause [46-64] [CONNECTION bar.baz]
+      PathExpression [57-64] [bar.baz]
+        Identifier(bar) [57-60] [bar]
+        Identifier(baz) [61-64] [baz]
+  OptionsList [73-75] [()]
+--
+CREATE EXTERNAL SCHEMA `WITH CONNECTION` WITH CONNECTION bar.baz
+OPTIONS()
+==
+
+CREATE {{|or replace}} EXTERNAL SCHEMA {{|if not exists}} foo.bar WITH
+CONNECTION baz options()
+--
+ALTERNATION GROUP: <empty>
+--
+CreateExternalSchemaStatement [0-62] [CREATE  EXTERNAL...options()]
+  PathExpression [25-32] [foo.bar]
+    Identifier(foo) [25-28] [foo]
+    Identifier(bar) [29-32] [bar]
+  WithConnectionClause [33-52] [WITH CONNECTION baz]
+    ConnectionClause [38-52] [CONNECTION baz]
+      PathExpression [49-52] [baz]
+        Identifier(baz) [49-52] [baz]
+  OptionsList [60-62] [()]
+--
+CREATE EXTERNAL SCHEMA foo.bar WITH CONNECTION baz
+OPTIONS()
+--
+ALTERNATION GROUP: if not exists
+--
+CreateExternalSchemaStatement(is_if_not_exists) [0-75] [CREATE  EXTERNAL...options()]
+  PathExpression [38-45] [foo.bar]
+    Identifier(foo) [38-41] [foo]
+    Identifier(bar) [42-45] [bar]
+  WithConnectionClause [46-65] [WITH CONNECTION baz]
+    ConnectionClause [51-65] [CONNECTION baz]
+      PathExpression [62-65] [baz]
+        Identifier(baz) [62-65] [baz]
+  OptionsList [73-75] [()]
+--
+CREATE EXTERNAL SCHEMA IF NOT EXISTS foo.bar WITH CONNECTION baz
+OPTIONS()
+--
+ALTERNATION GROUP: or replace,
+--
+CreateExternalSchemaStatement(is_or_replace) [0-72] [CREATE or...options()]
+  PathExpression [35-42] [foo.bar]
+    Identifier(foo) [35-38] [foo]
+    Identifier(bar) [39-42] [bar]
+  WithConnectionClause [43-62] [WITH CONNECTION baz]
+    ConnectionClause [48-62] [CONNECTION baz]
+      PathExpression [59-62] [baz]
+        Identifier(baz) [59-62] [baz]
+  OptionsList [70-72] [()]
+--
+CREATE OR REPLACE EXTERNAL SCHEMA foo.bar WITH CONNECTION baz
+OPTIONS()
+--
+ALTERNATION GROUP: or replace,if not exists
+--
+CreateExternalSchemaStatement(is_or_replace, is_if_not_exists) [0-85] [CREATE or...options()]
+  PathExpression [48-55] [foo.bar]
+    Identifier(foo) [48-51] [foo]
+    Identifier(bar) [52-55] [bar]
+  WithConnectionClause [56-75] [WITH CONNECTION baz]
+    ConnectionClause [61-75] [CONNECTION baz]
+      PathExpression [72-75] [baz]
+        Identifier(baz) [72-75] [baz]
+  OptionsList [83-85] [()]
+--
+CREATE OR REPLACE EXTERNAL SCHEMA IF NOT EXISTS foo.bar WITH CONNECTION baz
+OPTIONS()
+==
+
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar.baz OPTIONS (a=b, c="def")
+--
+CreateExternalSchemaStatement [0-73] [CREATE EXTERNAL..., c="def")]
+  PathExpression [23-26] [foo]
+    Identifier(foo) [23-26] [foo]
+  WithConnectionClause [27-50] [WITH CONNECTION bar.baz]
+    ConnectionClause [32-50] [CONNECTION bar.baz]
+      PathExpression [43-50] [bar.baz]
+        Identifier(bar) [43-46] [bar]
+        Identifier(baz) [47-50] [baz]
+  OptionsList [59-73] [(a=b, c="def")]
+    OptionsEntry [60-63] [a=b]
+      Identifier(a) [60-61] [a]
+      PathExpression [62-63] [b]
+        Identifier(b) [62-63] [b]
+    OptionsEntry [65-72] [c="def"]
+      Identifier(c) [65-66] [c]
+      StringLiteral("def") [67-72] ["def"]
+--
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar.baz
+OPTIONS(a = b, c = "def")
+==
+
+CREATE {{temp|temporary|public|private}} EXTERNAL SCHEMA foo WITH CONNECTION bar
+OPTIONS()
+--
+ALTERNATION GROUP: temp
+--
+CreateExternalSchemaStatement(is_temp) [0-61] [CREATE temp...OPTIONS()]
+  PathExpression [28-31] [foo]
+    Identifier(foo) [28-31] [foo]
+  WithConnectionClause [32-51] [WITH CONNECTION bar]
+    ConnectionClause [37-51] [CONNECTION bar]
+      PathExpression [48-51] [bar]
+        Identifier(bar) [48-51] [bar]
+  OptionsList [59-61] [()]
+--
+CREATE TEMP EXTERNAL SCHEMA foo WITH CONNECTION bar
+OPTIONS()
+--
+ALTERNATION GROUP: temporary
+--
+CreateExternalSchemaStatement(is_temp) [0-66] [CREATE temporary...OPTIONS()]
+  PathExpression [33-36] [foo]
+    Identifier(foo) [33-36] [foo]
+  WithConnectionClause [37-56] [WITH CONNECTION bar]
+    ConnectionClause [42-56] [CONNECTION bar]
+      PathExpression [53-56] [bar]
+        Identifier(bar) [53-56] [bar]
+  OptionsList [64-66] [()]
+--
+CREATE TEMP EXTERNAL SCHEMA foo WITH CONNECTION bar
+OPTIONS()
+--
+ALTERNATION GROUP: public
+--
+CreateExternalSchemaStatement(is_public) [0-63] [CREATE public...OPTIONS()]
+  PathExpression [30-33] [foo]
+    Identifier(foo) [30-33] [foo]
+  WithConnectionClause [34-53] [WITH CONNECTION bar]
+    ConnectionClause [39-53] [CONNECTION bar]
+      PathExpression [50-53] [bar]
+        Identifier(bar) [50-53] [bar]
+  OptionsList [61-63] [()]
+--
+CREATE PUBLIC EXTERNAL SCHEMA foo WITH CONNECTION bar
+OPTIONS()
+--
+ALTERNATION GROUP: private
+--
+CreateExternalSchemaStatement(is_private) [0-64] [CREATE private...OPTIONS()]
+  PathExpression [31-34] [foo]
+    Identifier(foo) [31-34] [foo]
+  WithConnectionClause [35-54] [WITH CONNECTION bar]
+    ConnectionClause [40-54] [CONNECTION bar]
+      PathExpression [51-54] [bar]
+        Identifier(bar) [51-54] [bar]
+  OptionsList [62-64] [()]
+--
+CREATE PRIVATE EXTERNAL SCHEMA foo WITH CONNECTION bar
+OPTIONS()
+==
+
+CREATE EXTERNAL SCHEMA foo OPTIONS()
+--
+ERROR: Syntax error: Expected "." or keyword WITH but got keyword OPTIONS [at 1:28]
+CREATE EXTERNAL SCHEMA foo OPTIONS()
+                           ^
+==
+
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar
+--
+ERROR: Syntax error: Expected keyword OPTIONS but got end of statement [at 1:47]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar
+                                              ^
+==

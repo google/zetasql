@@ -2174,11 +2174,11 @@ QueryStmt
         |   |   +-input_scan=
         |   |   | +-ArrayScan
         |   |   |   +-column_list=[$array.public_dayofweek#13]
-        |   |   |   +-array_expr=
+        |   |   |   +-array_expr_list=
         |   |   |   | +-FunctionCall(ZetaSQL:generate_array(INT64, INT64, optional(0) INT64) -> ARRAY<INT64>)
         |   |   |   |   +-Literal(type=INT64, value=1)
         |   |   |   |   +-Literal(type=INT64, value=7)
-        |   |   |   +-element_column=$array.public_dayofweek#13
+        |   |   |   +-element_column_list=[$array.public_dayofweek#13]
         |   |   +-group_by_list=
         |   |     +-public_dayofweek#14 := ColumnRef(type=INT64, column=$array.public_dayofweek#13)
         |   +-join_expr=
@@ -2214,11 +2214,11 @@ QueryStmt
     |       +-input_scan=
     |       | +-ArrayScan
     |       |   +-column_list=[$array.public_dayofweek#25]
-    |       |   +-array_expr=
+    |       |   +-array_expr_list=
     |       |   | +-FunctionCall(ZetaSQL:generate_array(INT64, INT64, optional(0) INT64) -> ARRAY<INT64>)
     |       |   |   +-Literal(type=INT64, value=1)
     |       |   |   +-Literal(type=INT64, value=7)
-    |       |   +-element_column=$array.public_dayofweek#25
+    |       |   +-element_column_list=[$array.public_dayofweek#25]
     |       +-group_by_list=
     |         +-public_dayofweek#24 := ColumnRef(type=INT64, column=$array.public_dayofweek#25)
     +-query=
@@ -2319,11 +2319,11 @@ QueryStmt
         |   |   +-input_scan=
         |   |   | +-ArrayScan
         |   |   |   +-column_list=[$array.public_dayofweek#1]
-        |   |   |   +-array_expr=
+        |   |   |   +-array_expr_list=
         |   |   |   | +-FunctionCall(ZetaSQL:generate_array(INT64, INT64, optional(0) INT64) -> ARRAY<INT64>)
         |   |   |   |   +-Literal(type=INT64, value=1)
         |   |   |   |   +-Literal(type=INT64, value=7)
-        |   |   |   +-element_column=$array.public_dayofweek#1
+        |   |   |   +-element_column_list=[$array.public_dayofweek#1]
         |   |   +-group_by_list=
         |   |     +-public_dayofweek#2 := ColumnRef(type=INT64, column=$array.public_dayofweek#1)
         |   +-right_scan=
@@ -2361,11 +2361,11 @@ QueryStmt
     |       +-input_scan=
     |       | +-ArrayScan
     |       |   +-column_list=[$array.public_dayofweek#25]
-    |       |   +-array_expr=
+    |       |   +-array_expr_list=
     |       |   | +-FunctionCall(ZetaSQL:generate_array(INT64, INT64, optional(0) INT64) -> ARRAY<INT64>)
     |       |   |   +-Literal(type=INT64, value=1)
     |       |   |   +-Literal(type=INT64, value=7)
-    |       |   +-element_column=$array.public_dayofweek#25
+    |       |   +-element_column_list=[$array.public_dayofweek#25]
     |       +-group_by_list=
     |         +-public_dayofweek#24 := ColumnRef(type=INT64, column=$array.public_dayofweek#25)
     +-query=
@@ -3466,7 +3466,7 @@ QueryStmt
               +-max_groups_contributed := Literal(type=INT64, value=3)
 ==
 
-# Inner join after public groups join is allowed.
+# Inner join after public groups join is not allowed.
 SELECT WITH ANONYMIZATION OPTIONS (
   max_groups_contributed=3,
   group_selection_strategy = PUBLIC_GROUPS
@@ -3480,6 +3480,7 @@ INNER JOIN
   SimpleTypes using(string)
 GROUP BY string;
 --
+[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-$groupby.string#51 AS string [STRING]
@@ -3525,87 +3526,1501 @@ QueryStmt
           +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
 
 
+Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow JOIN operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
+==
+
+# Filter scan between public groups join and aggregation is not allowed.
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string, ANON_COUNT(*) AS anon_users
+FROM
+  SimpleTypesWithAnonymizationUid
+RIGHT OUTER JOIN
+  (SELECT DISTINCT string FROM SimpleTypes)
+    USING (string)
+WHERE STARTS_WITH(string, 'abc')
+GROUP BY string;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+        | +-FilterScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+        |   +-input_scan=
+        |   | +-JoinScan
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+        |   |   +-join_type=RIGHT
+        |   |   +-left_scan=
+        |   |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.string#5], table=SimpleTypesWithAnonymizationUid, column_index_list=[4])
+        |   |   +-right_scan=
+        |   |   | +-AggregateScan
+        |   |   |   +-column_list=[$distinct.string#31]
+        |   |   |   +-input_scan=
+        |   |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |   |   |   +-group_by_list=
+        |   |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   |   +-join_expr=
+        |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+        |   +-filter_expr=
+        |     +-FunctionCall(ZetaSQL:starts_with(STRING, STRING) -> BOOL)
+        |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+        |       +-Literal(type=STRING, value="abc")
+        +-group_by_list=
+        | +-string#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+        +-aggregate_list=
+        | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=3)
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
+==
+
+# Filter scan after aggregation is allowed.
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string, ANON_COUNT(*) AS anon_users
+FROM
+  SimpleTypesWithAnonymizationUid
+RIGHT OUTER JOIN
+  (SELECT DISTINCT string FROM SimpleTypes)
+    USING (string)
+GROUP BY string
+HAVING STARTS_WITH(string, 'abc');
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+        | +-AnonymizedAggregateScan
+        |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        |   +-input_scan=
+        |   | +-JoinScan
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+        |   |   +-join_type=RIGHT
+        |   |   +-left_scan=
+        |   |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.string#5], table=SimpleTypesWithAnonymizationUid, column_index_list=[4])
+        |   |   +-right_scan=
+        |   |   | +-AggregateScan
+        |   |   |   +-column_list=[$distinct.string#31]
+        |   |   |   +-input_scan=
+        |   |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |   |   |   +-group_by_list=
+        |   |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   |   +-join_expr=
+        |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+        |   +-group_by_list=
+        |   | +-string#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+        |   +-aggregate_list=
+        |   | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        |   +-anonymization_option_list=
+        |     +-max_groups_contributed := Literal(type=INT64, value=3)
+        |     +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:starts_with(STRING, STRING) -> BOOL)
+            +-ColumnRef(type=STRING, column=$groupby.string#33)
+            +-Literal(type=STRING, value="abc")
+
+
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$groupby.string#51 AS string [STRING]
-| +-$aggregate.anon_users#50 AS anon_users [INT64]
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$groupby.string#51, $aggregate.anon_users#50]
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="$public_groups0"
     |   +-with_subquery=
     |     +-AggregateScan
-    |       +-column_list=[$distinct.string#59]
+    |       +-column_list=[$distinct.string#41]
     |       +-input_scan=
-    |       | +-TableScan(column_list=[SimpleTypes.string#60], table=SimpleTypes, column_index_list=[4])
+    |       | +-TableScan(column_list=[SimpleTypes.string#42], table=SimpleTypes, column_index_list=[4])
     |       +-group_by_list=
-    |         +-string#59 := ColumnRef(type=STRING, column=SimpleTypes.string#60)
+    |         +-string#41 := ColumnRef(type=STRING, column=SimpleTypes.string#42)
     +-query=
       +-ProjectScan
-        +-column_list=[$groupby.string#51, $aggregate.anon_users#50]
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
         +-input_scan=
-          +-AnonymizedAggregateScan
-            +-column_list=[$groupby.string#51, $aggregate.anon_users#50]
+          +-FilterScan
+            +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
             +-input_scan=
-            | +-JoinScan
-            |   +-column_list=[$public_groups0.string#58, $aggregate.anon_users_partial#54, $groupby.string_partial#55, $group_by.$uid#56]
-            |   +-join_type=RIGHT
-            |   +-left_scan=
-            |   | +-SampleScan
-            |   |   +-column_list=[$aggregate.anon_users_partial#54, $groupby.string_partial#55, $group_by.$uid#56]
-            |   |   +-input_scan=
-            |   |   | +-AggregateScan
-            |   |   |   +-column_list=[$aggregate.anon_users_partial#54, $groupby.string_partial#55, $group_by.$uid#56]
+            | +-AnonymizedAggregateScan
+            |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+            |   +-input_scan=
+            |   | +-JoinScan
+            |   |   +-column_list=[$public_groups0.string#40, $aggregate.anon_users_partial#36, $groupby.string_partial#37, $group_by.$uid#38]
+            |   |   +-join_type=RIGHT
+            |   |   +-left_scan=
+            |   |   | +-SampleScan
+            |   |   |   +-column_list=[$aggregate.anon_users_partial#36, $groupby.string_partial#37, $group_by.$uid#38]
             |   |   |   +-input_scan=
-            |   |   |   | +-JoinScan
-            |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31, SimpleTypes.string#36, SimpleTypesWithAnonymizationUid.uid#52]
-            |   |   |   |   +-left_scan=
+            |   |   |   | +-AggregateScan
+            |   |   |   |   +-column_list=[$aggregate.anon_users_partial#36, $groupby.string_partial#37, $group_by.$uid#38]
+            |   |   |   |   +-input_scan=
             |   |   |   |   | +-JoinScan
-            |   |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31, SimpleTypesWithAnonymizationUid.uid#52]
+            |   |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31, SimpleTypesWithAnonymizationUid.uid#34]
             |   |   |   |   |   +-left_scan=
-            |   |   |   |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#52], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+            |   |   |   |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#34], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
             |   |   |   |   |   +-right_scan=
             |   |   |   |   |   | +-WithRefScan(column_list=[$distinct.string#31], with_query_name="$public_groups0")
             |   |   |   |   |   +-join_expr=
             |   |   |   |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
             |   |   |   |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
             |   |   |   |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+            |   |   |   |   +-group_by_list=
+            |   |   |   |   | +-string_partial#37 := ColumnRef(type=STRING, column=$distinct.string#31)
+            |   |   |   |   | +-$uid#38 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#34)
+            |   |   |   |   +-aggregate_list=
+            |   |   |   |     +-anon_users_partial#36 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+            |   |   |   +-method="RESERVOIR"
+            |   |   |   +-size=
+            |   |   |   | +-Literal(type=INT64, value=3)
+            |   |   |   +-unit=ROWS
+            |   |   |   +-partition_by_list=
+            |   |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#38)
+            |   |   +-right_scan=
+            |   |   | +-WithRefScan(column_list=[$public_groups0.string#40], with_query_name="$public_groups0")
+            |   |   +-join_expr=
+            |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   |       +-ColumnRef(type=STRING, column=$groupby.string_partial#37)
+            |   |       +-ColumnRef(type=STRING, column=$public_groups0.string#40)
+            |   +-group_by_list=
+            |   | +-string#33 := ColumnRef(type=STRING, column=$public_groups0.string#40)
+            |   +-aggregate_list=
+            |   | +-anon_users#32 :=
+            |   |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+            |   |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |   |       +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+            |   |       | +-ColumnRef(type=INT64, column=$group_by.$uid#38)
+            |   |       +-Literal(type=INT64, value=NULL)
+            |   |       +-ColumnRef(type=INT64, column=$aggregate.anon_users_partial#36)
+            |   +-anonymization_option_list=
+            |     +-max_groups_contributed := Literal(type=INT64, value=3)
+            |     +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+            +-filter_expr=
+              +-FunctionCall(ZetaSQL:starts_with(STRING, STRING) -> BOOL)
+                +-ColumnRef(type=STRING, column=$groupby.string#33)
+                +-Literal(type=STRING, value="abc")
+==
+
+# Filter scans in input scans of public group joins are allowed.
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string, ANON_COUNT(*) AS anon_users
+FROM
+  (SELECT uid, string FROM SimpleTypesWithAnonymizationUid WHERE int64 > 10)
+RIGHT OUTER JOIN
+  (SELECT DISTINCT string FROM SimpleTypes WHERE STARTS_WITH(string, 'abc'))
+    USING (string)
+GROUP BY string;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+        | +-JoinScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+        |   +-join_type=RIGHT
+        |   +-left_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+        |   |   +-input_scan=
+        |   |     +-FilterScan
+        |   |       +-column_list=SimpleTypesWithAnonymizationUid.[int64#2, string#5, uid#11]
+        |   |       +-input_scan=
+        |   |       | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 4, 10])
+        |   |       +-filter_expr=
+        |   |         +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+        |   |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |   |           +-Literal(type=INT64, value=10)
+        |   +-right_scan=
+        |   | +-AggregateScan
+        |   |   +-column_list=[$distinct.string#31]
+        |   |   +-input_scan=
+        |   |   | +-FilterScan
+        |   |   |   +-column_list=[SimpleTypes.string#17]
+        |   |   |   +-input_scan=
+        |   |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |   |   |   +-filter_expr=
+        |   |   |     +-FunctionCall(ZetaSQL:starts_with(STRING, STRING) -> BOOL)
+        |   |   |       +-ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   |   |       +-Literal(type=STRING, value="abc")
+        |   |   +-group_by_list=
+        |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   +-join_expr=
+        |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+        +-group_by_list=
+        | +-string#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+        +-aggregate_list=
+        | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=3)
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="$public_groups0"
+    |   +-with_subquery=
+    |     +-AggregateScan
+    |       +-column_list=[$distinct.string#40]
+    |       +-input_scan=
+    |       | +-FilterScan
+    |       |   +-column_list=[SimpleTypes.string#41]
+    |       |   +-input_scan=
+    |       |   | +-TableScan(column_list=[SimpleTypes.string#41], table=SimpleTypes, column_index_list=[4])
+    |       |   +-filter_expr=
+    |       |     +-FunctionCall(ZetaSQL:starts_with(STRING, STRING) -> BOOL)
+    |       |       +-ColumnRef(type=STRING, column=SimpleTypes.string#41)
+    |       |       +-Literal(type=STRING, value="abc")
+    |       +-group_by_list=
+    |         +-string#40 := ColumnRef(type=STRING, column=SimpleTypes.string#41)
+    +-query=
+      +-ProjectScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+          +-AnonymizedAggregateScan
+            +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+            +-input_scan=
+            | +-JoinScan
+            |   +-column_list=[$public_groups0.string#39, $aggregate.anon_users_partial#35, $groupby.string_partial#36, $group_by.$uid#37]
+            |   +-join_type=RIGHT
+            |   +-left_scan=
+            |   | +-SampleScan
+            |   |   +-column_list=[$aggregate.anon_users_partial#35, $groupby.string_partial#36, $group_by.$uid#37]
+            |   |   +-input_scan=
+            |   |   | +-AggregateScan
+            |   |   |   +-column_list=[$aggregate.anon_users_partial#35, $groupby.string_partial#36, $group_by.$uid#37]
+            |   |   |   +-input_scan=
+            |   |   |   | +-JoinScan
+            |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+            |   |   |   |   +-left_scan=
+            |   |   |   |   | +-ProjectScan
+            |   |   |   |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+            |   |   |   |   |   +-input_scan=
+            |   |   |   |   |     +-FilterScan
+            |   |   |   |   |       +-column_list=SimpleTypesWithAnonymizationUid.[int64#2, string#5, uid#11]
+            |   |   |   |   |       +-input_scan=
+            |   |   |   |   |       | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 4, 10])
+            |   |   |   |   |       +-filter_expr=
+            |   |   |   |   |         +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+            |   |   |   |   |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+            |   |   |   |   |           +-Literal(type=INT64, value=10)
             |   |   |   |   +-right_scan=
-            |   |   |   |   | +-TableScan(column_list=[SimpleTypes.string#36], table=SimpleTypes, column_index_list=[4])
+            |   |   |   |   | +-WithRefScan(column_list=[$distinct.string#31], with_query_name="$public_groups0")
             |   |   |   |   +-join_expr=
             |   |   |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   |   |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
             |   |   |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
-            |   |   |   |       +-ColumnRef(type=STRING, column=SimpleTypes.string#36)
             |   |   |   +-group_by_list=
-            |   |   |   | +-string_partial#55 := ColumnRef(type=STRING, column=$distinct.string#31)
-            |   |   |   | +-$uid#56 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#52)
+            |   |   |   | +-string_partial#36 := ColumnRef(type=STRING, column=$distinct.string#31)
+            |   |   |   | +-$uid#37 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
             |   |   |   +-aggregate_list=
-            |   |   |     +-anon_users_partial#54 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+            |   |   |     +-anon_users_partial#35 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
             |   |   +-method="RESERVOIR"
             |   |   +-size=
             |   |   | +-Literal(type=INT64, value=3)
             |   |   +-unit=ROWS
             |   |   +-partition_by_list=
-            |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#56)
+            |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#37)
             |   +-right_scan=
-            |   | +-WithRefScan(column_list=[$public_groups0.string#58], with_query_name="$public_groups0")
+            |   | +-WithRefScan(column_list=[$public_groups0.string#39], with_query_name="$public_groups0")
             |   +-join_expr=
             |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-            |       +-ColumnRef(type=STRING, column=$groupby.string_partial#55)
-            |       +-ColumnRef(type=STRING, column=$public_groups0.string#58)
+            |       +-ColumnRef(type=STRING, column=$groupby.string_partial#36)
+            |       +-ColumnRef(type=STRING, column=$public_groups0.string#39)
             +-group_by_list=
-            | +-string#51 := ColumnRef(type=STRING, column=$public_groups0.string#58)
+            | +-string#33 := ColumnRef(type=STRING, column=$public_groups0.string#39)
             +-aggregate_list=
-            | +-anon_users#50 :=
+            | +-anon_users#32 :=
             |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
             |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
             |       +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
-            |       | +-ColumnRef(type=INT64, column=$group_by.$uid#56)
+            |       | +-ColumnRef(type=INT64, column=$group_by.$uid#37)
             |       +-Literal(type=INT64, value=NULL)
-            |       +-ColumnRef(type=INT64, column=$aggregate.anon_users_partial#54)
+            |       +-ColumnRef(type=INT64, column=$aggregate.anon_users_partial#35)
             +-anonymization_option_list=
               +-max_groups_contributed := Literal(type=INT64, value=3)
               +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+==
+
+# Limit scans after public groups joins are not allowed.
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string, ANON_COUNT(*) AS anon_users
+FROM (
+  SELECT uid, string FROM
+    SimpleTypesWithAnonymizationUid
+  RIGHT OUTER JOIN
+    (SELECT DISTINCT string FROM SimpleTypes)
+      USING (string)
+  LIMIT 10
+) GROUP BY string;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+        | +-LimitOffsetScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+        |   |   +-input_scan=
+        |   |     +-JoinScan
+        |   |       +-column_list=[SimpleTypesWithAnonymizationUid.string#5, SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+        |   |       +-join_type=RIGHT
+        |   |       +-left_scan=
+        |   |       | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+        |   |       +-right_scan=
+        |   |       | +-AggregateScan
+        |   |       |   +-column_list=[$distinct.string#31]
+        |   |       |   +-input_scan=
+        |   |       |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |   |       |   +-group_by_list=
+        |   |       |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   |       +-join_expr=
+        |   |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |           +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |   |           +-ColumnRef(type=STRING, column=$distinct.string#31)
+        |   +-limit=
+        |     +-Literal(type=INT64, value=10)
+        +-group_by_list=
+        | +-string#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+        +-aggregate_list=
+        | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=3)
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
+==
+
+# Limit scans in input scans of public groups joins are allowed
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string, ANON_COUNT(*) AS anon_users
+FROM
+  (SELECT uid, string FROM SimpleTypesWithAnonymizationUid LIMIT 10)
+RIGHT OUTER JOIN
+  (SELECT DISTINCT string FROM SimpleTypes LIMIT 11)
+    USING (string)
+GROUP BY string;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+        | +-JoinScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+        |   +-join_type=RIGHT
+        |   +-left_scan=
+        |   | +-LimitOffsetScan
+        |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+        |   |   +-input_scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+        |   |   |   +-input_scan=
+        |   |   |     +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+        |   |   +-limit=
+        |   |     +-Literal(type=INT64, value=10)
+        |   +-right_scan=
+        |   | +-LimitOffsetScan
+        |   |   +-column_list=[$distinct.string#31]
+        |   |   +-input_scan=
+        |   |   | +-AggregateScan
+        |   |   |   +-column_list=[$distinct.string#31]
+        |   |   |   +-input_scan=
+        |   |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |   |   |   +-group_by_list=
+        |   |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   |   +-limit=
+        |   |     +-Literal(type=INT64, value=11)
+        |   +-join_expr=
+        |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+        +-group_by_list=
+        | +-string#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+        +-aggregate_list=
+        | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=3)
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="$public_groups0"
+    |   +-with_subquery=
+    |     +-LimitOffsetScan
+    |       +-column_list=[$distinct.string#40]
+    |       +-input_scan=
+    |       | +-AggregateScan
+    |       |   +-column_list=[$distinct.string#40]
+    |       |   +-input_scan=
+    |       |   | +-TableScan(column_list=[SimpleTypes.string#41], table=SimpleTypes, column_index_list=[4])
+    |       |   +-group_by_list=
+    |       |     +-string#40 := ColumnRef(type=STRING, column=SimpleTypes.string#41)
+    |       +-limit=
+    |         +-Literal(type=INT64, value=11)
+    +-query=
+      +-ProjectScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+          +-AnonymizedAggregateScan
+            +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+            +-input_scan=
+            | +-JoinScan
+            |   +-column_list=[$public_groups0.string#39, $aggregate.anon_users_partial#35, $groupby.string_partial#36, $group_by.$uid#37]
+            |   +-join_type=RIGHT
+            |   +-left_scan=
+            |   | +-SampleScan
+            |   |   +-column_list=[$aggregate.anon_users_partial#35, $groupby.string_partial#36, $group_by.$uid#37]
+            |   |   +-input_scan=
+            |   |   | +-AggregateScan
+            |   |   |   +-column_list=[$aggregate.anon_users_partial#35, $groupby.string_partial#36, $group_by.$uid#37]
+            |   |   |   +-input_scan=
+            |   |   |   | +-JoinScan
+            |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+            |   |   |   |   +-left_scan=
+            |   |   |   |   | +-LimitOffsetScan
+            |   |   |   |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+            |   |   |   |   |   +-input_scan=
+            |   |   |   |   |   | +-ProjectScan
+            |   |   |   |   |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+            |   |   |   |   |   |   +-input_scan=
+            |   |   |   |   |   |     +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+            |   |   |   |   |   +-limit=
+            |   |   |   |   |     +-Literal(type=INT64, value=10)
+            |   |   |   |   +-right_scan=
+            |   |   |   |   | +-WithRefScan(column_list=[$distinct.string#31], with_query_name="$public_groups0")
+            |   |   |   |   +-join_expr=
+            |   |   |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   |   |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+            |   |   |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+            |   |   |   +-group_by_list=
+            |   |   |   | +-string_partial#36 := ColumnRef(type=STRING, column=$distinct.string#31)
+            |   |   |   | +-$uid#37 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+            |   |   |   +-aggregate_list=
+            |   |   |     +-anon_users_partial#35 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+            |   |   +-method="RESERVOIR"
+            |   |   +-size=
+            |   |   | +-Literal(type=INT64, value=3)
+            |   |   +-unit=ROWS
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#37)
+            |   +-right_scan=
+            |   | +-WithRefScan(column_list=[$public_groups0.string#39], with_query_name="$public_groups0")
+            |   +-join_expr=
+            |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |       +-ColumnRef(type=STRING, column=$groupby.string_partial#36)
+            |       +-ColumnRef(type=STRING, column=$public_groups0.string#39)
+            +-group_by_list=
+            | +-string#33 := ColumnRef(type=STRING, column=$public_groups0.string#39)
+            +-aggregate_list=
+            | +-anon_users#32 :=
+            |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+            |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |       +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+            |       | +-ColumnRef(type=INT64, column=$group_by.$uid#37)
+            |       +-Literal(type=INT64, value=NULL)
+            |       +-ColumnRef(type=INT64, column=$aggregate.anon_users_partial#35)
+            +-anonymization_option_list=
+              +-max_groups_contributed := Literal(type=INT64, value=3)
+              +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+==
+
+[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,TABLESAMPLE]
+# Sample scans between public groups join and aggregation are not allowed.
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string, ANON_COUNT(*) AS anon_users
+FROM (
+  SELECT uid, string
+  FROM SimpleTypesWithAnonymizationUid
+  RIGHT OUTER JOIN
+    (SELECT DISTINCT string FROM SimpleTypes)
+      USING (string)
+) TABLESAMPLE BERNOULLI(1 PERCENT)
+GROUP BY string;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+        | +-SampleScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+        |   |   +-input_scan=
+        |   |     +-JoinScan
+        |   |       +-column_list=[SimpleTypesWithAnonymizationUid.string#5, SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+        |   |       +-join_type=RIGHT
+        |   |       +-left_scan=
+        |   |       | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+        |   |       +-right_scan=
+        |   |       | +-AggregateScan
+        |   |       |   +-column_list=[$distinct.string#31]
+        |   |       |   +-input_scan=
+        |   |       |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |   |       |   +-group_by_list=
+        |   |       |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   |       +-join_expr=
+        |   |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |           +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |   |           +-ColumnRef(type=STRING, column=$distinct.string#31)
+        |   +-method="bernoulli"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=1)
+        |   +-unit=PERCENT
+        +-group_by_list=
+        | +-string#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+        +-aggregate_list=
+        | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=3)
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
+==
+
+[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,TABLESAMPLE]
+# Sample scans in input to public groups joins are allowed.
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string, ANON_COUNT(*) AS anon_users
+FROM
+  (
+    SELECT uid, string
+    FROM SimpleTypesWithAnonymizationUid
+  ) TABLESAMPLE BERNOULLI(1 PERCENT)
+  RIGHT OUTER JOIN
+    (SELECT DISTINCT string FROM SimpleTypes)
+    TABLESAMPLE BERNOULLI(2 PERCENT)
+      USING (string)
+GROUP BY string;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+        | +-JoinScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+        |   +-join_type=RIGHT
+        |   +-left_scan=
+        |   | +-SampleScan
+        |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+        |   |   +-input_scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+        |   |   |   +-input_scan=
+        |   |   |     +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+        |   |   +-method="bernoulli"
+        |   |   +-size=
+        |   |   | +-Literal(type=INT64, value=1)
+        |   |   +-unit=PERCENT
+        |   +-right_scan=
+        |   | +-SampleScan
+        |   |   +-column_list=[$distinct.string#31]
+        |   |   +-input_scan=
+        |   |   | +-AggregateScan
+        |   |   |   +-column_list=[$distinct.string#31]
+        |   |   |   +-input_scan=
+        |   |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |   |   |   +-group_by_list=
+        |   |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   |   +-method="bernoulli"
+        |   |   +-size=
+        |   |   | +-Literal(type=INT64, value=2)
+        |   |   +-unit=PERCENT
+        |   +-join_expr=
+        |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+        +-group_by_list=
+        | +-string#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+        +-aggregate_list=
+        | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=3)
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="$public_groups0"
+    |   +-with_subquery=
+    |     +-SampleScan
+    |       +-column_list=[$distinct.string#40]
+    |       +-input_scan=
+    |       | +-AggregateScan
+    |       |   +-column_list=[$distinct.string#40]
+    |       |   +-input_scan=
+    |       |   | +-TableScan(column_list=[SimpleTypes.string#41], table=SimpleTypes, column_index_list=[4])
+    |       |   +-group_by_list=
+    |       |     +-string#40 := ColumnRef(type=STRING, column=SimpleTypes.string#41)
+    |       +-method="bernoulli"
+    |       +-size=
+    |       | +-Literal(type=INT64, value=2)
+    |       +-unit=PERCENT
+    +-query=
+      +-ProjectScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+          +-AnonymizedAggregateScan
+            +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+            +-input_scan=
+            | +-JoinScan
+            |   +-column_list=[$public_groups0.string#39, $aggregate.anon_users_partial#35, $groupby.string_partial#36, $group_by.$uid#37]
+            |   +-join_type=RIGHT
+            |   +-left_scan=
+            |   | +-SampleScan
+            |   |   +-column_list=[$aggregate.anon_users_partial#35, $groupby.string_partial#36, $group_by.$uid#37]
+            |   |   +-input_scan=
+            |   |   | +-AggregateScan
+            |   |   |   +-column_list=[$aggregate.anon_users_partial#35, $groupby.string_partial#36, $group_by.$uid#37]
+            |   |   |   +-input_scan=
+            |   |   |   | +-JoinScan
+            |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+            |   |   |   |   +-left_scan=
+            |   |   |   |   | +-SampleScan
+            |   |   |   |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+            |   |   |   |   |   +-input_scan=
+            |   |   |   |   |   | +-ProjectScan
+            |   |   |   |   |   |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, string#5]
+            |   |   |   |   |   |   +-input_scan=
+            |   |   |   |   |   |     +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+            |   |   |   |   |   +-method="bernoulli"
+            |   |   |   |   |   +-size=
+            |   |   |   |   |   | +-Literal(type=INT64, value=1)
+            |   |   |   |   |   +-unit=PERCENT
+            |   |   |   |   +-right_scan=
+            |   |   |   |   | +-WithRefScan(column_list=[$distinct.string#31], with_query_name="$public_groups0")
+            |   |   |   |   +-join_expr=
+            |   |   |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   |   |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+            |   |   |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+            |   |   |   +-group_by_list=
+            |   |   |   | +-string_partial#36 := ColumnRef(type=STRING, column=$distinct.string#31)
+            |   |   |   | +-$uid#37 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+            |   |   |   +-aggregate_list=
+            |   |   |     +-anon_users_partial#35 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+            |   |   +-method="RESERVOIR"
+            |   |   +-size=
+            |   |   | +-Literal(type=INT64, value=3)
+            |   |   +-unit=ROWS
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#37)
+            |   +-right_scan=
+            |   | +-WithRefScan(column_list=[$public_groups0.string#39], with_query_name="$public_groups0")
+            |   +-join_expr=
+            |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |       +-ColumnRef(type=STRING, column=$groupby.string_partial#36)
+            |       +-ColumnRef(type=STRING, column=$public_groups0.string#39)
+            +-group_by_list=
+            | +-string#33 := ColumnRef(type=STRING, column=$public_groups0.string#39)
+            +-aggregate_list=
+            | +-anon_users#32 :=
+            |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+            |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |       +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+            |       | +-ColumnRef(type=INT64, column=$group_by.$uid#37)
+            |       +-Literal(type=INT64, value=NULL)
+            |       +-ColumnRef(type=INT64, column=$aggregate.anon_users_partial#35)
+            +-anonymization_option_list=
+              +-max_groups_contributed := Literal(type=INT64, value=3)
+              +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+==
+
+# Project scans with a computed column are not allowed.
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string, ANON_COUNT(*) AS anon_users
+FROM
+(
+  SELECT uid, string, SUBSTR(string, 0, 3)
+  FROM SimpleTypesWithAnonymizationUid
+    RIGHT OUTER JOIN
+    (SELECT DISTINCT string FROM SimpleTypes)
+      USING (string)
+)
+GROUP BY string;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#34 AS string [STRING]
+| +-$aggregate.anon_users#33 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#34, $aggregate.anon_users#33]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string#34, $aggregate.anon_users#33]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31, $subquery1.$col3#32]
+        |   +-expr_list=
+        |   | +-$col3#32 :=
+        |   |   +-FunctionCall(ZetaSQL:substr(STRING, INT64, optional(1) INT64) -> STRING)
+        |   |     +-ColumnRef(type=STRING, column=$distinct.string#31)
+        |   |     +-Literal(type=INT64, value=0)
+        |   |     +-Literal(type=INT64, value=3)
+        |   +-input_scan=
+        |     +-JoinScan
+        |       +-column_list=[SimpleTypesWithAnonymizationUid.string#5, SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+        |       +-join_type=RIGHT
+        |       +-left_scan=
+        |       | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+        |       +-right_scan=
+        |       | +-AggregateScan
+        |       |   +-column_list=[$distinct.string#31]
+        |       |   +-input_scan=
+        |       |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |       |   +-group_by_list=
+        |       |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |       +-join_expr=
+        |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |           +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |           +-ColumnRef(type=STRING, column=$distinct.string#31)
+        +-group_by_list=
+        | +-string#34 := ColumnRef(type=STRING, column=$distinct.string#31)
+        +-aggregate_list=
+        | +-anon_users#33 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=3)
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
+==
+
+# Project scans without a computed column are allowed.
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string2, ANON_COUNT(*) AS anon_users
+FROM
+(
+  SELECT uid, string AS string2
+  FROM SimpleTypesWithAnonymizationUid
+    RIGHT OUTER JOIN
+    (SELECT DISTINCT string FROM SimpleTypes)
+      USING (string)
+)
+GROUP BY string2;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string2#33 AS string2 [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string2#33, $aggregate.anon_users#32]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string2#33, $aggregate.anon_users#32]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+        |   +-input_scan=
+        |     +-JoinScan
+        |       +-column_list=[SimpleTypesWithAnonymizationUid.string#5, SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+        |       +-join_type=RIGHT
+        |       +-left_scan=
+        |       | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+        |       +-right_scan=
+        |       | +-AggregateScan
+        |       |   +-column_list=[$distinct.string#31]
+        |       |   +-input_scan=
+        |       |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |       |   +-group_by_list=
+        |       |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |       +-join_expr=
+        |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |           +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |           +-ColumnRef(type=STRING, column=$distinct.string#31)
+        +-group_by_list=
+        | +-string2#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+        +-aggregate_list=
+        | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=3)
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string2#33 AS string2 [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.string2#33, $aggregate.anon_users#32]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="$public_groups0"
+    |   +-with_subquery=
+    |     +-AggregateScan
+    |       +-column_list=[$distinct.string#40]
+    |       +-input_scan=
+    |       | +-TableScan(column_list=[SimpleTypes.string#41], table=SimpleTypes, column_index_list=[4])
+    |       +-group_by_list=
+    |         +-string#40 := ColumnRef(type=STRING, column=SimpleTypes.string#41)
+    +-query=
+      +-ProjectScan
+        +-column_list=[$groupby.string2#33, $aggregate.anon_users#32]
+        +-input_scan=
+          +-AnonymizedAggregateScan
+            +-column_list=[$groupby.string2#33, $aggregate.anon_users#32]
+            +-input_scan=
+            | +-JoinScan
+            |   +-column_list=[$public_groups0.string#39, $aggregate.anon_users_partial#35, $groupby.string2_partial#36, $group_by.$uid#37]
+            |   +-join_type=RIGHT
+            |   +-left_scan=
+            |   | +-SampleScan
+            |   |   +-column_list=[$aggregate.anon_users_partial#35, $groupby.string2_partial#36, $group_by.$uid#37]
+            |   |   +-input_scan=
+            |   |   | +-AggregateScan
+            |   |   |   +-column_list=[$aggregate.anon_users_partial#35, $groupby.string2_partial#36, $group_by.$uid#37]
+            |   |   |   +-input_scan=
+            |   |   |   | +-ProjectScan
+            |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+            |   |   |   |   +-input_scan=
+            |   |   |   |     +-JoinScan
+            |   |   |   |       +-column_list=[SimpleTypesWithAnonymizationUid.string#5, SimpleTypesWithAnonymizationUid.uid#11, $distinct.string#31]
+            |   |   |   |       +-left_scan=
+            |   |   |   |       | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+            |   |   |   |       +-right_scan=
+            |   |   |   |       | +-WithRefScan(column_list=[$distinct.string#31], with_query_name="$public_groups0")
+            |   |   |   |       +-join_expr=
+            |   |   |   |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   |   |   |           +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+            |   |   |   |           +-ColumnRef(type=STRING, column=$distinct.string#31)
+            |   |   |   +-group_by_list=
+            |   |   |   | +-string2_partial#36 := ColumnRef(type=STRING, column=$distinct.string#31)
+            |   |   |   | +-$uid#37 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+            |   |   |   +-aggregate_list=
+            |   |   |     +-anon_users_partial#35 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+            |   |   +-method="RESERVOIR"
+            |   |   +-size=
+            |   |   | +-Literal(type=INT64, value=3)
+            |   |   +-unit=ROWS
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#37)
+            |   +-right_scan=
+            |   | +-WithRefScan(column_list=[$public_groups0.string#39], with_query_name="$public_groups0")
+            |   +-join_expr=
+            |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |       +-ColumnRef(type=STRING, column=$groupby.string2_partial#36)
+            |       +-ColumnRef(type=STRING, column=$public_groups0.string#39)
+            +-group_by_list=
+            | +-string2#33 := ColumnRef(type=STRING, column=$public_groups0.string#39)
+            +-aggregate_list=
+            | +-anon_users#32 :=
+            |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+            |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |       +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+            |       | +-ColumnRef(type=INT64, column=$group_by.$uid#37)
+            |       +-Literal(type=INT64, value=NULL)
+            |       +-ColumnRef(type=INT64, column=$aggregate.anon_users_partial#35)
+            +-anonymization_option_list=
+              +-max_groups_contributed := Literal(type=INT64, value=3)
+              +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+==
+
+# Disallowed operator between two public group joins is not allowed.
+SELECT WITH ANONYMIZATION OPTIONS (
+  max_groups_contributed=3,
+  group_selection_strategy = PUBLIC_GROUPS
+) string, int64, ANON_COUNT(*) AS anon_users
+FROM
+  SimpleTypesWithAnonymizationUid
+  RIGHT OUTER JOIN
+    (SELECT DISTINCT string FROM SimpleTypes)
+      USING (string)
+  # The following inner join is not allowed.
+  INNER JOIN (SELECT int32 FROM SimpleTypes) USING (int32)
+  RIGHT OUTER JOIN
+    (SELECT DISTINCT int64 FROM SimpleTypes)
+      USING (int64)
+GROUP BY string, int64;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#70 AS string [STRING]
+| +-$groupby.int64#71 AS int64 [INT64]
+| +-$aggregate.anon_users#69 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#70, $groupby.int64#71, $aggregate.anon_users#69]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string#70, $groupby.int64#71, $aggregate.anon_users#69]
+        +-input_scan=
+        | +-JoinScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#1, SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31, SimpleTypes.int32#32, $distinct.int64#68]
+        |   +-join_type=RIGHT
+        |   +-left_scan=
+        |   | +-JoinScan
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#1, SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31, SimpleTypes.int32#32]
+        |   |   +-left_scan=
+        |   |   | +-JoinScan
+        |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#1, SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+        |   |   |   +-join_type=RIGHT
+        |   |   |   +-left_scan=
+        |   |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, string#5], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 4])
+        |   |   |   +-right_scan=
+        |   |   |   | +-AggregateScan
+        |   |   |   |   +-column_list=[$distinct.string#31]
+        |   |   |   |   +-input_scan=
+        |   |   |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |   |   |   |   +-group_by_list=
+        |   |   |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   |   |   +-join_expr=
+        |   |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |   |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+        |   |   +-right_scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-column_list=[SimpleTypes.int32#32]
+        |   |   |   +-input_scan=
+        |   |   |     +-TableScan(column_list=[SimpleTypes.int32#32], table=SimpleTypes, column_index_list=[0])
+        |   |   +-join_expr=
+        |   |     +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+        |   |       +-ColumnRef(type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        |   |       +-ColumnRef(type=INT32, column=SimpleTypes.int32#32)
+        |   +-right_scan=
+        |   | +-AggregateScan
+        |   |   +-column_list=[$distinct.int64#68]
+        |   |   +-input_scan=
+        |   |   | +-TableScan(column_list=[SimpleTypes.int64#51], table=SimpleTypes, column_index_list=[1])
+        |   |   +-group_by_list=
+        |   |     +-int64#68 := ColumnRef(type=INT64, column=SimpleTypes.int64#51)
+        |   +-join_expr=
+        |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |       +-ColumnRef(type=INT64, column=$distinct.int64#68)
+        +-group_by_list=
+        | +-string#70 := ColumnRef(type=STRING, column=$distinct.string#31)
+        | +-int64#71 := ColumnRef(type=INT64, column=$distinct.int64#68)
+        +-aggregate_list=
+        | +-anon_users#69 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=3)
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow JOIN operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
+==
+
+# Disallowed operator between two public group joins is not allowed with
+# per-group contribution bounding.
+SELECT WITH ANONYMIZATION OPTIONS (
+  group_selection_strategy = PUBLIC_GROUPS
+) string, int64, ANON_COUNT(*) AS anon_users
+FROM
+  SimpleTypesWithAnonymizationUid
+  RIGHT OUTER JOIN
+    (SELECT DISTINCT string FROM SimpleTypes)
+      USING (string)
+  # The following inner join is not allowed.
+  INNER JOIN (SELECT int32 FROM SimpleTypes) USING (int32)
+  RIGHT OUTER JOIN
+    (SELECT DISTINCT int64 FROM SimpleTypes)
+      USING (int64)
+GROUP BY string, int64;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#70 AS string [STRING]
+| +-$groupby.int64#71 AS int64 [INT64]
+| +-$aggregate.anon_users#69 AS anon_users [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string#70, $groupby.int64#71, $aggregate.anon_users#69]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$groupby.string#70, $groupby.int64#71, $aggregate.anon_users#69]
+        +-input_scan=
+        | +-JoinScan
+        |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#1, SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31, SimpleTypes.int32#32, $distinct.int64#68]
+        |   +-join_type=RIGHT
+        |   +-left_scan=
+        |   | +-JoinScan
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#1, SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31, SimpleTypes.int32#32]
+        |   |   +-left_scan=
+        |   |   | +-JoinScan
+        |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.int32#1, SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+        |   |   |   +-join_type=RIGHT
+        |   |   |   +-left_scan=
+        |   |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, string#5], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 4])
+        |   |   |   +-right_scan=
+        |   |   |   | +-AggregateScan
+        |   |   |   |   +-column_list=[$distinct.string#31]
+        |   |   |   |   +-input_scan=
+        |   |   |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+        |   |   |   |   +-group_by_list=
+        |   |   |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+        |   |   |   +-join_expr=
+        |   |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |   |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+        |   |   +-right_scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-column_list=[SimpleTypes.int32#32]
+        |   |   |   +-input_scan=
+        |   |   |     +-TableScan(column_list=[SimpleTypes.int32#32], table=SimpleTypes, column_index_list=[0])
+        |   |   +-join_expr=
+        |   |     +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+        |   |       +-ColumnRef(type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        |   |       +-ColumnRef(type=INT32, column=SimpleTypes.int32#32)
+        |   +-right_scan=
+        |   | +-AggregateScan
+        |   |   +-column_list=[$distinct.int64#68]
+        |   |   +-input_scan=
+        |   |   | +-TableScan(column_list=[SimpleTypes.int64#51], table=SimpleTypes, column_index_list=[1])
+        |   |   +-group_by_list=
+        |   |     +-int64#68 := ColumnRef(type=INT64, column=SimpleTypes.int64#51)
+        |   +-join_expr=
+        |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |       +-ColumnRef(type=INT64, column=$distinct.int64#68)
+        +-group_by_list=
+        | +-string#70 := ColumnRef(type=STRING, column=$distinct.string#31)
+        | +-int64#71 := ColumnRef(type=INT64, column=$distinct.int64#68)
+        +-aggregate_list=
+        | +-anon_users#69 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+
+
+Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow JOIN operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
+==
+
+[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,TABLESAMPLE]
+# Forbidden operations after public groups joins are allowed outside of the
+# anon aggregate scan.
+SELECT string, anon_users
+FROM
+(
+  SELECT WITH ANONYMIZATION OPTIONS (
+    max_groups_contributed=3,
+    group_selection_strategy = PUBLIC_GROUPS
+  ) string, ANON_COUNT(*) AS anon_users
+  FROM
+    SimpleTypesWithAnonymizationUid
+    RIGHT OUTER JOIN
+    (SELECT DISTINCT string FROM SimpleTypes)
+      USING (string)
+  GROUP BY string
+)
+TABLESAMPLE BERNOULLI(1 PERCENT)
+WHERE anon_users > 10
+LIMIT 11;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |   +-input_scan=
+    |     +-FilterScan
+    |       +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       +-input_scan=
+    |       | +-SampleScan
+    |       |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       |   +-input_scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       |   |   +-input_scan=
+    |       |   |     +-AnonymizedAggregateScan
+    |       |   |       +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       |   |       +-input_scan=
+    |       |   |       | +-JoinScan
+    |       |   |       |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+    |       |   |       |   +-join_type=RIGHT
+    |       |   |       |   +-left_scan=
+    |       |   |       |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.string#5], table=SimpleTypesWithAnonymizationUid, column_index_list=[4])
+    |       |   |       |   +-right_scan=
+    |       |   |       |   | +-AggregateScan
+    |       |   |       |   |   +-column_list=[$distinct.string#31]
+    |       |   |       |   |   +-input_scan=
+    |       |   |       |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+    |       |   |       |   |   +-group_by_list=
+    |       |   |       |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+    |       |   |       |   +-join_expr=
+    |       |   |       |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |       |   |       |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+    |       |   |       |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+    |       |   |       +-group_by_list=
+    |       |   |       | +-string#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+    |       |   |       +-aggregate_list=
+    |       |   |       | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+    |       |   |       +-anonymization_option_list=
+    |       |   |         +-max_groups_contributed := Literal(type=INT64, value=3)
+    |       |   |         +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+    |       |   +-method="bernoulli"
+    |       |   +-size=
+    |       |   | +-Literal(type=INT64, value=1)
+    |       |   +-unit=PERCENT
+    |       +-filter_expr=
+    |         +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |           +-ColumnRef(type=INT64, column=$aggregate.anon_users#32)
+    |           +-Literal(type=INT64, value=10)
+    +-limit=
+      +-Literal(type=INT64, value=11)
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="$public_groups0"
+    |   +-with_subquery=
+    |     +-AggregateScan
+    |       +-column_list=[$distinct.string#41]
+    |       +-input_scan=
+    |       | +-TableScan(column_list=[SimpleTypes.string#42], table=SimpleTypes, column_index_list=[4])
+    |       +-group_by_list=
+    |         +-string#41 := ColumnRef(type=STRING, column=SimpleTypes.string#42)
+    +-query=
+      +-LimitOffsetScan
+        +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        |   +-input_scan=
+        |     +-FilterScan
+        |       +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        |       +-input_scan=
+        |       | +-SampleScan
+        |       |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        |       |   +-input_scan=
+        |       |   | +-ProjectScan
+        |       |   |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        |       |   |   +-input_scan=
+        |       |   |     +-AnonymizedAggregateScan
+        |       |   |       +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+        |       |   |       +-input_scan=
+        |       |   |       | +-JoinScan
+        |       |   |       |   +-column_list=[$public_groups0.string#40, $aggregate.anon_users_partial#36, $groupby.string_partial#37, $group_by.$uid#38]
+        |       |   |       |   +-join_type=RIGHT
+        |       |   |       |   +-left_scan=
+        |       |   |       |   | +-SampleScan
+        |       |   |       |   |   +-column_list=[$aggregate.anon_users_partial#36, $groupby.string_partial#37, $group_by.$uid#38]
+        |       |   |       |   |   +-input_scan=
+        |       |   |       |   |   | +-AggregateScan
+        |       |   |       |   |   |   +-column_list=[$aggregate.anon_users_partial#36, $groupby.string_partial#37, $group_by.$uid#38]
+        |       |   |       |   |   |   +-input_scan=
+        |       |   |       |   |   |   | +-JoinScan
+        |       |   |       |   |   |   |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31, SimpleTypesWithAnonymizationUid.uid#34]
+        |       |   |       |   |   |   |   +-left_scan=
+        |       |   |       |   |   |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#34], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+        |       |   |       |   |   |   |   +-right_scan=
+        |       |   |       |   |   |   |   | +-WithRefScan(column_list=[$distinct.string#31], with_query_name="$public_groups0")
+        |       |   |       |   |   |   |   +-join_expr=
+        |       |   |       |   |   |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |       |   |       |   |   |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+        |       |   |       |   |   |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+        |       |   |       |   |   |   +-group_by_list=
+        |       |   |       |   |   |   | +-string_partial#37 := ColumnRef(type=STRING, column=$distinct.string#31)
+        |       |   |       |   |   |   | +-$uid#38 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#34)
+        |       |   |       |   |   |   +-aggregate_list=
+        |       |   |       |   |   |     +-anon_users_partial#36 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |       |   |       |   |   +-method="RESERVOIR"
+        |       |   |       |   |   +-size=
+        |       |   |       |   |   | +-Literal(type=INT64, value=3)
+        |       |   |       |   |   +-unit=ROWS
+        |       |   |       |   |   +-partition_by_list=
+        |       |   |       |   |     +-ColumnRef(type=INT64, column=$group_by.$uid#38)
+        |       |   |       |   +-right_scan=
+        |       |   |       |   | +-WithRefScan(column_list=[$public_groups0.string#40], with_query_name="$public_groups0")
+        |       |   |       |   +-join_expr=
+        |       |   |       |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |       |   |       |       +-ColumnRef(type=STRING, column=$groupby.string_partial#37)
+        |       |   |       |       +-ColumnRef(type=STRING, column=$public_groups0.string#40)
+        |       |   |       +-group_by_list=
+        |       |   |       | +-string#33 := ColumnRef(type=STRING, column=$public_groups0.string#40)
+        |       |   |       +-aggregate_list=
+        |       |   |       | +-anon_users#32 :=
+        |       |   |       |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        |       |   |       |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+        |       |   |       |       +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+        |       |   |       |       | +-ColumnRef(type=INT64, column=$group_by.$uid#38)
+        |       |   |       |       +-Literal(type=INT64, value=NULL)
+        |       |   |       |       +-ColumnRef(type=INT64, column=$aggregate.anon_users_partial#36)
+        |       |   |       +-anonymization_option_list=
+        |       |   |         +-max_groups_contributed := Literal(type=INT64, value=3)
+        |       |   |         +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+        |       |   +-method="bernoulli"
+        |       |   +-size=
+        |       |   | +-Literal(type=INT64, value=1)
+        |       |   +-unit=PERCENT
+        |       +-filter_expr=
+        |         +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+        |           +-ColumnRef(type=INT64, column=$aggregate.anon_users#32)
+        |           +-Literal(type=INT64, value=10)
+        +-limit=
+          +-Literal(type=INT64, value=11)
+==
+
+[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,TABLESAMPLE]
+# Forbidden operations after public groups joins are allowed outside of the
+# anon aggregate scan with per-group contribution bounding.
+SELECT string, anon_users
+FROM
+(
+  SELECT WITH ANONYMIZATION OPTIONS (
+    group_selection_strategy = PUBLIC_GROUPS
+  ) string, ANON_COUNT(*) AS anon_users
+  FROM
+    SimpleTypesWithAnonymizationUid
+    RIGHT OUTER JOIN
+    (SELECT DISTINCT string FROM SimpleTypes)
+      USING (string)
+  GROUP BY string
+)
+TABLESAMPLE BERNOULLI(1 PERCENT)
+WHERE anon_users > 10
+LIMIT 11;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |   +-input_scan=
+    |     +-FilterScan
+    |       +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       +-input_scan=
+    |       | +-SampleScan
+    |       |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       |   +-input_scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       |   |   +-input_scan=
+    |       |   |     +-AnonymizedAggregateScan
+    |       |   |       +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       |   |       +-input_scan=
+    |       |   |       | +-JoinScan
+    |       |   |       |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31]
+    |       |   |       |   +-join_type=RIGHT
+    |       |   |       |   +-left_scan=
+    |       |   |       |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.string#5], table=SimpleTypesWithAnonymizationUid, column_index_list=[4])
+    |       |   |       |   +-right_scan=
+    |       |   |       |   | +-AggregateScan
+    |       |   |       |   |   +-column_list=[$distinct.string#31]
+    |       |   |       |   |   +-input_scan=
+    |       |   |       |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+    |       |   |       |   |   +-group_by_list=
+    |       |   |       |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+    |       |   |       |   +-join_expr=
+    |       |   |       |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |       |   |       |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+    |       |   |       |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+    |       |   |       +-group_by_list=
+    |       |   |       | +-string#33 := ColumnRef(type=STRING, column=$distinct.string#31)
+    |       |   |       +-aggregate_list=
+    |       |   |       | +-anon_users#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+    |       |   |       +-anonymization_option_list=
+    |       |   |         +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+    |       |   +-method="bernoulli"
+    |       |   +-size=
+    |       |   | +-Literal(type=INT64, value=1)
+    |       |   +-unit=PERCENT
+    |       +-filter_expr=
+    |         +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |           +-ColumnRef(type=INT64, column=$aggregate.anon_users#32)
+    |           +-Literal(type=INT64, value=10)
+    +-limit=
+      +-Literal(type=INT64, value=11)
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string#33 AS string [STRING]
+| +-$aggregate.anon_users#32 AS anon_users [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |   +-input_scan=
+    |     +-FilterScan
+    |       +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       +-input_scan=
+    |       | +-SampleScan
+    |       |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       |   +-input_scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       |   |   +-input_scan=
+    |       |   |     +-AnonymizedAggregateScan
+    |       |   |       +-column_list=[$groupby.string#33, $aggregate.anon_users#32]
+    |       |   |       +-input_scan=
+    |       |   |       | +-AggregateScan
+    |       |   |       |   +-column_list=[$aggregate.anon_users_partial#36, $groupby.string_partial#37, $group_by.$uid#38]
+    |       |   |       |   +-input_scan=
+    |       |   |       |   | +-JoinScan
+    |       |   |       |   |   +-column_list=[SimpleTypesWithAnonymizationUid.string#5, $distinct.string#31, SimpleTypesWithAnonymizationUid.uid#34]
+    |       |   |       |   |   +-join_type=RIGHT
+    |       |   |       |   |   +-left_scan=
+    |       |   |       |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[string#5, uid#34], table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 10])
+    |       |   |       |   |   +-right_scan=
+    |       |   |       |   |   | +-AggregateScan
+    |       |   |       |   |   |   +-column_list=[$distinct.string#31]
+    |       |   |       |   |   |   +-input_scan=
+    |       |   |       |   |   |   | +-TableScan(column_list=[SimpleTypes.string#17], table=SimpleTypes, column_index_list=[4])
+    |       |   |       |   |   |   +-group_by_list=
+    |       |   |       |   |   |     +-string#31 := ColumnRef(type=STRING, column=SimpleTypes.string#17)
+    |       |   |       |   |   +-join_expr=
+    |       |   |       |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |       |   |       |   |       +-ColumnRef(type=STRING, column=SimpleTypesWithAnonymizationUid.string#5)
+    |       |   |       |   |       +-ColumnRef(type=STRING, column=$distinct.string#31)
+    |       |   |       |   +-group_by_list=
+    |       |   |       |   | +-string_partial#37 := ColumnRef(type=STRING, column=$distinct.string#31)
+    |       |   |       |   | +-$uid#38 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#34)
+    |       |   |       |   +-aggregate_list=
+    |       |   |       |     +-anon_users_partial#36 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    |       |   |       +-group_by_list=
+    |       |   |       | +-string#33 := ColumnRef(type=STRING, column=$groupby.string_partial#37)
+    |       |   |       +-aggregate_list=
+    |       |   |       | +-anon_users#32 :=
+    |       |   |       |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+    |       |   |       |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+    |       |   |       |       +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+    |       |   |       |       | +-ColumnRef(type=INT64, column=$group_by.$uid#38)
+    |       |   |       |       +-Literal(type=INT64, value=NULL)
+    |       |   |       |       +-ColumnRef(type=INT64, column=$aggregate.anon_users_partial#36)
+    |       |   |       +-anonymization_option_list=
+    |       |   |         +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
+    |       |   +-method="bernoulli"
+    |       |   +-size=
+    |       |   | +-Literal(type=INT64, value=1)
+    |       |   +-unit=PERCENT
+    |       +-filter_expr=
+    |         +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |           +-ColumnRef(type=INT64, column=$aggregate.anon_users#32)
+    |           +-Literal(type=INT64, value=10)
+    +-limit=
+      +-Literal(type=INT64, value=11)

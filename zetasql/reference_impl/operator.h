@@ -1573,6 +1573,44 @@ class GroupRowsOp : public RelationalOp {
   absl::Span<const ExprArg* const> columns() const;
 };
 
+// A placeholder RelationalOp for returning an iterator to the current rows
+// being aggregated in a UDA, represented by `active_group_rows_`
+// in EvaluationContext.
+class RowsForUdaOp : public RelationalOp {
+ public:
+  RowsForUdaOp(const RowsForUdaOp&) = delete;
+  RowsForUdaOp& operator=(const RowsForUdaOp&) = delete;
+
+  static std::string GetIteratorDebugString(
+      absl::string_view input_iter_debug_string);
+
+  static std::unique_ptr<RowsForUdaOp> Create(
+      std::vector<std::string> argument_names);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  // Returns the schema consisting of variables corresponding to the
+  // list of argument names passed to the constructor.
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  explicit RowsForUdaOp(std::vector<std::string> argument_names);
+
+  std::vector<std::string> argument_names() const;
+
+  std::vector<std::string> argument_names_;
+};
+
 // Partitions the input by <partition_keys>, and evaluates a number of analytic
 // functions on each input tuple based on a set of related tuples in the same
 // partition. All analytic functions in an AnalyticOp must have the exact same
@@ -3423,6 +3461,20 @@ class DMLValueExpr : public ValueExpr {
       absl::Span<const TupleData* const> params, EvaluationContext* context,
       TupleData* tuple_data, const Value& action_value,
       std::vector<std::vector<Value>>& dml_returning_rows) const;
+
+  // Sets the TupleSchemas for the expression in `column_expr_map_` which will
+  // be passed to Eval().
+  absl::Status SetSchemasForColumnExprEvaluation() const;
+
+  // We evaluate generated columns in topological order since the generated
+  // column dependencies must already be evaluated before we can evaluate
+  // the value of a generated column. For example, if gen2 = gen1 + data, we
+  // need to have values of gen1 and data evaluated before gen2 value can be
+  // evaluated.
+  absl::Status EvalGeneratedColumnsByTopologicalOrder(
+      const std::vector<int>& topologically_sorted_generated_column_id_list,
+      const absl::flat_hash_map<int, size_t>& generated_columns_position_map,
+      EvaluationContext* context, std::vector<Value>& row) const;
 
   std::string DebugDMLCommon(const std::string& indent, bool verbose) const;
 

@@ -105,14 +105,14 @@ DeleteStmt
         | +-$col1#5 := Literal(type=INT64, value=1)
         +-input_scan=
           +-ArrayScan
-            +-array_expr=
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
-            +-element_column=$array.repeated_int32_val#4
+            +-element_column_list=[$array.repeated_int32_val#4]
 ==
 
 # While resolving a subquery we override any global range variables with local
@@ -138,14 +138,14 @@ DeleteStmt
             +-column_list=[TestTable.KitchenSink#6]
             +-input_scan=
             | +-TableScan(column_list=[TestTable.KitchenSink#6], table=TestTable, column_index_list=[2])
-            +-array_expr=
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#6)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
-            +-element_column=$array.repeated_int32_val#7
+            +-element_column_list=[$array.repeated_int32_val#7]
 ==
 
 DELETE TestTable
@@ -168,14 +168,14 @@ DeleteStmt
         | +-$col1#5 := Literal(type=INT64, value=1)
         +-input_scan=
           +-ArrayScan
-            +-array_expr=
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
-            +-element_column=$array.$unnest1#4
+            +-element_column_list=[$array.$unnest1#4]
 ==
 
 DELETE TestTable
@@ -205,14 +205,14 @@ DeleteStmt
         +-input_scan=
           +-ArrayScan
             +-column_list=[$array.r#4]
-            +-array_expr=
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
-            +-element_column=$array.r#4
+            +-element_column_list=[$array.r#4]
 ==
 
 DELETE TestTable

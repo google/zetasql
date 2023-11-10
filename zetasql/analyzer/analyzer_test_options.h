@@ -221,6 +221,7 @@ extern const char* const kSuppressFunctions;
 extern const char* const kOptionNamesToIgnoreInLiteralReplacement;
 extern const char* const kScrubLimitOffsetInLiteralReplacement;
 extern const char* const kAlsoShowSignatureMismatchDetails;
+extern const char* const kReplaceTableNotFoundErrorWithTvfErrorIfApplicable;
 extern const char* const kIdStringAllowUnicodeCharacters;
 extern const char* const kDisallowDuplicateOptions;
 extern const char* const kRewriteOptions;

@@ -109,11 +109,6 @@ class ColumnRefParentPointerCollector : public ResolvedASTVisitor {
     return node_to_parent_;
   }
 
-  const absl::flat_hash_set<const ResolvedColumnRef*>& GetMatchedColumnRefs()
-      const {
-    return matched_column_refs_;
-  }
-
  protected:
   const ResolvedNode* parent() const {
     if (parent_stack_.empty()) {

@@ -4004,12 +4004,18 @@ TEST(JsonSetTest, NoOpTopLevelObject) {
   auto test_fn = [&kInitialObjectValue](absl::string_view path) {
     JSONValue value = JSONValue::ParseJSONString(kInitialObjectValue).value();
     JSONValueRef ref = value.GetRef();
-    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
-    ZETASQL_EXPECT_OK(JsonSet(ref, *path_iterator, Value::Int64(10), LanguageOptions(),
-                      /*canonicalize_zero=*/true));
-    EXPECT_THAT(
-        ref,
-        JsonEq(JSONValue::ParseJSONString(kInitialObjectValue)->GetConstRef()));
+    for (bool create_if_missing : {true, false}) {
+      std::unique_ptr<StrictJSONPathIterator> path_iterator =
+          ParseJSONPath(path);
+      ZETASQL_EXPECT_OK(JsonSet(ref, *path_iterator, Value::Int64(10),
+                        /*create_if_missing=*/create_if_missing,
+                        LanguageOptions(),
+                        /*canonicalize_zero=*/true));
+      EXPECT_THAT(
+          ref,
+          JsonEq(
+              JSONValue::ParseJSONString(kInitialObjectValue)->GetConstRef()));
+    }
   };
 
   // Type mismatch. Path prefix "$" is an object but expected array.
@@ -4032,11 +4038,15 @@ TEST(JsonSetTest, NoOpTopLevelObject2) {
     std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
     JSONValue json = JSONValue::ParseJSONString(kInitialObjectValue).value();
     JSONValueRef ref = json.GetRef();
-    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, Value::Int64(1), LanguageOptions(),
-                      /*canonicalize_zero=*/true));
-    EXPECT_THAT(
-        ref,
-        JsonEq(JSONValue::ParseJSONString(kInitialObjectValue)->GetConstRef()));
+    for (bool create_if_missing : {true, false}) {
+      ZETASQL_EXPECT_OK(JsonSet(ref, *path_iterator, Value::Int64(10),
+                        create_if_missing, LanguageOptions(),
+                        /*canonicalize_zero=*/true));
+      EXPECT_THAT(
+          ref,
+          JsonEq(
+              JSONValue::ParseJSONString(kInitialObjectValue)->GetConstRef()));
+    }
   };
 
   test_fn("$.a.b.c");
@@ -4053,11 +4063,15 @@ TEST(JsonSetTest, NoOpTopLevelArray) {
     JSONValue value = JSONValue::ParseJSONString(kInitialArrayValue).value();
     JSONValueRef ref = value.GetRef();
     std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
-    ZETASQL_EXPECT_OK(JsonSet(ref, *path_iterator, Value::Int64(10), LanguageOptions(),
-                      /*canonicalize_zero=*/true));
-    EXPECT_THAT(
-        ref,
-        JsonEq(JSONValue::ParseJSONString(kInitialArrayValue)->GetConstRef()));
+    for (bool create_if_missing : {true, false}) {
+      ZETASQL_EXPECT_OK(JsonSet(ref, *path_iterator, Value::Int64(10),
+                        create_if_missing, LanguageOptions(),
+                        /*canonicalize_zero=*/true));
+      EXPECT_THAT(
+          ref,
+          JsonEq(
+              JSONValue::ParseJSONString(kInitialArrayValue)->GetConstRef()));
+    }
   };
 
   // Type mismatch. Path prefix "$" is an array but expected object.
@@ -4085,7 +4099,8 @@ TEST(JsonSetTest, SingleJsonScalarCases) {
       JSONValueRef ref = json.GetRef();
       std::unique_ptr<StrictJSONPathIterator> path_iterator =
           ParseJSONPath(path);
-      ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, LanguageOptions(),
+      ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, /*create_if_missing=*/true,
+                        LanguageOptions(),
                         /*canonicalize_zero=*/true));
       if (expected_output.has_value()) {
         EXPECT_THAT(
@@ -4115,7 +4130,8 @@ TEST(JsonSetTest, ValidTopLevelEmptyObject) {
     JSONValueRef ref = json.GetRef();
     ref.SetToEmptyObject();
     std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
-    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, LanguageOptions(),
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, /*create_if_missing=*/true,
+                      LanguageOptions(),
                       /*canonicalize_zero=*/true));
     EXPECT_THAT(
         ref,
@@ -4144,7 +4160,8 @@ TEST(JsonSetTest, ValidTopLevelEmptyArray) {
     JSONValueRef ref = json.GetRef();
     ref.SetToEmptyArray();
     std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
-    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, LanguageOptions(),
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, /*create_if_missing=*/true,
+                      LanguageOptions(),
                       /*canonicalize_zero=*/true));
     EXPECT_THAT(
         ref,
@@ -4174,7 +4191,8 @@ TEST(JsonSetTest, ComplexTests) {
     std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
     JSONValue json = JSONValue::ParseJSONString(kInitialObjectValue).value();
     JSONValueRef ref = json.GetRef();
-    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, LanguageOptions(),
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, /*create_if_missing=*/true,
+                      LanguageOptions(),
                       /*canonicalize_zero=*/true));
     EXPECT_THAT(
         ref,
@@ -4251,7 +4269,7 @@ TEST(JsonSetTest, CanonicalizeZero) {
     JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
     JSONValueRef ref = value.GetRef();
     ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, Value::Double(-0.0),
-                      LanguageOptions(),
+                      /*create_if_missing=*/true, LanguageOptions(),
                       /*canonicalize_zero=*/true));
     EXPECT_THAT(ref,
                 JsonEq(JSONValue::ParseJSONString(R"(["foo", null, 0.0, 10])")
@@ -4261,7 +4279,7 @@ TEST(JsonSetTest, CanonicalizeZero) {
     JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
     JSONValueRef ref = value.GetRef();
     ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, Value::Double(-0.0),
-                      LanguageOptions(),
+                      /*create_if_missing=*/true, LanguageOptions(),
                       /*canonicalize_zero=*/false));
     EXPECT_THAT(ref,
                 JsonEq(JSONValue::ParseJSONString(R"(["foo", null, -0.0, 10])")
@@ -4283,7 +4301,8 @@ TEST(JsonSetTest, StrictNumberParsing) {
     LanguageOptions options;
     options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
 
-    ASSERT_THAT(JsonSet(ref, *path_iterator, big_value, options,
+    ASSERT_THAT(JsonSet(ref, *path_iterator, big_value,
+                        /*create_if_missing=*/true, options,
                         /*canonicalize_zero=*/true),
                 StatusIs(absl::StatusCode::kOutOfRange));
   }
@@ -4291,7 +4310,8 @@ TEST(JsonSetTest, StrictNumberParsing) {
     JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
     JSONValueRef ref = value.GetRef();
 
-    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, big_value, LanguageOptions(),
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, big_value,
+                      /*create_if_missing=*/true, LanguageOptions(),
                       /*canonicalize_zero=*/true));
     EXPECT_THAT(ref, JsonEq(JSONValue::ParseJSONString(
                                 R"(["foo", null, 1.111111111111111111, 10])")
@@ -4315,9 +4335,10 @@ TEST(JsonSetTest, FailedConversionComesFirst) {
     LanguageOptions options;
     options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
 
-    ASSERT_THAT(JsonSet(ref, *path_iter, big_value, options,
-                        /*canonicalize_zero=*/true),
-                StatusIs(absl::StatusCode::kOutOfRange));
+    ASSERT_THAT(
+        JsonSet(ref, *path_iter, big_value, /*create_if_missing=*/true, options,
+                /*canonicalize_zero=*/true),
+        StatusIs(absl::StatusCode::kOutOfRange));
     EXPECT_THAT(
         ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
   }
@@ -4347,11 +4368,11 @@ TEST(JsonSetTest, MaxArraySizeExceeded) {
     JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
     JSONValueRef ref = value.GetRef();
 
-    EXPECT_THAT(
-        JsonSet(ref, *path_iter, Value::String("foo"), LanguageOptions(),
-                /*canonicalize_zero=*/true),
-        StatusIs(absl::StatusCode::kOutOfRange,
-                 HasSubstr("Exceeded maximum array size")));
+    EXPECT_THAT(JsonSet(ref, *path_iter, Value::String("foo"),
+                        /*create_if_missing=*/true, LanguageOptions(),
+                        /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Exceeded maximum array size")));
     EXPECT_THAT(
         ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
   }
@@ -4361,14 +4382,53 @@ TEST(JsonSetTest, MaxArraySizeExceeded) {
     JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
     JSONValueRef ref = value.GetRef();
 
-    EXPECT_THAT(
-        JsonSet(ref, *path_iter, Value::String("foo"), LanguageOptions(),
-                /*canonicalize_zero=*/true),
-        StatusIs(absl::StatusCode::kOutOfRange,
-                 HasSubstr("Exceeded maximum array size")));
+    EXPECT_THAT(JsonSet(ref, *path_iter, Value::String("foo"),
+                        /*create_if_missing=*/true, LanguageOptions(),
+                        /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Exceeded maximum array size")));
     EXPECT_THAT(
         ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
   }
+}
+
+TEST(JsonSetTest, CreateIfMissingFalse) {
+  constexpr absl::string_view kInitialObjectValue =
+      R"({"a":null, "b":{}, "c":[], "d":{"e":1}, "f":[2, [], {}, [3, 4]]})";
+  const Value value = Value::Int64(999);
+
+  auto test_fn = [&](absl::string_view path,
+                     absl::string_view expected_output) {
+    std::unique_ptr<StrictJSONPathIterator> path_iterator = ParseJSONPath(path);
+    JSONValue json = JSONValue::ParseJSONString(kInitialObjectValue).value();
+    JSONValueRef ref = json.GetRef();
+    ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, /*create_if_missing=*/false,
+                      LanguageOptions(),
+                      /*canonicalize_zero=*/true));
+    EXPECT_THAT(
+        ref,
+        JsonEq(JSONValue::ParseJSONString(expected_output)->GetConstRef()));
+  };
+
+  // Replace the entire value.
+  test_fn(/*path=*/"$", /*expected_output=*/"999");
+  // Key doesn't exist in NULL value. Ignore.
+  test_fn(
+      /*path=*/"$.a.b", kInitialObjectValue);
+  // Key doesn't in object. Ignore.
+  test_fn(
+      /*path=*/"$.b.c", kInitialObjectValue);
+  // Array index is larger than size of array. Ignore.
+  test_fn(
+      /*path=*/"$.c[0]", kInitialObjectValue);
+  // Replace nested object key.
+  test_fn(
+      /*path=*/"$.d.e",
+      R"({"a":null, "b":{}, "c":[], "d":{"e":999}, "f":[2, [], {}, [3, 4]]})");
+  // Replace array index.
+  test_fn(
+      /*path=*/"$.f[0]",
+      R"({"a":null, "b":{}, "c":[], "d":{"e":1}, "f":[999, [], {}, [3, 4]]})");
 }
 
 TEST(JsonStripNullsTest, NoopPathNonexistent) {

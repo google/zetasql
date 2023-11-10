@@ -16,7 +16,9 @@
 
 #include "zetasql/public/functions/distance.h"
 
+#include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <optional>
 #include <string>
@@ -31,6 +33,9 @@
 #include "gtest/gtest.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
+#include "absl/random/bit_gen_ref.h"
+#include "absl/random/distributions.h"
+#include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 

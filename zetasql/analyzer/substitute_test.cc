@@ -224,9 +224,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteExpressions) {
     |             +-input_scan=
     |             | +-ArrayScan
     |             |   +-column_list=[$array.x#10]
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_arg#8, is_correlated=TRUE)
-    |             |   +-element_column=$array.x#10
+    |             |   +-element_column_list=[$array.x#10]
     |             +-filter_expr=
     |               +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     |                 +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
@@ -253,9 +253,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteExpressions) {
         |             +-input_scan=
         |             | +-ArrayScan
         |             |   +-column_list=[$array.x#7]
-        |             |   +-array_expr=
+        |             |   +-array_expr_list=
         |             |   | +-Literal(parse_location=22-31, type=ARRAY<INT64>, value=[1, 2, 3])
-        |             |   +-element_column=$array.x#7
+        |             |   +-element_column_list=[$array.x#7]
         |             +-filter_expr=
         |               +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
         |                 +-ColumnRef(type=INT64, column=$array.x#7)
@@ -310,9 +310,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteLambda) {
     |             +-input_scan=
     |             | +-ArrayScan
     |             |   +-column_list=[$array.x#7, $array_offset.off#8]
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-    |             |   +-element_column=$array.x#7
+    |             |   +-element_column_list=[$array.x#7]
     |             |   +-array_offset_column=
     |             |     +-ColumnHolder(column=$array_offset.off#8)
     |             +-filter_expr=
@@ -363,9 +363,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteLambdaWithCorrelatedArgument) {
     |             +-input_scan=
     |             | +-ArrayScan
     |             |   +-column_list=[$array.x#7, $array_offset.off#8]
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-    |             |   +-element_column=$array.x#7
+    |             |   +-element_column_list=[$array.x#7]
     |             |   +-array_offset_column=
     |             |     +-ColumnHolder(column=$array_offset.off#8)
     |             +-filter_expr=
@@ -512,9 +512,9 @@ TEST_F(ExpressionSubstitutorTest, MultipleLambdas) {
     |             +-input_scan=
     |             | +-ArrayScan
     |             |   +-column_list=[$array.x#10, $array_offset.off#11]
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-    |             |   +-element_column=$array.x#10
+    |             |   +-element_column_list=[$array.x#10]
     |             |   +-array_offset_column=
     |             |     +-ColumnHolder(column=$array_offset.off#11)
     |             +-filter_expr=

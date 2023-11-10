@@ -640,7 +640,7 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest1#1{Collation:"und:ci"}]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(3) STRING) -> ARRAY<STRING>)
     | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
     | |         |   +-Literal(type=STRING, value="a")
@@ -649,7 +649,7 @@ QueryStmt
     | |         |     +-type_annotation_map={Collation:"und:ci"}
     | |         |     +-Literal(type=STRING, value="a")
     | |         |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-    | |         +-element_column=$array.$unnest1#1{Collation:"und:ci"}
+    | |         +-element_column_list=[$array.$unnest1#1{Collation:"und:ci"}]
     | +-WithEntry
     | | +-with_query_name="t3"
     | | +-with_subquery=
@@ -658,7 +658,7 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest2#2{Collation:"und:ci"}]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(3) STRING) -> ARRAY<STRING>)
     | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
     | |         |   +-Literal(type=STRING, value="a")
@@ -667,7 +667,7 @@ QueryStmt
     | |         |     +-type_annotation_map={Collation:"und:ci"}
     | |         |     +-Literal(type=STRING, value="a")
     | |         |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-    | |         +-element_column=$array.$unnest2#2{Collation:"und:ci"}
+    | |         +-element_column_list=[$array.$unnest2#2{Collation:"und:ci"}]
     | +-WithEntry
     | | +-with_query_name="t2"
     | | +-with_subquery=
@@ -778,7 +778,7 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest1#1{Collation:"und:ci"}]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
     | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
     | |         |   +-Literal(type=STRING, value="a")
@@ -786,7 +786,7 @@ QueryStmt
     | |         |     +-type_annotation_map={Collation:"und:ci"}
     | |         |     +-Literal(type=STRING, value="A")
     | |         |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-    | |         +-element_column=$array.$unnest1#1{Collation:"und:ci"}
+    | |         +-element_column_list=[$array.$unnest1#1{Collation:"und:ci"}]
     | +-WithEntry
     |   +-with_query_name="t1"
     |   +-with_subquery=
@@ -823,7 +823,7 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.key#1{Collation:"und:ci"}]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
     | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
     | |         |   +-Literal(type=STRING, value="a")
@@ -831,7 +831,7 @@ QueryStmt
     | |         |     +-type_annotation_map={Collation:"und:ci"}
     | |         |     +-Literal(type=STRING, value="A")
     | |         |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-    | |         +-element_column=$array.key#1{Collation:"und:ci"}
+    | |         +-element_column_list=[$array.key#1{Collation:"und:ci"}]
     | +-WithEntry
     |   +-with_query_name="t1"
     |   +-with_subquery=
@@ -873,7 +873,7 @@ QueryStmt
     | |     +-input_scan=
     | |       +-ArrayScan
     | |         +-column_list=[$array.$unnest1#1{Collation:"und:ci"}]
-    | |         +-array_expr=
+    | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
     | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
     | |         |   +-Literal(type=STRING, value="a")
@@ -881,7 +881,7 @@ QueryStmt
     | |         |     +-type_annotation_map={Collation:"und:ci"}
     | |         |     +-Literal(type=STRING, value="A")
     | |         |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-    | |         +-element_column=$array.$unnest1#1{Collation:"und:ci"}
+    | |         +-element_column_list=[$array.$unnest1#1{Collation:"und:ci"}]
     | +-WithEntry
     |   +-with_query_name="t1"
     |   +-with_subquery=
@@ -2256,9 +2256,9 @@ QueryStmt
         +-column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], $array.array_with_string_ci#5{Collation:"und:ci"}]
         +-input_scan=
         | +-TableScan(column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]], table=CollatedTable, column_index_list=[3])
-        +-array_expr=
+        +-array_expr_list=
         | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
-        +-element_column=$array.array_with_string_ci#5{Collation:"und:ci"}
+        +-element_column_list=[$array.array_with_string_ci#5{Collation:"und:ci"}]
 ==
 
 # Propagate collation through ResolvedArrayScan on unnest function
@@ -2273,14 +2273,14 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.n#1{Collation:"und:ci"}]
-        +-array_expr=
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
         |   +-type_annotation_map=[{Collation:"und:ci"}]
         |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
         |     +-type_annotation_map={Collation:"und:ci"}
         |     +-Literal(type=STRING, value="abc")
         |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-        +-element_column=$array.n#1{Collation:"und:ci"}
+        +-element_column_list=[$array.n#1{Collation:"und:ci"}]
 ==
 
 # Throw an error if arguments have different collation
@@ -4745,9 +4745,9 @@ QueryStmt
 --
 ALTERNATION GROUP: outer
 --
-ERROR: Syntax error: Expected end of input but got keyword OUTER [at 7:9]
+ERROR: Syntax error: Expected keyword EXCEPT or keyword INTERSECT or keyword UNION but got keyword JOIN [at 7:15]
 from t1 outer join t2 using (col_a)
-        ^
+              ^
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
@@ -7420,9 +7420,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#8, $offset.injected#9]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=$flatten_input.injected#7, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#8
+    |         |           |       +-element_column_list=[$flatten.injected#8]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#9)
     |         |           +-order_by_item_list=
@@ -7554,9 +7554,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#8, $offset.injected#9]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=$flatten_input.injected#7, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#8
+    |         |           |       +-element_column_list=[$flatten.injected#8]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#9)
     |         |           +-order_by_item_list=
@@ -7800,9 +7800,9 @@ QueryStmt
     |           |           |         |   +-input_scan=
     |           |           |         |   | +-ArrayScan
     |           |           |         |   |   +-column_list=[$array.e#7{Collation:"und:ci"}, $array_offset.idx#8]
-    |           |           |         |   |   +-array_expr=
+    |           |           |         |   |   +-array_expr_list=
     |           |           |         |   |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.array_to_slice#2[{Collation:"und:ci"}], is_correlated=TRUE)
-    |           |           |         |   |   +-element_column=$array.e#7{Collation:"und:ci"}
+    |           |           |         |   |   +-element_column_list=[$array.e#7{Collation:"und:ci"}]
     |           |           |         |   |   +-array_offset_column=
     |           |           |         |   |     +-ColumnHolder(column=$array_offset.idx#8)
     |           |           |         |   +-filter_expr=
@@ -8000,9 +8000,9 @@ QueryStmt
     |     |       |           |         |   +-input_scan=
     |     |       |           |         |   | +-ArrayScan
     |     |       |           |         |   |   +-column_list=[$array.e#11<_,{Collation:"und:ci"}>, $array_offset.idx#12]
-    |     |       |           |         |   |   +-array_expr=
+    |     |       |           |         |   |   +-array_expr_list=
     |     |       |           |         |   |   | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=[<_,{Collation:"und:ci"}>], column=$subquery1.array_to_slice#6[<_,{Collation:"und:ci"}>], is_correlated=TRUE)
-    |     |       |           |         |   |   +-element_column=$array.e#11<_,{Collation:"und:ci"}>
+    |     |       |           |         |   |   +-element_column_list=[$array.e#11<_,{Collation:"und:ci"}>]
     |     |       |           |         |   |   +-array_offset_column=
     |     |       |           |         |   |     +-ColumnHolder(column=$array_offset.idx#12)
     |     |       |           |         |   +-filter_expr=

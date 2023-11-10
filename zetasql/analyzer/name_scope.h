@@ -917,6 +917,15 @@ class NameList {
       const IdStringSetCase& excluded_field_names = {},
       const NameListPtr& pseudo_columns_name_list = nullptr);
 
+  // This does either AddColumn or AddValueTableColumn (without the
+  // optional args), depending on `is_value_table_column`.
+  // `is_explicit` is unused if `is_value_table_column` is true.
+  absl::Status AddColumnMaybeValueTable(IdString name,
+                                        const ResolvedColumn& column,
+                                        bool is_explicit,
+                                        const ASTNode* ast_location,
+                                        bool is_value_table_column);
+
   // Add a pseudo-column.  Pseudo-columns are always implicit.
   // They can be looked up by name but don't show up in columns().
   absl::Status AddPseudoColumn(IdString name,
@@ -1020,9 +1029,11 @@ class NameList {
   // as a marker.  The NameList gives the set of columns produced by a query,
   // and this marker bit indicates that the query produces a value table.
   //
-  // When this is true, the NameList should have exactly one column.
-  // This is enforced elsewhere.
-  void set_is_value_table(bool value) { is_value_table_ = value; }
+  // When this is true, the NameList must have exactly one column, and
+  // it should be a value table column.  The column must be added with
+  // AddValueTableColumn before calling SetIsValueTable.
+  // Adding more columns after this will fail.
+  absl::Status SetIsValueTable();
   bool is_value_table() const { return is_value_table_; }
 
   std::string DebugString(absl::string_view indent = absl::string_view()) const;

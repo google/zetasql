@@ -3021,9 +3021,9 @@ QueryStmt
     |   +-input_scan=
     |   | +-ArrayScan
     |   |   +-column_list=[$array.ex#1]
-    |   |   +-array_expr=
+    |   |   +-array_expr_list=
     |   |   | +-Literal(type=ARRAY<STRUCT<a STRING, b INT32>>, value=[{a:"a", b:1}, {a:"b", b:2}], has_explicit_type=TRUE)
-    |   |   +-element_column=$array.ex#1
+    |   |   +-element_column_list=[$array.ex#1]
     |   +-group_by_list=
     |   | +-b#3 :=
     |   |   +-GetStructField

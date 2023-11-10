@@ -643,7 +643,7 @@ FROM
 proto_map_field_expression[proto_subscript_specifier]
 
 proto_subscript_specifier:
-  key_keyword(key_name)
+  key_name | key_keyword(key_name)
 
 key_keyword:
   { KEY | SAFE_KEY }
@@ -663,6 +663,8 @@ Input values:
     protocol buffer map field.
   + `SAFE_KEY(key_name)`: Returns `NULL` if the key is not present in the
     protocol buffer map field.
+  + `key_name`: When `key_name` is provided without a wrapping keyword,
+    it is the same as `KEY(key_name)`.
 + `key_name`: The key in the protocol buffer map field. This operator returns
   `NULL` if the key is `NULL`.
 
@@ -739,6 +741,22 @@ FROM
  +-----------------------+
  | NULL      | NULL      |
  *-----------------------*/
+```
+
+When a key is used without `KEY()` or `SAFE_KEY()`, it has the same behavior
+as if `KEY()` had been used. For example:
+
+```sql
+SELECT
+  m.purchased['A'] AS map_value
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
+/*-----------*
+ | map_value |
+ +-----------+
+ | 2         |
+ *-----------*/
 ```
 
 ### Array elements field access operator 

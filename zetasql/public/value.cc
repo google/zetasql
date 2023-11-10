@@ -267,16 +267,24 @@ absl::StatusOr<Value> Value::MakeStructInternal(bool already_validated,
   return result;
 }
 
-absl::StatusOr<Value> Value::MakeRange(const Value& start, const Value& end) {
-  ZETASQL_RET_CHECK(start.type()->Equals(end.type()))
-      << "Range start element and range end element must have the same "
-         "type";
-  const RangeType* range_type =
-      types::RangeTypeFromSimpleTypeKind(start.type_kind());
-  // If both ends are not unbounded, then enforce that start < end.
-  if (!start.is_null() && !end.is_null() && !start.LessThan(end)) {
-    return absl::InvalidArgumentError(
-        "Range start element must be smaller than range end element");
+absl::StatusOr<Value> Value::MakeRangeInternal(bool is_validated,
+                                               const Value& start,
+                                               const Value& end,
+                                               const RangeType* type) {
+  const RangeType* range_type = type;
+
+  if (!is_validated || kDebugMode) {
+    range_type = types::RangeTypeFromSimpleTypeKind(start.type_kind());
+
+    ZETASQL_RET_CHECK(start.type()->Equals(end.type()))
+        << "Range start element and range end element must have the same "
+           "type";
+
+    // If both ends are not unbounded, then enforce that start < end.
+    if (!start.is_null() && !end.is_null() && !start.LessThan(end)) {
+      return absl::InvalidArgumentError(
+          "Range start element must be smaller than range end element");
+    }
   }
 
   std::vector<Value> values;

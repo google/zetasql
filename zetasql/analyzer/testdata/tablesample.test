@@ -614,14 +614,14 @@ QueryStmt
         |       +-column_list=[TestTable.KitchenSink#3, $array.val#4]
         |       +-input_scan=
         |       | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-GetProtoField
         |       |   +-type=ARRAY<INT32>
         |       |   +-expr=
         |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       |   +-field_descriptor=repeated_int32_val
         |       |   +-default_value=[]
-        |       +-element_column=$array.val#4
+        |       +-element_column_list=[$array.val#4]
         +-method="reservoir"
         +-size=
         | +-Literal(type=INT64, value=1)
@@ -659,9 +659,9 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.$unnest1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |       +-element_column=$array.$unnest1#1
+        |       +-element_column_list=[$array.$unnest1#1]
         +-method="reservoir"
         +-size=
         | +-Literal(type=INT64, value=1)
@@ -1517,3 +1517,54 @@ QueryStmt
         +-unit=ROWS
         +-weight_column=
           +-ColumnHolder(column=$sample_weight.Value#3)
+==
+
+# Correlated column references don't work in PARTITION BY.
+# This was probably an oversight rather than intentional.
+SELECT
+  ARRAY(
+    SELECT TestEnum
+    FROM KeyValue
+      TABLESAMPLE RESERVOIR (10 ROWS PARTITION BY {{key|TestEnum}})
+  )
+FROM EnumTable
+--
+ALTERNATION GROUP: key
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#9 AS `$col1` [ARRAY<ENUM<zetasql_test__.TestEnum>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#9]
+    +-expr_list=
+    | +-$col1#9 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<ENUM<zetasql_test__.TestEnum>>
+    |     +-subquery_type=ARRAY
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=EnumTable.TestEnum#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.TestEnum#8]
+    |         +-expr_list=
+    |         | +-TestEnum#8 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=EnumTable.TestEnum#2, is_correlated=TRUE)
+    |         +-input_scan=
+    |           +-SampleScan
+    |             +-column_list=[KeyValue.Key#6]
+    |             +-input_scan=
+    |             | +-TableScan(column_list=[KeyValue.Key#6], table=KeyValue, column_index_list=[0])
+    |             +-method="reservoir"
+    |             +-size=
+    |             | +-Literal(type=INT64, value=10)
+    |             +-unit=ROWS
+    |             +-partition_by_list=
+    |               +-ColumnRef(type=INT64, column=KeyValue.Key#6)
+    +-input_scan=
+      +-TableScan(column_list=[EnumTable.TestEnum#2], table=EnumTable, column_index_list=[1])
+--
+ALTERNATION GROUP: TestEnum
+--
+ERROR: Unrecognized name: TestEnum [at 5:51]
+      TABLESAMPLE RESERVOIR (10 ROWS PARTITION BY TestEnum)
+                                                  ^

@@ -117,9 +117,9 @@ TEST(RewriteResolvedAstTest, RewriterDoesNotConflictWithExpressionColumnNames) {
 |       |           |   |       +-input_scan=
 |       |           |   |       | +-ArrayScan
 |       |           |   |       |   +-column_list=[$array.elem#3, $array_offset.offset#4]
-|       |           |   |       |   +-array_expr=
+|       |           |   |       |   +-array_expr_list=
 |       |           |   |       |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, column=$subquery1.m#2, is_correlated=TRUE)
-|       |           |   |       |   +-element_column=$array.elem#3
+|       |           |   |       |   +-element_column_list=[$array.elem#3]
 |       |           |   |       |   +-array_offset_column=
 |       |           |   |       |     +-ColumnHolder(column=$array_offset.offset#4)
 |       |           |   |       +-filter_expr=

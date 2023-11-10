@@ -413,6 +413,8 @@ absl::Status AnalyzerOptions::Deserialize(
   result->set_preserve_unnecessary_cast(proto.preserve_unnecessary_cast());
   result->set_show_function_signature_mismatch_details(
       proto.show_function_signature_mismatch_details());
+  result->set_replace_table_not_found_error_with_tvf_error_if_applicable(
+      proto.replace_table_not_found_error_with_tvf_error_if_applicable());
 
   if (proto.has_allowed_hints_and_options()) {
     AllowedHintsAndOptions hints_and_options("");
@@ -503,6 +505,8 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   proto->set_preserve_unnecessary_cast(data_->preserve_unnecessary_cast);
   proto->set_show_function_signature_mismatch_details(
       data_->show_function_signature_mismatch_details);
+  proto->set_replace_table_not_found_error_with_tvf_error_if_applicable(
+      data_->replace_table_not_found_error_with_tvf_error_if_applicable);
 
   ZETASQL_RETURN_IF_ERROR(data_->allowed_hints_and_options.Serialize(
       map, proto->mutable_allowed_hints_and_options()));

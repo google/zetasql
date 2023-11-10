@@ -21,6 +21,7 @@
 
 #include "zetasql/common/options_utils.h"
 #include "zetasql/public/options.pb.h"
+#include "absl/container/btree_set.h"
 #include "absl/flags/flag.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -35,8 +36,8 @@ static RewriteSet DefaultRewrites() {
 // successfully execute using a direct implementation, and thus requires the
 // rewriter. These rewrites are enabled for the reference even when using the
 // reference impl as a baseline for compliance tests.
-static const RewriteSet& MinimalRewrites() {
-  static const auto* minimal_rewrites = new RewriteSet({
+absl::btree_set<ResolvedASTRewrite> MinimalRewritesForReference() {
+  return {
       // Probably don't add to this list without a very good reason to do so.
       // Features that are rewrite *only* without direct implementation support
       // in the reference implementation are not as well tested as features with
@@ -44,11 +45,15 @@ static const RewriteSet& MinimalRewrites() {
       // clang-format off
       // (broken link) start
       REWRITE_INLINE_SQL_TVFS,
-      REWRITE_INLINE_SQL_UDAS,
       REWRITE_INLINE_SQL_VIEWS,
       // (broken link) end
       // clang-format on
-  });
+  };
+}
+
+static const RewriteSet& MinimalRewrites() {
+  static const auto* minimal_rewrites =
+      new RewriteSet({MinimalRewritesForReference()});
   return *minimal_rewrites;
 }
 

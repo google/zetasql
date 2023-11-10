@@ -27,6 +27,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -110,7 +111,7 @@ static InputArgumentType GetInputArgumentTypeForGenericArgument(
 
 void GetInputArgumentTypesForGenericArgumentList(
     const std::vector<const ASTNode*>& argument_ast_nodes,
-    const std::vector<std::unique_ptr<const ResolvedExpr>>& arguments,
+    absl::Span<const std::unique_ptr<const ResolvedExpr>> arguments,
     std::vector<InputArgumentType>* input_arguments) {
   ABSL_DCHECK_EQ(argument_ast_nodes.size(), arguments.size());
   input_arguments->clear();

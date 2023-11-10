@@ -287,7 +287,8 @@ inline bool IsNan(T in, bool* out, absl::Status* error) {
 }
 
 template <typename T>
-inline bool IeeeDivide(T in1, T in2, T* out, absl::Status* error) {
+__attribute__((no_sanitize("float-divide-by-zero"))) inline bool IeeeDivide(
+    T in1, T in2, T* out, absl::Status* error) {
   static_assert(std::is_floating_point<T>::value,
                 "T must be floating point type");
   static_assert(std::numeric_limits<T>::is_iec559, "T must do IEEE754 divide");
@@ -340,7 +341,8 @@ bool DecimalLogarithm(T in, T* out, absl::Status* error) {
 }
 
 template <typename T>
-bool Logarithm(T in1, T in2, T* out, absl::Status* error) {
+__attribute__((no_sanitize("float-divide-by-zero"))) bool Logarithm(
+    T in1, T in2, T* out, absl::Status* error) {
   if (std::isfinite(in2) && in2 > 0) {
     *out = std::log(in1) / std::log(in2);
   } else {
@@ -439,25 +441,29 @@ bool Atan2(T in1, T in2, T* out, absl::Status* error) {
 }
 
 template <typename T>
-bool Csc(T in, T* out, absl::Status* error) {
+__attribute__((no_sanitize("float-divide-by-zero"))) bool Csc(
+    T in, T* out, absl::Status* error) {
   *out = 1.0 / std::sin(in);
   return internal::CheckFloatingPointError("CSC", in, *out, error);
 }
 
 template <typename T>
-bool Sec(T in, T* out, absl::Status* error) {
+__attribute__((no_sanitize("float-divide-by-zero"))) bool Sec(
+    T in, T* out, absl::Status* error) {
   *out = 1.0 / std::cos(in);
   return internal::CheckFloatingPointError("SEC", in, *out, error);
 }
 
 template <typename T>
-bool Cot(T in, T* out, absl::Status* error) {
+__attribute__((no_sanitize("float-divide-by-zero"))) bool Cot(
+    T in, T* out, absl::Status* error) {
   *out = 1.0 / std::tan(in);
   return internal::CheckFloatingPointError("COT", in, *out, error);
 }
 
 template <typename T>
-bool Csch(T in, T* out, absl::Status* error) {
+__attribute__((no_sanitize("float-divide-by-zero"))) bool Csch(
+    T in, T* out, absl::Status* error) {
   *out = 1.0 / std::sinh(in);
   return internal::CheckFloatingPointError("CSCH", in, *out, error);
 }
@@ -470,7 +476,8 @@ bool Sech(T in, T* out, absl::Status* error) {
 }
 
 template <typename T>
-bool Coth(T in, T* out, absl::Status* error) {
+__attribute__((no_sanitize("float-divide-by-zero"))) bool Coth(
+    T in, T* out, absl::Status* error) {
   *out = 1.0 / std::tanh(in);
   return internal::CheckFloatingPointError("COTH", in, *out, error);
 }

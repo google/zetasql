@@ -22,15 +22,16 @@
 #include <utility>
 #include <vector>
 
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/base/status.h"
+#include "absl/base/macros.h"
+#include "absl/status/status.h"
 
 // This file includes interfaces and classes related to templated SQL
 // TVFs.  It includes classes to represent TemplatedSQLTVFs and their
@@ -128,12 +129,11 @@ class TemplatedSQLTVF : public TableValuedFunction {
   // SQL expression body.  If 'status' is OK, also returns OK. Otherwise,
   // returns a new error forwarding any nested errors in 'status' obtained
   // from this nested parsing or analysis.
-  // TODO: Remove ErrorMessageMode, once we consistently always save
+  // TODO: Remove ErrorMessageOptions, once we consistently always save
   // these status objects with payload, and only produce the mode-versioned
   // status when fetched through FindXXX() calls?
   absl::Status ForwardNestedResolutionAnalysisError(
-      const absl::Status& status, ErrorMessageMode mode,
-      bool keep_error_location_payload) const;
+      const absl::Status& status, ErrorMessageOptions options) const;
 
   // Returns a new error reporting a failed expectation of the sql_body_
   // (for example, if it is a CREATE TABLE instead of a SELECT statement).

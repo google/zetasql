@@ -1100,18 +1100,18 @@ select
   json_extract_scalar('{"a": "foo"}', path)
 from (select '$.a' as path union all select '$.b')
 --
-ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT must be a literal or query parameter [at 2:32]
   json_extract('{"a": "foo"}', path),
-  ^
+                               ^
 ==
 [name=json_extract_subquery_path]
 select
   json_extract('{"a": "foo"}', (select '$.a')),
   json_extract_scalar('{"a": "foo"}', (select '$.a'))
 --
-ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT must be a literal or query parameter [at 2:32]
   json_extract('{"a": "foo"}', (select '$.a')),
-  ^
+                               ^
 ==
 [name=json_extract_no_arguments]
 select
@@ -1159,9 +1159,9 @@ select
   json_extract_array('{"a": ["foo"]}', path)
 from (select '$.a' as path)
 --
-ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_ARRAY must be a literal or query parameter [at 2:40]
   json_extract_array('{"a": ["foo"]}', path)
-  ^
+                                       ^
 ==
 [name=json_extract_array_literal_null_path]
 select
@@ -1173,9 +1173,9 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 select
   json_extract_array('{"a": ["foo"]}', (select '$.a'))
 --
-ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_ARRAY must be a literal or query parameter [at 2:40]
   json_extract_array('{"a": ["foo"]}', (select '$.a'))
-  ^
+                                       ^
 ==
 [name=json_extract_array_no_arguments]
 select
@@ -1234,9 +1234,9 @@ select
   json_extract_string_array('{"a": ["foo"]}', path)
 from (select '$.a' as path)
 --
-ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_STRING_ARRAY must be a literal or query parameter [at 2:47]
   json_extract_string_array('{"a": ["foo"]}', path)
-  ^
+                                              ^
 ==
 [required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_literal_null_path]
@@ -1250,9 +1250,9 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 select
   json_extract_string_array('{"a": ["foo"]}', (select '$.a'))
 --
-ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_STRING_ARRAY must be a literal or query parameter [at 2:47]
   json_extract_string_array('{"a": ["foo"]}', (select '$.a'))
-  ^
+                                              ^
 ==
 [required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_no_arguments]

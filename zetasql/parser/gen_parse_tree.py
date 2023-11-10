@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 431
+NEXT_NODE_TAG_ID = 440
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -4967,31 +4967,69 @@ def main(argv):
   )
 
   gen.AddNode(
-      name='ASTCreateSchemaStatement',
-      tag_id=168,
+      name='ASTCreateSchemaStmtBase',
+      tag_id=438,
       parent='ASTCreateStatement',
+      is_abstract=True,
       comment="""
-      This represents a CREATE SCHEMA statement, i.e.,
-      CREATE SCHEMA <name> [OPTIONS (name=value, ...)];
+      A base class to be used by statements that create schemas, including
+      CREATE SCHEMA and CREATE EXTERNAL SCHEMA.
       """,
       fields=[
           Field(
               'name',
               'ASTPathExpression',
               tag_id=2,
+              visibility=Visibility.PROTECTED,
               field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'collate',
-              'ASTCollate',
-              tag_id=3),
           Field(
               'options_list',
               'ASTOptionsList',
-              tag_id=4),
+              visibility=Visibility.PROTECTED,
+              tag_id=3),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
       """)
+
+  gen.AddNode(
+      name='ASTCreateSchemaStatement',
+      tag_id=168,
+      parent='ASTCreateSchemaStmtBase',
+      comment="""
+      This represents a CREATE SCHEMA statement, i.e.,
+      CREATE SCHEMA <name> [OPTIONS (name=value, ...)];
+      """,
+      fields=[
+          Field(
+              'collate',
+              'ASTCollate',
+              tag_id=2),
+      ],
+      init_fields_order=[
+          'name',
+          'collate',
+          'options_list',
+      ])
+
+  gen.AddNode(
+      name='ASTCreateExternalSchemaStatement',
+      tag_id=439,
+      parent='ASTCreateSchemaStmtBase',
+      comment="""
+      This represents a CREATE EXTERNAL SCHEMA statement, i.e.,
+      CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA [IF
+      NOT EXISTS] <name> WITH CONNECTION <connection> OPTIONS (name=value, ...);
+      """,
+      fields=[
+          Field('with_connection_clause', 'ASTWithConnectionClause', tag_id=2),
+      ],
+      init_fields_order=[
+          'name',
+          'with_connection_clause',
+          'options_list',
+      ],
+  )
 
   gen.AddNode(
       name='ASTAliasedQueryList',

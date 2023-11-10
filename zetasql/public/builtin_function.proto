@@ -52,7 +52,7 @@ enum FunctionSignatureId {
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
   // 2000-2199 Geography functions            (NextId: 2092)
   // 2200-2231 Anonymization functions        (NextId: 2232)
-  // 2300-2499 Numeric & more math functions  (NextId: 2353)
+  // 2300-2499 Numeric, more math & distances (NextId: 2355)
   // 2500-2599 Array and proto map functions  (NextId: 2561)
   // 2600-2699 More misc functions.           (NextId: 2622)
   // 2700-2799 Aggregate functions II         (NextId: 2746)
@@ -1065,7 +1065,7 @@ enum FunctionSignatureId {
 
   // Aggregate functions
   FN_ST_UNION_AGG = 2061;
-  FN_ST_ACCUM = 2062;
+  FN_ST_ACCUM = 2062;  // Deprecated.
   FN_ST_CENTROID_AGG = 2063;
   FN_ST_NEAREST_NEIGHBORS = 2067;
   FN_ST_EXTENT = 2083;
@@ -1238,33 +1238,28 @@ enum FunctionSignatureId {
   // ARRAY_ZIP(array<T1>, array<T2>[, ARRAY_ZIP_MODE]) -> ARRAY<STRUCT<T1, T2>>
   FN_ARRAY_ZIP_TWO_ARRAY = 2552;
 
-  // ARRAY_ZIP(array<T1>, array<T2>, LAMBDA(T1, T2) -> T3) -> ARRAY<T3>
-  FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA = 2553;
-  // ARRAY_ZIP(array<T1>, array<T2>, ARRAY_ZIP_MODE, LAMBDA(T1, T2) -> T3) ->
+  // ARRAY_ZIP(array<T1>, array<T2>, LAMBDA(T1, T2) -> T3[, ARRAY_ZIP_MODE]) ->
   // ARRAY<T3>
-  FN_ARRAY_ZIP_TWO_ARRAY_MODE_LAMBDA = 2554;
+  FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA = 2553;
 
   // ARRAY_ZIP(array<T1>, array<T2>, array<T3>[, ARRAY_ZIP_MODE]) ->
   // ARRAY<STRUCT<T1, T2, T3>>
   FN_ARRAY_ZIP_THREE_ARRAY = 2555;
 
-  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, LAMBDA(T1, T2, T3) -> T4) ->
-  // ARRAY<T4>
+  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, LAMBDA(T1, T2, T3) -> T4[,
+  // ARRAY_ZIP_MODE]) -> ARRAY<T4>
   FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA = 2556;
-  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, ARRAY_ZIP_MODE, LAMBDA(T1, T2,
-  // T3) -> T4) -> ARRAY<T4>
-  FN_ARRAY_ZIP_THREE_ARRAY_MODE_LAMBDA = 2557;
 
   // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>[, ARRAY_ZIP_MODE]) ->
   // ARRAY<STRUCT<T1, T2, T3, T4>>
   FN_ARRAY_ZIP_FOUR_ARRAY = 2558;
 
   // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>, LAMBDA(T1, T2, T3,
-  // T4) -> T5) -> ARRAY<T5>
+  // T4) -> T5[, ARRAY_ZIP_MODE]) -> ARRAY<T5>
   FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA = 2559;
-  // ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>, ARRAY_ZIP_MODE,
-  // LAMBDA(T1, T2, T3, T4) -> T5) -> ARRAY<T5>
-  FN_ARRAY_ZIP_FOUR_ARRAY_MODE_LAMBDA = 2560;
+
+  // Deprecated ARRAY_ZIP signatures.
+  reserved 2554, 2557, 2560;
 
   // More misc functions
   FN_JSON_TO_INT64 = 2600;   // int64(json) -> int64
@@ -1316,8 +1311,12 @@ enum FunctionSignatureId {
   // range_contains(range<T>, T) -> bool
   FN_RANGE_CONTAINS_ELEMENT = 2920;
 
+  // Distance functions.
+
   // cosine_distance(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
   FN_COSINE_DISTANCE_DENSE_DOUBLE = 2345;
+  // cosine_distance(array<FLOAT>, array<FLOAT>) -> DOUBLE
+  FN_COSINE_DISTANCE_DENSE_FLOAT = 2353;
   // cosine_distance(array<struct<INT64, DOUBLE>>, array<struct<INT64, DOUBLE>>)
   // -> DOUBLE
   FN_COSINE_DISTANCE_SPARSE_INT64 = 2346;
@@ -1327,6 +1326,8 @@ enum FunctionSignatureId {
 
   // euclidean_distance(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
   FN_EUCLIDEAN_DISTANCE_DENSE_DOUBLE = 2348;
+  // euclidean_distance(array<FLOAT>, array<FLOAT>) -> DOUBLE
+  FN_EUCLIDEAN_DISTANCE_DENSE_FLOAT = 2354;
   // euclidean_distance(array<struct<INT64, DOUBLE>>, array<struct<INT64,
   // DOUBLE>>) -> DOUBLE
   FN_EUCLIDEAN_DISTANCE_SPARSE_INT64 = 2349;

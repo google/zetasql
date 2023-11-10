@@ -127,9 +127,11 @@ std::string AnalyzerRuntimeInfo::DebugString(
 
   absl::Duration analyzer_total = sum_elapsed_duration();
   auto print_latency = [total_runs, analyzer_total](absl::Duration latency) {
-    return absl::StrCat(100.0 * absl::FDivDuration(latency, analyzer_total),
-                        "% ", absl::ToDoubleMicroseconds(latency), "μs ",
-                        absl::ToDoubleMicroseconds(latency) / total_runs, "μs");
+    return absl::StrCat(
+        100.0 * absl::FDivDuration(latency, analyzer_total), "% ",
+        absl::ToDoubleMicroseconds(latency), "μs ",
+        total_runs == 0 ? 0 : absl::ToDoubleMicroseconds(latency) / total_runs,
+        "μs");
   };
   std::string rewriter_str;
 

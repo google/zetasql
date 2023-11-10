@@ -1014,7 +1014,8 @@ an interval:
 + `HOUR`: Number of hours, `H`.
 + `MINUTE`: Number of minutes, `M`. Each `60` minutes is converted to `1` hour.
 + `SECOND`: Number of seconds, `S`. Each `60` seconds is converted to
-  `1` minute.
+  `1` minute. Can include up to nine fractional
+  digits (nanosecond precision).
 
 ## JSON type
 
@@ -1569,15 +1570,15 @@ Examples of the type protocol buffer being inferred from context:
 
     ```sql
     CREATE TABLE TableName (
-      proto_column zetasql.examples.music.Chart AS ({ rank: 1 chart_name: '2' })
-    )
+      proto_column zetasql.examples.music.Chart GENERATED ALWAYS AS (
+        { rank: 1 chart_name: '2' }))
     ```
 +   From column names in default values in `CREATE`:
 
     ```sql
     CREATE TABLE TableName(
-      proto_column zetasql.examples.music.Chart
-      DEFAULT({ rank: 1 chart_name: '2' }))
+      proto_column zetasql.examples.music.Chart DEFAULT (
+        { rank: 1 chart_name: '2' }))
     ```
 +   From return types in SQL function body:
 

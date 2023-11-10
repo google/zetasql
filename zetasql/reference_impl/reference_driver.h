@@ -34,8 +34,10 @@
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/rewrite_flags.h"
 #include "zetasql/scripting/script_executor.h"
 #include "zetasql/scripting/type_aliases.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -61,7 +63,10 @@ class ReferenceDriver : public TestDriver {
     PrimaryKeyMode primary_key_mode = PrimaryKeyMode::DEFAULT;
   };
 
-  explicit ReferenceDriver(LanguageOptions options = DefaultLanguageOptions());
+  explicit ReferenceDriver(
+      LanguageOptions options = DefaultLanguageOptions(),
+      absl::btree_set<ResolvedASTRewrite> enabled_rewrites =
+          MinimalRewritesForReference());
   ReferenceDriver(const ReferenceDriver&) = delete;
   ReferenceDriver& operator=(const ReferenceDriver&) = delete;
   ~ReferenceDriver() override;
@@ -243,6 +248,7 @@ class ReferenceDriver : public TestDriver {
   friend class ReferenceDriverStatementEvaluator;
   std::unique_ptr<TypeFactory> type_factory_;
   LanguageOptions language_options_;
+  absl::btree_set<ResolvedASTRewrite> enabled_rewrites_;
   std::vector<TableInfo> tables_;
 
   // Procedures created inside the current script. Reset at the start of each

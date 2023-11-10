@@ -24,9 +24,9 @@
 #include <vector>
 
 #include "zetasql/common/status_payload_utils.h"
-#include "zetasql/tools/execute_query/execute_query.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
+#include "zetasql/tools/execute_query/execute_query.pb.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"

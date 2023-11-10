@@ -834,6 +834,9 @@ class AnalyzerTestRunner {
       }
       options.set_allowed_hints_and_options(updated_hints_and_options);
     }
+    options.set_replace_table_not_found_error_with_tvf_error_if_applicable(
+        test_case_options_.GetBool(
+            kReplaceTableNotFoundErrorWithTvfErrorIfApplicable));
 
     SetupSampleSystemVariables(&type_factory, &options);
     auto catalog_holder = CreateCatalog(options);
@@ -849,7 +852,7 @@ class AnalyzerTestRunner {
 
  private:
   void TestOne(const std::string& test_case, const AnalyzerOptions& options,
-               const std::string& mode, Catalog* catalog,
+               absl::string_view mode, Catalog* catalog,
                std::unique_ptr<TypeFactory> type_factory_memory,
                file_based_test_driver::RunTestCaseResult* test_result) {
     TypeFactory* type_factory = type_factory_memory.get();
@@ -1005,7 +1008,7 @@ class AnalyzerTestRunner {
   }
 
   void TestMulti(const std::string& test_case, const AnalyzerOptions& options,
-                 const std::string& mode, Catalog* catalog,
+                 absl::string_view mode, Catalog* catalog,
                  TypeFactory* type_factory,
                  file_based_test_driver::RunTestCaseResult* test_result) {
     ASSERT_EQ("statement", mode)
@@ -1242,9 +1245,8 @@ class AnalyzerTestRunner {
     std::unique_ptr<ParserOutput> parser_output;
     absl::Status status =
         ParseStatement(test_case, options.GetParserOptions(), &parser_output);
-    status = MaybeUpdateErrorFromPayload(
-        options.error_message_mode(), options.attach_error_location_payload(),
-        test_case, status);
+    status = MaybeUpdateErrorFromPayload(options.error_message_options(),
+                                         test_case, status);
     TableResolutionTimeInfoMap table_resolution_time_info_map;
     if (status.ok()) {
       absl::Status status = ExtractTableResolutionTimeFromASTStatement(
@@ -2820,6 +2822,8 @@ class AnalyzerTestRunner {
     builder_options.undeclared_positional_parameters =
         analyzer_output->undeclared_positional_parameters();
     builder_options.catalog = catalog;
+    builder_options.target_syntax =
+        analyzer_output->analyzer_output_properties().target_syntax_;
     const std::string positional_parameter_mode =
         test_case_options_.GetString(kUnparserPositionalParameterMode);
     if (positional_parameter_mode == "question_mark") {

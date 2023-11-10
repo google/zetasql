@@ -39,8 +39,10 @@
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/resolved_ast/target_syntax.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
@@ -119,6 +121,14 @@ class SQLBuilder : public ResolvedASTVisitor {
     //  - Opaque enum types will always render as literals if the type isn't
     //    found, which is an indication it isn't fully supported.
     Catalog* catalog = nullptr;
+
+    // Records syntax hint against specific Resolved AST node to decide what
+    // SQL syntax to restore. The syntax hint is particularly useful when
+    // multiple SQL syntaxes are possible.
+    // WARNING: his map should only be populated by ZetaSQL resolver and RQG.
+    // It's an advanced feature with specific intended use cases and misusing it
+    // can cause the SQLBuilder to misbehave.
+    TargetSyntaxMap target_syntax;
   };
 
   explicit SQLBuilder(const SQLBuilderOptions& options = SQLBuilderOptions());
@@ -863,22 +873,32 @@ class SQLBuilder : public ResolvedASTVisitor {
   virtual std::string GenerateUniqueAliasName();
 
   // Renames the columns of each set operation item (represented by each entry
-  // in `set_op_scan_list`) to the aliases in `final_column_list` when the
-  // column_propagation_mode of the set operation is FULL.
-  absl::Status RenameSetOperationItemsFullMode(
+  // in `set_op_scan_list`) to the aliases in `final_column_list` when
+  // - `node->column_propagation_mode` is FULL,
+  // - and `node->column_match_mode` is CORRESPONDING (not CORRESPONDING_BY).
+  //
+  // We have a separate method specifically for (CORRESPONDING, FULL) because
+  // this combination requires us to analyze the internal structure of all the
+  // `output_column_list` from all the input items of `node->input_item_list` to
+  // know the order of which columns should be preserved.
+  //
+  // For other combinations in (CORRESPONDING|CORRESPONDING_BY) *
+  // (INNER|FULL|LEFT|STRICT), the columns are either the ones of the first scan
+  // (for (INNER|LEFT|STRICT), CORRESPONDING) or none (for CORRESPONDING BY),
+  // which is handled by method RenameSetOperationItemsNonFullCorresponding.
+  absl::Status RenameSetOperationItemsFullCorresponding(
       const ResolvedSetOperationScan* node,
       const std::vector<std::pair<std::string, std::string>>& final_column_list,
       std::vector<std::unique_ptr<QueryExpression>>& set_op_scan_list);
 
   // Renames the columns of each set operation item (represented by each entry
-  // in `set_op_scan_list`) to the aliases in `final_column_list` when the
-  // column_propagation_mode of the set operation is not FULL, i.e. one of
-  // INNER, LEFT, and STRICT.
-  absl::Status RenameSetOperationItemsNonFullMode(
+  // in `set_op_scan_list`) to the aliases in `final_column_list` when
+  // - `node->column_propagation_mode` is not FULL, i.e. one of INNER, LEFT, and
+  //   STRICT,
+  // - or `node->column_match_mode` is CORRESPONDING_BY (not CORRESPONDING).
+  absl::Status RenameSetOperationItemsNonFullCorresponding(
       const ResolvedSetOperationScan* node,
       const std::vector<std::pair<std::string, std::string>>& final_column_list,
-      ResolvedSetOperationScan::SetOperationColumnPropagationMode
-          column_propagation_mode,
       std::vector<std::unique_ptr<QueryExpression>>& set_op_scan_list);
 
   // Returns the original scan from the input `scan`.

@@ -89,6 +89,7 @@ behavior:
         <a href="#st_exteriorring"><code>ST_EXTERIORRING</code></a><br>
         <a href="#st_interiorrings"><code>ST_INTERIORRINGS</code></a><br>
         <a href="#st_intersection"><code>ST_INTERSECTION</code></a><br>
+        <a href="#st_linesubstring"><code>ST_LINESUBSTRING</code></a><br>
         <a href="#st_simplify"><code>ST_SIMPLIFY</code></a><br>
         <a href="#st_snaptogrid"><code>ST_SNAPTOGRID</code></a><br>
         <a href="#st_union"><code>ST_UNION</code></a><br>
@@ -158,6 +159,7 @@ behavior:
         <a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a><br>
         <a href="#st_distance"><code>ST_DISTANCE</code></a><br>
         <a href="#st_extent"><code>ST_EXTENT</code></a> (Aggregate)<br>
+        <a href="#st_hausdorffdistance"><code>ST_HAUSDORFFDISTANCE</code></a><br>
         <a href="#st_linelocatepoint"><code>ST_LINELOCATEPOINT</code></a><br>
         <a href="#st_length"><code>ST_LENGTH</code></a><br>
         <a href="#st_maxdistance"><code>ST_MAXDISTANCE</code></a><br>
@@ -576,6 +578,13 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#st_hausdorffdistance"><code>ST_HAUSDORFFDISTANCE</code></a>
+
+</td>
+  <td>Gets the discrete Hausdorff distance between two geometries.</td>
+</tr>
+
+<tr>
   <td><a href="#st_interiorrings"><code>ST_INTERIORRINGS</code></a>
 
 </td>
@@ -666,6 +675,16 @@ behavior:
   <td>
     Gets a section of a linestring <code>GEOGRAPHY</code> value between the
     start point and a point <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_linesubstring"><code>ST_LINESUBSTRING</code></a>
+
+</td>
+  <td>
+    Gets a segment of a single linestring at a specific starting and
+    ending fraction.
   </td>
 </tr>
 
@@ -2577,6 +2596,117 @@ FROM example;
 
 [st-asgeojson]: #st_asgeojson
 
+### `ST_HAUSDORFFDISTANCE`
+
+```sql
+ST_HAUSDORFFDISTANCE(geography_1, geography_2)
+```
+
+```sql
+ST_HAUSDORFFDISTANCE(geography_1, geography_2, directed=>{ TRUE | FALSE })
+```
+
+**Description**
+
+Gets the discrete [Hausdorff distance][h-distance], which is the greatest of all
+the distances from a discrete point in one geography to the closest
+discrete point in another geography.
+
+**Definitions**
+
++   `geography_1`: A `GEOGRAPHY` value that represents the first geography.
++   `geography_2`: A `GEOGRAPHY` value that represents the second geography.
++   `directed`: Optional, required named argument that represents the type of
+    computation to use on the input geographies. If this argument is not
+    specified, `directed=>FALSE` is used by default.
+
+    +   `FALSE`: The largest Hausdorff distance found in
+        (`geography_1`, `geography_2`) and
+        (`geography_2`, `geography_1`).
+
+    +   `TRUE` (default): The Hausdorff distance for
+        (`geography_1`, `geography_2`).
+
+**Details**
+
+If an input geography is `NULL`, the function returns `NULL`.
+
+**Return type**
+
+`DOUBLE`
+
+**Example**
+
+The following query gets the Hausdorff distance between `geo1` and `geo2`:
+
+```sql
+WITH data AS (
+  SELECT
+    ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
+    ST_GEOGFROMTEXT('LINESTRING(20 90, 30 90, 60 10, 90 10)') AS geo2
+)
+SELECT ST_HAUSDORFFDISTANCE(geo1, geo2, directed=>TRUE) AS distance
+FROM data;
+
+/*--------------------+
+ | distance           |
+ +--------------------+
+ | 1688933.9832041925 |
+ +--------------------*/
+```
+
+The following query gets the Hausdorff distance between `geo2` and `geo1`:
+
+```sql
+WITH data AS (
+  SELECT
+    ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
+    ST_GEOGFROMTEXT('LINESTRING(20 90, 30 90, 60 10, 90 10)') AS geo2
+)
+SELECT ST_HAUSDORFFDISTANCE(geo2, geo1, directed=>TRUE) AS distance
+FROM data;
+
+/*--------------------+
+ | distance           |
+ +--------------------+
+ | 5802892.745488612  |
+ +--------------------*/
+```
+
+The following query gets the largest Hausdorff distance between
+(`geo1` and `geo2`) and (`geo2` and `geo1`):
+
+```sql
+WITH data AS (
+  SELECT
+    ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
+    ST_GEOGFROMTEXT('LINESTRING(20 90, 30 90, 60 10, 90 10)') AS geo2
+)
+SELECT ST_HAUSDORFFDISTANCE(geo1, geo2, directed=>FALSE) AS distance
+FROM data;
+
+/*--------------------+
+ | distance           |
+ +--------------------+
+ | 5802892.745488612  |
+ +--------------------*/
+```
+
+The following query produces the same results as the previous query because
+`ST_HAUSDORFFDISTANCE` uses `directed=>FALSE` by default.
+
+```sql
+WITH data AS (
+  SELECT
+    ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
+    ST_GEOGFROMTEXT('LINESTRING(20 90, 30 90, 60 10, 90 10)') AS geo2
+)
+SELECT ST_HAUSDORFFDISTANCE(geo1, geo2) AS distance
+FROM data;
+```
+
+[h-distance]: http://en.wikipedia.org/wiki/Hausdorff_distance
+
 ### `ST_INTERIORRINGS`
 
 ```sql
@@ -2933,6 +3063,73 @@ FROM geos
 ```
 
 [st-closestpoint]: #st_closestpoint
+
+### `ST_LINESUBSTRING`
+
+```sql
+ST_LINESUBSTRING(linestring_geography, start_fraction, end_fraction);
+```
+
+**Description**
+
+Gets a segment of a linestring at a specific starting and ending fraction.
+
+**Definitions**
+
++   `linestring_geography`: The LineString `GEOGRAPHY` value that represents the
+    linestring from which to extract a segment.
++   `start_fraction`: `DOUBLE` value that represents
+    the starting fraction of the total length of `linestring_geography`.
+    This must be an inclusive value between 0 and 1 (0-100%).
++   `end_fraction`: `DOUBLE` value that represents
+    the ending fraction of the total length of `linestring_geography`.
+    This must be an inclusive value between 0 and 1 (0-100%).
+
+**Details**
+
+`end_fraction` must be greater than or equal to `start_fraction`.
+
+If `start_fraction` and `end_fraction` are equal, a linestring with only
+one point is produced.
+
+**Return type**
+
++   LineString `GEOGRAPHY` if the resulting geography has more than one point.
++   Point `GEOGRAPHY` if the resulting geography has only one point.
+
+**Example**
+
+The following query returns the second half of the linestring:
+
+```sql
+WITH data AS (
+  SELECT ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1
+)
+SELECT ST_LINESUBSTRING(geo1, 0.5, 1) AS segment
+FROM data;
+
+/*-------------------------------------------------------------+
+ | segment                                                     |
+ +-------------------------------------------------------------+
+ | LINESTRING(49.4760661523471 67.2419539103851, 10 70, 70 70) |
+ +-------------------------------------------------------------*/
+```
+
+The following query returns a linestring that only contains one point:
+
+```sql
+WITH data AS (
+  SELECT ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1
+)
+SELECT ST_LINESUBSTRING(geo1, 0.5, 0.5) AS segment
+FROM data;
+
+/*------------------------------------------+
+ | segment                                  |
+ +------------------------------------------+
+ | POINT(49.4760661523471 67.2419539103851) |
+ +------------------------------------------*/
+```
 
 ### `ST_MAKELINE`
 

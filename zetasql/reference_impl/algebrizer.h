@@ -261,6 +261,35 @@ class Algebrizer {
       std::unique_ptr<ValueExpr> array_value,
       const ResolvedCollation& collation);
 
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUdaCall(
+      const AnonymizationOptions* anonymization_options,
+      const ResolvedExpr& function_expr,
+      const std::vector<const ResolvedExpr*>& aggregate_exprs,
+      const ResolvedColumnList& aggregate_expr_columns,
+      std::vector<std::string> argument_names,
+      const LanguageOptions& language_options,
+      const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory);
+
+  absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
+  CreateCallbackUserDefinedAggregateFn(
+      const ResolvedNonScalarFunctionCallBase* aggregate_function,
+      const AnonymizationOptions* anonymization_options);
+
+  absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
+  CreateTemplatedUserDefinedAggregateFn(
+      const ResolvedNonScalarFunctionCallBase* aggregate_function,
+      const AnonymizationOptions* anonymization_options);
+
+  absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
+  CreateNonTemplatedUserDefinedAggregateFn(
+      const ResolvedNonScalarFunctionCallBase* aggregate_function,
+      const AnonymizationOptions* anonymization_options);
+
+  absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
+  CreateUserDefinedAggregateFn(
+      const ResolvedNonScalarFunctionCallBase* aggregate_function,
+      const AnonymizationOptions* anonymization_options);
+
   // TODO: Remove the special collation logics in this function.
   absl::StatusOr<std::unique_ptr<ValueExpr>>
   AlgebrizeScalarArrayFunctionWithCollation(

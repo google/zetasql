@@ -15,7 +15,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
@@ -27,7 +27,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column=$array.value#18
+        +-element_column_list=[$array.value#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -57,9 +57,9 @@ QueryStmt
                 +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-                +-array_expr=
+                +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column=$flatten.injected#19
+                +-element_column_list=[$flatten.injected#19]
 ==
 
 select value
@@ -76,7 +76,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<BOOL>
         |   +-expr=
@@ -88,7 +88,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-get_has_bit=TRUE
-        +-element_column=$array.value#18
+        +-element_column_list=[$array.value#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -118,9 +118,9 @@ QueryStmt
                 +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-                +-array_expr=
+                +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column=$flatten.injected#19
+                +-element_column_list=[$flatten.injected#19]
 ==
 
 select value
@@ -137,7 +137,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
@@ -149,7 +149,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column=$array.value#18
+        +-element_column_list=[$array.value#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -179,9 +179,9 @@ QueryStmt
                 +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-                +-array_expr=
+                +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column=$flatten.injected#19
+                +-element_column_list=[$flatten.injected#19]
 ==
 
 select str_value
@@ -198,7 +198,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.str_value#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -210,7 +210,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=str_value
         |       +-default_value=[]
-        +-element_column=$array.str_value#18
+        +-element_column_list=[$array.str_value#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -232,17 +232,17 @@ QueryStmt
             |   +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
             |   +-input_scan=
             |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-            |   +-element_column=$flatten.injected#19
-            +-array_expr=
+            |   +-element_column_list=[$flatten.injected#19]
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
             |   +-field_descriptor=str_value
             |   +-default_value=[]
-            +-element_column=$flatten.injected#20
+            +-element_column_list=[$flatten.injected#20]
 ==
 
 select t.key, value
@@ -260,7 +260,7 @@ QueryStmt
         +-column_list=[TestTable.key#1, TestTable.KitchenSink#3, $array.value#4]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -277,7 +277,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>)
         |       +-field_descriptor=nested_int64
         |       +-default_value=88
-        +-element_column=$array.value#4
+        +-element_column_list=[$array.value#4]
 
 [REWRITTEN AST]
 QueryStmt
@@ -308,14 +308,14 @@ QueryStmt
                 +-column_list=[TestTable.key#1, TestTable.KitchenSink#3, $flatten.injected#5]
                 +-input_scan=
                 | +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2], alias="t")
-                +-array_expr=
+                +-array_expr_list=
                 | +-GetProtoField
                 |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
                 |   +-expr=
                 |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                 |   +-field_descriptor=nested_repeated_value
                 |   +-default_value=[]
-                +-element_column=$flatten.injected#5
+                +-element_column_list=[$flatten.injected#5]
 ==
 
 select value
@@ -332,7 +332,7 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.value#4]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -349,7 +349,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>)
         |       +-field_descriptor=nested_repeated_int64
         |       +-default_value=[]
-        +-element_column=$array.value#4
+        +-element_column_list=[$array.value#4]
 
 [REWRITTEN AST]
 QueryStmt
@@ -371,22 +371,22 @@ QueryStmt
             |   +-column_list=[TestTable.KitchenSink#3, $flatten.injected#5]
             |   +-input_scan=
             |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-GetProtoField
             |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
             |   |   +-expr=
             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |   |   +-field_descriptor=nested_repeated_value
             |   |   +-default_value=[]
-            |   +-element_column=$flatten.injected#5
-            +-array_expr=
+            |   +-element_column_list=[$flatten.injected#5]
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<INT64>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$flatten.injected#5)
             |   +-field_descriptor=nested_repeated_int64
             |   +-default_value=[]
-            +-element_column=$flatten.injected#6
+            +-element_column_list=[$flatten.injected#6]
 ==
 
 select value
@@ -403,7 +403,7 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.value#4]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
@@ -426,7 +426,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column=$array.value#4
+        +-element_column_list=[$array.value#4]
 
 [REWRITTEN AST]
 QueryStmt
@@ -459,22 +459,22 @@ QueryStmt
                 |   +-column_list=[TestTable.KitchenSink#3, $flatten.injected#5]
                 |   +-input_scan=
                 |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-                |   +-array_expr=
+                |   +-array_expr_list=
                 |   | +-GetProtoField
                 |   |   +-type=ARRAY<PROTO<zetasql_test__.RepeatedHolderPB>>
                 |   |   +-expr=
                 |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                 |   |   +-field_descriptor=repeated_holder
                 |   |   +-default_value=[]
-                |   +-element_column=$flatten.injected#5
-                +-array_expr=
+                |   +-element_column_list=[$flatten.injected#5]
+                +-array_expr_list=
                 | +-GetProtoField
                 |   +-type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>
                 |   +-expr=
                 |   | +-ColumnRef(type=PROTO<zetasql_test__.RepeatedHolderPB>, column=$flatten.injected#5)
                 |   +-field_descriptor=repeated_field
                 |   +-default_value=[]
-                +-element_column=$flatten.injected#6
+                +-element_column_list=[$flatten.injected#6]
 ==
 
 select value
@@ -491,7 +491,7 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.value#4]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -514,7 +514,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=str_value
         |       +-default_value=[]
-        +-element_column=$array.value#4
+        +-element_column_list=[$array.value#4]
 
 [REWRITTEN AST]
 QueryStmt
@@ -539,30 +539,30 @@ QueryStmt
             |   |   +-column_list=[TestTable.KitchenSink#3, $flatten.injected#5]
             |   |   +-input_scan=
             |   |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-            |   |   +-array_expr=
+            |   |   +-array_expr_list=
             |   |   | +-GetProtoField
             |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RepeatedHolderPB>>
             |   |   |   +-expr=
             |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |   |   |   +-field_descriptor=repeated_holder
             |   |   |   +-default_value=[]
-            |   |   +-element_column=$flatten.injected#5
-            |   +-array_expr=
+            |   |   +-element_column_list=[$flatten.injected#5]
+            |   +-array_expr_list=
             |   | +-GetProtoField
             |   |   +-type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>
             |   |   +-expr=
             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RepeatedHolderPB>, column=$flatten.injected#5)
             |   |   +-field_descriptor=repeated_field
             |   |   +-default_value=[]
-            |   +-element_column=$flatten.injected#6
-            +-array_expr=
+            |   +-element_column_list=[$flatten.injected#6]
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#6)
             |   +-field_descriptor=str_value
             |   +-default_value=[]
-            +-element_column=$flatten.injected#7
+            +-element_column_list=[$flatten.injected#7]
 ==
 
 select value
@@ -579,7 +579,7 @@ QueryStmt
         +-column_list=[RecursivePBTable.RecursivePB#1, $array.value#2]
         +-input_scan=
         | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -620,7 +620,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
-        +-element_column=$array.value#2
+        +-element_column_list=[$array.value#2]
 
 [REWRITTEN AST]
 QueryStmt
@@ -659,31 +659,31 @@ QueryStmt
                 |   |   |   +-column_list=[RecursivePBTable.RecursivePB#1, $flatten.injected#3]
                 |   |   |   +-input_scan=
                 |   |   |   | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
-                |   |   |   +-array_expr=
+                |   |   |   +-array_expr_list=
                 |   |   |   | +-GetProtoField
                 |   |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   |   +-expr=
                 |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
                 |   |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   |   +-default_value=[]
-                |   |   |   +-element_column=$flatten.injected#3
-                |   |   +-array_expr=
+                |   |   |   +-element_column_list=[$flatten.injected#3]
+                |   |   +-array_expr_list=
                 |   |   | +-GetProtoField
                 |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   +-expr=
                 |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
                 |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   +-default_value=[]
-                |   |   +-element_column=$flatten.injected#4
-                |   +-array_expr=
+                |   |   +-element_column_list=[$flatten.injected#4]
+                |   +-array_expr_list=
                 |   | +-GetProtoField
                 |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   +-expr=
                 |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
                 |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   +-default_value=[]
-                |   +-element_column=$flatten.injected#5
-                +-array_expr=
+                |   +-element_column_list=[$flatten.injected#5]
+                +-array_expr_list=
                 | +-GetProtoField
                 |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
@@ -695,7 +695,7 @@ QueryStmt
                 |   |   +-default_value=NULL
                 |   +-field_descriptor=repeated_recursive_pb
                 |   +-default_value=[]
-                +-element_column=$flatten.injected#6
+                +-element_column_list=[$flatten.injected#6]
 ==
 
 select value
@@ -712,7 +712,7 @@ QueryStmt
         +-column_list=[RecursivePBTable.RecursivePB#1, $array.value#2]
         +-input_scan=
         | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -749,7 +749,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
-        +-element_column=$array.value#2
+        +-element_column_list=[$array.value#2]
 
 [REWRITTEN AST]
 QueryStmt
@@ -785,23 +785,23 @@ QueryStmt
                 |   |   +-column_list=[RecursivePBTable.RecursivePB#1, $flatten.injected#3]
                 |   |   +-input_scan=
                 |   |   | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
-                |   |   +-array_expr=
+                |   |   +-array_expr_list=
                 |   |   | +-GetProtoField
                 |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   +-expr=
                 |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
                 |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   +-default_value=[]
-                |   |   +-element_column=$flatten.injected#3
-                |   +-array_expr=
+                |   |   +-element_column_list=[$flatten.injected#3]
+                |   +-array_expr_list=
                 |   | +-GetProtoField
                 |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   +-expr=
                 |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
                 |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   +-default_value=[]
-                |   +-element_column=$flatten.injected#4
-                +-array_expr=
+                |   +-element_column_list=[$flatten.injected#4]
+                +-array_expr_list=
                 | +-GetProtoField
                 |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
@@ -815,7 +815,7 @@ QueryStmt
                 |   |   +-Literal(type=INT64, value=0)
                 |   +-field_descriptor=repeated_recursive_pb
                 |   +-default_value=[]
-                +-element_column=$flatten.injected#5
+                +-element_column_list=[$flatten.injected#5]
 
 ==
 
@@ -831,7 +831,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.value#1]
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -871,7 +871,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
-        +-element_column=$array.value#1
+        +-element_column_list=[$array.value#1]
 
 [REWRITTEN AST]
 QueryStmt
@@ -905,7 +905,7 @@ QueryStmt
                 |   +-input_scan=
                 |   | +-ArrayScan
                 |   |   +-column_list=[$flatten.injected#2]
-                |   |   +-array_expr=
+                |   |   +-array_expr_list=
                 |   |   | +-GetProtoField
                 |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   +-expr=
@@ -917,16 +917,16 @@ QueryStmt
                 |   |   |   |   +-default_value=NULL
                 |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   +-default_value=[]
-                |   |   +-element_column=$flatten.injected#2
-                |   +-array_expr=
+                |   |   +-element_column_list=[$flatten.injected#2]
+                |   +-array_expr_list=
                 |   | +-GetProtoField
                 |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   +-expr=
                 |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#2)
                 |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   +-default_value=[]
-                |   +-element_column=$flatten.injected#3
-                +-array_expr=
+                |   +-element_column_list=[$flatten.injected#3]
+                +-array_expr_list=
                 | +-GetProtoField
                 |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
@@ -938,7 +938,7 @@ QueryStmt
                 |   |   +-default_value=NULL
                 |   +-field_descriptor=repeated_recursive_pb
                 |   +-default_value=[]
-                +-element_column=$flatten.injected#4
+                +-element_column_list=[$flatten.injected#4]
 ==
 
 select value
@@ -953,7 +953,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.value#1]
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -994,7 +994,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
-        +-element_column=$array.value#1
+        +-element_column_list=[$array.value#1]
 
 [REWRITTEN AST]
 QueryStmt
@@ -1031,31 +1031,31 @@ QueryStmt
                 |   |   +-input_scan=
                 |   |   | +-ArrayScan
                 |   |   |   +-column_list=[$flatten.injected#2]
-                |   |   |   +-array_expr=
+                |   |   |   +-array_expr_list=
                 |   |   |   | +-GetProtoField
                 |   |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   |   +-expr=
                 |   |   |   |   | +-MakeProto(type=PROTO<zetasql_test__.RecursivePB>)
                 |   |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   |   +-default_value=[]
-                |   |   |   +-element_column=$flatten.injected#2
-                |   |   +-array_expr=
+                |   |   |   +-element_column_list=[$flatten.injected#2]
+                |   |   +-array_expr_list=
                 |   |   | +-GetProtoField
                 |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   +-expr=
                 |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#2)
                 |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   +-default_value=[]
-                |   |   +-element_column=$flatten.injected#3
-                |   +-array_expr=
+                |   |   +-element_column_list=[$flatten.injected#3]
+                |   +-array_expr_list=
                 |   | +-GetProtoField
                 |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   +-expr=
                 |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
                 |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   +-default_value=[]
-                |   +-element_column=$flatten.injected#4
-                +-array_expr=
+                |   +-element_column_list=[$flatten.injected#4]
+                +-array_expr_list=
                 | +-GetProtoField
                 |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
@@ -1067,7 +1067,7 @@ QueryStmt
                 |   |   +-default_value=NULL
                 |   +-field_descriptor=repeated_recursive_pb
                 |   +-default_value=[]
-                +-element_column=$flatten.injected#5
+                +-element_column_list=[$flatten.injected#5]
 ==
 
 select value
@@ -1084,7 +1084,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
@@ -1102,7 +1102,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPBExtensionHolder>)
         |       +-field_descriptor=ext_value
         |       +-default_value=[]
-        +-element_column=$array.value#18
+        +-element_column_list=[$array.value#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -1124,10 +1124,10 @@ QueryStmt
             |   +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
             |   +-input_scan=
             |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-            |   +-element_column=$flatten.injected#19
-            +-array_expr=
+            |   +-element_column_list=[$flatten.injected#19]
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
@@ -1139,7 +1139,7 @@ QueryStmt
             |   |   +-default_value=NULL
             |   +-field_descriptor=ext_value
             |   +-default_value=[]
-            +-element_column=$flatten.injected#20
+            +-element_column_list=[$flatten.injected#20]
 ==
 
 select value
@@ -1157,7 +1157,7 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.value#4]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -1174,7 +1174,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkExtension>)
         |       +-field_descriptor=repeated_value
         |       +-default_value=[]
-        +-element_column=$array.value#4
+        +-element_column_list=[$array.value#4]
 
 [REWRITTEN AST]
 QueryStmt
@@ -1196,22 +1196,22 @@ QueryStmt
             |   +-column_list=[TestTable.KitchenSink#3, $flatten.injected#5]
             |   +-input_scan=
             |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-GetProtoField
             |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>
             |   |   +-expr=
             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |   |   +-field_descriptor=[zetasql_test__.KitchenSinkExtension.repeated_extension]
             |   |   +-default_value=[]
-            |   +-element_column=$flatten.injected#5
-            +-array_expr=
+            |   +-element_column_list=[$flatten.injected#5]
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkExtension>, column=$flatten.injected#5)
             |   +-field_descriptor=repeated_value
             |   +-default_value=[]
-            +-element_column=$flatten.injected#6
+            +-element_column_list=[$flatten.injected#6]
 ==
 
 select value
@@ -1226,7 +1226,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.value#1]
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -1262,7 +1262,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
-        +-element_column=$array.value#1
+        +-element_column_list=[$array.value#1]
 
 [REWRITTEN AST]
 QueryStmt
@@ -1296,7 +1296,7 @@ QueryStmt
                 |   +-input_scan=
                 |   | +-ArrayScan
                 |   |   +-column_list=[$flatten.injected#2]
-                |   |   +-array_expr=
+                |   |   +-array_expr_list=
                 |   |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>) -> ARRAY<STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>>)
                 |   |   |   +-MakeStruct
                 |   |   |     +-type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>
@@ -1306,15 +1306,15 @@ QueryStmt
                 |   |   |           +-type=STRUCT<y PROTO<zetasql_test__.RecursivePB>>
                 |   |   |           +-field_list=
                 |   |   |             +-MakeProto(type=PROTO<zetasql_test__.RecursivePB>)
-                |   |   +-element_column=$flatten.injected#2
-                |   +-array_expr=
+                |   |   +-element_column_list=[$flatten.injected#2]
+                |   +-array_expr_list=
                 |   | +-GetStructField
                 |   |   +-type=ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>
                 |   |   +-expr=
                 |   |   | +-ColumnRef(type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>, column=$flatten.injected#2)
                 |   |   +-field_idx=0
-                |   +-element_column=$flatten.injected#3
-                +-array_expr=
+                |   +-element_column_list=[$flatten.injected#3]
+                +-array_expr_list=
                 | +-GetProtoField
                 |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
@@ -1325,7 +1325,7 @@ QueryStmt
                 |   |   +-field_idx=0
                 |   +-field_descriptor=repeated_recursive_pb
                 |   +-default_value=[]
-                +-element_column=$flatten.injected#4
+                +-element_column_list=[$flatten.injected#4]
 ==
 
 select value
@@ -1350,7 +1350,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -1364,7 +1364,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=str_value
         |       +-default_value=[]
-        +-element_column=$array.value#18
+        +-element_column_list=[$array.value#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -1386,19 +1386,19 @@ QueryStmt
             |   +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
             |   +-input_scan=
             |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:array_concat(ARRAY<PROTO<zetasql_test__.TestExtraPB>>, repeated(1) ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> ARRAY<PROTO<zetasql_test__.TestExtraPB>>)
             |   |   +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
             |   |   +-Literal(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, value=[])
-            |   +-element_column=$flatten.injected#19
-            +-array_expr=
+            |   +-element_column_list=[$flatten.injected#19]
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
             |   +-field_descriptor=str_value
             |   +-default_value=[]
-            +-element_column=$flatten.injected#20
+            +-element_column_list=[$flatten.injected#20]
 ==
 
 select value
@@ -1424,7 +1424,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:array_concat(ARRAY<STRING>, repeated(1) ARRAY<STRING>) -> ARRAY<STRING>)
         |   +-Flatten
         |   | +-type=ARRAY<STRING>
@@ -1438,7 +1438,7 @@ QueryStmt
         |   |     +-field_descriptor=str_value
         |   |     +-default_value=[]
         |   +-Literal(type=ARRAY<STRING>, value=["foo"])
-        +-element_column=$array.value#18
+        +-element_column_list=[$array.value#18]
 
 [[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,-WITH_EXPR' ]]
 [REWRITTEN AST]
@@ -1453,7 +1453,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:array_concat(ARRAY<STRING>, repeated(1) ARRAY<STRING>) -> ARRAY<STRING>)
         |   +-WithExpr
         |   | +-type=ARRAY<STRING>
@@ -1479,19 +1479,19 @@ QueryStmt
         |   |           |   +-input_scan=
         |   |           |   | +-ArrayScan
         |   |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
-        |   |           |   |   +-array_expr=
+        |   |           |   |   +-array_expr_list=
         |   |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-        |   |           |   |   +-element_column=$flatten.injected#20
+        |   |           |   |   +-element_column_list=[$flatten.injected#20]
         |   |           |   |   +-array_offset_column=
         |   |           |   |     +-ColumnHolder(column=$offset.injected#21)
-        |   |           |   +-array_expr=
+        |   |           |   +-array_expr_list=
         |   |           |   | +-GetProtoField
         |   |           |   |   +-type=ARRAY<STRING>
         |   |           |   |   +-expr=
         |   |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
         |   |           |   |   +-field_descriptor=str_value
         |   |           |   |   +-default_value=[]
-        |   |           |   +-element_column=$flatten.injected#22
+        |   |           |   +-element_column_list=[$flatten.injected#22]
         |   |           |   +-array_offset_column=
         |   |           |     +-ColumnHolder(column=$offset.injected#23)
         |   |           +-order_by_item_list=
@@ -1502,7 +1502,7 @@ QueryStmt
         |   |               +-column_ref=
         |   |                 +-ColumnRef(type=INT64, column=$offset.injected#23)
         |   +-Literal(type=ARRAY<STRING>, value=["foo"])
-        +-element_column=$array.value#18
+        +-element_column_list=[$array.value#18]
 
 [[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS' ]]
 [REWRITTEN AST]
@@ -1517,7 +1517,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:array_concat(ARRAY<STRING>, repeated(1) ARRAY<STRING>) -> ARRAY<STRING>)
         |   +-SubqueryExpr
         |   | +-type=ARRAY<STRING>
@@ -1548,19 +1548,19 @@ QueryStmt
         |   |     |           |   +-input_scan=
         |   |     |           |   | +-ArrayScan
         |   |     |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
-        |   |     |           |   |   +-array_expr=
+        |   |     |           |   |   +-array_expr_list=
         |   |     |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-        |   |     |           |   |   +-element_column=$flatten.injected#20
+        |   |     |           |   |   +-element_column_list=[$flatten.injected#20]
         |   |     |           |   |   +-array_offset_column=
         |   |     |           |   |     +-ColumnHolder(column=$offset.injected#21)
-        |   |     |           |   +-array_expr=
+        |   |     |           |   +-array_expr_list=
         |   |     |           |   | +-GetProtoField
         |   |     |           |   |   +-type=ARRAY<STRING>
         |   |     |           |   |   +-expr=
         |   |     |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
         |   |     |           |   |   +-field_descriptor=str_value
         |   |     |           |   |   +-default_value=[]
-        |   |     |           |   +-element_column=$flatten.injected#22
+        |   |     |           |   +-element_column_list=[$flatten.injected#22]
         |   |     |           |   +-array_offset_column=
         |   |     |           |     +-ColumnHolder(column=$offset.injected#23)
         |   |     |           +-order_by_item_list=
@@ -1578,7 +1578,7 @@ QueryStmt
         |   |         +-input_scan=
         |   |           +-SingleRowScan
         |   +-Literal(type=ARRAY<STRING>, value=["foo"])
-        +-element_column=$array.value#18
+        +-element_column_list=[$array.value#18]
 ==
 
 select flatten([
@@ -1665,19 +1665,19 @@ QueryStmt
     |         |           |       +-input_scan=
     |         |           |       | +-ArrayScan
     |         |           |       |   +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |         |           |       |   +-array_expr=
+    |         |           |       |   +-array_expr_list=
     |         |           |       |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.RecursivePB>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |         |           |       |   +-element_column=$flatten.injected#3
+    |         |           |       |   +-element_column_list=[$flatten.injected#3]
     |         |           |       |   +-array_offset_column=
     |         |           |       |     +-ColumnHolder(column=$offset.injected#4)
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-GetProtoField
     |         |           |       |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |         |           |       |   +-expr=
     |         |           |       |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
     |         |           |       |   +-field_descriptor=repeated_recursive_pb
     |         |           |       |   +-default_value=[]
-    |         |           |       +-element_column=$flatten.injected#5
+    |         |           |       +-element_column_list=[$flatten.injected#5]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#6)
     |         |           +-order_by_item_list=
@@ -1787,19 +1787,19 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
-    |         |           |   |   +-array_expr=
+    |         |           |   |   +-array_expr_list=
     |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |   |   +-element_column=$flatten.injected#20
+    |         |           |   |   +-element_column_list=[$flatten.injected#20]
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$offset.injected#21)
-    |         |           |   +-array_expr=
+    |         |           |   +-array_expr_list=
     |         |           |   | +-GetProtoField
     |         |           |   |   +-type=ARRAY<STRING>
     |         |           |   |   +-expr=
     |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
     |         |           |   |   +-field_descriptor=str_value
     |         |           |   |   +-default_value=[]
-    |         |           |   +-element_column=$flatten.injected#22
+    |         |           |   +-element_column_list=[$flatten.injected#22]
     |         |           |   +-array_offset_column=
     |         |           |     +-ColumnHolder(column=$offset.injected#23)
     |         |           +-order_by_item_list=
@@ -1883,19 +1883,19 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
-    |         |           |   |   +-array_expr=
+    |         |           |   |   +-array_expr_list=
     |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |   |   +-element_column=$flatten.injected#20
+    |         |           |   |   +-element_column_list=[$flatten.injected#20]
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$offset.injected#21)
-    |         |           |   +-array_expr=
+    |         |           |   +-array_expr_list=
     |         |           |   | +-GetProtoField
     |         |           |   |   +-type=ARRAY<STRING>
     |         |           |   |   +-expr=
     |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
     |         |           |   |   +-field_descriptor=str_value
     |         |           |   |   +-default_value=[]
-    |         |           |   +-element_column=$flatten.injected#22
+    |         |           |   +-element_column_list=[$flatten.injected#22]
     |         |           |   +-array_offset_column=
     |         |           |     +-ColumnHolder(column=$offset.injected#23)
     |         |           +-order_by_item_list=
@@ -2004,9 +2004,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<b INT64>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#3
+    |         |           |       +-element_column_list=[$flatten.injected#3]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#4)
     |         |           +-order_by_item_list=
@@ -2046,18 +2046,18 @@ QueryStmt
     |             |     |     |           |   +-input_scan=
     |             |     |     |           |   | +-ArrayScan
     |             |     |     |           |   |   +-column_list=[$flatten.injected#7, $offset.injected#8]
-    |             |     |     |           |   |   +-array_expr=
+    |             |     |     |           |   |   +-array_expr_list=
     |             |     |     |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<STRUCT<b INT64>>>>, column=$flatten_input.injected#6, is_correlated=TRUE)
-    |             |     |     |           |   |   +-element_column=$flatten.injected#7
+    |             |     |     |           |   |   +-element_column_list=[$flatten.injected#7]
     |             |     |     |           |   |   +-array_offset_column=
     |             |     |     |           |   |     +-ColumnHolder(column=$offset.injected#8)
-    |             |     |     |           |   +-array_expr=
+    |             |     |     |           |   +-array_expr_list=
     |             |     |     |           |   | +-GetStructField
     |             |     |     |           |   |   +-type=ARRAY<STRUCT<b INT64>>
     |             |     |     |           |   |   +-expr=
     |             |     |     |           |   |   | +-ColumnRef(type=STRUCT<a ARRAY<STRUCT<b INT64>>>, column=$flatten.injected#7)
     |             |     |     |           |   |   +-field_idx=0
-    |             |     |     |           |   +-element_column=$flatten.injected#9
+    |             |     |     |           |   +-element_column_list=[$flatten.injected#9]
     |             |     |     |           |   +-array_offset_column=
     |             |     |     |           |     +-ColumnHolder(column=$offset.injected#10)
     |             |     |     |           +-order_by_item_list=
@@ -2101,18 +2101,18 @@ QueryStmt
     |             |           |           |   +-input_scan=
     |             |           |           |   | +-ArrayScan
     |             |           |           |   |   +-column_list=[$flatten.injected#12, $offset.injected#13]
-    |             |           |           |   |   +-array_expr=
+    |             |           |           |   |   +-array_expr_list=
     |             |           |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<STRUCT<b INT64>>>>, column=$flatten_input.injected#11, is_correlated=TRUE)
-    |             |           |           |   |   +-element_column=$flatten.injected#12
+    |             |           |           |   |   +-element_column_list=[$flatten.injected#12]
     |             |           |           |   |   +-array_offset_column=
     |             |           |           |   |     +-ColumnHolder(column=$offset.injected#13)
-    |             |           |           |   +-array_expr=
+    |             |           |           |   +-array_expr_list=
     |             |           |           |   | +-GetStructField
     |             |           |           |   |   +-type=ARRAY<STRUCT<b INT64>>
     |             |           |           |   |   +-expr=
     |             |           |           |   |   | +-ColumnRef(type=STRUCT<a ARRAY<STRUCT<b INT64>>>, column=$flatten.injected#12)
     |             |           |           |   |   +-field_idx=0
-    |             |           |           |   +-element_column=$flatten.injected#14
+    |             |           |           |   +-element_column_list=[$flatten.injected#14]
     |             |           |           |   +-array_offset_column=
     |             |           |           |     +-ColumnHolder(column=$offset.injected#15)
     |             |           |           +-order_by_item_list=
@@ -2274,9 +2274,9 @@ QueryStmt
                   |         |           |   +-input_scan=
                   |         |           |     +-ArrayScan
                   |         |           |       +-column_list=[$flatten.injected#6, $offset.injected#7]
-                  |         |           |       +-array_expr=
+                  |         |           |       +-array_expr_list=
                   |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>, column=$flatten_input.injected#5, is_correlated=TRUE)
-                  |         |           |       +-element_column=$flatten.injected#6
+                  |         |           |       +-element_column_list=[$flatten.injected#6]
                   |         |           |       +-array_offset_column=
                   |         |           |         +-ColumnHolder(column=$offset.injected#7)
                   |         |           +-order_by_item_list=
@@ -2316,7 +2316,7 @@ QueryStmt
     |   +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18, $array_offset.o#19]
     |   +-input_scan=
     |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-    |   +-array_expr=
+    |   +-array_expr_list=
     |   | +-Flatten
     |   |   +-type=ARRAY<INT32>
     |   |   +-expr=
@@ -2328,7 +2328,7 @@ QueryStmt
     |   |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
     |   |       +-field_descriptor=int32_val1
     |   |       +-default_value=0
-    |   +-element_column=$array.value#18
+    |   +-element_column_list=[$array.value#18]
     |   +-array_offset_column=
     |     +-ColumnHolder(column=$array_offset.o#19)
     +-order_by_item_list=
@@ -2349,7 +2349,7 @@ QueryStmt
     |   +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18, $array_offset.o#19]
     |   +-input_scan=
     |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-    |   +-array_expr=
+    |   +-array_expr_list=
     |   | +-SubqueryExpr
     |   |   +-type=ARRAY<INT32>
     |   |   +-subquery_type=ARRAY
@@ -2375,16 +2375,16 @@ QueryStmt
     |   |       |       +-column_list=[$flatten.injected#20, $offset.injected#21]
     |   |       |       +-input_scan=
     |   |       |       | +-SingleRowScan
-    |   |       |       +-array_expr=
+    |   |       |       +-array_expr_list=
     |   |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-    |   |       |       +-element_column=$flatten.injected#20
+    |   |       |       +-element_column_list=[$flatten.injected#20]
     |   |       |       +-array_offset_column=
     |   |       |         +-ColumnHolder(column=$offset.injected#21)
     |   |       +-order_by_item_list=
     |   |         +-OrderByItem
     |   |           +-column_ref=
     |   |             +-ColumnRef(type=INT64, column=$offset.injected#21)
-    |   +-element_column=$array.value#18
+    |   +-element_column_list=[$array.value#18]
     |   +-array_offset_column=
     |     +-ColumnHolder(column=$array_offset.o#19)
     +-order_by_item_list=
@@ -2408,7 +2408,7 @@ QueryStmt
         +-column_list=[RecursivePBTable.RecursivePB#1, $array.value#2, $array_offset.o#3]
         +-input_scan=
         | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -2449,7 +2449,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
-        +-element_column=$array.value#2
+        +-element_column_list=[$array.value#2]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.o#3)
 
@@ -2466,7 +2466,7 @@ QueryStmt
         +-column_list=[RecursivePBTable.RecursivePB#1, $array.value#2, $array_offset.o#3]
         +-input_scan=
         | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<INT64>
         |   +-subquery_type=ARRAY
@@ -2501,37 +2501,37 @@ QueryStmt
         |       |       |   |   |   +-column_list=[$flatten.injected#4, $offset.injected#5]
         |       |       |   |   |   +-input_scan=
         |       |       |   |   |   | +-SingleRowScan
-        |       |       |   |   |   +-array_expr=
+        |       |       |   |   |   +-array_expr_list=
         |       |       |   |   |   | +-GetProtoField
         |       |       |   |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |       |       |   |   |   |   +-expr=
         |       |       |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1, is_correlated=TRUE)
         |       |       |   |   |   |   +-field_descriptor=repeated_recursive_pb
         |       |       |   |   |   |   +-default_value=[]
-        |       |       |   |   |   +-element_column=$flatten.injected#4
+        |       |       |   |   |   +-element_column_list=[$flatten.injected#4]
         |       |       |   |   |   +-array_offset_column=
         |       |       |   |   |     +-ColumnHolder(column=$offset.injected#5)
-        |       |       |   |   +-array_expr=
+        |       |       |   |   +-array_expr_list=
         |       |       |   |   | +-GetProtoField
         |       |       |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |       |       |   |   |   +-expr=
         |       |       |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
         |       |       |   |   |   +-field_descriptor=repeated_recursive_pb
         |       |       |   |   |   +-default_value=[]
-        |       |       |   |   +-element_column=$flatten.injected#6
+        |       |       |   |   +-element_column_list=[$flatten.injected#6]
         |       |       |   |   +-array_offset_column=
         |       |       |   |     +-ColumnHolder(column=$offset.injected#7)
-        |       |       |   +-array_expr=
+        |       |       |   +-array_expr_list=
         |       |       |   | +-GetProtoField
         |       |       |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |       |       |   |   +-expr=
         |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#6)
         |       |       |   |   +-field_descriptor=repeated_recursive_pb
         |       |       |   |   +-default_value=[]
-        |       |       |   +-element_column=$flatten.injected#8
+        |       |       |   +-element_column_list=[$flatten.injected#8]
         |       |       |   +-array_offset_column=
         |       |       |     +-ColumnHolder(column=$offset.injected#9)
-        |       |       +-array_expr=
+        |       |       +-array_expr_list=
         |       |       | +-GetProtoField
         |       |       |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |       |       |   +-expr=
@@ -2543,7 +2543,7 @@ QueryStmt
         |       |       |   |   +-default_value=NULL
         |       |       |   +-field_descriptor=repeated_recursive_pb
         |       |       |   +-default_value=[]
-        |       |       +-element_column=$flatten.injected#10
+        |       |       +-element_column_list=[$flatten.injected#10]
         |       |       +-array_offset_column=
         |       |         +-ColumnHolder(column=$offset.injected#11)
         |       +-order_by_item_list=
@@ -2559,7 +2559,7 @@ QueryStmt
         |         +-OrderByItem
         |           +-column_ref=
         |             +-ColumnRef(type=INT64, column=$offset.injected#11)
-        +-element_column=$array.value#2
+        +-element_column_list=[$array.value#2]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.o#3)
 
@@ -2582,7 +2582,7 @@ QueryStmt
     |   +-column_list=[RecursivePBTable.RecursivePB#1, $array.value#2, $array_offset.o#3]
     |   +-input_scan=
     |   | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
-    |   +-array_expr=
+    |   +-array_expr_list=
     |   | +-Flatten
     |   |   +-type=ARRAY<INT64>
     |   |   +-expr=
@@ -2623,7 +2623,7 @@ QueryStmt
     |   |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
     |   |       +-field_descriptor=int64_val
     |   |       +-default_value=0
-    |   +-element_column=$array.value#2
+    |   +-element_column_list=[$array.value#2]
     |   +-array_offset_column=
     |     +-ColumnHolder(column=$array_offset.o#3)
     +-order_by_item_list=
@@ -2645,7 +2645,7 @@ QueryStmt
     |   +-column_list=[RecursivePBTable.RecursivePB#1, $array.value#2, $array_offset.o#3]
     |   +-input_scan=
     |   | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
-    |   +-array_expr=
+    |   +-array_expr_list=
     |   | +-SubqueryExpr
     |   |   +-type=ARRAY<INT64>
     |   |   +-subquery_type=ARRAY
@@ -2680,37 +2680,37 @@ QueryStmt
     |   |       |       |   |   |   +-column_list=[$flatten.injected#4, $offset.injected#5]
     |   |       |       |   |   |   +-input_scan=
     |   |       |       |   |   |   | +-SingleRowScan
-    |   |       |       |   |   |   +-array_expr=
+    |   |       |       |   |   |   +-array_expr_list=
     |   |       |       |   |   |   | +-GetProtoField
     |   |       |       |   |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |       |       |   |   |   |   +-expr=
     |   |       |       |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1, is_correlated=TRUE)
     |   |       |       |   |   |   |   +-field_descriptor=repeated_recursive_pb
     |   |       |       |   |   |   |   +-default_value=[]
-    |   |       |       |   |   |   +-element_column=$flatten.injected#4
+    |   |       |       |   |   |   +-element_column_list=[$flatten.injected#4]
     |   |       |       |   |   |   +-array_offset_column=
     |   |       |       |   |   |     +-ColumnHolder(column=$offset.injected#5)
-    |   |       |       |   |   +-array_expr=
+    |   |       |       |   |   +-array_expr_list=
     |   |       |       |   |   | +-GetProtoField
     |   |       |       |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |       |       |   |   |   +-expr=
     |   |       |       |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
     |   |       |       |   |   |   +-field_descriptor=repeated_recursive_pb
     |   |       |       |   |   |   +-default_value=[]
-    |   |       |       |   |   +-element_column=$flatten.injected#6
+    |   |       |       |   |   +-element_column_list=[$flatten.injected#6]
     |   |       |       |   |   +-array_offset_column=
     |   |       |       |   |     +-ColumnHolder(column=$offset.injected#7)
-    |   |       |       |   +-array_expr=
+    |   |       |       |   +-array_expr_list=
     |   |       |       |   | +-GetProtoField
     |   |       |       |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |       |       |   |   +-expr=
     |   |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#6)
     |   |       |       |   |   +-field_descriptor=repeated_recursive_pb
     |   |       |       |   |   +-default_value=[]
-    |   |       |       |   +-element_column=$flatten.injected#8
+    |   |       |       |   +-element_column_list=[$flatten.injected#8]
     |   |       |       |   +-array_offset_column=
     |   |       |       |     +-ColumnHolder(column=$offset.injected#9)
-    |   |       |       +-array_expr=
+    |   |       |       +-array_expr_list=
     |   |       |       | +-GetProtoField
     |   |       |       |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |       |       |   +-expr=
@@ -2722,7 +2722,7 @@ QueryStmt
     |   |       |       |   |   +-default_value=NULL
     |   |       |       |   +-field_descriptor=repeated_recursive_pb
     |   |       |       |   +-default_value=[]
-    |   |       |       +-element_column=$flatten.injected#10
+    |   |       |       +-element_column_list=[$flatten.injected#10]
     |   |       |       +-array_offset_column=
     |   |       |         +-ColumnHolder(column=$offset.injected#11)
     |   |       +-order_by_item_list=
@@ -2738,7 +2738,7 @@ QueryStmt
     |   |         +-OrderByItem
     |   |           +-column_ref=
     |   |             +-ColumnRef(type=INT64, column=$offset.injected#11)
-    |   +-element_column=$array.value#2
+    |   +-element_column_list=[$array.value#2]
     |   +-array_offset_column=
     |     +-ColumnHolder(column=$array_offset.o#3)
     +-order_by_item_list=
@@ -2821,9 +2821,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<INT64>>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#3
+    |         |           |       +-element_column_list=[$flatten.injected#3]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#4)
     |         |           +-order_by_item_list=
@@ -2908,18 +2908,18 @@ QueryStmt
     |     |     |           |   +-input_scan=
     |     |     |           |   | +-ArrayScan
     |     |     |           |   |   +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |     |     |           |   |   +-array_expr=
+    |     |     |           |   |   +-array_expr_list=
     |     |     |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<INT64>>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |     |     |           |   |   +-element_column=$flatten.injected#3
+    |     |     |           |   |   +-element_column_list=[$flatten.injected#3]
     |     |     |           |   |   +-array_offset_column=
     |     |     |           |   |     +-ColumnHolder(column=$offset.injected#4)
-    |     |     |           |   +-array_expr=
+    |     |     |           |   +-array_expr_list=
     |     |     |           |   | +-GetStructField
     |     |     |           |   |   +-type=ARRAY<INT64>
     |     |     |           |   |   +-expr=
     |     |     |           |   |   | +-ColumnRef(type=STRUCT<a ARRAY<INT64>>, column=$flatten.injected#3)
     |     |     |           |   |   +-field_idx=0
-    |     |     |           |   +-element_column=$flatten.injected#5
+    |     |     |           |   +-element_column_list=[$flatten.injected#5]
     |     |     |           |   +-array_offset_column=
     |     |     |           |     +-ColumnHolder(column=$offset.injected#6)
     |     |     |           +-order_by_item_list=
@@ -3018,9 +3018,9 @@ QueryStmt
     |     |     |           |   +-input_scan=
     |     |     |           |     +-ArrayScan
     |     |     |           |       +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |     |     |           |       +-array_expr=
+    |     |     |           |       +-array_expr_list=
     |     |     |           |       | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<INT64>>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |     |     |           |       +-element_column=$flatten.injected#3
+    |     |     |           |       +-element_column_list=[$flatten.injected#3]
     |     |     |           |       +-array_offset_column=
     |     |     |           |         +-ColumnHolder(column=$offset.injected#4)
     |     |     |           +-order_by_item_list=
@@ -3154,18 +3154,18 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |         |           |   |   +-array_expr=
+    |         |           |   |   +-array_expr_list=
     |         |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<c ARRAY<INT64>>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |         |           |   |   +-element_column=$flatten.injected#3
+    |         |           |   |   +-element_column_list=[$flatten.injected#3]
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$offset.injected#4)
-    |         |           |   +-array_expr=
+    |         |           |   +-array_expr_list=
     |         |           |   | +-GetStructField
     |         |           |   |   +-type=ARRAY<INT64>
     |         |           |   |   +-expr=
     |         |           |   |   | +-ColumnRef(type=STRUCT<c ARRAY<INT64>>, column=$flatten.injected#3)
     |         |           |   |   +-field_idx=0
-    |         |           |   +-element_column=$flatten.injected#5
+    |         |           |   +-element_column_list=[$flatten.injected#5]
     |         |           |   +-array_offset_column=
     |         |           |     +-ColumnHolder(column=$offset.injected#6)
     |         |           +-order_by_item_list=
@@ -3220,9 +3220,9 @@ QueryStmt
     |             |     |   |     |           |   +-input_scan=
     |             |     |   |     |           |     +-ArrayScan
     |             |     |   |     |           |       +-column_list=[$flatten.injected#8, $offset.injected#9]
-    |             |     |   |     |           |       +-array_expr=
+    |             |     |   |     |           |       +-array_expr_list=
     |             |     |   |     |           |       | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>>>, column=$flatten_input.injected#7, is_correlated=TRUE)
-    |             |     |   |     |           |       +-element_column=$flatten.injected#8
+    |             |     |   |     |           |       +-element_column_list=[$flatten.injected#8]
     |             |     |   |     |           |       +-array_offset_column=
     |             |     |   |     |           |         +-ColumnHolder(column=$offset.injected#9)
     |             |     |   |     |           +-order_by_item_list=
@@ -3324,18 +3324,18 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |         |           |   |   +-array_expr=
+    |         |           |   |   +-array_expr_list=
     |         |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<c ARRAY<INT64>>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |         |           |   |   +-element_column=$flatten.injected#3
+    |         |           |   |   +-element_column_list=[$flatten.injected#3]
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$offset.injected#4)
-    |         |           |   +-array_expr=
+    |         |           |   +-array_expr_list=
     |         |           |   | +-GetStructField
     |         |           |   |   +-type=ARRAY<INT64>
     |         |           |   |   +-expr=
     |         |           |   |   | +-ColumnRef(type=STRUCT<c ARRAY<INT64>>, column=$flatten.injected#3)
     |         |           |   |   +-field_idx=0
-    |         |           |   +-element_column=$flatten.injected#5
+    |         |           |   +-element_column_list=[$flatten.injected#5]
     |         |           |   +-array_offset_column=
     |         |           |     +-ColumnHolder(column=$offset.injected#6)
     |         |           +-order_by_item_list=
@@ -3381,18 +3381,18 @@ QueryStmt
     |             |     |   |     |           |   +-input_scan=
     |             |     |   |     |           |   | +-ArrayScan
     |             |     |   |     |           |   |   +-column_list=[$flatten.injected#8, $offset.injected#9]
-    |             |     |   |     |           |   |   +-array_expr=
+    |             |     |   |     |           |   |   +-array_expr_list=
     |             |     |   |     |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>>>, column=$flatten_input.injected#7, is_correlated=TRUE)
-    |             |     |   |     |           |   |   +-element_column=$flatten.injected#8
+    |             |     |   |     |           |   |   +-element_column_list=[$flatten.injected#8]
     |             |     |   |     |           |   |   +-array_offset_column=
     |             |     |   |     |           |   |     +-ColumnHolder(column=$offset.injected#9)
-    |             |     |   |     |           |   +-array_expr=
+    |             |     |   |     |           |   +-array_expr_list=
     |             |     |   |     |           |   | +-GetStructField
     |             |     |   |     |           |   |   +-type=ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>
     |             |     |   |     |           |   |   +-expr=
     |             |     |   |     |           |   |   | +-ColumnRef(type=STRUCT<a ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>>, column=$flatten.injected#8)
     |             |     |   |     |           |   |   +-field_idx=0
-    |             |     |   |     |           |   +-element_column=$flatten.injected#10
+    |             |     |   |     |           |   +-element_column_list=[$flatten.injected#10]
     |             |     |   |     |           |   +-array_offset_column=
     |             |     |   |     |           |     +-ColumnHolder(column=$offset.injected#11)
     |             |     |   |     |           +-order_by_item_list=
@@ -3501,12 +3501,12 @@ QueryStmt
     |     |     |           |   +-input_scan=
     |     |     |           |   | +-ArrayScan
     |     |     |           |   |   +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |     |     |           |   |   +-array_expr=
+    |     |     |           |   |   +-array_expr_list=
     |     |     |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |     |     |           |   |   +-element_column=$flatten.injected#3
+    |     |     |           |   |   +-element_column_list=[$flatten.injected#3]
     |     |     |           |   |   +-array_offset_column=
     |     |     |           |   |     +-ColumnHolder(column=$offset.injected#4)
-    |     |     |           |   +-array_expr=
+    |     |     |           |   +-array_expr_list=
     |     |     |           |   | +-GetStructField
     |     |     |           |   |   +-type=ARRAY<INT64>
     |     |     |           |   |   +-expr=
@@ -3518,7 +3518,7 @@ QueryStmt
     |     |     |           |   |   |   | +-field_idx=0
     |     |     |           |   |   |   +-Literal(type=INT64, value=0)
     |     |     |           |   |   +-field_idx=0
-    |     |     |           |   +-element_column=$flatten.injected#5
+    |     |     |           |   +-element_column_list=[$flatten.injected#5]
     |     |     |           |   +-array_offset_column=
     |     |     |           |     +-ColumnHolder(column=$offset.injected#6)
     |     |     |           +-order_by_item_list=
@@ -3560,18 +3560,18 @@ QueryStmt
     |     |         |         |           |   +-input_scan=
     |     |         |         |           |   | +-ArrayScan
     |     |         |         |           |   |   +-column_list=[$flatten.injected#8, $offset.injected#9]
-    |     |         |         |           |   |   +-array_expr=
+    |     |         |         |           |   |   +-array_expr_list=
     |     |         |         |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>>>, column=$flatten_input.injected#7, is_correlated=TRUE)
-    |     |         |         |           |   |   +-element_column=$flatten.injected#8
+    |     |         |         |           |   |   +-element_column_list=[$flatten.injected#8]
     |     |         |         |           |   |   +-array_offset_column=
     |     |         |         |           |   |     +-ColumnHolder(column=$offset.injected#9)
-    |     |         |         |           |   +-array_expr=
+    |     |         |         |           |   +-array_expr_list=
     |     |         |         |           |   | +-GetStructField
     |     |         |         |           |   |   +-type=ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>
     |     |         |         |           |   |   +-expr=
     |     |         |         |           |   |   | +-ColumnRef(type=STRUCT<a ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>>, column=$flatten.injected#8)
     |     |         |         |           |   |   +-field_idx=0
-    |     |         |         |           |   +-element_column=$flatten.injected#10
+    |     |         |         |           |   +-element_column_list=[$flatten.injected#10]
     |     |         |         |           |   +-array_offset_column=
     |     |         |         |           |     +-ColumnHolder(column=$offset.injected#11)
     |     |         |         |           +-order_by_item_list=
@@ -3677,9 +3677,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<b ARRAY<INT64>>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#3
+    |         |           |       +-element_column_list=[$flatten.injected#3]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#4)
     |         |           +-order_by_item_list=
@@ -3718,18 +3718,18 @@ QueryStmt
     |             |         |           |   +-input_scan=
     |             |         |           |   | +-ArrayScan
     |             |         |           |   |   +-column_list=[$flatten.injected#7, $offset.injected#8]
-    |             |         |           |   |   +-array_expr=
+    |             |         |           |   |   +-array_expr_list=
     |             |         |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<STRUCT<b ARRAY<INT64>>>>>, column=$flatten_input.injected#6, is_correlated=TRUE)
-    |             |         |           |   |   +-element_column=$flatten.injected#7
+    |             |         |           |   |   +-element_column_list=[$flatten.injected#7]
     |             |         |           |   |   +-array_offset_column=
     |             |         |           |   |     +-ColumnHolder(column=$offset.injected#8)
-    |             |         |           |   +-array_expr=
+    |             |         |           |   +-array_expr_list=
     |             |         |           |   | +-GetStructField
     |             |         |           |   |   +-type=ARRAY<STRUCT<b ARRAY<INT64>>>
     |             |         |           |   |   +-expr=
     |             |         |           |   |   | +-ColumnRef(type=STRUCT<a ARRAY<STRUCT<b ARRAY<INT64>>>>, column=$flatten.injected#7)
     |             |         |           |   |   +-field_idx=0
-    |             |         |           |   +-element_column=$flatten.injected#9
+    |             |         |           |   +-element_column_list=[$flatten.injected#9]
     |             |         |           |   +-array_offset_column=
     |             |         |           |     +-ColumnHolder(column=$offset.injected#10)
     |             |         |           +-order_by_item_list=
@@ -3796,18 +3796,18 @@ SubqueryExpr
     |           |   +-input_scan=
     |           |   | +-ArrayScan
     |           |   |   +-column_list=[$flatten.injected#2, $offset.injected#3]
-    |           |   |   +-array_expr=
+    |           |   |   +-array_expr_list=
     |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<a ARRAY<INT64>>>, column=$flatten_input.injected#1, is_correlated=TRUE)
-    |           |   |   +-element_column=$flatten.injected#2
+    |           |   |   +-element_column_list=[$flatten.injected#2]
     |           |   |   +-array_offset_column=
     |           |   |     +-ColumnHolder(column=$offset.injected#3)
-    |           |   +-array_expr=
+    |           |   +-array_expr_list=
     |           |   | +-GetStructField
     |           |   |   +-type=ARRAY<INT64>
     |           |   |   +-expr=
     |           |   |   | +-ColumnRef(type=STRUCT<a ARRAY<INT64>>, column=$flatten.injected#2)
     |           |   |   +-field_idx=0
-    |           |   +-element_column=$flatten.injected#4
+    |           |   +-element_column_list=[$flatten.injected#4]
     |           |   +-array_offset_column=
     |           |     +-ColumnHolder(column=$offset.injected#5)
     |           +-order_by_item_list=
@@ -3894,9 +3894,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<JSON>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#20
+    |         |           |       +-element_column_list=[$flatten.injected#20]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#21)
     |         |           +-order_by_item_list=
@@ -3999,9 +3999,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#3, $offset.injected#4]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<x JSON, y INT64>>, column=$flatten_input.injected#2, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#3
+    |         |           |       +-element_column_list=[$flatten.injected#3]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#4)
     |         |           +-order_by_item_list=
@@ -4135,18 +4135,18 @@ QueryStmt
     |         |           |       +-input_scan=
     |         |           |       | +-ArrayScan
     |         |           |       |   +-column_list=[$flatten.injected#6, $offset.injected#7]
-    |         |           |       |   +-array_expr=
+    |         |           |       |   +-array_expr_list=
     |         |           |       |   | +-ColumnRef(type=ARRAY<STRUCT<x ARRAY<STRUCT<y INT64>>>>, column=$flatten_input.injected#5, is_correlated=TRUE)
-    |         |           |       |   +-element_column=$flatten.injected#6
+    |         |           |       |   +-element_column_list=[$flatten.injected#6]
     |         |           |       |   +-array_offset_column=
     |         |           |       |     +-ColumnHolder(column=$offset.injected#7)
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-GetStructField
     |         |           |       |   +-type=ARRAY<STRUCT<y INT64>>
     |         |           |       |   +-expr=
     |         |           |       |   | +-ColumnRef(type=STRUCT<x ARRAY<STRUCT<y INT64>>>, column=$flatten.injected#6)
     |         |           |       |   +-field_idx=0
-    |         |           |       +-element_column=$flatten.injected#8
+    |         |           |       +-element_column_list=[$flatten.injected#8]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#9)
     |         |           +-order_by_item_list=
@@ -4299,18 +4299,18 @@ QueryStmt
     |         |           |       +-input_scan=
     |         |           |       | +-ArrayScan
     |         |           |       |   +-column_list=[$flatten.injected#6, $offset.injected#7]
-    |         |           |       |   +-array_expr=
+    |         |           |       |   +-array_expr_list=
     |         |           |       |   | +-ColumnRef(type=ARRAY<STRUCT<x ARRAY<STRUCT<y INT64>>>>, column=$flatten_input.injected#5, is_correlated=TRUE)
-    |         |           |       |   +-element_column=$flatten.injected#6
+    |         |           |       |   +-element_column_list=[$flatten.injected#6]
     |         |           |       |   +-array_offset_column=
     |         |           |       |     +-ColumnHolder(column=$offset.injected#7)
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-GetStructField
     |         |           |       |   +-type=ARRAY<STRUCT<y INT64>>
     |         |           |       |   +-expr=
     |         |           |       |   | +-ColumnRef(type=STRUCT<x ARRAY<STRUCT<y INT64>>>, column=$flatten.injected#6)
     |         |           |       |   +-field_idx=0
-    |         |           |       +-element_column=$flatten.injected#8
+    |         |           |       +-element_column_list=[$flatten.injected#8]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#9)
     |         |           +-order_by_item_list=
@@ -4364,9 +4364,9 @@ QueryStmt
     |             |     |     |     |     |           |   +-input_scan=
     |             |     |     |     |     |           |   | +-ArrayScan
     |             |     |     |     |     |           |   |   +-column_list=[$array.element#12, $array_offset.off#13]
-    |             |     |     |     |     |           |   |   +-array_expr=
+    |             |     |     |     |     |           |   |   +-array_expr_list=
     |             |     |     |     |     |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#11, is_correlated=TRUE)
-    |             |     |     |     |     |           |   |   +-element_column=$array.element#12
+    |             |     |     |     |     |           |   |   +-element_column_list=[$array.element#12]
     |             |     |     |     |     |           |   |   +-array_offset_column=
     |             |     |     |     |     |           |   |     +-ColumnHolder(column=$array_offset.off#13)
     |             |     |     |     |     |           |   +-filter_expr=
@@ -4531,18 +4531,18 @@ QueryStmt
     |         |           |       +-input_scan=
     |         |           |       | +-ArrayScan
     |         |           |       |   +-column_list=[$flatten.injected#11, $offset.injected#12]
-    |         |           |       |   +-array_expr=
+    |         |           |       |   +-array_expr_list=
     |         |           |       |   | +-ColumnRef(type=ARRAY<STRUCT<x ARRAY<STRUCT<y INT64>>>>, column=$flatten_input.injected#10, is_correlated=TRUE)
-    |         |           |       |   +-element_column=$flatten.injected#11
+    |         |           |       |   +-element_column_list=[$flatten.injected#11]
     |         |           |       |   +-array_offset_column=
     |         |           |       |     +-ColumnHolder(column=$offset.injected#12)
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-GetStructField
     |         |           |       |   +-type=ARRAY<STRUCT<y INT64>>
     |         |           |       |   +-expr=
     |         |           |       |   | +-ColumnRef(type=STRUCT<x ARRAY<STRUCT<y INT64>>>, column=$flatten.injected#11)
     |         |           |       |   +-field_idx=0
-    |         |           |       +-element_column=$flatten.injected#13
+    |         |           |       +-element_column_list=[$flatten.injected#13]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#14)
     |         |           +-order_by_item_list=
@@ -4706,9 +4706,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#39, $offset.injected#40]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<b INT64>>, column=$flatten_input.injected#38, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#39
+    |         |           |       +-element_column_list=[$flatten.injected#39]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#40)
     |         |           +-order_by_item_list=
@@ -4773,7 +4773,7 @@ QueryStmt
         |   |         +-default_value=[]
         |   +-input_scan=
         |     +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -4784,7 +4784,7 @@ QueryStmt
         |       +-expr=
         |       | +-FlattenedArg(type=STRUCT<a STRING>)
         |       +-field_idx=0
-        +-element_column=$array.key#19
+        +-element_column_list=[$array.key#19]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$in_array(STRING, ARRAY<STRING>) -> BOOL)
             +-ColumnRef(type=STRING, column=$array.key#19)
@@ -4835,19 +4835,19 @@ QueryStmt
         |   |         |           |   +-input_scan=
         |   |         |           |   | +-ArrayScan
         |   |         |           |   |   +-column_list=[$flatten.injected#21, $offset.injected#22]
-        |   |         |           |   |   +-array_expr=
+        |   |         |           |   |   +-array_expr_list=
         |   |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#20, is_correlated=TRUE)
-        |   |         |           |   |   +-element_column=$flatten.injected#21
+        |   |         |           |   |   +-element_column_list=[$flatten.injected#21]
         |   |         |           |   |   +-array_offset_column=
         |   |         |           |   |     +-ColumnHolder(column=$offset.injected#22)
-        |   |         |           |   +-array_expr=
+        |   |         |           |   +-array_expr_list=
         |   |         |           |   | +-GetProtoField
         |   |         |           |   |   +-type=ARRAY<STRING>
         |   |         |           |   |   +-expr=
         |   |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#21)
         |   |         |           |   |   +-field_descriptor=str_value
         |   |         |           |   |   +-default_value=[]
-        |   |         |           |   +-element_column=$flatten.injected#23
+        |   |         |           |   +-element_column_list=[$flatten.injected#23]
         |   |         |           |   +-array_offset_column=
         |   |         |           |     +-ColumnHolder(column=$offset.injected#24)
         |   |         |           +-order_by_item_list=
@@ -4866,7 +4866,7 @@ QueryStmt
         |   |               +-SingleRowScan
         |   +-input_scan=
         |     +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<STRING>
         |   +-subquery_type=ARRAY
@@ -4885,10 +4885,10 @@ QueryStmt
         |           +-column_list=[$flatten.injected#25]
         |           +-input_scan=
         |           | +-SingleRowScan
-        |           +-array_expr=
+        |           +-array_expr_list=
         |           | +-Literal(type=ARRAY<STRUCT<a STRING>>, value=[{a:"hello"}])
-        |           +-element_column=$flatten.injected#25
-        +-element_column=$array.key#19
+        |           +-element_column_list=[$flatten.injected#25]
+        +-element_column_list=[$array.key#19]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$in_array(STRING, ARRAY<STRING>) -> BOOL)
             +-ColumnRef(type=STRING, column=$array.key#19)
@@ -4983,9 +4983,9 @@ QueryStmt
         |             |           |   +-input_scan=
         |             |           |     +-ArrayScan
         |             |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
-        |             |           |       +-array_expr=
+        |             |           |       +-array_expr_list=
         |             |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-        |             |           |       +-element_column=$flatten.injected#20
+        |             |           |       +-element_column_list=[$flatten.injected#20]
         |             |           |       +-array_offset_column=
         |             |           |         +-ColumnHolder(column=$offset.injected#21)
         |             |           +-order_by_item_list=
@@ -5102,9 +5102,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#24, $offset.injected#25]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#24
+    |         |           |       +-element_column_list=[$flatten.injected#24]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#25)
     |         |           +-order_by_item_list=
@@ -5137,7 +5137,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.v#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -5152,7 +5152,7 @@ QueryStmt
         |       | +-default_value=[]
         |       +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
         |         +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        +-element_column=$array.v#18
+        +-element_column_list=[$array.v#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -5185,9 +5185,9 @@ QueryStmt
                 +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-                +-array_expr=
+                +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column=$flatten.injected#19
+                +-element_column_list=[$flatten.injected#19]
 ==
 
 select v, o
@@ -5205,7 +5205,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.v#18, $array_offset.o#19]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -5220,7 +5220,7 @@ QueryStmt
         |       | +-default_value=[]
         |       +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
         |         +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        +-element_column=$array.v#18
+        +-element_column_list=[$array.v#18]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.o#19)
 
@@ -5237,7 +5237,7 @@ QueryStmt
         +-column_list=[ArrayTypes.ProtoArray#15, $array.v#18, $array_offset.o#19]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<STRING>
         |   +-subquery_type=ARRAY
@@ -5266,16 +5266,16 @@ QueryStmt
         |       |       +-column_list=[$flatten.injected#20, $offset.injected#21]
         |       |       +-input_scan=
         |       |       | +-SingleRowScan
-        |       |       +-array_expr=
+        |       |       +-array_expr_list=
         |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-        |       |       +-element_column=$flatten.injected#20
+        |       |       +-element_column_list=[$flatten.injected#20]
         |       |       +-array_offset_column=
         |       |         +-ColumnHolder(column=$offset.injected#21)
         |       +-order_by_item_list=
         |         +-OrderByItem
         |           +-column_ref=
         |             +-ColumnRef(type=INT64, column=$offset.injected#21)
-        +-element_column=$array.v#18
+        +-element_column_list=[$array.v#18]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.o#19)
 ==
@@ -5358,9 +5358,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#20
+    |         |           |       +-element_column_list=[$flatten.injected#20]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#21)
     |         |           +-order_by_item_list=
@@ -5458,9 +5458,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#20
+    |         |           |       +-element_column_list=[$flatten.injected#20]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#21)
     |         |           +-order_by_item_list=
@@ -5493,7 +5493,7 @@ QueryStmt
         +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#18]
         +-input_scan=
         | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -5508,7 +5508,7 @@ QueryStmt
         |       | +-default_value=[]
         |       +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
         |         +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
-        +-element_column=$array.v#18
+        +-element_column_list=[$array.v#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -5541,9 +5541,9 @@ QueryStmt
                 +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $flatten.injected#19]
                 +-input_scan=
                 | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-                +-array_expr=
+                +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column=$flatten.injected#19
+                +-element_column_list=[$flatten.injected#19]
 ==
 
 select v, o
@@ -5561,7 +5561,7 @@ QueryStmt
         +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#18, $array_offset.o#19]
         +-input_scan=
         | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
@@ -5576,7 +5576,7 @@ QueryStmt
         |       | +-default_value=[]
         |       +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
         |         +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
-        +-element_column=$array.v#18
+        +-element_column_list=[$array.v#18]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.o#19)
 
@@ -5593,7 +5593,7 @@ QueryStmt
         +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#18, $array_offset.o#19]
         +-input_scan=
         | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<STRING>
         |   +-subquery_type=ARRAY
@@ -5623,16 +5623,16 @@ QueryStmt
         |       |       +-column_list=[$flatten.injected#20, $offset.injected#21]
         |       |       +-input_scan=
         |       |       | +-SingleRowScan
-        |       |       +-array_expr=
+        |       |       +-array_expr_list=
         |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-        |       |       +-element_column=$flatten.injected#20
+        |       |       +-element_column_list=[$flatten.injected#20]
         |       |       +-array_offset_column=
         |       |         +-ColumnHolder(column=$offset.injected#21)
         |       +-order_by_item_list=
         |         +-OrderByItem
         |           +-column_ref=
         |             +-ColumnRef(type=INT64, column=$offset.injected#21)
-        +-element_column=$array.v#18
+        +-element_column_list=[$array.v#18]
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.o#19)
 ==
@@ -5731,9 +5731,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#23, $offset.injected#24]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#23
+    |         |           |       +-element_column_list=[$flatten.injected#23]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#24)
     |         |           +-order_by_item_list=
@@ -5891,18 +5891,18 @@ QueryStmt
     |         |           |   |       |     |           |   +-input_scan=
     |         |           |   |       |     |           |   | +-ArrayScan
     |         |           |   |       |     |           |   |   +-column_list=[$flatten.injected#7, $offset.injected#8]
-    |         |           |   |       |     |           |   |   +-array_expr=
+    |         |           |   |       |     |           |   |   +-array_expr_list=
     |         |           |   |       |     |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<f21 ARRAY<INT64>>>, column=$flatten_input.injected#6, is_correlated=TRUE)
-    |         |           |   |       |     |           |   |   +-element_column=$flatten.injected#7
+    |         |           |   |       |     |           |   |   +-element_column_list=[$flatten.injected#7]
     |         |           |   |       |     |           |   |   +-array_offset_column=
     |         |           |   |       |     |           |   |     +-ColumnHolder(column=$offset.injected#8)
-    |         |           |   |       |     |           |   +-array_expr=
+    |         |           |   |       |     |           |   +-array_expr_list=
     |         |           |   |       |     |           |   | +-GetStructField
     |         |           |   |       |     |           |   |   +-type=ARRAY<INT64>
     |         |           |   |       |     |           |   |   +-expr=
     |         |           |   |       |     |           |   |   | +-ColumnRef(type=STRUCT<f21 ARRAY<INT64>>, column=$flatten.injected#7)
     |         |           |   |       |     |           |   |   +-field_idx=0
-    |         |           |   |       |     |           |   +-element_column=$flatten.injected#9
+    |         |           |   |       |     |           |   +-element_column_list=[$flatten.injected#9]
     |         |           |   |       |     |           |   +-array_offset_column=
     |         |           |   |       |     |           |     +-ColumnHolder(column=$offset.injected#10)
     |         |           |   |       |     |           +-order_by_item_list=
@@ -5923,9 +5923,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#4, $offset.injected#5]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<f11 ARRAY<STRING>>>, column=$flatten_input.injected#3, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#4
+    |         |           |       +-element_column_list=[$flatten.injected#4]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#5)
     |         |           +-order_by_item_list=
@@ -6037,9 +6037,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#4, $offset.injected#5]
-    |         |           |       +-array_expr=
+    |         |           |       +-array_expr_list=
     |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<f ARRAY<INT64>>>, column=$flatten_input.injected#3, is_correlated=TRUE)
-    |         |           |       +-element_column=$flatten.injected#4
+    |         |           |       +-element_column_list=[$flatten.injected#4]
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#5)
     |         |           +-order_by_item_list=

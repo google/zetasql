@@ -6,7 +6,6 @@
 #
 ################################################################################
 #
-[default no_java]
 [default also_show_signature_mismatch_details]
 [default language_features=TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection connection1)
@@ -46,7 +45,7 @@ QueryStmt
         +-argument_list=
         | +-FunctionArgument
         |   +-connection=
-        |     +-Connection(connection=connection3)
+        |     +-Connection(connection=NestedConnection)
         +-column_index_list=[0]
 
 ==

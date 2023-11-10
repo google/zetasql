@@ -462,11 +462,22 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
       if (IgnoresNullArguments(call)) {
         return absl::OkStatus();
       }
-      // The function call cannot not supported because it does/might
-      // respect NULL inputs, which would break our rewrite strategy of
-      // replacing the input argument with NULL when the pivot value does
-      // not match. Provide a suitable error message indicating whether
-      // the function could be supported if IGNORE NULLS were added.
+      // This rewriter previously allowed any non-builtin function, regardless
+      // of whether its NULL-handling behavior was known. If this feature is
+      // enabled, preserve the old behavior and result in a warning instead of
+      // an error.
+      if (!call->function()->IsZetaSQLBuiltin() &&
+          analyzer_options_.language().LanguageFeatureEnabled(
+              FEATURE_DISABLE_PIVOT_REWRITER_UDA_ERRORS)) {
+        // TODO: Generate warning that PIVOT rewriter cannot
+        // guarantee correct results.
+        return absl::OkStatus();
+      }
+      // The function call cannot be supported because it does/might respect
+      // NULL inputs, which would break our rewrite strategy of replacing the
+      // input argument with NULL when the pivot value does not match. Provide a
+      // suitable error message indicating whether the function could be
+      // supported if IGNORE NULLS were added.
       if (call->function()
               ->function_options()
               .supports_null_handling_modifier &&

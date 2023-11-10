@@ -255,7 +255,7 @@ public final class ResolvedNodes {
   }
 
   static ConnectionRefProto serialize(Connection connection, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    return ConnectionRefProto.newBuilder().setName(connection.getName()).build();
+    return ConnectionRefProto.newBuilder().setName(connection.getName()).setFullName(connection.getFullName()).build();
   }
 
   static SequenceRefProto serialize(Sequence sequence, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
@@ -755,6 +755,16 @@ public final class ResolvedNodes {
       return {{field.name|lower_camel_case}};
     }
   # endfor
+  # if node.name == "ResolvedArrayScan"
+    // Special override for backward compatibility purposes.
+    public final ResolvedExpr getArrayExpr() {
+      return getArrayExprList().get(0);
+    }
+
+    public final ResolvedColumn getElementColumn() {
+      return getElementColumnList().get(0);
+    }
+  # endif
   # if not node.is_abstract
   {{ blank_line }}
     @Override

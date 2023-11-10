@@ -240,6 +240,9 @@ struct QueryGroupByAndAggregateInfo {
   // impacts error messaging).
   bool is_post_distinct = false;
 
+  // Identifies whether the original SQL syntax is GROUP BY ALL.
+  bool is_group_by_all = false;
+
   // Resets all fields to their initial values, and empties all maps and
   // lists.
   void Reset();
@@ -523,9 +526,13 @@ class QueryResolutionInfo {
     group_by_info_.is_post_distinct = is_post_distinct;
   }
 
-  bool is_post_distinct() const {
-    return group_by_info_.is_post_distinct;
+  bool is_post_distinct() const { return group_by_info_.is_post_distinct; }
+
+  void set_is_group_by_all(bool is_group_by_all) {
+    group_by_info_.is_group_by_all = is_group_by_all;
   }
+
+  bool is_group_by_all() const { return group_by_info_.is_group_by_all; }
 
   const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
   group_by_columns_to_compute() const {

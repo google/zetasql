@@ -2447,6 +2447,12 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
   tests.push_back(
       {"json_set", QueryParamsWithResult(
                        {NullJson(), String("$.a"), Bool(true)}, NullJson())});
+  // NULL create_if_missing.
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$.a"),
+                                          Bool(true), NullBool()},
+                                         ParseJson(json_string))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Non-null input and single NULL JSONPath.
   tests.push_back({"json_set", QueryParamsWithResult({ParseJson(json_string),
                                                       NullString(), Bool(true)},
@@ -2496,6 +2502,14 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
       {"json_set", QueryParamsWithResult(
                        {ParseJson(json_string), String("$[1]"), Bool(true)},
                        ParseJson(json_string))});
+
+  // Type mismatch with create_if_missing = false.
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$[1]"), Bool(true), Bool(false)},
+           ParseJson(json_string))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_set", QueryParamsWithResult(
                        {ParseJson(json_string), String("$.f.a"), Bool(true)},
@@ -2521,6 +2535,13 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
   tests.push_back({"json_set", QueryParamsWithResult({ParseJson(json_string),
                                                       String("$"), Bool(true)},
                                                      ParseJson("true"))});
+
+  // Replace entire JSON with create_if_missing = false.
+  tests.push_back(
+      {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$"),
+                                          Bool(true), Bool(false)},
+                                         ParseJson("true"))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$"),
                                           Bool(true), String("$"), Int64(10)},
@@ -2553,12 +2574,32 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
                              ParseJson(R"({"a":null, "b":{}, "c":[], "d":5,
                                      "f":["foo", [], {}, [3, 4]]})"))});
 
-  // Replace array
+  // Multiple sets with create_if_missing = false. Second set operation ignored.
   tests.push_back(
       {"json_set",
-       QueryParamsWithResult({ParseJson(json_string), String("$.c"), Int64(5)},
-                             ParseJson(R"({"a":null, "b":{}, "c":5, "d":{"e":1},
-                                     "f":["foo", [], {}, [3, 4]]})"))});
+       QueryParamsWithResult({ParseJson(json_string), String("$.a"), Int64(777),
+                              String("$.b.c"), Int64(888), Bool(false)},
+                             ParseJson(R"({"a":777, "b":{}, "c":[], "d":{"e":1},
+                                     "f":["foo", [], {}, [3, 4]]})"))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
+  // Multiple sets with create_if_missing = false. First set operation ignored.
+  tests.push_back(
+      {"json_set", QueryParamsWithResult(
+                       {ParseJson(json_string), String("$.a.b"), Int64(777),
+                        String("$.b"), Int64(888), Bool(false)},
+                       ParseJson(R"({"a":null, "b":888, "c":[], "d":{"e":1},
+                                     "f":["foo", [], {}, [3, 4]]})"))
+                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
+  // Insert into NULL with create_if_missing false. Set operation ignored.
+  tests.push_back(
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.a.b"), Bool(true), Bool(false)},
+           ParseJson(json_string))
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+
   tests.push_back(
       {"json_set", QueryParamsWithResult(
                        {ParseJson(json_string), String("$.f[3]"), Int64(5)},

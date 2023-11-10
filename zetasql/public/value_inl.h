@@ -227,6 +227,16 @@ inline absl::StatusOr<Value> Value::MakeStructFromValidatedInputs(
                             std::move(values));
 }
 
+inline absl::StatusOr<Value> Value::MakeRange(const Value& start,
+                                              const Value& end) {
+  return MakeRangeInternal(/*is_validated=*/false, start, end);
+}
+
+inline absl::StatusOr<Value> Value::MakeRangeFromValidatedInputs(
+    const RangeType* range_type, const Value& start, const Value& end) {
+  return MakeRangeInternal(/*is_validated=*/true, start, end, range_type);
+}
+
 inline absl::StatusOr<Value> Value::MakeArray(const ArrayType* array_type,
                                               absl::Span<const Value> values) {
   return MakeArrayInternal(/*already_validated=*/false, array_type,

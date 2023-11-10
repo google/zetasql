@@ -2169,6 +2169,44 @@ absl::Status DMLValueExpr::EvalReturningClause(
   return absl::OkStatus();
 }
 
+absl::Status DMLValueExpr::SetSchemasForColumnExprEvaluation() const {
+  std::vector<VariableId> variables;
+  for (int i = 0; i < column_list_->size(); ++i) {
+    const ResolvedColumn& column = (*column_list_)[i];
+    ZETASQL_ASSIGN_OR_RETURN(
+        const VariableId variable_id,
+        column_to_variable_mapping_->LookupVariableNameForColumn(column));
+    variables.push_back(variable_id);
+  }
+  const TupleSchema column_schema(variables);
+  for (const auto& [column_id, value_expr] : *column_expr_map_) {
+    ZETASQL_RETURN_IF_ERROR(value_expr->SetSchemasForEvaluation({&column_schema}));
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status DMLValueExpr::EvalGeneratedColumnsByTopologicalOrder(
+    const std::vector<int>& topologically_sorted_generated_column_id_list,
+    const absl::flat_hash_map<int, size_t>& generated_columns_position_map,
+    EvaluationContext* context, std::vector<Value>& row) const {
+  for (int column_id : topologically_sorted_generated_column_id_list) {
+    auto itr = generated_columns_position_map.find(column_id);
+    ZETASQL_RET_CHECK(itr != generated_columns_position_map.end());
+    size_t generated_column_pos = itr->second;
+    ZETASQL_RET_CHECK_LT(generated_column_pos, column_list_->size());
+    ValueExpr* generated_expr = LookupDefaultOrGeneratedExpr(column_id);
+    ZETASQL_RET_CHECK(generated_expr != nullptr);
+    TupleData tuple_data = CreateTupleDataFromValues(row);
+    ZETASQL_ASSIGN_OR_RETURN(const Value new_value,
+                     EvalExpr(*generated_expr, {&tuple_data}, context));
+
+    // Replace the generated column with its updated value.
+    row[generated_column_pos] = new_value;
+  }
+  return absl::OkStatus();
+}
+
 // Evaluates 'op' on 'params', then populates 'schema' and 'datas' with the
 // corresponding TupleSchema and TupleDatas.
 static absl::Status EvalRelationalOp(
@@ -2395,6 +2433,9 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
       ZETASQL_RETURN_IF_ERROR(val->SetSchemasForEvaluation(joined_schemas));
     }
   }
+
+  ZETASQL_RETURN_IF_ERROR(SetSchemasForColumnExprEvaluation());
+
   return absl::OkStatus();
 }
 
@@ -3134,11 +3175,16 @@ absl::StatusOr<std::vector<Value>> DMLUpdateValueExpr::GetDMLOutputRow(
   if (key_indexes.has_value()) {
     key_index_set.insert(key_indexes->begin(), key_indexes->end());
   }
+  const Table* table = stmt()->table_scan()->table();
+  // Map of generated column resolved id vs position in the row_to_insert.
+  absl::flat_hash_map<int, size_t> generated_columns_position_map;
 
   std::vector<Value> dml_output_row;
   for (int i = 0; i < column_list_->size(); ++i) {
     const ResolvedColumn& column = (*column_list_)[i];
-
+    if (table->GetColumn(i)->HasGeneratedExpression()) {
+      generated_columns_position_map[column.column_id()] = i;
+    }
     ZETASQL_ASSIGN_OR_RETURN(const Value original_value, GetColumnValue(column, tuple));
 
     const std::unique_ptr<UpdateNode>* update_node_or_null =
@@ -3164,10 +3210,13 @@ absl::StatusOr<std::vector<Value>> DMLUpdateValueExpr::GetDMLOutputRow(
                  << "Cannot set a primary key column to NULL with UPDATE";
         }
       }
-
       dml_output_row.push_back(new_value);
     }
   }
+
+  ZETASQL_RETURN_IF_ERROR(EvalGeneratedColumnsByTopologicalOrder(
+      stmt()->topologically_sorted_generated_column_id_list(),
+      generated_columns_position_map, context, dml_output_row));
 
   return dml_output_row;
 }
@@ -3444,18 +3493,8 @@ absl::Status DMLInsertValueExpr::SetSchemasForEvaluation(
       ZETASQL_RETURN_IF_ERROR(val->SetSchemasForEvaluation(expr_schemas));
     }
   }
-  std::vector<VariableId> variables;
-  for (int i = 0; i < column_list_->size(); ++i) {
-    const ResolvedColumn& column = (*column_list_)[i];
-    ZETASQL_ASSIGN_OR_RETURN(
-        const VariableId variable_id,
-        column_to_variable_mapping_->LookupVariableNameForColumn(column));
-    variables.push_back(variable_id);
-  }
-  const TupleSchema column_schema(variables);
-  for (const auto& [column_id, value_expr] : *column_expr_map_) {
-    ZETASQL_RETURN_IF_ERROR(value_expr->SetSchemasForEvaluation({&column_schema}));
-  }
+
+  ZETASQL_RETURN_IF_ERROR(SetSchemasForColumnExprEvaluation());
 
   return absl::OkStatus();
 }
@@ -3624,26 +3663,10 @@ absl::Status DMLInsertValueExpr::PopulateRowsToInsert(
       }
     }
 
-    // We evaluate generated columns in topological order since the generated
-    // column dependencies must already be evaluated before we can evaluate
-    // the value of a generated column. For example, if gen2 = gen1 + data, we
-    // need to have values of gen1 and data evaluated before gen2 value can be
-    // evaluated.
-    for (int column_id :
-         stmt()->topologically_sorted_generated_column_id_list()) {
-      auto itr = generated_columns_position_map.find(column_id);
-      ZETASQL_RET_CHECK(itr != generated_columns_position_map.end());
-      size_t generated_column_pos = itr->second;
-      ZETASQL_RET_CHECK_LT(generated_column_pos, column_list_->size());
-      ValueExpr* generated_expr = LookupDefaultOrGeneratedExpr(column_id);
-      ZETASQL_RET_CHECK(generated_expr != nullptr);
-      TupleData tuple_data = CreateTupleDataFromValues(row_to_insert);
-      ZETASQL_ASSIGN_OR_RETURN(const Value new_value,
-                       EvalExpr(*generated_expr, {&tuple_data}, context));
+    ZETASQL_RETURN_IF_ERROR(EvalGeneratedColumnsByTopologicalOrder(
+        stmt()->topologically_sorted_generated_column_id_list(),
+        generated_columns_position_map, context, row_to_insert));
 
-      // Replace with generated value.
-      row_to_insert[generated_column_pos] = new_value;
-    }
     rows_to_insert->push_back(row_to_insert);
   }
 

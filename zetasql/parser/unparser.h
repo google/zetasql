@@ -180,6 +180,8 @@ class Unparser : public ParseTreeVisitor {
                                     void* data) override;
   void visitASTCreateSchemaStatement(const ASTCreateSchemaStatement* node,
                                      void* data) override;
+  void visitASTCreateExternalSchemaStatement(
+      const ASTCreateExternalSchemaStatement* node, void* data) override;
   void visitASTSequenceArg(const ASTSequenceArg* node, void* data) override;
   void visitASTCreateTableStatement(const ASTCreateTableStatement* node,
                                     void* data) override;

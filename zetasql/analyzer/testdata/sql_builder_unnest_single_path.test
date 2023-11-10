@@ -102,7 +102,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -123,7 +123,7 @@ QueryStmt
         |       +-expr=
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkPB.OptionalGroup.OptionalGroupNested>)
         |       +-field_descriptor=int64_val
-        +-element_column=$array.int64_val#4
+        +-element_column_list=[$array.int64_val#4]
 
 [UNPARSED_SQL]
 SELECT
@@ -231,14 +231,14 @@ QueryStmt
                 | +-$col1#5 := Literal(type=INT64, value=1)
                 +-input_scan=
                   +-ArrayScan
-                    +-array_expr=
+                    +-array_expr_list=
                     | +-GetProtoField
                     |   +-type=ARRAY<INT32>
                     |   +-expr=
                     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                     |   +-field_descriptor=repeated_int32_val
                     |   +-default_value=[]
-                    +-element_column=$array.repeated_int32_val#4
+                    +-element_column_list=[$array.repeated_int32_val#4]
 
 [UNPARSED_SQL]
 SELECT

@@ -17,7 +17,9 @@
 // This file contains the implementation of Statement-related resolver methods
 // from resolver.h (except DML statements, which are in resolver_dml.cc).
 #include <algorithm>
+#include <cstdint>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -53,6 +55,7 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/deprecation_warning.pb.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
@@ -951,6 +954,197 @@ static ResolvedGeneratedColumnInfoEnums::GeneratedMode ConvertGeneratedMode(
   }
 }
 
+namespace {
+enum class IdentityColumnAttribute {
+  kStartWith = 0,
+  kIncrementBy,
+  kMaxValue,
+  kMinValue
+};
+
+constexpr int kIdentityColumnStartWithIncrementByDefault = 1;
+constexpr absl::string_view kIdentityColumnStartWithString = "START WITH";
+constexpr absl::string_view kIdentityColumnIncrementByString = "INCREMENT BY";
+constexpr absl::string_view kIdentityColumnMaxValueString = "MAXVALUE";
+constexpr absl::string_view kIdentityColumnMinValueString = "MINVALUE";
+
+absl::StatusOr<Value> MakeDefaultValueForIdentityColumnAttribute(
+    const Type* type, const IdentityColumnAttribute attribute) {
+  ZETASQL_RET_CHECK(type->IsInteger())
+      << "Unsupported type for identity column: " << type->DebugString();
+  if (type->IsInt32()) {
+    switch (attribute) {
+      case IdentityColumnAttribute::kStartWith:
+      case IdentityColumnAttribute::kIncrementBy:
+        return Value::Int32(kIdentityColumnStartWithIncrementByDefault);
+      case IdentityColumnAttribute::kMaxValue:
+        return Value::Int32(std::numeric_limits<int32_t>::max());
+      case IdentityColumnAttribute::kMinValue:
+        return Value::Int32(std::numeric_limits<int32_t>::min());
+    }
+  } else if (type->IsInt64()) {
+    switch (attribute) {
+      case IdentityColumnAttribute::kStartWith:
+      case IdentityColumnAttribute::kIncrementBy:
+        return Value::Int64(kIdentityColumnStartWithIncrementByDefault);
+      case IdentityColumnAttribute::kMaxValue:
+        return Value::Int64(std::numeric_limits<int64_t>::max());
+      case IdentityColumnAttribute::kMinValue:
+        return Value::Int64(std::numeric_limits<int64_t>::min());
+    }
+  } else if (type->IsUint32()) {
+    switch (attribute) {
+      case IdentityColumnAttribute::kStartWith:
+      case IdentityColumnAttribute::kIncrementBy:
+        return Value::Uint32(kIdentityColumnStartWithIncrementByDefault);
+      case IdentityColumnAttribute::kMaxValue:
+        return Value::Uint32(std::numeric_limits<uint32_t>::max());
+      case IdentityColumnAttribute::kMinValue:
+        return Value::Uint32(std::numeric_limits<uint32_t>::min());
+    }
+  } else {
+    ZETASQL_RET_CHECK(type->IsUint64());
+    switch (attribute) {
+      case IdentityColumnAttribute::kStartWith:
+      case IdentityColumnAttribute::kIncrementBy:
+        return Value::Uint64(kIdentityColumnStartWithIncrementByDefault);
+      case IdentityColumnAttribute::kMaxValue:
+        return Value::Uint64(std::numeric_limits<uint64_t>::max());
+      case IdentityColumnAttribute::kMinValue:
+        return Value::Uint64(std::numeric_limits<uint64_t>::min());
+    }
+  }
+}
+
+absl::Status ValidateIdentityColumnAttributes(
+    const ASTIdentityColumnInfo* ast_identity_column, const Value& start_with,
+    const Value& increment_by, const Value& max_value, const Value& min_value) {
+  // Check that MINVALUE <= START WITH <= MAXVALUE.
+  if (start_with.LessThan(min_value)) {
+    return MakeSqlErrorAt(ast_identity_column) << absl::Substitute(
+               "Invalid START WITH value $0 and MINVALUE value $1; START "
+               "WITH must be greater than or equal to MINVALUE",
+               start_with.DebugString(), min_value.DebugString());
+  }
+  if (max_value.LessThan(start_with)) {
+    return MakeSqlErrorAt(ast_identity_column) << absl::Substitute(
+               "Invalid START WITH value $0 and MAXVALUE value $1; START "
+               "WITH must be less than or equal to MAXVALUE",
+               start_with.DebugString(), max_value.DebugString());
+  }
+
+  // Check that INCREMENT BY is not 0.
+  if (increment_by.DebugString() == "0") {
+    return MakeSqlErrorAt(ast_identity_column->increment_by_value())
+           << "INCREMENT BY cannot be 0";
+  }
+  return absl::OkStatus();
+}
+}  // namespace
+
+absl::StatusOr<Value> Resolver::ResolveIdentityColumnAttribute(
+    const ASTExpression* attribute_expr, const Type* type,
+    absl::string_view attribute_name) {
+  ZETASQL_RET_CHECK(attribute_expr != nullptr);
+
+  std::unique_ptr<const ResolvedExpr> resolved_attribute_expr;
+  static constexpr char kIdentityColumnClause[] = "IDENTITY clause";
+  ExprResolutionInfo expr_resolution_info(empty_name_scope_.get(),
+                                          kIdentityColumnClause);
+  ZETASQL_RETURN_IF_ERROR(ResolveExpr(attribute_expr, &expr_resolution_info,
+                              &resolved_attribute_expr, type));
+  ZETASQL_RET_CHECK_EQ(resolved_attribute_expr->node_kind(), RESOLVED_LITERAL);
+
+  // Implicitly convert the identity column attribute literal to the identity
+  // column type (if necessary), or return an error if the types are
+  // incompatible.
+  ZETASQL_RETURN_IF_ERROR(
+      CoerceExprToType(
+          attribute_expr, AnnotatedType(type, /*annotation_map=*/nullptr),
+          kImplicitAssignment,
+          " value has type $1 which cannot be assigned to an identity "
+          "column with type $0",
+          &resolved_attribute_expr))
+          .SetPrepend()
+      << attribute_name;
+
+  return resolved_attribute_expr->GetAs<ResolvedLiteral>()->value();
+}
+
+absl::Status Resolver::ResolveIdentityColumnInfo(
+    const ASTIdentityColumnInfo* ast_identity_column,
+    const NameList& column_name_list, const Type* type,
+    std::unique_ptr<ResolvedIdentityColumnInfo>* output) {
+  ZETASQL_RET_CHECK(ast_identity_column != nullptr);
+  if (type == nullptr) {
+    return MakeSqlErrorAt(ast_identity_column)
+           << "An identity column must have an explicit type";
+  }
+  if (!type->IsInteger()) {
+    return MakeSqlErrorAt(ast_identity_column)
+           << "Identity columns must have an integer type";
+  }
+
+  Value resolved_start_with;
+  Value resolved_increment_by;
+  Value resolved_max_value;
+  Value resolved_min_value;
+
+  // For each identity column attribute, either use the value provided in
+  // ast_identity_column or apply the default.
+  if (ast_identity_column->start_with_value() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_start_with,
+                     ResolveIdentityColumnAttribute(
+                         ast_identity_column->start_with_value()->value(), type,
+                         kIdentityColumnStartWithString));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_start_with,
+                     MakeDefaultValueForIdentityColumnAttribute(
+                         type, IdentityColumnAttribute::kStartWith));
+  }
+  if (ast_identity_column->increment_by_value() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_increment_by,
+                     ResolveIdentityColumnAttribute(
+                         ast_identity_column->increment_by_value()->value(),
+                         type, kIdentityColumnIncrementByString));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_increment_by,
+                     MakeDefaultValueForIdentityColumnAttribute(
+                         type, IdentityColumnAttribute::kIncrementBy));
+  }
+  if (ast_identity_column->max_value() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_max_value,
+                     ResolveIdentityColumnAttribute(
+                         ast_identity_column->max_value()->value(), type,
+                         kIdentityColumnMaxValueString));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_max_value,
+                     MakeDefaultValueForIdentityColumnAttribute(
+                         type, IdentityColumnAttribute::kMaxValue));
+  }
+  if (ast_identity_column->min_value() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_min_value,
+                     ResolveIdentityColumnAttribute(
+                         ast_identity_column->min_value()->value(), type,
+                         kIdentityColumnMinValueString));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_min_value,
+                     MakeDefaultValueForIdentityColumnAttribute(
+                         type, IdentityColumnAttribute::kMinValue));
+  }
+
+  // Validate the identity column attributes.
+  ZETASQL_RETURN_IF_ERROR(ValidateIdentityColumnAttributes(
+      ast_identity_column, resolved_start_with, resolved_increment_by,
+      resolved_max_value, resolved_min_value));
+
+  *output = MakeResolvedIdentityColumnInfo(
+      std::move(resolved_start_with), std::move(resolved_increment_by),
+      std::move(resolved_max_value), std::move(resolved_min_value),
+      ast_identity_column->cycling_enabled());
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveGeneratedColumnInfo(
     const ASTGeneratedColumnInfo* ast_generated_column,
     const NameList& column_name_list, const Type* opt_type,
@@ -967,10 +1161,25 @@ absl::Status Resolver::ResolveGeneratedColumnInfo(
            << "Generated by default is not supported";
   }
 
+  // Resolve when the generated column is an identity column.
   if (ast_generated_column->identity_column_info() != nullptr) {
-    return MakeSqlErrorAt(ast_generated_column->identity_column_info())
-           << "Identity columns are not supported";
+    if (!language().LanguageFeatureEnabled(FEATURE_IDENTITY_COLUMNS)) {
+      return MakeSqlErrorAt(ast_generated_column->identity_column_info())
+             << "Identity columns are not supported";
+    }
+    ZETASQL_RET_CHECK(ast_generated_column->expression() == nullptr);
+    std::unique_ptr<ResolvedIdentityColumnInfo> identity_column_info;
+    ZETASQL_RETURN_IF_ERROR(ResolveIdentityColumnInfo(
+        ast_generated_column->identity_column_info(), column_name_list,
+        opt_type, &identity_column_info));
+
+    *output = MakeResolvedGeneratedColumnInfo(
+        /*expression=*/nullptr, stored_mode, generated_mode,
+        std::move(identity_column_info));
+    return absl::OkStatus();
   }
+
+  // Resolve when the generated column is an expression.
   zetasql_base::VarSetter<bool> setter_func(
       &analyzing_nonvolatile_stored_expression_columns_,
       stored_mode == ResolvedGeneratedColumnInfoEnums::STORED);
@@ -985,15 +1194,16 @@ absl::Status Resolver::ResolveGeneratedColumnInfo(
   // expression.
   if (opt_type != nullptr) {
     // Add coercion if necessary
-    ZETASQL_RETURN_IF_ERROR(
-        CoerceExprToType(ast_generated_column, opt_type, kImplicitAssignment,
-                         "Generated column expression has type $1 which cannot "
-                         "be assigned to column type $0",
-                         &resolved_expression));
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
+        ast_generated_column->expression(), opt_type, kImplicitAssignment,
+        "Generated column expression has type $1 which cannot "
+        "be assigned to column type $0",
+        &resolved_expression));
   }
 
   *output = MakeResolvedGeneratedColumnInfo(std::move(resolved_expression),
-                                            stored_mode, generated_mode);
+                                            stored_mode, generated_mode,
+                                            /*identity_column_info=*/nullptr);
 
   return absl::OkStatus();
 }
@@ -1110,7 +1320,23 @@ absl::Status Resolver::ResolveColumnDefinitionList(
   }
 
   // Resolve generated columns.
+  absl::string_view identity_col;
   for (const auto& column : columns_with_expressions) {
+    // Check that we didn't specify both a generated expression and generated
+    // identity column, and check that the table has at most one identity
+    // column.
+    if (column->schema()->generated_column_info()->identity_column_info() !=
+        nullptr) {
+      ZETASQL_RET_CHECK(column->schema()->generated_column_info()->expression() ==
+                nullptr);
+      if (!identity_col.empty()) {
+        return MakeSqlErrorAt(column) << absl::Substitute(
+                   "A table can have at most one identity column; column $0 is "
+                   "already specified as an identity column",
+                   identity_col);
+      }
+      identity_col = column->name()->GetAsStringView();
+    }
     ColumnCycleDetector generated_column_cycle_detector(column);
     zetasql_base::VarSetter<ColumnCycleDetector*> setter_cycle_detector(
         &generated_column_cycle_detector_, &generated_column_cycle_detector);
@@ -1437,7 +1663,8 @@ absl::Status Resolver::ResolveColumnSchema(
     ZETASQL_RETURN_IF_ERROR(ResolveGeneratedColumnInfo(schema->generated_column_info(),
                                                column_name_list, *resolved_type,
                                                generated_column_info));
-    if (*resolved_type == nullptr) {
+    if (*resolved_type == nullptr &&
+        (*generated_column_info)->expression() != nullptr) {
       // Propagates the type from the expression into the ColumnDefinition.
       *resolved_type = (*generated_column_info)->expression()->type();
     }
@@ -2025,7 +2252,8 @@ absl::Status Resolver::ResolveCreateIndexStatement(
       table_path, table_alias, has_explicit_table_name_alias,
       /*alias_location=*/table_alias_location, /*hints=*/nullptr,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, &resolved_table_scan, &target_name_list));
+      /*remaining_names=*/nullptr, &resolved_table_scan, &target_name_list,
+      resolved_columns_from_table_scans_));
 
   NameList current_name_list;
   ZETASQL_RETURN_IF_ERROR(current_name_list.MergeFrom(*target_name_list, table_path));
@@ -3051,7 +3279,7 @@ absl::Status Resolver::ResolveDataSourceForCopyOrClone(
       /*has_explicit_alias=*/false, /*alias_location=*/data_source->path_expr(),
       /*hints=*/nullptr, data_source->for_system_time(),
       empty_name_scope_.get(), /*remaining_names=*/nullptr, &table_scan,
-      &output_name_list));
+      &output_name_list, resolved_columns_from_table_scans_));
   if (table_scan->table()->IsValueTable()) {
     return MakeSqlErrorAt(data_source)
            << "Cannot copy from value table: " << table_scan->table()->Name();
@@ -3074,7 +3302,8 @@ absl::Status Resolver::ResolveReplicaSource(
       data_source, GetAliasForExpression(data_source),
       /*has_explicit_alias=*/false, /*alias_location=*/data_source,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, &table_scan, &output_name_list));
+      /*remaining_names=*/nullptr, &table_scan, &output_name_list,
+      resolved_columns_from_table_scans_));
   *output = std::move(table_scan);
   return absl::OkStatus();
 }
@@ -3924,18 +4153,23 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
            << "SQL function must have a non-empty body";
   }
 
+  // We always use ERROR_MESSAGE_WITH_PAYLOAD because we don't want the
+  // contents of the function signature to depend on
+  // AnalyzerOptions.error_message_mode().
+  // TODO: find a better solution than forking the mode.
+  ErrorMessageOptions warning_options =
+      analyzer_options_.error_message_options();
+  warning_options.mode = ERROR_MESSAGE_WITH_PAYLOAD;
+  warning_options.attach_error_location_payload = true;
+
   FunctionSignatureOptions signature_options;
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<FreestandingDeprecationWarning>
-          additional_deprecation_warnings,
-      StatusesToDeprecationWarnings(
-          // We always use ERROR_MESSAGE_WITH_PAYLOAD because we don't want the
-          // contents of the function signature to depend on
-          // AnalyzerOptions.error_message_mode().
-          ConvertInternalErrorLocationsAndAdjustErrorStrings(
-              ERROR_MESSAGE_WITH_PAYLOAD, /*keep_error_location_payload=*/true,
-              sql_, deprecation_warnings_),
-          sql_));
+
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<FreestandingDeprecationWarning>
+                       additional_deprecation_warnings,
+                   StatusesToDeprecationWarnings(
+                       ConvertInternalErrorLocationsAndAdjustErrorStrings(
+                           warning_options, sql_, deprecation_warnings_),
+                       sql_));
   signature_options.set_additional_deprecation_warnings(
       additional_deprecation_warnings);
   if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
@@ -4251,18 +4485,22 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
     }
   }
 
+  // We always use ERROR_MESSAGE_WITH_PAYLOAD because we don't want the
+  // contents of the function signature to depend on
+  // AnalyzerOptions.error_message_mode().
+  // TODO: find a better solution than forking the mode.
+  ErrorMessageOptions warning_options =
+      analyzer_options_.error_message_options();
+  warning_options.mode = ERROR_MESSAGE_WITH_PAYLOAD;
+  warning_options.attach_error_location_payload = true;
+
   FunctionSignatureOptions signature_options;
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<FreestandingDeprecationWarning>
-          additional_deprecation_warnings,
-      StatusesToDeprecationWarnings(
-          // We always use ERROR_MESSAGE_WITH_PAYLOAD because we don't want the
-          // contents of the function signature to depend on
-          // AnalyzerOptions.error_message_mode().
-          ConvertInternalErrorLocationsAndAdjustErrorStrings(
-              ERROR_MESSAGE_WITH_PAYLOAD, /*keep_error_location_payload=*/true,
-              sql_, deprecation_warnings_),
-          sql_));
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<FreestandingDeprecationWarning>
+                       additional_deprecation_warnings,
+                   StatusesToDeprecationWarnings(
+                       ConvertInternalErrorLocationsAndAdjustErrorStrings(
+                           warning_options, sql_, deprecation_warnings_),
+                       sql_));
   signature_options.set_additional_deprecation_warnings(
       additional_deprecation_warnings);
 
@@ -5038,7 +5276,8 @@ absl::Status Resolver::ResolveTableAndPredicate(
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
       table_path, alias, /*has_explicit_alias=*/false, alias_location,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, resolved_table_scan, &target_name_list));
+      /*remaining_names=*/nullptr, resolved_table_scan, &target_name_list,
+      resolved_columns_from_table_scans_));
   ZETASQL_RET_CHECK(target_name_list->HasRangeVariable(alias));
 
   const std::shared_ptr<const NameScope> target_scope(
@@ -5175,7 +5414,8 @@ absl::Status Resolver::ResolveCreatePrivilegeRestrictionStatement(
       table_path, GetAliasForExpression(table_path),
       /*has_explicit_alias=*/false, /*alias_location=*/table_path,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list));
+      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
+      resolved_columns_from_table_scans_));
   const std::shared_ptr<const NameScope> name_scope =
       std::make_shared<NameScope>(/*previous_scope=*/nullptr, name_list);
 
@@ -5383,7 +5623,8 @@ absl::Status Resolver::ResolveAlterPrivilegeRestrictionStatement(
       table_path, GetAliasForExpression(table_path),
       /*has_explicit_alias=*/false, /*alias_location=*/table_path,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list));
+      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
+      resolved_columns_from_table_scans_));
   const std::shared_ptr<const NameScope> name_scope =
       std::make_shared<NameScope>(/*previous_scope=*/nullptr, name_list);
 
@@ -5520,7 +5761,8 @@ absl::Status Resolver::ResolveAlterAllRowAccessPoliciesStatement(
       table_path, GetAliasForExpression(table_path),
       /*has_explicit_alias=*/false, /*alias_location=*/table_path,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list));
+      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
+      resolved_columns_from_table_scans_));
 
   const ASTRevokeFromClause* revoke_from_action =
       ast_statement->alter_action()->GetAs<ASTRevokeFromClause>();
@@ -5558,7 +5800,8 @@ absl::Status Resolver::ResolveCloneDataStatement(
       /*has_explicit_alias=*/false,
       /*alias_location=*/ast_statement->target_path(), /*hints=*/nullptr,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, &target_table, &output_name_list));
+      /*remaining_names=*/nullptr, &target_table, &output_name_list,
+      resolved_columns_from_table_scans_));
   if (target_table->table()->IsValueTable()) {
     return MakeSqlErrorAt(ast_statement->target_path())
            << "Cannot clone into a value table: "
@@ -6141,7 +6384,8 @@ absl::Status Resolver::ResolveDropPrivilegeRestrictionStatement(
       table_path, GetAliasForExpression(table_path),
       /*has_explicit_alias=*/false, /*alias_location=*/table_path,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list));
+      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
+      resolved_columns_from_table_scans_));
   const std::shared_ptr<const NameScope> name_scope =
       std::make_shared<NameScope>(/*previous_scope=*/nullptr, name_list);
 

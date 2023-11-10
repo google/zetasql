@@ -890,6 +890,14 @@ absl::Status GetDistanceFunctions(
        {array_struct_string_key_type, array_struct_string_key_type},
        FN_COSINE_DISTANCE_SPARSE_STRING}};
 
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS)) {
+    cosine_signatures.push_back(
+        {double_type,
+         {types::FloatArrayType(), types::FloatArrayType()},
+         FN_COSINE_DISTANCE_DENSE_FLOAT});
+  }
+
   InsertFunction(functions, options, "cosine_distance", SCALAR,
                  cosine_signatures, function_options);
 
@@ -903,6 +911,15 @@ absl::Status GetDistanceFunctions(
       {double_type,
        {array_struct_string_key_type, array_struct_string_key_type},
        FN_EUCLIDEAN_DISTANCE_SPARSE_STRING}};
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS)) {
+    euclidean_signatures.push_back(
+        {double_type,
+         {types::FloatArrayType(), types::FloatArrayType()},
+         FN_EUCLIDEAN_DISTANCE_DENSE_FLOAT});
+  }
+
   InsertFunction(functions, options, "euclidean_distance", SCALAR,
                  euclidean_signatures, function_options);
   return absl::OkStatus();
@@ -1254,79 +1271,98 @@ void GetJSONFunctions(TypeFactory* type_factory,
   const FunctionArgumentType::ArgumentCardinality REPEATED =
       FunctionArgumentType::REPEATED;
 
-  const FunctionArgumentType default_json_path_argument = FunctionArgumentType(
-      string_type, FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
-                       .set_default(Value::String("$")));
+  FunctionArgumentTypeOptions json_path_argument_options;
+  FunctionArgumentTypeOptions repeated_json_path_argument_options(REPEATED);
+  FunctionArgumentTypeOptions optional_json_path_argument_options(
+      FunctionArgumentType::OPTIONAL);
+  optional_json_path_argument_options.set_default(Value::String("$"));
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH)) {
+    json_path_argument_options.set_must_be_constant_expression();
+    repeated_json_path_argument_options.set_must_be_constant_expression();
+    optional_json_path_argument_options.set_must_be_constant_expression();
+  } else {
+    json_path_argument_options.set_must_be_constant();
+    repeated_json_path_argument_options.set_must_be_constant();
+    optional_json_path_argument_options.set_must_be_constant();
+  }
+
+  FunctionArgumentType json_path_argument =
+      FunctionArgumentType(string_type, json_path_argument_options);
+  FunctionArgumentType repeated_json_path_argument =
+      FunctionArgumentType(string_type, repeated_json_path_argument_options);
+  FunctionArgumentType optional_json_path_argument =
+      FunctionArgumentType(string_type, optional_json_path_argument_options);
 
   std::vector<FunctionSignatureOnHeap> json_extract_signatures = {
       {string_type,
-       {string_type, string_type},
+       {string_type, json_path_argument},
        FN_JSON_EXTRACT,
        FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_query_signatures = {
       {string_type,
-       {string_type, string_type},
+       {string_type, json_path_argument},
        FN_JSON_QUERY,
        FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_extract_scalar_signatures = {
       {string_type,
-       {string_type, default_json_path_argument},
+       {string_type, optional_json_path_argument},
        FN_JSON_EXTRACT_SCALAR,
        FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_value_signatures = {
       {string_type,
-       {string_type, default_json_path_argument},
+       {string_type, optional_json_path_argument},
        FN_JSON_VALUE,
        FunctionSignatureOptions().set_rejects_collation()}};
 
   std::vector<FunctionSignatureOnHeap> json_extract_array_signatures = {
       {array_string_type,
-       {string_type, default_json_path_argument},
+       {string_type, optional_json_path_argument},
        FN_JSON_EXTRACT_ARRAY,
        FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_extract_string_array_signatures = {
       {array_string_type,
-       {string_type, default_json_path_argument},
+       {string_type, optional_json_path_argument},
        FN_JSON_EXTRACT_STRING_ARRAY,
        FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_query_array_signatures = {
       {array_string_type,
-       {string_type, default_json_path_argument},
+       {string_type, optional_json_path_argument},
        FN_JSON_QUERY_ARRAY,
        FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_value_array_signatures = {
       {array_string_type,
-       {string_type, default_json_path_argument},
+       {string_type, optional_json_path_argument},
        FN_JSON_VALUE_ARRAY,
        FunctionSignatureOptions().set_rejects_collation()}};
 
   if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
     json_extract_signatures.push_back(
-        {json_type, {json_type, string_type}, FN_JSON_EXTRACT_JSON});
+        {json_type, {json_type, json_path_argument}, FN_JSON_EXTRACT_JSON});
     json_query_signatures.push_back(
-        {json_type, {json_type, string_type}, FN_JSON_QUERY_JSON});
+        {json_type, {json_type, json_path_argument}, FN_JSON_QUERY_JSON});
     json_extract_scalar_signatures.push_back(
         {string_type,
-         {json_type, default_json_path_argument},
+         {json_type, optional_json_path_argument},
          FN_JSON_EXTRACT_SCALAR_JSON});
     json_value_signatures.push_back({string_type,
-                                     {json_type, default_json_path_argument},
+                                     {json_type, optional_json_path_argument},
                                      FN_JSON_VALUE_JSON});
     json_extract_array_signatures.push_back(
         {array_json_type,
-         {json_type, default_json_path_argument},
+         {json_type, optional_json_path_argument},
          FN_JSON_EXTRACT_ARRAY_JSON});
     json_extract_string_array_signatures.push_back(
         {array_string_type,
-         {json_type, default_json_path_argument},
+         {json_type, optional_json_path_argument},
          FN_JSON_EXTRACT_STRING_ARRAY_JSON});
     json_query_array_signatures.push_back(
         {array_json_type,
-         {json_type, default_json_path_argument},
+         {json_type, optional_json_path_argument},
          FN_JSON_QUERY_ARRAY_JSON});
     json_value_array_signatures.push_back(
         {array_string_type,
-         {json_type, default_json_path_argument},
+         {json_type, optional_json_path_argument},
          FN_JSON_VALUE_ARRAY_JSON});
 
     InsertFunction(functions, options, "to_json", SCALAR,
@@ -1402,41 +1438,25 @@ void GetJSONFunctions(TypeFactory* type_factory,
           .add_required_language_feature(FEATURE_JSON_CONSTRUCTOR_FUNCTIONS));
 
   InsertFunction(functions, options, "json_extract", SCALAR,
-                 json_extract_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
+                 json_extract_signatures);
   InsertFunction(functions, options, "json_query", SCALAR,
-                 json_query_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
+                 json_query_signatures);
   InsertFunction(functions, options, "json_extract_scalar", SCALAR,
-                 json_extract_scalar_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
+                 json_extract_scalar_signatures);
   InsertFunction(functions, options, "json_value", SCALAR,
-                 json_value_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
+                 json_value_signatures);
 
   InsertFunction(functions, options, "json_extract_array", SCALAR,
-                 json_extract_array_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
+                 json_extract_array_signatures);
 
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_JSON_ARRAY_FUNCTIONS)) {
     InsertFunction(functions, options, "json_extract_string_array", SCALAR,
-                   json_extract_string_array_signatures,
-                   FunctionOptions().set_pre_resolution_argument_constraint(
-                       &CheckJsonArguments));
+                   json_extract_string_array_signatures);
     InsertFunction(functions, options, "json_query_array", SCALAR,
-                   json_query_array_signatures,
-                   FunctionOptions().set_pre_resolution_argument_constraint(
-                       &CheckJsonArguments));
+                   json_query_array_signatures);
     InsertFunction(functions, options, "json_value_array", SCALAR,
-                   json_value_array_signatures,
-                   FunctionOptions().set_pre_resolution_argument_constraint(
-                       &CheckJsonArguments));
+                   json_value_array_signatures);
   }
 
   InsertFunction(
@@ -1463,27 +1483,30 @@ void GetJSONFunctions(TypeFactory* type_factory,
   InsertFunction(
       functions, options, "json_remove", SCALAR,
       {{json_type,
-        {json_type,
-         {string_type, FunctionArgumentTypeOptions().set_must_be_constant()},
-         {string_type, FunctionArgumentTypeOptions()
-                           .set_cardinality(REPEATED)
-                           .set_must_be_constant()}},
+        {json_type, json_path_argument, repeated_json_path_argument},
         FN_JSON_REMOVE}},
       FunctionOptions()
           .add_required_language_feature(FEATURE_JSON_TYPE)
           .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 
+  FunctionArgumentType first_json_path = json_path_argument;
+  FunctionArgumentType first_set_value{ARG_TYPE_ARBITRARY};
+  FunctionArgumentType remaining_json_paths = repeated_json_path_argument;
+  FunctionArgumentType remaining_set_values{
+      ARG_TYPE_ARBITRARY,
+      FunctionArgumentTypeOptions().set_cardinality(REPEATED)};
+  FunctionArgumentType create_if_missing{
+      bool_type, FunctionArgumentTypeOptions()
+                     .set_cardinality(FunctionEnums::OPTIONAL)
+                     .set_must_be_constant()
+                     .set_argument_name("create_if_missing", kNamedOnly)
+                     .set_default(Value::Bool(true))};
+
   InsertFunction(
       functions, options, "json_set", SCALAR,
       {{json_type,
-        {json_type,
-         {string_type, FunctionArgumentTypeOptions().set_must_be_constant()},
-         ARG_TYPE_ARBITRARY,
-         {string_type, FunctionArgumentTypeOptions()
-                           .set_cardinality(REPEATED)
-                           .set_must_be_constant()},
-         {ARG_TYPE_ARBITRARY,
-          FunctionArgumentTypeOptions().set_cardinality(REPEATED)}},
+        {json_type, first_json_path, first_set_value, remaining_json_paths,
+         remaining_set_values, create_if_missing},
         FN_JSON_SET}},
       FunctionOptions()
           .add_required_language_feature(FEATURE_JSON_TYPE)
@@ -1493,10 +1516,7 @@ void GetJSONFunctions(TypeFactory* type_factory,
       functions, options, "json_strip_nulls", SCALAR,
       {{json_type,
         {json_type,
-         {string_type, FunctionArgumentTypeOptions()
-                           .set_cardinality(FunctionEnums::OPTIONAL)
-                           .set_must_be_constant()
-                           .set_default(Value::String("$"))},
+         optional_json_path_argument,
          {bool_type, FunctionArgumentTypeOptions()
                          .set_cardinality(FunctionEnums::OPTIONAL)
                          .set_must_be_constant()
@@ -1517,12 +1537,10 @@ void GetJSONFunctions(TypeFactory* type_factory,
       {{json_type,
         {json_type,
          // Ensure at least one repetition ...
-         {string_type, FunctionArgumentTypeOptions().set_must_be_constant()},
+         json_path_argument,
          {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()},
          // ... Then any number of additional pairs of args.
-         {string_type, FunctionArgumentTypeOptions()
-                           .set_cardinality(REPEATED)
-                           .set_must_be_constant()},
+         repeated_json_path_argument,
          {ARG_TYPE_ARBITRARY,
           FunctionArgumentTypeOptions().set_cardinality(REPEATED)},
          {bool_type, FunctionArgumentTypeOptions()
@@ -1540,12 +1558,10 @@ void GetJSONFunctions(TypeFactory* type_factory,
       {{json_type,
         {json_type,
          // Ensure at least one repetition ...
-         {string_type, FunctionArgumentTypeOptions().set_must_be_constant()},
+         json_path_argument,
          {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()},
          // ... Then any number of additional pairs of args.
-         {string_type, FunctionArgumentTypeOptions()
-                           .set_cardinality(REPEATED)
-                           .set_must_be_constant()},
+         repeated_json_path_argument,
          {ARG_TYPE_ARBITRARY,
           FunctionArgumentTypeOptions().set_cardinality(REPEATED)},
          {bool_type, FunctionArgumentTypeOptions()
@@ -3073,10 +3089,6 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   InsertSimpleFunction(
       functions, options, "st_union_agg", AGGREGATE,
       {{geography_type, {geography_type}, FN_ST_UNION_AGG}},
-      aggregate_analytic_function_options_and_geography_required);
-  InsertSimpleFunction(
-      functions, options, "st_accum", AGGREGATE,
-      {{geography_array_type, {geography_type}, FN_ST_ACCUM}},
       aggregate_analytic_function_options_and_geography_required);
   InsertSimpleFunction(
       functions, options, "st_centroid_agg", AGGREGATE,

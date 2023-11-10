@@ -1,0 +1,1192 @@
+[default language_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+[default no_show_resolved_ast]
+
+[default show_unparsed]
+
+# Basic LEFT.
+SELECT 1 AS a
+LEFT UNION ALL CORRESPONDING
+SELECT 2 AS a, 3 AS b
+--
+[UNPARSED_SQL]
+(
+SELECT
+  1 AS a
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  2 AS a,
+  3 AS a_4
+);
+==
+
+# Basic LEFT.
+SELECT 2 AS a, 3 AS b
+LEFT UNION ALL CORRESPONDING
+SELECT 1 AS b
+--
+[UNPARSED_SQL]
+(
+SELECT
+  2 AS a,
+  3 AS b
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  1 AS b
+);
+==
+
+# Basic LEFT with multiple expressions.
+SELECT 1 AS a
+LEFT UNION ALL CORRESPONDING
+SELECT 1 AS a, 2 AS b
+LEFT UNION ALL CORRESPONDING
+SELECT 1 AS a, 2 AS b, 3 AS c
+--
+[UNPARSED_SQL]
+(
+SELECT
+  1 AS a
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  1 AS a,
+  2 AS a_4
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  1 AS a,
+  2 AS a_6,
+  3 AS a_7
+);
+==
+
+# Basic LEFT with multiple expressions.
+SELECT 1 AS a, 2 AS b
+LEFT UNION ALL CORRESPONDING
+SELECT 3 AS d, 4 AS a
+LEFT UNION ALL CORRESPONDING
+SELECT 4 AS b, 5 AS e
+--
+[UNPARSED_SQL]
+(
+SELECT
+  1 AS a,
+  2 AS b
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  3 AS a_5,
+  4 AS a
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  4 AS b,
+  5 AS a_8
+);
+==
+
+# The edge case of SELECT DISTINCT is correctly handled.
+[show_resolved_ast]
+SELECT DISTINCT int32 AS a, int64, int32 AS b
+FROM SimpleTypes
+LEFT UNION ALL CORRESPONDING
+SELECT int32 AS b, int64
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.a#39 AS a [INT32]
+| +-$union_all.int64#40 AS int64 [INT64]
+| +-$union_all.b#41 AS b [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#39, int64#40, b#41]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-AggregateScan
+    | | |   +-column_list=$distinct.[int32#19, int64#20]
+    | | |   +-input_scan=
+    | | |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | |   +-group_by_list=
+    | | |     +-int32#19 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | | |     +-int64#20 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | | +-output_column_list=$distinct.[int32#19, int64#20, int32#19]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$null_column_for_outer_set_op.a#42, SimpleTypes.int64#22, SimpleTypes.int32#21]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-expr_list=
+    |   |   | +-a#42 := Literal(type=INT32, value=NULL)
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[int32#21, int64#22]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#21, int64#22], table=SimpleTypes, column_index_list=[0, 1])
+    |   +-output_column_list=[$null_column_for_outer_set_op.a#42, SimpleTypes.int64#22, SimpleTypes.int32#21]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=LEFT
+
+[UNPARSED_SQL]
+(
+SELECT
+  aggregatescan_9.a_7 AS a,
+  aggregatescan_9.a_8 AS int64,
+  aggregatescan_9.a_7 AS b
+FROM
+  (
+    SELECT
+      simpletypes_6.a_4 AS a_7,
+      simpletypes_6.a_5 AS a_8
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_4,
+          SimpleTypes.int64 AS a_5
+        FROM
+          SimpleTypes
+      ) AS simpletypes_6
+    GROUP BY 1, 2
+  ) AS aggregatescan_9
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_13.a_11 AS b,
+  simpletypes_13.a_12 AS int64
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_11,
+      SimpleTypes.int64 AS a_12
+    FROM
+      SimpleTypes
+  ) AS simpletypes_13
+);
+==
+
+# Edge case of SELECT DISTINCT: SELECT DISTINCT query + non-selected columns.
+[show_resolved_ast]
+SELECT DISTINCT int32 AS a, int64, int32 AS b
+FROM SimpleTypes
+LEFT UNION ALL CORRESPONDING
+SELECT int32 AS b, int64, 3 AS addtional_column
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.a#40 AS a [INT32]
+| +-$union_all.int64#41 AS int64 [INT64]
+| +-$union_all.b#42 AS b [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#40, int64#41, b#42]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-AggregateScan
+    | | |   +-column_list=$distinct.[int32#19, int64#20]
+    | | |   +-input_scan=
+    | | |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | |   +-group_by_list=
+    | | |     +-int32#19 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | | |     +-int64#20 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | | +-output_column_list=$distinct.[int32#19, int64#20, int32#19]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$null_column_for_outer_set_op.a#43, SimpleTypes.int64#22, SimpleTypes.int32#21]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-expr_list=
+    |   |   | +-a#43 := Literal(type=INT32, value=NULL)
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=[SimpleTypes.int32#21, SimpleTypes.int64#22, $union_all2.addtional_column#39]
+    |   |       +-expr_list=
+    |   |       | +-addtional_column#39 := Literal(type=INT64, value=3)
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#21, int64#22], table=SimpleTypes, column_index_list=[0, 1])
+    |   +-output_column_list=[$null_column_for_outer_set_op.a#43, SimpleTypes.int64#22, SimpleTypes.int32#21]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=LEFT
+
+[UNPARSED_SQL]
+(
+SELECT
+  aggregatescan_9.a_7 AS a,
+  aggregatescan_9.a_8 AS int64,
+  aggregatescan_9.a_7 AS b
+FROM
+  (
+    SELECT
+      simpletypes_6.a_4 AS a_7,
+      simpletypes_6.a_5 AS a_8
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_4,
+          SimpleTypes.int64 AS a_5
+        FROM
+          SimpleTypes
+      ) AS simpletypes_6
+    GROUP BY 1, 2
+  ) AS aggregatescan_9
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_13.a_11 AS b,
+  simpletypes_13.a_12 AS int64,
+  3 AS a_14
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_11,
+      SimpleTypes.int64 AS a_12
+    FROM
+      SimpleTypes
+  ) AS simpletypes_13
+);
+==
+
+# Edge case of SELECT DISTINCT: SELECT DISTINCT query + non-selected columns.
+[show_resolved_ast]
+SELECT DISTINCT int32 AS a, int64, int32 AS b
+FROM SimpleTypes
+LEFT UNION ALL CORRESPONDING
+SELECT int32 AS b, int64, bool
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.a#39 AS a [INT32]
+| +-$union_all.int64#40 AS int64 [INT64]
+| +-$union_all.b#41 AS b [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#39, int64#40, b#41]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-AggregateScan
+    | | |   +-column_list=$distinct.[int32#19, int64#20]
+    | | |   +-input_scan=
+    | | |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | |   +-group_by_list=
+    | | |     +-int32#19 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | | |     +-int64#20 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | | +-output_column_list=$distinct.[int32#19, int64#20, int32#19]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$null_column_for_outer_set_op.a#42, SimpleTypes.int64#22, SimpleTypes.int32#21]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-expr_list=
+    |   |   | +-a#42 := Literal(type=INT32, value=NULL)
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[int32#21, int64#22, bool#27]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#21, int64#22, bool#27], table=SimpleTypes, column_index_list=[0, 1, 6])
+    |   +-output_column_list=[$null_column_for_outer_set_op.a#42, SimpleTypes.int64#22, SimpleTypes.int32#21]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=LEFT
+
+[UNPARSED_SQL]
+(
+SELECT
+  aggregatescan_9.a_7 AS a,
+  aggregatescan_9.a_8 AS int64,
+  aggregatescan_9.a_7 AS b
+FROM
+  (
+    SELECT
+      simpletypes_6.a_4 AS a_7,
+      simpletypes_6.a_5 AS a_8
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_4,
+          SimpleTypes.int64 AS a_5
+        FROM
+          SimpleTypes
+      ) AS simpletypes_6
+    GROUP BY 1, 2
+  ) AS aggregatescan_9
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_14.a_11 AS b,
+  simpletypes_14.a_12 AS int64,
+  simpletypes_14.a_13 AS a_13
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_11,
+      SimpleTypes.int64 AS a_12,
+      SimpleTypes.bool AS a_13
+    FROM
+      SimpleTypes
+  ) AS simpletypes_14
+);
+==
+
+# Edge case of SELECT DISTINCT: SELECT DISTINCT is the 2nd query and is not
+# padded with NULL columns. The original columns of the 2nd query cannot be all
+# restored.
+[show_resolved_ast]
+SELECT int32 AS b, int64
+FROM SimpleTypes
+LEFT UNION ALL CORRESPONDING
+SELECT DISTINCT int32 AS b, int64, int32 AS a, int32 AS c
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.b#39 AS b [INT32]
+| +-$union_all.int64#40 AS int64 [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[b#39, int64#40]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=SimpleTypes.[int32#1, int64#2]
+    | | |   +-input_scan=
+    | | |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | +-output_column_list=SimpleTypes.[int32#1, int64#2]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-AggregateScan
+    |   |   +-column_list=$distinct.[int32#37, int64#38]
+    |   |   +-input_scan=
+    |   |   | +-TableScan(column_list=SimpleTypes.[int32#19, int64#20], table=SimpleTypes, column_index_list=[0, 1])
+    |   |   +-group_by_list=
+    |   |     +-int32#37 := ColumnRef(type=INT32, column=SimpleTypes.int32#19)
+    |   |     +-int64#38 := ColumnRef(type=INT64, column=SimpleTypes.int64#20)
+    |   +-output_column_list=$distinct.[int32#37, int64#38]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=LEFT
+
+[UNPARSED_SQL]
+(
+SELECT
+  simpletypes_5.a_3 AS b,
+  simpletypes_5.a_4 AS int64
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_3,
+      SimpleTypes.int64 AS a_4
+    FROM
+      SimpleTypes
+  ) AS simpletypes_5
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_8.a_6 AS b,
+  simpletypes_8.a_7 AS int64
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_6,
+      SimpleTypes.int64 AS a_7
+    FROM
+      SimpleTypes
+  ) AS simpletypes_8
+GROUP BY 1, 2
+);
+==
+
+# Edge case of SELECT DISTINCT: SELECT DISTINCT is the 2nd query. Its columns
+# cannot be all restored.
+[show_resolved_ast]
+SELECT int32 AS b, int64, 3 AS addtional_column
+FROM SimpleTypes
+LEFT UNION ALL CORRESPONDING
+SELECT DISTINCT int32 AS b, int64, int32 AS a
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.b#40 AS b [INT32]
+| +-$union_all.int64#41 AS int64 [INT64]
+| +-$union_all.addtional_column#42 AS addtional_column [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[b#40, int64#41, addtional_column#42]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, $union_all1.addtional_column#19]
+    | | |   +-expr_list=
+    | | |   | +-addtional_column#19 := Literal(type=INT64, value=3)
+    | | |   +-input_scan=
+    | | |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | +-output_column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, $union_all1.addtional_column#19]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$distinct.int32#38, $distinct.int64#39, $null_column_for_outer_set_op.addtional_column#43]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-expr_list=
+    |   |   | +-addtional_column#43 := Literal(type=INT64, value=NULL)
+    |   |   +-input_scan=
+    |   |     +-AggregateScan
+    |   |       +-column_list=$distinct.[int32#38, int64#39]
+    |   |       +-input_scan=
+    |   |       | +-TableScan(column_list=SimpleTypes.[int32#20, int64#21], table=SimpleTypes, column_index_list=[0, 1])
+    |   |       +-group_by_list=
+    |   |         +-int32#38 := ColumnRef(type=INT32, column=SimpleTypes.int32#20)
+    |   |         +-int64#39 := ColumnRef(type=INT64, column=SimpleTypes.int64#21)
+    |   +-output_column_list=[$distinct.int32#38, $distinct.int64#39, $null_column_for_outer_set_op.addtional_column#43]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=LEFT
+
+[UNPARSED_SQL]
+(
+SELECT
+  simpletypes_6.a_4 AS b,
+  simpletypes_6.a_5 AS int64,
+  3 AS addtional_column
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_4,
+      SimpleTypes.int64 AS a_5
+    FROM
+      SimpleTypes
+  ) AS simpletypes_6
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_10.a_8 AS b,
+  simpletypes_10.a_9 AS int64
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_8,
+      SimpleTypes.int64 AS a_9
+    FROM
+      SimpleTypes
+  ) AS simpletypes_10
+GROUP BY 1, 2
+);
+==
+
+# Duplicate column ids in the first query. Alias order is preserved.
+SELECT a AS col1, a AS col2, b AS col3, a AS col4
+FROM (
+  SELECT 1 AS a, 2 AS b
+)
+LEFT UNION ALL CORRESPONDING
+SELECT 1 AS col4, 2 AS col5
+--
+[UNPARSED_SQL]
+(
+SELECT
+  projectscan_7.a_5 AS col1,
+  projectscan_7.a_5 AS col2,
+  projectscan_7.a_6 AS col3,
+  projectscan_7.a_5 AS col4
+FROM
+  (
+    SELECT
+      1 AS a_5,
+      2 AS a_6
+  ) AS projectscan_7
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  1 AS col4,
+  2 AS a_11
+);
+==
+
+# Duplicate column ids in the 2nd scan. Alias order is not guaranteed to be
+# restored.
+SELECT 1 AS a, 2 AS b
+LEFT UNION ALL CORRESPONDING
+SELECT col AS b, col AS a
+FROM (
+  SELECT 2 AS col
+)
+--
+[UNPARSED_SQL]
+(
+SELECT
+  1 AS a,
+  2 AS b
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  projectscan_6.a_5 AS a,
+  projectscan_6.a_5 AS b
+FROM
+  (
+    SELECT
+      2 AS a_5
+  ) AS projectscan_6
+);
+==
+
+# LEFT CORRESPONDING as an input to BY_POSITION
+SELECT int32, int64 FROM SimpleTypes
+UNION ALL (
+  SELECT int32, int64 FROM SimpleTypes
+  LEFT UNION ALL CORRESPONDING
+  SELECT int64 FROM SimpleTypes
+)
+--
+[UNPARSED_SQL]
+(
+SELECT
+  simpletypes_3.a_1 AS int32,
+  simpletypes_3.a_2 AS int64
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_1,
+      SimpleTypes.int64 AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3
+) UNION ALL((
+SELECT
+  simpletypes_8.a_6 AS a_4,
+  simpletypes_8.a_7 AS a_5
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_6,
+      SimpleTypes.int64 AS a_7
+    FROM
+      SimpleTypes
+  ) AS simpletypes_8
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_10.a_9 AS a_5
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_9
+    FROM
+      SimpleTypes
+  ) AS simpletypes_10
+));
+==
+
+# LEFT CORRESPONDING as an input to BY_POSITION
+(
+  SELECT int64, int32 FROM SimpleTypes
+  LEFT UNION ALL CORRESPONDING
+  SELECT int64 FROM SimpleTypes
+)
+UNION ALL
+SELECT int32, int64 FROM SimpleTypes
+--
+[UNPARSED_SQL]
+(
+SELECT
+  setoperationscan_8.a_1 AS int64,
+  CAST(setoperationscan_8.a_2 AS INT64) AS int32
+FROM
+  ((
+    SELECT
+      simpletypes_5.a_4 AS a_1,
+      simpletypes_5.a_3 AS a_2
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_3,
+          SimpleTypes.int64 AS a_4
+        FROM
+          SimpleTypes
+      ) AS simpletypes_5
+    ) LEFT UNION ALL CORRESPONDING(
+    SELECT
+      simpletypes_7.a_6 AS a_1
+    FROM
+      (
+        SELECT
+          SimpleTypes.int64 AS a_6
+        FROM
+          SimpleTypes
+      ) AS simpletypes_7
+    )
+  ) AS setoperationscan_8
+) UNION ALL(
+SELECT
+  CAST(projectscan_13.a_10 AS INT64) AS a_14,
+  projectscan_13.a_11 AS a_11
+FROM
+  (
+    SELECT
+      simpletypes_12.a_10 AS a_10,
+      simpletypes_12.a_11 AS a_11
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_10,
+          SimpleTypes.int64 AS a_11
+        FROM
+          SimpleTypes
+      ) AS simpletypes_12
+  ) AS projectscan_13
+);
+==
+
+# LEFT CORRESPONDING as an input to CORRESPONDING
+SELECT int32, int64 FROM SimpleTypes
+UNION ALL CORRESPONDING (
+  SELECT int32 FROM SimpleTypes
+  LEFT UNION ALL CORRESPONDING
+  SELECT int64, int32 FROM SimpleTypes
+)
+--
+[UNPARSED_SQL]
+(
+SELECT
+  simpletypes_4.a_2 AS int32,
+  simpletypes_4.a_3 AS a_3
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_2,
+      SimpleTypes.int64 AS a_3
+    FROM
+      SimpleTypes
+  ) AS simpletypes_4
+) UNION ALL CORRESPONDING((
+SELECT
+  simpletypes_7.a_6 AS int32
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_6
+    FROM
+      SimpleTypes
+  ) AS simpletypes_7
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_10.a_9 AS a_9,
+  simpletypes_10.a_8 AS int32
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_8,
+      SimpleTypes.int64 AS a_9
+    FROM
+      SimpleTypes
+  ) AS simpletypes_10
+));
+==
+
+# LEFT CORRESPONDING as an input to CORRESPONDING.
+(
+  SELECT int32, int64 FROM SimpleTypes
+  LEFT UNION ALL CORRESPONDING
+  SELECT int64, int64 AS another_int64 FROM SimpleTypes
+)
+LEFT UNION ALL CORRESPONDING
+SELECT int32, int64, int64 AS another_int64 FROM SimpleTypes
+--
+[UNPARSED_SQL]
+((
+SELECT
+  simpletypes_7.a_5 AS int32,
+  simpletypes_7.a_6 AS int64
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_5,
+      SimpleTypes.int64 AS a_6
+    FROM
+      SimpleTypes
+  ) AS simpletypes_7
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_9.a_8 AS int64,
+  simpletypes_9.a_8 AS a_10
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_8
+    FROM
+      SimpleTypes
+  ) AS simpletypes_9
+)) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_13.a_11 AS int32,
+  simpletypes_13.a_12 AS int64,
+  simpletypes_13.a_12 AS a_14
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_11,
+      SimpleTypes.int64 AS a_12
+    FROM
+      SimpleTypes
+  ) AS simpletypes_13
+);
+==
+
+# BY_POSITION as an input to LEFT CORRESPONDING
+(
+  SELECT int32, int64 FROM SimpleTypes
+  UNION ALL
+  SELECT int64, int32 FROM SimpleTypes
+)
+LEFT UNION ALL CORRESPONDING
+SELECT int64, int32 AS another_int32 FROM SimpleTypes
+--
+[UNPARSED_SQL]
+((
+SELECT
+  CAST(projectscan_6.a_3 AS INT64) AS int32,
+  projectscan_6.a_4 AS int64
+FROM
+  (
+    SELECT
+      simpletypes_5.a_3 AS a_3,
+      simpletypes_5.a_4 AS a_4
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_3,
+          SimpleTypes.int64 AS a_4
+        FROM
+          SimpleTypes
+      ) AS simpletypes_5
+  ) AS projectscan_6
+) UNION ALL(
+SELECT
+  projectscan_11.a_9 AS a_9,
+  CAST(projectscan_11.a_8 AS INT64) AS a_12
+FROM
+  (
+    SELECT
+      simpletypes_10.a_9 AS a_9,
+      simpletypes_10.a_8 AS a_8
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_8,
+          SimpleTypes.int64 AS a_9
+        FROM
+          SimpleTypes
+      ) AS simpletypes_10
+  ) AS projectscan_11
+)) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_15.a_14 AS int64,
+  simpletypes_15.a_13 AS a_13
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_13,
+      SimpleTypes.int64 AS a_14
+    FROM
+      SimpleTypes
+  ) AS simpletypes_15
+);
+==
+
+# BY_POSITION as an input to LEFT CORRESPONDING
+SELECT int64, int32 AS another_int32 FROM SimpleTypes
+LEFT UNION ALL CORRESPONDING
+(
+  SELECT int32, int64 FROM SimpleTypes
+  UNION ALL
+  SELECT int64, int32 FROM SimpleTypes
+)
+--
+[UNPARSED_SQL]
+(
+SELECT
+  simpletypes_5.a_4 AS int64,
+  simpletypes_5.a_3 AS another_int32
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_3,
+      SimpleTypes.int64 AS a_4
+    FROM
+      SimpleTypes
+  ) AS simpletypes_5
+) LEFT UNION ALL CORRESPONDING((
+SELECT
+  CAST(projectscan_9.a_6 AS INT64) AS a_10,
+  projectscan_9.a_7 AS int64
+FROM
+  (
+    SELECT
+      simpletypes_8.a_6 AS a_6,
+      simpletypes_8.a_7 AS a_7
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_6,
+          SimpleTypes.int64 AS a_7
+        FROM
+          SimpleTypes
+      ) AS simpletypes_8
+  ) AS projectscan_9
+) UNION ALL(
+SELECT
+  projectscan_14.a_12 AS a_12,
+  CAST(projectscan_14.a_11 AS INT64) AS a_15
+FROM
+  (
+    SELECT
+      simpletypes_13.a_12 AS a_12,
+      simpletypes_13.a_11 AS a_11
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_11,
+          SimpleTypes.int64 AS a_12
+        FROM
+          SimpleTypes
+      ) AS simpletypes_13
+  ) AS projectscan_14
+));
+==
+
+# LEFT with type coercion.
+[show_resolved_ast]
+SELECT int64 AS a, int64 AS b FROM SimpleTypes
+LEFT UNION ALL CORRESPONDING
+SELECT double AS b, int64 AS c, int32 AS a FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.a#37 AS a [INT64]
+| +-$union_all.b#38 AS b [DOUBLE]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#37, b#38]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=[SimpleTypes.int64#2, $union_all1_cast.int64#39]
+    | | |   +-expr_list=
+    | | |   | +-int64#39 :=
+    | | |   |   +-Cast(INT64 -> DOUBLE)
+    | | |   |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | | |   +-input_scan=
+    | | |     +-ProjectScan
+    | | |       +-column_list=SimpleTypes.[int64#2, int64#2]
+    | | |       +-input_scan=
+    | | |         +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+    | | +-output_column_list=[SimpleTypes.int64#2, $union_all1_cast.int64#39]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[SimpleTypes.double#27, SimpleTypes.int64#20, $union_all2_cast.int32#40]
+    |   |   +-expr_list=
+    |   |   | +-int32#40 :=
+    |   |   |   +-Cast(INT32 -> INT64)
+    |   |   |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#19)
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[double#27, int64#20, int32#19]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#19, int64#20, double#27], table=SimpleTypes, column_index_list=[0, 1, 8])
+    |   +-output_column_list=[$union_all2_cast.int32#40, SimpleTypes.double#27]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=LEFT
+
+[UNPARSED_SQL]
+(
+SELECT
+  projectscan_6.a_3 AS a,
+  CAST(projectscan_6.a_3 AS DOUBLE) AS b
+FROM
+  (
+    SELECT
+      simpletypes_4.a_3 AS a_3,
+      simpletypes_4.a_3 AS a_5
+    FROM
+      (
+        SELECT
+          SimpleTypes.int64 AS a_3
+        FROM
+          SimpleTypes
+      ) AS simpletypes_4
+  ) AS projectscan_6
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  projectscan_12.a_10 AS b,
+  projectscan_12.a_9 AS a_9,
+  CAST(projectscan_12.a_8 AS INT64) AS a
+FROM
+  (
+    SELECT
+      simpletypes_11.a_10 AS a_10,
+      simpletypes_11.a_9 AS a_9,
+      simpletypes_11.a_8 AS a_8
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_8,
+          SimpleTypes.int64 AS a_9,
+          SimpleTypes.double AS a_10
+        FROM
+          SimpleTypes
+      ) AS simpletypes_11
+  ) AS projectscan_12
+);
+==
+
+# Edge case: scans with only null literals.
+[show_resolved_ast]
+SELECT NULL AS a, NULL AS b
+LEFT UNION ALL CORRESPONDING
+SELECT NULL AS b, NULL AS c, NULL AS a
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.a#6 AS a [INT64]
+| +-$union_all.b#7 AS b [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[a#6, b#7]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=$union_all1.[a#1, b#2]
+    | | |   +-expr_list=
+    | | |   | +-a#1 := Literal(type=INT64, value=NULL)
+    | | |   | +-b#2 := Literal(type=INT64, value=NULL)
+    | | |   +-input_scan=
+    | | |     +-SingleRowScan
+    | | +-output_column_list=$union_all1.[a#1, b#2]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=$union_all2.[b#3, c#4, a#5]
+    |   |   +-expr_list=
+    |   |   | +-b#3 := Literal(type=INT64, value=NULL)
+    |   |   | +-c#4 := Literal(type=INT64, value=NULL)
+    |   |   | +-a#5 := Literal(type=INT64, value=NULL)
+    |   |   +-input_scan=
+    |   |     +-SingleRowScan
+    |   +-output_column_list=$union_all2.[a#5, b#3]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=LEFT
+
+[UNPARSED_SQL]
+(
+SELECT
+  CAST(NULL AS INT64) AS a,
+  CAST(NULL AS INT64) AS b
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  CAST(NULL AS INT64) AS b,
+  CAST(NULL AS INT64) AS a_6,
+  CAST(NULL AS INT64) AS a
+);
+==
+
+# Edge case: NULL literals with type coercion.
+SELECT CAST(NULL AS INT32) AS a
+LEFT UNION ALL CORRESPONDING
+SELECT CAST(NULL AS INT32) AS b, CAST(NULL AS INT64) AS a
+--
+[UNPARSED_SQL]
+(
+SELECT
+  CAST(NULL AS INT64) AS a
+FROM
+  (
+    SELECT
+      CAST(NULL AS INT32) AS a_2
+  ) AS projectscan_3
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  CAST(NULL AS INT32) AS a_5,
+  CAST(NULL AS INT64) AS a
+);
+==
+
+# SELECT DISTINCT: duplicate common columns in 2nd query.
+[show_resolved_ast]
+SELECT int64 AS a, int32 AS b, int32 AS c FROM SimpleTypes
+LEFT EXCEPT DISTINCT CORRESPONDING
+SELECT DISTINCT int64 AS d, int32 AS c, int32 AS b FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$except_distinct.a#39 AS a [INT64]
+| +-$except_distinct.b#40 AS b [INT32]
+| +-$except_distinct.c#41 AS c [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[a#39, b#40, c#41]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=SimpleTypes.[int64#2, int32#1, int32#1]
+    | | |   +-input_scan=
+    | | |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | +-output_column_list=SimpleTypes.[int64#2, int32#1, int32#1]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$null_column_for_outer_set_op.a#42, $distinct.int32#38, $distinct.int32#38]
+    |   |   +-node_source="resolver_set_operation_corresponding"
+    |   |   +-expr_list=
+    |   |   | +-a#42 := Literal(type=INT64, value=NULL)
+    |   |   +-input_scan=
+    |   |     +-AggregateScan
+    |   |       +-column_list=$distinct.[int64#37, int32#38]
+    |   |       +-input_scan=
+    |   |       | +-TableScan(column_list=SimpleTypes.[int32#19, int64#20], table=SimpleTypes, column_index_list=[0, 1])
+    |   |       +-group_by_list=
+    |   |         +-int64#37 := ColumnRef(type=INT64, column=SimpleTypes.int64#20)
+    |   |         +-int32#38 := ColumnRef(type=INT32, column=SimpleTypes.int32#19)
+    |   +-output_column_list=[$null_column_for_outer_set_op.a#42, $distinct.int32#38, $distinct.int32#38]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=LEFT
+
+[UNPARSED_SQL]
+(
+SELECT
+  simpletypes_6.a_5 AS a,
+  simpletypes_6.a_4 AS b,
+  simpletypes_6.a_4 AS c
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_4,
+      SimpleTypes.int64 AS a_5
+    FROM
+      SimpleTypes
+  ) AS simpletypes_6
+) LEFT EXCEPT DISTINCT CORRESPONDING(
+SELECT
+  aggregatescan_13.a_12 AS b,
+  aggregatescan_13.a_12 AS c
+FROM
+  (
+    SELECT
+      simpletypes_10.a_9 AS a_11,
+      simpletypes_10.a_8 AS a_12
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_8,
+          SimpleTypes.int64 AS a_9
+        FROM
+          SimpleTypes
+      ) AS simpletypes_10
+    GROUP BY 1, 2
+  ) AS aggregatescan_13
+);
+==
+
+[show_resolved_ast]
+# SELECT DISTINCT: duplicate seen columns in 2nd query (no padded NULL for the
+# 2nd query).
+SELECT int32 AS b, int32 AS c FROM SimpleTypes
+LEFT EXCEPT DISTINCT CORRESPONDING
+SELECT DISTINCT int32 AS c, int32 AS b, int64 AS d FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$except_distinct.b#39 AS b [INT32]
+| +-$except_distinct.c#40 AS c [INT32]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[b#39, c#40]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+    | +-SetOperationItem
+    | | +-scan=
+    | | | +-ProjectScan
+    | | |   +-column_list=SimpleTypes.[int32#1, int32#1]
+    | | |   +-input_scan=
+    | | |     +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
+    | | +-output_column_list=SimpleTypes.[int32#1, int32#1]
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-AggregateScan
+    |   |   +-column_list=$distinct.[int32#37, int64#38]
+    |   |   +-input_scan=
+    |   |   | +-TableScan(column_list=SimpleTypes.[int32#19, int64#20], table=SimpleTypes, column_index_list=[0, 1])
+    |   |   +-group_by_list=
+    |   |     +-int32#37 := ColumnRef(type=INT32, column=SimpleTypes.int32#19)
+    |   |     +-int64#38 := ColumnRef(type=INT64, column=SimpleTypes.int64#20)
+    |   +-output_column_list=$distinct.[int32#37, int32#37]
+    +-column_match_mode=CORRESPONDING
+    +-column_propagation_mode=LEFT
+
+[UNPARSED_SQL]
+(
+SELECT
+  simpletypes_4.a_3 AS b,
+  simpletypes_4.a_3 AS c
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_3
+    FROM
+      SimpleTypes
+  ) AS simpletypes_4
+) LEFT EXCEPT DISTINCT CORRESPONDING(
+SELECT
+  aggregatescan_11.a_9 AS b,
+  aggregatescan_11.a_9 AS c
+FROM
+  (
+    SELECT
+      simpletypes_8.a_6 AS a_9,
+      simpletypes_8.a_7 AS a_10
+    FROM
+      (
+        SELECT
+          SimpleTypes.int32 AS a_6,
+          SimpleTypes.int64 AS a_7
+        FROM
+          SimpleTypes
+      ) AS simpletypes_8
+    GROUP BY 1, 2
+  ) AS aggregatescan_11
+);
+==
+
+# Type coercion between non-NULL vs NULL columns
+SELECT NULL AS a, NULL AS b FROM SimpleTypes
+LEFT UNION ALL CORRESPONDING
+SELECT double AS b, int64 AS c, int32 AS a FROM SimpleTypes
+--
+[UNPARSED_SQL]
+(
+SELECT
+  CAST(NULL AS INT32) AS a,
+  CAST(NULL AS DOUBLE) AS b
+FROM
+  (
+    SELECT
+      CAST(NULL AS INT64) AS a_3,
+      CAST(NULL AS INT64) AS a_4
+    FROM
+      SimpleTypes
+  ) AS projectscan_5
+) LEFT UNION ALL CORRESPONDING(
+SELECT
+  simpletypes_11.a_10 AS b,
+  simpletypes_11.a_9 AS a_9,
+  simpletypes_11.a_8 AS a
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_8,
+      SimpleTypes.int64 AS a_9,
+      SimpleTypes.double AS a_10
+    FROM
+      SimpleTypes
+  ) AS simpletypes_11
+);

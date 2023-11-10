@@ -2179,9 +2179,9 @@ QueryStmt
         |         +-keys#3 :=
         |           +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
         |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-        +-array_expr=
+        +-array_expr_list=
         | +-ColumnRef(type=ARRAY<INT64>, column=$aggregate.keys#3)
-        +-element_column=$array.k#4
+        +-element_column_list=[$array.k#4]
 ==
 
 select key, string_agg(value, 'a'), string_agg(cast(value as bytes), b'b')
@@ -3070,14 +3070,14 @@ QueryStmt
     |       |   |       +-column_list=[TestTable.KitchenSink#3, $array.n#4]
     |       |   |       +-input_scan=
     |       |   |       | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
-    |       |   |       +-array_expr=
+    |       |   |       +-array_expr_list=
     |       |   |       | +-GetProtoField
     |       |   |       |   +-type=ARRAY<DOUBLE>
     |       |   |       |   +-expr=
     |       |   |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |       |   |       |   +-field_descriptor=repeated_double_val
     |       |   |       |   +-default_value=[]
-    |       |   |       +-element_column=$array.n#4
+    |       |   |       +-element_column_list=[$array.n#4]
     |       |   +-group_by_list=
     |       |   | +-nested_int64#7 := ColumnRef(type=INT64, column=$pre_groupby.nested_int64#6)
     |       |   +-aggregate_list=

@@ -58,9 +58,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.e#4, $array_offset.offset#5]
-    |         |           |   |   +-array_expr=
+    |         |           |   |   +-array_expr_list=
     |         |           |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |           |   |   +-element_column=$array.e#4
+    |         |           |   |   +-element_column_list=[$array.e#4]
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.offset#5)
     |         |           |   +-filter_expr=
@@ -144,9 +144,9 @@ QueryStmt
     |         |     |       |   +-input_scan=
     |         |     |       |   | +-ArrayScan
     |         |     |       |   |   +-column_list=[$array.e#4, $array_offset.offset#5]
-    |         |     |       |   |   +-array_expr=
+    |         |     |       |   |   +-array_expr_list=
     |         |     |       |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |     |       |   |   +-element_column=$array.e#4
+    |         |     |       |   |   +-element_column_list=[$array.e#4]
     |         |     |       |   |   +-array_offset_column=
     |         |     |       |   |     +-ColumnHolder(column=$array_offset.offset#5)
     |         |     |       |   +-filter_expr=
@@ -250,9 +250,9 @@ QueryStmt
     |         |           |   +-input_scan=
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.e#4, $array_offset.offset#5]
-    |         |           |   |   +-array_expr=
+    |         |           |   |   +-array_expr_list=
     |         |           |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |           |   |   +-element_column=$array.e#4
+    |         |           |   |   +-element_column_list=[$array.e#4]
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.offset#5)
     |         |           |   +-filter_expr=
@@ -331,9 +331,9 @@ QueryStmt
     |         |     |       |   +-input_scan=
     |         |     |       |   | +-ArrayScan
     |         |     |       |   |   +-column_list=[$array.e#4, $array_offset.offset#5]
-    |         |     |       |   |   +-array_expr=
+    |         |     |       |   |   +-array_expr_list=
     |         |     |       |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input_array#2, is_correlated=TRUE)
-    |         |     |       |   |   +-element_column=$array.e#4
+    |         |     |       |   |   +-element_column_list=[$array.e#4]
     |         |     |       |   |   +-array_offset_column=
     |         |     |       |   |     +-ColumnHolder(column=$array_offset.offset#5)
     |         |     |       |   +-filter_expr=

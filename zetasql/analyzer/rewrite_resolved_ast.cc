@@ -359,8 +359,7 @@ absl::Status InternalRewriteResolvedAst(const AnalyzerOptions& analyzer_options,
   }
 
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      analyzer_options.error_message_mode(),
-      analyzer_options.attach_error_location_payload(), sql,
+      analyzer_options.error_message_options(), sql,
       InternalRewriteResolvedAstNoConvertErrorLocation(
           analyzer_options, catalog, type_factory, analyzer_output));
 }

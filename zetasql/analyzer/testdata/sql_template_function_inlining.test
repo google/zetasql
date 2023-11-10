@@ -65,9 +65,9 @@ FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
       +-input_scan=
       | +-ArrayScan
       |   +-column_list=[$array.e#1, $array_offset.offset#2]
-      |   +-array_expr=
+      |   +-array_expr_list=
       |   | +-ArgumentRef(type=ARRAY<INT64>, name="input_arr")
-      |   +-element_column=$array.e#1
+      |   +-element_column_list=[$array.e#1]
       |   +-array_offset_column=
       |     +-ColumnHolder(column=$array_offset.offset#2)
       +-order_by_item_list=
@@ -106,9 +106,9 @@ QueryStmt
     |               +-input_scan=
     |               | +-ArrayScan
     |               |   +-column_list=[$array.e#2, $array_offset.offset#3]
-    |               |   +-array_expr=
+    |               |   +-array_expr_list=
     |               |   | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_REVERSE_ARRAY.input_arr#4, is_correlated=TRUE)
-    |               |   +-element_column=$array.e#2
+    |               |   +-element_column_list=[$array.e#2]
     |               |   +-array_offset_column=
     |               |     +-ColumnHolder(column=$array_offset.offset#3)
     |               +-order_by_item_list=
@@ -151,9 +151,9 @@ FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
       +-input_scan=
       | +-ArrayScan
       |   +-column_list=[$array.e#1, $array_offset.offset#2]
-      |   +-array_expr=
+      |   +-array_expr_list=
       |   | +-ArgumentRef(type=ARRAY<STRING>, name="input_arr")
-      |   +-element_column=$array.e#1
+      |   +-element_column_list=[$array.e#1]
       |   +-array_offset_column=
       |     +-ColumnHolder(column=$array_offset.offset#2)
       +-order_by_item_list=
@@ -192,9 +192,9 @@ QueryStmt
     |               +-input_scan=
     |               | +-ArrayScan
     |               |   +-column_list=[$array.e#2, $array_offset.offset#3]
-    |               |   +-array_expr=
+    |               |   +-array_expr_list=
     |               |   | +-ColumnRef(type=ARRAY<STRING>, column=$inlined_REVERSE_ARRAY.input_arr#4, is_correlated=TRUE)
-    |               |   +-element_column=$array.e#2
+    |               |   +-element_column_list=[$array.e#2]
     |               |   +-array_offset_column=
     |               |     +-ColumnHolder(column=$array_offset.offset#3)
     |               +-order_by_item_list=
@@ -237,9 +237,9 @@ FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
       +-input_scan=
       | +-ArrayScan
       |   +-column_list=[$array.e#1, $array_offset.offset#2]
-      |   +-array_expr=
+      |   +-array_expr_list=
       |   | +-ArgumentRef(type=ARRAY<INT64>, name="input_arr")
-      |   +-element_column=$array.e#1
+      |   +-element_column_list=[$array.e#1]
       |   +-array_offset_column=
       |     +-ColumnHolder(column=$array_offset.offset#2)
       +-order_by_item_list=
@@ -278,9 +278,9 @@ QueryStmt
     |               +-input_scan=
     |               | +-ArrayScan
     |               |   +-column_list=[$array.e#2, $array_offset.offset#3]
-    |               |   +-array_expr=
+    |               |   +-array_expr_list=
     |               |   | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_REVERSE_ARRAY.input_arr#4, is_correlated=TRUE)
-    |               |   +-element_column=$array.e#2
+    |               |   +-element_column_list=[$array.e#2]
     |               |   +-array_offset_column=
     |               |     +-ColumnHolder(column=$array_offset.offset#3)
     |               +-order_by_item_list=
@@ -323,9 +323,9 @@ FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
       +-input_scan=
       | +-ArrayScan
       |   +-column_list=[$array.e#1, $array_offset.offset#2]
-      |   +-array_expr=
+      |   +-array_expr_list=
       |   | +-ArgumentRef(type=ARRAY<INT64>, name="input_arr")
-      |   +-element_column=$array.e#1
+      |   +-element_column_list=[$array.e#1]
       |   +-array_offset_column=
       |     +-ColumnHolder(column=$array_offset.offset#2)
       +-order_by_item_list=
@@ -364,9 +364,9 @@ QueryStmt
     |               +-input_scan=
     |               | +-ArrayScan
     |               |   +-column_list=[$array.e#2, $array_offset.offset#3]
-    |               |   +-array_expr=
+    |               |   +-array_expr_list=
     |               |   | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_REVERSE_ARRAY.input_arr#4, is_correlated=TRUE)
-    |               |   +-element_column=$array.e#2
+    |               |   +-element_column_list=[$array.e#2]
     |               |   +-array_offset_column=
     |               |     +-ColumnHolder(column=$array_offset.offset#3)
     |               +-order_by_item_list=
@@ -455,7 +455,7 @@ SubqueryExpr
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.e#2]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, FUNCTION<INT64->INT64> transformation) -> ARRAY<INT64>)
         |   |   +-FunctionArgument
         |   |   | +-expr=
@@ -467,7 +467,7 @@ SubqueryExpr
         |   |         +-body=
         |   |           +-FunctionCall(Templated_SQL_Function:TimesTwo(INT64 arg) -> INT64)
         |   |             +-ColumnRef(type=INT64, column=$lambda_arg.e#1)
-        |   +-element_column=$array.e#2
+        |   +-element_column_list=[$array.e#2]
         +-aggregate_list=
           +-$agg1#3 :=
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -512,7 +512,7 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.e#4]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-SubqueryExpr
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-subquery_type=SCALAR
@@ -552,9 +552,9 @@ QueryStmt
     |                 |   |       |           |   +-input_scan=
     |                 |   |       |           |     +-ArrayScan
     |                 |   |       |           |       +-column_list=[$array.element#8, $array_offset.off#9]
-    |                 |   |       |           |       +-array_expr=
+    |                 |   |       |           |       +-array_expr_list=
     |                 |   |       |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#7, is_correlated=TRUE)
-    |                 |   |       |           |       +-element_column=$array.element#8
+    |                 |   |       |           |       +-element_column_list=[$array.element#8]
     |                 |   |       |           |       +-array_offset_column=
     |                 |   |       |           |         +-ColumnHolder(column=$array_offset.off#9)
     |                 |   |       |           +-order_by_item_list=
@@ -568,7 +568,7 @@ QueryStmt
     |                 |   |           | +-array_to_transform#7 := ColumnRef(type=ARRAY<INT64>, column=$inlined_SUM_DOUBLE_ARRAY.input_arr#5, is_correlated=TRUE)
     |                 |   |           +-input_scan=
     |                 |   |             +-SingleRowScan
-    |                 |   +-element_column=$array.e#4
+    |                 |   +-element_column_list=[$array.e#4]
     |                 +-aggregate_list=
     |                   +-$agg1#2 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)

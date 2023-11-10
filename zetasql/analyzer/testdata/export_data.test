@@ -277,7 +277,6 @@ ExportDataStmt
         +-output_column_list=[$union_all2.f1_#2]
 ==
 
-[no_java]
 export data with connection connection1
 options (format=sstable, filename='/tmp/file.ss')
 as select * from KeyValue

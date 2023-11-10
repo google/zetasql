@@ -106,9 +106,9 @@ QueryStmt
         +-column_list=[ArrayTypes.JsonArray#17, $array.json_val#18]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.JsonArray#17], table=ArrayTypes, column_index_list=[16])
-        +-array_expr=
+        +-array_expr_list=
         | +-ColumnRef(type=ARRAY<JSON>, column=ArrayTypes.JsonArray#17)
-        +-element_column=$array.json_val#18
+        +-element_column_list=[$array.json_val#18]
 ==
 
 SELECT json_col['field'] FROM JsonTable;
@@ -353,3 +353,93 @@ QueryStmt
     |       +-Literal(type=STRING, value="nd")
     +-input_scan=
       +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
+==
+
+#  Mandatory constant expression for path.
+[language_features=JSON_TYPE,ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH]
+SELECT JSON_QUERY(json_col, TRIM("$.a ")) FROM JsonTable;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
+    |     +-ColumnRef(type=JSON, column=JSONTable.json_col#1)
+    |     +-FunctionCall(ZetaSQL:trim(STRING, optional(0) STRING) -> STRING)
+    |       +-Literal(type=STRING, value="$.a ")
+    +-input_scan=
+      +-TableScan(column_list=[JSONTable.json_col#1], table=JSONTable, column_index_list=[0])
+==
+
+# Mandatory constant expression for path resulting in error.
+[language_features=JSON_TYPE,ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH]
+SELECT JSON_QUERY(json_col, TO_JSON_STRING(json_col)) FROM JsonTable;
+--
+ERROR: Argument 2 to JSON_QUERY must be a constant expression [at 1:29]
+SELECT JSON_QUERY(json_col, TO_JSON_STRING(json_col)) FROM JsonTable;
+                            ^
+==
+
+#  Optional constant expression for path.
+[language_features=JSON_TYPE,ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH]
+SELECT JSON_VALUE(json_col, TRIM("$.a ")) FROM JsonTable;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(ZetaSQL:json_value(JSON, optional(1) STRING) -> STRING)
+    |     +-ColumnRef(type=JSON, column=JSONTable.json_col#1)
+    |     +-FunctionCall(ZetaSQL:trim(STRING, optional(0) STRING) -> STRING)
+    |       +-Literal(type=STRING, value="$.a ")
+    +-input_scan=
+      +-TableScan(column_list=[JSONTable.json_col#1], table=JSONTable, column_index_list=[0])
+==
+
+#  Optional constant expression for path resulting in error.
+[language_features=JSON_TYPE,ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH]
+SELECT JSON_VALUE(json_col, TO_JSON_STRING(json_col)) FROM JsonTable;
+--
+ERROR: Argument 2 to JSON_VALUE must be a constant expression [at 1:29]
+SELECT JSON_VALUE(json_col, TO_JSON_STRING(json_col)) FROM JsonTable;
+                            ^
+==
+
+# Test repeated field with constant expression.
+[language_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH]
+SELECT JSON_REMOVE(json_col, TRIM("$.a "), "$.b ", TRIM("$.c ")) FROM JsonTable;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(ZetaSQL:json_remove(JSON, STRING, repeated(2) STRING) -> JSON)
+    |     +-ColumnRef(type=JSON, column=JSONTable.json_col#1)
+    |     +-FunctionCall(ZetaSQL:trim(STRING, optional(0) STRING) -> STRING)
+    |     | +-Literal(type=STRING, value="$.a ")
+    |     +-Literal(type=STRING, value="$.b ")
+    |     +-FunctionCall(ZetaSQL:trim(STRING, optional(0) STRING) -> STRING)
+    |       +-Literal(type=STRING, value="$.c ")
+    +-input_scan=
+      +-TableScan(column_list=[JSONTable.json_col#1], table=JSONTable, column_index_list=[0])
+==
+
+# Test repeated field with non-constant expression.
+[language_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH]
+SELECT JSON_REMOVE(json_col, "$.a", TRIM(" $.a"), TO_JSON_STRING(json_col)) FROM JsonTable;
+--
+ERROR: Argument 4 to JSON_REMOVE must be a constant expression [at 1:51]
+SELECT JSON_REMOVE(json_col, "$.a", TRIM(" $.a"), TO_JSON_STRING(json_col)) F...
+                                                  ^

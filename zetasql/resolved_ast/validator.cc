@@ -329,11 +329,16 @@ absl::Status Validator::ValidateGenericArgumentsAgainstConcreteArguments(
           << " of function call: " << resolved_function_call->DebugString();
     }
   }
-  VALIDATOR_RET_CHECK(resolved_function_call->generic_argument_list_size() ==
-                          0 ||
-                      !only_expr_is_used)
-      << "If all arguments are ResolvedExpressions, argument_list should be "
-         "used instead of generic_argument_list";
+  // `generic_argument_list` must be used if the signature supports argument
+  // aliases, even if all the arguments are expressions.
+  if (!SignatureSupportsArgumentAliases(signature)) {
+    VALIDATOR_RET_CHECK(resolved_function_call->generic_argument_list_size() ==
+                            0 ||
+                        !only_expr_is_used)
+        << "If all arguments are ResolvedExpressions and all argument aliases "
+        << "are empty, `argument_list` should be used instead of "
+        << "`generic_argument_list`";
+  }
   return absl::OkStatus();
 }
 
@@ -1526,14 +1531,18 @@ absl::Status Validator::ValidateResolvedArrayScan(
     ZETASQL_RETURN_IF_ERROR(
         AddColumnList(scan->input_scan()->column_list(), &visible_columns));
   }
-  VALIDATOR_RET_CHECK(nullptr != scan->array_expr());
+
+  // TODO: b/236300834 - update validator to support multiple array elements.
+  VALIDATOR_RET_CHECK_EQ(scan->array_expr_list_size(), 1);
+  VALIDATOR_RET_CHECK(scan->array_expr_list(0) != nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
-                                       scan->array_expr()));
-  VALIDATOR_RET_CHECK(scan->array_expr()->type()->IsArray())
+                                       scan->array_expr_list(0)));
+  VALIDATOR_RET_CHECK(scan->array_expr_list(0)->type()->IsArray())
       << "ArrayScan of non-ARRAY type: "
-      << scan->array_expr()->type()->DebugString();
-  ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(scan->element_column()));
-  visible_columns.insert(scan->element_column());
+      << scan->array_expr_list(0)->type()->DebugString();
+  VALIDATOR_RET_CHECK(scan->element_column_list_size() == 1);
+  ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(scan->element_column_list(0)));
+  visible_columns.insert(scan->element_column_list(0));
   if (nullptr != scan->array_offset_column()) {
     ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(scan->array_offset_column()->column()));
     visible_columns.insert(scan->array_offset_column()->column());
@@ -1548,6 +1557,7 @@ absl::Status Validator::ValidateResolvedArrayScan(
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
   scan->is_outer();  // Mark field as visited.
+  scan->array_zip_mode();  // Mark field as visited.
 
   return absl::OkStatus();
 }
@@ -2415,9 +2425,6 @@ absl::Status Validator::ValidateResolvedSetOperationScan(
     // `column_propagation_mode`-specific validation for set operation items.
     switch (set_op_scan->column_propagation_mode()) {
       case ResolvedSetOperationScan::LEFT: {
-        VALIDATOR_RET_CHECK_NE(set_op_scan->column_match_mode(),
-                               ResolvedSetOperationScan::CORRESPONDING_BY)
-            << "CORRESPONDING BY with LEFT mode is not implemented";
         const ResolvedSetOperationItem& first_item =
             *set_op_scan->input_item_list(0);
         // The first item must not be wrapped with a ProjectScan to pad NULL
@@ -2433,9 +2440,6 @@ absl::Status Validator::ValidateResolvedSetOperationScan(
         break;
       }
       case ResolvedSetOperationScan::STRICT: {
-        VALIDATOR_RET_CHECK_NE(set_op_scan->column_match_mode(),
-                               ResolvedSetOperationScan::CORRESPONDING_BY)
-            << "CORRESPONDING BY with STRICT mode is not implemented";
         // No item should be wrapped with a ProjectScan to pad NULL columns.
         for (const auto& input_item : set_op_scan->input_item_list()) {
           VALIDATOR_RET_CHECK_NE(input_item->scan()->node_source(),
@@ -3636,14 +3640,53 @@ absl::Status Validator::ValidateResolvedGeneratedColumnInfo(
   PushErrorContext push(this, column_definition);
   const ResolvedGeneratedColumnInfo* generated_column_info =
       column_definition->generated_column_info();
-  VALIDATOR_RET_CHECK(generated_column_info->expression() != nullptr);
-  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns,
-                                       /* visible_parameters = */ {},
-                                       generated_column_info->expression()));
-  VALIDATOR_RET_CHECK(generated_column_info->expression()->type() != nullptr);
-  VALIDATOR_RET_CHECK(column_definition->type() != nullptr);
-  VALIDATOR_RET_CHECK(generated_column_info->expression()->type()->Equals(
-      column_definition->type()));
+
+  // Validate when the generated column is an identity column.
+  if (const ResolvedIdentityColumnInfo* identity_col =
+          generated_column_info->identity_column_info();
+      identity_col != nullptr) {
+    VALIDATOR_RET_CHECK(generated_column_info->expression() == nullptr);
+    VALIDATOR_RET_CHECK(column_definition->type() != nullptr);
+    VALIDATOR_RET_CHECK(column_definition->type()->IsInteger());
+
+    // Check that identity column attributes are not null.
+    VALIDATOR_RET_CHECK(!identity_col->start_with_value().is_null());
+    VALIDATOR_RET_CHECK(!identity_col->increment_by_value().is_null());
+    VALIDATOR_RET_CHECK(!identity_col->min_value().is_null());
+    VALIDATOR_RET_CHECK(!identity_col->max_value().is_null());
+
+    // Check that the types of identity column attributes match the column type.
+    VALIDATOR_RET_CHECK(column_definition->type()->Equals(
+        identity_col->start_with_value().type()));
+    VALIDATOR_RET_CHECK(column_definition->type()->Equals(
+        identity_col->increment_by_value().type()));
+    VALIDATOR_RET_CHECK(
+        column_definition->type()->Equals(identity_col->max_value().type()));
+    VALIDATOR_RET_CHECK(
+        column_definition->type()->Equals(identity_col->min_value().type()));
+
+    // Check that MINVALUE <= START WITH <= MAXVALUE.
+    VALIDATOR_RET_CHECK(
+        !identity_col->start_with_value().LessThan(identity_col->min_value()));
+    VALIDATOR_RET_CHECK(
+        !identity_col->max_value().LessThan(identity_col->start_with_value()));
+    // Check that INCREMENT BY is not 0.
+    VALIDATOR_RET_CHECK(
+        !identity_col->increment_by_value().Equals(Value::Int64(0)));
+  } else {
+    // Validate when the generated column is an expression.
+    VALIDATOR_RET_CHECK(generated_column_info->expression() != nullptr);
+    VALIDATOR_RET_CHECK(generated_column_info->identity_column_info() ==
+                        nullptr);
+
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns,
+                                         /* visible_parameters = */ {},
+                                         generated_column_info->expression()));
+    VALIDATOR_RET_CHECK(generated_column_info->expression()->type() != nullptr);
+    VALIDATOR_RET_CHECK(column_definition->type() != nullptr);
+    VALIDATOR_RET_CHECK(generated_column_info->expression()->type()->Equals(
+        column_definition->type()));
+  }
   return absl::OkStatus();
 }
 
@@ -5180,6 +5223,9 @@ absl::Status Validator::ValidateResolvedUpdateStmt(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedDMLStmt(stmt, array_element_column,
                                           &target_visible_columns));
 
+  VALIDATOR_RET_CHECK_EQ(
+      stmt->topologically_sorted_generated_column_id_list_size(),
+      stmt->generated_column_expr_list_size());
   if (array_element_column == nullptr) {
     // Top-level UPDATE.
     VALIDATOR_RET_CHECK(stmt->array_offset_column() == nullptr);

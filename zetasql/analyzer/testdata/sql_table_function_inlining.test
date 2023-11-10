@@ -286,9 +286,9 @@ QueryStmt
         |         |           |   +-input_scan=
         |         |           |   | +-ArrayScan
         |         |           |   |   +-column_list=[$array.element#4, $array_offset.off#5]
-        |         |           |   |   +-array_expr=
+        |         |           |   |   +-array_expr_list=
         |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3, is_correlated=TRUE)
-        |         |           |   |   +-element_column=$array.element#4
+        |         |           |   |   +-element_column_list=[$array.element#4]
         |         |           |   |   +-array_offset_column=
         |         |           |   |     +-ColumnHolder(column=$array_offset.off#5)
         |         |           |   +-filter_expr=
@@ -970,7 +970,7 @@ QueryStmt
         |   | +-a#1 := Literal(type=INT64, value=1)
         |   +-input_scan=
         |     +-SingleRowScan
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<STRUCT<arg0 INT64>>
         |   +-subquery_type=ARRAY
@@ -998,7 +998,7 @@ QueryStmt
         |               |   +-expr=
         |               |     +-ColumnRef(type=INT64, column=$subquery1.a#1, is_correlated=TRUE)
         |               +-column_index_list=[0]
-        +-element_column=$array.$unnest1#4
+        +-element_column_list=[$array.$unnest1#4]
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('arg0') references column 'a'.
 ==

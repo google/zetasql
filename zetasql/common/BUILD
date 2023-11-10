@@ -54,7 +54,6 @@ cc_library(
         ":status_payload_utils",
         "//zetasql/base:check",
         "//zetasql/base:ret_check",
-        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/proto:internal_error_location_cc_proto",
         "//zetasql/public:deprecation_warning_cc_proto",
@@ -67,7 +66,6 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
-        "@com_google_protobuf//:protobuf",
         "@com_google_protobuf//:protobuf_lite",
     ],
 )
@@ -647,7 +645,6 @@ cc_library(
     hdrs = ["aggregate_null_handling.h"],
     deps = [
         "//zetasql/base:case",
-        "//zetasql/base:map_util",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/container:flat_hash_set",
     ],

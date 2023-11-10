@@ -1156,19 +1156,25 @@ namespace {
 
 // Helper function for constructing GENERATE_RANGE_ARRAY tests for successful
 // cases.
+// When "scale" argument doesn't have a value (std::nullopt), the generated
+// test case doesn't require or prohibit FEATURE_TIMESTAMP_NANOS. In other
+// words, the expectation is that such test case should pass on an engine with
+// or without nanoseconds support.
 FunctionTestCall GenerateRangeArrayTest(
     const Type* range_type, absl::string_view input_range_str,
     absl::string_view step_str, bool last_partial_range,
     absl::Span<const absl::string_view> expected_result_str,
-    zetasql::functions::TimestampScale scale) {
-  Value range = RangeFromStr(input_range_str, range_type, scale);
+    std::optional<zetasql::functions::TimestampScale> scale) {
+  Value range = RangeFromStr(input_range_str, range_type,
+                             scale.value_or(functions::kMicroseconds));
 
   IntervalValue step =
       *IntervalValue::ParseFromString(step_str, /*allow_nanos=*/true);
 
   std::vector<Value> expected_result;
   for (absl::string_view range_str : expected_result_str) {
-    expected_result.push_back(RangeFromStr(range_str, range_type, scale));
+    expected_result.push_back(RangeFromStr(
+        range_str, range_type, scale.value_or(functions::kMicroseconds)));
   }
 
   FunctionTestCall call{
@@ -1176,16 +1182,22 @@ FunctionTestCall GenerateRangeArrayTest(
       {range, Value::Interval(step), Value::Bool(last_partial_range)},
       {Value::MakeArray(MakeArrayType(range_type), expected_result).value()}};
 
-  QueryParamsWithResult::FeatureSet feature_set;
-  feature_set.insert({FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE});
-  if (scale == functions::kNanoseconds) {
-    feature_set.insert(FEATURE_TIMESTAMP_NANOS);
+  call.params.AddRequiredFeature(FEATURE_RANGE_TYPE)
+      .AddRequiredFeature(FEATURE_INTERVAL_TYPE);
+  if (scale.has_value()) {
+    if (*scale == functions::kNanoseconds) {
+      call.params.AddRequiredFeature(FEATURE_TIMESTAMP_NANOS);
+    } else {
+      // This will ensure that the test cases that are expected to fail due to
+      // the lack of TIMESTAMP_NANOS feature are not executed with the feature
+      // enabled.
+      call.params.AddProhibitedFeature(FEATURE_TIMESTAMP_NANOS);
+    }
   }
   const Type* element_type = range_type->AsRange()->element_type();
   if (element_type->IsDatetime()) {
-    feature_set.insert(FEATURE_V_1_2_CIVIL_TIME);
+    call.params.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
   }
-  call.params = call.params.WrapWithFeatureSet(feature_set);
   return call;
 }
 
@@ -1194,8 +1206,9 @@ FunctionTestCall GenerateRangeArrayErrorTest(
     const Type* range_type, absl::string_view input_range_str,
     absl::string_view step_str, bool last_partial_range,
     absl::string_view expected_error,
-    zetasql::functions::TimestampScale scale) {
-  Value range = RangeFromStr(input_range_str, range_type, scale);
+    std::optional<zetasql::functions::TimestampScale> scale) {
+  Value range = RangeFromStr(input_range_str, range_type,
+                             scale.value_or(functions::kMicroseconds));
 
   IntervalValue step =
       *IntervalValue::ParseFromString(step_str, /*allow_nanos=*/true);
@@ -1206,16 +1219,22 @@ FunctionTestCall GenerateRangeArrayErrorTest(
       Value::Null(MakeArrayType(range_type)),
       absl::OutOfRangeError(expected_error)};
 
-  QueryParamsWithResult::FeatureSet feature_set;
-  feature_set.insert({FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE});
-  if (scale == functions::kNanoseconds) {
-    feature_set.insert(FEATURE_TIMESTAMP_NANOS);
+  call.params.AddRequiredFeature(FEATURE_RANGE_TYPE)
+      .AddRequiredFeature(FEATURE_INTERVAL_TYPE);
+  if (scale.has_value()) {
+    if (*scale == functions::kNanoseconds) {
+      call.params.AddRequiredFeature(FEATURE_TIMESTAMP_NANOS);
+    } else {
+      // This will ensure that the test cases that are expected to fail due to
+      // the lack of TIMESTAMP_NANOS feature are not executed with the feature
+      // enabled.
+      call.params.AddProhibitedFeature(FEATURE_TIMESTAMP_NANOS);
+    }
   }
   const Type* element_type = range_type->AsRange()->element_type();
   if (element_type->IsDatetime()) {
-    feature_set.insert(FEATURE_V_1_2_CIVIL_TIME);
+    call.params.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
   }
-  call.params = call.params.WrapWithFeatureSet(feature_set);
   return call;
 }
 
@@ -1223,7 +1242,7 @@ FunctionTestCall GenerateTimestampRangeArrayTest(
     absl::string_view input_range_str, absl::string_view step_str,
     bool last_partial_range,
     absl::Span<const absl::string_view> expected_result_str,
-    zetasql::functions::TimestampScale scale = functions::kMicroseconds) {
+    std::optional<zetasql::functions::TimestampScale> scale = std::nullopt) {
   return GenerateRangeArrayTest(types::TimestampRangeType(), input_range_str,
                                 step_str, last_partial_range,
                                 expected_result_str, scale);
@@ -1231,7 +1250,7 @@ FunctionTestCall GenerateTimestampRangeArrayTest(
 FunctionTestCall GenerateTimestampRangeArrayErrorTest(
     absl::string_view input_range_str, absl::string_view step_str,
     bool last_partial_range, absl::string_view expected_error,
-    zetasql::functions::TimestampScale scale = functions::kMicroseconds) {
+    std::optional<zetasql::functions::TimestampScale> scale = std::nullopt) {
   return GenerateRangeArrayErrorTest(types::TimestampRangeType(),
                                      input_range_str, step_str,
                                      last_partial_range, expected_error, scale);
@@ -1241,7 +1260,7 @@ FunctionTestCall GenerateDateRangeArrayTest(
     absl::string_view input_range_str, absl::string_view step_str,
     bool last_partial_range,
     absl::Span<const absl::string_view> expected_result_str,
-    zetasql::functions::TimestampScale scale = functions::kMicroseconds) {
+    std::optional<zetasql::functions::TimestampScale> scale = std::nullopt) {
   return GenerateRangeArrayTest(types::DateRangeType(), input_range_str,
                                 step_str, last_partial_range,
                                 expected_result_str, scale);
@@ -1249,7 +1268,7 @@ FunctionTestCall GenerateDateRangeArrayTest(
 FunctionTestCall GenerateDateRangeArrayErrorTest(
     absl::string_view input_range_str, absl::string_view step_str,
     bool last_partial_range, absl::string_view expected_error,
-    zetasql::functions::TimestampScale scale = functions::kMicroseconds) {
+    std::optional<zetasql::functions::TimestampScale> scale = std::nullopt) {
   return GenerateRangeArrayErrorTest(types::DateRangeType(), input_range_str,
                                      step_str, last_partial_range,
                                      expected_error, scale);
@@ -1259,7 +1278,7 @@ FunctionTestCall GenerateDatetimeRangeArrayTest(
     absl::string_view input_range_str, absl::string_view step_str,
     bool last_partial_range,
     absl::Span<const absl::string_view> expected_result_str,
-    zetasql::functions::TimestampScale scale = functions::kMicroseconds) {
+    std::optional<zetasql::functions::TimestampScale> scale = std::nullopt) {
   return GenerateRangeArrayTest(types::DatetimeRangeType(), input_range_str,
                                 step_str, last_partial_range,
                                 expected_result_str, scale);
@@ -1267,7 +1286,7 @@ FunctionTestCall GenerateDatetimeRangeArrayTest(
 FunctionTestCall GenerateDatetimeRangeArrayErrorTest(
     absl::string_view input_range_str, absl::string_view step_str,
     bool last_partial_range, absl::string_view expected_error,
-    zetasql::functions::TimestampScale scale = functions::kMicroseconds) {
+    std::optional<zetasql::functions::TimestampScale> scale = std::nullopt) {
   return GenerateRangeArrayErrorTest(types::DatetimeRangeType(),
                                      input_range_str, step_str,
                                      last_partial_range, expected_error, scale);
@@ -1702,10 +1721,11 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateTimestampRangeArray() {
           /*last_partial_range=*/false,
           "step with non-zero MONTH or YEAR part is not supported"),
       GenerateTimestampRangeArrayErrorTest(
-          "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
+          "[2012-02-11 10:21:57.000001, 2012-02-11 10:21:57.000003)",
           "0:0:0.000000001",  // Non-zero NANOSECOND part
           /*last_partial_range=*/false,
-          "step with non-zero NANOSECOND part is not supported"),
+          "step with non-zero NANOSECOND part is not supported",
+          functions::kMicroseconds),
       // Unsupported and supported step INTERVAL parts mixed together:
       GenerateTimestampRangeArrayErrorTest(
           "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
@@ -1719,9 +1739,10 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateTimestampRangeArray() {
           "step with non-zero MONTH or YEAR part is not supported"),
       GenerateTimestampRangeArrayErrorTest(
           "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
-          "0:0:1.000000001",  // Non-zero NANOSECOND part
+          "10000:0:0.000000001",  // Non-zero NANOSECOND part
           /*last_partial_range=*/false,
-          "step with non-zero NANOSECOND part is not supported"),
+          "step with non-zero NANOSECOND part is not supported",
+          functions::kMicroseconds),
       // Invalid step INTERVAL values:
       GenerateTimestampRangeArrayErrorTest(
           "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
@@ -2611,15 +2632,17 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateDatetimeRangeArray() {
           /*last_partial_range=*/true,
           "input RANGE cannot have UNBOUNDED endpoints"),
       GenerateDatetimeRangeArrayErrorTest(
-          "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
+          "[2012-02-11 10:21:57.000001, 2012-02-11 10:21:57.000003)",
           "0:0:0.000000001",  // Non-zero NANOSECOND part
           /*last_partial_range=*/false,
-          "step with non-zero NANOSECOND part is not supported"),
+          "step with non-zero NANOSECOND part is not supported",
+          functions::kMicroseconds),
       GenerateDatetimeRangeArrayErrorTest(
-          "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
+          "[2012-02-11 10:21:57.000001, 2012-02-11 10:21:57.000003)",
           "0:0:0.000000001",  // Non-zero NANOSECOND part
           /*last_partial_range=*/true,
-          "step with non-zero NANOSECOND part is not supported"),
+          "step with non-zero NANOSECOND part is not supported",
+          functions::kMicroseconds),
       // Unsupported and supported step INTERVAL parts mixed together:
       GenerateDatetimeRangeArrayErrorTest(
           "[2023-02-24 08:20:37, 2023-06-10 15:31:28)",
@@ -2643,9 +2666,10 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateDatetimeRangeArray() {
           "step should either have the Y-M part or the D (H:M:S[.F]) part"),
       GenerateDatetimeRangeArrayErrorTest(
           "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",
-          "0:0:1.000000001",  // Non-zero NANOSECOND part
+          "10000:0:0.000000001",  // Non-zero NANOSECOND part
           /*last_partial_range=*/false,
-          "step with non-zero NANOSECOND part is not supported"),
+          "step with non-zero NANOSECOND part is not supported",
+          functions::kMicroseconds),
       // Invalid step INTERVAL values:
       GenerateDatetimeRangeArrayErrorTest(
           "[2012-02-11 10:21:57, 2023-04-24 16:35:01)",

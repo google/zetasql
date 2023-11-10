@@ -45,6 +45,7 @@ See that file for comments on specific nodes and fields.
       <a href="#ResolvedAddToRestricteeListAction">ResolvedAddToRestricteeListAction</a>
       <a href="#ResolvedAlterColumnAction">ResolvedAlterColumnAction</a>
         <a href="#ResolvedAlterColumnDropDefaultAction">ResolvedAlterColumnDropDefaultAction</a>
+        <a href="#ResolvedAlterColumnDropGeneratedAction">ResolvedAlterColumnDropGeneratedAction</a>
         <a href="#ResolvedAlterColumnDropNotNullAction">ResolvedAlterColumnDropNotNullAction</a>
         <a href="#ResolvedAlterColumnOptionsAction">ResolvedAlterColumnOptionsAction</a>
         <a href="#ResolvedAlterColumnSetDataTypeAction">ResolvedAlterColumnSetDataTypeAction</a>
@@ -95,6 +96,7 @@ See that file for comments on specific nodes and fields.
       <a href="#ResolvedGroupingSet">ResolvedGroupingSet</a>
       <a href="#ResolvedRollup">ResolvedRollup</a>
     <a href="#ResolvedGroupingSetMultiColumn">ResolvedGroupingSetMultiColumn</a>
+    <a href="#ResolvedIdentityColumnInfo">ResolvedIdentityColumnInfo</a>
     <a href="#ResolvedIndexItem">ResolvedIndexItem</a>
     <a href="#ResolvedInlineLambda">ResolvedInlineLambda</a>
     <a href="#ResolvedInsertRow">ResolvedInsertRow</a>
@@ -1566,47 +1568,68 @@ class ResolvedJoinScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 <a id="ResolvedArrayScan"></a>
 
 <p><pre><code class="lang-c++">
-<font color="brown">// Scan an array value, produced from some expression.
+<font color="brown">// Scan one or more (N) array values produced by evaluating N expressions,
+// merging them positionally. Without FEATURE_V_1_4_MULTIWAY_UNNEST, it must
+// be exactly one array (N=1).
 //
-// If input_scan is NULL, this scans the given array value and produces
-// one row per array element.  This can occur when using UNNEST(expression).
+// If `input_scan` is NULL, this produces one row for each array offset.
+// This can occur when using syntax:
+//   UNNEST(expression [, expression [, ...]])
 //
-// If &lt;input_scan&gt; is non-NULL, for each row in the stream produced by
-// input_scan, this evaluates the expression &lt;array_expr&gt; (which must return
-// an array type) and then produces a stream with one row per array element.
+// If `input_scan` is non-NULL, for each row in the stream produced by
+// `input_scan`, this evaluates the expressions in `array_expr_list` (each of
+// which must return an array type), and then produces a stream with one row
+// for each array offset.
 //
-// If &lt;join_expr&gt; is non-NULL, then this condition is evaluated as an ON
-// clause for the array join.  The named column produced in &lt;array_expr&gt;
-// may be used inside &lt;join_expr&gt;.
+// If `join_expr` is non-NULL, then this condition is evaluated as an ON
+// clause for the array join. The named columns produced by any array in
+// `array_expr_list` may be used inside `join_expr`.
 //
-// If the array is empty (after evaluating &lt;join_expr&gt;), then
-// 1. If &lt;is_outer&gt; is false, the scan produces zero rows.
-// 2. If &lt;is_outer&gt; is true, the scan produces one row with a NULL value for
-//    the &lt;element_column&gt;.
+// If the array is empty (after evaluating `join_expr`), then
+// 1. If `is_outer` is false, the scan produces zero rows.
+// 2. If `is_outer` is true, the scan produces one row with N NULL values.
 //
-// &lt;element_column&gt; is the new column produced by this scan that stores the
-// array element value for each row.
+// `element_column_list` are the new columns produced by this scan that store
+// the array element values for each row. `element_column_list` and
+// `array_expr_list` must have the same size N.
 //
-// If present, &lt;array_offset_column&gt; defines the column produced by this
+// If present, `array_offset_column` defines the column produced by this
 // scan that stores the array offset (0-based) for the corresponding
-// &lt;element_column&gt;.
+// `element_column_list`.
 //
-// This node&#39;s column_list can have columns from input_scan, &lt;element_column&gt;
-// and &lt;array_offset_column&gt;.</font>
+// This node&#39;s `column_list` can have columns from `input_scan`,
+// `element_column_list` and `array_offset_column`.
+//
+// `array_zip_mode` specifies the zipping behavior when there are multiple
+// arrays in `array_expr_list` and they have different sizes. It must be NULL
+// when there is only one given array.
+//
+// The getters and setters for legacy fields `array_expr` and
+// `element_column` are added for backward compatibility purposes. If the
+// corresponding vector field has more than 1 element and only legacy
+// accessors are called, the field is not considered as accessed.</font>
 class ResolvedArrayScan : public <a href="#ResolvedScan">ResolvedScan</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_ARRAY_SCAN;
 
   const <a href="#ResolvedScan">ResolvedScan</a>* input_scan() const;
 
-  const <a href="#ResolvedExpr">ResolvedExpr</a>* array_expr() const;
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedExpr">ResolvedExpr</a>&gt;&gt;&amp; array_expr_list() const;
+  int array_expr_list_size() const;
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* array_expr_list(int i) const;
 
-  const <a href="#ResolvedColumn">ResolvedColumn</a>&amp; element_column() const;
+  const std::vector&lt;<a href="#ResolvedColumn">ResolvedColumn</a>&gt;&amp; element_column_list() const;
+  int element_column_list_size() const;
+  <a href="#ResolvedColumn">ResolvedColumn</a> element_column_list(int i) const;
 
   const <a href="#ResolvedColumnHolder">ResolvedColumnHolder</a>* array_offset_column() const;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* join_expr() const;
 
   bool is_outer() const;
+
+<font color="brown">  // Stores a builtin ENUM ARRAY_ZIP_MODE with three possible values:
+  // PAD, TRUNCATE or STRICT.</font>
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* array_zip_mode() const;
 };
 </code></pre></p>
 
@@ -2290,6 +2313,13 @@ class ResolvedColumnAnnotations : public <a href="#ResolvedArgument">ResolvedArg
 //        the user does not write to the column.
 //   This field is set to ALWAYS by default.
 //
+// `identity_column_info` contains the sequence attributes that dictate how
+// values are generated for the column.
+//   - Each table can have at most one identity column.
+//
+// Note: Exactly one of `expression` and `identity_column_info` must be
+// populated.
+//
 // See (broken link) and
 // (broken link).</font>
 class ResolvedGeneratedColumnInfo : public <a href="#ResolvedArgument">ResolvedArgument</a> {
@@ -2308,6 +2338,8 @@ class ResolvedGeneratedColumnInfo : public <a href="#ResolvedArgument">ResolvedA
   <a href="#ResolvedGeneratedColumnInfo">ResolvedGeneratedColumnInfo</a>::StoredMode stored_mode() const;
 
   <a href="#ResolvedGeneratedColumnInfo">ResolvedGeneratedColumnInfo</a>::GeneratedMode generated_mode() const;
+
+  const <a href="#ResolvedIdentityColumnInfo">ResolvedIdentityColumnInfo</a>* identity_column_info() const;
 };
 </code></pre></p>
 
@@ -4395,9 +4427,12 @@ class ResolvedInsertRow : public <a href="#ResolvedArgument">ResolvedArgument</a
 //
 // The returning clause has a &lt;output_column_list&gt; to represent the data
 // sent back to clients. It can only access columns from the &lt;table_scan&gt;.
+//
 // &lt;topologically_sorted_generated_column_id_list&gt; is set for queries to
 // tables having generated columns. It provides the resolved column ids of
-// the generated columns in topological order.
+// the generated columns in topological order, which the computed generated
+// column expressions can be computed in.
+//
 // &lt;generated_expr_list&gt; has generated expressions for the corresponding
 // generated column in the topologically_sorted_generated_column_id_list.
 // Hence, these lists have the same size.
@@ -4769,7 +4804,16 @@ class ResolvedUpdateArrayItem : public <a href="#ResolvedArgument">ResolvedArgum
 // This returning clause has a &lt;output_column_list&gt; to represent the data
 // sent back to clients. It can only access columns from the &lt;table_scan&gt;.
 // The columns in &lt;from_scan&gt; are not allowed.
-// TODO: allow columns in &lt;from_scan&gt; to be referenced.</font>
+// TODO: allow columns in &lt;from_scan&gt; to be referenced.
+//
+// &lt;topologically_sorted_generated_column_id_list&gt; is set for queries to
+// tables having generated columns. This field is similar to the INSERT case,
+// more details can be found in ResolvedInsertStmt.
+//
+// &lt;generated_expr_list&gt; has generated expressions for the corresponding
+// generated column in the topologically_sorted_generated_column_id_list.
+// Hence, these lists have the same size. This field is similar to the
+// INSERT case, more details can be found in ResolvedInsertStmt.</font>
 class ResolvedUpdateStmt : public <a href="#ResolvedStatement">ResolvedStatement</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_UPDATE_STMT;
 
@@ -4792,6 +4836,16 @@ class ResolvedUpdateStmt : public <a href="#ResolvedStatement">ResolvedStatement
   const <a href="#ResolvedUpdateItem">ResolvedUpdateItem</a>* update_item_list(int i) const;
 
   const <a href="#ResolvedScan">ResolvedScan</a>* from_scan() const;
+
+<font color="brown">  // TODO: refactor it with INSERT case.</font>
+  const std::vector&lt;int&gt;&amp; topologically_sorted_generated_column_id_list() const;
+  int topologically_sorted_generated_column_id_list_size() const;
+  int topologically_sorted_generated_column_id_list(int i) const;
+
+<font color="brown">  // TODO: refactor it with INSERT case.</font>
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedExpr">ResolvedExpr</a>&gt;&gt;&amp; generated_column_expr_list() const;
+  int generated_column_expr_list_size() const;
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* generated_column_expr_list(int i) const;
 };
 </code></pre></p>
 
@@ -5370,6 +5424,21 @@ class ResolvedAlterColumnOptionsAction : public <a href="#ResolvedAlterColumnAct
 // Removes the NOT NULL constraint from the given column.</font>
 class ResolvedAlterColumnDropNotNullAction : public <a href="#ResolvedAlterColumnAction">ResolvedAlterColumnAction</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_ALTER_COLUMN_DROP_NOT_NULL_ACTION;
+
+};
+</code></pre></p>
+
+### ResolvedAlterColumnDropGeneratedAction
+<a id="ResolvedAlterColumnDropGeneratedAction"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This ALTER action:
+//   ALTER COLUMN [IF EXISTS] &lt;column&gt; DROP GENERATED
+//
+// Removes the generated value (either an expression or identity column)
+// from the given column.</font>
+class ResolvedAlterColumnDropGeneratedAction : public <a href="#ResolvedAlterColumnAction">ResolvedAlterColumnAction</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_ALTER_COLUMN_DROP_GENERATED_ACTION;
 
 };
 </code></pre></p>
@@ -7297,6 +7366,52 @@ class ResolvedUndropStmt : public <a href="#ResolvedStatement">ResolvedStatement
   std::string name_path(int i) const;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* for_system_time_expr() const;
+};
+</code></pre></p>
+
+### ResolvedIdentityColumnInfo
+<a id="ResolvedIdentityColumnInfo"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This argument represents the identity column clause for a generated
+// column:
+//     GENERATED AS IDENTITY (
+//                    [ START WITH &lt;signed_numeric_literal&gt; ]
+//                    [ INCREMENT BY &lt;signed_numeric_literal&gt; ]
+//                    [ MAXVALUE &lt;signed_numeric_literal&gt;]
+//                    [ MINVALUE &lt;signed_numeric_literal&gt;]
+//                    [ CYCLE | NO CYCLE]
+//                  )
+// If attributes are not specified, the resolver fills in the fields using
+// default values.
+// Note: Only integer-typed columns can be identity columns.
+//
+// `start_with_value` is the start/first value generated for the column.
+//
+// `increment_by_value` is the minimum difference between two successive
+// generated values.
+//   - Can be negative or positive but not 0.
+//
+// `max_value` is the maximum value that can be generated in the column.
+//
+// `min_value` is the minimum value that can be generated in the column.
+//
+// `cycling_enabled`: If true, the generated identity value will cycle around
+// after overflow, when `min_value` or `max_value` is exceeded.
+//
+// See (broken link).</font>
+class ResolvedIdentityColumnInfo : public <a href="#ResolvedArgument">ResolvedArgument</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_IDENTITY_COLUMN_INFO;
+
+  const Value&amp; start_with_value() const;
+
+  const Value&amp; increment_by_value() const;
+
+  const Value&amp; max_value() const;
+
+  const Value&amp; min_value() const;
+
+  bool cycling_enabled() const;
 };
 </code></pre></p>
 

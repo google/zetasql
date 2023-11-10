@@ -850,9 +850,9 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.kv#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-        |   +-element_column=$array.kv#1
+        |   +-element_column_list=[$array.kv#1]
         +-group_by_list=
           +-kv#2 := ColumnRef(type=INT64, column=$array.kv#1)
 ==
@@ -1267,14 +1267,14 @@ QueryStmt
     |   +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.v#4]
     |   +-input_scan=
     |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="t")
-    |   +-array_expr=
+    |   +-array_expr_list=
     |   | +-GetProtoField
     |   |   +-type=ARRAY<INT32>
     |   |   +-expr=
     |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   |   +-field_descriptor=repeated_int32_val
     |   |   +-default_value=[]
-    |   +-element_column=$array.v#4
+    |   +-element_column_list=[$array.v#4]
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
@@ -1318,14 +1318,14 @@ QueryStmt
     |   +-column_list=[TestTable.KitchenSink#3, $array.v#4]
     |   +-input_scan=
     |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-    |   +-array_expr=
+    |   +-array_expr_list=
     |   | +-GetProtoField
     |   |   +-type=ARRAY<INT32>
     |   |   +-expr=
     |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   |   +-field_descriptor=repeated_int32_val
     |   |   +-default_value=[]
-    |   +-element_column=$array.v#4
+    |   +-element_column_list=[$array.v#4]
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=

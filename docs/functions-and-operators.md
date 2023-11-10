@@ -655,7 +655,7 @@ FROM
 proto_map_field_expression[proto_subscript_specifier]
 
 proto_subscript_specifier:
-  key_keyword(key_name)
+  key_name | key_keyword(key_name)
 
 key_keyword:
   { KEY | SAFE_KEY }
@@ -675,6 +675,8 @@ Input values:
     protocol buffer map field.
   + `SAFE_KEY(key_name)`: Returns `NULL` if the key is not present in the
     protocol buffer map field.
+  + `key_name`: When `key_name` is provided without a wrapping keyword,
+    it is the same as `KEY(key_name)`.
 + `key_name`: The key in the protocol buffer map field. This operator returns
   `NULL` if the key is `NULL`.
 
@@ -751,6 +753,22 @@ FROM
  +-----------------------+
  | NULL      | NULL      |
  *-----------------------*/
+```
+
+When a key is used without `KEY()` or `SAFE_KEY()`, it has the same behavior
+as if `KEY()` had been used. For example:
+
+```sql
+SELECT
+  m.purchased['A'] AS map_value
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
+/*-----------*
+ | map_value |
+ +-----------+
+ | 2         |
+ *-----------*/
 ```
 
 ### Array elements field access operator 
@@ -3508,6 +3526,16 @@ To learn about the syntax for aggregate function calls, see
 </tr>
 
 <tr>
+  <td><a href="#grouping"><code>GROUPING</code></a>
+
+</td>
+  <td>
+    Checks if a groupable value in the <code>GROUP BY</code> clause is
+    aggregated.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#logical_and"><code>LOGICAL_AND</code></a>
 
 </td>
@@ -4529,6 +4557,127 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
  | -10  | 2            |
  *------+--------------*/
 ```
+
+### `GROUPING`
+
+```sql
+GROUPING(groupable_value)
+```
+
+**Description**
+
+If a groupable item in the [`GROUP BY` clause][group-by-clause] is aggregated
+(and thus not grouped), this function returns `1`. Otherwise,
+this function returns `0`.
+
+Definitions:
+
++ `groupable_value`: An expression that represents a value that can be grouped
+  in the `GROUP BY` clause.
+
+Details:
+
+The `GROUPING` function is helpful if you need to determine which rows are
+produced by which grouping sets. A grouping set is a group of columns by which
+rows can be grouped together. So, if you need to filter rows by
+a few specific grouping sets, you can use the `GROUPING` function to identify
+which grouping sets grouped which rows by creating a matrix of the results.
+
+In addition, you can use the `GROUPING` function to determine the type of
+`NULL` produced by the `GROUP BY` clause. In some cases, the `GROUP BY` clause
+produces a `NULL` placeholder. This placeholder represents all groupable items
+that are aggregated (not grouped) in the current grouping set. This is different
+from a standard `NULL`, which can also be produced by a query.
+
+For more information, see the following examples.
+
+**Returned Data Type**
+
+`INT64`
+
+**Examples**
+
+In the following example, it's difficult to determine which rows are grouped by
+the grouping value `product_type` or `product_name`. The `GROUPING` function
+makes this easier to determine.
+
+Pay close attention to what's in the `product_type_agg` and
+`product_name_agg` column matrix. This determines how the rows are grouped.
+
+`product_type_agg` | `product_name_agg` | Notes
+------------------ | -------------------| ------
+1                  | 0                  | Rows are grouped by `product_name`.
+0                  | 1                  | Rows are grouped by `product_type`.
+0                  | 0                  | Rows are grouped by `product_type` and `product_name`.
+1                  | 1                  | Grand total row.
+
+```sql
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT 'shirt', 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT
+  product_type,
+  product_name,
+  SUM(product_count) AS product_sum,
+  GROUPING(product_type) AS product_type_agg,
+  GROUPING(product_name) AS product_name_agg,
+FROM Products
+GROUP BY GROUPING SETS(product_type, product_name, ())
+ORDER BY product_name;
+
+/*--------------+--------------+-------------+------------------+------------------+
+ | product_type | product_name | product_sum | product_type_agg | product_name_agg |
+ +--------------+--------------+-------------+------------------+------------------+
+ | NULL         | NULL         | 36          | 1                | 1                |
+ | shirt        | NULL         | 36          | 0                | 1                |
+ | pants        | NULL         | 6           | 0                | 1                |
+ | NULL         | jeans        | 6           | 1                | 0                |
+ | NULL         | polo         | 25          | 1                | 0                |
+ | NULL         | t-shirt      | 11          | 1                | 0                |
+ +--------------+--------------+-------------+------------------+------------------*/
+```
+
+In the following example, it's difficult to determine
+if `NULL` represents a `NULL` placeholder or a standard `NULL` value in the
+`product_type` column. The `GROUPING` function makes it easier to
+determine what type of `NULL` is being produced. If
+`product_type_is_aggregated` is `1`, the `NULL` value for
+the `product_type` column is a `NULL` placeholder.
+
+```sql
+WITH
+  Products AS (
+    SELECT 'shirt' AS product_type, 't-shirt' AS product_name, 3 AS product_count UNION ALL
+    SELECT 'shirt', 't-shirt', 8 UNION ALL
+    SELECT NULL, 'polo', 25 UNION ALL
+    SELECT 'pants', 'jeans', 6
+  )
+SELECT
+  product_type,
+  product_name,
+  SUM(product_count) AS product_sum,
+  GROUPING(product_type) AS product_type_is_aggregated
+FROM Products
+GROUP BY GROUPING SETS(product_type, product_name)
+ORDER BY product_name;
+
+/*--------------+--------------+-------------+----------------------------+
+ | product_type | product_name | product_sum | product_type_is_aggregated |
+ +--------------+--------------+-------------+----------------------------+
+ | shirt        | NULL         | 36          | 0                          |
+ | NULL         | NULL         | 25          | 0                          |
+ | pants        | NULL         | 6           | 0                          |
+ | NULL         | jeans        | 6           | 1                          |
+ | NULL         | polo         | 25          | 1                          |
+ | NULL         | t-shirt      | 11          | 1                          |
+ +--------------+--------------+-------------+----------------------------*/
+```
+
+[group-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
 
 ### `LOGICAL_AND`
 
@@ -11525,6 +11674,7 @@ Conversion function                    | From               | To
 [BIT_CAST_TO_UINT64][BIT_U64]          | INT64              | UINT64
 [BOOL][JSON_TO_BOOL]                   | JSON               | BOOL
 [DATE][T_DATE]                         | Various data types | DATE
+[DATE_FROM_UNIX_DATE][T_DATE_FROM_UNIX_DATE] | INT64        | DATE
 [DATETIME][T_DATETIME]                 | Various data types | DATETIME
 [FLOAT64][JSON_TO_DOUBLE]              | JSON               | DOUBLE
 [FROM_BASE32][F_B32]                   | STRING             | BYTEs
@@ -11542,6 +11692,12 @@ Conversion function                    | From               | To
 [STRING][JSON_TO_STRING]               | JSON               | STRING
 [TIME][T_TIME]                         | Various data types | TIME
 [TIMESTAMP][T_TIMESTAMP]               | Various data types | TIMESTAMP
+[TIMESTAMP_FROM_UNIX_MICROS][T_TIMESTAMP_FROM_UNIX_MICROS]   | INT64               | TIMESTAMP
+[TIMESTAMP_FROM_UNIX_MILLIS][T_TIMESTAMP_FROM_UNIX_MILLIS]   | INT64               | TIMESTAMP
+[TIMESTAMP_FROM_UNIX_SECONDS][T_TIMESTAMP_FROM_UNIX_SECONDS] | INT64               | TIMESTAMP
+[TIMESTAMP_MICROS][T_TIMESTAMP_MICROS] | INT64              | TIMESTAMP
+[TIMESTAMP_MILLIS][T_TIMESTAMP_MILLIS] | INT64              | TIMESTAMP
+[TIMESTAMP_SECONDS][T_TIMESTAMP_SECONDS] | INT64            | TIMESTAMP
 [TO_BASE32][T_B32]                     | BYTES              | STRING
 [TO_BASE64][T_B64]                     | BYTES              | STRING
 [TO_HEX][T_HEX]                        | BYTES              | STRING
@@ -11614,6 +11770,20 @@ Conversion function                    | From               | To
 [JSON_TO_INT64]: #int64_for_json
 
 [JSON_TO_DOUBLE]: #double_for_json
+
+[T_DATE_FROM_UNIX_DATE]: #date_from_unix_date
+
+[T_TIMESTAMP_FROM_UNIX_MICROS]: #timestamp_from_unix_micros
+
+[T_TIMESTAMP_FROM_UNIX_MILLIS]: #timestamp_from_unix_millis
+
+[T_TIMESTAMP_FROM_UNIX_SECONDS]: #timestamp_from_unix_seconds
+
+[T_TIMESTAMP_MICROS]: #timestamp_micros
+
+[T_TIMESTAMP_MILLIS]: #timestamp_millis
+
+[T_TIMESTAMP_SECONDS]: #timestamp_seconds
 
 <!-- mdlint on -->
 
@@ -11755,6 +11925,13 @@ All mathematical functions have the following behaviors:
 </tr>
 
 <tr>
+  <td><a href="#cosine_distance"><code>COSINE_DISTANCE</code></a>
+
+</td>
+  <td>Computes the cosine distance between two vectors.</td>
+</tr>
+
+<tr>
   <td><a href="#cot"><code>COT</code></a>
 
 </td>
@@ -11806,6 +11983,13 @@ All mathematical functions have the following behaviors:
   <td>
     Computes <code>e</code> to the power of <code>X</code>.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#euclidean_distance"><code>EUCLIDEAN_DISTANCE</code></a>
+
+</td>
+  <td>Computes the Euclidean distance between two vectors.</td>
 </tr>
 
 <tr>
@@ -12692,6 +12876,183 @@ Generates an error if overflow occurs.
   </tbody>
 </table>
 
+### `COSINE_DISTANCE`
+
+<aside class="beta">
+  <p><strong>Preview</strong></p>
+  <p>
+    This product or feature is subject to the "Pre-GA Offerings Terms"
+    in the General Service Terms section of the
+    <a href="/terms/service-terms">Service Specific Terms</a>.
+    Pre-GA products and features are available "as is" and might have
+    limited support. For more information, see the
+    <a href="/products#product-launch-stages">launch stage descriptions</a>.
+  </p>
+</aside>
+
+```sql
+COSINE_DISTANCE(vector1, vector2)
+```
+
+**Description**
+
+Computes the [cosine distance][cosine-distance] between two vectors.
+
+**Definitions**
+
++   `vector1`: The first vector.
++   `vector2`: The second vector.
+
+**Details**
+
+Each vector represents a quantity that includes magnitude and direction.
+The following vector types are supported:
+
++   Dense vector: `ARRAY<value>` that represents
+    the vector and its numerical values. `value` is of type
+    `DOUBLE`.
+
+    This is an example of a dense vector:
+
+    ```
+    [1.0, 0.0, 3.0]
+    ```
++   Sparse vector: `ARRAY<STRUCT<dimension,value>>`, where
+    `STRUCT` contains a dimension-value pair for each numerical value in the
+    vector. This information is used to generate a dense vector.
+
+    + `dimension`: A `STRING` or `INT64` value that represents the
+      specific dimension for `value` in a vector.
+
+    + `value`: A `DOUBLE` value that represents the
+      numerical value for `dimension`.
+
+    A sparse vector contains mostly zeros, with only a few non-zero elements.
+    It's a useful data structure for representing data that is mostly empty or
+    has a lot of zeros. For example, if you have a vector of length 10,000 and
+    only 10 elements are non-zero, then it is a sparse vector. As a result,
+    it's more efficient to describe a sparse vector by only mentioning its
+    non-zero elements. If an element isn't present in the
+    sparse representation, its value can be implicitly understood to be zero.
+
+    The following `INT64` sparse vector
+
+    ```
+    [(0, 1.0), (2, 3.0)]
+    ```
+
+    is converted to this dense vector:
+
+    ```
+    [1.0, 0.0, 3.0]
+    ```
+
+    The following `STRING` sparse vector
+
+    ```
+    [('d': 4.0), ('a', 1.0), ('b': 3.0)]
+    ```
+
+    is converted to this dense vector:
+
+    ```
+    [1.0, 3.0, 0.0, 4.0]
+    ```
+
+The ordering of numeric values in a vector doesn't impact the results
+produced by this function if the dimensions of the vectors are aligned.
+
+A vector can have one or more dimensions. Both vectors in this function must
+share these same dimensions, and if they don't, an error is produced.
+
+A vector can't be a zero vector. A vector is a zero vector if all elements in
+the vector are `0`. For example, `[0.0, 0.0]`. If a zero vector is encountered,
+an error is produced.
+
+An error is produced if an element or field in a vector is `NULL`.
+
+If `vector1` or `vector2` is `NULL`, `NULL` is returned.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+In the following example, dense vectors are used to compute the
+cosine distance:
+
+```sql
+SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
+
+/*----------*
+ | results  |
+ +----------+
+ | 0.016130 |
+ *----------*/
+```
+
+In the following example, sparse vectors are used to compute the
+cosine distance:
+
+```sql
+SELECT COSINE_DISTANCE(
+ [(1, 1.0), (2, 2.0)],
+ [(2, 4.0), (1, 3.0)]) AS results;
+
+ /*----------*
+  | results  |
+  +----------+
+  | 0.016130 |
+  *----------*/
+```
+
+The ordering of numeric values in a vector doesn't impact the results
+produced by this function. For example these queries produce the same results
+even though the numeric values in each vector is in a different order:
+
+```sql
+SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
+
+SELECT COSINE_DISTANCE([2.0, 1.0], [4.0, 3.0]) AS results;
+
+SELECT COSINE_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
+
+ /*----------*
+  | results  |
+  +----------+
+  | 0.016130 |
+  *----------*/
+```
+
+In the following example, the function can't compute cosine distance against
+the first vector, which is a zero vector:
+
+```sql
+-- ERROR
+SELECT COSINE_DISTANCE([0.0, 0.0], [3.0, 4.0]) AS results;
+```
+
+Both dense vectors must have the same dimensions. If not, an error is produced.
+In the following examples, the first vector has two dimensions and the second
+vector has three:
+
+```sql
+-- ERROR
+SELECT COSINE_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
+```
+
+If you use sparse vectors and you repeat a dimension, an error is
+produced:
+
+```sql
+-- ERROR
+SELECT COSINE_DISTANCE(
+  [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
+```
+
+[cosine-distance]: https://en.wikipedia.org/wiki/Cosine_similarity#Cosine_distance
+
 ### `COT`
 
 ```
@@ -13059,6 +13420,174 @@ result overflows.
 </tbody>
 
 </table>
+
+### `EUCLIDEAN_DISTANCE`
+
+<aside class="beta">
+  <p><strong>Preview</strong></p>
+  <p>
+    This product or feature is subject to the "Pre-GA Offerings Terms"
+    in the General Service Terms section of the
+    <a href="/terms/service-terms">Service Specific Terms</a>.
+    Pre-GA products and features are available "as is" and might have
+    limited support. For more information, see the
+    <a href="/products#product-launch-stages">launch stage descriptions</a>.
+  </p>
+</aside>
+
+```sql
+EUCLIDEAN_DISTANCE(vector1, vector2)
+```
+
+**Description**
+
+Computes the [Euclidean distance][euclidean-distance] between two vectors.
+
+**Definitions**
+
++   `vector1`: The first vector.
++   `vector2`: The second vector.
+
+**Details**
+
+Each vector represents a quantity that includes magnitude and direction.
+The following vector types are supported:
+
++   Dense vector: `ARRAY<value>` that represents
+    the vector and its numerical values. `value` is of type
+    `DOUBLE`.
+
+    This is an example of a dense vector:
+
+    ```
+    [1.0, 0.0, 3.0]
+    ```
++   Sparse vector: `ARRAY<STRUCT<dimension,value>>`, where
+    `STRUCT` contains a dimension-value pair for each numerical value in the
+    vector. This information is used to generate a dense vector.
+
+    + `dimension`: A `STRING` or `INT64` value that represents the
+      specific dimension for `value` in a vector.
+
+    + `value`: A `DOUBLE` value that represents a
+      numerical value for `dimension`.
+
+    A sparse vector contains mostly zeros, with only a few non-zero elements.
+    It's a useful data structure for representing data that is mostly empty or
+    has a lot of zeros. For example, if you have a vector of length 10,000 and
+    only 10 elements are non-zero, then it is a sparse vector. As a result,
+    it's more efficient to describe a sparse vector by only mentioning its
+    non-zero elements. If an element isn't present in the
+    sparse representation, its value can be implicitly understood to be zero.
+
+    The following `INT64` sparse vector
+
+    ```
+    [(0, 1.0), (2, 3.0)]
+    ```
+
+    is converted to this dense vector:
+
+    ```
+    [1.0, 0.0, 3.0]
+    ```
+
+    The following `STRING` sparse vector
+
+    ```
+    [('d': 4.0), ('a', 1.0), ('b': 3.0)]
+    ```
+
+    is converted to this dense vector:
+
+    ```
+    [1.0, 3.0, 0.0, 4.0]
+    ```
+
+The ordering of numeric values in a vector doesn't impact the results
+produced by this function if the dimensions of the vectors are aligned.
+
+A vector can have one or more dimensions. Both vectors in this function must
+share these same dimensions, and if they don't, an error is produced.
+
+A vector can be a zero vector. A vector is a zero vector if all elements in
+the vector are `0`. For example, `[0.0, 0.0]`.
+
+An error is produced if an element or field in a vector is `NULL`.
+
+If `vector1` or `vector2` is `NULL`, `NULL` is returned.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+In the following example, dense vectors are used to compute the
+Euclidean distance:
+
+```sql
+SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
+
+/*----------*
+ | results  |
+ +----------+
+ | 2.828    |
+ *----------*/
+```
+
+In the following example, sparse vectors are used to compute the
+Euclidean distance:
+
+```sql
+SELECT EUCLIDEAN_DISTANCE(
+ [(1, 1.0), (2, 2.0)],
+ [(2, 4.0), (1, 3.0)]) AS results;
+
+ /*----------*
+  | results  |
+  +----------+
+  | 2.828    |
+  *----------*/
+```
+
+The ordering of numeric values in a vector doesn't impact the results
+produced by this function. For example these queries produce the same results
+even though the numeric values in each vector is in a different order:
+
+```sql
+SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]);
+
+SELECT EUCLIDEAN_DISTANCE([2.0, 1.0], [4.0, 3.0]);
+
+SELECT EUCLIDEAN_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
+
+ /*----------*
+  | results  |
+  +----------+
+  | 2.828    |
+  *----------*/
+```
+
+Both dense vectors must have the same dimensions. If not, an error is produced.
+In the following examples, the first vector has two dimensions and the second
+vector has three:
+
+```sql
+-- ERROR
+SELECT EUCLIDEAN_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
+```
+
+If you use sparse vectors and you repeat a dimension, an error is
+produced:
+
+```sql
+-- ERROR
+SELECT EUCLIDEAN_DISTANCE(
+  [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
+```
+
+[euclidean-distance]: https://en.wikipedia.org/wiki/Euclidean_distance
 
 ### `FLOOR`
 
@@ -15852,6 +16381,16 @@ canonical equivalence.
 </tr>
 
 <tr>
+  <td><a href="#edit_distance"><code>EDIT_DISTANCE</code></a>
+
+</td>
+  <td>
+    Computes the Levenshtein distance between two <code>STRING</code>
+    or <code>BYTES</code> values.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#ends_with"><code>ENDS_WITH</code></a>
 
 </td>
@@ -16730,6 +17269,107 @@ FROM Employees;
 ```
 
 [string-link-to-operators]: #operators
+
+### `EDIT_DISTANCE`
+
+<aside class="beta">
+  <p><strong>Preview</strong></p>
+  <p>
+    This product or feature is subject to the "Pre-GA Offerings Terms"
+    in the General Service Terms section of the
+    <a href="/terms/service-terms">Service Specific Terms</a>.
+    Pre-GA products and features are available "as is" and might have
+    limited support. For more information, see the
+    <a href="/products#product-launch-stages">launch stage descriptions</a>.
+  </p>
+</aside>
+
+```sql
+EDIT_DISTANCE(value1, value2, [max_distance => max_distance_value])
+```
+
+**Description**
+
+Computes the [Levenshtein distance][l-distance] between two `STRING` or
+`BYTES` values.
+
+**Definitions**
+
++   `value1`: The first `STRING` or `BYTES` value to compare.
++   `value2`: The second `STRING` or `BYTES` value to compare.
++   `max_distance`: Optional mandatory-named argument. Takes a non-negative
+    `INT64` value that represents the maximum distance between the two values
+    to compute.
+
+    If this distance is exceeded, the function returns this value.
+    The default value for this argument is the maximum size of
+    `value1` and `value2`.
+
+**Details**
+
+If `value1` or `value2` is `NULL`, `NULL` is returned.
+
+You can only compare values of the same type. Otherwise, an error is produced.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+In the following example, the first character in both strings is different:
+
+```sql
+SELECT EDIT_DISTANCE('a', 'b') AS results;
+
+/*---------*
+ | results |
+ +---------+
+ | 1       |
+ *---------*/
+```
+
+In the following example, the first and second characters in both strings are
+different:
+
+```sql
+SELECT EDIT_DISTANCE('aa', 'b') AS results;
+
+/*---------*
+ | results |
+ +---------+
+ | 2       |
+ *---------*/
+```
+
+In the following example, only the first character in both strings is
+different:
+
+```sql
+SELECT EDIT_DISTANCE('aa', 'ba') AS results;
+
+/*---------*
+ | results |
+ +---------+
+ | 1       |
+ *---------*/
+```
+
+In the following example, the last six characters are different, but because
+the maximum distance is `2`, this function exits early and returns `2`, the
+maximum distance:
+
+```sql
+SELECT EDIT_DISTANCE('abcdefg', 'a', max_distance => 2) AS results;
+
+/*---------*
+ | results |
+ +---------+
+ | 2       |
+ *---------*/
+```
+
+[l-distance]: https://en.wikipedia.org/wiki/Levenshtein_distance
 
 ### `ENDS_WITH`
 
@@ -20859,8 +21499,12 @@ Details:
     individual path value pair operation is invalid. For invalid operations,
     the operation is ignored and the function continues to process the rest of
     the path value pairs.
-+   If `json_expr` or `append_each_element` is SQL `NULL`, the function
-    returns SQL `NULL`.
++   If any `json_path` is an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   If `append_each_element` is SQL `NULL`, the function returns `json_expr`.
++   If `json_path` is SQL `NULL`, the `json_path_value_pair` operation is
+    ignored.
 
 **Return type**
 
@@ -21050,8 +21694,12 @@ Details:
 +   If the array index in `json_path` is larger than the size of the array, the
     function extends the length of the array to the index, fills in
     the array with JSON nulls, then adds `value` at the index.
-+   If `json_expr`, `json_path`, or `insert_each_element` is SQL `NULL`, the
-    function returns SQL `NULL`.
++   If any `json_path` is an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   If `insert_each_element` is SQL `NULL`, the function returns `json_expr`.
++   If `json_path` is SQL `NULL`, the `json_path_value_pair` operation is
+    ignored.
 
 **Return type**
 
@@ -22084,9 +22732,9 @@ Details:
     element from the matched array.
 +   If removing the path results in an empty JSON object or empty JSON array,
     the empty structure is preserved.
-+   If `json_expr` or `json_path` is SQL `NULL`, the function returns
-    SQL `NULL`.
-+   If `json_path` is `$`, an error is produced.
++   If `json_path` is `$` or an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_path` is SQL `NULL`, the path operation is ignored.
 
 **Return type**
 
@@ -22273,8 +22921,11 @@ Details:
 +   If a matched path points to a JSON array and the specified index is
     _less than_ the length of the array, replaces the existing JSON array value
     at index with `value`.
-+   If `json_expr` or `json_path` is SQL `NULL`, the function returns
-    SQL `NULL`.
++   If any `json_path` is an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   If `json_path` is SQL `NULL`, the `json_path_value_pair` operation is
+    ignored.
 
 **Return type**
 
@@ -22505,8 +23156,11 @@ Details:
     containers after JSON nulls are removed.
 +   If the function generates JSON with nothing in it, the function returns a
     JSON null.
-+   If any argument is SQL `NULL`, the function returns SQL `NULL`.
-+   If `json_path` is not provided, all JSON nulls are removed from `json_expr`.
++   If `json_path` is an invalid [JSONPath][JSONPath-format], an error is
+    produced.
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   If `json_path`, `include_arrays`, or `remove_empty` is SQL `NULL`, the
+    function returns `json_expr`.
 
 **Return type**
 
@@ -30644,6 +31298,7 @@ behavior:
         <a href="#st_exteriorring"><code>ST_EXTERIORRING</code></a><br>
         <a href="#st_interiorrings"><code>ST_INTERIORRINGS</code></a><br>
         <a href="#st_intersection"><code>ST_INTERSECTION</code></a><br>
+        <a href="#st_linesubstring"><code>ST_LINESUBSTRING</code></a><br>
         <a href="#st_simplify"><code>ST_SIMPLIFY</code></a><br>
         <a href="#st_snaptogrid"><code>ST_SNAPTOGRID</code></a><br>
         <a href="#st_union"><code>ST_UNION</code></a><br>
@@ -30713,6 +31368,7 @@ behavior:
         <a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a><br>
         <a href="#st_distance"><code>ST_DISTANCE</code></a><br>
         <a href="#st_extent"><code>ST_EXTENT</code></a> (Aggregate)<br>
+        <a href="#st_hausdorffdistance"><code>ST_HAUSDORFFDISTANCE</code></a><br>
         <a href="#st_linelocatepoint"><code>ST_LINELOCATEPOINT</code></a><br>
         <a href="#st_length"><code>ST_LENGTH</code></a><br>
         <a href="#st_maxdistance"><code>ST_MAXDISTANCE</code></a><br>
@@ -31131,6 +31787,13 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#st_hausdorffdistance"><code>ST_HAUSDORFFDISTANCE</code></a>
+
+</td>
+  <td>Gets the discrete Hausdorff distance between two geometries.</td>
+</tr>
+
+<tr>
   <td><a href="#st_interiorrings"><code>ST_INTERIORRINGS</code></a>
 
 </td>
@@ -31221,6 +31884,16 @@ behavior:
   <td>
     Gets a section of a linestring <code>GEOGRAPHY</code> value between the
     start point and a point <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#st_linesubstring"><code>ST_LINESUBSTRING</code></a>
+
+</td>
+  <td>
+    Gets a segment of a single linestring at a specific starting and
+    ending fraction.
   </td>
 </tr>
 
@@ -33132,6 +33805,117 @@ FROM example;
 
 [st-asgeojson]: #st_asgeojson
 
+### `ST_HAUSDORFFDISTANCE`
+
+```sql
+ST_HAUSDORFFDISTANCE(geography_1, geography_2)
+```
+
+```sql
+ST_HAUSDORFFDISTANCE(geography_1, geography_2, directed=>{ TRUE | FALSE })
+```
+
+**Description**
+
+Gets the discrete [Hausdorff distance][h-distance], which is the greatest of all
+the distances from a discrete point in one geography to the closest
+discrete point in another geography.
+
+**Definitions**
+
++   `geography_1`: A `GEOGRAPHY` value that represents the first geography.
++   `geography_2`: A `GEOGRAPHY` value that represents the second geography.
++   `directed`: Optional, required named argument that represents the type of
+    computation to use on the input geographies. If this argument is not
+    specified, `directed=>FALSE` is used by default.
+
+    +   `FALSE`: The largest Hausdorff distance found in
+        (`geography_1`, `geography_2`) and
+        (`geography_2`, `geography_1`).
+
+    +   `TRUE` (default): The Hausdorff distance for
+        (`geography_1`, `geography_2`).
+
+**Details**
+
+If an input geography is `NULL`, the function returns `NULL`.
+
+**Return type**
+
+`DOUBLE`
+
+**Example**
+
+The following query gets the Hausdorff distance between `geo1` and `geo2`:
+
+```sql
+WITH data AS (
+  SELECT
+    ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
+    ST_GEOGFROMTEXT('LINESTRING(20 90, 30 90, 60 10, 90 10)') AS geo2
+)
+SELECT ST_HAUSDORFFDISTANCE(geo1, geo2, directed=>TRUE) AS distance
+FROM data;
+
+/*--------------------+
+ | distance           |
+ +--------------------+
+ | 1688933.9832041925 |
+ +--------------------*/
+```
+
+The following query gets the Hausdorff distance between `geo2` and `geo1`:
+
+```sql
+WITH data AS (
+  SELECT
+    ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
+    ST_GEOGFROMTEXT('LINESTRING(20 90, 30 90, 60 10, 90 10)') AS geo2
+)
+SELECT ST_HAUSDORFFDISTANCE(geo2, geo1, directed=>TRUE) AS distance
+FROM data;
+
+/*--------------------+
+ | distance           |
+ +--------------------+
+ | 5802892.745488612  |
+ +--------------------*/
+```
+
+The following query gets the largest Hausdorff distance between
+(`geo1` and `geo2`) and (`geo2` and `geo1`):
+
+```sql
+WITH data AS (
+  SELECT
+    ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
+    ST_GEOGFROMTEXT('LINESTRING(20 90, 30 90, 60 10, 90 10)') AS geo2
+)
+SELECT ST_HAUSDORFFDISTANCE(geo1, geo2, directed=>FALSE) AS distance
+FROM data;
+
+/*--------------------+
+ | distance           |
+ +--------------------+
+ | 5802892.745488612  |
+ +--------------------*/
+```
+
+The following query produces the same results as the previous query because
+`ST_HAUSDORFFDISTANCE` uses `directed=>FALSE` by default.
+
+```sql
+WITH data AS (
+  SELECT
+    ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1,
+    ST_GEOGFROMTEXT('LINESTRING(20 90, 30 90, 60 10, 90 10)') AS geo2
+)
+SELECT ST_HAUSDORFFDISTANCE(geo1, geo2) AS distance
+FROM data;
+```
+
+[h-distance]: http://en.wikipedia.org/wiki/Hausdorff_distance
+
 ### `ST_INTERIORRINGS`
 
 ```sql
@@ -33488,6 +34272,73 @@ FROM geos
 ```
 
 [st-closestpoint]: #st_closestpoint
+
+### `ST_LINESUBSTRING`
+
+```sql
+ST_LINESUBSTRING(linestring_geography, start_fraction, end_fraction);
+```
+
+**Description**
+
+Gets a segment of a linestring at a specific starting and ending fraction.
+
+**Definitions**
+
++   `linestring_geography`: The LineString `GEOGRAPHY` value that represents the
+    linestring from which to extract a segment.
++   `start_fraction`: `DOUBLE` value that represents
+    the starting fraction of the total length of `linestring_geography`.
+    This must be an inclusive value between 0 and 1 (0-100%).
++   `end_fraction`: `DOUBLE` value that represents
+    the ending fraction of the total length of `linestring_geography`.
+    This must be an inclusive value between 0 and 1 (0-100%).
+
+**Details**
+
+`end_fraction` must be greater than or equal to `start_fraction`.
+
+If `start_fraction` and `end_fraction` are equal, a linestring with only
+one point is produced.
+
+**Return type**
+
++   LineString `GEOGRAPHY` if the resulting geography has more than one point.
++   Point `GEOGRAPHY` if the resulting geography has only one point.
+
+**Example**
+
+The following query returns the second half of the linestring:
+
+```sql
+WITH data AS (
+  SELECT ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1
+)
+SELECT ST_LINESUBSTRING(geo1, 0.5, 1) AS segment
+FROM data;
+
+/*-------------------------------------------------------------+
+ | segment                                                     |
+ +-------------------------------------------------------------+
+ | LINESTRING(49.4760661523471 67.2419539103851, 10 70, 70 70) |
+ +-------------------------------------------------------------*/
+```
+
+The following query returns a linestring that only contains one point:
+
+```sql
+WITH data AS (
+  SELECT ST_GEOGFROMTEXT('LINESTRING(20 70, 70 60, 10 70, 70 70)') AS geo1
+)
+SELECT ST_LINESUBSTRING(geo1, 0.5, 0.5) AS segment
+FROM data;
+
+/*------------------------------------------+
+ | segment                                  |
+ +------------------------------------------+
+ | POINT(49.4760661523471 67.2419539103851) |
+ +------------------------------------------*/
+```
 
 ### `ST_MAKELINE`
 

@@ -2445,9 +2445,9 @@ QueryStmt
         |   +-column_list=[ArrayWithAnonymizationUid.int64_array#1, $array.a#4]
         |   +-input_scan=
         |   | +-TableScan(column_list=[ArrayWithAnonymizationUid.int64_array#1], table=ArrayWithAnonymizationUid, column_index_list=[0], alias="t")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-ColumnRef(type=ARRAY<INT64>, column=ArrayWithAnonymizationUid.int64_array#1)
-        |   +-element_column=$array.a#4
+        |   +-element_column_list=[$array.a#4]
         +-group_by_list=
         | +-a#6 := ColumnRef(type=INT64, column=$array.a#4)
         +-aggregate_list=
@@ -2473,9 +2473,9 @@ QueryStmt
         |   |   +-column_list=[ArrayWithAnonymizationUid.int64_array#1, $array.a#4, ArrayWithAnonymizationUid.uid#7]
         |   |   +-input_scan=
         |   |   | +-TableScan(column_list=ArrayWithAnonymizationUid.[int64_array#1, uid#7], table=ArrayWithAnonymizationUid, column_index_list=[0, 2], alias="t")
-        |   |   +-array_expr=
+        |   |   +-array_expr_list=
         |   |   | +-ColumnRef(type=ARRAY<INT64>, column=ArrayWithAnonymizationUid.int64_array#1)
-        |   |   +-element_column=$array.a#4
+        |   |   +-element_column_list=[$array.a#4]
         |   +-group_by_list=
         |   | +-a_partial#10 := ColumnRef(type=INT64, column=$array.a#4)
         |   | +-$uid#11 := ColumnRef(type=INT64, column=ArrayWithAnonymizationUid.uid#7)
@@ -2515,9 +2515,9 @@ QueryStmt
         |   +-column_list=[ArrayWithAnonymizationUid.int64_array#1]
         |   +-input_scan=
         |   | +-TableScan(column_list=[ArrayWithAnonymizationUid.int64_array#1], table=ArrayWithAnonymizationUid, column_index_list=[0], alias="t")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-ColumnRef(type=ARRAY<INT64>, column=ArrayWithAnonymizationUid.int64_array#1)
-        |   +-element_column=$array.a#4
+        |   +-element_column_list=[$array.a#4]
         |   +-join_expr=
         |     +-Literal(type=BOOL, value=true)
         +-aggregate_list=
@@ -2543,9 +2543,9 @@ QueryStmt
         |   |   +-column_list=ArrayWithAnonymizationUid.[int64_array#1, uid#6]
         |   |   +-input_scan=
         |   |   | +-TableScan(column_list=ArrayWithAnonymizationUid.[int64_array#1, uid#6], table=ArrayWithAnonymizationUid, column_index_list=[0, 2], alias="t")
-        |   |   +-array_expr=
+        |   |   +-array_expr_list=
         |   |   | +-ColumnRef(type=ARRAY<INT64>, column=ArrayWithAnonymizationUid.int64_array#1)
-        |   |   +-element_column=$array.a#4
+        |   |   +-element_column_list=[$array.a#4]
         |   |   +-join_expr=
         |   |     +-Literal(type=BOOL, value=true)
         |   +-group_by_list=
@@ -3929,7 +3929,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.$unnest1#14]
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<INT64>
         |   +-subquery_type=ARRAY
@@ -3945,7 +3945,7 @@ QueryStmt
         |             +-count#13 :=
         |               +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
         |                 +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
-        +-element_column=$array.$unnest1#14
+        +-element_column_list=[$array.$unnest1#14]
 
 [REWRITTEN AST]
 QueryStmt
@@ -3957,7 +3957,7 @@ QueryStmt
     +-input_scan=
       +-ArrayScan
         +-column_list=[$array.$unnest1#14]
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<INT64>
         |   +-subquery_type=ARRAY
@@ -3987,7 +3987,7 @@ QueryStmt
         |           |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         |           +-group_selection_threshold_expr=
         |             +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#21)
-        +-element_column=$array.$unnest1#14
+        +-element_column_list=[$array.$unnest1#14]
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -4008,9 +4008,9 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.u#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1])
-        |   +-element_column=$array.u#1
+        |   +-element_column_list=[$array.u#1]
         +-filter_expr=
           +-SubqueryExpr
             +-type=BOOL
@@ -4041,9 +4041,9 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.u#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1])
-        |   +-element_column=$array.u#1
+        |   +-element_column_list=[$array.u#1]
         +-filter_expr=
           +-SubqueryExpr
             +-type=BOOL
@@ -4094,9 +4094,9 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.u#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1])
-        |   +-element_column=$array.u#1
+        |   +-element_column_list=[$array.u#1]
         +-filter_expr=
           +-SubqueryExpr
             +-type=BOOL
@@ -4129,9 +4129,9 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.u#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1])
-        |   +-element_column=$array.u#1
+        |   +-element_column_list=[$array.u#1]
         +-filter_expr=
           +-SubqueryExpr
             +-type=BOOL
@@ -8424,9 +8424,9 @@ QueryStmt
         |         +-input_scan=
         |           +-ArrayScan
         |             +-column_list=[$array.e#13]
-        |             +-array_expr=
+        |             +-array_expr_list=
         |             | +-Literal(parse_location=66-93, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
-        |             +-element_column=$array.e#13
+        |             +-element_column_list=[$array.e#13]
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -8481,9 +8481,9 @@ QueryStmt
         |   | |       +-input_scan=
         |   | |         +-ArrayScan
         |   | |           +-column_list=[$array.e#13]
-        |   | |           +-array_expr=
+        |   | |           +-array_expr_list=
         |   | |           | +-Literal(parse_location=66-93, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
-        |   | |           +-element_column=$array.e#13
+        |   | |           +-element_column_list=[$array.e#13]
         |   | +-$uid#23 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#18)
         |   +-aggregate_list=
         |     +-$agg1_partial#20 :=
@@ -8545,9 +8545,9 @@ QueryStmt
     |         +-input_scan=
     |           +-ArrayScan
     |             +-column_list=[$array.e#20]
-    |             +-array_expr=
+    |             +-array_expr_list=
     |             | +-Literal(parse_location=66-93, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
-    |             +-element_column=$array.e#20
+    |             +-element_column_list=[$array.e#20]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$groupby.int32#16, $aggregate.$agg1#15]
@@ -8575,9 +8575,9 @@ QueryStmt
         |         +-input_scan=
         |           +-ArrayScan
         |             +-column_list=[$array.e#17]
-        |             +-array_expr=
+        |             +-array_expr_list=
         |             | +-Literal(parse_location=191-218, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
-        |             +-element_column=$array.e#17
+        |             +-element_column_list=[$array.e#17]
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -8623,9 +8623,9 @@ QueryStmt
     |         +-input_scan=
     |           +-ArrayScan
     |             +-column_list=[$array.e#20]
-    |             +-array_expr=
+    |             +-array_expr_list=
     |             | +-Literal(parse_location=66-93, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
-    |             +-element_column=$array.e#20
+    |             +-element_column_list=[$array.e#20]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$groupby.int32#16, $aggregate.$agg1#15]
@@ -8656,9 +8656,9 @@ QueryStmt
         |   | |       +-input_scan=
         |   | |         +-ArrayScan
         |   | |           +-column_list=[$array.e#17]
-        |   | |           +-array_expr=
+        |   | |           +-array_expr_list=
         |   | |           | +-Literal(parse_location=191-218, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
-        |   | |           +-element_column=$array.e#17
+        |   | |           +-element_column_list=[$array.e#17]
         |   | +-$uid#28 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
         |   +-aggregate_list=
         |     +-$agg1_partial#25 :=
@@ -8952,9 +8952,9 @@ QueryStmt
     |         +-input_scan=
     |           +-ArrayScan
     |             +-column_list=[$array.e#17]
-    |             +-array_expr=
+    |             +-array_expr_list=
     |             | +-Literal(parse_location=66-93, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
-    |             +-element_column=$array.e#17
+    |             +-element_column_list=[$array.e#17]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$groupby.int32#16, $aggregate.$agg1#15]
@@ -9007,9 +9007,9 @@ QueryStmt
     |         +-input_scan=
     |           +-ArrayScan
     |             +-column_list=[$array.e#17]
-    |             +-array_expr=
+    |             +-array_expr_list=
     |             | +-Literal(parse_location=66-93, type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}])
-    |             +-element_column=$array.e#17
+    |             +-element_column_list=[$array.e#17]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$groupby.int32#16, $aggregate.$agg1#15]
@@ -9038,3 +9038,216 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#27)
+==
+
+# Regression test for b/298246782
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
+    int64,
+    COUNT(
+      IF(
+         TRUE,
+         int64, NULL
+       )
+    ) AS cnt_value,
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY 1
+--
+
+QueryStmt
++-output_column_list=
+| +-$groupby.int64#14 AS int64 [INT64]
+| +-$aggregate.cnt_value#13 AS cnt_value [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-240
+    +-column_list=[$groupby.int64#14, $aggregate.cnt_value#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$groupby.int64#14, $aggregate.cnt_value#13]
+        +-input_scan=
+        | +-TableScan(parse_location=198-229, column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-group_by_list=
+        | +-int64#14 := ColumnRef(parse_location=100-105, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-cnt_value#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-parse_location=111-116
+        |     +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+        |     | +-parse_location=124-126
+        |     | +-Literal(parse_location=137-141, type=BOOL, value=true)
+        |     | +-ColumnRef(parse_location=152-157, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |     | +-Literal(parse_location=159-163, type=INT64, value=NULL)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        +-option_list=
+          +-epsilon=
+          | +-parse_location=47-57
+          | +-Literal(parse_location=55-57, type=DOUBLE, value=10)
+          +-delta=
+          | +-parse_location=59-68
+          | +-Literal(parse_location=65-68, type=DOUBLE, value=0.01)
+          +-max_groups_contributed=
+            +-parse_location=70-94
+            +-Literal(parse_location=93-94, type=INT64, value=1)
+[REPLACED_LITERALS]
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=@_p0_DOUBLE, delta=@_p1_DOUBLE, max_groups_contributed=@_p2_INT64)
+    int64,
+    COUNT(
+      IF(
+         @_p3_BOOL,
+         int64, @_p4_INT64
+       )
+    ) AS cnt_value,
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY 1
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.int64#14 AS int64 [INT64]
+| +-$aggregate.cnt_value#13 AS cnt_value [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-240
+    +-column_list=[$groupby.int64#14, $aggregate.cnt_value#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$groupby.int64#14, $aggregate.cnt_value#13]
+        +-input_scan=
+        | +-SampleScan
+        |   +-column_list=[$aggregate.cnt_value_partial#17, $groupby.int64_partial#18, $group_by.$uid#19]
+        |   +-input_scan=
+        |   | +-AggregateScan
+        |   |   +-column_list=[$aggregate.cnt_value_partial#17, $groupby.int64_partial#18, $group_by.$uid#19]
+        |   |   +-input_scan=
+        |   |   | +-TableScan(parse_location=198-229, column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        |   |   +-group_by_list=
+        |   |   | +-int64_partial#18 := ColumnRef(parse_location=100-105, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |   |   | +-$uid#19 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#15)
+        |   |   +-aggregate_list=
+        |   |     +-cnt_value_partial#17 :=
+        |   |       +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+        |   |         +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+        |   |           +-parse_location=124-126
+        |   |           +-Literal(parse_location=137-141, type=BOOL, value=true)
+        |   |           +-ColumnRef(parse_location=152-157, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |   |           +-Literal(parse_location=159-163, type=INT64, value=NULL)
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=1)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=$group_by.$uid#19)
+        +-group_by_list=
+        | +-int64#14 := ColumnRef(type=INT64, column=$groupby.int64_partial#18)
+        +-aggregate_list=
+        | +-cnt_value#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.cnt_value_partial#17)
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        | +-$group_selection_threshold_col#22 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        +-group_selection_threshold_expr=
+        | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#22)
+        +-option_list=
+          +-epsilon=
+          | +-parse_location=47-57
+          | +-Literal(parse_location=55-57, type=DOUBLE, value=10)
+          +-delta=
+          | +-parse_location=59-68
+          | +-Literal(parse_location=65-68, type=DOUBLE, value=0.01)
+          +-max_groups_contributed=
+            +-parse_location=70-94
+            +-Literal(parse_location=93-94, type=INT64, value=1)
+==
+
+# Regresssion test for b/298246782
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1)
+    int32,
+    COUNT(
+      IF(
+         EXISTS(SELECT 1 FROM SimpleTypesWithAnonymizationUid),
+         int32, NULL
+       )
+    ) AS cnt_value,
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY int32
+--
+
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.int32#27 AS int32 [INT32]
+| +-$aggregate.cnt_value#26 AS cnt_value [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-293
+    +-column_list=[$groupby.int32#27, $aggregate.cnt_value#26]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$groupby.int32#27, $aggregate.cnt_value#26]
+        +-input_scan=
+        | +-TableScan(parse_location=247-278, column_list=[SimpleTypesWithAnonymizationUid.int32#1], table=SimpleTypesWithAnonymizationUid, column_index_list=[0])
+        +-group_by_list=
+        | +-int32#27 := ColumnRef(parse_location=100-105, type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        +-aggregate_list=
+        | +-cnt_value#26 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count(INT32, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-parse_location=111-116
+        |     +-FunctionCall(ZetaSQL:if(BOOL, INT32, INT32) -> INT32)
+        |     | +-parse_location=124-126
+        |     | +-SubqueryExpr
+        |     | | +-parse_location=144-189
+        |     | | +-type=BOOL
+        |     | | +-subquery_type=EXISTS
+        |     | | +-subquery=
+        |     | |   +-ProjectScan
+        |     | |     +-parse_location=144-189
+        |     | |     +-column_list=[$expr_subquery.$col1#25]
+        |     | |     +-expr_list=
+        |     | |     | +-$col1#25 := Literal(parse_location=151-152, type=INT64, value=1)
+        |     | |     +-input_scan=
+        |     | |       +-TableScan(parse_location=158-189, table=SimpleTypesWithAnonymizationUid)
+        |     | +-ColumnRef(parse_location=201-206, type=INT32, column=SimpleTypesWithAnonymizationUid.int32#1)
+        |     | +-Literal(parse_location=208-212, type=INT32, value=NULL)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        +-option_list=
+          +-epsilon=
+          | +-parse_location=47-57
+          | +-Literal(parse_location=55-57, type=DOUBLE, value=10)
+          +-delta=
+          | +-parse_location=59-68
+          | +-Literal(parse_location=65-68, type=DOUBLE, value=0.01)
+          +-max_groups_contributed=
+            +-parse_location=70-94
+            +-Literal(parse_location=93-94, type=INT64, value=1)
+[REPLACED_LITERALS]
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=@_p0_DOUBLE, delta=@_p1_DOUBLE, max_groups_contributed=@_p2_INT64)
+    int32,
+    COUNT(
+      IF(
+         EXISTS(SELECT @_p3_INT64 FROM SimpleTypesWithAnonymizationUid),
+         int32, @_p4_INT32
+       )
+    ) AS cnt_value,
+FROM SimpleTypesWithAnonymizationUid
+GROUP BY int32
+
+Rewrite ERROR: Reading the table SimpleTypesWithAnonymizationUid containing user data in expression subqueries is not allowed [at 7:31]
+         EXISTS(SELECT 1 FROM SimpleTypesWithAnonymizationUid),
+                              ^

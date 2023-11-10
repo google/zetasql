@@ -1,0 +1,1301 @@
+# This file contains the compliance test cases for FULL CORRESPONDING. Test
+# cases are divided into multiple sections.
+
+## ===== Start section: literal and type coercion for FULL =====  ##
+
+# CORRESPONDING literal coercion FULL mode
+[name=corresponding_literal_coercion_full]
+[default required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+SELECT 1 AS a, 1 AS b
+FULL UNION ALL CORRESPONDING
+SELECT CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a INT32, b INT64>>[unknown order:{1, 1}, {1, NULL}]
+==
+
+# CORRESPONDING literal coercion FULL mode literal coerced to the correct type, with padded NULL in the same scan containing the literal.
+[name=corresponding_literal_coercion_full_in_padded_null_scan]
+SELECT NULL AS a
+FULL UNION ALL CORRESPONDING
+SELECT 's' AS a, 1 AS b
+--
+ARRAY<STRUCT<a STRING, b INT64>>[unknown order:{NULL, NULL}, {"s", 1}]
+==
+
+# CORRESPONDING literal coercion FULL mode literal cocercion with subquery
+[name=corresponding_literal_coercion_full_coercion_with_subquery]
+(SELECT 1 AS a, 1 AS b FULL UNION ALL CORRESPONDING SELECT 1 AS b, NULL AS a)
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS b, CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, 1}, {1, 1}, {1, 1}]
+==
+
+# CORRESPONDING literal coercion FULL mode coercion with padded null
+[name=corresponding_literal_coercion_full_coercion_with_padded_null]
+SELECT NULL AS a
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS b
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS b, CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a INT32, b INT64>>[unknown order:{NULL, NULL}, {NULL, 1}, {1, 1}]
+==
+
+# CORRESPONDING literal coercion FULL mode padded null has the correct type
+[name=corresponding_literal_coercion_full_padded_null_correct_type]
+SELECT NULL AS a, CAST(1 AS INT32) AS b
+FULL UNION ALL CORRESPONDING
+SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT32) AS c
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS c, 's' AS a
+--
+ARRAY<STRUCT<a STRING, b INT64, c INT32>>[unknown order:
+  {NULL, 1, NULL},
+  {NULL, 1, 1},
+  {"s", NULL, 1}
+]
+==
+
+# CORRESPONDING literal coercion FULL mode with three inputs but without padded NULL in any of the input
+[name=corresponding_literal_coercion_full_three_inputs]
+SELECT NULL AS a
+FULL UNION ALL CORRESPONDING
+SELECT CAST(1 AS FLOAT) AS a
+FULL UNION ALL CORRESPONDING
+SELECT CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a DOUBLE>>[unknown order:{NULL}, {1}, {1}]
+==
+
+# CORRESPONDING type coercion FULL mode basic type coercion
+[name=corresponding_type_coercion_full_basic_type_coercion]
+SELECT CAST(1 AS INT64) AS a, 1 AS b
+FULL UNION ALL CORRESPONDING
+SELECT CAST(1 AS FLOAT) AS a
+--
+ARRAY<STRUCT<a DOUBLE, b INT64>>[unknown order:{1, 1}, {1, NULL}]
+==
+
+# CORRESPONDING type coercion FULL mode three inputs
+[name=corresponding_type_coercion_full_three_inputs]
+SELECT CAST(1 AS INT64) AS a, 1 AS b
+FULL UNION ALL CORRESPONDING
+SELECT CAST(1 AS FLOAT) AS a
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS c, CAST(1 AS INT32) AS a, 1 AS b
+--
+ARRAY<STRUCT<a DOUBLE, b INT64, c INT64>>[unknown order:
+  {1, 1, NULL},
+  {1, NULL, NULL},
+  {1, 1, 1}
+]
+==
+
+# CORRESPONDING type coercion FULL mode padded nulls have the correct type after coercion
+[name=corresponding_type_coercion_full_padded_null_type]
+SELECT 1 AS a, CAST(1 AS INT64) AS b
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS a
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS c, 1 AS a, CAST(1 AS FLOAT) AS b
+--
+ARRAY<STRUCT<a INT64, b DOUBLE, c INT64>>[unknown order:
+  {1, 1, NULL},
+  {1, NULL, NULL},
+  {1, 1, 1}
+]
+==
+
+# CORRESPONDING type coercion FULL mode with subquery
+[name=corresponding_type_coercion_full_subquery]
+(
+  SELECT CAST(1 AS INT32) AS a FULL UNION ALL
+  CORRESPONDING SELECT CAST(1 AS FLOAT) AS b, CAST(1 AS INT64) AS a
+)
+FULL UNION ALL CORRESPONDING
+SELECT CAST(1 AS FLOAT) AS a, CAST(1 AS INT64) AS b, 1 AS c
+--
+ARRAY<STRUCT<a DOUBLE, b DOUBLE, c INT64>>[unknown order:
+  {1, 1, NULL},
+  {1, NULL, NULL},
+  {1, 1, 1}
+]
+==
+
+# ===== Start section: FULL CORRESPONDING with EXCEPT ===== #
+
+# FULL CORRESPONDING both inputs have padded null. [row, row] EXCEPT ALL [row] = [row]
+[default required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+[name=full_corresponding_both_input_padded_null_except_all_2row_1row]
+WITH Table1 AS (SELECT CAST(NULL AS INT64) AS a UNION ALL SELECT NULL)
+SELECT a FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT NULL AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, NULL}]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row, row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_both_input_padded_null_except_all_2row_2row]
+WITH
+  Table1 AS (SELECT CAST(NULL AS INT64) AS a UNION ALL SELECT NULL),
+  Table2 AS (SELECT CAST(NULL AS INT64) AS b UNION ALL SELECT NULL)
+SELECT a FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT b FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_both_input_padded_null_except_all_1row_2row]
+WITH Table1 AS (SELECT CAST(NULL AS INT64) AS b UNION ALL SELECT NULL)
+SELECT NULL AS a
+FULL EXCEPT ALL CORRESPONDING
+SELECT b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=full_corresponding_both_input_padded_null_except_all_2row_different_row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+SELECT a FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, NULL}, {1, NULL}]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row, row] EXCEPT DISTINCT [row] = []
+[name=full_corresponding_both_input_padded_null_except_distinct_2row_1row]
+WITH Table1 AS (SELECT CAST(NULL AS INT64) AS a UNION ALL SELECT NULL)
+SELECT a FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT NULL AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=full_corresponding_both_input_padded_null_except_distinct_2row_different_row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+SELECT a FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]
+==
+
+# FULL CORRESPONDING second input has padded null. [row, row] EXCEPT ALL [row] = [row]
+[name=full_corresponding_second_input_padded_null_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  )
+SELECT a, b FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, 1}]
+==
+
+# FULL CORRESPONDING second input has padded null. [row, row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_second_input_padded_null_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  ),
+  Table2 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT a, b FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT b FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING second input has padded null. [row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_second_input_padded_null_except_all_1row_2row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT NULL AS a, 1 AS b
+FULL EXCEPT ALL CORRESPONDING
+SELECT b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING second input has padded null. [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=full_corresponding_second_input_padded_null_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# FULL CORRESPONDING second input has padded null. [row, row] EXCEPT DISTINCT [row] = []
+[name=full_corresponding_second_input_padded_null_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  )
+SELECT a, b FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING second input has padded null. [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=full_corresponding_second_input_padded_null_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# FULL CORRESPONDING first input has padded null. [row, row] EXCEPT ALL [row] = [row]
+[name=full_corresponding_first_input_padded_null_except_all_2row_1row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT b FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT NULL AS a, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# FULL CORRESPONDING first input has padded null. [row, row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_first_input_padded_null_except_all_2row_2row]
+WITH
+  Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1),
+  Table2 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  )
+SELECT b FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT a, b FROM Table2
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# FULL CORRESPONDING first input has padded null. [row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_first_input_padded_null_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  )
+SELECT 1 AS b
+FULL EXCEPT ALL CORRESPONDING
+SELECT a, b FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# FULL CORRESPONDING first input has padded null. [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=full_corresponding_first_input_padded_null_except_all_2row_different_row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT b FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, NULL}, {1, NULL}]
+==
+
+# FULL CORRESPONDING first input has padded null. [row, row] EXCEPT DISTINCT [row] = []
+[name=full_corresponding_first_input_padded_null_except_distinct_2row_1row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT b FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT NULL AS a, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# FULL CORRESPONDING first input has padded null. [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=full_corresponding_first_input_padded_null_except_distinct_2row_different_row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT b FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row, row] EXCEPT ALL [row] = [row]
+[name=full_corresponding_no_input_padded_null_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row, row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_no_input_padded_null_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT b, a FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_no_input_padded_null_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL EXCEPT ALL CORRESPONDING
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=full_corresponding_no_input_padded_null_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row, row] EXCEPT DISTINCT [row] = []
+[name=full_corresponding_no_input_padded_null_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=full_corresponding_no_input_padded_null_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# FULL CORRESPONDING complex schema. [row, row] EXCEPT ALL [row] = [row]
+[name=full_corresponding_complex_schema_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, NULL, 1
+  )
+SELECT a, b, c FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT 1 AS c, 1 AS a, NULL AS d
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[{1, NULL, 1, NULL}]
+==
+
+# FULL CORRESPONDING complex schema. [row, row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_complex_schema_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, NULL, 1
+  ),
+  Table2 AS (
+    SELECT
+      CAST(1 AS INT64) AS c, CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS d
+    UNION ALL
+    SELECT 1, 1, NULL
+  )
+SELECT a, b, c FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT c, a, d FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[]
+==
+
+# FULL CORRESPONDING complex schema. [row] EXCEPT ALL [row, row] = []
+[name=full_corresponding_complex_schema_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS c, CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS d
+    UNION ALL
+    SELECT 1, 1, NULL
+  )
+SELECT 1 AS a, NULL AS b, 1 AS c
+FULL EXCEPT ALL CORRESPONDING
+SELECT c, a, d FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[]
+==
+
+# FULL CORRESPONDING complex schema. [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=full_corresponding_complex_schema_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 1
+  )
+SELECT a, b, c FROM Table1
+FULL EXCEPT ALL CORRESPONDING
+SELECT 2 AS c, 2 AS a, 2 AS d
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[unknown order:
+  {1, 1, 1, NULL},
+  {1, 1, 1, NULL}
+]
+==
+
+# FULL CORRESPONDING complex schema. [row, row] EXCEPT DISTINCT [row] = []
+[name=full_corresponding_complex_schema_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, NULL, 1
+  )
+SELECT a, b, c FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT 1 AS c, 1 AS a, NULL AS d
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[]
+==
+
+# FULL CORRESPONDING complex schema. [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=full_corresponding_complex_schema_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 1
+  )
+SELECT a, b, c FROM Table1
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT 2 AS c, 2 AS a, 2 AS d
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[{1, 1, 1, NULL}]
+==
+
+## ===== Start section: FULL CORRESPONDING with UNION ===== #
+# FULL CORRESPONDING both inputs have padded null. Basic test case [row1] UNION ALL [row2]
+[name=full_corresponding_both_input_padded_null_union_all_basic]
+SELECT 1 AS a
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, NULL}, {NULL, 1}]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row1, row1] union distinct [row1] = [row1]
+[name=full_corresponding_both_input_padded_null_union_distinct_same_row]
+WITH Table1 AS (SELECT CAST(NULL AS INT64) AS a UNION ALL SELECT NULL)
+SELECT a FROM Table1
+FULL UNION DISTINCT CORRESPONDING
+SELECT NULL AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, NULL}]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row1] union distinct [row2] = [row1, row2]
+[name=full_corresponding_both_input_padded_null_union_distinct_different_rows]
+SELECT 1 AS a
+FULL UNION DISTINCT CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, 2}, {1, NULL}]
+==
+
+# FULL CORRESPONDING second input has padded null. Basic test case [row1] UNION ALL [row2]
+[name=full_corresponding_second_input_padded_null_union_all_basic]
+SELECT 1 AS a, 1 AS b
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {NULL, 1}]
+==
+
+# FULL CORRESPONDING second input has padded null. [row1, row1] union distinct [row1] = [row1]
+[name=full_corresponding_second_input_padded_null_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  )
+SELECT a, b FROM Table1
+FULL UNION DISTINCT CORRESPONDING
+SELECT 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, 1}]
+==
+
+# FULL CORRESPONDING second input has padded null. [row1] union distinct [row2] = [row1, row2]
+[name=full_corresponding_second_input_padded_null_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b
+FULL UNION DISTINCT CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, 2}, {1, 1}]
+==
+
+# FULL CORRESPONDING first input has padded null. Basic test case [row1] UNION ALL [row2]
+[name=full_corresponding_first_input_padded_null_union_all_basic]
+SELECT 1 AS b
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, NULL}, {1, 1}]
+==
+
+# FULL CORRESPONDING first input has padded null. [row1, row1] union distinct [row1] = [row1]
+[name=full_corresponding_first_input_padded_null_union_distinct_same_row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT b FROM Table1
+FULL UNION DISTINCT CORRESPONDING
+SELECT NULL AS a, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# FULL CORRESPONDING first input has padded null. [row1] union distinct [row2] = [row1, row2]
+[name=full_corresponding_first_input_padded_null_union_distinct_different_rows]
+SELECT 1 AS b
+FULL UNION DISTINCT CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, NULL}, {2, 2}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. Basic test case [row1] UNION ALL [row2]
+[name=full_corresponding_no_input_padded_null_union_all_basic]
+SELECT 1 AS a, 1 AS b
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row1, row1] union distinct [row1] = [row1]
+[name=full_corresponding_no_input_padded_null_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL UNION DISTINCT CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row1] union distinct [row2] = [row1, row2]
+[name=full_corresponding_no_input_padded_null_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b
+FULL UNION DISTINCT CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+# FULL CORRESPONDING complex schema. Basic test case [row1] UNION ALL [row2]
+[name=full_corresponding_complex_schema_union_all_basic]
+SELECT 1 AS a, 1 AS b, 1 AS c
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS c, 1 AS a, 1 AS d
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[unknown order:
+  {1, 1, 1, NULL},
+  {1, NULL, 1, 1}
+]
+==
+
+# FULL CORRESPONDING complex schema. [row1, row1] union distinct [row1] = [row1]
+[name=full_corresponding_complex_schema_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, NULL, 1
+  )
+SELECT a, b, c FROM Table1
+FULL UNION DISTINCT CORRESPONDING
+SELECT 1 AS c, 1 AS a, NULL AS d
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[{1, NULL, 1, NULL}]
+==
+
+# FULL CORRESPONDING complex schema. [row1] union distinct [row2] = [row1, row2]
+[name=full_corresponding_complex_schema_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b, 1 AS c
+FULL UNION DISTINCT CORRESPONDING
+SELECT 2 AS c, 2 AS a, 2 AS d
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[unknown order:
+  {1, 1, 1, NULL},
+  {2, NULL, 2, 2}
+]
+==
+
+## ===== Start section: FULL CORRESPONDING with INTERSECT ===== #
+
+# FULL CORRESPONDING both inputs have padded null. [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=full_corresponding_both_input_padded_null_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (SELECT CAST(NULL AS INT64) AS a UNION ALL SELECT NULL),
+  Table2 AS (SELECT CAST(NULL AS INT64) AS b UNION ALL SELECT NULL)
+SELECT a FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT b FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, NULL}, {NULL, NULL}]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row, row] INTERSECT ALL [row] = [row]
+[name=full_corresponding_both_input_padded_null_intersect_all_single_same_row]
+WITH Table1 AS (SELECT CAST(NULL AS INT64) AS a UNION ALL SELECT NULL)
+SELECT a FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT NULL AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, NULL}]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row1, row1] INTERSECT ALL [row2] = []
+[name=full_corresponding_both_input_padded_null_intersect_all_different_rows]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+SELECT a FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=full_corresponding_both_input_padded_null_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (SELECT CAST(NULL AS INT64) AS a UNION ALL SELECT NULL),
+  Table2 AS (SELECT CAST(NULL AS INT64) AS b UNION ALL SELECT NULL)
+SELECT a FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT b FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, NULL}]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row, row] INTERSECT DISTINCT [row] = [row]
+[name=full_corresponding_both_input_padded_null_intersect_distinct_single_same_row]
+WITH Table1 AS (SELECT CAST(NULL AS INT64) AS a UNION ALL SELECT NULL)
+SELECT a FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT NULL AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, NULL}]
+==
+
+# FULL CORRESPONDING both inputs have padded null. [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=full_corresponding_both_input_padded_null_intersect_distinct_different_rows]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+SELECT a FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING second input has padded null. [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=full_corresponding_second_input_padded_null_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  ),
+  Table2 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT a, b FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT b FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, 1}, {NULL, 1}]
+==
+
+# FULL CORRESPONDING second input has padded null. [row, row] INTERSECT ALL [row] = [row]
+[name=full_corresponding_second_input_padded_null_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, 1}]
+==
+
+# FULL CORRESPONDING second input has padded null. [row1, row1] INTERSECT ALL [row2] = []
+[name=full_corresponding_second_input_padded_null_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING second input has padded null. [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=full_corresponding_second_input_padded_null_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  ),
+  Table2 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT a, b FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT b FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, 1}]
+==
+
+# FULL CORRESPONDING second input has padded null. [row, row] INTERSECT DISTINCT [row] = [row]
+[name=full_corresponding_second_input_padded_null_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{NULL, 1}]
+==
+
+# FULL CORRESPONDING second input has padded null. [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=full_corresponding_second_input_padded_null_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING first input has padded null. [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=full_corresponding_first_input_padded_null_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1),
+  Table2 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  )
+SELECT b FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT a, b FROM Table2
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, NULL}, {1, NULL}]
+==
+
+# FULL CORRESPONDING first input has padded null. [row, row] INTERSECT ALL [row] = [row]
+[name=full_corresponding_first_input_padded_null_intersect_all_single_same_row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT b FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT NULL AS a, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# FULL CORRESPONDING first input has padded null. [row1, row1] INTERSECT ALL [row2] = []
+[name=full_corresponding_first_input_padded_null_intersect_all_different_rows]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT b FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# FULL CORRESPONDING first input has padded null. [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=full_corresponding_first_input_padded_null_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1),
+  Table2 AS (
+    SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT NULL, 1
+  )
+SELECT b FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT a, b FROM Table2
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# FULL CORRESPONDING first input has padded null. [row, row] INTERSECT DISTINCT [row] = [row]
+[name=full_corresponding_first_input_padded_null_intersect_distinct_single_same_row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT b FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT NULL AS a, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# FULL CORRESPONDING first input has padded null. [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=full_corresponding_first_input_padded_null_intersect_distinct_different_rows]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+SELECT b FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=full_corresponding_no_input_padded_null_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT b, a FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row, row] INTERSECT ALL [row] = [row]
+[name=full_corresponding_no_input_padded_null_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row1, row1] INTERSECT ALL [row2] = []
+[name=full_corresponding_no_input_padded_null_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=full_corresponding_no_input_padded_null_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT b, a FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row, row] INTERSECT DISTINCT [row] = [row]
+[name=full_corresponding_no_input_padded_null_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# FULL CORRESPONDING neither inputs has padded null. [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=full_corresponding_no_input_padded_null_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# FULL CORRESPONDING complex schema with type coercion. [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=full_corresponding_complex_schema_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(NULL AS INT32) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, NULL, 1
+  ),
+  Table2 AS (
+    SELECT
+      CAST(1 AS INT64) AS c, CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS d
+    UNION ALL
+    SELECT 1, 1, NULL
+  )
+SELECT a, b, c FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT c, a, d FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT32, c INT64, d INT64>>[unknown order:
+  {1, NULL, 1, NULL},
+  {1, NULL, 1, NULL}
+]
+==
+
+# FULL CORRESPONDING complex schema with type coercion. [row, row] INTERSECT ALL [row] = [row]
+[name=full_corresponding_complex_schema_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(NULL AS INT32) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, NULL, 1
+  )
+SELECT a, b, c FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT CAST(1 AS INT64) AS c, CAST(1 AS INT64) AS a, NULL AS d
+--
+ARRAY<STRUCT<a INT64, b INT32, c INT64, d INT64>>[{1, NULL, 1, NULL}]
+==
+
+# FULL CORRESPONDING complex schema with type coercion. [row1, row1] INTERSECT ALL [row2] = []
+[name=full_corresponding_complex_schema_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT32) AS b, CAST(1 AS INT32) AS c
+    UNION ALL
+    SELECT 1, 1, 1
+  )
+SELECT a, b, c FROM Table1
+FULL INTERSECT ALL CORRESPONDING
+SELECT CAST(2 AS INT64) AS c, CAST(2 AS INT32) AS a, 2 AS d
+--
+ARRAY<STRUCT<a INT64, b INT32, c INT64, d INT64>>[]
+==
+
+# FULL CORRESPONDING complex schema with type coercion. [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=full_corresponding_complex_schema_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(NULL AS INT32) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, NULL, 1
+  ),
+  Table2 AS (
+    SELECT
+      CAST(1 AS INT64) AS c, CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS d
+    UNION ALL
+    SELECT 1, 1, NULL
+  )
+SELECT a, b, c FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT c, a, d FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT32, c INT64, d INT64>>[{1, NULL, 1, NULL}]
+==
+
+# FULL CORRESPONDING complex schema with type coercion. [row, row] INTERSECT DISTINCT [row] = [row]
+[name=full_corresponding_complex_schema_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(NULL AS INT32) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, NULL, 1
+  )
+SELECT a, b, c FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT CAST(1 AS INT64) AS c, CAST(1 AS INT64) AS a, NULL AS d
+--
+ARRAY<STRUCT<a INT64, b INT32, c INT64, d INT64>>[{1, NULL, 1, NULL}]
+==
+
+# FULL CORRESPONDING complex schema with type coercion. [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=full_corresponding_complex_schema_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT32) AS b, CAST(1 AS INT32) AS c
+    UNION ALL
+    SELECT 1, 1, 1
+  )
+SELECT a, b, c FROM Table1
+FULL INTERSECT DISTINCT CORRESPONDING
+SELECT CAST(2 AS INT64) AS c, CAST(2 AS INT32) AS a, 2 AS d
+--
+ARRAY<STRUCT<a INT64, b INT32, c INT64, d INT64>>[]
+==
+
+## ===== Start section: multiple inputs for FULL CORRESPONDING =====  ##
+
+# FULL CORRESPONDING: both the 2nd and the 3rd scans have first seen columns.
+# [row1, row1] UNION DISTINCT [row1, row1] UNION DISTINCT [row2, row2] = [row1, row2].
+[name=full_corresponding_first_seen_columns]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(NULL AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, NULL
+  ),
+  Table2 AS (
+    SELECT
+      CAST(1 AS INT64) AS b, CAST(NULL AS INT64) AS d, CAST(1 AS INT64) AS a
+    UNION ALL
+    SELECT 1, NULL, 1
+  ),
+  Table3 AS (
+    SELECT CAST(2 AS INT64) AS d, CAST(2 AS INT64) AS e, CAST(2 AS INT64) AS a
+    UNION ALL
+    SELECT 2, 2, 2
+  )
+SELECT a, b, c FROM Table1
+FULL UNION DISTINCT CORRESPONDING
+SELECT b, d, a FROM Table2
+FULL UNION DISTINCT CORRESPONDING
+SELECT d, e, a FROM Table3
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64, e INT64>>[unknown order:
+  {1, 1, NULL, NULL, NULL},
+  {2, NULL, NULL, 2, 2}
+]
+==
+
+# FULL CORRESPONDING: same output rows after padded NULLs.
+[name=full_corresponding_three_input_row_distinctness]
+SELECT NULL AS a, NULL AS b
+FULL UNION DISTINCT CORRESPONDING
+SELECT NULL AS b, NULL AS c
+FULL UNION DISTINCT CORRESPONDING
+SELECT NULL AS c, NULL AS d
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[{NULL, NULL, NULL, NULL}]
+==
+
+# FULL CORRESPONDING: with padded NULL the rows are different now
+[name=full_corresponding_three_input_row_distinctness_different_rows]
+SELECT 1 AS a, 1 AS b
+FULL UNION DISTINCT CORRESPONDING
+SELECT 1 AS b, 1 AS c
+FULL UNION DISTINCT CORRESPONDING
+SELECT 1 AS c, 1 AS d
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64, d INT64>>[unknown order:
+  {NULL, NULL, 1, 1},
+  {NULL, 1, 1, NULL},
+  {1, 1, NULL, NULL}
+]
+==
+
+## ===== Start section: Nested subqueries ===== #
+
+# nested set operation: <nested BY POSITION> FULL CORRESPONDING <flat>
+[name=nested_strict_by_position_full_corresponding]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(SELECT a, b FROM Table1 EXCEPT ALL SELECT 1 AS b, 1 AS a)
+FULL UNION ALL CORRESPONDING
+SELECT 1 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[unknown order:
+  {1, 1, NULL},
+  {NULL, 1, 1}
+]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING <nested BY POSITION>
+[name=full_corresponding_nested_strict_by_position]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS c, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL UNION ALL CORRESPONDING
+(SELECT c, b FROM Table1 EXCEPT ALL SELECT 1 AS c, 1 AS b)
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[unknown order:
+  {1, 1, NULL},
+  {NULL, 1, 1}
+]
+==
+
+# nested set operation: <nested FULL CORRESPONDING> BY POSITION <flat>
+[name=nested_full_corresponding_strict_by_position]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+(SELECT a FROM Table1 FULL UNION DISTINCT CORRESPONDING SELECT 1 AS b)
+EXCEPT DISTINCT
+SELECT 1 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, NULL}, {NULL, 1}]
+==
+
+# nested set operation: <flat> BY POSITION <nested FULL CORRESPONDING>
+[name=strict_by_position_nested_full_corresponding]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS c UNION ALL SELECT 1)
+SELECT 1 AS a, 1 AS b
+EXCEPT DISTINCT
+(SELECT c FROM Table1 FULL UNION DISTINCT CORRESPONDING SELECT 1 AS b, 1 AS c)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <nested INNER CORRESPONDING> FULL CORRESPONDING <flat>
+[name=nested_inner_corresponding_full_corresponding]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+(
+  SELECT a, c, b FROM Table1
+  INTERSECT DISTINCT
+  CORRESPONDING SELECT 1 AS b, 1 AS a, 2 AS d
+)
+FULL INTERSECT ALL CORRESPONDING
+SELECT 1 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING <nested INNER CORRESPONDING>
+[name=full_corresponding_nested_inner_corresponding]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS c, CAST(1 AS INT64) AS b
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL INTERSECT ALL CORRESPONDING
+(
+  SELECT a, c, b FROM Table1
+  INTERSECT DISTINCT
+  CORRESPONDING SELECT 1 AS c, 2 AS d, 1 AS b
+)
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[]
+==
+
+# nested set operation: <nested FULL CORRESPONDING> INNER CORRESPONDING <flat>
+[name=nested_full_corresponding_inner_corresponding]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+(SELECT a FROM Table1 FULL EXCEPT ALL CORRESPONDING SELECT 1 AS b)
+UNION ALL CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[unknown order:{NULL}, {NULL}, {1}]
+==
+
+# nested set operation: <flat> INNER CORRESPONDING <nested FULL CORRESPONDING>
+[name=inner_corresponding_nested_full_corresponding]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS c UNION ALL SELECT 1)
+SELECT 2 AS a, 1 AS b
+UNION ALL CORRESPONDING
+(SELECT c FROM Table1 FULL EXCEPT ALL CORRESPONDING SELECT 1 AS b, 1 AS c)
+--
+ARRAY<STRUCT<b INT64>>[unknown order:{1}, {NULL}, {NULL}]
+==
+
+# nested set operation: <nested FULL CORRESPONDING> FULL CORRESPONDING <flat>
+[name=nested_full_corresponding_full_corresponding]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+(SELECT a FROM Table1 FULL UNION DISTINCT CORRESPONDING SELECT 1 AS b)
+FULL EXCEPT DISTINCT CORRESPONDING
+SELECT 1 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[unknown order:
+  {NULL, 1, NULL},
+  {1, NULL, NULL}
+]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING <nested FULL CORRESPONDING>
+[name=full_corresponding_nested_full_corresponding]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS c UNION ALL SELECT 1)
+SELECT 1 AS a, 1 AS b
+FULL EXCEPT DISTINCT CORRESPONDING
+(SELECT c FROM Table1 FULL UNION DISTINCT CORRESPONDING SELECT 1 AS b, 1 AS c)
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[{1, 1, NULL}]

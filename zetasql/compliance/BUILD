@@ -398,6 +398,7 @@ cc_test(
     srcs = ["matchers_test.cc"],
     deps = [
         ":matchers",
+        ":runtime_expected_errors",
         "//zetasql/base:logging",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/testdata:test_schema_cc_proto",

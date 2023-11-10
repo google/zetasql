@@ -1715,6 +1715,10 @@ static absl::Status CheckVectorDistanceInputType(
     ZETASQL_RET_CHECK(input_types[1]->AsArray()->element_type()->IsDouble())
         << "array element type must be both DOUBLE";
     return absl::OkStatus();
+  } else if (input_types[0]->AsArray()->element_type()->IsFloat()) {
+    ZETASQL_RET_CHECK(input_types[1]->AsArray()->element_type()->IsFloat())
+        << "array element type must be both FLOAT";
+    return absl::OkStatus();
   }
 
   for (int i = 0; i < input_types.size(); ++i) {
@@ -1745,8 +1749,10 @@ CreateCosineDistanceFunction(std::vector<const Type*>& input_types,
                              const Type* output_type) {
   ZETASQL_RET_CHECK_OK(CheckVectorDistanceInputType(input_types));
 
-  bool is_array_double = input_types[0]->AsArray()->element_type()->IsDouble();
-  if (is_array_double) {
+  bool is_signature_dense =
+      input_types[0]->AsArray()->element_type()->IsDouble() ||
+      input_types[0]->AsArray()->element_type()->IsFloat();
+  if (is_signature_dense) {
     return std::make_unique<CosineDistanceFunctionDense>(
         FunctionKind::kCosineDistance, output_type);
   }
@@ -1778,8 +1784,10 @@ static absl::StatusOr<std::unique_ptr<SimpleBuiltinScalarFunction>>
 CreateEuclideanDistanceFunction(std::vector<const Type*>& input_types,
                                 const Type* output_type) {
   ZETASQL_RET_CHECK_OK(CheckVectorDistanceInputType(input_types));
-  bool is_array_double = input_types[0]->AsArray()->element_type()->IsDouble();
-  if (is_array_double) {
+  bool is_signature_dense =
+      input_types[0]->AsArray()->element_type()->IsDouble() ||
+      input_types[0]->AsArray()->element_type()->IsFloat();
+  if (is_signature_dense) {
     return std::make_unique<EuclideanDistanceFunctionDense>(
         FunctionKind::kEuclideanDistance, output_type);
   }
@@ -5123,7 +5131,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   int64_t bit_int64_ = 0;
   uint32_t bit_uint32_ = 0;
   uint64_t bit_uint64_ = 0;
-  // ArrayAgg, ArrayConcatAgg
+  // ArrayAgg and ArrayConcatAgg
   std::vector<Value> array_agg_;
   // Percentile.
   Value percentile_;
@@ -6591,7 +6599,6 @@ absl::Status ConvertDifferentPrivacyOutputToAnonOutputProto(
 
     // Lower bound.
     ZETASQL_RET_CHECK(input_bounding_report.has_lower_bound());
-    AnonOutputValue anon_output_value_lower_bound;
 
     switch (input_bounding_report.lower_bound().value_case()) {
       case ::differential_privacy::ValueType::kIntValue:
@@ -6694,8 +6701,6 @@ absl::Status ConvertDifferentPrivacyOutputToDifferentialPrivacyOutputProto(
 
     // Lower bound.
     ZETASQL_RET_CHECK(input_bounding_report.has_lower_bound());
-    zetasql::functions::DifferentialPrivacyOutputValue
-        dp_output_value_lower_bound;
 
     switch (input_bounding_report.lower_bound().value_case()) {
       case ::differential_privacy::ValueType::kIntValue:
@@ -6822,6 +6827,22 @@ absl::Status ConvertDifferentPrivacyOutputToOutputJson(
   return absl::OkStatus();
 }
 
+// Removes the payload for identifying when approx bounds failed because it had
+// not enough data.  This step is required for the migration.
+//
+// TODO: Remove this function after the migration and change the
+// logic to return a null value in case the payload is present.
+absl::StatusOr<differential_privacy::Output> IgnoreDifferentialPrivacyPayload(
+    const absl::StatusOr<differential_privacy::Output>& output) {
+  if (output.ok()) {
+    return output;
+  }
+  absl::Status result = output.status();
+  result.ErasePayload(
+      "type.googleapis.com/differential_privacy.ApproxBoundsNotEnoughData");
+  return result;
+}
+
 template <class T>
 absl::StatusOr<Value> GetAnonProtoReturnValue(
     std::unique_ptr<::differential_privacy::Algorithm<T>>& algorithm) {
@@ -6831,7 +6852,8 @@ absl::StatusOr<Value> GetAnonProtoReturnValue(
       zetasql::AnonOutputWithReport::descriptor(), &anon_output_proto_type));
   zetasql::AnonOutputWithReport anon_output_proto;
   if (algorithm != nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+    ZETASQL_ASSIGN_OR_RETURN(auto result, IgnoreDifferentialPrivacyPayload(
+                                      algorithm->PartialResult()));
     ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToAnonOutputProto(
         result, &anon_output_proto));
   }
@@ -6844,7 +6866,8 @@ absl::StatusOr<Value> GetAnonJsonReturnValue(
     std::unique_ptr<::differential_privacy::Algorithm<T>>& algorithm) {
   JSONValue output_json;
   if (algorithm != nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+    ZETASQL_ASSIGN_OR_RETURN(auto result, IgnoreDifferentialPrivacyPayload(
+                                      algorithm->PartialResult()));
     ZETASQL_RETURN_IF_ERROR(
         ConvertDifferentPrivacyOutputToOutputJson(result, &output_json));
   }
@@ -6857,7 +6880,8 @@ absl::StatusOr<Value> GetAnonReturnValue(
   if (algorithm == nullptr) {
     return Value::MakeNull<T>();
   }
-  ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+  ZETASQL_ASSIGN_OR_RETURN(auto result, IgnoreDifferentialPrivacyPayload(
+                                    algorithm->PartialResult()));
   return Value::Make<T>(::differential_privacy::GetValue<T>(result));
 }
 
@@ -6867,7 +6891,8 @@ absl::StatusOr<Value> GetDPReturnValue(
   if (algorithm == nullptr) {
     return Value::MakeNull<T>();
   }
-  ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+  ZETASQL_ASSIGN_OR_RETURN(auto result, IgnoreDifferentialPrivacyPayload(
+                                    algorithm->PartialResult()));
   return Value::Make<T>(::differential_privacy::GetValue<T>(result));
 }
 
@@ -6878,7 +6903,8 @@ absl::StatusOr<Value> GetDPJsonReturnValue(
     return Value::MakeNull<T>();
   }
   JSONValue output_json;
-  ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+  ZETASQL_ASSIGN_OR_RETURN(auto result, IgnoreDifferentialPrivacyPayload(
+                                    algorithm->PartialResult()));
   ZETASQL_RETURN_IF_ERROR(
       ConvertDifferentPrivacyOutputToOutputJson(result, &output_json));
   return Value::Json(JSONValue::CopyFrom(output_json.GetConstRef()));
@@ -6896,7 +6922,8 @@ absl::StatusOr<Value> GetDPProtoReturnValue(
       zetasql::functions::DifferentialPrivacyOutputWithReport::descriptor(),
       &dp_output_proto_type));
   zetasql::functions::DifferentialPrivacyOutputWithReport dp_output_proto;
-  ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+  ZETASQL_ASSIGN_OR_RETURN(auto result, IgnoreDifferentialPrivacyPayload(
+                                    algorithm->PartialResult()));
   ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToDifferentialPrivacyOutputProto(
       result, &dp_output_proto));
   return Value::Proto(dp_output_proto_type,
@@ -6908,7 +6935,8 @@ absl::StatusOr<Value> GetDPQuantilesReturnValue(
   if (algorithm == nullptr) {
     return Value::NullDouble();
   } else {
-    ZETASQL_ASSIGN_OR_RETURN(auto value, algorithm->PartialResult());
+    ZETASQL_ASSIGN_OR_RETURN(auto value, IgnoreDifferentialPrivacyPayload(
+                                     algorithm->PartialResult()));
     std::vector<Value> values;
     for (const ::differential_privacy::Output::Element& element :
          value.elements()) {

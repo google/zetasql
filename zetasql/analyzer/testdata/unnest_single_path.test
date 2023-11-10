@@ -87,13 +87,13 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[StructWithKitchenSinkTable.t#3], table=StructWithKitchenSinkTable, column_index_list=[2], alias="StructWithKitchenSinkTable")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetStructField
         |   +-type=ARRAY<STRUCT<kitchen_sink PROTO<zetasql_test__.KitchenSinkPB>>>
         |   +-expr=
         |   | +-ColumnRef(type=STRUCT<a INT64, b ARRAY<STRUCT<kitchen_sink PROTO<zetasql_test__.KitchenSinkPB>>>>, column=StructWithKitchenSinkTable.t#3)
         |   +-field_idx=1
-        +-element_column=$array.e#4
+        +-element_column_list=[$array.e#4]
 --
 ALTERNATION GROUP: e
 --
@@ -109,13 +109,13 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[StructWithKitchenSinkTable.t#3], table=StructWithKitchenSinkTable, column_index_list=[2], alias="StructWithKitchenSinkTable")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetStructField
         |   +-type=ARRAY<STRUCT<kitchen_sink PROTO<zetasql_test__.KitchenSinkPB>>>
         |   +-expr=
         |   | +-ColumnRef(type=STRUCT<a INT64, b ARRAY<STRUCT<kitchen_sink PROTO<zetasql_test__.KitchenSinkPB>>>>, column=StructWithKitchenSinkTable.t#3)
         |   +-field_idx=1
-        +-element_column=$array.e#4
+        +-element_column_list=[$array.e#4]
 ==
 
 # Path expression pattern: table.proto.array.invalid_path
@@ -149,14 +149,14 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
-        +-element_column=$array.repeated_int32_val#4
+        +-element_column_list=[$array.repeated_int32_val#4]
 ==
 
 # Path expression pattern:
@@ -178,7 +178,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="TestTable")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -190,7 +190,7 @@ QueryStmt
         |   |   +-default_value=NULL
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
-        +-element_column=$array.ri#4
+        +-element_column_list=[$array.ri#4]
 ==
 
 # Path expression pattern:
@@ -210,7 +210,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -222,7 +222,7 @@ QueryStmt
         |   |   +-default_value=NULL
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
-        +-element_column=$array.nested_repeated_int64#4
+        +-element_column_list=[$array.nested_repeated_int64#4]
 ==
 
 # Path expression pattern:
@@ -242,7 +242,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -259,7 +259,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>)
         |       +-field_descriptor=nested_repeated_int64
         |       +-default_value=[]
-        +-element_column=$array.nested_repeated_int64#4
+        +-element_column_list=[$array.nested_repeated_int64#4]
 ==
 
 # Name scoping against array scan's output value table column.
@@ -288,14 +288,14 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
-        +-element_column=$array.nested_repeated_value#4
+        +-element_column_list=[$array.nested_repeated_value#4]
 ==
 
 # Path expression pattern: table.array
@@ -338,9 +338,9 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
-        +-array_expr=
+        +-array_expr_list=
         | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        +-element_column=$array.ProtoArray#18
+        +-element_column_list=[$array.ProtoArray#18]
 ==
 
 # Path expression pattern: table.array.json_field
@@ -359,7 +359,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.JsonArray#17], table=ArrayTypes, column_index_list=[16])
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<JSON>
         |   +-expr=
@@ -370,7 +370,7 @@ QueryStmt
         |       +-expr=
         |       | +-FlattenedArg(type=JSON)
         |       +-field_name="json_field"
-        +-element_column=$array.json_field#18
+        +-element_column_list=[$array.json_field#18]
 ==
 
 # Path expression pattern:
@@ -393,7 +393,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<BOOL>
         |   +-expr=
@@ -405,7 +405,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-get_has_bit=TRUE
-        +-element_column=$array.has_int32_val1#18
+        +-element_column_list=[$array.has_int32_val1#18]
 --
 ALTERNATION GROUP: int32_val1
 --
@@ -421,7 +421,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
@@ -433,7 +433,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column=$array.int32_val1#18
+        +-element_column_list=[$array.int32_val1#18]
 ==
 
 # Name scoping against array scan's output value table column that has an
@@ -463,7 +463,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="TestTable")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
@@ -486,7 +486,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column=$array.value#4
+        +-element_column_list=[$array.value#4]
 ==
 
 # We should not be able to select range variable name that is not exposed in
@@ -535,7 +535,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="RecursivePBTable")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
@@ -576,7 +576,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
-        +-element_column=$array.value#2
+        +-element_column_list=[$array.value#2]
 
 [REWRITTEN AST]
 QueryStmt
@@ -615,31 +615,31 @@ QueryStmt
                 |   |   |   +-column_list=[RecursivePBTable.RecursivePB#1, $flatten.injected#3]
                 |   |   |   +-input_scan=
                 |   |   |   | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="RecursivePBTable")
-                |   |   |   +-array_expr=
+                |   |   |   +-array_expr_list=
                 |   |   |   | +-GetProtoField
                 |   |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   |   +-expr=
                 |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
                 |   |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   |   +-default_value=[]
-                |   |   |   +-element_column=$flatten.injected#3
-                |   |   +-array_expr=
+                |   |   |   +-element_column_list=[$flatten.injected#3]
+                |   |   +-array_expr_list=
                 |   |   | +-GetProtoField
                 |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   +-expr=
                 |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
                 |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   +-default_value=[]
-                |   |   +-element_column=$flatten.injected#4
-                |   +-array_expr=
+                |   |   +-element_column_list=[$flatten.injected#4]
+                |   +-array_expr_list=
                 |   | +-GetProtoField
                 |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   +-expr=
                 |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
                 |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   +-default_value=[]
-                |   +-element_column=$flatten.injected#5
-                +-array_expr=
+                |   +-element_column_list=[$flatten.injected#5]
+                +-array_expr_list=
                 | +-GetProtoField
                 |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
@@ -651,7 +651,7 @@ QueryStmt
                 |   |   +-default_value=NULL
                 |   +-field_descriptor=repeated_recursive_pb
                 |   +-default_value=[]
-                +-element_column=$flatten.injected#6
+                +-element_column_list=[$flatten.injected#6]
 ==
 
 # Path expression that contains invalid pattern:
@@ -691,7 +691,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="ArrayTypes")
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
@@ -703,7 +703,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column=$array.Value#18
+        +-element_column_list=[$array.Value#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -733,9 +733,9 @@ QueryStmt
                 +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="ArrayTypes")
-                +-array_expr=
+                +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column=$flatten.injected#19
+                +-element_column_list=[$flatten.injected#19]
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
@@ -754,7 +754,7 @@ QueryStmt
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
-        +-array_expr=
+        +-array_expr_list=
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
@@ -766,7 +766,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column=$array.int32_val1#18
+        +-element_column_list=[$array.int32_val1#18]
 
 [REWRITTEN AST]
 QueryStmt
@@ -796,9 +796,9 @@ QueryStmt
                 +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
-                +-array_expr=
+                +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column=$flatten.injected#19
+                +-element_column_list=[$flatten.injected#19]
 ==
 
 [language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,TABLESAMPLE]
@@ -839,14 +839,14 @@ QueryStmt
         +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.repeated_int32_val#4]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
-        +-element_column=$array.repeated_int32_val#4
+        +-element_column_list=[$array.repeated_int32_val#4]
 --
 ALTERNATION GROUPS:
      as TestTable,,
@@ -868,14 +868,14 @@ QueryStmt
         +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.repeated_int32_val#4]
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="TestTable")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
-        +-element_column=$array.repeated_int32_val#4
+        +-element_column_list=[$array.repeated_int32_val#4]
 ==
 
 # This is to test how this feature works with subquery.
@@ -899,14 +899,14 @@ QueryStmt
             +-node_source="single_table_array_name_path"
             +-input_scan=
             | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="TestTable")
-            +-array_expr=
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
-            +-element_column=$array.original_alias#4
+            +-element_column_list=[$array.original_alias#4]
 ==
 
 # This is to demontrate that this feature does not work with correlated subquery.
@@ -934,7 +934,7 @@ QueryStmt
     |             +-column_list=[$array.e#6]
     |             +-input_scan=
     |             | +-TableScan(table=KeyValue)
-    |             +-array_expr=
+    |             +-array_expr_list=
     |             | +-Flatten
     |             |   +-type=ARRAY<INT64>
     |             |   +-expr=
@@ -951,7 +951,7 @@ QueryStmt
     |             |       | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>)
     |             |       +-field_descriptor=nested_repeated_int64
     |             |       +-default_value=[]
-    |             +-element_column=$array.e#6
+    |             +-element_column_list=[$array.e#6]
     +-input_scan=
       +-ProjectScan
         +-column_list=[TestTable.KitchenSink#3]

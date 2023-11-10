@@ -1162,3 +1162,496 @@ ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[unknown order:
     false
   }
 ]
+==
+
+[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE]
+[name=is_distinct_range_date]
+With RangeTable AS (
+  SELECT * FROM UNNEST([
+    STRUCT(RANGE<DATE> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATE> '[2020-01-01, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATE> '[2020-01-01, UNBOUNDED)' AS r1, RANGE<DATE> '[2020-01-01, UNBOUNDED)' AS r2),
+    STRUCT(RANGE<DATE> '[UNBOUNDED, 2020-01-02)' AS r1, RANGE<DATE> '[UNBOUNDED, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATE> '[UNBOUNDED, UNBOUNDED)' AS r1, RANGE<DATE> '[UNBOUNDED, UNBOUNDED)' AS r2),
+    STRUCT(RANGE<DATE> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATE> '[2020-01-01, UNBOUNDED)' AS r2),
+    STRUCT(RANGE<DATE> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATE> '[UNBOUNDED, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATE> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATE> '[UNBOUNDED, UNBOUNDED)' AS r2)
+  ]) AS r)
+SELECT
+  r1,
+  r2,
+  r1 IS DISTINCT FROM r2,
+  r2 IS DISTINCT FROM r1,
+  r1 IS NOT DISTINCT FROM r2,
+  r2 IS NOT DISTINCT FROM r1
+FROM RangeTable
+--
+ARRAY<STRUCT<r1 RANGE<DATE>, r2 RANGE<DATE>, BOOL, BOOL, BOOL, BOOL>>[unknown order:
+  {[NULL, NULL), [NULL, NULL), false, false, true, true},
+  {
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, 2020-01-02),
+    false,
+    false,
+    true,
+    true
+  },
+  {
+    [2020-01-01, 2020-01-02),
+    [2020-01-01, NULL),
+    true,
+    true,
+    false,
+    false
+  },
+  {[2020-01-01, NULL), [2020-01-01, NULL), false, false, true, true},
+  {
+    [2020-01-01, 2020-01-02),
+    [NULL, 2020-01-02),
+    true,
+    true,
+    false,
+    false
+  },
+  {[NULL, 2020-01-02), [NULL, 2020-01-02), false, false, true, true},
+  {
+    [2020-01-01, 2020-01-02),
+    [NULL, NULL),
+    true,
+    true,
+    false,
+    false
+  }
+]
+==
+
+[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE]
+[name=is_distinct_range_date_vs_null]
+With RangeTable AS (
+  SELECT * FROM UNNEST([
+    STRUCT(RANGE<DATE> '[2020-01-01, 2020-01-02)' AS r1, CAST(NULL AS RANGE<DATE>) AS r2),
+    STRUCT(CAST(NULL AS RANGE<DATE>), CAST(NULL AS RANGE<DATE>))
+  ]) AS r)
+SELECT
+  r1,
+  r2,
+  r1 IS DISTINCT FROM r2,
+  r2 IS DISTINCT FROM r1,
+  r1 IS NOT DISTINCT FROM r2,
+  r2 IS NOT DISTINCT FROM r1
+FROM RangeTable
+--
+ARRAY<STRUCT<r1 RANGE<DATE>, r2 RANGE<DATE>, BOOL, BOOL, BOOL, BOOL>>[unknown order:
+  {
+    [2020-01-01, 2020-01-02),
+    NULL,
+    true,
+    true,
+    false,
+    false
+  },
+  {NULL, NULL, false, false, true, true}
+]
+==
+
+[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=is_distinct_range_datetime]
+With RangeTable AS (
+  SELECT * FROM UNNEST([
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, UNBOUNDED)' AS r1, RANGE<DATETIME> '[2020-01-01, UNBOUNDED)' AS r2),
+    STRUCT(RANGE<DATETIME> '[UNBOUNDED, 2020-01-02)' AS r1, RANGE<DATETIME> '[UNBOUNDED, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)' AS r1, RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01 12:00:00.000005, 2020-01-02)' AS r1, RANGE<DATETIME> '[2020-01-01 12:00:00.000005, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[2020-01-01 00:00:00.000000, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[2020-01-01 12:00:00, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[2020-01-01 12:00:00.000001, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[2020-01-01, 2020-01-02 14:00:00)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[2020-01-01, 2020-01-02 14:00:00.000001)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[2020-01-01, 2020-01-02 00:00:00.000000)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[2020-01-01, UNBOUNDED)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[UNBOUNDED, 2020-01-02)' AS r2),
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)' AS r2)
+  ]) AS r)
+SELECT
+  r1,
+  r2,
+  r1 IS DISTINCT FROM r2,
+  r2 IS DISTINCT FROM r1,
+  r1 IS NOT DISTINCT FROM r2,
+  r2 IS NOT DISTINCT FROM r1
+FROM RangeTable
+--
+ARRAY<STRUCT<r1 RANGE<DATETIME>, r2 RANGE<DATETIME>, BOOL, BOOL, BOOL, BOOL>>[unknown order:
+  {[NULL, NULL), [NULL, NULL), false, false, true, true},
+  {[2020-01-01 00:00:00, 2020-01-02 00:00:00),
+   [
+     2020-01-01 12:00:00.000001,
+     2020-01-02 00:00:00
+   ),
+   true,
+   true,
+   false,
+   false},
+  {
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, NULL),
+    true,
+    true,
+    false,
+    false
+  },
+  {
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    false,
+    false,
+    true,
+    true
+  },
+  {[
+     2020-01-01 12:00:00.000005,
+     2020-01-02 00:00:00
+   ),
+   [
+     2020-01-01 12:00:00.000005,
+     2020-01-02 00:00:00
+   ),
+   false,
+   false,
+   true,
+   true},
+  {
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 14:00:00),
+    true,
+    true,
+    false,
+    false
+  },
+  {
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [NULL, 2020-01-02 00:00:00),
+    true,
+    true,
+    false,
+    false
+  },
+  {
+    [2020-01-01 00:00:00, NULL),
+    [2020-01-01 00:00:00, NULL),
+    false,
+    false,
+    true,
+    true
+  },
+  {
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    false,
+    false,
+    true,
+    true
+  },
+  {[2020-01-01 00:00:00, 2020-01-02 00:00:00),
+   [
+     2020-01-01 00:00:00,
+     2020-01-02 14:00:00.000001
+   ),
+   true,
+   true,
+   false,
+   false},
+  {
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [NULL, NULL),
+    true,
+    true,
+    false,
+    false
+  },
+  {
+    [NULL, 2020-01-02 00:00:00),
+    [NULL, 2020-01-02 00:00:00),
+    false,
+    false,
+    true,
+    true
+  },
+  {
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 12:00:00, 2020-01-02 00:00:00),
+    true,
+    true,
+    false,
+    false
+  },
+  {
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    false,
+    false,
+    true,
+    true
+  }
+]
+==
+
+[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=is_distinct_range_datetime_vs_null]
+With RangeTable AS (
+  SELECT * FROM UNNEST([
+    STRUCT(RANGE<DATETIME> '[2020-01-01, 2020-01-02)' AS r1, CAST(NULL AS RANGE<DATETIME>) AS r2),
+    STRUCT(CAST(NULL AS RANGE<DATETIME>) AS r1, CAST(NULL AS RANGE<DATETIME>) AS r2)
+  ]) AS r)
+SELECT
+  r1,
+  r2,
+  r1 IS DISTINCT FROM r2,
+  r2 IS DISTINCT FROM r1,
+  r1 IS NOT DISTINCT FROM r2,
+  r2 IS NOT DISTINCT FROM r1
+FROM RangeTable
+--
+ARRAY<STRUCT<r1 RANGE<DATETIME>, r2 RANGE<DATETIME>, BOOL, BOOL, BOOL, BOOL>>[unknown order:
+  {
+    [2020-01-01 00:00:00, 2020-01-02 00:00:00),
+    NULL,
+    true,
+    true,
+    false,
+    false
+  },
+  {NULL, NULL, false, false, true, true}
+]
+==
+
+[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE]
+[name=is_distinct_range_timestamp]
+With RangeTable AS (
+  SELECT * FROM UNNEST([
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, UNBOUNDED)' AS r1, RANGE<TIMESTAMP> '[2020-01-01, UNBOUNDED)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[UNBOUNDED, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[UNBOUNDED, 2020-01-02)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)' AS r1, RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01 12:00:00.000005, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01 12:00:00.000005, 2020-01-02)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01 12:00:00.000005+01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01 12:00:00.000005+01, 2020-01-02)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01 00:00:00.000000+00, 2020-01-02)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01 12:00:00, 2020-01-02)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01 12:00:00.000001, 2020-01-02)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01 00:00:00.000000+02, 2020-01-02)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02 14:00:00)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02 14:00:00.000001)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02 14:00:00.000001+00)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02 00:00:00.000000+00)' AS r2),
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02 00:00:00.000000+02)' AS r2)
+  ]) AS r)
+SELECT
+  r1,
+  r2,
+  r1 IS DISTINCT FROM r2,
+  r2 IS DISTINCT FROM r1,
+  r1 IS NOT DISTINCT FROM r2,
+  r2 IS NOT DISTINCT FROM r1
+FROM RangeTable
+--
+ARRAY<STRUCT<r1 RANGE<TIMESTAMP>, r2 RANGE<TIMESTAMP>, BOOL, BOOL, BOOL, BOOL>>[unknown order:
+  {[NULL, NULL), [NULL, NULL), false, false, true, true},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 20:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   true,
+   true,
+   false,
+   false},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 08:00:00+00,
+     2020-01-02 22:00:00.000001+00
+   ),
+   true,
+   true,
+   false,
+   false},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   false,
+   false,
+   true,
+   true},
+  {[
+     2020-01-01 20:00:00.000005+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 20:00:00.000005+00,
+     2020-01-02 08:00:00+00
+   ),
+   false,
+   false,
+   true,
+   true},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 20:00:00.000001+00,
+     2020-01-02 08:00:00+00
+   ),
+   true,
+   true,
+   false,
+   false},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 08:00:00+00,
+     2020-01-02 14:00:00.000001+00
+   ),
+   true,
+   true,
+   false,
+   false},
+  {[
+     2020-01-01 08:00:00+00,
+     NULL
+   ),
+   [
+     2020-01-01 08:00:00+00,
+     NULL
+   ),
+   false,
+   false,
+   true,
+   true},
+  {[
+     2020-01-01 11:00:00.000005+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 11:00:00.000005+00,
+     2020-01-02 08:00:00+00
+   ),
+   false,
+   false,
+   true,
+   true},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2019-12-31 22:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   true,
+   true,
+   false,
+   false},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 08:00:00+00,
+     2020-01-02 00:00:00+00
+   ),
+   true,
+   true,
+   false,
+   false},
+  {[
+     NULL,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     NULL,
+     2020-01-02 08:00:00+00
+   ),
+   false,
+   false,
+   true,
+   true},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 00:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   true,
+   true,
+   false,
+   false},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 08:00:00+00,
+     2020-01-02 22:00:00+00
+   ),
+   true,
+   true,
+   false,
+   false},
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   [
+     2020-01-01 08:00:00+00,
+     2020-01-01 22:00:00+00
+   ),
+   true,
+   true,
+   false,
+   false}
+]
+==
+
+[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE]
+[name=is_distinct_range_timestamp_vs_null]
+With RangeTable AS (
+  SELECT * FROM UNNEST([
+    STRUCT(RANGE<TIMESTAMP> '[2020-01-01, 2020-01-02)' AS r1, CAST(NULL AS RANGE<TIMESTAMP>) AS r2),
+    STRUCT(CAST(NULL AS RANGE<TIMESTAMP>) AS r1, CAST(NULL AS RANGE<TIMESTAMP>) AS r2)
+  ]) AS r)
+SELECT
+  r1,
+  r2,
+  r1 IS DISTINCT FROM r2,
+  r2 IS DISTINCT FROM r1,
+  r1 IS NOT DISTINCT FROM r2,
+  r2 IS NOT DISTINCT FROM r1
+FROM RangeTable
+--
+ARRAY<STRUCT<r1 RANGE<TIMESTAMP>, r2 RANGE<TIMESTAMP>, BOOL, BOOL, BOOL, BOOL>>[unknown order:
+  {[
+     2020-01-01 08:00:00+00,
+     2020-01-02 08:00:00+00
+   ),
+   NULL,
+   true,
+   true,
+   false,
+   false},
+  {NULL, NULL, false, false, true, true}
+]

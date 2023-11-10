@@ -1,0 +1,785 @@
+# This file contains the compliance test cases for INNER CORRESPONDING BY. Test
+# cases are divided into multiple sections.
+
+## ===== Start section: Literal and type coercion for INNER CORRESPONDING BY =====  ##
+
+# CORRESPONDING BY literal coercion INNER mode
+[name=corresponding_by_literal_coercion_inner]
+[default required_features=V_1_4_CORRESPONDING_BY]
+SELECT 1 AS b, 1 AS a
+UNION ALL CORRESPONDING BY (b)
+SELECT CAST(1 AS INT32) AS b
+--
+ARRAY<STRUCT<b INT32>>[unknown order:{1}, {1}]
+==
+
+# CORRESPONDING BY literal coercion INNER mode literal cocercion with subquery
+[name=corresponding_by_literal_coercion_inner_coercion_with_subquery]
+(
+  SELECT 1 AS a, 1 AS b
+  UNION ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS b, NULL AS a
+)
+UNION ALL CORRESPONDING BY (a, b)
+SELECT 1 AS b, CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, 1}, {1, 1}, {1, 1}]
+==
+
+# CORRESPONDING BY literal coercion INNER mode with three inputs but without padded NULL in any of the input
+[name=corresponding_by_literal_coercion_inner_three_inputs]
+SELECT NULL AS a
+UNION ALL CORRESPONDING BY (a)
+SELECT CAST(1 AS FLOAT) AS a
+UNION ALL CORRESPONDING BY (a)
+SELECT CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a DOUBLE>>[unknown order:{NULL}, {1}, {1}]
+==
+
+# CORRESPONDING BY Type coercion INNER mode basic type coercion
+[name=corresponding_by_type_coercion_inner_basic_type_coercion]
+SELECT CAST(1 AS INT64) AS a, 1 AS b
+UNION ALL CORRESPONDING BY (a)
+SELECT CAST(1 AS FLOAT) AS a
+--
+ARRAY<STRUCT<a DOUBLE>>[unknown order:{1}, {1}]
+==
+
+# CORRESPONDING BY Type coercion INNER mode three inputs
+[name=corresponding_by_type_coercion_inner_three_inputs]
+SELECT CAST(1 AS INT64) AS a, 1 AS b, 1 AS c
+UNION ALL CORRESPONDING BY (a, b)
+SELECT 1 AS b, CAST(1 AS FLOAT) AS a, 1 AS e
+UNION ALL CORRESPONDING BY (a, b)
+SELECT 1 AS d, CAST(1 AS INT32) AS a, 1 AS b
+--
+ARRAY<STRUCT<a DOUBLE, b INT64>>[unknown order:{1, 1}, {1, 1}, {1, 1}]
+==
+
+# CORRESPONDING BY Type coercion INNER mode with subquery
+[name=corresponding_by_type_coercion_inner_subquery]
+SELECT 1 AS d, CAST(1 AS FLOAT) AS b, CAST(1 AS INT64) AS a
+UNION ALL CORRESPONDING BY (b, a)
+(
+  SELECT CAST(1 AS FLOAT) AS a, CAST(1 AS INT32) AS b
+  UNION ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS c, CAST(1 AS INT64) AS b, NULL AS a
+)
+--
+ARRAY<STRUCT<b DOUBLE, a DOUBLE>>[unknown order:{1, 1}, {1, 1}, {1, NULL}]
+==
+
+# INNER CORRESPONDING BY type coercion: non-selected columns are allowed to have incompatible types
+[name=inner_corresponding_by_type_coercion_non_selected_columns]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT32) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 2
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS a, 's' AS b, 's' AS c
+    UNION ALL
+    SELECT 1, 't', 't'
+  ),
+  Table3 AS (
+    SELECT CAST(1 AS FLOAT) AS a, CAST(1.0 AS DOUBLE) AS c
+    UNION ALL
+    SELECT 1, 2.0
+  )
+SELECT a, b FROM Table1
+UNION ALL CORRESPONDING BY (a)
+SELECT a, b, c FROM Table2
+UNION ALL CORRESPONDING BY (a)
+SELECT a, c FROM Table3
+--
+ARRAY<STRUCT<a DOUBLE>>[unknown order:{1}, {1}, {1}, {1}, {1}, {1}]
+==
+
+# INNER CORRESPONDING BY literal and type coercion: by list does not include all the available columns
+[name=inner_corresponding_by_type_coercion_sub_by_list]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT32) AS a, 's' AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 't', 1
+  )
+SELECT 1 AS a, 1 AS b, CAST(1 AS INT32) AS c
+UNION DISTINCT CORRESPONDING BY (c, a)
+SELECT c, a, b FROM Table1
+--
+ARRAY<STRUCT<c INT64, a INT32>>[{1, 1}]
+==
+
+## ===== Start section: EXCEPT (ALL|DISTINCT) for INNER CORRESPONDING BY =====  ##
+
+# INNER CORRESPONDING BY scans don't have extra columns [row, row] EXCEPT ALL [row] = [row]
+[name=inner_corresponding_by_scans_no_extra_columns_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row, row] EXCEPT ALL [row, row] = []
+[name=inner_corresponding_by_scans_no_extra_columns_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row] EXCEPT ALL [row, row] = []
+[name=inner_corresponding_by_scans_no_extra_columns_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=inner_corresponding_by_scans_no_extra_columns_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row, row] EXCEPT DISTINCT [row] = []
+[name=inner_corresponding_by_scans_no_extra_columns_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=inner_corresponding_by_scans_no_extra_columns_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row, row] EXCEPT ALL [row] = [row]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+EXCEPT ALL CORRESPONDING BY (c, a)
+SELECT 2 AS b, 1 AS a, 2 AS b, 1 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row, row] EXCEPT ALL [row, row] = []
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+EXCEPT ALL CORRESPONDING BY (c, a)
+SELECT b, a, b, c FROM Table1
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row] EXCEPT ALL [row, row] = []
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT 1 AS a, 2 AS b, 2 AS b, 1 AS c
+EXCEPT ALL CORRESPONDING BY (c, a)
+SELECT b, a, b, c FROM Table1
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+EXCEPT ALL CORRESPONDING BY (c, a)
+SELECT 1 AS b, 2 AS a, 1 AS b, 2 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row, row] EXCEPT DISTINCT [row] = []
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+EXCEPT DISTINCT CORRESPONDING BY (c, a)
+SELECT 2 AS b, 1 AS a, 2 AS b, 1 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+EXCEPT DISTINCT CORRESPONDING BY (c, a)
+SELECT 1 AS b, 2 AS a, 1 AS b, 2 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row, row] EXCEPT ALL [row] = [row]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_except_all_2row_1row]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row, row] EXCEPT ALL [row, row] = []
+[name=inner_corresponding_by_scans_contain_anonymous_columns_except_all_2row_2row]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+EXCEPT ALL CORRESPONDING BY (b, a)
+(
+  SELECT
+    CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c, 't'
+  UNION ALL
+  SELECT 1, 1, 2, 't'
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row] EXCEPT ALL [row, row] = []
+[name=inner_corresponding_by_scans_contain_anonymous_columns_except_all_1row_2row]
+SELECT 2, 1 AS a, 1 AS b
+EXCEPT ALL CORRESPONDING BY (b, a)
+(
+  SELECT
+    CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c, 't'
+  UNION ALL
+  SELECT 1, 1, 2, 't'
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_except_all_2row_different_row]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row, row] EXCEPT DISTINCT [row] = []
+[name=inner_corresponding_by_scans_contain_anonymous_columns_except_distinct_2row_1row]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+EXCEPT DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_except_distinct_2row_different_row]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+EXCEPT DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+## ===== Start section: UNION (ALL|DISTINCT) for INNER CORRESPONDING BY =====  ##
+
+# INNER CORRESPONDING BY scans don't have extra columns [row1] UNION ALL [row2] = [row1, row2]
+[name=inner_corresponding_by_scans_no_extra_columns_union_all_basic]
+SELECT 1 AS a, 1 AS b
+UNION ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row1, row1] union distinct [row1] = [row1]
+[name=inner_corresponding_by_scans_no_extra_columns_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row1] union distinct [row2] = [row1, row2]
+[name=inner_corresponding_by_scans_no_extra_columns_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b
+UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row1] UNION ALL [row2] = [row1, row2]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_union_all_basic]
+SELECT 1 AS a, 2 AS b, 2 AS b, 1 AS c
+UNION ALL CORRESPONDING BY (c, a)
+SELECT 2 AS b, 1 AS a, 2 AS b, 1 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row1, row1] union distinct [row1] = [row1]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+UNION DISTINCT CORRESPONDING BY (c, a)
+SELECT 2 AS b, 1 AS a, 2 AS b, 1 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row1] union distinct [row2] = [row1, row2]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_union_distinct_different_rows]
+SELECT 1 AS a, 2 AS b, 2 AS b, 1 AS c
+UNION DISTINCT CORRESPONDING BY (c, a)
+SELECT 1 AS b, 2 AS a, 1 AS b, 2 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row1] UNION ALL [row2] = [row1, row2]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_union_all_basic]
+SELECT 2, 1 AS a, 1 AS b
+UNION ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a, 2 AS c, 2
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row1, row1] union distinct [row1] = [row1]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_union_distinct_same_row]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row1] union distinct [row2] = [row1, row2]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_union_distinct_different_rows]
+SELECT 2, 1 AS a, 1 AS b
+UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+## ===== Start section: INTERSECT (ALL|DISTINCT) for INNER CORRESPONDING BY =====  ##
+
+# INNER CORRESPONDING BY scans don't have extra columns [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=inner_corresponding_by_scans_no_extra_columns_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row, row] INTERSECT ALL [row] = [row]
+[name=inner_corresponding_by_scans_no_extra_columns_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row1, row1] INTERSECT ALL [row2] = []
+[name=inner_corresponding_by_scans_no_extra_columns_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=inner_corresponding_by_scans_no_extra_columns_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row, row] INTERSECT DISTINCT [row] = [row]
+[name=inner_corresponding_by_scans_no_extra_columns_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans don't have extra columns [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=inner_corresponding_by_scans_no_extra_columns_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+INTERSECT ALL CORRESPONDING BY (c, a)
+SELECT b, a, b, c FROM Table1
+--
+ARRAY<STRUCT<c INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row, row] INTERSECT ALL [row] = [row]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+INTERSECT ALL CORRESPONDING BY (c, a)
+SELECT 2 AS b, 1 AS a, 2 AS b, 1 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row1, row1] INTERSECT ALL [row2] = []
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+INTERSECT ALL CORRESPONDING BY (c, a)
+SELECT 1 AS b, 2 AS a, 1 AS b, 2 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+INTERSECT DISTINCT CORRESPONDING BY (c, a)
+SELECT b, a, b, c FROM Table1
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row, row] INTERSECT DISTINCT [row] = [row]
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+INTERSECT DISTINCT CORRESPONDING BY (c, a)
+SELECT 2 AS b, 1 AS a, 2 AS b, 1 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY the by list is a sub list of the available output columns, non-selected columns have duplicates [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=inner_corresponding_by_by_list_is_sub_list_of_available_columns_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, b, c FROM Table1
+INTERSECT DISTINCT CORRESPONDING BY (c, a)
+SELECT 1 AS b, 2 AS a, 1 AS b, 2 AS c
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_intersect_all_multiple_same_rows]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+INTERSECT ALL CORRESPONDING BY (b, a)
+(
+  SELECT
+    CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c, 't'
+  UNION ALL
+  SELECT 1, 1, 2, 't'
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row, row] INTERSECT ALL [row] = [row]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_intersect_all_single_same_row]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row1, row1] INTERSECT ALL [row2] = []
+[name=inner_corresponding_by_scans_contain_anonymous_columns_intersect_all_different_rows]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_intersect_distinct_multiple_same_rows]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+INTERSECT DISTINCT CORRESPONDING BY (b, a)
+(
+  SELECT
+    CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c, 't'
+  UNION ALL
+  SELECT 1, 1, 2, 't'
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row, row] INTERSECT DISTINCT [row] = [row]
+[name=inner_corresponding_by_scans_contain_anonymous_columns_intersect_distinct_single_same_row]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# INNER CORRESPONDING BY scans contain anonymous columns [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=inner_corresponding_by_scans_contain_anonymous_columns_intersect_distinct_different_rows]
+(
+  SELECT CAST(2 AS INT64), CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b
+  UNION ALL
+  SELECT 2, 1, 1
+)
+INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+## ===== Start section: Multiple inputs for INNER CORRESPONDING BY =====  ##
+
+# Three input CORRESPONDING BY: INNER mode basic test case with dropped columns
+[name=three_input_corresponding_by_inner_basic test case with dropped columns]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(1 AS DOUBLE) AS b, CAST(100 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 101
+  ),
+  Table2 AS (
+    SELECT
+      CAST(2 AS INT64) AS a,
+      CAST(2 AS INT64) AS b,
+      CAST(102 AS INT64) AS c,
+      CAST(100 AS INT64) AS d
+    UNION ALL
+    SELECT 2, 2, 103, 101
+  ),
+  Table3 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS DOUBLE) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b, c FROM Table1
+UNION ALL CORRESPONDING BY (b, a)
+SELECT d, a, c, b FROM Table2
+UNION ALL CORRESPONDING BY (b, a)
+SELECT b, a FROM Table3
+--
+ARRAY<STRUCT<b DOUBLE, a INT64>>[unknown order:
+  {1, 1},
+  {1, 1},
+  {2, 2},
+  {2, 2},
+  {1, 1},
+  {1, 1}
+]
+==
+
+# Three input CORRESPONDING BY: INNER mode non-selected columns have different types
+[name=three_input_corresponding_by_inner_non-selected columns have different types]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, 'a' AS c
+    UNION ALL
+    SELECT 1, 1, 'b'
+  ),
+  Table2 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(102 AS FLOAT) AS c
+    UNION ALL
+    SELECT 2, 2, 103
+  ),
+  Table3 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(100 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 101
+  )
+SELECT a, b, c FROM Table1
+UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT c, b, a FROM Table2
+UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT a, c, b FROM Table3
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {2, 2}]

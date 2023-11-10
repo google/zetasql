@@ -1115,11 +1115,8 @@ static absl::StatusOr<bool> ArrayZipSignatureHasLambda(
     case FN_ARRAY_ZIP_FOUR_ARRAY:
       return false;
     case FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA:
-    case FN_ARRAY_ZIP_TWO_ARRAY_MODE_LAMBDA:
     case FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA:
-    case FN_ARRAY_ZIP_THREE_ARRAY_MODE_LAMBDA:
     case FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA:
-    case FN_ARRAY_ZIP_FOUR_ARRAY_MODE_LAMBDA:
       return true;
     default:
       ZETASQL_RET_CHECK_FAIL() << "Invalid ARRAY_ZIP signature "
@@ -1143,15 +1140,21 @@ static absl::StatusOr<const Type*> ComputeArrayZipOutputType(
   }
   std::vector<StructField> fields;
   fields.reserve(arguments.size());
-  for (int i = 0; i < arguments.size(); ++i) {
-    const Type* argument_type = arguments[i].type();
-    // Only the last argument can be non-array.
-    if (i == arguments.size() - 1 && argument_type->IsEnum()) {
-      continue;
+  // Must at least have two arrays and one array_zip_mode.
+  ZETASQL_RET_CHECK_GE(arguments.size(), 3);
+  for (int i = 0; i < arguments.size() - 1; ++i) {
+    const Type* element_type;
+    if (arguments[i].is_untyped()) {
+      // NULL Literals (`NULL`), NULL query parameters (e.g. `SET @mode =
+      // NULL`), and empty array literals (`[]`) are interpreted as
+      // ARRAY<INT64>.
+      element_type = type_factory->get_int64();
+    } else {
+      ZETASQL_RET_CHECK(arguments[i].type());
+      element_type = arguments[i].type()->AsArray()->element_type();
     }
-    ZETASQL_RET_CHECK(argument_type->IsArray());
-    fields.push_back(StructField(arguments[i].argument_alias()->ToString(),
-                                 argument_type->AsArray()->element_type()));
+    fields.push_back(
+        StructField(arguments[i].argument_alias()->ToString(), element_type));
   }
 
   const StructType* element_type = nullptr;
@@ -1238,7 +1241,7 @@ static void AddArrayZipNoLambdaSignatures(
           .set_default(Value::Enum(
               array_zip_mode_type->AsEnum(),
               static_cast<int>(zetasql::functions::ArrayZipEnums::STRICT)))
-          .set_argument_name("mode", kPositionalOrNamed));
+          .set_argument_name("mode", kNamedOnly));
 
   // The result annotations are calculated by the custom annotation callback, so
   // all array arguments should have `argument_collation_mode` = AFFECTS_NONE.
@@ -1444,9 +1447,13 @@ static void AddArrayZipModeLambdaSignatures(
     const Type* array_zip_mode_type,
     const ZetaSQLBuiltinFunctionOptions& options,
     std::vector<FunctionSignatureOnHeap>& signatures) {
-  FunctionArgumentType array_zip_mode_arg(
-      array_zip_mode_type, FunctionArgumentTypeOptions().set_argument_name(
-                               "mode", kPositionalOrNamed));
+  FunctionArgumentType array_zip_mode_arg = FunctionArgumentType(
+      array_zip_mode_type,
+      FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+          .set_default(Value::Enum(
+              array_zip_mode_type->AsEnum(),
+              static_cast<int>(zetasql::functions::ArrayZipEnums::STRICT)))
+          .set_argument_name("mode", kNamedOnly));
   // The return type (including annotations) is determined by the lambda,
   // so all array arguments must have `argument_collation_mode` =
   // AFFECTS_NONE. However, currently lambda does not propagate collations:
@@ -1478,33 +1485,8 @@ static void AddArrayZipModeLambdaSignatures(
       FunctionArgumentTypeOptions().set_argument_name("transformation",
                                                       kPositionalOrNamed));
 
-  // 2 array without mode: ARRAY_ZIP(ARRA<T1>, ARRAY<T2>, transformation =>
-  // LAMBDA(T1, T2) -> T3)) -> ARRAY<T3>.
-  constexpr absl::string_view kTwoArrayNoMode = R"sql(
-      IF(
-        (input_array_1 IS NULL) OR (input_array_2 IS NULL),
-        NULL,
-        IF(
-          ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2),
-          ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
-          ARRAY(
-            SELECT transformation(e1, e2)
-            FROM UNNEST(input_array_1) AS e1 WITH OFFSET
-            INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
-              USING (offset)
-            ORDER BY offset
-          )))
-      )sql";
-  signatures.push_back(FunctionSignatureOnHeap(
-      ARG_ARRAY_TYPE_ANY_3,
-      {input_array_1, input_array_2, two_array_transformation},
-      FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA,
-      SetDefinitionForInlining(
-          kTwoArrayNoMode,
-          IsRewriteEnabled(FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA, options))));
-
-  // 2 array with mode: ARRAY_ZIP(ARRAY<T1>, ARRAY<T2>, mode => <mode>,
-  // transformation => LAMBDA(T1, T2) -> T3) -> ARRAY<T3>
+  // 2 array with mode: ARRAY_ZIP(ARRAY<T1>, ARRAY<T2>, LAMBDA(T1, T2) -> T3,
+  // ARRAY_ZIP_MODE) -> ARRAY<T3>
   constexpr absl::string_view kTwoArrayWithMode = R"sql(
       IF(
         (input_array_1 IS NULL) OR (input_array_2 IS NULL) OR (mode IS NULL),
@@ -1545,12 +1527,12 @@ static void AddArrayZipModeLambdaSignatures(
       )sql";
   signatures.push_back(FunctionSignatureOnHeap(
       ARG_ARRAY_TYPE_ANY_3,
-      {input_array_1, input_array_2, array_zip_mode_arg,
-       two_array_transformation},
-      FN_ARRAY_ZIP_TWO_ARRAY_MODE_LAMBDA,
+      {input_array_1, input_array_2, two_array_transformation,
+       array_zip_mode_arg},
+      FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA,
       SetDefinitionForInlining(
           kTwoArrayWithMode,
-          IsRewriteEnabled(FN_ARRAY_ZIP_TWO_ARRAY_MODE_LAMBDA, options))));
+          IsRewriteEnabled(FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA, options))));
 
   FunctionArgumentType input_array_3(
       ARG_ARRAY_TYPE_ANY_3,
@@ -1564,37 +1546,8 @@ static void AddArrayZipModeLambdaSignatures(
           FunctionArgumentTypeOptions().set_argument_name("transformation",
                                                           kPositionalOrNamed));
 
-  // 3-array without mode: ARRAY_ZIP(array<T1>, array<T2>, array<T3>, LAMBDA(T1,
-  // T2, T3) -> T4) -> ARRAY<T4>
-  constexpr absl::string_view kThreeArrayNoMode = R"sql(
-      IF(
-        (input_array_1 IS NULL) OR (input_array_2 IS NULL)
-        OR (input_array_3 IS NULL),
-        NULL,
-        IF(
-          ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2)
-          OR ARRAY_LENGTH(input_array_2) != ARRAY_LENGTH(input_array_3),
-          ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
-          ARRAY(
-            SELECT transformation(e1, e2, e3)
-            FROM UNNEST(input_array_1) AS e1 WITH OFFSET
-            INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
-              USING (offset)
-            INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
-              USING (offset)
-            ORDER BY offset
-          )))
-      )sql";
-  signatures.push_back(FunctionSignatureOnHeap(
-      ARG_ARRAY_TYPE_ANY_4,
-      {input_array_1, input_array_2, input_array_3, three_array_transformation},
-      FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA,
-      SetDefinitionForInlining(
-          kThreeArrayNoMode,
-          IsRewriteEnabled(FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA, options))));
-
   // 3-array with mode: ARRAY_ZIP(array<T1>, array<T2>, array<T3>,
-  // ARRAY_ZIP_MODE, LAMBDA(T1, T2, T3) -> T4) -> ARRAY<T4>
+  // LAMBDA(T1, T2, T3) -> T4[, ARRAY_ZIP_MODE]) -> ARRAY<T4>
   constexpr absl::string_view kThreeArrayWithMode = R"sql(
       IF(
         (input_array_1 IS NULL) OR (input_array_2 IS NULL)
@@ -1643,12 +1596,12 @@ static void AddArrayZipModeLambdaSignatures(
       )sql";
   signatures.push_back(FunctionSignatureOnHeap(
       ARG_ARRAY_TYPE_ANY_4,
-      {input_array_1, input_array_2, input_array_3, array_zip_mode_arg,
-       three_array_transformation},
-      FN_ARRAY_ZIP_THREE_ARRAY_MODE_LAMBDA,
+      {input_array_1, input_array_2, input_array_3, three_array_transformation,
+       array_zip_mode_arg},
+      FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA,
       SetDefinitionForInlining(
           kThreeArrayWithMode,
-          IsRewriteEnabled(FN_ARRAY_ZIP_THREE_ARRAY_MODE_LAMBDA, options))));
+          IsRewriteEnabled(FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA, options))));
 
   FunctionArgumentType input_array_4(
       ARG_ARRAY_TYPE_ANY_4,
@@ -1661,41 +1614,8 @@ static void AddArrayZipModeLambdaSignatures(
       FunctionArgumentTypeOptions().set_argument_name("transformation",
                                                       kPositionalOrNamed));
 
-  // 4-array without mode: ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>,
-  // LAMBDA(T1, T2, T3, T4) -> T5) -> ARRAY<T5>
-  constexpr absl::string_view kFourArrayNoMode = R"sql(
-      IF(
-        (input_array_1 IS NULL) OR (input_array_2 IS NULL)
-        OR (input_array_3 IS NULL) OR (input_array_4 IS NULL),
-        NULL,
-        IF(
-          ARRAY_LENGTH(input_array_1) != ARRAY_LENGTH(input_array_2)
-          OR ARRAY_LENGTH(input_array_2) != ARRAY_LENGTH(input_array_3)
-          OR ARRAY_LENGTH(input_array_3) != ARRAY_LENGTH(input_array_4),
-          ERROR('Unequal array length in ARRAY_ZIP using STRICT mode'),
-          ARRAY(
-            SELECT transformation(e1, e2, e3, e4)
-            FROM UNNEST(input_array_1) AS e1 WITH OFFSET
-            INNER JOIN UNNEST(input_array_2) AS e2 WITH OFFSET
-              USING (offset)
-            INNER JOIN UNNEST(input_array_3) AS e3 WITH OFFSET
-              USING (offset)
-            INNER JOIN UNNEST(input_array_4) AS e4 WITH OFFSET
-              USING (offset)
-            ORDER BY offset
-          )))
-      )sql";
-  signatures.push_back(FunctionSignatureOnHeap(
-      ARG_ARRAY_TYPE_ANY_5,
-      {input_array_1, input_array_2, input_array_3, input_array_4,
-       four_array_transformation},
-      FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA,
-      SetDefinitionForInlining(
-          kFourArrayNoMode,
-          IsRewriteEnabled(FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA, options))));
-
   // 4-array with mode: ARRAY_ZIP(array<T1>, array<T2>, array<T3>, array<T4>,
-  // ARRAY_ZIP_MODE, LAMBDA(T1, T2, T3, T4) -> T5) -> ARRAY<T5>
+  // LAMBDA(T1, T2, T3, T4) -> T5[, ARRAY_ZIP_MODE]) -> ARRAY<T5>
   constexpr absl::string_view kFourArrayWithMode = R"sql(
       IF(
         (input_array_1 IS NULL) OR (input_array_2 IS NULL)
@@ -1752,11 +1672,11 @@ static void AddArrayZipModeLambdaSignatures(
   signatures.push_back(FunctionSignatureOnHeap(
       ARG_ARRAY_TYPE_ANY_5,
       {input_array_1, input_array_2, input_array_3, input_array_4,
-       array_zip_mode_arg, four_array_transformation},
-      FN_ARRAY_ZIP_FOUR_ARRAY_MODE_LAMBDA,
+       four_array_transformation, array_zip_mode_arg},
+      FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA,
       SetDefinitionForInlining(
           kFourArrayWithMode,
-          IsRewriteEnabled(FN_ARRAY_ZIP_FOUR_ARRAY_MODE_LAMBDA, options))));
+          IsRewriteEnabled(FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA, options))));
 }
 
 absl::Status GetArrayZipFunctions(

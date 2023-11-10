@@ -25,9 +25,11 @@
 #include <type_traits>
 
 #include "zetasql/common/errors.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
@@ -384,6 +386,10 @@ absl::StatusOr<RangeBoundaries<T>> DeserializeRangeFromBytes(
 
   const char* data = reinterpret_cast<const char*>(bytes.data());
   // Read the header.
+  if (ABSL_PREDICT_FALSE(bytes.size() < sizeof(uint8_t))) {
+    return absl::InvalidArgumentError(
+        "Too few bytes to read RANGE content (needed at least 1)");
+  }
   uint8_t header = zetasql_base::LittleEndian::Load<uint8_t>(bytes.data());
   data += sizeof(header);
   const size_t encoded_range_size =

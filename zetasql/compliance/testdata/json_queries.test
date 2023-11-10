@@ -584,7 +584,7 @@ ARRAY<STRUCT<JSON>>[{[{"a":[]},{"b":20}]}]
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
 SELECT JSON_SET(JSON '{"a": 10}')
 --
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...]) [at 1:8]
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...], [create_if_missing => BOOL]) [at 1:8]
 SELECT JSON_SET(JSON '{"a": 10}')
        ^
 ==
@@ -592,7 +592,7 @@ SELECT JSON_SET(JSON '{"a": 10}')
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
 SELECT JSON_SET(JSON '{"a": 10}', "$.a")
 --
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...]) [at 1:8]
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...], [create_if_missing => BOOL]) [at 1:8]
 SELECT JSON_SET(JSON '{"a": 10}', "$.a")
        ^
 ==
@@ -600,9 +600,9 @@ SELECT JSON_SET(JSON '{"a": 10}', "$.a")
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
 SELECT JSON_SET(JSON '{"a": 10}', "$.a", 20, "$.b")
 --
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...]) [at 1:8]
+ERROR: generic::invalid_argument: Positional argument is invalid because this function restricts that this argument is referred to by name "create_if_missing" only [at 1:46]
 SELECT JSON_SET(JSON '{"a": 10}', "$.a", 20, "$.b")
-       ^
+                                             ^
 ==
 [name=json_set_one_value]
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
@@ -615,6 +615,12 @@ ARRAY<STRUCT<JSON>>[{{"a":10,"b":{"c":"foo"}}}]
 SELECT JSON_SET(JSON '{"a": 10}', "$.b.c[2]", "foo", "$[1]", 20, "$.b.c[0]", STRUCT(1 AS a, "foo" AS b))
 --
 ARRAY<STRUCT<JSON>>[{{"a":10,"b":{"c":[{"a":1,"b":"foo"},null,"foo"]}}}]
+==
+[name=json_set_create_if_missing_false]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,NAMED_ARGUMENTS]
+SELECT JSON_SET(JSON '{"a": 10}', "$.a", "foo", "$.b", 20, create_if_missing=>false)
+--
+ARRAY<STRUCT<JSON>>[{{"a":"foo"}}]
 ==
 [name=json_strip_nulls_include_arrays_error]
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
@@ -795,3 +801,21 @@ SELECT JSON_ARRAY_APPEND(JSON '{"a": [10, null]}', "$.a", 10, append_each_elemen
 ERROR: generic::invalid_argument: Call to function ZetaSQL:json_array_append must not specify positional arguments after named arguments; named arguments must be specified last in the argument list [at 1:63]
 ...JSON '{"a": [10, null]}', "$.a", 10, append_each_element=>false, "$.b", 20)
                                         ^
+==
+[name=json_extract_path_constant_expression]
+[required_features=JSON_TYPE,ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH]
+SELECT JSON_EXTRACT(JSON '{"a": 1}', TRIM(" $.a"))
+--
+ARRAY<STRUCT<JSON>>[{1}]
+==
+[name=json_value_path_constant_expression]
+[required_features=JSON_TYPE,ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH]
+SELECT JSON_VALUE(JSON '{"a": 1}', TRIM(" $.a"))
+--
+ARRAY<STRUCT<STRING>>[{"1"}]
+==
+[name=json_remove_path_constant_expression]
+[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH]
+SELECT JSON_REMOVE(JSON '{"a":1, "b":2}', TRIM(" $.a"), TRIM(" $.b"), "$.c")
+--
+ARRAY<STRUCT<JSON>>[{{}}]

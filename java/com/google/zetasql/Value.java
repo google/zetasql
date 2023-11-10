@@ -45,6 +45,7 @@ import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLValue.ValueProto;
 import com.google.zetasql.ZetaSQLValue.ValueProto.Array;
 import com.google.zetasql.ZetaSQLValue.ValueProto.Datetime;
+import com.google.zetasql.ZetaSQLValue.ValueProto.Range;
 import com.google.zetasql.ZetaSQLValue.ValueProto.Struct;
 import com.google.zetasql.ZetaSQLValue.ValueProto.ValueCase;
 import java.io.ByteArrayOutputStream;
@@ -84,7 +85,6 @@ import java.util.Objects;
  *
  * <p>TODO: add public getters/setters for timestamps that have nanoseconds precision.
  */
-// TODO: Support RANGE type.
 @Immutable
 public class Value implements Serializable {
   private final Type type;
@@ -94,6 +94,10 @@ public class Value implements Serializable {
   private final ImmutableList<Value> fields;
   // Elements of an array Value.
   private final ImmutableList<Value> elements;
+  // Start element of a range Value.
+  private final Value start;
+  // End element of a range Value.
+  private final Value end;
   // Deserialized NUMERIC/BIGNUMERIC value if the type is TYPE_NUMERIC or TYPE_BIGNUMERIC.
   private final BigDecimal numericValue;
   // Deserialized INTERVAL value if the type is TYPE_INTERVAL.
@@ -126,6 +130,8 @@ public class Value implements Serializable {
     this.elements = null;
     this.numericValue = null;
     this.intervalValue = null;
+    this.start = null;
+    this.end = null;
   }
 
   /** Creates a Value of given type and proto value. */
@@ -137,6 +143,8 @@ public class Value implements Serializable {
     this.elements = null;
     this.numericValue = null;
     this.intervalValue = null;
+    this.start = null;
+    this.end = null;
   }
 
   /**
@@ -151,6 +159,8 @@ public class Value implements Serializable {
     this.elements = ImmutableList.copyOf(elements);
     this.numericValue = null;
     this.intervalValue = null;
+    this.start = null;
+    this.end = null;
   }
 
   /**
@@ -165,6 +175,24 @@ public class Value implements Serializable {
     this.elements = null;
     this.numericValue = null;
     this.intervalValue = null;
+    this.start = null;
+    this.end = null;
+  }
+
+  /**
+   * Creates a range of a given type, proto and fields. Assuming the proto contains the serialized
+   * start and end values.
+   */
+  private Value(RangeType type, ValueProto proto, Value start, Value end) {
+    this.type = checkNotNull(type);
+    this.proto = checkNotNull(proto);
+    this.isNull = Value.isNullValue(proto);
+    this.fields = null;
+    this.elements = null;
+    this.numericValue = null;
+    this.intervalValue = null;
+    this.start = start;
+    this.end = end;
   }
 
   /** Creates a value of type NUMERIC or BIGNUMERIC. */
@@ -176,6 +204,8 @@ public class Value implements Serializable {
     this.elements = null;
     this.numericValue = numericValue;
     this.intervalValue = null;
+    this.start = null;
+    this.end = null;
   }
 
   /** Creates a value of type INTERVAL. */
@@ -187,6 +217,8 @@ public class Value implements Serializable {
     this.elements = null;
     this.numericValue = null;
     this.intervalValue = intervalValue;
+    this.start = null;
+    this.end = null;
   }
 
   private static IllegalArgumentException typeMismatchException(Type type, ValueProto proto) {
@@ -452,6 +484,16 @@ public class Value implements Serializable {
     return elements;
   }
 
+  /** Returns the range start element, if the type is range. */
+  public Value start() {
+    return start;
+  }
+
+  /** Returns the range end element, if the type is range. */
+  public Value end() {
+    return end;
+  }
+
   /**
    * Returns false if 'this' and 'other' have different type kinds.
    *
@@ -582,6 +624,11 @@ public class Value implements Serializable {
           return other.getJsonValue().equals(getJsonValue());
         }
         return false;
+      case TYPE_RANGE:
+        if (other.getType().equivalent(type)) {
+          return other.start().equals(start()) && other.end().equals(end());
+        }
+        return false;
       default:
         throw new IllegalStateException("Shouldn't happen: compare with unsupported type " + type);
     }
@@ -658,6 +705,11 @@ public class Value implements Serializable {
         return intervalValue.hashCode();
       case TYPE_JSON:
         return getJsonValue().hashCode();
+      case TYPE_RANGE:
+        ImmutableList<HashCode> hashCodes =
+            ImmutableList.of(
+                HashCode.fromInt(start().hashCode()), HashCode.fromInt(end().hashCode()));
+        return Hashing.combineOrdered(hashCodes).asInt();
       default:
         // Shouldn't happen, but it's a bad idea to throw from hashCode().
         return super.hashCode();
@@ -763,6 +815,17 @@ public class Value implements Serializable {
           } catch (InvalidProtocolBufferException e) {
             return (verbose ? name : "") + "{<unparseable>}";
           }
+        }
+      case TYPE_RANGE:
+        {
+          if (isNull()) {
+            return verbose
+                ? String.format(
+                    "Range<%s>(NULL)", getType().asRange().getElementType().debugString(false))
+                : "NULL";
+          }
+          String result = start().debugString(verbose) + ", " + end().debugString(verbose);
+          return String.format("%s%s)", verbose ? "Range[" : "[", result);
         }
       default:
         throw new IllegalStateException(
@@ -942,6 +1005,9 @@ public class Value implements Serializable {
       }
       return String.format("%s[%s]", type.typeName(), Joiner.on(", ").join(elementsSql));
     }
+    if (type.isRange()) {
+      return String.format("RANGE(%s, %s)", start().getSQL(), end().getSQL());
+    }
 
     return s;
   }
@@ -1027,6 +1093,13 @@ public class Value implements Serializable {
         elementsSql.add(element.getSQLLiteral());
       }
       return String.format("[%s]", Joiner.on(", ").join(elementsSql));
+    }
+    if (type.isRange()) {
+      return String.format(
+          "%s \"[%s, %s)\"",
+          type.typeName(),
+          ZetaSQLStrings.convertSimpleValueToString(start(), /* verbose= */ false),
+          ZetaSQLStrings.convertSimpleValueToString(end(), /* verbose= */ false));
     }
 
     return s;
@@ -1262,6 +1335,17 @@ public class Value implements Serializable {
           throw typeMismatchException(type, proto);
         }
         break;
+      case TYPE_RANGE:
+        if (!proto.hasRangeValue()) {
+          throw typeMismatchException(type, proto);
+        }
+        Type elementType = type.asRange().getElementType();
+        return new Value(
+            type.asRange(),
+            proto,
+            deserialize(elementType, proto.getRangeValue().getStart()),
+            deserialize(elementType, proto.getRangeValue().getEnd()));
+
       default:
         throw new IllegalArgumentException("Should not happen: unsupported type " + type);
     }
@@ -1302,6 +1386,10 @@ public class Value implements Serializable {
           }
           return true;
         }
+      case TYPE_RANGE:
+        Type elementType = type.asRange().getElementType();
+        return isSupportedTypeKind(elementType)
+            && RangeType.isValidElementType(elementType.getKind());
       default:
         return false;
     }
@@ -1530,7 +1618,7 @@ public class Value implements Serializable {
     int i = 0;
     for (Value value : values) {
       Preconditions.checkArgument(type.getField(i++).getType().equals(value.type));
-      builder.addFieldBuilder().mergeFrom(value.proto);
+      builder.addField(value.proto);
     }
 
     ValueProto proto = ValueProto.newBuilder().setStructValue(builder).build();
@@ -1546,11 +1634,55 @@ public class Value implements Serializable {
     Array.Builder builder = Array.newBuilder();
     for (Value value : values) {
       Preconditions.checkArgument(type.getElementType().equals(value.type));
-      builder.addElementBuilder().mergeFrom(value.proto);
+      builder.addElement(value.proto);
     }
 
     ValueProto proto = ValueProto.newBuilder().setArrayValue(builder).build();
     return new Value(type, proto, values);
+  }
+
+  // This is a helper function only used by createRangeValue. Returns a negative integer, zero, or a
+  // positive integer if the first value is less than, equal to, or greater than the second value.
+  private static long compare(Value first, Value second) {
+    Preconditions.checkArgument(first.getType().equals(second.getType()));
+    Type type = first.getType();
+
+    switch (type.getKind()) {
+      case TYPE_DATE:
+        return (long) first.proto.getDateValue() - second.proto.getDateValue();
+      case TYPE_DATETIME:
+        long compare =
+            first.proto.getDatetimeValue().getBitFieldDatetimeSeconds()
+                - second.proto.getDatetimeValue().getBitFieldDatetimeSeconds();
+        if (compare == 0) {
+          return (long) first.proto.getDatetimeValue().getNanos()
+              - second.proto.getDatetimeValue().getNanos();
+        } else {
+          return compare;
+        }
+      case TYPE_TIMESTAMP:
+        return Timestamps.compare(
+            first.proto.getTimestampValue(), second.proto.getTimestampValue());
+      default:
+        throw new IllegalStateException("Compare with unsupported type " + type);
+    }
+  }
+
+  /** Returns a range Value of given {@code type}, {@code start}, and {@code end}. */
+  public static Value createRangeValue(RangeType type, Value start, Value end) {
+    Preconditions.checkNotNull(type);
+    Preconditions.checkArgument(isSupportedTypeKind(type));
+    Preconditions.checkNotNull(start);
+    Preconditions.checkNotNull(end);
+    Preconditions.checkArgument(start.getType().equals(end.getType()));
+    Preconditions.checkArgument(start.getType().equals(type.getElementType()));
+    Preconditions.checkArgument(start.isNull() || end.isNull() || compare(start, end) < 0);
+
+    ValueProto proto =
+        ValueProto.newBuilder()
+            .setRangeValue(Range.newBuilder().setStart(start.proto).setEnd(end.proto))
+            .build();
+    return new Value(type, proto, start, end);
   }
 
   /** Returns an empty array Value of given {@code type}. */

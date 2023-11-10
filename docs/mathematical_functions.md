@@ -140,6 +140,13 @@ All mathematical functions have the following behaviors:
 </tr>
 
 <tr>
+  <td><a href="#cosine_distance"><code>COSINE_DISTANCE</code></a>
+
+</td>
+  <td>Computes the cosine distance between two vectors.</td>
+</tr>
+
+<tr>
   <td><a href="#cot"><code>COT</code></a>
 
 </td>
@@ -191,6 +198,13 @@ All mathematical functions have the following behaviors:
   <td>
     Computes <code>e</code> to the power of <code>X</code>.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#euclidean_distance"><code>EUCLIDEAN_DISTANCE</code></a>
+
+</td>
+  <td>Computes the Euclidean distance between two vectors.</td>
 </tr>
 
 <tr>
@@ -1077,6 +1091,183 @@ Generates an error if overflow occurs.
   </tbody>
 </table>
 
+### `COSINE_DISTANCE`
+
+<aside class="beta">
+  <p><strong>Preview</strong></p>
+  <p>
+    This product or feature is subject to the "Pre-GA Offerings Terms"
+    in the General Service Terms section of the
+    <a href="/terms/service-terms">Service Specific Terms</a>.
+    Pre-GA products and features are available "as is" and might have
+    limited support. For more information, see the
+    <a href="/products#product-launch-stages">launch stage descriptions</a>.
+  </p>
+</aside>
+
+```sql
+COSINE_DISTANCE(vector1, vector2)
+```
+
+**Description**
+
+Computes the [cosine distance][cosine-distance] between two vectors.
+
+**Definitions**
+
++   `vector1`: The first vector.
++   `vector2`: The second vector.
+
+**Details**
+
+Each vector represents a quantity that includes magnitude and direction.
+The following vector types are supported:
+
++   Dense vector: `ARRAY<value>` that represents
+    the vector and its numerical values. `value` is of type
+    `DOUBLE`.
+
+    This is an example of a dense vector:
+
+    ```
+    [1.0, 0.0, 3.0]
+    ```
++   Sparse vector: `ARRAY<STRUCT<dimension,value>>`, where
+    `STRUCT` contains a dimension-value pair for each numerical value in the
+    vector. This information is used to generate a dense vector.
+
+    + `dimension`: A `STRING` or `INT64` value that represents the
+      specific dimension for `value` in a vector.
+
+    + `value`: A `DOUBLE` value that represents the
+      numerical value for `dimension`.
+
+    A sparse vector contains mostly zeros, with only a few non-zero elements.
+    It's a useful data structure for representing data that is mostly empty or
+    has a lot of zeros. For example, if you have a vector of length 10,000 and
+    only 10 elements are non-zero, then it is a sparse vector. As a result,
+    it's more efficient to describe a sparse vector by only mentioning its
+    non-zero elements. If an element isn't present in the
+    sparse representation, its value can be implicitly understood to be zero.
+
+    The following `INT64` sparse vector
+
+    ```
+    [(0, 1.0), (2, 3.0)]
+    ```
+
+    is converted to this dense vector:
+
+    ```
+    [1.0, 0.0, 3.0]
+    ```
+
+    The following `STRING` sparse vector
+
+    ```
+    [('d': 4.0), ('a', 1.0), ('b': 3.0)]
+    ```
+
+    is converted to this dense vector:
+
+    ```
+    [1.0, 3.0, 0.0, 4.0]
+    ```
+
+The ordering of numeric values in a vector doesn't impact the results
+produced by this function if the dimensions of the vectors are aligned.
+
+A vector can have one or more dimensions. Both vectors in this function must
+share these same dimensions, and if they don't, an error is produced.
+
+A vector can't be a zero vector. A vector is a zero vector if all elements in
+the vector are `0`. For example, `[0.0, 0.0]`. If a zero vector is encountered,
+an error is produced.
+
+An error is produced if an element or field in a vector is `NULL`.
+
+If `vector1` or `vector2` is `NULL`, `NULL` is returned.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+In the following example, dense vectors are used to compute the
+cosine distance:
+
+```sql
+SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
+
+/*----------*
+ | results  |
+ +----------+
+ | 0.016130 |
+ *----------*/
+```
+
+In the following example, sparse vectors are used to compute the
+cosine distance:
+
+```sql
+SELECT COSINE_DISTANCE(
+ [(1, 1.0), (2, 2.0)],
+ [(2, 4.0), (1, 3.0)]) AS results;
+
+ /*----------*
+  | results  |
+  +----------+
+  | 0.016130 |
+  *----------*/
+```
+
+The ordering of numeric values in a vector doesn't impact the results
+produced by this function. For example these queries produce the same results
+even though the numeric values in each vector is in a different order:
+
+```sql
+SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
+
+SELECT COSINE_DISTANCE([2.0, 1.0], [4.0, 3.0]) AS results;
+
+SELECT COSINE_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
+
+ /*----------*
+  | results  |
+  +----------+
+  | 0.016130 |
+  *----------*/
+```
+
+In the following example, the function can't compute cosine distance against
+the first vector, which is a zero vector:
+
+```sql
+-- ERROR
+SELECT COSINE_DISTANCE([0.0, 0.0], [3.0, 4.0]) AS results;
+```
+
+Both dense vectors must have the same dimensions. If not, an error is produced.
+In the following examples, the first vector has two dimensions and the second
+vector has three:
+
+```sql
+-- ERROR
+SELECT COSINE_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
+```
+
+If you use sparse vectors and you repeat a dimension, an error is
+produced:
+
+```sql
+-- ERROR
+SELECT COSINE_DISTANCE(
+  [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
+```
+
+[cosine-distance]: https://en.wikipedia.org/wiki/Cosine_similarity#Cosine_distance
+
 ### `COT`
 
 ```
@@ -1444,6 +1635,174 @@ result overflows.
 </tbody>
 
 </table>
+
+### `EUCLIDEAN_DISTANCE`
+
+<aside class="beta">
+  <p><strong>Preview</strong></p>
+  <p>
+    This product or feature is subject to the "Pre-GA Offerings Terms"
+    in the General Service Terms section of the
+    <a href="/terms/service-terms">Service Specific Terms</a>.
+    Pre-GA products and features are available "as is" and might have
+    limited support. For more information, see the
+    <a href="/products#product-launch-stages">launch stage descriptions</a>.
+  </p>
+</aside>
+
+```sql
+EUCLIDEAN_DISTANCE(vector1, vector2)
+```
+
+**Description**
+
+Computes the [Euclidean distance][euclidean-distance] between two vectors.
+
+**Definitions**
+
++   `vector1`: The first vector.
++   `vector2`: The second vector.
+
+**Details**
+
+Each vector represents a quantity that includes magnitude and direction.
+The following vector types are supported:
+
++   Dense vector: `ARRAY<value>` that represents
+    the vector and its numerical values. `value` is of type
+    `DOUBLE`.
+
+    This is an example of a dense vector:
+
+    ```
+    [1.0, 0.0, 3.0]
+    ```
++   Sparse vector: `ARRAY<STRUCT<dimension,value>>`, where
+    `STRUCT` contains a dimension-value pair for each numerical value in the
+    vector. This information is used to generate a dense vector.
+
+    + `dimension`: A `STRING` or `INT64` value that represents the
+      specific dimension for `value` in a vector.
+
+    + `value`: A `DOUBLE` value that represents a
+      numerical value for `dimension`.
+
+    A sparse vector contains mostly zeros, with only a few non-zero elements.
+    It's a useful data structure for representing data that is mostly empty or
+    has a lot of zeros. For example, if you have a vector of length 10,000 and
+    only 10 elements are non-zero, then it is a sparse vector. As a result,
+    it's more efficient to describe a sparse vector by only mentioning its
+    non-zero elements. If an element isn't present in the
+    sparse representation, its value can be implicitly understood to be zero.
+
+    The following `INT64` sparse vector
+
+    ```
+    [(0, 1.0), (2, 3.0)]
+    ```
+
+    is converted to this dense vector:
+
+    ```
+    [1.0, 0.0, 3.0]
+    ```
+
+    The following `STRING` sparse vector
+
+    ```
+    [('d': 4.0), ('a', 1.0), ('b': 3.0)]
+    ```
+
+    is converted to this dense vector:
+
+    ```
+    [1.0, 3.0, 0.0, 4.0]
+    ```
+
+The ordering of numeric values in a vector doesn't impact the results
+produced by this function if the dimensions of the vectors are aligned.
+
+A vector can have one or more dimensions. Both vectors in this function must
+share these same dimensions, and if they don't, an error is produced.
+
+A vector can be a zero vector. A vector is a zero vector if all elements in
+the vector are `0`. For example, `[0.0, 0.0]`.
+
+An error is produced if an element or field in a vector is `NULL`.
+
+If `vector1` or `vector2` is `NULL`, `NULL` is returned.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+In the following example, dense vectors are used to compute the
+Euclidean distance:
+
+```sql
+SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
+
+/*----------*
+ | results  |
+ +----------+
+ | 2.828    |
+ *----------*/
+```
+
+In the following example, sparse vectors are used to compute the
+Euclidean distance:
+
+```sql
+SELECT EUCLIDEAN_DISTANCE(
+ [(1, 1.0), (2, 2.0)],
+ [(2, 4.0), (1, 3.0)]) AS results;
+
+ /*----------*
+  | results  |
+  +----------+
+  | 2.828    |
+  *----------*/
+```
+
+The ordering of numeric values in a vector doesn't impact the results
+produced by this function. For example these queries produce the same results
+even though the numeric values in each vector is in a different order:
+
+```sql
+SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]);
+
+SELECT EUCLIDEAN_DISTANCE([2.0, 1.0], [4.0, 3.0]);
+
+SELECT EUCLIDEAN_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
+
+ /*----------*
+  | results  |
+  +----------+
+  | 2.828    |
+  *----------*/
+```
+
+Both dense vectors must have the same dimensions. If not, an error is produced.
+In the following examples, the first vector has two dimensions and the second
+vector has three:
+
+```sql
+-- ERROR
+SELECT EUCLIDEAN_DISTANCE([9.0, 7.0], [8.0, 4.0, 5.0]) AS results;
+```
+
+If you use sparse vectors and you repeat a dimension, an error is
+produced:
+
+```sql
+-- ERROR
+SELECT EUCLIDEAN_DISTANCE(
+  [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
+```
+
+[euclidean-distance]: https://en.wikipedia.org/wiki/Euclidean_distance
 
 ### `FLOOR`
 

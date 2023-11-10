@@ -196,8 +196,7 @@ absl::Status AnalyzeStatement(absl::string_view sql,
   const absl::Status status =
       AnalyzeStatementImpl(sql, options, catalog, type_factory, output);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      sql, status);
+      options.error_message_options(), sql, status);
 }
 
 static absl::Status AnalyzeNextStatementImpl(
@@ -228,21 +227,17 @@ static absl::Status AnalyzeNextStatementImpl(
       output);
 }
 
-absl::Status AnalyzeNextStatement(
-    ParseResumeLocation* resume_location,
-    const AnalyzerOptions& options_in,
-    Catalog* catalog,
-    TypeFactory* type_factory,
-    std::unique_ptr<const AnalyzerOutput>* output,
-    bool* at_end_of_input) {
+absl::Status AnalyzeNextStatement(ParseResumeLocation* resume_location,
+                                  const AnalyzerOptions& options_in,
+                                  Catalog* catalog, TypeFactory* type_factory,
+                                  std::unique_ptr<const AnalyzerOutput>* output,
+                                  bool* at_end_of_input) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const absl::Status status =
-      AnalyzeNextStatementImpl(resume_location, options, catalog,
-                               type_factory, output, at_end_of_input);
+  const absl::Status status = AnalyzeNextStatementImpl(
+      resume_location, options, catalog, type_factory, output, at_end_of_input);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      resume_location->input(), status);
+      options.error_message_options(), resume_location->input(), status);
 }
 
 static absl::Status AnalyzeStatementHelper(
@@ -271,8 +266,7 @@ static absl::Status AnalyzeStatementHelper(
     internal::UpdateStatus(&status, type_assignments.status());
     if (!status.ok()) {
       return ConvertInternalErrorLocationAndAdjustErrorString(
-          options.error_message_mode(), options.attach_error_location_payload(),
-          sql, status);
+          options.error_message_options(), sql, status);
     }
 
     std::unique_ptr<ParserOutput> owned_parser_output;
@@ -287,8 +281,7 @@ static absl::Status AnalyzeStatementHelper(
         std::move(resolved_statement), resolver.analyzer_output_properties(),
         std::move(owned_parser_output),
         ConvertInternalErrorLocationsAndAdjustErrorStrings(
-            options.error_message_mode(),
-            options.attach_error_location_payload(), sql,
+            options.error_message_options(), sql,
             resolver.deprecation_warnings()),
         *type_assignments, resolver.undeclared_positional_parameters(),
         resolver.max_column_id());
@@ -439,8 +432,7 @@ absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
                                   std::move(mutable_output)));
   }
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      sql, status);
+      options.error_message_options(), sql, status);
 }
 
 static absl::Status AnalyzeTypeImpl(const std::string& type_name,
@@ -479,8 +471,7 @@ absl::Status AnalyzeType(const std::string& type_name,
       AnalyzeTypeImpl(type_name, options, catalog, type_factory, output_type,
                       output_type_modifiers);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      type_name, status);
+      options.error_message_options(), type_name, status);
 }
 
 static absl::Status ExtractTableNamesFromStatementImpl(
@@ -530,8 +521,7 @@ absl::Status ExtractTableNamesFromStatement(absl::string_view sql,
   const absl::Status status =
       ExtractTableNamesFromStatementImpl(sql, options, table_names, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      sql, status);
+      options.error_message_options(), sql, status);
 }
 
 absl::Status ExtractTableResolutionTimeFromStatement(
@@ -545,8 +535,7 @@ absl::Status ExtractTableResolutionTimeFromStatement(
       sql, options, type_factory, catalog, table_resolution_time_info_map,
       parser_output);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      sql, status);
+      options.error_message_options(), sql, status);
 }
 
 static absl::Status ExtractTableNamesFromNextStatementImpl(
@@ -577,8 +566,7 @@ absl::Status ExtractTableNamesFromNextStatement(
   const absl::Status status = ExtractTableNamesFromNextStatementImpl(
       resume_location, options, table_names, at_end_of_input, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      resume_location->input(), status);
+      options.error_message_options(), resume_location->input(), status);
 }
 
 absl::Status ExtractTableNamesFromASTStatement(
@@ -590,8 +578,7 @@ absl::Status ExtractTableNamesFromASTStatement(
   const absl::Status status = table_name_resolver::FindTables(
       sql, ast_statement, options, table_names, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      sql, status);
+      options.error_message_options(), sql, status);
 }
 
 static absl::Status ExtractTableResolutionTimeFromASTStatementImpl(
@@ -621,13 +608,11 @@ absl::Status ExtractTableResolutionTimeFromASTStatement(
     TableResolutionTimeInfoMap* table_resolution_time_info_map) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const absl::Status status =
-      ExtractTableResolutionTimeFromASTStatementImpl(
-          sql, options, ast_statement, type_factory, catalog,
-          table_resolution_time_info_map);
+  const absl::Status status = ExtractTableResolutionTimeFromASTStatementImpl(
+      sql, options, ast_statement, type_factory, catalog,
+      table_resolution_time_info_map);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      sql, status);
+      options.error_message_options(), sql, status);
 }
 
 absl::Status ExtractTableNamesFromScript(absl::string_view sql,
@@ -647,8 +632,7 @@ absl::Status ExtractTableNamesFromScript(absl::string_view sql,
   absl::Status status = table_name_resolver::FindTableNamesInScript(
       sql, *(parser_output->script()), options, table_names, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      sql, status);
+      options.error_message_options(), sql, status);
 }
 
 absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
@@ -661,8 +645,7 @@ absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
   const absl::Status status = table_name_resolver::FindTableNamesInScript(
       sql, ast_script, options, table_names, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), options.attach_error_location_payload(),
-      sql, status);
+      options.error_message_options(), sql, status);
 }
 
 absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(

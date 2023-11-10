@@ -334,9 +334,9 @@ CreateFunctionStmt
             +-column_list=[$aggregate.$agg1#2]
             +-input_scan=
             | +-ArrayScan
-            |   +-array_expr=
+            |   +-array_expr_list=
             |   | +-ArgumentRef(type=ARRAY<INT64>, name="a", argument_kind=NOT_AGGREGATE)
-            |   +-element_column=$array.$unnest1#1
+            |   +-element_column_list=[$array.$unnest1#1]
             +-aggregate_list=
               +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 --
@@ -380,9 +380,9 @@ CreateFunctionStmt
 |       |         +-column_list=[$aggregate.$agg1#2]
 |       |         +-input_scan=
 |       |         | +-ArrayScan
-|       |         |   +-array_expr=
+|       |         |   +-array_expr_list=
 |       |         |   | +-ArgumentRef(type=ARRAY<INT64>, name="a", argument_kind=NOT_AGGREGATE)
-|       |         |   +-element_column=$array.$unnest1#1
+|       |         |   +-element_column_list=[$array.$unnest1#1]
 |       |         +-aggregate_list=
 |       |           +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 |       +-ArgumentRef(parse_location=153-154, type=INT64, name="b", argument_kind=AGGREGATE)
@@ -414,9 +414,9 @@ CreateFunctionStmt
 |       |         +-column_list=[$aggregate.$agg1#2]
 |       |         +-input_scan=
 |       |         | +-ArrayScan
-|       |         |   +-array_expr=
+|       |         |   +-array_expr_list=
 |       |         |   | +-ArgumentRef(parse_location=134-135, type=ARRAY<INT64>, name="a", argument_kind=AGGREGATE)
-|       |         |   +-element_column=$array.$unnest1#1
+|       |         |   +-element_column_list=[$array.$unnest1#1]
 |       |         +-aggregate_list=
 |       |           +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 |       +-ArgumentRef(parse_location=140-141, type=INT64, name="b", argument_kind=AGGREGATE)

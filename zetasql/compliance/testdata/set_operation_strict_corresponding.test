@@ -1,0 +1,476 @@
+# This file contains the compliance test cases for LEFT CORRESPONDING. Test
+# cases are divided into multiple sections.
+
+## ===== Start section: literal and type coercion for STRICT =====  ##
+
+# Literal coercion STRICT mode
+[name=literal_coercion_strict]
+[default required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+SELECT 1 AS b, 1 AS a
+UNION ALL STRICT CORRESPONDING
+SELECT 1 AS a, CAST(1 AS INT32) AS b
+--
+ARRAY<STRUCT<b INT32, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# Literal coercion STRICT mode literal cocercion with subquery
+[name=literal_coercion_strict_coercion_with_subquery]
+(
+  SELECT 1 AS a, 1 AS b
+  UNION ALL STRICT CORRESPONDING
+  SELECT 1 AS b, NULL AS a
+)
+UNION ALL STRICT CORRESPONDING
+SELECT 1 AS b, CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, 1}, {1, 1}, {1, 1}]
+==
+
+# Literal coercion STRICT mode with three inputs.
+[name=literal_coercion_strict_three_inputs]
+SELECT NULL AS a
+UNION ALL STRICT CORRESPONDING
+SELECT CAST(1 AS FLOAT) AS a
+UNION ALL STRICT CORRESPONDING
+SELECT CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a DOUBLE>>[unknown order:{NULL}, {1}, {1}]
+==
+
+# Type coercion STRICT mode basic type coercion
+[name=type_coercion_strict_basic_type_coercion]
+SELECT CAST(1 AS INT64) AS a, 1 AS b
+UNION ALL STRICT CORRESPONDING
+SELECT 1 AS b, CAST(1 AS FLOAT) AS a
+--
+ARRAY<STRUCT<a DOUBLE, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# Type coercion STRICT mode three inputs
+[name=type_coercion_strict_three_inputs]
+SELECT CAST(1 AS INT64) AS a, 1 AS b, 1 AS c
+UNION ALL STRICT CORRESPONDING
+SELECT 1 AS b, CAST(1 AS FLOAT) AS a, 1 AS c
+UNION ALL STRICT CORRESPONDING
+SELECT 1 AS c, CAST(1 AS INT32) AS a, 1 AS b
+--
+ARRAY<STRUCT<a DOUBLE, b INT64, c INT64>>[unknown order:
+  {1, 1, 1},
+  {1, 1, 1},
+  {1, 1, 1}
+]
+==
+
+# Type coercion STRICT mode with subquery
+[name=type_coercion_strict_subquery]
+SELECT CAST(1 AS FLOAT) AS b, CAST(1 AS INT64) AS a
+UNION ALL STRICT CORRESPONDING
+(
+  SELECT CAST(1 AS FLOAT) AS a, CAST(1 AS INT32) AS b
+  LEFT UNION ALL CORRESPONDING
+  SELECT NULL AS a, CAST(1 AS INT64) AS b
+)
+--
+ARRAY<STRUCT<b DOUBLE, a DOUBLE>>[unknown order:{1, 1}, {1, 1}, {1, NULL}]
+==
+
+## ===== Start section: INTERSECT (ALL|DISTINCT) for STRICT CORRESPONDING =====  ##
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=strict_corresponding_same_column_order_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING
+SELECT a, b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row, row] INTERSECT ALL [row] = [row]
+[name=strict_corresponding_same_column_order_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row1, row1] INTERSECT ALL [row2] = []
+[name=strict_corresponding_same_column_order_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=strict_corresponding_same_column_order_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING
+SELECT a, b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row, row] INTERSECT DISTINCT [row] = [row]
+[name=strict_corresponding_same_column_order_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=strict_corresponding_same_column_order_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=strict_corresponding_different_column_order_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row, row] INTERSECT ALL [row] = [row]
+[name=strict_corresponding_different_column_order_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row1, row1] INTERSECT ALL [row2] = []
+[name=strict_corresponding_different_column_order_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT ALL STRICT CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=strict_corresponding_different_column_order_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row, row] INTERSECT DISTINCT [row] = [row]
+[name=strict_corresponding_different_column_order_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=strict_corresponding_different_column_order_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+INTERSECT DISTINCT STRICT CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+## ===== Start section: EXCEPT (ALL|DISTINCT) for STRICT CORRESPONDING =====  ##
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row, row] EXCEPT ALL [row] = [row]
+[name=strict_corresponding_same_column_order_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row, row] EXCEPT ALL [row, row] = []
+[name=strict_corresponding_same_column_order_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING
+SELECT a, b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row] EXCEPT ALL [row, row] = []
+[name=strict_corresponding_same_column_order_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL STRICT CORRESPONDING
+SELECT a, b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=strict_corresponding_same_column_order_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row, row] EXCEPT DISTINCT [row] = []
+[name=strict_corresponding_same_column_order_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT STRICT CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=strict_corresponding_same_column_order_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT STRICT CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row, row] EXCEPT ALL [row] = [row]
+[name=strict_corresponding_different_column_order_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row, row] EXCEPT ALL [row, row] = []
+[name=strict_corresponding_different_column_order_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING
+SELECT b, a FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row] EXCEPT ALL [row, row] = []
+[name=strict_corresponding_different_column_order_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS a UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL STRICT CORRESPONDING
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=strict_corresponding_different_column_order_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT ALL STRICT CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row, row] EXCEPT DISTINCT [row] = []
+[name=strict_corresponding_different_column_order_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT STRICT CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=strict_corresponding_different_column_order_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+EXCEPT DISTINCT STRICT CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+## ===== Start section: UNION (ALL|DISTINCT) for STRICT CORRESPONDING =====  ##
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row1] UNION ALL [row2] = [row1, row2]
+[name=strict_corresponding_same_column_order_union_all_basic]
+SELECT 1 AS a, 1 AS b
+UNION ALL STRICT CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row1, row1] union distinct [row1] = [row1]
+[name=strict_corresponding_same_column_order_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+UNION DISTINCT STRICT CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have the same order [row1] union distinct [row2] = [row1, row2]
+[name=strict_corresponding_same_column_order_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b
+UNION DISTINCT STRICT CORRESPONDING
+SELECT 2 AS a, 2 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row1] UNION ALL [row2] = [row1, row2]
+[name=strict_corresponding_different_column_order_union_all_basic]
+SELECT 1 AS a, 1 AS b
+UNION ALL STRICT CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row1, row1] union distinct [row1] = [row1]
+[name=strict_corresponding_different_column_order_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+UNION DISTINCT STRICT CORRESPONDING
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# STRICT CORRESPONDING columns in the two scans have different order [row1] union distinct [row2] = [row1, row2]
+[name=strict_corresponding_different_column_order_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b
+UNION DISTINCT STRICT CORRESPONDING
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+## ===== Start section: multiple inputs for STRICT =====  ##
+
+# STRICT CORRESPONDING multiple inputs
+[name=strict_corresponding_three_inputs]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 2, 2
+  )
+SELECT a, b, c FROM Table1
+UNION DISTINCT STRICT CORRESPONDING
+SELECT b, c, a FROM Table1
+UNION DISTINCT STRICT CORRESPONDING
+SELECT c, a, b FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[unknown order:{1, 1, 1}, {2, 2, 2}]

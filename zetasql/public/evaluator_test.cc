@@ -1998,8 +1998,8 @@ TEST_F(UDAEvalTest, UDAWithNoEvaluator) {
       EvaluatorOptions());
 
   EXPECT_THAT(query.Prepare(analyzer_options_, catalog()),
-              StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("has no aggregate evaluator")));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("has no evaluator")));
 }
 
 TEST_F(UDAEvalTest, UDAWithNullEvaluator) {
@@ -4202,9 +4202,12 @@ class PreparedModifyWithGeneratedColumnTest
         BuiltinFunctionOptions::AllReleasedFunctions());
     analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
     AddTableWithGeneratedColumn();
+    AddTableWithGeneratedColumnAsPK();
     AddTableWithConstantGeneratedColumn();
-    AddTableWithCyclicDependency();
+    AddTableWithCyclicDependency(/*for_gpk=*/true);
+    AddTableWithCyclicDependency(/*for_gpk=*/false);
     AddTableWithNonCyclicDependency();
+    AddTableWithNonCyclicDependencyForGPK();
     AddTableT1();
     AddTableT2();
     AddTableT3();
@@ -4248,7 +4251,7 @@ class PreparedModifyWithGeneratedColumnTest
         /*is_owned=*/true));
     outputs_.push_back(std::move(output));
   }
-  void AddTableWithCyclicDependency() {
+  void AddTableWithCyclicDependency(bool for_gpk) {
     // Table representation
     // CREATE TABLE TCyclic (
     //  id int64_t ,
@@ -4257,7 +4260,7 @@ class PreparedModifyWithGeneratedColumnTest
     //  gen2 as gen1*2 ,
     // ) PRIMARY KEY(id,gen1)
     auto test_table = std::make_unique<SimpleTable>(
-        "TCyclic",
+        for_gpk ? "TCyclicGPK" : "TCyclic",
         std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
                                               {"data", types::Int64Type()}});
 
@@ -4267,10 +4270,16 @@ class PreparedModifyWithGeneratedColumnTest
     AddGeneratedColumnToTable("gen1", {"gen2"}, "gen2*2", test_table.get());
     test_table->SetContents({{Int64(1), Int64(2), Int64(8), Int64(4)},
                              {Int64(2), Int64(3), Int64(12), Int64(6)}});
-    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+    if (for_gpk) {
+      ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+    } else {
+      ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
+    }
+
     catalog_.AddOwnedTable(std::move(test_table));
   }
-  void AddTableWithGeneratedColumn() {
+
+  void AddTableWithGeneratedColumnAsPK() {
     // Table representation
     // CREATE TABLE T (
     //  id int64_t ,
@@ -4283,6 +4292,32 @@ class PreparedModifyWithGeneratedColumnTest
         kTestTable,
         std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()},
                                               {"data", types::Int64Type()}});
+    // Add column gen2 as gen1*2
+    AddGeneratedColumnToTable("gen2", {"gen1"}, "gen1*2", test_table.get());
+    // Add column gen1 as data*2
+    AddGeneratedColumnToTable("gen1", {"data"}, "data*2", test_table.get());
+    // Add column gen3 as data*3
+    AddGeneratedColumnToTable("gen3", {"data"}, "data*3", test_table.get());
+
+    test_table->SetContents(
+        {{Int64(1), Int64(2), Int64(8), Int64(4), Int64(6)},
+         {Int64(2), Int64(3), Int64(12), Int64(6), Int64(9)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+
+  void AddTableWithGeneratedColumn() {
+    // Table representation
+    // CREATE TABLE TGen (
+    //  id int64_t ,
+    //  data int64_t ,
+    //  gen2 as (gen1*2) ,
+    //  gen1 as (data*2) ,
+    //  gen3 as (data*3) ,
+    // ) PRIMARY KEY(id)
+    auto test_table = std::make_unique<SimpleTable>(
+        "TGen", std::vector<SimpleTable::NameAndType>{
+                    {"id", types::Int64Type()}, {"data", types::Int64Type()}});
     // Add column gen2 as gen1*2
     AddGeneratedColumnToTable("gen2", {"gen1"}, "gen1*2", test_table.get());
     // Add column gen1 as data*2
@@ -4373,7 +4408,7 @@ class PreparedModifyWithGeneratedColumnTest
     catalog_.AddOwnedTable(std::move(t3));
   }
 
-  void AddTableWithNonCyclicDependency() {
+  void AddTableWithNonCyclicDependencyForGPK() {
     // Table representation
     // CREATE TABLE TA (
     //  A as (B+C) ,
@@ -4400,19 +4435,51 @@ class PreparedModifyWithGeneratedColumnTest
     ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0, 2}));
     catalog_.AddOwnedTable(std::move(test_table));
   }
-  absl::StatusOr<std::vector<std::vector<Value>>> ExecuteInsertQuery(
+
+  void AddTableWithNonCyclicDependency() {
+    // Table representation
+    // CREATE TABLE TGenA (
+    //  A int64_t,
+    //  B as (C+1) ,
+    //  C int64_t ,
+    //  D as (A+B+C) ,
+    // ) PRIMARY KEY(A)
+    auto test_table = std::make_unique<SimpleTable>(
+        "TGenA", std::vector<SimpleTable::NameAndType>{});
+
+    // Add column A as (B+C)
+    ZETASQL_ASSERT_OK(test_table->AddColumn(
+        new SimpleColumn(test_table->Name(), "A", types::Int64Type()),
+        /*is_owned=*/true));
+    // Add column B as (C+1)
+    AddGeneratedColumnToTable("B", {"C"}, "C+1", test_table.get());
+    // Add column C int64_t
+    ZETASQL_ASSERT_OK(test_table->AddColumn(
+        new SimpleColumn(test_table->Name(), "C", types::Int64Type()),
+        /*is_owned=*/true));
+    // Add column D as (A+B+C)
+    AddGeneratedColumnToTable("D", {"A", "B", "C"}, "A+B+C", test_table.get());
+
+    test_table->SetContents({{Int64(1), Int64(2), Int64(1), Int64(4)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+
+  absl::StatusOr<std::vector<std::vector<Value>>> ExecuteDmlQuery(
       std::string sql, ParameterValueMap params) {
-    PreparedModify insert_stmt(sql, EvaluatorOptions());
+    PreparedModify dml_stmt(sql, EvaluatorOptions());
     AnalyzerOptions query_options = analyzer_options();
     for (auto& [param_name, param_value] : params) {
       ZETASQL_RETURN_IF_ERROR(
           query_options.AddQueryParameter(param_name, types::Int64Type()));
     }
-    ZETASQL_RETURN_IF_ERROR(insert_stmt.Prepare(query_options, catalog()));
-    ZETASQL_RET_CHECK_EQ(insert_stmt.resolved_statement()->node_kind(),
-                 RESOLVED_INSERT_STMT);
+    ZETASQL_RETURN_IF_ERROR(dml_stmt.Prepare(query_options, catalog()));
+    ZETASQL_RET_CHECK(
+        dml_stmt.resolved_statement()->node_kind() == RESOLVED_INSERT_STMT ||
+        dml_stmt.resolved_statement()->node_kind() == RESOLVED_UPDATE_STMT)
+        << dml_stmt.resolved_statement()->node_kind_string();
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
-                     insert_stmt.Execute(params));
+                     dml_stmt.Execute(params));
     return GetInsertRows(std::move(iter));
   }
 
@@ -4426,7 +4493,7 @@ class PreparedModifyWithGeneratedColumnTest
 
 TEST_P(PreparedModifyWithGeneratedColumnTest, TestQuery) {
   TestQuery test_query = GetParam();
-  auto result = ExecuteInsertQuery(test_query.sql, test_query.params);
+  auto result = ExecuteDmlQuery(test_query.sql, test_query.params);
   ASSERT_THAT(result.status(),
               StatusIs(test_query.error_code,
                        testing::MatchesRegex(test_query.error_message)));
@@ -4503,9 +4570,28 @@ INSTANTIATE_TEST_SUITE_P(
          {},
          absl::StatusCode::kOk,
          ""},
+        {"tgen_simple_insert",
+         R"sql(INSERT INTO TGen (id,data) VALUES (3,7),(3,6))sql",
+         {{Int64(3), Int64(7), Int64(28), Int64(14), Int64(21)},
+          {Int64(3), Int64(6), Int64(24), Int64(12), Int64(18)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
+        {"tgen_simple_update",
+         R"sql(UPDATE TGen SET data = 4 WHERE ID = 1)sql",
+         {{Int64(1), Int64(4), Int64(16), Int64(8), Int64(12)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
         {"const_gen_col",
          R"sql(INSERT INTO TGenConst (id,data) VALUES (3,7),(4,6))sql",
          {{Int64(3), Int64(7), Int64(10)}, {Int64(4), Int64(6), Int64(10)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
+        {"const_gen_col_update",
+         R"sql(UPDATE TGenConst SET data = 5 WHERE id > 0)sql",
+         {{Int64(1), Int64(5), Int64(10)}, {Int64(2), Int64(5), Int64(10)}},
          {},
          absl::StatusCode::kOk,
          ""},
@@ -4516,16 +4602,34 @@ INSTANTIATE_TEST_SUITE_P(
          {},
          absl::StatusCode::kOk,
          ""},
+        {"topological_order_gen",
+         R"sql(UPDATE TGenA SET C = 3 WHERE A = 1)sql",
+         {{Int64(1), Int64(4), Int64(3), Int64(8)}},
+         {},
+         absl::StatusCode::kOk,
+         ""},
         {"parameters_conflicting_with_target_gen_col",
          R"sql(INSERT INTO T3(a,b,c) VALUES (2,6,@d))sql",
          {{Int64(2), Int64(6), Int64(4), Int64(12)}},
          {{"d", values::Int64(4)}},
          absl::StatusCode::kOk,
          ""},
+        {"parameters_conflicting_with_target_gen_col_for_update",
+         R"sql(UPDATE T3 SET c = @d WHERE a = 1)sql",
+         {{Int64(1), Int64(2), Int64(5), Int64(4)}},
+         {{"d", values::Int64(5)}},
+         absl::StatusCode::kOk,
+         ""},
         {"parameters_conflicting_with_incoming_dependent_col",
          R"sql(INSERT INTO T3(a,b,c) VALUES (2,@b,4))sql",
          {{Int64(2), Int64(6), Int64(4), Int64(12)}},
          {{"b", values::Int64(6)}},
+         absl::StatusCode::kOk,
+         ""},
+        {"parameters_conflicting_with_incoming_dependent_col_for_update",
+         R"sql(UPDATE T3 SET b = @d WHERE a = 1)sql",
+         {{Int64(1), Int64(6), Int64(4), Int64(12)}},
+         {{"d", values::Int64(6)}},
          absl::StatusCode::kOk,
          ""},
         {"duplicate_pk",
@@ -4543,6 +4647,24 @@ INSTANTIATE_TEST_SUITE_P(
          "column expression values for TCyclic.gen.. The expression "
          "indicates the column depends on itself. Columns forming "
          "the cycle : TCyclic.gen., TCyclic.gen."},
+        {"cyclic_generated_columns_with_update",
+         R"sql(UPDATE TCyclic SET data = 7 WHERE id = 1)sql",
+         {},
+         {},
+         absl::StatusCode::kInvalidArgument,
+         "Recursive dependencies detected while evaluating generated "
+         "column expression values for TCyclic.gen.. The expression "
+         "indicates the column depends on itself. Columns forming "
+         "the cycle : TCyclic.gen., TCyclic.gen."},
+        {"cyclic_generated_columns_gpk",
+         R"sql(INSERT INTO TCyclicGPK (id,data) VALUES (3,7),(3,6))sql",
+         {},
+         {},
+         absl::StatusCode::kInvalidArgument,
+         "Recursive dependencies detected while evaluating generated "
+         "column expression values for TCyclicGPK.gen.. The expression "
+         "indicates the column depends on itself. Columns forming "
+         "the cycle : TCyclicGPK.gen., TCyclicGPK.gen."},
     }),
     [](const testing::TestParamInfo<
         PreparedModifyWithGeneratedColumnTest::ParamType>& info) {

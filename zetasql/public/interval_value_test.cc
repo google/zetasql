@@ -1102,6 +1102,17 @@ TEST(IntervalValueTest, ToString) {
             MonthsDaysNanos(-123, 4567, -v_nanos).ToString());
 }
 
+TEST(IntervalValueTest, AppendToString) {
+  // Append to non-empty string to verify AppendToString doesn't overwrite
+  // existing data.
+  std::string output = "prefix:";
+  Months(0).AppendToString(&output);
+  EXPECT_EQ(output, "prefix:0-0 0 0:0:0");
+
+  MonthsDaysNanos(123, 4567, 1234567689).AppendToString(&output);
+  EXPECT_EQ(output, "prefix:0-0 0 0:0:010-3 4567 0:0:1.234567689");
+}
+
 std::string ParseToString(absl::string_view input,
                           functions::DateTimestampPart part, bool allow_nanos) {
   return IntervalValue::ParseFromString(input, part, allow_nanos)

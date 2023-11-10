@@ -968,9 +968,9 @@ CreateTableFunctionStmt
 |       +-input_scan=
 |       | +-ArrayScan
 |       |   +-column_list=[$array.x#1]
-|       |   +-array_expr=
+|       |   +-array_expr_list=
 |       |   | +-ArgumentRef(type=ARRAY<INT64>, name="arr")
-|       |   +-element_column=$array.x#1
+|       |   +-element_column_list=[$array.x#1]
 |       +-filter_expr=
 |         +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
 |           +-ColumnRef(type=INT64, column=$array.x#1)
@@ -1001,9 +1001,9 @@ CreateTableFunctionStmt
 |       +-input_scan=
 |       | +-ArrayScan
 |       |   +-column_list=[$array.x#1]
-|       |   +-array_expr=
+|       |   +-array_expr_list=
 |       |   | +-ArgumentRef(type=ARRAY<INT64>, name="arr")
-|       |   +-element_column=$array.x#1
+|       |   +-element_column_list=[$array.x#1]
 |       +-filter_expr=
 |         +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
 |           +-ColumnRef(type=INT64, column=$array.x#1)

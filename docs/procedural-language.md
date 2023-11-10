@@ -158,10 +158,14 @@ identifier:
 
 Executes a dynamic SQL statement on the fly.
 
-+  `sql_expression`: Represents a [query statement][query-syntax], an
-   expression that you can use on a query statement, a single
-   [DDL statement][ddl], or a single [DML statement][dml]. Cannot be a control
-   statement like `IF`.
++  `sql_expression`: An expression that can represent one of the following:
+
+    + A [query statement][query-syntax]
+    + An expression that you can use on a query statement
+    + A single [DDL statement][ddl]
+    + A single [DML statement][dml]
+
+    This expression cannot be a control statement like `IF`.
 +  `expression`: Can be a
    [function][functions], [conditional expression][conditional-expressions], or
    [expression subquery][expression-subqueries].

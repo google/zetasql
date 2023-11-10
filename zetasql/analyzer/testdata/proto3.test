@@ -442,14 +442,14 @@ QueryStmt
         +-column_list=[Proto3Table.Proto3KitchenSink#2, $array.m#3]
         +-input_scan=
         | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |   +-field_descriptor=test_map
         |   +-default_value=[]
-        +-element_column=$array.m#3
+        +-element_column_list=[$array.m#3]
 ==
 
 SELECT m.*
@@ -482,14 +482,14 @@ QueryStmt
         +-column_list=[Proto3Table.Proto3KitchenSink#2, $array.m#3]
         +-input_scan=
         | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |   +-field_descriptor=test_map
         |   +-default_value=[]
-        +-element_column=$array.m#3
+        +-element_column_list=[$array.m#3]
 ==
 
 SELECT m.key, m.value
@@ -522,14 +522,14 @@ QueryStmt
         +-column_list=[Proto3Table.Proto3KitchenSink#2, $array.m#3]
         +-input_scan=
         | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |   +-field_descriptor=test_map
         |   +-default_value=[]
-        +-element_column=$array.m#3
+        +-element_column_list=[$array.m#3]
 ==
 
 SELECT ARRAY_LENGTH(Proto3KitchenSink.test_map)
@@ -577,14 +577,14 @@ QueryStmt
         +-column_list=[Proto3Table.Proto3KitchenSink#2, $array.m#3]
         +-input_scan=
         | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |   +-field_descriptor=test_map
         |   +-default_value=[]
-        +-element_column=$array.m#3
+        +-element_column_list=[$array.m#3]
 ==
 
 SELECT CAST('key: "hello", value: 123'
@@ -631,14 +631,14 @@ QueryStmt
             +-column_list=[Proto3Table.Proto3KitchenSink#2, $array.m#3]
             +-input_scan=
             | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
-            +-array_expr=
+            +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
             |   +-expr=
             |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
             |   +-field_descriptor=test_map
             |   +-default_value=[]
-            +-element_column=$array.m#3
+            +-element_column_list=[$array.m#3]
 ==
 
 SELECT NEW zetasql_test__.Proto3KitchenSink.TestMapEntry(expr1 as key,

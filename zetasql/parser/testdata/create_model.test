@@ -839,7 +839,7 @@ create model as select 1;
 # Unlike CREATE EXTERNAL TABLE, there is no CREATE EXTERNAL MODEL.
 create external model as select 1;
 --
-ERROR: Syntax error: Expected keyword TABLE but got keyword MODEL [at 1:17]
+ERROR: Syntax error: Expected keyword SCHEMA or keyword TABLE but got keyword MODEL [at 1:17]
 create external model as select 1;
                 ^
 ==

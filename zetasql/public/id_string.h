@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <iosfwd>
 #include <memory>
@@ -263,10 +264,10 @@ class IdString {
 
    private:
     // Hash of <str>.
-    mutable size_t hash_ = 0;
+    mutable std::atomic<size_t> hash_ = 0;
 
     // Hash of <str_casefolded>.
-    mutable size_t hash_case_ = 0;
+    mutable std::atomic<size_t> hash_case_ = 0;
   };
 
   // Returns true if the first num_words values pointed to by 'lhs' and 'rhs'

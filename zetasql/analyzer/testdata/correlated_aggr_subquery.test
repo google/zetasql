@@ -51,9 +51,9 @@ QueryStmt
     |             +-column_list=[$groupby.x#4]
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |             |   +-element_column=$array.$unnest1#3
+    |             |   +-element_column_list=[$array.$unnest1#3]
     |             +-group_by_list=
     |               +-x#4 := ColumnRef(type=INT64, column=t.x#1, is_correlated=TRUE)
     +-input_scan=
@@ -91,9 +91,9 @@ QueryStmt
     |             +-column_list=[$groupby.x#4]
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |             |   +-element_column=$array.y#3
+    |             |   +-element_column_list=[$array.y#3]
     |             +-group_by_list=
     |               +-x#4 := ColumnRef(type=INT64, column=t.x#1, is_correlated=TRUE)
     +-input_scan=
@@ -136,9 +136,9 @@ QueryStmt
     |             +-column_list=[$aggregate.$agg1#4]
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |             |   +-element_column=$array.y#3
+    |             |   +-element_column_list=[$array.y#3]
     |             +-aggregate_list=
     |               +-$agg1#4 :=
     |                 +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -212,9 +212,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#3]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#3
+    |                 |   +-element_column_list=[$array.y#3]
     |                 +-group_by_list=
     |                 | +-x#5 := ColumnRef(type=INT64, column=t.x#1, is_correlated=TRUE)
     |                 +-aggregate_list=
@@ -267,9 +267,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#3]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#3
+    |                 |   +-element_column_list=[$array.y#3]
     |                 +-group_by_list=
     |                 | +-x#5 := ColumnRef(type=INT64, column=t.x#1, is_correlated=TRUE)
     |                 +-aggregate_list=
@@ -317,9 +317,9 @@ QueryStmt
     |             +-input_scan=
     |             | +-ArrayScan
     |             |   +-column_list=[$array.y#3]
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |             |   +-element_column=$array.y#3
+    |             |   +-element_column_list=[$array.y#3]
     |             +-group_by_list=
     |             | +-x#5 := ColumnRef(type=INT64, column=t.x#1, is_correlated=TRUE)
     |             +-aggregate_list=
@@ -367,9 +367,9 @@ QueryStmt
     |             +-input_scan=
     |             | +-ArrayScan
     |             |   +-column_list=[$array.y#3]
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |             |   +-element_column=$array.y#3
+    |             |   +-element_column_list=[$array.y#3]
     |             +-group_by_list=
     |             | +-x#5 := ColumnRef(type=INT64, column=t.x#1, is_correlated=TRUE)
     |             +-aggregate_list=
@@ -437,9 +437,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#3]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#3
+    |                 |   +-element_column_list=[$array.y#3]
     |                 +-aggregate_list=
     |                   +-$agg1#4 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -505,9 +505,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#3]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#3
+    |                 |   +-element_column_list=[$array.y#3]
     |                 +-aggregate_list=
     |                   +-$agg1#5 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -620,9 +620,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#3]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#3
+    |                 |   +-element_column_list=[$array.y#3]
     |                 +-aggregate_list=
     |                   +-$agg1#4 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -718,9 +718,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#3]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#3
+    |                 |   +-element_column_list=[$array.y#3]
     |                 +-aggregate_list=
     |                   +-$agg1#4 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -804,9 +804,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#3]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#3
+    |                 |   +-element_column_list=[$array.y#3]
     |                 +-group_by_list=
     |                 | +-f1a#5 :=
     |                 | | +-GetStructField
@@ -921,9 +921,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#3]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#3
+    |                 |   +-element_column_list=[$array.y#3]
     |                 +-group_by_list=
     |                 | +-f1a#5 :=
     |                 | | +-GetStructField
@@ -1018,13 +1018,13 @@ QueryStmt
     |             +-column_list=[$groupby.x#5]
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-GetStructField
     |             |   |   +-type=ARRAY<INT64>
     |             |   |   +-expr=
     |             |   |   | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |             |   |   +-field_idx=1
-    |             |   +-element_column=$array.y#4
+    |             |   +-element_column_list=[$array.y#4]
     |             +-group_by_list=
     |               +-x#5 :=
     |                 +-GetStructField
@@ -1081,13 +1081,13 @@ QueryStmt
     |             +-column_list=[$aggregate.$agg1#5]
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-GetStructField
     |             |   |   +-type=ARRAY<INT64>
     |             |   |   +-expr=
     |             |   |   | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |             |   |   +-field_idx=1
-    |             |   +-element_column=$array.y#4
+    |             |   +-element_column_list=[$array.y#4]
     |             +-aggregate_list=
     |               +-$agg1#5 :=
     |                 +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -1167,13 +1167,13 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#4]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-GetStructField
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-expr=
     |                 |   |   | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |                 |   |   +-field_idx=1
-    |                 |   +-element_column=$array.y#4
+    |                 |   +-element_column_list=[$array.y#4]
     |                 +-group_by_list=
     |                 | +-x#6 :=
     |                 |   +-GetStructField
@@ -1240,13 +1240,13 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#4]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-GetStructField
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-expr=
     |                 |   |   | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |                 |   |   +-field_idx=1
-    |                 |   +-element_column=$array.y#4
+    |                 |   +-element_column_list=[$array.y#4]
     |                 +-group_by_list=
     |                 | +-x#6 :=
     |                 |   +-GetStructField
@@ -1308,13 +1308,13 @@ QueryStmt
     |             +-input_scan=
     |             | +-ArrayScan
     |             |   +-column_list=[$array.y#4]
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-GetStructField
     |             |   |   +-type=ARRAY<INT64>
     |             |   |   +-expr=
     |             |   |   | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |             |   |   +-field_idx=1
-    |             |   +-element_column=$array.y#4
+    |             |   +-element_column_list=[$array.y#4]
     |             +-group_by_list=
     |             | +-x#6 :=
     |             |   +-GetStructField
@@ -1394,13 +1394,13 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#4]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-GetStructField
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-expr=
     |                 |   |   | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |                 |   |   +-field_idx=1
-    |                 |   +-element_column=$array.y#4
+    |                 |   +-element_column_list=[$array.y#4]
     |                 +-aggregate_list=
     |                   +-$agg1#5 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -1475,13 +1475,13 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#4]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-GetStructField
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-expr=
     |                 |   |   | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |                 |   |   +-field_idx=1
-    |                 |   +-element_column=$array.y#4
+    |                 |   +-element_column_list=[$array.y#4]
     |                 +-aggregate_list=
     |                   +-$agg1#5 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -1568,9 +1568,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#6]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#5, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#6
+    |                 |   +-element_column_list=[$array.y#6]
     |                 +-group_by_list=
     |                 | +-x#8 := ColumnRef(type=STRUCT<a INT64, b STRING>, column=t.x#4, is_correlated=TRUE)
     |                 +-aggregate_list=
@@ -1708,13 +1708,13 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#4]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-GetStructField
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-expr=
     |                 |   |   | +-ColumnRef(type=STRUCT<x STRUCT<f1a INT32, f1b STRUCT<f2a BOOL, f2b STRUCT<f3a STRING>>>, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |                 |   |   +-field_idx=1
-    |                 |   +-element_column=$array.y#4
+    |                 |   +-element_column_list=[$array.y#4]
     |                 +-aggregate_list=
     |                   +-$agg1#5 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -1830,13 +1830,13 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#4]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-GetStructField
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-expr=
     |                 |   |   | +-ColumnRef(type=STRUCT<x STRUCT<f1a INT32, f1b STRUCT<f2a BOOL, f2b STRUCT<f3a STRING>>>, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |                 |   |   +-field_idx=1
-    |                 |   +-element_column=$array.y#4
+    |                 |   +-element_column_list=[$array.y#4]
     |                 +-aggregate_list=
     |                   +-$agg1#5 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -1946,13 +1946,13 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#4]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-GetStructField
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-expr=
     |                 |   |   | +-ColumnRef(type=STRUCT<x STRUCT<f1a INT32, f1b STRUCT<f2a BOOL, f2b STRUCT<f3a STRING>>>, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
     |                 |   |   +-field_idx=1
-    |                 |   +-element_column=$array.y#4
+    |                 |   +-element_column_list=[$array.y#4]
     |                 +-group_by_list=
     |                 | +-f1a#6 :=
     |                 | | +-GetStructField
@@ -2085,14 +2085,14 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#2]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-GetProtoField
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-expr=
     |                 |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1, is_correlated=TRUE)
     |                 |   |   +-field_descriptor=repeated_int64_val
     |                 |   |   +-default_value=[]
-    |                 |   +-element_column=$array.y#2
+    |                 |   +-element_column_list=[$array.y#2]
     |                 +-aggregate_list=
     |                   +-$agg1#3 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -2140,9 +2140,9 @@ QueryStmt
     |           +-AggregateScan
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
-    |             |   +-element_column=$array.Int32Array#7
+    |             |   +-element_column_list=[$array.Int32Array#7]
     |             +-group_by_list=
     |               +-int32_val#8 :=
     |                 +-GetProtoField
@@ -2183,9 +2183,9 @@ QueryStmt
     |             +-column_list=[$aggregate.$agg1#8]
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
-    |             |   +-element_column=$array.Int32Array#7
+    |             |   +-element_column_list=[$array.Int32Array#7]
     |             +-aggregate_list=
     |               +-$agg1#8 :=
     |                 +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -2249,9 +2249,9 @@ QueryStmt
     |                 +-column_list=[$aggregate.$agg1#8]
     |                 +-input_scan=
     |                 | +-ArrayScan
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
-    |                 |   +-element_column=$array.Int32Array#7
+    |                 |   +-element_column_list=[$array.Int32Array#7]
     |                 +-group_by_list=
     |                 | +-int32_val#9 :=
     |                 |   +-GetProtoField
@@ -2303,9 +2303,9 @@ QueryStmt
     |             +-column_list=[$aggregate.$agg1#8]
     |             +-input_scan=
     |             | +-ArrayScan
-    |             |   +-array_expr=
+    |             |   +-array_expr_list=
     |             |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
-    |             |   +-element_column=$array.Int32Array#7
+    |             |   +-element_column_list=[$array.Int32Array#7]
     |             +-group_by_list=
     |             | +-int32_val#9 :=
     |             |   +-GetProtoField
@@ -2376,9 +2376,9 @@ QueryStmt
     |                 +-column_list=[$aggregate.$agg1#8]
     |                 +-input_scan=
     |                 | +-ArrayScan
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
-    |                 |   +-element_column=$array.Int32Array#7
+    |                 |   +-element_column_list=[$array.Int32Array#7]
     |                 +-aggregate_list=
     |                   +-$agg1#8 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -2458,9 +2458,9 @@ QueryStmt
     |                 +-column_list=[$aggregate.$agg1#9]
     |                 +-input_scan=
     |                 | +-ArrayScan
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
-    |                 |   +-element_column=$array.Int32Array#7
+    |                 |   +-element_column_list=[$array.Int32Array#7]
     |                 +-aggregate_list=
     |                   +-$agg1#9 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -2555,9 +2555,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#7]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#7
+    |                 |   +-element_column_list=[$array.y#7]
     |                 +-aggregate_list=
     |                   +-$agg1#8 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -2630,9 +2630,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#7]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#7
+    |                 |   +-element_column_list=[$array.y#7]
     |                 +-aggregate_list=
     |                   +-$agg1#8 :=
     |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -2699,9 +2699,9 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-ArrayScan
     |                 |   +-column_list=[$array.y#7]
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
-    |                 |   +-element_column=$array.y#7
+    |                 |   +-element_column_list=[$array.y#7]
     |                 +-group_by_list=
     |                 | +-nested_int64#9 :=
     |                 |   +-GetProtoField
@@ -2841,7 +2841,7 @@ QueryStmt
     |               +-AggregateScan
     |                 +-input_scan=
     |                 | +-ArrayScan
-    |                 |   +-array_expr=
+    |                 |   +-array_expr_list=
     |                 |   | +-GetStructField
     |                 |   |   +-type=ARRAY<INT64>
     |                 |   |   +-expr=
@@ -2855,7 +2855,7 @@ QueryStmt
     |                 |   |   |   |   +-field_idx=0
     |                 |   |   |   +-field_idx=1
     |                 |   |   +-field_idx=1
-    |                 |   +-element_column=$array.d#11
+    |                 |   +-element_column_list=[$array.d#11]
     |                 +-group_by_list=
     |                   +-a#12 :=
     |                     +-GetStructField

@@ -224,7 +224,7 @@ QueryStmt
         +-column_list=[TwoIntsView.a#1, $array.v2#6]
         +-input_scan=
         | +-TableScan(column_list=[TwoIntsView.a#1], table=TwoIntsView, column_index_list=[0], alias="v1")
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<STRUCT<a INT64, b INT64>>
         |   +-subquery_type=ARRAY
@@ -243,7 +243,7 @@ QueryStmt
         |           +-column_list=TwoIntsView.[a#3, b#4]
         |           +-input_scan=
         |             +-TableScan(column_list=TwoIntsView.[a#3, b#4], table=TwoIntsView, column_index_list=[0, 1])
-        +-element_column=$array.v2#6
+        +-element_column_list=[$array.v2#6]
 
 [REWRITTEN AST]
 QueryStmt
@@ -271,7 +271,7 @@ QueryStmt
         |   | +-b#8 := Literal(type=INT64, value=2)
         |   +-input_scan=
         |     +-SingleRowScan
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<STRUCT<a INT64, b INT64>>
         |   +-subquery_type=ARRAY
@@ -296,7 +296,7 @@ QueryStmt
         |               | +-b#4 := Literal(type=INT64, value=2)
         |               +-input_scan=
         |                 +-SingleRowScan
-        +-element_column=$array.v2#6
+        +-element_column_list=[$array.v2#6]
 ==
 
 # Scan the same view twice in a set operation.

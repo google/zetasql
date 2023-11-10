@@ -561,7 +561,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 245
+          Next tag_id: 248
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -2517,58 +2517,126 @@ value.
       tag_id=22,
       parent='ResolvedScan',
       comment="""
-      Scan an array value, produced from some expression.
+      Scan one or more (N) array values produced by evaluating N expressions,
+      merging them positionally. Without FEATURE_V_1_4_MULTIWAY_UNNEST, it must
+      be exactly one array (N=1).
 
-      If input_scan is NULL, this scans the given array value and produces
-      one row per array element.  This can occur when using UNNEST(expression).
+      If `input_scan` is NULL, this produces one row for each array offset.
+      This can occur when using syntax:
+        UNNEST(expression [, expression [, ...]])
 
-      If <input_scan> is non-NULL, for each row in the stream produced by
-      input_scan, this evaluates the expression <array_expr> (which must return
-      an array type) and then produces a stream with one row per array element.
+      If `input_scan` is non-NULL, for each row in the stream produced by
+      `input_scan`, this evaluates the expressions in `array_expr_list` (each of
+      which must return an array type), and then produces a stream with one row
+      for each array offset.
 
-      If <join_expr> is non-NULL, then this condition is evaluated as an ON
-      clause for the array join.  The named column produced in <array_expr>
-      may be used inside <join_expr>.
+      If `join_expr` is non-NULL, then this condition is evaluated as an ON
+      clause for the array join. The named columns produced by any array in
+      `array_expr_list` may be used inside `join_expr`.
 
-      If the array is empty (after evaluating <join_expr>), then
-      1. If <is_outer> is false, the scan produces zero rows.
-      2. If <is_outer> is true, the scan produces one row with a NULL value for
-         the <element_column>.
+      If the array is empty (after evaluating `join_expr`), then
+      1. If `is_outer` is false, the scan produces zero rows.
+      2. If `is_outer` is true, the scan produces one row with N NULL values.
 
-      <element_column> is the new column produced by this scan that stores the
-      array element value for each row.
+      `element_column_list` are the new columns produced by this scan that store
+      the array element values for each row. `element_column_list` and
+      `array_expr_list` must have the same size N.
 
-      If present, <array_offset_column> defines the column produced by this
+      If present, `array_offset_column` defines the column produced by this
       scan that stores the array offset (0-based) for the corresponding
-      <element_column>.
+      `element_column_list`.
 
-      This node's column_list can have columns from input_scan, <element_column>
-      and <array_offset_column>.
+      This node's `column_list` can have columns from `input_scan`,
+      `element_column_list` and `array_offset_column`.
+
+      `array_zip_mode` specifies the zipping behavior when there are multiple
+      arrays in `array_expr_list` and they have different sizes. It must be NULL
+      when there is only one given array.
+
+      The getters and setters for legacy fields `array_expr` and
+      `element_column` are added for backward compatibility purposes. If the
+      corresponding vector field has more than 1 element and only legacy
+      accessors are called, the field is not considered as accessed.
               """,
       fields=[
           Field(
               'input_scan',
               'ResolvedScan',
               tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
-          Field('array_expr', 'ResolvedExpr', tag_id=3),
-          Field('element_column', SCALAR_RESOLVED_COLUMN, tag_id=4),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'array_expr_list',
+              'ResolvedExpr',
+              tag_id=3,
+              vector=True,
+          ),
+          Field(
+              'element_column_list',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=4,
+              vector=True,
+          ),
           Field(
               'array_offset_column',
               'ResolvedColumnHolder',
               tag_id=5,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
-              'join_expr',
+              'join_expr', 'ResolvedExpr', tag_id=6, ignorable=IGNORABLE_DEFAULT
+          ),
+          Field('is_outer', SCALAR_BOOL, tag_id=7, ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'array_zip_mode',
               'ResolvedExpr',
-              tag_id=6,
-              ignorable=IGNORABLE_DEFAULT),
-          Field(
-              'is_outer',
-              SCALAR_BOOL,
-              tag_id=7,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              tag_id=8,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              Stores a builtin ENUM ARRAY_ZIP_MODE with three possible values:
+              PAD, TRUNCATE or STRICT.
+              """
+          ),
+      ],
+      extra_defs_node_only="""
+  ABSL_DEPRECATED("Use `array_expr_list()` instead")
+  const ResolvedExpr* array_expr() const {
+    if (array_expr_list_.size() == 1) {
+      accessed_ |= (1<<1);
+    }
+    return array_expr_list_[0].get();
+  }
+  ABSL_DEPRECATED("Use `set_array_expr_list()` instead")
+  void set_array_expr(std::unique_ptr<const ResolvedExpr> v) {
+    if (array_expr_list_.empty()) {
+      array_expr_list_.push_back(std::move(v));
+    } else {
+      array_expr_list_[0] = std::move(v);
+    }
+  }
+  ABSL_DEPRECATED("Use `release_array_expr_list()` instead")
+  std::unique_ptr<const ResolvedExpr> release_array_expr() {
+    std::unique_ptr<const ResolvedExpr> first_array_expr;
+    array_expr_list_[0].swap(first_array_expr);
+    return first_array_expr;
+  }
+  ABSL_DEPRECATED("Use `element_column_list()` instead")
+  const ResolvedColumn& element_column() const {
+    if (element_column_list_.size() == 1) {
+      accessed_ |= (1<<2);
+    }
+    return element_column_list_[0];
+  }
+  ABSL_DEPRECATED("Use `set_element_column_list()` instead")
+  void set_element_column(const ResolvedColumn& v) {
+    if (element_column_list_.empty()) {
+      element_column_list_.push_back(v);
+    } else {
+      element_column_list_[0] = v;
+    }
+  }
+      """,
+  )
 
   gen.AddNode(
       name='ResolvedColumnHolder',
@@ -3297,10 +3365,22 @@ value.
              the user does not write to the column.
         This field is set to ALWAYS by default.
 
+      `identity_column_info` contains the sequence attributes that dictate how
+      values are generated for the column.
+        - Each table can have at most one identity column.
+
+      Note: Exactly one of `expression` and `identity_column_info` must be
+      populated.
+
       See (broken link) and
       (broken link).""",
       fields=[
-          Field('expression', 'ResolvedExpr', tag_id=2),
+          Field(
+              'expression',
+              'ResolvedExpr',
+              tag_id=2,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'stored_mode',
               SCALAR_STORED_MODE,
@@ -3311,6 +3391,12 @@ value.
               'generated_mode',
               SCALAR_GENERATED_MODE,
               tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'identity_column_info',
+              'ResolvedIdentityColumnInfo',
+              tag_id=7,
               ignorable=IGNORABLE_DEFAULT,
           ),
       ],
@@ -5542,9 +5628,12 @@ value.
 
       The returning clause has a <output_column_list> to represent the data
       sent back to clients. It can only access columns from the <table_scan>.
+
       <topologically_sorted_generated_column_id_list> is set for queries to
       tables having generated columns. It provides the resolved column ids of
-      the generated columns in topological order.
+      the generated columns in topological order, which the computed generated
+      column expressions can be computed in.
+
       <generated_expr_list> has generated expressions for the corresponding
       generated column in the topologically_sorted_generated_column_id_list.
       Hence, these lists have the same size.
@@ -6004,6 +6093,15 @@ value.
       sent back to clients. It can only access columns from the <table_scan>.
       The columns in <from_scan> are not allowed.
       TODO: allow columns in <from_scan> to be referenced.
+
+      <topologically_sorted_generated_column_id_list> is set for queries to
+      tables having generated columns. This field is similar to the INSERT case,
+      more details can be found in ResolvedInsertStmt.
+
+      <generated_expr_list> has generated expressions for the corresponding
+      generated column in the topologically_sorted_generated_column_id_list.
+      Hence, these lists have the same size. This field is similar to the
+      INSERT case, more details can be found in ResolvedInsertStmt.
               """,
       fields=[
           Field(
@@ -6044,7 +6142,31 @@ value.
               'from_scan',
               'ResolvedScan',
               tag_id=6,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'topologically_sorted_generated_column_id_list',
+              SCALAR_INT,
+              tag_id=10,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparatedForInt',
+              comment="""
+              TODO: refactor it with INSERT case.
+              """,
+          ),
+          Field(
+              'generated_column_expr_list',
+              'ResolvedExpr',
+              tag_id=11,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              comment="""
+              TODO: refactor it with INSERT case.
+              """,
+          )
       ])
 
   gen.AddNode(
@@ -8883,6 +9005,47 @@ ResolvedArgumentRef(y)
               tag_id=5,
               ignorable=IGNORABLE_DEFAULT,
           ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedIdentityColumnInfo',
+      tag_id=244,
+      parent='ResolvedArgument',
+      comment="""
+      This argument represents the identity column clause for a generated
+      column:
+          GENERATED AS IDENTITY (
+                         [ START WITH <signed_numeric_literal> ]
+                         [ INCREMENT BY <signed_numeric_literal> ]
+                         [ MAXVALUE <signed_numeric_literal>]
+                         [ MINVALUE <signed_numeric_literal>]
+                         [ CYCLE | NO CYCLE]
+                       )
+      If attributes are not specified, the resolver fills in the fields using
+      default values.
+      Note: Only integer-typed columns can be identity columns.
+
+      `start_with_value` is the start/first value generated for the column.
+
+      `increment_by_value` is the minimum difference between two successive
+      generated values.
+        - Can be negative or positive but not 0.
+
+      `max_value` is the maximum value that can be generated in the column.
+
+      `min_value` is the minimum value that can be generated in the column.
+
+      `cycling_enabled`: If true, the generated identity value will cycle around
+      after overflow, when `min_value` or `max_value` is exceeded.
+
+      See (broken link).""",
+      fields=[
+          Field('start_with_value', SCALAR_VALUE, tag_id=2),
+          Field('increment_by_value', SCALAR_VALUE, tag_id=3),
+          Field('max_value', SCALAR_VALUE, tag_id=4),
+          Field('min_value', SCALAR_VALUE, tag_id=5),
+          Field('cycling_enabled', SCALAR_BOOL, tag_id=6),
       ],
   )
 

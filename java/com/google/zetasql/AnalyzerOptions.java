@@ -369,6 +369,16 @@ public class AnalyzerOptions implements Serializable {
     return builder.getShowFunctionSignatureMismatchDetails();
   }
 
+  public void setReplaceTableNotFoundErrorWithTvfErrorIfApplicable(
+      boolean replaceTableNotFoundErrorWithTvfErrorIfApplicable) {
+    builder.setReplaceTableNotFoundErrorWithTvfErrorIfApplicable(
+        replaceTableNotFoundErrorWithTvfErrorIfApplicable);
+  }
+
+  public boolean getReplaceTableNotFoundErrorWithTvfErrorIfApplicable() {
+    return builder.getReplaceTableNotFoundErrorWithTvfErrorIfApplicable();
+  }
+
   public void setRewriteOptions(RewriteOptions rewriteOptions) {
     builder.setRewriteOptions(rewriteOptions);
   }
@@ -398,6 +408,8 @@ public class AnalyzerOptions implements Serializable {
     setPreserveColumnAliases(proto.getPreserveColumnAliases());
     setPreserveUnnecessaryCast(proto.getPreserveUnnecessaryCast());
     setShowFunctionSignatureMismatchDetails(proto.getShowFunctionSignatureMismatchDetails());
+    setReplaceTableNotFoundErrorWithTvfErrorIfApplicable(
+        proto.getReplaceTableNotFoundErrorWithTvfErrorIfApplicable());
 
     if (proto.hasInScopeExpressionColumn()) {
       setInScopeExpressionColumn(

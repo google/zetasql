@@ -94,8 +94,9 @@ absl::Status TestDatabaseCatalog::BuiltinFunctionCache::SetLanguageOptions(
 }
 void TestDatabaseCatalog::BuiltinFunctionCache::DumpStats() {
   ABSL_LOG(INFO) << "BuiltinFunctionCache: hit: " << cache_hit_ << " / "
-            << total_calls_ << "(" << (cache_hit_ * 100. / total_calls_) << "%)"
-            << " size: " << builtins_cache_.size();
+            << total_calls_ << "("
+            << (total_calls_ == 0 ? 0 : cache_hit_ * 100. / total_calls_)
+            << "%) size: " << builtins_cache_.size();
 }
 
 TestDatabaseCatalog::TestDatabaseCatalog(TypeFactory* type_factory)

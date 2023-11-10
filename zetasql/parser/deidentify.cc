@@ -35,6 +35,7 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/types/type.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
 
@@ -102,6 +103,15 @@ class DeidentifyingUnparser : public Unparser {
       formatter_.Format(RemapIdentifier(node->GetAsStringView()));
     } else {
       Unparser::visitASTIdentifier(node, data);
+    }
+  }
+
+  void visitASTAlias(const ASTAlias* node, void* data) override {
+    absl::string_view identifier = node->identifier()->GetAsStringView();
+    if (ShouldRemapIdentifier(identifier)) {
+      print(absl::StrCat("AS ", RemapIdentifier(identifier)));
+    } else {
+      Unparser::visitASTAlias(node, data);
     }
   }
 

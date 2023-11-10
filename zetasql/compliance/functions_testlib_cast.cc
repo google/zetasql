@@ -35,6 +35,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_function.h"
@@ -1157,6 +1158,148 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInterval() {
     result.push_back(test.WrapWithFeature(FEATURE_INTERVAL_TYPE));
   }
   return result;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsCastRange() {
+  std::vector<QueryParamsWithResult> tests = {
+      // RANGE<DATE> -> RANGE<DATE>
+      {{Null(types::DateRangeType())}, {Null(types::DateRangeType())}},
+      {{Range(Date(14276), Date(14288))}, {Range(Date(14276), Date(14288))}},
+      // RANGE<DATETIME> -> RANGE<DATETIME>
+      {{Null(types::DatetimeRangeType())}, {Null(types::DatetimeRangeType())}},
+      {{Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456),
+              DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))},
+       {Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456),
+              DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))}},
+      // RANGE<TIMESTAMP> -> RANGE<TIMESTAMP>
+      {{Null(types::TimestampRangeType())},
+       {Null(types::TimestampRangeType())}},
+      {{Range(Timestamp(1233496649123456), Timestamp(1267628310654321))},
+       {Range(Timestamp(1233496649123456), Timestamp(1267628310654321))}},
+
+      // TODO: b/285939418 - uncomment these test cases once RANGE<T> cast to
+      // STRING is implemented.
+      // // RANGE<DATE> -> STRING
+      // {{Null(types::DateRangeType())}, NullString()},
+      // {{Range(Date(14276), Date(14288))}, String("[2009-02-01,
+      // 2009-02-13)")},
+      // {{Range(NullDate(), Date(14288))}, String("[UNBOUNDED, 2009-02-13)")},
+      // {{Range(Date(14276), NullDate())}, String("[2009-02-01, UNBOUNDED)")},
+      // {{Range(NullDate(), NullDate())}, String("[UNBOUNDED, UNBOUNDED)")},
+      // // RANGE<DATETIME> -> STRING
+      // {{Null(types::DatetimeRangeType())}, NullString()},
+      // {{Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456),
+      //         DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))},
+      //  String("[2009-02-01 13:57:29.123456, 2010-03-03 14:58:30.654321)")},
+      // {{Range(NullDatetime(),
+      //         DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))},
+      //  String("[UNBOUNDED, 2010-03-03 14:58:30.654321)")},
+      // {{Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456),
+      //         NullDatetime())},
+      //  String("[2009-02-01 13:57:29.123456, UNBOUNDED)")},
+      // {{Range(NullDatetime(), NullDatetime())},
+      //  String("[UNBOUNDED, UNBOUNDED)")},
+      // // RANGE<TIMESTAMP> -> STRING
+      // // The default time zone is America/Los_Angeles.
+      // {{Null(types::TimestampRangeType())}, NullString()},
+      // {{Range(Timestamp(1233496649123456), Timestamp(1267628310654321))},
+      //  String(
+      //      "[2009-02-01 05:57:29.123456-08, 2010-03-03
+      //      06:58:30.654321-08)")},
+      // {{Range(NullTimestamp(), Timestamp(1267628310654321))},
+      //  String("[UNBOUNDED, 2010-03-03 06:58:30.654321-08)")},
+      // {{Range(Timestamp(1233496649123456), NullTimestamp())},
+      //  String("[2009-02-01 05:57:29.123456-08, UNBOUNDED)")},
+      // {{Range(NullTimestamp(), NullTimestamp())},
+      //  String("[UNBOUNDED, UNBOUNDED)")},
+
+      // STRING -> RANGE<DATE>
+      {{NullString()}, Null(types::DateRangeType())},
+      {{String("[2009-02-01, 2009-02-13)")}, Range(Date(14276), Date(14288))},
+      {{String("[UNBOUNDED, 2009-02-13)")}, Range(NullDate(), Date(14288))},
+      {{String("[2009-02-01, UNBOUNDED)")}, Range(Date(14276), NullDate())},
+      {{String("[UNBOUNDED, UNBOUNDED)")}, Range(NullDate(), NullDate())},
+      // STRING -> RANGE<DATETIME>
+      {{NullString()}, Null(types::DatetimeRangeType())},
+      {{String("[2009-02-01 13:57:29.123456, 2010-03-03 14:58:30.654321)")},
+       Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456),
+             DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))},
+      {{String("[UNBOUNDED, 2010-03-03 14:58:30.654321)")},
+       Range(NullDatetime(), DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))},
+      {{String("[2009-02-01 13:57:29.123456, UNBOUNDED)")},
+       Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456), NullDatetime())},
+      {{String("[UNBOUNDED, UNBOUNDED)")},
+       Range(NullDatetime(), NullDatetime())},
+      // STRING -> RANGE<TIMESTAMP>
+      {{NullString()}, Null(types::TimestampRangeType())},
+      {{String(
+           "[2009-02-01 05:57:29.123456-08, 2010-03-03 06:58:30.654321-08)")},
+       Range(Timestamp(1233496649123456), Timestamp(1267628310654321))},
+      {{String("[UNBOUNDED, 2010-03-03 06:58:30.654321-08)")},
+       Range(NullTimestamp(), Timestamp(1267628310654321))},
+      {{String("[2009-02-01 05:57:29.123456-08, UNBOUNDED)")},
+       Range(Timestamp(1233496649123456), NullTimestamp())},
+      {{String("[UNBOUNDED, UNBOUNDED)")},
+       Range(NullTimestamp(), NullTimestamp())},
+
+      // STRING -> RANGE<DATE> bad formats
+      {{String("2009-02-01, 2009-02-13)")},
+       Null(types::DateRangeType()),
+       OUT_OF_RANGE},
+      {{String("[2009-02-01, 2009-02-13")},
+       Null(types::DateRangeType()),
+       OUT_OF_RANGE},
+      {{String("2009-02-01, 2009-02-13")},
+       Null(types::DateRangeType()),
+       OUT_OF_RANGE},
+      {{String("[2009-02-01,2009-02-13)")},
+       Null(types::DateRangeType()),
+       OUT_OF_RANGE},
+      // STRING -> RANGE<DATETIME> bad formats
+      {{String("2009-02-01 13:57:29.123456, 2010-03-03 14:58:30.654321)")},
+       Null(types::DatetimeRangeType()),
+       OUT_OF_RANGE},
+      {{String("[2009-02-01 13:57:29.123456, 2010-03-03 14:58:30.654321")},
+       Null(types::DatetimeRangeType()),
+       OUT_OF_RANGE},
+      {{String("2009-02-01 13:57:29.123456, 2010-03-03 14:58:30.654321")},
+       Null(types::DatetimeRangeType()),
+       OUT_OF_RANGE},
+      {{String("[2009-02-01 13:57:29.123456,2010-03-03 14:58:30.654321)")},
+       Null(types::DatetimeRangeType()),
+       OUT_OF_RANGE},
+      // STRING -> RANGE<TIMESTAMP> bad formats
+      {{String(
+           "2009-02-01 13:57:29.123456-08, 2010-03-03 14:58:30.654321-08)")},
+       Null(types::TimestampRangeType()),
+       OUT_OF_RANGE},
+      {{String(
+           "[2009-02-01 13:57:29.123456-08, 2010-03-03 14:58:30.654321-08")},
+       Null(types::TimestampRangeType()),
+       OUT_OF_RANGE},
+      {{String("2009-02-01 13:57:29.123456-08, 2010-03-03 14:58:30.654321-08")},
+       Null(types::TimestampRangeType()),
+       OUT_OF_RANGE},
+      {{String(
+           "[2009-02-01 13:57:29.123456-08,2010-03-03 14:58:30.654321-08)")},
+       Null(types::TimestampRangeType()),
+       OUT_OF_RANGE},
+  };
+
+  auto is_datetime_range_value = [](const Value& value) -> bool {
+    return value.type()->IsRangeType() &&
+           value.type()->AsRange()->element_type()->IsDatetime();
+  };
+  for (auto& test : tests) {
+    test.AddRequiredFeature(FEATURE_RANGE_TYPE);
+    // Add FEATURE_V_1_2_CIVIL_TIME if the source/result value is of DATETIME
+    // type.
+    if (is_datetime_range_value(test.param(0)) ||
+        is_datetime_range_value(test.result())) {
+      test.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+    }
+  }
+  return tests;
 }
 
 static std::vector<QueryParamsWithResult> GetFunctionTestsCastIntPorted() {
@@ -2476,15 +2619,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
   return ConcatTests<QueryParamsWithResult>({
-      GetFunctionTestsCastBool(),
-      GetFunctionTestsCastComplex(),
-      GetFunctionTestsCastDateTime(),
-      GetFunctionTestsCastInterval(),
-      GetFunctionTestsCastNumeric(),
-      GetFunctionTestsCastString(),
+      GetFunctionTestsCastBool(), GetFunctionTestsCastComplex(),
+      GetFunctionTestsCastDateTime(), GetFunctionTestsCastInterval(),
+      GetFunctionTestsCastNumeric(), GetFunctionTestsCastString(),
       GetFunctionTestsCastNumericString(),
       GetFunctionTestsCastBytesStringWithFormat(),
       GetFunctionTestsCastDateTimestampStringWithFormat(),
+      GetFunctionTestsCastRange(),
   });
 }
 

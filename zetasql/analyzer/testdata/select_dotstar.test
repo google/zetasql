@@ -2914,7 +2914,7 @@ QueryStmt
                 +-input_scan=
                 | +-ArrayScan
                 |   +-column_list=[$array.part#8]
-                |   +-array_expr=
+                |   +-array_expr_list=
                 |   | +-SubqueryExpr
                 |   |   +-type=ARRAY<BYTES>
                 |   |   +-subquery_type=SCALAR
@@ -2944,7 +2944,7 @@ QueryStmt
                 |   |       |                   +-Literal(type=TIMESTAMP, value=2017-11-13 20:35:19.260426+00)
                 |   |       +-input_scan=
                 |   |         +-SingleRowScan
-                |   +-element_column=$array.part#8
+                |   +-element_column_list=[$array.part#8]
                 +-aggregate_list=
                   +-$agg1#9 :=
                     +-AggregateFunctionCall(ZetaSQL:string_agg(BYTES) -> BYTES)
@@ -3089,3 +3089,297 @@ FROM (SELECT 1 a, 2 b) as t;
 ERROR: Syntax error: Expected ")" or "," but got "." [at 1:27]
 SELECT STRUCT(ANY_VALUE(t).*)
                           ^
+==
+
+SELECT
+  STRUCT(x).*
+FROM
+  UNNEST(GENERATE_ARRAY(1, 5)) AS x
+GROUP BY
+  x
+ORDER BY
+  x;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.x#4 AS x [INT64]
++-query=
+  +-OrderByScan
+    +-column_list=[$groupby.x#4]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-AggregateScan
+    |   +-column_list=[$groupby.x#4]
+    |   +-input_scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$array.x#1, $preproject.$struct#2, $pre_groupby.x#3]
+    |   |   +-expr_list=
+    |   |   | +-x#3 :=
+    |   |   |   +-GetStructField
+    |   |   |     +-type=INT64
+    |   |   |     +-expr=
+    |   |   |     | +-ColumnRef(type=STRUCT<x INT64>, column=$preproject.$struct#2)
+    |   |   |     +-field_idx=0
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=[$array.x#1, $preproject.$struct#2]
+    |   |       +-expr_list=
+    |   |       | +-$struct#2 :=
+    |   |       |   +-MakeStruct
+    |   |       |     +-type=STRUCT<x INT64>
+    |   |       |     +-field_list=
+    |   |       |       +-ColumnRef(type=INT64, column=$array.x#1)
+    |   |       +-input_scan=
+    |   |         +-ArrayScan
+    |   |           +-column_list=[$array.x#1]
+    |   |           +-array_expr_list=
+    |   |           | +-FunctionCall(ZetaSQL:generate_array(INT64, INT64, optional(0) INT64) -> ARRAY<INT64>)
+    |   |           |   +-Literal(type=INT64, value=1)
+    |   |           |   +-Literal(type=INT64, value=5)
+    |   |           +-element_column_list=[$array.x#1]
+    |   +-group_by_list=
+    |     +-x#4 := ColumnRef(type=INT64, column=$pre_groupby.x#3)
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=INT64, column=$groupby.x#4)
+==
+
+SELECT
+  STRUCT(x).*
+FROM
+  UNNEST(GENERATE_ARRAY(1, 5)) AS x
+GROUP BY
+  x
+HAVING x > 3;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.x#4 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.x#4]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$groupby.x#4]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$groupby.x#4]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$array.x#1, $preproject.$struct#2, $pre_groupby.x#3]
+        |   |   +-expr_list=
+        |   |   | +-x#3 :=
+        |   |   |   +-GetStructField
+        |   |   |     +-type=INT64
+        |   |   |     +-expr=
+        |   |   |     | +-ColumnRef(type=STRUCT<x INT64>, column=$preproject.$struct#2)
+        |   |   |     +-field_idx=0
+        |   |   +-input_scan=
+        |   |     +-ProjectScan
+        |   |       +-column_list=[$array.x#1, $preproject.$struct#2]
+        |   |       +-expr_list=
+        |   |       | +-$struct#2 :=
+        |   |       |   +-MakeStruct
+        |   |       |     +-type=STRUCT<x INT64>
+        |   |       |     +-field_list=
+        |   |       |       +-ColumnRef(type=INT64, column=$array.x#1)
+        |   |       +-input_scan=
+        |   |         +-ArrayScan
+        |   |           +-column_list=[$array.x#1]
+        |   |           +-array_expr_list=
+        |   |           | +-FunctionCall(ZetaSQL:generate_array(INT64, INT64, optional(0) INT64) -> ARRAY<INT64>)
+        |   |           |   +-Literal(type=INT64, value=1)
+        |   |           |   +-Literal(type=INT64, value=5)
+        |   |           +-element_column_list=[$array.x#1]
+        |   +-group_by_list=
+        |     +-x#4 := ColumnRef(type=INT64, column=$pre_groupby.x#3)
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$groupby.x#4)
+            +-Literal(type=INT64, value=3)
+==
+
+SELECT
+  STRUCT(x).*
+FROM
+  UNNEST(GENERATE_ARRAY(1, 5)) AS x
+GROUP BY
+  x
+HAVING SUM(x) > 3;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.x#4 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.x#4]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$groupby.x#4, $aggregate.$agg1#5]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$groupby.x#4, $aggregate.$agg1#5]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$array.x#1, $preproject.$struct#2, $pre_groupby.x#3]
+        |   |   +-expr_list=
+        |   |   | +-x#3 :=
+        |   |   |   +-GetStructField
+        |   |   |     +-type=INT64
+        |   |   |     +-expr=
+        |   |   |     | +-ColumnRef(type=STRUCT<x INT64>, column=$preproject.$struct#2)
+        |   |   |     +-field_idx=0
+        |   |   +-input_scan=
+        |   |     +-ProjectScan
+        |   |       +-column_list=[$array.x#1, $preproject.$struct#2]
+        |   |       +-expr_list=
+        |   |       | +-$struct#2 :=
+        |   |       |   +-MakeStruct
+        |   |       |     +-type=STRUCT<x INT64>
+        |   |       |     +-field_list=
+        |   |       |       +-ColumnRef(type=INT64, column=$array.x#1)
+        |   |       +-input_scan=
+        |   |         +-ArrayScan
+        |   |           +-column_list=[$array.x#1]
+        |   |           +-array_expr_list=
+        |   |           | +-FunctionCall(ZetaSQL:generate_array(INT64, INT64, optional(0) INT64) -> ARRAY<INT64>)
+        |   |           |   +-Literal(type=INT64, value=1)
+        |   |           |   +-Literal(type=INT64, value=5)
+        |   |           +-element_column_list=[$array.x#1]
+        |   +-group_by_list=
+        |   | +-x#4 := ColumnRef(type=INT64, column=$pre_groupby.x#3)
+        |   +-aggregate_list=
+        |     +-$agg1#5 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=$pre_groupby.x#3)
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$aggregate.$agg1#5)
+            +-Literal(type=INT64, value=3)
+==
+
+SELECT NEW zetasql_test__.TestBcPB().*
+FROM (SELECT 1)
+GROUP BY 1,2
+ORDER BY 1, 2 ;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.b#5 AS b [INT32]
+| +-$groupby.c#6 AS c [STRING]
++-query=
+  +-OrderByScan
+    +-column_list=$groupby.[b#5, c#6]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-AggregateScan
+    |   +-column_list=$groupby.[b#5, c#6]
+    |   +-input_scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$subquery1.$col1#1, $preproject.$proto#2, $pre_groupby.b#3, $pre_groupby.c#4]
+    |   |   +-expr_list=
+    |   |   | +-b#3 :=
+    |   |   | | +-GetProtoField
+    |   |   | |   +-type=INT32
+    |   |   | |   +-expr=
+    |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestBcPB>, column=$preproject.$proto#2)
+    |   |   | |   +-field_descriptor=b
+    |   |   | |   +-default_value=0
+    |   |   | +-c#4 :=
+    |   |   |   +-GetProtoField
+    |   |   |     +-type=STRING
+    |   |   |     +-expr=
+    |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestBcPB>, column=$preproject.$proto#2)
+    |   |   |     +-field_descriptor=c
+    |   |   |     +-default_value=""
+    |   |   +-input_scan=
+    |   |     +-ProjectScan
+    |   |       +-column_list=[$subquery1.$col1#1, $preproject.$proto#2]
+    |   |       +-expr_list=
+    |   |       | +-$proto#2 := MakeProto(type=PROTO<zetasql_test__.TestBcPB>)
+    |   |       +-input_scan=
+    |   |         +-ProjectScan
+    |   |           +-column_list=[$subquery1.$col1#1]
+    |   |           +-expr_list=
+    |   |           | +-$col1#1 := Literal(type=INT64, value=1)
+    |   |           +-input_scan=
+    |   |             +-SingleRowScan
+    |   +-group_by_list=
+    |     +-b#5 := ColumnRef(type=INT32, column=$pre_groupby.b#3)
+    |     +-c#6 := ColumnRef(type=STRING, column=$pre_groupby.c#4)
+    +-order_by_item_list=
+      +-OrderByItem
+      | +-column_ref=
+      |   +-ColumnRef(type=INT32, column=$groupby.b#5)
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=STRING, column=$groupby.c#6)
+==
+
+[language_features=V_1_3_QUALIFY,ANALYTIC_FUNCTIONS]
+SELECT
+  STRUCT(x).*
+FROM
+  UNNEST(GENERATE_ARRAY(1, 5)) AS x
+GROUP BY x
+QUALIFY ROW_NUMBER() OVER (ORDER BY x) > 1
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.x#4 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.x#4]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$groupby.x#4, $analytic.$analytic1#5]
+        +-input_scan=
+        | +-AnalyticScan
+        |   +-column_list=[$groupby.x#4, $analytic.$analytic1#5]
+        |   +-input_scan=
+        |   | +-AggregateScan
+        |   |   +-column_list=[$groupby.x#4]
+        |   |   +-input_scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-column_list=[$array.x#1, $preproject.$struct#2, $pre_groupby.x#3]
+        |   |   |   +-expr_list=
+        |   |   |   | +-x#3 :=
+        |   |   |   |   +-GetStructField
+        |   |   |   |     +-type=INT64
+        |   |   |   |     +-expr=
+        |   |   |   |     | +-ColumnRef(type=STRUCT<x INT64>, column=$preproject.$struct#2)
+        |   |   |   |     +-field_idx=0
+        |   |   |   +-input_scan=
+        |   |   |     +-ProjectScan
+        |   |   |       +-column_list=[$array.x#1, $preproject.$struct#2]
+        |   |   |       +-expr_list=
+        |   |   |       | +-$struct#2 :=
+        |   |   |       |   +-MakeStruct
+        |   |   |       |     +-type=STRUCT<x INT64>
+        |   |   |       |     +-field_list=
+        |   |   |       |       +-ColumnRef(type=INT64, column=$array.x#1)
+        |   |   |       +-input_scan=
+        |   |   |         +-ArrayScan
+        |   |   |           +-column_list=[$array.x#1]
+        |   |   |           +-array_expr_list=
+        |   |   |           | +-FunctionCall(ZetaSQL:generate_array(INT64, INT64, optional(0) INT64) -> ARRAY<INT64>)
+        |   |   |           |   +-Literal(type=INT64, value=1)
+        |   |   |           |   +-Literal(type=INT64, value=5)
+        |   |   |           +-element_column_list=[$array.x#1]
+        |   |   +-group_by_list=
+        |   |     +-x#4 := ColumnRef(type=INT64, column=$pre_groupby.x#3)
+        |   +-function_group_list=
+        |     +-AnalyticFunctionGroup
+        |       +-order_by=
+        |       | +-WindowOrdering
+        |       |   +-order_by_item_list=
+        |       |     +-OrderByItem
+        |       |       +-column_ref=
+        |       |         +-ColumnRef(type=INT64, column=$groupby.x#4)
+        |       +-analytic_function_list=
+        |         +-$analytic1#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
+            +-Literal(type=INT64, value=1)

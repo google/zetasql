@@ -1789,7 +1789,7 @@ static absl::Status ParseDate(absl::string_view format,
   // timestamp then extracts the date part.
   int64_t timestamp;
   ZETASQL_RETURN_IF_ERROR(ParseStringToTimestamp(
-      format, date_string, absl::UTCTimeZone(), &timestamp, parse_version2));
+      format, date_string, absl::UTCTimeZone(), parse_version2, &timestamp));
   ZETASQL_RETURN_IF_ERROR(ExtractFromTimestamp(DATE, timestamp, kMicroseconds,
                                        absl::UTCTimeZone(), date));
   return absl::OkStatus();
@@ -1805,15 +1805,6 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
                    parse_version2, timestamp);
 }
 
-// deprecated
-absl::Status ParseStringToTimestamp(absl::string_view format_string,
-                                    absl::string_view timestamp_string,
-                                    const absl::TimeZone default_timezone,
-                                    int64_t* timestamp, bool parse_version2) {
-  return ParseStringToTimestamp(format_string, timestamp_string,
-                                default_timezone, parse_version2, timestamp);
-}
-
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
@@ -1822,16 +1813,6 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
   return ParseStringToTimestamp(format_string, timestamp_string, timezone,
                                 parse_version2, timestamp);
-}
-
-// deprecated
-absl::Status ParseStringToTimestamp(absl::string_view format_string,
-                                    absl::string_view timestamp_string,
-                                    absl::string_view default_timezone_string,
-                                    int64_t* timestamp, bool parse_version2) {
-  return ParseStringToTimestamp(format_string, timestamp_string,
-                                default_timezone_string, parse_version2,
-                                timestamp);
 }
 
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
@@ -1844,16 +1825,6 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
   return absl::OkStatus();
 }
 
-// deprecated
-absl::Status ParseStringToTimestamp(absl::string_view format_string,
-                                    absl::string_view timestamp_string,
-                                    const absl::TimeZone default_timezone,
-                                    absl::Time* timestamp,
-                                    bool parse_version2) {
-  return ParseStringToTimestamp(format_string, timestamp_string,
-                                default_timezone, parse_version2, timestamp);
-}
-
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
@@ -1863,17 +1834,6 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
   return ParseStringToTimestamp(format_string, timestamp_string, timezone,
                                 parse_version2, timestamp);
-}
-
-// deprecated
-absl::Status ParseStringToTimestamp(absl::string_view format_string,
-                                    absl::string_view timestamp_string,
-                                    absl::string_view default_timezone_string,
-                                    absl::Time* timestamp,
-                                    bool parse_version2) {
-  return ParseStringToTimestamp(format_string, timestamp_string,
-                                default_timezone_string, parse_version2,
-                                timestamp);
 }
 
 absl::Status ParseStringToDate(absl::string_view format_string,

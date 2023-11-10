@@ -1098,9 +1098,9 @@ QueryStmt
     |         +-input_scan=
     |           +-ArrayScan
     |             +-column_list=[$array.u#1]
-    |             +-array_expr=
+    |             +-array_expr_list=
     |             | +-Literal(type=ARRAY<STRUCT<INT64, INT64>>, value=[{1, 1}, {1, 2}])
-    |             +-element_column=$array.u#1
+    |             +-element_column_list=[$array.u#1]
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1552,14 +1552,14 @@ QueryStmt
                 +-input_scan=
                   +-ArrayScan
                     +-column_list=[$array.repeated_int32_val#4]
-                    +-array_expr=
+                    +-array_expr_list=
                     | +-GetProtoField
                     |   +-type=ARRAY<INT32>
                     |   +-expr=
                     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                     |   +-field_descriptor=repeated_int32_val
                     |   +-default_value=[]
-                    +-element_column=$array.repeated_int32_val#4
+                    +-element_column_list=[$array.repeated_int32_val#4]
 ==
 
 select true from TestTable where 1 IN ((1)&(2), (1) + (2), 1 < 2)

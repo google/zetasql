@@ -374,12 +374,27 @@ public class AnalyzerOptionsTest {
   }
 
   @Test
+  public void testReplaceTableNotFoundErrorWithTvfErrorIfApplicable() {
+    FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
+    AnalyzerOptions options = new AnalyzerOptions();
+    assertThat(options.getReplaceTableNotFoundErrorWithTvfErrorIfApplicable()).isTrue();
+    AnalyzerOptionsProto proto = options.serialize(builder);
+    assertThat(proto.getReplaceTableNotFoundErrorWithTvfErrorIfApplicable()).isTrue();
+    checkDeserialize(proto, builder.getDescriptorPools());
+    options.setReplaceTableNotFoundErrorWithTvfErrorIfApplicable(false);
+    assertThat(options.getReplaceTableNotFoundErrorWithTvfErrorIfApplicable()).isFalse();
+    proto = options.serialize(builder);
+    assertThat(proto.getReplaceTableNotFoundErrorWithTvfErrorIfApplicable()).isFalse();
+    checkDeserialize(proto, builder.getDescriptorPools());
+  }
+
+  @Test
   public void testClassAndProtoSize() {
     assertWithMessage(
             "The number of fields of AnalyzerOptionsProto has changed, please also update the "
                 + "serialization code accordingly.")
         .that(AnalyzerOptionsProto.getDescriptor().getFields())
-        .hasSize(24);
+        .hasSize(25);
     assertWithMessage(
             "The number of fields in AnalyzerOptions class has changed, please also update the "
                 + "proto and serialization code accordingly.")

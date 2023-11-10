@@ -95,9 +95,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -193,9 +193,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -319,9 +319,9 @@ QueryStmt
     |           |             +-input_scan=
     |           |             | +-ArrayScan
     |           |             |   +-column_list=[$array.pattern#4]
-    |           |             |   +-array_expr=
+    |           |             |   +-array_expr_list=
     |           |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |           |             |   +-element_column=$array.pattern#4
+    |           |             |   +-element_column_list=[$array.pattern#4]
     |           |             +-aggregate_list=
     |           |               +-$agg1#5 :=
     |           |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -427,9 +427,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#6]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#6
+    |         |             |   +-element_column_list=[$array.pattern#6]
     |         |             +-aggregate_list=
     |         |               +-$agg1#7 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -525,9 +525,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#6]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#6
+    |         |             |   +-element_column_list=[$array.pattern#6]
     |         |             +-aggregate_list=
     |         |               +-$agg1#7 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -624,9 +624,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -718,9 +718,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -928,9 +928,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -1020,9 +1020,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -1122,9 +1122,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#6]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#6
+    |         |             |   +-element_column_list=[$array.pattern#6]
     |         |             +-aggregate_list=
     |         |               +-$agg1#7 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -1221,9 +1221,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#6]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#6
+    |         |             |   +-element_column_list=[$array.pattern#6]
     |         |             +-aggregate_list=
     |         |               +-$agg1#7 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -1324,9 +1324,9 @@ QueryStmt
     |           |             +-input_scan=
     |           |             | +-ArrayScan
     |           |             |   +-column_list=[$array.pattern#4]
-    |           |             |   +-array_expr=
+    |           |             |   +-array_expr_list=
     |           |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |           |             |   +-element_column=$array.pattern#4
+    |           |             |   +-element_column_list=[$array.pattern#4]
     |           |             +-aggregate_list=
     |           |               +-$agg1#5 :=
     |           |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -1418,9 +1418,9 @@ QueryStmt
     |           |             +-input_scan=
     |           |             | +-ArrayScan
     |           |             |   +-column_list=[$array.pattern#4]
-    |           |             |   +-array_expr=
+    |           |             |   +-array_expr_list=
     |           |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |           |             |   +-element_column=$array.pattern#4
+    |           |             |   +-element_column_list=[$array.pattern#4]
     |           |             +-aggregate_list=
     |           |               +-$agg1#5 :=
     |           |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -1516,9 +1516,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -1608,9 +1608,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -1793,9 +1793,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#5]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#4, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#5
+    |         |             |   +-element_column_list=[$array.pattern#5]
     |         |             +-aggregate_list=
     |         |               +-$agg1#6 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -1905,9 +1905,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#5]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#4, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#5
+    |         |             |   +-element_column_list=[$array.pattern#5]
     |         |             +-aggregate_list=
     |         |               +-$agg1#6 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -2022,9 +2022,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#5]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#4, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#5
+    |         |             |   +-element_column_list=[$array.pattern#5]
     |         |             +-aggregate_list=
     |         |               +-$agg1#6 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -2134,9 +2134,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#5]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#4, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#5
+    |         |             |   +-element_column_list=[$array.pattern#5]
     |         |             +-aggregate_list=
     |         |               +-$agg1#6 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -2271,9 +2271,9 @@ QueryStmt
     |           |             +-input_scan=
     |           |             | +-ArrayScan
     |           |             |   +-column_list=[$array.pattern#5]
-    |           |             |   +-array_expr=
+    |           |             |   +-array_expr_list=
     |           |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#4, is_correlated=TRUE)
-    |           |             |   +-element_column=$array.pattern#5
+    |           |             |   +-element_column_list=[$array.pattern#5]
     |           |             +-aggregate_list=
     |           |               +-$agg1#6 :=
     |           |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -2420,9 +2420,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#6]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#6
+    |         |             |   +-element_column_list=[$array.pattern#6]
     |         |             +-aggregate_list=
     |         |               +-$agg1#7 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -2552,9 +2552,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#6]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#6
+    |         |             |   +-element_column_list=[$array.pattern#6]
     |         |             +-aggregate_list=
     |         |               +-$agg1#7 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -2637,14 +2637,14 @@ QueryStmt
                   +-input_scan=
                     +-ArrayScan
                       +-column_list=[$array.repeated_string_val#4]
-                      +-array_expr=
+                      +-array_expr_list=
                       | +-GetProtoField
                       |   +-type=ARRAY<STRING>
                       |   +-expr=
                       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                       |   +-field_descriptor=repeated_string_val
                       |   +-default_value=[]
-                      +-element_column=$array.repeated_string_val#4
+                      +-element_column_list=[$array.repeated_string_val#4]
 
 [REWRITTEN AST]
 QueryStmt
@@ -2705,9 +2705,9 @@ QueryStmt
                 |             +-input_scan=
                 |             | +-ArrayScan
                 |             |   +-column_list=[$array.pattern#7]
-                |             |   +-array_expr=
+                |             |   +-array_expr_list=
                 |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#6, is_correlated=TRUE)
-                |             |   +-element_column=$array.pattern#7
+                |             |   +-element_column_list=[$array.pattern#7]
                 |             +-aggregate_list=
                 |               +-$agg1#8 :=
                 |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -2742,14 +2742,14 @@ QueryStmt
                     |           +-input_scan=
                     |             +-ArrayScan
                     |               +-column_list=[$array.repeated_string_val#4]
-                    |               +-array_expr=
+                    |               +-array_expr_list=
                     |               | +-GetProtoField
                     |               |   +-type=ARRAY<STRING>
                     |               |   +-expr=
                     |               |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                     |               |   +-field_descriptor=repeated_string_val
                     |               |   +-default_value=[]
-                    |               +-element_column=$array.repeated_string_val#4
+                    |               +-element_column_list=[$array.repeated_string_val#4]
                     +-input_scan=
                       +-SingleRowScan
 ==
@@ -2868,9 +2868,9 @@ QueryStmt
                 |             +-input_scan=
                 |             | +-ArrayScan
                 |             |   +-column_list=[$array.pattern#7]
-                |             |   +-array_expr=
+                |             |   +-array_expr_list=
                 |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#6, is_correlated=TRUE)
-                |             |   +-element_column=$array.pattern#7
+                |             |   +-element_column_list=[$array.pattern#7]
                 |             +-aggregate_list=
                 |               +-$agg1#8 :=
                 |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -3023,9 +3023,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#8]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#7, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#8
+    |         |             |   +-element_column_list=[$array.pattern#8]
     |         |             +-aggregate_list=
     |         |               +-$agg1#9 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -3156,9 +3156,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4{Collation:"und:ci"}]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4{Collation:"und:ci"}
+    |         |             |   +-element_column_list=[$array.pattern#4{Collation:"und:ci"}]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -3266,9 +3266,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
@@ -3377,9 +3377,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4{Collation:"und:ci"}]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4{Collation:"und:ci"}
+    |         |             |   +-element_column_list=[$array.pattern#4{Collation:"und:ci"}]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -3487,9 +3487,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4
+    |         |             |   +-element_column_list=[$array.pattern#4]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
@@ -3607,9 +3607,9 @@ QueryStmt
     |         |             +-input_scan=
     |         |             | +-ArrayScan
     |         |             |   +-column_list=[$array.pattern#4{Collation:"und:ci"}]
-    |         |             |   +-array_expr=
+    |         |             |   +-array_expr_list=
     |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
-    |         |             |   +-element_column=$array.pattern#4{Collation:"und:ci"}
+    |         |             |   +-element_column_list=[$array.pattern#4{Collation:"und:ci"}]
     |         |             +-aggregate_list=
     |         |               +-$agg1#5 :=
     |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)

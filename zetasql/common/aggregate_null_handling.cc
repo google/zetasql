@@ -18,7 +18,6 @@
 
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/case.h"
-#include "zetasql/base/map_util.h"
 
 namespace zetasql {
 using StringViewCaseHash = ::zetasql_base::StringViewCaseHash;
@@ -34,14 +33,21 @@ bool IgnoresNullArguments(
                "st_nearest_neighbors"});
 
   switch (aggregate_function->null_handling_modifier()) {
-    case ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING:
-      return !aggregate_function->function()->IsZetaSQLBuiltin() ||
-             !kFunctionsNotIgnoreNullSet->contains(
-                 aggregate_function->function()->Name());
+    // Follow any NULL-handling annotations in the query.
     case ResolvedNonScalarFunctionCallBase::RESPECT_NULLS:
       return false;
     case ResolvedNonScalarFunctionCallBase::IGNORE_NULLS:
       return true;
+    case ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING:
+      // There is no way for functions to specify their default NULL handling,
+      // so we cannot guarantee that non-builtin functions ignore NULLs.
+      if (!aggregate_function->function()->IsZetaSQLBuiltin()) {
+        return false;
+      }
+      // For builtin functions, we assume they ignore NULLs unless they are in
+      // the above list.
+      return !kFunctionsNotIgnoreNullSet->contains(
+          aggregate_function->function()->Name());
   }
 }
 }  // namespace zetasql

@@ -215,6 +215,13 @@ class TimeValue {
 
   // Copyable
 };
+inline bool operator==(const TimeValue& lhs, const TimeValue& rhs) {
+  return (&lhs == &rhs) || (lhs.IsValid() && rhs.IsValid() &&
+                            lhs.Packed64TimeNanos() == rhs.Packed64TimeNanos());
+}
+inline bool operator!=(const TimeValue& lhs, const TimeValue& rhs) {
+  return !(lhs == rhs);
+}
 
 // A struct for DATETIME data type, keeping Y-m-d H:M:S.D*.
 // Valid range is [0001-01-01 00:00:00, 10000-01-01 00:00:00)
@@ -377,6 +384,15 @@ class DatetimeValue {
   // Copyable
 };
 
+inline bool operator==(const DatetimeValue& lhs, const DatetimeValue& rhs) {
+  return (&lhs == &rhs) ||
+         (lhs.IsValid() && rhs.IsValid() &&
+          lhs.Packed64DatetimeSeconds() == rhs.Packed64DatetimeSeconds() &&
+          lhs.Nanoseconds() == rhs.Nanoseconds());
+}
+inline bool operator!=(const DatetimeValue& lhs, const DatetimeValue& rhs) {
+  return !(lhs == rhs);
+}
 // Masks of micros and nanos are always used on the least significant bits.
 static const unsigned int kMicrosMask = 0xFFFFF;     // 20 bits
 static const int kMicrosShift = 20;

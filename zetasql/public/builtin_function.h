@@ -110,15 +110,6 @@ ABSL_DEPRECATED("Inline me!")
 void GetZetaSQLFunctions(  // NOLINT
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     std::map<std::string, std::unique_ptr<Function>>* functions);
-// DEPRECATED - As above but accepting a LanguageOptions rather than a
-// BuiltinFunctionOptions.
-ABSL_DEPRECATED("Inline me!")
-inline void GetZetaSQLFunctions(
-    TypeFactory* type_factory, const LanguageOptions& options,
-    std::map<std::string, std::unique_ptr<Function>>* functions) {
-  GetZetaSQLFunctions(type_factory,
-                        zetasql::BuiltinFunctionOptions(options), functions);
-}
 
 }  // namespace zetasql
 

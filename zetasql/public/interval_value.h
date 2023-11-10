@@ -350,7 +350,16 @@ class IntervalValue final {
       absl::string_view bytes);
 
   // Builds fully expanded string representation of interval.
-  std::string ToString() const;
+  std::string ToString() const {
+    std::string result;
+    AppendToString(&result);
+    return result;
+  }
+
+  // Appends fully expanded string representation of interval to the output
+  // string. When the output string is reused across calls, AppendToString is
+  // typically more efficient than ToString due to fewer memory allocations.
+  void AppendToString(std::string* output) const;
 
   // Builds ISO 8601 Duration compliant string representation of interval.
   std::string ToISO8601() const;

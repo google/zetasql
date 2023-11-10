@@ -1596,7 +1596,7 @@ QueryStmt
         +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.$unnest1#5]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
-        +-array_expr=
+        +-array_expr_list=
         | +-SubqueryExpr
         |   +-type=ARRAY<BOOL>
         |   +-subquery_type=ARRAY
@@ -1615,7 +1615,7 @@ QueryStmt
         |           |   +-expr=
         |           |     +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
         |           +-column_index_list=[0]
-        +-element_column=$array.$unnest1#5
+        +-element_column_list=[$array.$unnest1#5]
 ==
 
 # Call a TVF passing a query parameter within a scalar argument.
@@ -3447,9 +3447,9 @@ QueryStmt
         |         |         +-input_scan=
         |         |         | +-ArrayScan
         |         |         |   +-column_list=[$array.v#1]
-        |         |         |   +-array_expr=
+        |         |         |   +-array_expr_list=
         |         |         |   | +-Literal(type=ARRAY<STRING>, value=[""])
-        |         |         |   +-element_column=$array.v#1
+        |         |         |   +-element_column_list=[$array.v#1]
         |         |         +-filter_expr=
         |         |           +-FunctionCall(ZetaSQL:$not_equal(STRING, STRING) -> BOOL)
         |         |             +-ColumnRef(type=STRING, column=$array.v#1)

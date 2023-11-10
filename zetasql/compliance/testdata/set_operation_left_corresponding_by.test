@@ -1,0 +1,1101 @@
+# This file contains the compliance test cases for LEFT CORRESPONDING BY. Test
+# cases are divided into multiple sections.
+
+## ===== Start section: Literal and type coercion for LEFT CORRESPONDING BY =====  ##
+
+# CORRESPONDING BY Literal coercion LEFT mode
+[name=corresponding_by_literal_coercion_left]
+[default required_features=V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+SELECT 1 AS a
+LEFT UNION ALL CORRESPONDING BY (a)
+SELECT CAST(1 AS INT32) AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT32>>[unknown order:{1}, {1}]
+==
+
+# CORRESPONDING BY Literal coercion LEFT mode Literal coerced to the correct type, with padded NULL in the same scan containing the literal.
+[name=corresponding_by_literal_coercion_left_in_padded_null_scan]
+SELECT 's' AS a, 1 AS b
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT NULL AS a
+--
+ARRAY<STRUCT<a STRING, b INT64>>[unknown order:{"s", 1}, {NULL, NULL}]
+==
+
+# CORRESPONDING BY Literal coercion LEFT mode literal cocercion with subquery
+[name=corresponding_by_literal_coercion_left_coercion_with_subquery]
+(
+  SELECT 1 AS a, 1 AS b
+  LEFT UNION ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS b, NULL AS a
+)
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT 1 AS b, CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, 1}, {1, 1}, {1, 1}]
+==
+
+# CORRESPONDING BY Literal coercion LEFT mode coercion with padded null
+[name=corresponding_by_literal_coercion_left_coercion_with_padded_null]
+SELECT NULL AS a, 1 AS b
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT 1 AS b
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT 1 AS b, CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a INT32, b INT64>>[unknown order:{NULL, 1}, {NULL, 1}, {1, 1}]
+==
+
+# CORRESPONDING BY Literal coercion LEFT mode padded null has the correct type
+[name=corresponding_by_literal_coercion_left_padded_null_correct_type]
+SELECT CAST(1 AS INT32) AS a, CAST(1 AS INT32) AS b
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT NULL AS b, 1 AS c
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT CAST(1 AS INT64) AS b, CAST(1 AS FLOAT) AS a
+--
+ARRAY<STRUCT<a DOUBLE, b INT64>>[unknown order:{1, 1}, {NULL, NULL}, {1, 1}]
+==
+
+# CORRESPONDING BY Literal coercion LEFT mode with three inputs but without padded NULL in any of the input
+[name=corresponding_by_literal_coercion_left_three_inputs]
+SELECT NULL AS a
+LEFT UNION ALL CORRESPONDING BY (a)
+SELECT CAST(1 AS FLOAT) AS a
+LEFT UNION ALL CORRESPONDING BY (a)
+SELECT CAST(1 AS INT32) AS a
+--
+ARRAY<STRUCT<a DOUBLE>>[unknown order:{NULL}, {1}, {1}]
+==
+
+# CORRESPONDING BY Type coercion LEFT mode basic type coercion
+[name=corresponding_by_type_coercion_left_basic_type_coercion]
+SELECT CAST(1 AS INT64) AS a
+LEFT UNION ALL CORRESPONDING BY (a)
+SELECT 1 AS b, CAST(1 AS FLOAT) AS a
+--
+ARRAY<STRUCT<a DOUBLE>>[unknown order:{1}, {1}]
+==
+
+# CORRESPONDING BY Type coercion LEFT mode three inputs
+[name=corresponding_by_type_coercion_left_three_inputs]
+SELECT CAST(1 AS INT64) AS a, 1 AS b, 1 AS c
+LEFT UNION ALL CORRESPONDING BY (a, b, c)
+SELECT 1 AS b, CAST(1 AS FLOAT) AS a
+LEFT UNION ALL CORRESPONDING BY (a, b, c)
+SELECT 1 AS c, CAST(1 AS INT32) AS a, 1 AS b
+--
+ARRAY<STRUCT<a DOUBLE, b INT64, c INT64>>[unknown order:
+  {1, 1, 1},
+  {1, 1, NULL},
+  {1, 1, 1}
+]
+==
+
+# CORRESPONDING BY Type coercion LEFT mode padded nulls have the correct type after coercion
+[name=corresponding_by_type_coercion_left_padded_null_type]
+SELECT 1 AS a, CAST(1 AS INT64) AS b, 1 AS c
+LEFT UNION ALL CORRESPONDING BY (a, b, c)
+SELECT 1 AS a
+LEFT UNION ALL CORRESPONDING BY (a, b, c)
+SELECT 1 AS c, 1 AS a, CAST(1 AS FLOAT) AS b
+--
+ARRAY<STRUCT<a INT64, b DOUBLE, c INT64>>[unknown order:
+  {1, 1, 1},
+  {1, NULL, NULL},
+  {1, 1, 1}
+]
+==
+
+# CORRESPONDING BY Type coercion LEFT mode with subquery
+[name=corresponding_by_type_coercion_left_subquery]
+SELECT CAST(1 AS FLOAT) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT32) AS c
+LEFT UNION ALL CORRESPONDING BY (a, b, c)
+(
+  SELECT 1 AS a, CAST(1 AS FLOAT) AS b
+  LEFT UNION ALL CORRESPONDING BY (a, b)
+  SELECT NULL AS b
+)
+--
+ARRAY<STRUCT<a DOUBLE, b DOUBLE, c INT32>>[unknown order:
+  {1, 1, 1},
+  {NULL, NULL, NULL},
+  {1, 1, NULL}
+]
+==
+
+# CORRESPONDING BY Type coercion LEFT mode non selected columns are allowed to have different types
+[name=corresponding_by_type_coercion_left_non_selected_columns]
+SELECT 1 AS a, 1 AS b
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT 1 AS b, 's' AS c
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT CAST(1 AS INT64) AS c, 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {NULL, 1}, {1, 1}]
+==
+
+# LEFT CORRESPONDING BY type coercion: non-selected columns are allowed to have incompatible types
+[name=left_corresponding_by_type_coercion_non_selected_columns]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT32) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 2
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS a, 's' AS b, 's' AS c
+    UNION ALL
+    SELECT 1, 't', 't'
+  ),
+  Table3 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1.0 AS DOUBLE) AS c
+    UNION ALL
+    SELECT 1, 2.0
+  )
+SELECT a, b FROM Table1
+LEFT UNION DISTINCT CORRESPONDING BY (a)
+SELECT a, b, c FROM Table2
+LEFT UNION DISTINCT CORRESPONDING BY (a)
+SELECT a, c FROM Table3
+--
+ARRAY<STRUCT<a INT64>>[{1}]
+==
+
+# LEFT CORRESPONDING BY literal and type coercion: by list does not include all the available columns
+[name=left_corresponding_by_type_coercion_sub_by_list]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT32) AS a, 's' AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 't', 1
+  )
+SELECT 1 AS a, 1 AS b, CAST(1 AS INT32) AS c
+LEFT UNION DISTINCT CORRESPONDING BY (c, a)
+SELECT c, a, b FROM Table1
+--
+ARRAY<STRUCT<c INT64, a INT32>>[{1, 1}]
+==
+
+## ===== Start section: EXCEPT (ALL|DISTINCT) for LEFT CORRESPONDING BY =====  ##
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row, row] EXCEPT ALL [row] = [row]
+[name=left_corresponding_by_second_scan_has_padded_NULL_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b
+    UNION ALL
+    SELECT 1, NULL
+  )
+SELECT a, b FROM Table1
+LEFT EXCEPT ALL CORRESPONDING BY (a, b)
+SELECT 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row, row] EXCEPT ALL [row, row] = []
+[name=left_corresponding_by_second_scan_has_padded_NULL_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b
+    UNION ALL
+    SELECT 1, NULL
+  ),
+  Table2 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+SELECT a, b FROM Table1
+LEFT EXCEPT ALL CORRESPONDING BY (a, b)
+SELECT a FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row] EXCEPT ALL [row, row] = []
+[name=left_corresponding_by_second_scan_has_padded_NULL_except_all_1row_2row]
+WITH Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+SELECT 1 AS a, NULL AS b
+LEFT EXCEPT ALL CORRESPONDING BY (a, b)
+SELECT a FROM Table1
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=left_corresponding_by_second_scan_has_padded_NULL_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT EXCEPT ALL CORRESPONDING BY (a, b)
+SELECT 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row, row] EXCEPT DISTINCT [row] = []
+[name=left_corresponding_by_second_scan_has_padded_NULL_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b
+    UNION ALL
+    SELECT 1, NULL
+  )
+SELECT a, b FROM Table1
+LEFT EXCEPT DISTINCT CORRESPONDING BY (a, b)
+SELECT 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=left_corresponding_by_second_scan_has_padded_NULL_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT EXCEPT DISTINCT CORRESPONDING BY (a, b)
+SELECT 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row, row] EXCEPT ALL [row] = [row]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row, row] EXCEPT ALL [row, row] = []
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row] EXCEPT ALL [row, row] = []
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+LEFT EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row, row] EXCEPT DISTINCT [row] = []
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT EXCEPT DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT EXCEPT DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row, row] EXCEPT ALL [row] = [row]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_except_all_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT EXCEPT ALL CORRESPONDING BY (c, a)
+SELECT 2 AS d, 1 AS c, 1 AS a, 2 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row, row] EXCEPT ALL [row, row] = []
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_except_all_2row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS c, CAST(2 AS INT64) AS d
+    UNION ALL
+    SELECT 1, 1, 2
+  )
+SELECT a, b, c FROM Table1
+LEFT EXCEPT ALL CORRESPONDING BY (c, a)
+SELECT d, c, a, d FROM Table2
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row] EXCEPT ALL [row, row] = []
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_except_all_1row_2row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS c, CAST(2 AS INT64) AS d
+    UNION ALL
+    SELECT 1, 1, 2
+  )
+SELECT 1 AS a, 2 AS b, 1 AS c
+LEFT EXCEPT ALL CORRESPONDING BY (c, a)
+SELECT d, c, a, d FROM Table1
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_except_all_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT EXCEPT ALL CORRESPONDING BY (c, a)
+SELECT 1 AS d, 2 AS c, 2 AS a, 1 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row, row] EXCEPT DISTINCT [row] = []
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_except_distinct_2row_1row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT EXCEPT DISTINCT CORRESPONDING BY (c, a)
+SELECT 2 AS d, 1 AS c, 1 AS a, 2 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_except_distinct_2row_different_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT EXCEPT DISTINCT CORRESPONDING BY (c, a)
+SELECT 1 AS d, 2 AS c, 2 AS a, 1 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row, row] EXCEPT ALL [row] = [row]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_except_all_2row_1row]
+(
+  SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT NULL, 1, 2
+)
+LEFT EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row, row] EXCEPT ALL [row, row] = []
+[name=left_corresponding_by_anonymous_columns_in_the_scans_except_all_2row_2row]
+(
+  SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT NULL, 1, 2
+)
+LEFT EXCEPT ALL CORRESPONDING BY (b, a)
+(
+  SELECT CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c, 't'
+  UNION ALL
+  SELECT 1, 2, 't'
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row] EXCEPT ALL [row, row] = []
+[name=left_corresponding_by_anonymous_columns_in_the_scans_except_all_1row_2row]
+SELECT NULL AS a, 1 AS b, 2
+LEFT EXCEPT ALL CORRESPONDING BY (b, a)
+(
+  SELECT CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c, 't'
+  UNION ALL
+  SELECT 1, 2, 't'
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row1, row1] EXCEPT ALL [row2] = [row1, row1]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_except_all_2row_different_row]
+(
+  SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT 1, 1, 2
+)
+LEFT EXCEPT ALL CORRESPONDING BY (b, a)
+SELECT 2 AS b, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row, row] EXCEPT DISTINCT [row] = []
+[name=left_corresponding_by_anonymous_columns_in_the_scans_except_distinct_2row_1row]
+(
+  SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT NULL, 1, 2
+)
+LEFT EXCEPT DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row1, row1] EXCEPT DISTINCT [row2] = [row1]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_except_distinct_2row_different_row]
+(
+  SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT 1, 1, 2
+)
+LEFT EXCEPT DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+## ===== Start section: UNION (ALL|DISTINCT) for LEFT CORRESPONDING BY =====  ##
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row1] UNION ALL [row2] = [row1, row2]
+[name=left_corresponding_by_second_scan_has_padded_NULL_union_all_basic]
+SELECT 1 AS a, 1 AS b
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, NULL}]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row1, row1] union distinct [row1] = [row1]
+[name=left_corresponding_by_second_scan_has_padded_NULL_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b
+    UNION ALL
+    SELECT 1, NULL
+  )
+SELECT a, b FROM Table1
+LEFT UNION DISTINCT CORRESPONDING BY (a, b)
+SELECT 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row1] union distinct [row2] = [row1, row2]
+[name=left_corresponding_by_second_scan_has_padded_NULL_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b
+LEFT UNION DISTINCT CORRESPONDING BY (a, b)
+SELECT 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {2, NULL}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row1] UNION ALL [row2] = [row1, row2]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_union_all_basic]
+SELECT 1 AS a, 1 AS b
+LEFT UNION ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row1, row1] union distinct [row1] = [row1]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row1] union distinct [row2] = [row1, row2]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b
+LEFT UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row1] UNION ALL [row2] = [row1, row2]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_union_all_basic]
+SELECT 1 AS a, 2 AS b, 1 AS c
+LEFT UNION ALL CORRESPONDING BY (c, a)
+SELECT 2 AS d, 1 AS c, 1 AS a, 2 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row1, row1] union distinct [row1] = [row1]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_union_distinct_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT UNION DISTINCT CORRESPONDING BY (c, a)
+SELECT 2 AS d, 1 AS c, 1 AS a, 2 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row1] union distinct [row2] = [row1, row2]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_union_distinct_different_rows]
+SELECT 1 AS a, 2 AS b, 1 AS c
+LEFT UNION DISTINCT CORRESPONDING BY (c, a)
+SELECT 1 AS d, 2 AS c, 2 AS a, 1 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row1] UNION ALL [row2] = [row1, row2]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_union_all_basic]
+SELECT 1 AS a, 1 AS b, 2
+LEFT UNION ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 2 AS c, 2
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, NULL}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row1, row1] union distinct [row1] = [row1]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_union_distinct_same_row]
+(
+  SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT NULL, 1, 2
+)
+LEFT UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row1] union distinct [row2] = [row1, row2]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_union_distinct_different_rows]
+SELECT 1 AS a, 1 AS b, 2
+LEFT UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {2, NULL}]
+==
+
+## ===== Start section: INTERSECT (ALL|DISTINCT) for LEFT CORRESPONDING BY =====  ##
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=left_corresponding_by_second_scan_has_padded_NULL_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b
+    UNION ALL
+    SELECT 1, NULL
+  ),
+  Table2 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+SELECT a, b FROM Table1
+LEFT INTERSECT ALL CORRESPONDING BY (a, b)
+SELECT a FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, NULL}, {1, NULL}]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row, row] INTERSECT ALL [row] = [row]
+[name=left_corresponding_by_second_scan_has_padded_NULL_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b
+    UNION ALL
+    SELECT 1, NULL
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT ALL CORRESPONDING BY (a, b)
+SELECT 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row1, row1] INTERSECT ALL [row2] = []
+[name=left_corresponding_by_second_scan_has_padded_NULL_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT ALL CORRESPONDING BY (a, b)
+SELECT 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=left_corresponding_by_second_scan_has_padded_NULL_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b
+    UNION ALL
+    SELECT 1, NULL
+  ),
+  Table2 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1)
+SELECT a, b FROM Table1
+LEFT INTERSECT DISTINCT CORRESPONDING BY (a, b)
+SELECT a FROM Table2
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row, row] INTERSECT DISTINCT [row] = [row]
+[name=left_corresponding_by_second_scan_has_padded_NULL_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(NULL AS INT64) AS b
+    UNION ALL
+    SELECT 1, NULL
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT DISTINCT CORRESPONDING BY (a, b)
+SELECT 1 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY the 2nd scan has padded NULL [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=left_corresponding_by_second_scan_has_padded_NULL_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT DISTINCT CORRESPONDING BY (a, b)
+SELECT 2 AS a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row, row] INTERSECT ALL [row] = [row]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row1, row1] INTERSECT ALL [row2] = []
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT b, a FROM Table1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row, row] INTERSECT DISTINCT [row] = [row]
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 1 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY neither scan has padded NULLs [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=left_corresponding_by_neither_scan_has_padded_NULLs_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b FROM Table1
+LEFT INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 2 AS a
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_intersect_all_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS c, CAST(2 AS INT64) AS d
+    UNION ALL
+    SELECT 1, 1, 2
+  )
+SELECT a, b, c FROM Table1
+LEFT INTERSECT ALL CORRESPONDING BY (c, a)
+SELECT d, c, a, d FROM Table2
+--
+ARRAY<STRUCT<c INT64, a INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row, row] INTERSECT ALL [row] = [row]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_intersect_all_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT INTERSECT ALL CORRESPONDING BY (c, a)
+SELECT 2 AS d, 1 AS c, 1 AS a, 2 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row1, row1] INTERSECT ALL [row2] = []
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_intersect_all_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT INTERSECT ALL CORRESPONDING BY (c, a)
+SELECT 1 AS d, 2 AS c, 2 AS a, 1 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_intersect_distinct_multiple_same_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS c, CAST(2 AS INT64) AS d
+    UNION ALL
+    SELECT 1, 1, 2
+  )
+SELECT a, b, c FROM Table1
+LEFT INTERSECT DISTINCT CORRESPONDING BY (c, a)
+SELECT d, c, a, d FROM Table2
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row, row] INTERSECT DISTINCT [row] = [row]
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_intersect_distinct_single_same_row]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT INTERSECT DISTINCT CORRESPONDING BY (c, a)
+SELECT 2 AS d, 1 AS c, 1 AS a, 2 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[{1, 1}]
+==
+
+# LEFT CORRESPONDING BY complex schema where BY list is a sublist of all available columns, non-selected columns have duplicates [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=left_corresponding_by_complex_schema_where_by_list_is_a_sublist_of_all_columns_intersect_distinct_different_rows]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 2, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT INTERSECT DISTINCT CORRESPONDING BY (c, a)
+SELECT 1 AS d, 2 AS c, 2 AS a, 1 AS d
+--
+ARRAY<STRUCT<c INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row, row] INTERSECT ALL [row, row] = [row, row]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_intersect_all_multiple_same_rows]
+(
+  SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT NULL, 1, 2
+)
+LEFT INTERSECT ALL CORRESPONDING BY (b, a)
+(
+  SELECT CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c, 't'
+  UNION ALL
+  SELECT 1, 2, 't'
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, NULL}, {1, NULL}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row, row] INTERSECT ALL [row] = [row]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_intersect_all_single_same_row]
+(
+  SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT NULL, 1, 2
+)
+LEFT INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT 1 AS b, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row1, row1] INTERSECT ALL [row2] = []
+[name=left_corresponding_by_anonymous_columns_in_the_scans_intersect_all_different_rows]
+(
+  SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT 1, 1, 2
+)
+LEFT INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT 2 AS b, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row, row] INTERSECT DISTINCT [row, row] = [row]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_intersect_distinct_multiple_same_rows]
+(
+  SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT NULL, 1, 2
+)
+LEFT INTERSECT DISTINCT CORRESPONDING BY (b, a)
+(
+  SELECT CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c, 't'
+  UNION ALL
+  SELECT 1, 2, 't'
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row, row] INTERSECT DISTINCT [row] = [row]
+[name=left_corresponding_by_anonymous_columns_in_the_scans_intersect_distinct_single_same_row]
+(
+  SELECT CAST(NULL AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT NULL, 1, 2
+)
+LEFT INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT 1 AS b, 2 AS c, 't'
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# LEFT CORRESPONDING BY anonymous columns in the scans [row1, row1] INTERSECT DISTINCT [row2] = []
+[name=left_corresponding_by_anonymous_columns_in_the_scans_intersect_distinct_different_rows]
+(
+  SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64)
+  UNION ALL
+  SELECT 1, 1, 2
+)
+LEFT INTERSECT DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS b, 1 AS c, 1
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+## ===== Start section: Three-input test cases for LEFT CORRESPONDING BY =====  ##
+
+# Three input CORRESPONDING BY: LEFT mode basic test case with dropped columns
+[name=three_input_corresponding_by_left_basic_test_case_with_dropped_columns]
+WITH
+  Table1 AS (
+    SELECT
+      CAST(1 AS INT64) AS a, CAST(1 AS DOUBLE) AS b, CAST(100 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 101
+  ),
+  Table2 AS (
+    SELECT
+      CAST(2 AS INT64) AS a,
+      CAST(2 AS INT64) AS b,
+      CAST(102 AS INT64) AS c,
+      CAST(100 AS INT64) AS d
+    UNION ALL
+    SELECT 2, 2, 103, 101
+  ),
+  Table3 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS DOUBLE) AS b UNION ALL SELECT 1, 1
+  )
+SELECT a, b, c FROM Table1
+LEFT UNION ALL CORRESPONDING BY (b, a)
+SELECT d, a, c, b FROM Table2
+LEFT UNION ALL CORRESPONDING BY (b, a)
+SELECT b, a FROM Table3
+--
+ARRAY<STRUCT<b DOUBLE, a INT64>>[unknown order:
+  {1, 1},
+  {1, 1},
+  {2, 2},
+  {2, 2},
+  {1, 1},
+  {1, 1}
+]
+==
+
+# Three input CORRESPONDING BY: LEFT mode non-selected columns have different types
+[name=three_input_corresponding_by_left_non_selected_columns_have_different_types]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, 'a' AS c
+    UNION ALL
+    SELECT 1, 1, 'b'
+  ),
+  Table2 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(2 AS INT64) AS b, CAST(102 AS FLOAT) AS c
+    UNION ALL
+    SELECT 2, 2, 103
+  ),
+  Table3 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(100 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 101
+  )
+SELECT a, b, c FROM Table1
+LEFT UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT c, b, a FROM Table2
+LEFT UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT a, c, b FROM Table3
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {2, 2}]
+==
+
+# Three input CORRESPONDING BY: LEFT mode padded NULLs make the originally-the-same rows different
+[name=three_input_corresponding_by_left_padded_NULLs_make_the_originally_the_same_rows_different]
+SELECT 1 AS a, 1 AS b, 100 AS c
+LEFT INTERSECT DISTINCT CORRESPONDING BY (a, b)
+SELECT 100 AS d, 1 AS a
+LEFT INTERSECT DISTINCT CORRESPONDING BY (a, b)
+SELECT 100 AS e, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# Three input CORRESPONDING BY: LEFT mode some scans do not output any columns
+[name=three_input_corresponding_by_left_some_scans_do_not_output_any_columns]
+SELECT 1 AS a, 1 AS b, 100 AS c
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT 2 AS b, 102 AS c
+LEFT UNION ALL CORRESPONDING BY (a, b)
+SELECT 101 AS c, 100 AS d
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {NULL, 2}, {NULL, NULL}]
+==
+
+# Three input CORRESPONDING BY: LEFT mode some scans only have anonymous columns
+[name=three_input_corresponding_by_left_some_scans_only_have_anonymous_columns]
+(
+  SELECT CAST(NULL AS INT64) AS b, CAST(NULL AS INT64) AS a, 'a'
+  UNION ALL
+  SELECT NULL, NULL, 'b'
+)
+LEFT EXCEPT ALL CORRESPONDING BY (a, b)
+SELECT 100, 'c'
+LEFT EXCEPT ALL CORRESPONDING BY (a, b)
+SELECT 101, 'd'
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]

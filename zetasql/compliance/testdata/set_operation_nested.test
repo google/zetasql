@@ -1,0 +1,1283 @@
+# This file contains the compliance test cases for nested set operations. The
+# test cases selects two (column_match_mode, column_propagation_mode) pairs from
+# the following:
+# - (BY_POSITION, STRICT)
+# - (CORRESPONDING, INNER)
+# - (CORRESPONDING, FULL)
+# - (CORRESPONDING, LEFT)
+# - (CORRESPONDING, STRICT)
+# - (CORRESPONDING_BY, INNER)
+# - (CORRESPONDING_BY, FULL)
+# - (CORRESPONDING_BY, LEFT)
+# - (CORRESPONDING_BY, STRICT)
+
+# nested set operation: <nested BY POSITION> LEFT CORRESPONDING <flat>
+[name=nested_strict_by_position_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(SELECT a, b FROM Table1 EXCEPT ALL SELECT 1 AS b, 1 AS a)
+LEFT UNION ALL CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {NULL, 1}]
+==
+
+# nested set operation: <flat> BY POSITION <nested LEFT CORRESPONDING>
+[name=strict_by_position_nested_left_corresponding]
+[required_features=V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL
+(
+  SELECT 1 AS a, 1 AS b
+  LEFT UNION ALL CORRESPONDING
+  SELECT 1 AS b
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <flat> LEFT CORRESPONDING <nested INNER CORRESPONDING>
+[name=left_corresponding_nested_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+LEFT EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT a, c, b FROM Table1
+  UNION DISTINCT CORRESPONDING
+  SELECT 1 AS c, 2 AS d, 1 AS b
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# nested set operation: <nested LEFT CORRESPONDING> INNER CORRESPONDING <flat>
+[name=nested_left_corresponding_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT a, b FROM Table1
+  LEFT EXCEPT DISTINCT CORRESPONDING
+  SELECT 1 AS b
+)
+UNION DISTINCT CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[{1}]
+==
+
+# nested set operation: <nested FULL CORRESPONDING> LEFT CORRESPONDING <flat>
+[name=nested_full_corresponding_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1),
+  Table2 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+(
+  SELECT a FROM Table1
+  FULL INTERSECT DISTINCT CORRESPONDING
+  SELECT b FROM Table2
+)
+LEFT INTERSECT ALL CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING <nested LEFT CORRESPONDING>
+[name=full_corresponding_nested_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c UNION ALL SELECT 1, 1
+  ),
+  Table2 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS d
+    UNION ALL
+    SELECT 2, 1, 2
+  )
+SELECT 1 AS a, 1 AS b
+FULL INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT c, b FROM Table1
+  LEFT INTERSECT ALL CORRESPONDING
+  SELECT b, a, d FROM Table2
+)
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[]
+==
+
+# nested set operation: <flat> LEFT CORRESPONDING <nested LEFT CORRESPONDING>
+[name=left_corresponding_nested_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+LEFT UNION ALL CORRESPONDING
+(
+  SELECT c, b FROM Table1
+  LEFT EXCEPT ALL CORRESPONDING
+  SELECT 1 AS b, 2 AS a, 2 AS d
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {NULL, 1}, {NULL, 1}]
+==
+
+# nested set operation: <nested BY POSITION> STRICT CORRESPONDING <flat>
+[name=nested_strict_by_position_strict_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(SELECT a, b FROM Table1 EXCEPT ALL SELECT 1 AS b, 1 AS a)
+UNION ALL STRICT CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# nested set operation: <flat> BY POSITION <nested STRICT CORRESPONDING>
+[name=strict_by_position_nested_strict_corresponding]
+[required_features=V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL
+(
+  SELECT 1 AS a, 1 AS b
+  UNION ALL STRICT CORRESPONDING
+  SELECT 1 AS b, 1 AS a
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING <nested INNER CORRESPONDING>
+[name=strict_corresponding_nested_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 2
+  )
+SELECT 1 AS a, 1 AS b
+EXCEPT DISTINCT STRICT CORRESPONDING
+(
+  SELECT a, c, b FROM Table1
+  UNION DISTINCT CORRESPONDING
+  SELECT 1 AS b, 1 AS a, 2 AS d
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING> INNER CORRESPONDING <flat>
+[name=nested_strict_corresponding_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT a, b FROM Table1
+  EXCEPT DISTINCT STRICT CORRESPONDING
+  SELECT 1 AS b, 1 AS a
+)
+UNION DISTINCT CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[{1}]
+==
+
+# nested set operation: <nested FULL CORRESPONDING> STRICT CORRESPONDING <flat>
+[name=nested_full_corresponding_strict_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1),
+  Table2 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+(
+  SELECT a FROM Table1
+  FULL INTERSECT DISTINCT CORRESPONDING
+  SELECT b FROM Table2
+)
+INTERSECT ALL STRICT CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING <nested STRICT CORRESPONDING>
+[name=full_corresponding_nested_strict_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT c, b FROM Table1
+  INTERSECT ALL STRICT CORRESPONDING
+  SELECT c, b FROM Table1
+)
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING <nested LEFT CORRESPONDING>
+[name=strict_corresponding_nested_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+UNION ALL STRICT CORRESPONDING
+(
+  SELECT a, b FROM Table1
+  LEFT EXCEPT ALL CORRESPONDING
+  SELECT 1 AS b
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}, {1, 1}]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING> LEFT CORRESPONDING <flat>
+[name=nested_strict_corresponding_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+(
+  SELECT 1 AS a, 1 AS b
+  UNION ALL STRICT CORRESPONDING
+  SELECT 1 AS b, 1 AS a
+)
+LEFT EXCEPT ALL CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING> STRICT CORRESPONDING <flat>
+[name=nested_strict_corresponding_strict_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT a, b FROM Table1
+  UNION DISTINCT STRICT CORRESPONDING
+  SELECT 1 AS b, 1 AS a
+)
+EXCEPT DISTINCT STRICT CORRESPONDING
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <nested BY POSITION> INNER CORRESPONDING_BY <flat>
+[name=nested_strict_by_position_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(SELECT a, b FROM Table1 EXCEPT ALL SELECT 1 AS b, 1 AS a)
+UNION ALL CORRESPONDING BY (b)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[unknown order:{1}, {1}]
+==
+
+# nested set operation: <flat> BY POSITION <nested INNER CORRESPONDING_BY>
+[name=strict_by_position_nested_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY]
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL
+(
+  SELECT 1 AS b, 2 AS c, 1 AS a
+  UNION ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS a, 1 AS b, 2 AS c
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <flat> INNER CORRESPONDING_BY <nested INNER CORRESPONDING>
+[name=inner_corresponding_by_nested_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 2 AS a, 1 AS b
+EXCEPT DISTINCT CORRESPONDING BY (b)
+(
+  SELECT a, c, b FROM Table1
+  UNION DISTINCT CORRESPONDING
+  SELECT 1 AS c, 2 AS d, 1 AS b
+)
+--
+ARRAY<STRUCT<b INT64>>[]
+==
+
+# nested set operation: <nested INNER CORRESPONDING_BY> INNER CORRESPONDING <flat>
+[name=nested_inner_corresponding_by_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 2
+  )
+(
+  SELECT b, c, a FROM Table1
+  EXCEPT DISTINCT CORRESPONDING BY (a, b)
+  SELECT 1 AS a, 1 AS b, 2 AS c
+)
+UNION DISTINCT CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[{1}]
+==
+
+# nested set operation: <nested FULL CORRESPONDING> INNER CORRESPONDING_BY <flat>
+[name=nested_full_corresponding_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1),
+  Table2 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+(
+  SELECT a FROM Table1
+  FULL INTERSECT DISTINCT CORRESPONDING
+  SELECT b FROM Table2
+)
+INTERSECT ALL CORRESPONDING BY (b)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING <nested INNER CORRESPONDING_BY>
+[name=full_corresponding_nested_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT b, c, a FROM Table1
+  INTERSECT ALL CORRESPONDING BY (c, b)
+  SELECT a, b, c FROM Table1
+)
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[]
+==
+
+# nested set operation: <flat> INNER CORRESPONDING_BY <nested LEFT CORRESPONDING>
+[name=inner_corresponding_by_nested_left_corresponding]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c UNION ALL SELECT 1, 1
+  )
+SELECT 2 AS a, 1 AS b
+UNION ALL CORRESPONDING BY (b)
+(
+  SELECT c, b FROM Table1
+  LEFT EXCEPT ALL CORRESPONDING
+  SELECT 1 AS b, 2 AS a, 2 AS d
+)
+--
+ARRAY<STRUCT<b INT64>>[unknown order:{1}, {1}, {1}]
+==
+
+# nested set operation: <nested INNER CORRESPONDING_BY> LEFT CORRESPONDING <flat>
+[name=nested_inner_corresponding_by_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+(
+  SELECT 1 AS b, 2 AS c, 1 AS a
+  UNION ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS a, 1 AS b, 2 AS c
+)
+LEFT EXCEPT ALL CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING> INNER CORRESPONDING_BY <flat>
+[name=nested_strict_corresponding_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT a, b FROM Table1
+  UNION DISTINCT STRICT CORRESPONDING
+  SELECT 1 AS b, 1 AS a
+)
+EXCEPT DISTINCT CORRESPONDING BY (b)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING <nested INNER CORRESPONDING_BY>
+[name=strict_corresponding_nested_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 2
+  )
+SELECT 1 AS a, 1 AS b
+UNION DISTINCT STRICT CORRESPONDING
+(
+  SELECT b, c, a FROM Table1
+  EXCEPT DISTINCT CORRESPONDING BY (a, b)
+  SELECT 1 AS a, 1 AS b, 2 AS c
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# nested set operation: <flat> INNER CORRESPONDING_BY <nested INNER CORRESPONDING_BY>
+[name=inner_corresponding_by_nested_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 2 AS a, 1 AS b
+INTERSECT ALL CORRESPONDING BY (b)
+(
+  SELECT b, c, a FROM Table1
+  INTERSECT DISTINCT CORRESPONDING BY (c, b)
+  SELECT a, b, c FROM Table1
+)
+--
+ARRAY<STRUCT<b INT64>>[{1}]
+==
+
+# nested set operation: <nested BY POSITION> FULL CORRESPONDING_BY <flat>
+[name=nested_strict_by_position_full_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(SELECT a, b FROM Table1 EXCEPT ALL SELECT 1 AS b, 1 AS a)
+FULL UNION ALL CORRESPONDING BY (c, b, a)
+SELECT 1 AS c, 1 AS b
+--
+ARRAY<STRUCT<c INT64, b INT64, a INT64>>[unknown order:
+  {NULL, 1, 1},
+  {1, 1, NULL}
+]
+==
+
+# nested set operation: <flat> BY POSITION <nested FULL CORRESPONDING_BY>
+[name=strict_by_position_nested_full_corresponding_by]
+[required_features=V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL
+(
+  SELECT 1 AS a, 2 AS c
+  FULL UNION ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS b, 2 AS c
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING_BY <nested INNER CORRESPONDING>
+[name=full_corresponding_by_nested_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL EXCEPT DISTINCT CORRESPONDING BY (c, b, a)
+(
+  SELECT a, c, b FROM Table1
+  UNION DISTINCT CORRESPONDING
+  SELECT 1 AS c, 2 AS d, 1 AS b
+)
+--
+ARRAY<STRUCT<c INT64, b INT64, a INT64>>[{NULL, 1, 1}]
+==
+
+# nested set operation: <nested FULL CORRESPONDING_BY> INNER CORRESPONDING <flat>
+[name=nested_full_corresponding_by_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c UNION ALL SELECT 1, 2
+  )
+(
+  SELECT a, c FROM Table1
+  FULL EXCEPT DISTINCT CORRESPONDING BY (a, b)
+  SELECT 1 AS b, 2 AS c
+)
+UNION DISTINCT CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[unknown order:{NULL}, {1}]
+==
+
+# nested set operation: <nested FULL CORRESPONDING> FULL CORRESPONDING_BY <flat>
+[name=nested_full_corresponding_full_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1),
+  Table2 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+(
+  SELECT a FROM Table1
+  FULL INTERSECT DISTINCT CORRESPONDING
+  SELECT b FROM Table2
+)
+FULL INTERSECT ALL CORRESPONDING BY (c, b, a)
+SELECT 1 AS c, 1 AS b
+--
+ARRAY<STRUCT<c INT64, b INT64, a INT64>>[]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING <nested FULL CORRESPONDING_BY>
+[name=full_corresponding_nested_full_corresponding_by]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c UNION ALL SELECT 1, 1
+  ),
+  Table2 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(2 AS INT64) AS d UNION ALL SELECT 2, 2
+  )
+SELECT 1 AS a, 1 AS b
+FULL INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT b, c FROM Table1
+  FULL INTERSECT ALL CORRESPONDING BY (c, b)
+  SELECT a, d FROM Table2
+)
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING_BY <nested LEFT CORRESPONDING>
+[name=full_corresponding_by_nested_left_corresponding]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL UNION ALL CORRESPONDING BY (c, b, a)
+(
+  SELECT c, b FROM Table1
+  LEFT EXCEPT ALL CORRESPONDING
+  SELECT 1 AS b, 2 AS a, 2 AS d
+)
+--
+ARRAY<STRUCT<c INT64, b INT64, a INT64>>[unknown order:
+  {NULL, 1, 1},
+  {1, 1, NULL},
+  {1, 1, NULL}
+]
+==
+
+# nested set operation: <nested FULL CORRESPONDING_BY> LEFT CORRESPONDING <flat>
+[name=nested_full_corresponding_by_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+(
+  SELECT 1 AS a, 2 AS c
+  FULL UNION ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS b, 2 AS c
+)
+LEFT EXCEPT ALL CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING> FULL CORRESPONDING_BY <flat>
+[name=nested_strict_corresponding_full_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT a, b FROM Table1
+  UNION DISTINCT STRICT CORRESPONDING
+  SELECT 1 AS b, 1 AS a
+)
+FULL EXCEPT DISTINCT CORRESPONDING BY (c, b, a)
+SELECT 1 AS c, 1 AS b
+--
+ARRAY<STRUCT<c INT64, b INT64, a INT64>>[{NULL, 1, 1}]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING <nested FULL CORRESPONDING_BY>
+[name=strict_corresponding_nested_full_corresponding_by]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c UNION ALL SELECT 1, 2
+  )
+SELECT 1 AS a, 1 AS b
+UNION DISTINCT STRICT CORRESPONDING
+(
+  SELECT a, c FROM Table1
+  FULL EXCEPT DISTINCT CORRESPONDING BY (a, b)
+  SELECT 1 AS b, 2 AS c
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, NULL}, {1, 1}]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING_BY <nested INNER CORRESPONDING_BY>
+[name=full_corresponding_by_nested_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL INTERSECT ALL CORRESPONDING BY (c, b, a)
+(
+  SELECT b, c, a FROM Table1
+  INTERSECT DISTINCT CORRESPONDING BY (c, b)
+  SELECT a, b, c FROM Table1
+)
+--
+ARRAY<STRUCT<c INT64, b INT64, a INT64>>[]
+==
+
+# nested set operation: <nested FULL CORRESPONDING_BY> INNER CORRESPONDING_BY <flat>
+[name=nested_full_corresponding_by_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c UNION ALL SELECT 1, 2
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c UNION ALL SELECT 1, 2
+  )
+(
+  SELECT a, c FROM Table1
+  FULL INTERSECT ALL CORRESPONDING BY (a, b)
+  SELECT b, c FROM Table2
+)
+INTERSECT DISTINCT CORRESPONDING BY (b)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[]
+==
+
+# nested set operation: <nested FULL CORRESPONDING_BY> FULL CORRESPONDING_BY <flat>
+[name=nested_full_corresponding_by_full_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c UNION ALL SELECT 1, 2
+  )
+(
+  SELECT a, c FROM Table1
+  FULL EXCEPT ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS b, 2 AS c
+)
+FULL UNION ALL CORRESPONDING BY (c, b, a)
+SELECT 1 AS c, 1 AS b
+--
+ARRAY<STRUCT<c INT64, b INT64, a INT64>>[unknown order:
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {1, 1, NULL}
+]
+==
+
+# nested set operation: <nested BY POSITION> LEFT CORRESPONDING_BY <flat>
+[name=nested_strict_by_position_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(SELECT a, b FROM Table1 EXCEPT ALL SELECT 1 AS b, 1 AS a)
+LEFT UNION ALL CORRESPONDING BY (b, a)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, NULL}]
+==
+
+# nested set operation: <flat> BY POSITION <nested LEFT CORRESPONDING_BY>
+[name=strict_by_position_nested_left_corresponding_by]
+[required_features=V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL
+(
+  SELECT 1 AS a, 1 AS b
+  LEFT UNION ALL CORRESPONDING BY (a, b)
+  SELECT 2 AS c, 2 AS d
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <flat> LEFT CORRESPONDING_BY <nested INNER CORRESPONDING>
+[name=left_corresponding_by_nested_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+LEFT EXCEPT DISTINCT CORRESPONDING BY (b, a)
+(
+  SELECT a, c, b FROM Table1
+  UNION DISTINCT CORRESPONDING
+  SELECT 1 AS c, 2 AS d, 1 AS b
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# nested set operation: <nested LEFT CORRESPONDING_BY> INNER CORRESPONDING <flat>
+[name=nested_left_corresponding_by_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT a, b FROM Table1
+  LEFT EXCEPT DISTINCT CORRESPONDING BY (a, b)
+  SELECT 2 AS c, 2 AS d
+)
+UNION DISTINCT CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[{1}]
+==
+
+# nested set operation: <nested FULL CORRESPONDING> LEFT CORRESPONDING_BY <flat>
+[name=nested_full_corresponding_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1),
+  Table2 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+(
+  SELECT a FROM Table1
+  FULL INTERSECT DISTINCT CORRESPONDING
+  SELECT b FROM Table2
+)
+LEFT INTERSECT ALL CORRESPONDING BY (b, a)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING <nested LEFT CORRESPONDING_BY>
+[name=full_corresponding_nested_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  ),
+  Table2 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT a, b, c FROM Table1
+  LEFT INTERSECT ALL CORRESPONDING BY (c, b)
+  SELECT c, b FROM Table2
+)
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[]
+==
+
+# nested set operation: <flat> LEFT CORRESPONDING_BY <nested LEFT CORRESPONDING>
+[name=left_corresponding_by_nested_left_corresponding]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+LEFT UNION ALL CORRESPONDING BY (b, a)
+(
+  SELECT c, b FROM Table1
+  LEFT EXCEPT ALL CORRESPONDING
+  SELECT 1 AS b, 2 AS a, 2 AS d
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{1, 1}, {1, NULL}, {1, NULL}]
+==
+
+# nested set operation: <nested LEFT CORRESPONDING_BY> LEFT CORRESPONDING <flat>
+[name=nested_left_corresponding_by_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+(
+  SELECT 1 AS a, 1 AS b
+  LEFT UNION ALL CORRESPONDING BY (a, b)
+  SELECT 2 AS c, 2 AS d
+)
+LEFT EXCEPT ALL CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{NULL, NULL}, {1, 1}]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING> LEFT CORRESPONDING_BY <flat>
+[name=nested_strict_corresponding_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT a, b FROM Table1
+  UNION DISTINCT STRICT CORRESPONDING
+  SELECT 1 AS b, 1 AS a
+)
+LEFT EXCEPT DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING <nested LEFT CORRESPONDING_BY>
+[name=strict_corresponding_nested_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+UNION DISTINCT STRICT CORRESPONDING
+(
+  SELECT a, b FROM Table1
+  LEFT EXCEPT DISTINCT CORRESPONDING BY (a, b)
+  SELECT 2 AS c, 2 AS d
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# nested set operation: <flat> LEFT CORRESPONDING_BY <nested INNER CORRESPONDING_BY>
+[name=left_corresponding_by_nested_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+LEFT INTERSECT ALL CORRESPONDING BY (b, a)
+(
+  SELECT b, c, a FROM Table1
+  INTERSECT DISTINCT CORRESPONDING BY (c, b)
+  SELECT a, b, c FROM Table1
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[]
+==
+
+# nested set operation: <nested LEFT CORRESPONDING_BY> INNER CORRESPONDING_BY <flat>
+[name=nested_left_corresponding_by_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  ),
+  Table2 AS (
+    SELECT CAST(2 AS INT64) AS c, CAST(2 AS INT64) AS d UNION ALL SELECT 2, 2
+  )
+(
+  SELECT a, b FROM Table1
+  LEFT INTERSECT ALL CORRESPONDING BY (a, b)
+  SELECT c, d FROM Table2
+)
+INTERSECT DISTINCT CORRESPONDING BY (b)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[]
+==
+
+# nested set operation: <nested FULL CORRESPONDING_BY> LEFT CORRESPONDING_BY <flat>
+[name=nested_full_corresponding_by_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c UNION ALL SELECT 1, 2
+  )
+(
+  SELECT a, c FROM Table1
+  FULL EXCEPT ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS b, 2 AS c
+)
+LEFT UNION ALL CORRESPONDING BY (b, a)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[unknown order:{NULL, 1}, {NULL, 1}, {1, NULL}]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING_BY <nested LEFT CORRESPONDING_BY>
+[name=full_corresponding_by_nested_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+SELECT 1 AS a, 1 AS b
+FULL EXCEPT ALL CORRESPONDING BY (c, b, a)
+(
+  SELECT 2 AS a, 1 AS b, 1 AS c
+  LEFT UNION ALL CORRESPONDING BY (c, b)
+  SELECT 1 AS c, 1 AS b
+)
+--
+ARRAY<STRUCT<c INT64, b INT64, a INT64>>[{NULL, 1, 1}]
+==
+
+# nested set operation: <flat> LEFT CORRESPONDING_BY <nested LEFT CORRESPONDING_BY>
+[name=left_corresponding_by_nested_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(2 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c
+    UNION ALL
+    SELECT 2, 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+LEFT EXCEPT DISTINCT CORRESPONDING BY (b, a)
+(
+  SELECT a, b, c FROM Table1
+  LEFT UNION DISTINCT CORRESPONDING BY (c, b)
+  SELECT 1 AS c, 1 AS b
+)
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, 1}]
+==
+
+# nested set operation: <nested BY POSITION> STRICT CORRESPONDING_BY <flat>
+[name=nested_strict_by_position_strict_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(SELECT a, b FROM Table1 EXCEPT ALL SELECT 1 AS b, 1 AS a)
+UNION ALL STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# nested set operation: <flat> BY POSITION <nested STRICT CORRESPONDING_BY>
+[name=strict_by_position_nested_strict_corresponding_by]
+[required_features=V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+SELECT 1 AS a, 1 AS b
+EXCEPT ALL
+(
+  SELECT 1 AS b, 1 AS a
+  UNION ALL STRICT CORRESPONDING BY (a, b)
+  SELECT 1 AS a, 1 AS b
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING_BY <nested INNER CORRESPONDING>
+[name=strict_corresponding_by_nested_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 2
+  )
+SELECT 1 AS a, 1 AS b
+EXCEPT DISTINCT STRICT CORRESPONDING BY (a, b)
+(
+  SELECT a, c, b FROM Table1
+  UNION DISTINCT CORRESPONDING
+  SELECT 1 AS b, 1 AS a, 2 AS d
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING_BY> INNER CORRESPONDING <flat>
+[name=nested_strict_corresponding_by_inner_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT b, a FROM Table1
+  EXCEPT DISTINCT STRICT CORRESPONDING BY (a, b)
+  SELECT 1 AS a, 1 AS b
+)
+UNION DISTINCT CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[{1}]
+==
+
+# nested set operation: <nested FULL CORRESPONDING> STRICT CORRESPONDING_BY <flat>
+[name=nested_full_corresponding_strict_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (SELECT CAST(1 AS INT64) AS a UNION ALL SELECT 1),
+  Table2 AS (SELECT CAST(1 AS INT64) AS b UNION ALL SELECT 1)
+(
+  SELECT a FROM Table1
+  FULL INTERSECT DISTINCT CORRESPONDING
+  SELECT b FROM Table2
+)
+INTERSECT ALL STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING <nested STRICT CORRESPONDING_BY>
+[name=full_corresponding_nested_strict_corresponding_by]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS b, CAST(1 AS INT64) AS c UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+FULL INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT b, c FROM Table1
+  INTERSECT ALL STRICT CORRESPONDING BY (c, b)
+  SELECT b, c FROM Table1
+)
+--
+ARRAY<STRUCT<a INT64, b INT64, c INT64>>[]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING_BY <nested LEFT CORRESPONDING>
+[name=strict_corresponding_by_nested_left_corresponding]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+UNION ALL STRICT CORRESPONDING BY (a, b)
+(
+  SELECT a, b FROM Table1
+  LEFT EXCEPT ALL CORRESPONDING
+  SELECT 1 AS b
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}, {1, 1}]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING_BY> LEFT CORRESPONDING <flat>
+[name=nested_strict_corresponding_by_left_corresponding]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+(
+  SELECT 1 AS b, 1 AS a
+  UNION ALL STRICT CORRESPONDING BY (a, b)
+  SELECT 1 AS a, 1 AS b
+)
+LEFT EXCEPT ALL CORRESPONDING
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 1}, {1, 1}]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING> STRICT CORRESPONDING_BY <flat>
+[name=nested_strict_corresponding_strict_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT a, b FROM Table1
+  UNION DISTINCT STRICT CORRESPONDING
+  SELECT 1 AS b, 1 AS a
+)
+EXCEPT DISTINCT STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING <nested STRICT CORRESPONDING_BY>
+[name=strict_corresponding_nested_strict_corresponding_by]
+[required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+UNION DISTINCT STRICT CORRESPONDING
+(
+  SELECT b, a FROM Table1
+  EXCEPT DISTINCT STRICT CORRESPONDING BY (a, b)
+  SELECT 1 AS a, 1 AS b
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING_BY <nested INNER CORRESPONDING_BY>
+[name=strict_corresponding_by_nested_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b, CAST(2 AS INT64) AS c
+    UNION ALL
+    SELECT 1, 1, 2
+  )
+SELECT 1 AS a, 1 AS b
+INTERSECT ALL STRICT CORRESPONDING BY (a, b)
+(
+  SELECT b, c, a FROM Table1
+  INTERSECT DISTINCT CORRESPONDING BY (a, b)
+  SELECT a, b, c FROM Table1
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING_BY> INNER CORRESPONDING_BY <flat>
+[name=nested_strict_corresponding_by_inner_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT b, a FROM Table1
+  INTERSECT ALL STRICT CORRESPONDING BY (a, b)
+  SELECT a, b FROM Table1
+)
+INTERSECT DISTINCT CORRESPONDING BY (b)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64>>[{1}]
+==
+
+# nested set operation: <nested FULL CORRESPONDING_BY> STRICT CORRESPONDING_BY <flat>
+[name=nested_full_corresponding_by_strict_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(2 AS INT64) AS c UNION ALL SELECT 1, 2
+  )
+(
+  SELECT a, c FROM Table1
+  FULL EXCEPT ALL CORRESPONDING BY (a, b)
+  SELECT 1 AS b, 2 AS c
+)
+UNION ALL STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, NULL}, {1, NULL}, {1, 1}]
+==
+
+# nested set operation: <flat> FULL CORRESPONDING_BY <nested STRICT CORRESPONDING_BY>
+[name=full_corresponding_by_nested_strict_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+SELECT 1 AS a, 1 AS b
+FULL EXCEPT ALL CORRESPONDING BY (c, b, a)
+(
+  SELECT 1 AS b, 1 AS c
+  UNION ALL STRICT CORRESPONDING BY (c, b)
+  SELECT 1 AS b, 1 AS c
+)
+--
+ARRAY<STRUCT<c INT64, b INT64, a INT64>>[{NULL, 1, 1}]
+==
+
+# nested set operation: <flat> STRICT CORRESPONDING_BY <nested LEFT CORRESPONDING_BY>
+[name=strict_corresponding_by_nested_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+SELECT 1 AS a, 1 AS b
+EXCEPT DISTINCT STRICT CORRESPONDING BY (a, b)
+(
+  SELECT a, b FROM Table1
+  LEFT UNION DISTINCT CORRESPONDING BY (a, b)
+  SELECT 2 AS c, 2 AS d
+)
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING_BY> LEFT CORRESPONDING_BY <flat>
+[name=nested_strict_corresponding_by_left_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT b, a FROM Table1
+  EXCEPT DISTINCT STRICT CORRESPONDING BY (a, b)
+  SELECT 1 AS a, 1 AS b
+)
+LEFT UNION DISTINCT CORRESPONDING BY (b, a)
+SELECT 2 AS c, 1 AS b
+--
+ARRAY<STRUCT<b INT64, a INT64>>[{1, NULL}]
+==
+
+# nested set operation: <nested STRICT CORRESPONDING_BY> STRICT CORRESPONDING_BY <flat>
+[name=nested_strict_corresponding_by_strict_corresponding_by]
+[required_features=V_1_4_CORRESPONDING_BY,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+WITH
+  Table1 AS (
+    SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1
+  )
+(
+  SELECT b, a FROM Table1
+  INTERSECT DISTINCT STRICT CORRESPONDING BY (a, b)
+  SELECT a, b FROM Table1
+)
+INTERSECT ALL STRICT CORRESPONDING BY (a, b)
+SELECT 1 AS a, 1 AS b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 1}]

@@ -95,6 +95,8 @@ const char* const kScrubLimitOffsetInLiteralReplacement =
 const char* const kSetFlag = "set_flag";
 const char* const kAlsoShowSignatureMismatchDetails =
     "also_show_signature_mismatch_details";
+const char* const kReplaceTableNotFoundErrorWithTvfErrorIfApplicable =
+    "replace_table_not_found_error_with_tvf_error_if_applicable";
 const char* const kIdStringAllowUnicodeCharacters =
     "zetasql_idstring_allow_unicode_characters";
 const char* const kDisallowDuplicateOptions = "disallow_duplicate_options";
@@ -157,6 +159,8 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kScrubLimitOffsetInLiteralReplacement, true);
   test_case_options->RegisterString(kSetFlag, "");
   test_case_options->RegisterBool(kAlsoShowSignatureMismatchDetails, false);
+  test_case_options->RegisterBool(
+      kReplaceTableNotFoundErrorWithTvfErrorIfApplicable, true);
   test_case_options->RegisterBool(kIdStringAllowUnicodeCharacters, false);
   test_case_options->RegisterBool(kDisallowDuplicateOptions, false);
   test_case_options->RegisterString(

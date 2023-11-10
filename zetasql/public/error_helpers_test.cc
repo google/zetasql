@@ -34,6 +34,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
@@ -1253,6 +1254,62 @@ TEST(ErrorHelpersTest, UpdateFromPayloadIsIdempotent) {
           absl::StatusCode::kInternal,
           AllOf(HasSubstr("RET_CHECK failure"),
                 HasSubstr("mode_already_applied.mode() == mode (2 vs. 1)"))));
+}
+
+static absl::Status NoError() { return absl::OkStatus(); }
+
+static absl::Status ErrorWithoutLocation() {
+  return MakeSqlError() << "No location";
+}
+
+static absl::Status ErrorWithLocation() {
+  return MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(10))
+         << "With location";
+}
+
+static absl::Status UpdateWithRedaction(const absl::Status& status,
+                                        absl::string_view query) {
+  return MaybeUpdateErrorFromPayload(
+      ErrorMessageOptions{
+          .mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+          .attach_error_location_payload = true,
+          .stability = ERROR_MESSAGE_STABILITY_TEST_REDACTED},
+      query, status);
+}
+
+TEST(ErrorHelpersTest, RedactedModeReturnsRedactedMessages) {
+  // Dummy query that can be used to resolve all lines and columns in
+  // InternalErrorLocations in this test.
+  const std::string query = "1\n2\n3\n42345\n";
+
+  // Error locations also get removed. They are not stable, as we change
+  // locations to improve some messages.
+  ZETASQL_EXPECT_OK(UpdateWithRedaction(NoError(), query));
+  EXPECT_THAT(UpdateWithRedaction(ErrorWithoutLocation(), query),
+              StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")));
+  EXPECT_THAT(UpdateWithRedaction(ErrorWithLocation(), query),
+              StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")));
+  EXPECT_THAT(UpdateWithRedaction(ErrorWithLocation(), query),
+              StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")));
+  EXPECT_THAT(
+      UpdateWithRedaction(
+          absl::Status(absl::StatusCode::kNotFound, "Some message"), query),
+      StatusIs(absl::StatusCode::kNotFound, Eq("SQL ERROR")));
+}
+
+TEST(Errors, RedactedModeDoesNotHideSystemErrors) {
+  // Dummy query that can be used to resolve all lines and columns in
+  // InternalErrorLocations in this test.
+  const std::string query = "1\n2\n3\n42345\n";
+
+  EXPECT_THAT(UpdateWithRedaction(absl::Status(absl::StatusCode::kUnimplemented,
+                                               "Unimplemented"),
+                                  query),
+              StatusIs(absl::StatusCode::kUnimplemented, Eq("Unimplemented")));
+
+  EXPECT_THAT(UpdateWithRedaction(
+                  absl::Status(absl::StatusCode::kInternal, "Internal"), query),
+              StatusIs(absl::StatusCode::kInternal, Eq("Internal")));
 }
 
 }  // namespace zetasql

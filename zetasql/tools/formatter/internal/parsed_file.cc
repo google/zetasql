@@ -118,13 +118,12 @@ absl::StatusOr<std::unique_ptr<zetasql::ParserOutput>> ParseTokenizedStmt(
 FilePart::FilePart(absl::string_view sql, int start_offset, int end_offset)
     : sql_(sql), start_offset_(start_offset), end_offset_(end_offset) {}
 
-UnparsedRegion::UnparsedRegion(absl::string_view sql, int start_offset,
-                               int end_offset)
-    : FilePart(sql, start_offset, end_offset),
-      image_(sql.substr(start_offset, end_offset - start_offset)) {}
+absl::string_view FilePart::Image() const {
+  return sql_.substr(start_offset_, end_offset_ - start_offset_);
+}
 
 std::string UnparsedRegion::DebugString() const {
-  return absl::StrCat("Unparsed:", image_);
+  return absl::StrCat("Unparsed:", Image());
 }
 
 absl::Status UnparsedRegion::Accept(ParsedFileVisitor* visitor) const {
@@ -170,6 +169,10 @@ std::string TokenizedStmt::DebugString() const {
 
 absl::Status TokenizedStmt::Accept(ParsedFileVisitor* visitor) const {
   return visitor->VisitTokenizedStmt(*this);
+}
+
+bool TokenizedStmt::ShouldFormat() const {
+  return true;
 }
 
 std::string ParsedStmt::DebugString() const {

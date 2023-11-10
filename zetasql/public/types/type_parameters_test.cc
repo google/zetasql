@@ -27,6 +27,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -193,7 +194,7 @@ static void SerializeDeserialize(const TypeParameters& type_parameters) {
   google::protobuf::TextFormat::PrintToString(type_parameters_proto, &output);
   EXPECT_TRUE(type_parameters.Equals(status_or_type_parameters.value()))
       << "\nSerialized type_parameters:\n"
-      << type_parameters_proto.DebugString();
+      << absl::StrCat(type_parameters_proto);
 }
 
 // Roundtrips TypeParametersProto through TypeParameters and back.
@@ -203,10 +204,10 @@ static void DeserializeSerialize(const std::string& type_parameters_proto_str) {
                                              &type_parameters_proto))
       << type_parameters_proto_str;
   auto status_or_value = TypeParameters::Deserialize(type_parameters_proto);
-  ZETASQL_ASSERT_OK(status_or_value.status()) << type_parameters_proto.DebugString();
+  ZETASQL_ASSERT_OK(status_or_value.status()) << absl::StrCat(type_parameters_proto);
   TypeParametersProto roundtrip_type_parameters_proto;
   ZETASQL_ASSERT_OK(status_or_value.value().Serialize(&roundtrip_type_parameters_proto))
-      << roundtrip_type_parameters_proto.DebugString();
+      << absl::StrCat(roundtrip_type_parameters_proto);
   EXPECT_THAT(type_parameters_proto,
               testing::EqualsProto(roundtrip_type_parameters_proto));
 }

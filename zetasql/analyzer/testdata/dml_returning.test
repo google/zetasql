@@ -2347,3 +2347,148 @@ InsertStmt
 |       +-value=
 |         +-Literal(type=INT64, value=1)
 +-column_access_list=READ_WRITE,READ
+==
+
+# TODO: Add java support for generated expressions.
+[no_java]
+INSERT INTO TableWithGeneratedColumn (C) VALUES(3) THEN RETURN *
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=TableWithGeneratedColumn.[A#1, B#2, C#3, D#4], table=TableWithGeneratedColumn, column_index_list=[0, 1, 2, 3])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-TableWithGeneratedColumn.A#1 AS A [INT64]
+|     +-TableWithGeneratedColumn.B#2 AS B [INT64]
+|     +-TableWithGeneratedColumn.C#3 AS C [INT64]
+|     +-TableWithGeneratedColumn.D#4 AS D [INT64]
++-insert_column_list=[TableWithGeneratedColumn.C#3]
++-row_list=
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=3)
++-column_access_list=READ,READ,READ_WRITE,READ
++-topologically_sorted_generated_column_id_list=[2, 1, 4]
++-generated_column_expr_list=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  | +-Literal(type=INT64, value=1)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.A#1)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+    +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+==
+
+# TODO: Add java support for generated expressions.
+[no_java]
+INSERT INTO TableWithGeneratedColumn (C) SELECT C FROM TableWithGeneratedColumn THEN RETURN A+1, C, D
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=TableWithGeneratedColumn.[A#1, B#2, C#3, D#4], table=TableWithGeneratedColumn, column_index_list=[0, 1, 2, 3])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TableWithGeneratedColumn.$col1#9 AS `$col1` [INT64]
+|   | +-TableWithGeneratedColumn.C#3 AS C [INT64]
+|   | +-TableWithGeneratedColumn.D#4 AS D [INT64]
+|   +-expr_list=
+|     +-$col1#9 :=
+|       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|         +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.A#1)
+|         +-Literal(type=INT64, value=1)
++-insert_column_list=[TableWithGeneratedColumn.C#3]
++-query=
+| +-ProjectScan
+|   +-column_list=[TableWithGeneratedColumn.C#7]
+|   +-input_scan=
+|     +-TableScan(column_list=[TableWithGeneratedColumn.C#7], table=TableWithGeneratedColumn, column_index_list=[2])
++-query_output_column_list=[TableWithGeneratedColumn.C#7]
++-column_access_list=READ,READ,READ_WRITE,READ
++-topologically_sorted_generated_column_id_list=[2, 1, 4]
++-generated_column_expr_list=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  | +-Literal(type=INT64, value=1)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.A#1)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+    +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+==
+
+# TODO: Add java support for generated expressions.
+[no_java]
+DELETE FROM TableWithGeneratedColumn WHERE C > 2 THEN RETURN *
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TableWithGeneratedColumn.[A#1, B#2, C#3, D#4], table=TableWithGeneratedColumn, column_index_list=[0, 1, 2, 3])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-TableWithGeneratedColumn.A#1 AS A [INT64]
+|     +-TableWithGeneratedColumn.B#2 AS B [INT64]
+|     +-TableWithGeneratedColumn.C#3 AS C [INT64]
+|     +-TableWithGeneratedColumn.D#4 AS D [INT64]
++-column_access_list=READ,READ,READ,READ
++-where_expr=
+  +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+    +-Literal(type=INT64, value=2)
+
+==
+
+# TODO: Add java support for generated expressions.
+[no_java]
+UPDATE TableWithGeneratedColumn SET C = 5 WHERE TRUE THEN RETURN A+1, C, D
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=TableWithGeneratedColumn.[A#1, B#2, C#3, D#4], table=TableWithGeneratedColumn, column_index_list=[0, 1, 2, 3])
++-column_access_list=READ,READ,READ_WRITE,READ
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TableWithGeneratedColumn.$col1#5 AS `$col1` [INT64]
+|   | +-TableWithGeneratedColumn.C#3 AS C [INT64]
+|   | +-TableWithGeneratedColumn.D#4 AS D [INT64]
+|   +-expr_list=
+|     +-$col1#5 :=
+|       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|         +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.A#1)
+|         +-Literal(type=INT64, value=1)
++-where_expr=
+| +-Literal(type=BOOL, value=true)
++-update_item_list=
+| +-UpdateItem
+|   +-target=
+|   | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+|   +-set_value=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=5)
++-topologically_sorted_generated_column_id_list=[2, 1, 4]
++-generated_column_expr_list=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  | +-Literal(type=INT64, value=1)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+  | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.A#1)
+    | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
+    +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+

@@ -1914,7 +1914,8 @@ class BernoulliSampleScanTupleIterator : public SampleScanTupleIteratorBase {
       : SampleScanTupleIteratorBase(seed, context, std::move(iter),
                                     std::move(schema), weight),
         percent_(percent),
-        weight_(1.0 / percent_) {}
+        // If percent is 0, WITH WEIGHT returns 0 rows so weight doesn't matter.
+        weight_(percent == 0 ? 0.0 : 1.0 / percent_) {}
 
   BernoulliSampleScanTupleIterator(const BernoulliSampleScanTupleIterator&) =
       delete;

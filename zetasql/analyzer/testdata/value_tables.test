@@ -538,9 +538,9 @@ QueryStmt
         +-column_list=[Int32ArrayValueTable.value#1, $array.b#2]
         +-input_scan=
         | +-TableScan(column_list=[Int32ArrayValueTable.value#1], table=Int32ArrayValueTable, column_index_list=[0], alias="a")
-        +-array_expr=
+        +-array_expr_list=
         | +-ColumnRef(type=ARRAY<INT32>, column=Int32ArrayValueTable.value#1)
-        +-element_column=$array.b#2
+        +-element_column_list=[$array.b#2]
 ==
 
 select * from Int32ArrayValueTable, unnest(Int32ArrayValueTable)
@@ -557,9 +557,9 @@ QueryStmt
         +-column_list=[Int32ArrayValueTable.value#1, $array.$unnest1#2]
         +-input_scan=
         | +-TableScan(column_list=[Int32ArrayValueTable.value#1], table=Int32ArrayValueTable, column_index_list=[0])
-        +-array_expr=
+        +-array_expr_list=
         | +-ColumnRef(type=ARRAY<INT32>, column=Int32ArrayValueTable.value#1)
-        +-element_column=$array.$unnest1#2
+        +-element_column_list=[$array.$unnest1#2]
 ==
 
 select * from Int32ArrayValueTable, Int32ArrayValueTable
@@ -1173,14 +1173,14 @@ QueryStmt
         +-column_list=[TestTable.KitchenSink#3, $array.nrv#4]
         +-input_scan=
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
-        +-element_column=$array.nrv#4
+        +-element_column_list=[$array.nrv#4]
 ==
 
 # We cannot access fields of 'nrv' implicitly in the from clause,
@@ -1220,22 +1220,22 @@ QueryStmt
         |   +-column_list=[TestTable.KitchenSink#3, $array.nrv#4]
         |   +-input_scan=
         |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   +-expr=
         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=nested_repeated_value
         |   |   +-default_value=[]
-        |   +-element_column=$array.nrv#4
-        +-array_expr=
+        |   +-element_column_list=[$array.nrv#4]
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
-        +-element_column=$array.$unnest1#5
+        +-element_column_list=[$array.$unnest1#5]
 ==
 
 # Field names of value tables work in JOIN USING.
@@ -1828,17 +1828,79 @@ QueryStmt
         +-is_descending=TRUE
 ==
 
-# We can't do an order by on value tables after a set operation because
-# we aren't resolving field names in order by there.
-# TODO Maybe this should work.
+# ORDER BY on value tables after a set operation works,
+# and can resolve fields from the value table.
 select as `zetasql_test__.KeyValueStruct` 17 value, 'k' key
 union all
 select as `zetasql_test__.KeyValueStruct` 'abc' key from TestTable
 order by key
 --
-ERROR: Unrecognized name: key [at 4:10]
-order by key
-         ^
+QueryStmt
++-output_column_list=
+| +-$union_all.$proto#9 AS `$proto` [PROTO<zetasql_test__.KeyValueStruct>]
++-is_value_table=TRUE
++-query=
+  +-OrderByScan
+    +-column_list=[$union_all.$proto#9]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$union_all.$proto#9, $orderby.$orderbycol1#10]
+    |   +-expr_list=
+    |   | +-$orderbycol1#10 :=
+    |   |   +-GetProtoField
+    |   |     +-type=STRING
+    |   |     +-expr=
+    |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KeyValueStruct>, column=$union_all.$proto#9)
+    |   |     +-field_descriptor=key
+    |   |     +-default_value=NULL
+    |   +-input_scan=
+    |     +-SetOperationScan
+    |       +-column_list=[$union_all.$proto#9]
+    |       +-op_type=UNION_ALL
+    |       +-input_item_list=
+    |         +-SetOperationItem
+    |         | +-scan=
+    |         | | +-ProjectScan
+    |         | |   +-column_list=[$make_proto.$proto#3]
+    |         | |   +-expr_list=
+    |         | |   | +-$proto#3 :=
+    |         | |   |   +-MakeProto
+    |         | |   |     +-type=PROTO<zetasql_test__.KeyValueStruct>
+    |         | |   |     +-field_list=
+    |         | |   |       +-value := ColumnRef(type=INT64, column=$union_all1.value#1)
+    |         | |   |       +-key := ColumnRef(type=STRING, column=$union_all1.key#2)
+    |         | |   +-input_scan=
+    |         | |     +-ProjectScan
+    |         | |       +-column_list=$union_all1.[value#1, key#2]
+    |         | |       +-expr_list=
+    |         | |       | +-value#1 := Literal(type=INT64, value=17)
+    |         | |       | +-key#2 := Literal(type=STRING, value="k")
+    |         | |       +-input_scan=
+    |         | |         +-SingleRowScan
+    |         | +-output_column_list=[$make_proto.$proto#3]
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$make_proto.$proto#8]
+    |           |   +-expr_list=
+    |           |   | +-$proto#8 :=
+    |           |   |   +-MakeProto
+    |           |   |     +-type=PROTO<zetasql_test__.KeyValueStruct>
+    |           |   |     +-field_list=
+    |           |   |       +-key := ColumnRef(type=STRING, column=$union_all2.key#7)
+    |           |   +-input_scan=
+    |           |     +-ProjectScan
+    |           |       +-column_list=[$union_all2.key#7]
+    |           |       +-expr_list=
+    |           |       | +-key#7 := Literal(type=STRING, value="abc")
+    |           |       +-input_scan=
+    |           |         +-TableScan(table=TestTable)
+    |           +-output_column_list=[$make_proto.$proto#8]
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#10)
 ==
 
 # Complex query with several operators.  MakeProto happens at the very end.

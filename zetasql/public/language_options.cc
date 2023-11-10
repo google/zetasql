@@ -58,6 +58,9 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL);
       features.insert(FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS);
       features.insert(FEATURE_V_1_4_PI_FUNCTIONS);
+      features.insert(FEATURE_V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE);
+      features.insert(FEATURE_V_1_4_CORRESPONDING_BY);
+      features.insert(FEATURE_V_1_4_GROUP_BY_ALL);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are

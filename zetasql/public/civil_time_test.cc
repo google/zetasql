@@ -36,6 +36,10 @@ void CheckTimeEqual(int expected_hour, int expected_minute, int expected_second,
   EXPECT_EQ(expected_minute , time.Minute());
   EXPECT_EQ(expected_second, time.Second());
   EXPECT_EQ(expected_nanos, time.Nanoseconds());
+  EXPECT_EQ(
+      zetasql::TimeValue::FromHMSAndNanos(expected_hour, expected_minute,
+                                            expected_second, expected_nanos),
+      time);
 }
 
 void CheckDatetimeEqual(int expected_year, int expected_month, int expected_day,
@@ -49,6 +53,10 @@ void CheckDatetimeEqual(int expected_year, int expected_month, int expected_day,
   EXPECT_EQ(expected_minute , datetime.Minute());
   EXPECT_EQ(expected_second, datetime.Second());
   EXPECT_EQ(expected_nanos, datetime.Nanoseconds());
+  EXPECT_EQ(zetasql::DatetimeValue::FromYMDHMSAndNanos(
+                expected_year, expected_month, expected_day, expected_hour,
+                expected_minute, expected_second, expected_nanos),
+            datetime);
 }
 
 // This test verifies that Time can be built correctly.
@@ -62,8 +70,12 @@ TEST(CivilTimeValuesTest, CorrectlyConstructingTime) {
   ASSERT_TRUE(time.IsValid());
   CheckTimeEqual(13, 14, 15, 123456, time);
 
+  EXPECT_NE(time, TimeValue::FromHMSAndMicros(13, 14, 15, 123456));
+
   time = TimeValue::FromHMSAndMicros(13, 14, 15, 123456);
+
   ASSERT_TRUE(time.IsValid());
+  EXPECT_EQ(time, TimeValue::FromHMSAndMicros(13, 14, 15, 123456));
   CheckTimeEqual(13, 14, 15, 123456000, time);
 
   time = TimeValue::FromPacked32SecondsAndNanos(0xD38F, 123456);
@@ -120,8 +132,14 @@ TEST(CivilTimeValuesTest, CorrectlyBuildingDatetime) {
   ASSERT_TRUE(datetime.IsValid());
   CheckDatetimeEqual(2015, 10, 19, 16, 19, 37, 98765, datetime);
 
+  EXPECT_NE(datetime, DatetimeValue::FromYMDHMSAndMicros(2015, 10, 19, 16, 19,
+                                                         37, 98765));
+
   datetime = DatetimeValue::FromYMDHMSAndMicros(
       2015, 10, 19, 16, 19, 37, 98765);
+
+  EXPECT_EQ(datetime, DatetimeValue::FromYMDHMSAndMicros(2015, 10, 19, 16, 19,
+                                                         37, 98765));
   ASSERT_TRUE(datetime.IsValid());
   CheckDatetimeEqual(2015, 10, 19, 16, 19, 37, 98765000, datetime);
 

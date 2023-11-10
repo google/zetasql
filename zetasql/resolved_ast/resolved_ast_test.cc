@@ -41,6 +41,7 @@
 #include "zetasql/resolved_ast/validator.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -1176,19 +1177,19 @@ TEST_F(ResolvedASTTest, ConstantSerialization) {
   FileDescriptorSetMap map;
   ZETASQL_ASSERT_OK(output->resolved_statement()->SaveTo(&map, &proto));
 
-  ASSERT_TRUE(proto.has_resolved_query_stmt_node()) << proto.DebugString();
+  ASSERT_TRUE(proto.has_resolved_query_stmt_node()) << absl::StrCat(proto);
   const ResolvedQueryStmtProto& query = proto.resolved_query_stmt_node();
   ASSERT_TRUE(query.query().has_resolved_project_scan_node())
-      << query.DebugString();
+      << absl::StrCat(query);
   const ResolvedProjectScanProto& scan =
       query.query().resolved_project_scan_node();
-  ASSERT_EQ(scan.expr_list_size(), 1) << scan.DebugString();
+  ASSERT_EQ(scan.expr_list_size(), 1) << absl::StrCat(scan);
   const ResolvedComputedColumnProto& column = scan.expr_list(0);
-  ASSERT_TRUE(column.has_expr()) << column.DebugString();
+  ASSERT_TRUE(column.has_expr()) << absl::StrCat(column);
   const ResolvedConstantProto& resolved_constant =
       column.expr().resolved_constant_node();
   ASSERT_TRUE(resolved_constant.has_constant())
-      << resolved_constant.DebugString();
+      << absl::StrCat(resolved_constant);
   const ConstantRefProto& constant_ref = resolved_constant.constant();
   EXPECT_EQ(constant_ref.name(), constant_fullname);
 }

@@ -171,7 +171,7 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddOwnedTable(const Table* table) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Models
-  void AddModel(const std::string& name, const Model* model)
+  void AddModel(absl::string_view name, const Model* model)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddModel(const Model* model) ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedModel(const std::string& name,
@@ -197,14 +197,14 @@ class SimpleCatalog : public EnumerableCatalog {
       std::unique_ptr<const Connection> connection) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Sequences
-  void AddSequence(const std::string& name, const Sequence* sequence)
+  void AddSequence(absl::string_view name, const Sequence* sequence)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddSequence(const Sequence* sequence) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Types
-  void AddType(const std::string& name, const Type* type)
+  void AddType(absl::string_view name, const Type* type)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  bool AddTypeIfNotPresent(const std::string& name, const Type* type)
+  bool AddTypeIfNotPresent(absl::string_view name, const Type* type)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Catalogs
@@ -223,7 +223,7 @@ class SimpleCatalog : public EnumerableCatalog {
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Add a new (owned) SimpleCatalog named <name>, and return it.
-  SimpleCatalog* MakeOwnedSimpleCatalog(const std::string& name)
+  SimpleCatalog* MakeOwnedSimpleCatalog(absl::string_view name)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Functions
@@ -264,7 +264,7 @@ class SimpleCatalog : public EnumerableCatalog {
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Procedures
-  void AddProcedure(const std::string& name, const Procedure* procedure);
+  void AddProcedure(absl::string_view name, const Procedure* procedure);
   void AddProcedure(const Procedure* procedure) ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedProcedure(const std::string& name,
                          std::unique_ptr<const Procedure> procedure);
@@ -522,7 +522,7 @@ class SimpleCatalog : public EnumerableCatalog {
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Helper methods for adding objects while holding <mutex_>.
-  void AddCatalogLocked(const std::string& name, Catalog* catalog)
+  void AddCatalogLocked(absl::string_view name, Catalog* catalog)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddOwnedCatalogLocked(const std::string& name,
                              std::unique_ptr<Catalog> catalog)
@@ -1096,7 +1096,7 @@ class SimpleColumn : public Column {
 
   // Deserializes SimpleColumn from proto using TypeDeserializer.
   static absl::StatusOr<std::unique_ptr<SimpleColumn>> Deserialize(
-      const SimpleColumnProto& proto, const std::string& table_name,
+      const SimpleColumnProto& proto, absl::string_view table_name,
       const TypeDeserializer& type_deserializer);
 
  private:

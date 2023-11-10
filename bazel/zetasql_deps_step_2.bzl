@@ -117,9 +117,9 @@ def zetasql_deps_step_2(
         if not native.existing_rule("six_archive"):
             http_archive(
                 name = "six_archive",
-                url = "https://pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
-                sha256 = "105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",
-                strip_prefix = "six-1.10.0",
+                url = "https://pypi.python.org/packages/source/s/six/six-1.16.0.tar.gz",
+                sha256 = "1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926",
+                strip_prefix = "six-1.16.0",
                 build_file_content = """licenses(["notice"])
 
 exports_files(["LICENSE"])

@@ -31,7 +31,6 @@
 #include "zetasql/public/proto/logging.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "absl/base/macros.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
@@ -88,28 +87,11 @@ class AnalyzerRuntimeInfo {
     return impl_->parser_runtime_info;
   }
 
-  // Depending on which API is used, the parser may be either run directly
-  // by the analyzer, run separately, but included in this total, or
-  // not represented at all.
-  // In the case the parser is run separately, it's possible this will
-  // result in double counting, if the same parser output is used for multiple
-  // analyzer calls.
-  ABSL_DEPRECATED("Inline me!")
-  absl::Duration parser_elapsed_duration() const {
-    return parser_runtime_info().parser_timed_value().elapsed_duration();
-  }
-
   // Total time in this ZetaSQL API call.
   internal::TimedValue& overall_timed_value() const {
     return impl_->overall_timed_value;
   }
 
-  // Total elapsed time spent in resolver.
-  // This will include time spent in catalog operations.
-  ABSL_DEPRECATED("Inline me!")
-  absl::Duration resolver_elapsed_duration() const {
-    return resolver_timed_value().elapsed_duration();
-  }
   internal::TimedValue& resolver_timed_value() const {
     return impl_->resolver_timed_value;
   }
@@ -131,14 +113,6 @@ class AnalyzerRuntimeInfo {
     return impl_->rewriters_details[rewriter];
   }
   const RewriterDetails& rewriters_details(ResolvedASTRewrite rewriter) const;
-
-  // This includes both time spent in the post-resolver validation and
-  // post-rewriter validation. Depending on analyzer flags, the validator
-  // may not be run at all.
-  ABSL_DEPRECATED("Inline me!")
-  absl::Duration validator_elapsed_duration() const {
-    return validator_timed_value().elapsed_duration();
-  }
 
   internal::TimedValue& validator_timed_value() const {
     return impl_->validator_timed_value;

@@ -614,37 +614,32 @@ QueryStmt
 select
   key,
   st_union_agg(geo1),
-  st_union_agg(geo2),
-  st_accum(geo1)
+  st_union_agg(geo2)
 from GeographyTable
 group by key
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.key#8 AS key [INT64]
+| +-$groupby.key#7 AS key [INT64]
 | +-$aggregate.$agg1#5 AS `$col2` [GEOGRAPHY]
 | +-$aggregate.$agg2#6 AS `$col3` [GEOGRAPHY]
-| +-$aggregate.$agg3#7 AS `$col4` [ARRAY<GEOGRAPHY>]
 +-query=
   +-ProjectScan
-    +-column_list=[$groupby.key#8, $aggregate.$agg1#5, $aggregate.$agg2#6, $aggregate.$agg3#7]
+    +-column_list=[$groupby.key#7, $aggregate.$agg1#5, $aggregate.$agg2#6]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.key#8, $aggregate.$agg1#5, $aggregate.$agg2#6, $aggregate.$agg3#7]
+        +-column_list=[$groupby.key#7, $aggregate.$agg1#5, $aggregate.$agg2#6]
         +-input_scan=
         | +-TableScan(column_list=GeographyTable.[key#1, geo1#3, geo2#4], table=GeographyTable, column_index_list=[0, 2, 3])
         +-group_by_list=
-        | +-key#8 := ColumnRef(type=INT64, column=GeographyTable.key#1)
+        | +-key#7 := ColumnRef(type=INT64, column=GeographyTable.key#1)
         +-aggregate_list=
           +-$agg1#5 :=
           | +-AggregateFunctionCall(ZetaSQL:st_union_agg(GEOGRAPHY) -> GEOGRAPHY)
           |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
           +-$agg2#6 :=
-          | +-AggregateFunctionCall(ZetaSQL:st_union_agg(GEOGRAPHY) -> GEOGRAPHY)
-          |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
-          +-$agg3#7 :=
-            +-AggregateFunctionCall(ZetaSQL:st_accum(GEOGRAPHY) -> ARRAY<GEOGRAPHY>)
-              +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+            +-AggregateFunctionCall(ZetaSQL:st_union_agg(GEOGRAPHY) -> GEOGRAPHY)
+              +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
 ==
 
 # Not supported operators and functions

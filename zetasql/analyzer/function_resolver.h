@@ -138,7 +138,7 @@ class FunctionResolver {
   // nested parsing or analysis.
   static absl::Status ForwardNestedResolutionAnalysisError(
       const TemplatedSQLFunction& function, const absl::Status& status,
-      ErrorMessageMode mode, bool attach_error_location_payload);
+      ErrorMessageOptions options);
 
   // Returns a new error message reporting a failure parsing or analyzing the
   // SQL body. If 'message' is not empty, appends it to the end of the error

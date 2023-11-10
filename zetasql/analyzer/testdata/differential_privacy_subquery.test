@@ -490,9 +490,9 @@ QueryStmt
     |   |                   |   +-input_scan=
     |   |                   |   | +-ArrayScan
     |   |                   |   |   +-column_list=[$array.e#4]
-    |   |                   |   |   +-array_expr=
+    |   |                   |   |   +-array_expr_list=
     |   |                   |   |   | +-Literal(type=ARRAY<INT32>, value=[24, 31], has_explicit_type=TRUE)
-    |   |                   |   |   +-element_column=$array.e#4
+    |   |                   |   |   +-element_column_list=[$array.e#4]
     |   |                   |   +-filter_expr=
     |   |                   |     +-FunctionCall(ZetaSQL:$in_array(INT64, ARRAY<INT64>) -> BOOL)
     |   |                   |       +-Cast(INT32 -> INT64)
@@ -562,9 +562,9 @@ QueryStmt
     |   |   |   |                   |   +-input_scan=
     |   |   |   |                   |   | +-ArrayScan
     |   |   |   |                   |   |   +-column_list=[$array.e#4]
-    |   |   |   |                   |   |   +-array_expr=
+    |   |   |   |                   |   |   +-array_expr_list=
     |   |   |   |                   |   |   | +-Literal(type=ARRAY<INT32>, value=[24, 31], has_explicit_type=TRUE)
-    |   |   |   |                   |   |   +-element_column=$array.e#4
+    |   |   |   |                   |   |   +-element_column_list=[$array.e#4]
     |   |   |   |                   |   +-filter_expr=
     |   |   |   |                   |     +-FunctionCall(ZetaSQL:$in_array(INT64, ARRAY<INT64>) -> BOOL)
     |   |   |   |                   |       +-Cast(INT32 -> INT64)

@@ -842,9 +842,9 @@ InsertStmt
 |               +-input_scan=
 |                 +-ArrayScan
 |                   +-column_list=[$array.$unnest1#19]
-|                   +-array_expr=
+|                   +-array_expr_list=
 |                   | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-|                   +-element_column=$array.$unnest1#19
+|                   +-element_column_list=[$array.$unnest1#19]
 +-column_access_list=WRITE,WRITE
 ==
 

@@ -1877,10 +1877,10 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.t1#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1])
-        |   +-element_column=$array.t1#1
-        +-array_expr=
+        |   +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a STRING, t1 INT64>) -> ARRAY<STRUCT<a STRING, t1 INT64>>)
         |   +-SubqueryExpr
         |     +-type=STRUCT<a STRING, t1 INT64>
@@ -1903,7 +1903,7 @@ QueryStmt
         |             | +-t1#3 := Literal(type=INT64, value=2)
         |             +-input_scan=
         |               +-SingleRowScan
-        +-element_column=$array.t2#5
+        +-element_column_list=[$array.t2#5]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$array.t1#1)
@@ -1948,7 +1948,7 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.$unnest1#4]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a STRING, b INT64>) -> ARRAY<STRUCT<a STRING, b INT64>>)
         |       |   +-SubqueryExpr
         |       |     +-type=STRUCT<a STRING, b INT64>
@@ -1971,7 +1971,7 @@ QueryStmt
         |       |             | +-b#2 := Literal(type=INT64, value=2)
         |       |             +-input_scan=
         |       |               +-SingleRowScan
-        |       +-element_column=$array.$unnest1#4
+        |       +-element_column_list=[$array.$unnest1#4]
         +-right_scan=
         | +-ProjectScan
         |   +-column_list=$subquery1.[c#5, b#6]
@@ -2311,10 +2311,10 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.t1#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1])
-        |   +-element_column=$array.t1#1
-        +-array_expr=
+        |   +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<t1 INT64, t3 INT64>) -> ARRAY<STRUCT<t1 INT64, t3 INT64>>)
         |   +-SubqueryExpr
         |     +-type=STRUCT<t1 INT64, t3 INT64>
@@ -2337,7 +2337,7 @@ QueryStmt
         |             | +-t3#3 := Literal(type=INT64, value=3)
         |             +-input_scan=
         |               +-SingleRowScan
-        +-element_column=$array.t2#5
+        +-element_column_list=[$array.t2#5]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$array.t1#1)
@@ -2370,12 +2370,12 @@ QueryStmt
         +-input_scan=
         | +-ArrayScan
         |   +-column_list=[$array.t1#1]
-        |   +-array_expr=
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<INT64>, value=[1])
-        |   +-element_column=$array.t1#1
-        +-array_expr=
+        |   +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-Literal(type=ARRAY<INT64>, value=[2])
-        +-element_column=$array.t1#2
+        +-element_column_list=[$array.t1#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$array.t1#1)
@@ -2645,12 +2645,12 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:0}])
-        |       +-element_column=$array.t1#1
-        +-array_expr=
+        |       +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:0}])
-        +-element_column=$array.t2#2
+        +-element_column_list=[$array.t2#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -2706,12 +2706,12 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-ArrayScan
         |   |       +-column_list=[$array.t1#1]
-        |   |       +-array_expr=
+        |   |       +-array_expr_list=
         |   |       | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:0}])
-        |   |       +-element_column=$array.t1#1
-        |   +-array_expr=
+        |   |       +-element_column_list=[$array.t1#1]
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:0}])
-        |   +-element_column=$array.t2#2
+        |   +-element_column_list=[$array.t2#2]
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
         |       +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -2720,9 +2720,9 @@ QueryStmt
         |         +-expr=
         |         | +-ColumnRef(type=STRUCT<a INT64>, column=$array.t2#2)
         |         +-field_idx=0
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:0}])
-        +-element_column=$array.t3#5
+        +-element_column_list=[$array.t3#5]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -2792,12 +2792,12 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-ArrayScan
         |   |       +-column_list=[$array.t1#1]
-        |   |       +-array_expr=
+        |   |       +-array_expr_list=
         |   |       | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:0}])
-        |   |       +-element_column=$array.t1#1
-        |   +-array_expr=
+        |   |       +-element_column_list=[$array.t1#1]
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:0}])
-        |   +-element_column=$array.t2#2
+        |   +-element_column_list=[$array.t2#2]
         |   +-join_expr=
         |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
         |   |   +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -2807,9 +2807,9 @@ QueryStmt
         |   |     | +-ColumnRef(type=STRUCT<a INT64>, column=$array.t2#2)
         |   |     +-field_idx=0
         |   +-is_outer=TRUE
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:0}])
-        +-element_column=$array.t3#5
+        +-element_column_list=[$array.t3#5]
         +-join_expr=
         | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
         |   +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -2849,12 +2849,12 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:1}])
-        |       +-element_column=$array.t1#1
-        +-array_expr=
+        |       +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:2}])
-        +-element_column=$array.t2#2
+        +-element_column_list=[$array.t2#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -3046,12 +3046,12 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-ArrayScan
         |   |       +-column_list=[$array.t1#1]
-        |   |       +-array_expr=
+        |   |       +-array_expr_list=
         |   |       | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, c INT64>>, value=[{a:0, b:1, c:2}])
-        |   |       +-element_column=$array.t1#1
-        |   +-array_expr=
+        |   |       +-element_column_list=[$array.t1#1]
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, d INT64>>, value=[{a:0, b:1, d:2}])
-        |   +-element_column=$array.t2#2
+        |   +-element_column_list=[$array.t2#2]
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
         |       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -3068,9 +3068,9 @@ QueryStmt
         |           +-expr=
         |           | +-ColumnRef(type=STRUCT<a INT64, b INT64, d INT64>, column=$array.t2#2)
         |           +-field_idx=1
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, e INT64>>, value=[{a:0, b:1, e:2}])
-        +-element_column=$array.t3#7
+        +-element_column_list=[$array.t3#7]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -3258,12 +3258,12 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-ArrayScan
         |   |       +-column_list=[$array.t1#1]
-        |   |       +-array_expr=
+        |   |       +-array_expr_list=
         |   |       | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, c INT64>>, value=[{a:0, b:1, c:2}])
-        |   |       +-element_column=$array.t1#1
-        |   +-array_expr=
+        |   |       +-element_column_list=[$array.t1#1]
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, d INT64>>, value=[{a:0, b:1, d:2}])
-        |   +-element_column=$array.t2#2
+        |   +-element_column_list=[$array.t2#2]
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
         |       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -3280,9 +3280,9 @@ QueryStmt
         |           +-expr=
         |           | +-ColumnRef(type=STRUCT<a INT64, b INT64, d INT64>, column=$array.t2#2)
         |           +-field_idx=1
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, e INT64>>, value=[{a:0, b:1, e:2}])
-        +-element_column=$array.t3#7
+        +-element_column_list=[$array.t3#7]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -3470,12 +3470,12 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-ArrayScan
         |   |       +-column_list=[$array.t1#1]
-        |   |       +-array_expr=
+        |   |       +-array_expr_list=
         |   |       | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, c INT64>>, value=[{a:0, b:1, c:2}])
-        |   |       +-element_column=$array.t1#1
-        |   +-array_expr=
+        |   |       +-element_column_list=[$array.t1#1]
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, d INT64>>, value=[{a:0, b:1, d:2}])
-        |   +-element_column=$array.t2#2
+        |   +-element_column_list=[$array.t2#2]
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
         |       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -3492,9 +3492,9 @@ QueryStmt
         |           +-expr=
         |           | +-ColumnRef(type=STRUCT<a INT64, b INT64, d INT64>, column=$array.t2#2)
         |           +-field_idx=1
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, e INT64>>, value=[{a:0, b:1, e:2}])
-        +-element_column=$array.t3#7
+        +-element_column_list=[$array.t3#7]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -3682,12 +3682,12 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-ArrayScan
         |   |       +-column_list=[$array.t1#1]
-        |   |       +-array_expr=
+        |   |       +-array_expr_list=
         |   |       | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, c INT64>>, value=[{a:0, b:1, c:2}])
-        |   |       +-element_column=$array.t1#1
-        |   +-array_expr=
+        |   |       +-element_column_list=[$array.t1#1]
+        |   +-array_expr_list=
         |   | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, d INT64>>, value=[{a:0, b:1, d:2}])
-        |   +-element_column=$array.t2#2
+        |   +-element_column_list=[$array.t2#2]
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
         |       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -3704,9 +3704,9 @@ QueryStmt
         |           +-expr=
         |           | +-ColumnRef(type=STRUCT<a INT64, b INT64, d INT64>, column=$array.t2#2)
         |           +-field_idx=1
-        +-array_expr=
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, e INT64>>, value=[{a:0, b:1, e:2}])
-        +-element_column=$array.t3#7
+        +-element_column_list=[$array.t3#7]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -3775,12 +3775,12 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, c INT64>>, value=[{a:1, b:3, c:5}])
-        |       +-element_column=$array.t1#1
-        +-array_expr=
+        |       +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-Literal(type=ARRAY<STRUCT<a INT64, b INT64, d INT64>>, value=[{a:2, b:4, d:6}])
-        +-element_column=$array.t2#2
+        +-element_column_list=[$array.t2#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -3940,22 +3940,22 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
         |       |   +-MakeStruct
         |       |     +-type=STRUCT<a INT64, b INT64>
         |       |     +-field_list=
         |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
         |       |       +-Literal(type=INT64, value=3)
-        |       +-element_column=$array.t1#1
-        +-array_expr=
+        |       +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
         |   +-MakeStruct
         |     +-type=STRUCT<a INT32, b INT64>
         |     +-field_list=
         |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
         |       +-Literal(type=INT64, value=4)
-        +-element_column=$array.t2#2
+        +-element_column_list=[$array.t2#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -4024,22 +4024,22 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
         |       |   +-MakeStruct
         |       |     +-type=STRUCT<a INT32, b INT64>
         |       |     +-field_list=
         |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
         |       |       +-Literal(type=INT64, value=3)
-        |       +-element_column=$array.t1#1
-        +-array_expr=
+        |       +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
         |   +-MakeStruct
         |     +-type=STRUCT<a INT64, b INT64>
         |     +-field_list=
         |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
         |       +-Literal(type=INT64, value=4)
-        +-element_column=$array.t2#2
+        +-element_column_list=[$array.t2#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-Cast(INT32 -> INT64)
@@ -4111,22 +4111,22 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
         |       |   +-MakeStruct
         |       |     +-type=STRUCT<a INT64, b INT64>
         |       |     +-field_list=
         |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
         |       |       +-Literal(type=INT64, value=3)
-        |       +-element_column=$array.t1#1
-        +-array_expr=
+        |       +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
         |   +-MakeStruct
         |     +-type=STRUCT<a INT32, b INT64>
         |     +-field_list=
         |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
         |       +-Literal(type=INT64, value=4)
-        +-element_column=$array.t2#2
+        +-element_column_list=[$array.t2#2]
         +-join_expr=
         | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
         |   +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -4192,14 +4192,14 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
         |       |   +-MakeStruct
         |       |     +-type=STRUCT<a INT64, b INT64>
         |       |     +-field_list=
         |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
         |       |       +-Literal(type=INT64, value=3)
-        |       +-element_column=$array.t1#1
+        |       +-element_column_list=[$array.t1#1]
         +-right_scan=
         | +-ProjectScan
         |   +-column_list=[$array.t2#2, $join_right.a#4]
@@ -4213,14 +4213,14 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t2#2]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
         |       |   +-MakeStruct
         |       |     +-type=STRUCT<a INT32, b INT64>
         |       |     +-field_list=
         |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
         |       |       +-Literal(type=INT64, value=4)
-        |       +-element_column=$array.t2#2
+        |       +-element_column_list=[$array.t2#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -4290,14 +4290,14 @@ QueryStmt
             |   +-input_scan=
             |     +-ArrayScan
             |       +-column_list=[$array.t1#1]
-            |       +-array_expr=
+            |       +-array_expr_list=
             |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
             |       |   +-MakeStruct
             |       |     +-type=STRUCT<a INT64, b INT64>
             |       |     +-field_list=
             |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
             |       |       +-Literal(type=INT64, value=3)
-            |       +-element_column=$array.t1#1
+            |       +-element_column_list=[$array.t1#1]
             +-right_scan=
             | +-ProjectScan
             |   +-column_list=[$array.t2#2, $join_right.a#4]
@@ -4311,14 +4311,14 @@ QueryStmt
             |   +-input_scan=
             |     +-ArrayScan
             |       +-column_list=[$array.t2#2]
-            |       +-array_expr=
+            |       +-array_expr_list=
             |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
             |       |   +-MakeStruct
             |       |     +-type=STRUCT<a INT32, b INT64>
             |       |     +-field_list=
             |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
             |       |       +-Literal(type=INT64, value=4)
-            |       +-element_column=$array.t2#2
+            |       +-element_column_list=[$array.t2#2]
             +-join_expr=
               +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
                 +-ColumnRef(type=INT64, column=$join_left.a#3)
@@ -4386,22 +4386,22 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
         |       |   +-MakeStruct
         |       |     +-type=STRUCT<a INT32, b INT64>
         |       |     +-field_list=
         |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
         |       |       +-Literal(type=INT64, value=3)
-        |       +-element_column=$array.t1#1
-        +-array_expr=
+        |       +-element_column_list=[$array.t1#1]
+        +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
         |   +-MakeStruct
         |     +-type=STRUCT<a INT64, b INT64>
         |     +-field_list=
         |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
         |       +-Literal(type=INT64, value=4)
-        +-element_column=$array.t2#2
+        +-element_column_list=[$array.t2#2]
         +-join_expr=
         | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
         |   +-Cast(INT32 -> INT64)
@@ -4467,14 +4467,14 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t1#1]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
         |       |   +-MakeStruct
         |       |     +-type=STRUCT<a INT32, b INT64>
         |       |     +-field_list=
         |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
         |       |       +-Literal(type=INT64, value=3)
-        |       +-element_column=$array.t1#1
+        |       +-element_column_list=[$array.t1#1]
         +-right_scan=
         | +-ProjectScan
         |   +-column_list=[$array.t2#2, $join_right.a#4]
@@ -4488,14 +4488,14 @@ QueryStmt
         |   +-input_scan=
         |     +-ArrayScan
         |       +-column_list=[$array.t2#2]
-        |       +-array_expr=
+        |       +-array_expr_list=
         |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
         |       |   +-MakeStruct
         |       |     +-type=STRUCT<a INT64, b INT64>
         |       |     +-field_list=
         |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
         |       |       +-Literal(type=INT64, value=4)
-        |       +-element_column=$array.t2#2
+        |       +-element_column_list=[$array.t2#2]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             +-Cast(INT32 -> INT64)
@@ -4565,14 +4565,14 @@ QueryStmt
             |   +-input_scan=
             |     +-ArrayScan
             |       +-column_list=[$array.t1#1]
-            |       +-array_expr=
+            |       +-array_expr_list=
             |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
             |       |   +-MakeStruct
             |       |     +-type=STRUCT<a INT32, b INT64>
             |       |     +-field_list=
             |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
             |       |       +-Literal(type=INT64, value=3)
-            |       +-element_column=$array.t1#1
+            |       +-element_column_list=[$array.t1#1]
             +-right_scan=
             | +-ProjectScan
             |   +-column_list=[$array.t2#2, $join_right.a#4]
@@ -4586,14 +4586,14 @@ QueryStmt
             |   +-input_scan=
             |     +-ArrayScan
             |       +-column_list=[$array.t2#2]
-            |       +-array_expr=
+            |       +-array_expr_list=
             |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
             |       |   +-MakeStruct
             |       |     +-type=STRUCT<a INT64, b INT64>
             |       |     +-field_list=
             |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
             |       |       +-Literal(type=INT64, value=4)
-            |       +-element_column=$array.t2#2
+            |       +-element_column_list=[$array.t2#2]
             +-join_expr=
               +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
                 +-Cast(INT32 -> INT64)

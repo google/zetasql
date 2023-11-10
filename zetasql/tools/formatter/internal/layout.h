@@ -68,8 +68,7 @@ class Layout {
 // Represents a layout for an unparsed part of the input file.
 class UnparsedLayout : public Layout {
  public:
-  explicit UnparsedLayout(const UnparsedRegion& region)
-      : image_(region.Image()) {}
+  explicit UnparsedLayout(const FilePart& part) : image_(part.Image()) {}
 
   // See documentation in Layout class above.
   void BestLayout() override {}

@@ -7499,6 +7499,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
 absl::Status Resolver::ResolveExpressionArgument(
     const ASTExpression* arg, ExprResolutionInfo* expr_resolution_info,
     std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_arguments) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   std::unique_ptr<const ResolvedExpr> resolved_arg;
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(arg, expr_resolution_info, &resolved_arg));
   resolved_arguments->push_back(std::move(resolved_arg));

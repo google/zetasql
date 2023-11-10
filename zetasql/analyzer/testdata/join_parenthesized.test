@@ -270,14 +270,14 @@ QueryStmt
         |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="tt")
         |   +-right_scan=
         |     +-TableScan(table=KeyValue, alias="kv")
-        +-array_expr=
+        +-array_expr_list=
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
         |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
-        +-element_column=$array.repeated_int32_val#6
+        +-element_column_list=[$array.repeated_int32_val#6]
 ==
 
 # Duplicate scan aliases created in different parts of the tree.

@@ -87,6 +87,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -336,6 +337,16 @@ class PublicGroupsState {
   // `with_scans_`.
   absl::flat_hash_map<int, int> column_to_join_column_id_;
 };
+
+std::string CreateOptionNotAllowedWithPublicGroupsError(
+    absl::string_view operation = "") {
+  return absl::Substitute(
+      "group_selection_strategy = PUBLIC_GROUPS does not allow $0$1operations "
+      "between the public groups join and the aggregation, because they could "
+      "suppress public groups from the result. Try moving the operation to an "
+      "input subquery of the public groups join.",
+      operation, operation.empty() ? "" : " ");
+}
 
 // Rewrites a given AST that includes a ResolvedAnonymizedAggregateScan to use
 // the semantics defined in https://arxiv.org/abs/1909.01917 and
@@ -1389,6 +1400,18 @@ class OuterAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     return CopyVisitResolvedComputedColumn(node);
   }
 
+  absl::Status VisitResolvedSubqueryExpr(
+      const ResolvedSubqueryExpr* node) override {
+    // Expression subqueries aren't allowed to read from tables or TVFs that
+    // have $uid columns. See (broken link)
+    ExpressionSubqueryRewriterVisitor subquery_visitor;
+    ZETASQL_RETURN_IF_ERROR(node->Accept(&subquery_visitor));
+    ZETASQL_ASSIGN_OR_RETURN(auto copy,
+                     subquery_visitor.ConsumeRootNode<ResolvedSubqueryExpr>());
+    PushNodeToStack(std::move(copy));
+    return absl::OkStatus();
+  }
+
   // The most recent column visited.
   //
   // When visiting an aggregate function call, current_column_ will point to the
@@ -1696,7 +1719,25 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
   const UidColumnState& uid_column_state() const { return current_uid_; }
 
+  // In case a public groups join is found, the operations that are allowed in
+  // the AST is very limited as they could suppress public groups that are not
+  // in the user data. More details in (broken link).
+  bool GetFoundPublicGroupsJoin() const { return found_public_groups_join_; }
+
  private:
+  absl::Status DefaultVisit(const ResolvedNode* node) override {
+    // There are only a limited number of node types allowed after the first
+    // public groups join and the anon or dp aggregate scan. The default
+    // behavior here is to throw an error, which also prevents against privacy
+    // issues in case a new node type is introduced in the future. To explicitly
+    // allow a node type, the VisitXXX() method must be overwritten.
+    if (GetFoundPublicGroupsJoin()) {
+      return MakeSqlErrorAtNode(*node)
+             << CreateOptionNotAllowedWithPublicGroupsError();
+    }
+    return ResolvedASTDeepCopyVisitor::DefaultVisit(node);
+  }
+
   absl::Status ProjectValueTableScanRowValueIfNeeded(
       ResolvedTableScan* copy, const Column* value_table_value_column,
       ResolvedColumn* value_table_value_resolved_column) {
@@ -2189,6 +2230,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                                         public_groups_state_);
     ZETASQL_RETURN_IF_ERROR(node->left_scan()->Accept(&left_visitor));
     const ResolvedColumn& left_uid = left_visitor.current_uid_.column;
+    found_public_groups_join_ |= left_visitor.GetFoundPublicGroupsJoin();
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> left_scan,
                      left_visitor.ConsumeRootNode<ResolvedScan>());
     copy->set_left_scan(std::move(left_scan));
@@ -2199,6 +2241,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                                          public_groups_state_);
     ZETASQL_RETURN_IF_ERROR(node->right_scan()->Accept(&right_visitor));
     const ResolvedColumn& right_uid = right_visitor.current_uid_.column;
+    found_public_groups_join_ |= right_visitor.GetFoundPublicGroupsJoin();
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> right_scan,
                      right_visitor.ConsumeRootNode<ResolvedScan>());
     copy->set_right_scan(std::move(right_scan));
@@ -2214,8 +2257,14 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       if (public_groups_uid_column.has_value()) {
         current_uid_ = public_groups_uid_column.value();
         current_uid_.ProjectIfMissing(*copy);
+        found_public_groups_join_ = true;
         return absl::OkStatus();
       }
+    }
+
+    if (found_public_groups_join_) {
+      return MakeSqlErrorAtNode(*copy)
+             << CreateOptionNotAllowedWithPublicGroupsError("JOIN");
     }
 
     if (!left_uid.IsInitialized() && !right_uid.IsInitialized()) {
@@ -2444,6 +2493,11 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       const ResolvedProjectScan* node) override {
     ZETASQL_RETURN_IF_ERROR(
         MaybeAttachParseLocation(CopyVisitResolvedProjectScan(node), *node));
+    if (GetFoundPublicGroupsJoin() && node->expr_list_size() != 0) {
+      // Project scans with computed columns are not allowed.
+      return MakeSqlErrorAtNode(*node)
+             << CreateOptionNotAllowedWithPublicGroupsError();
+    }
 
     if (!current_uid_.column.IsInitialized()) {
       return absl::OkStatus();
@@ -2586,6 +2640,10 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 #define PROJECT_UID(resolved_scan)                                        \
   absl::Status Visit##resolved_scan(const resolved_scan* node) override { \
     ZETASQL_RETURN_IF_ERROR(CopyVisit##resolved_scan(node));                      \
+    if (GetFoundPublicGroupsJoin()) {                                     \
+      return MakeSqlErrorAtNode(*node)                                    \
+             << CreateOptionNotAllowedWithPublicGroupsError();            \
+    }                                                                     \
     if (!current_uid_.column.IsInitialized()) {                           \
       return absl::OkStatus();                                            \
     }                                                                     \
@@ -2668,31 +2726,11 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   SelectWithModeName select_with_mode_name_;
   UidColumnState current_uid_;
   PublicGroupsState* public_groups_state_;  // unowned
+  bool found_public_groups_join_ = false;
   absl::flat_hash_map<ResolvedColumn, ResolvedColumn> column_replacements_;
   absl::flat_hash_map<ResolvedColumn, ResolvedColumn>
       public_groups_join_replacements_;  // original -> replaced
 };
-
-std::unique_ptr<ResolvedScan> MakePerUserAggregateScan(
-    std::unique_ptr<const ResolvedScan> input_scan,
-    std::vector<std::unique_ptr<ResolvedComputedColumn>> aggregate_list,
-    std::vector<std::unique_ptr<ResolvedComputedColumn>> group_by_list) {
-  // Collect an updated column list, the new list will be entirely disjoint
-  // from the original due to intermediate column id rewriting.
-  std::vector<ResolvedColumn> new_column_list;
-  new_column_list.reserve(aggregate_list.size() + group_by_list.size());
-  for (const auto& column : aggregate_list) {
-    new_column_list.push_back(column->column());
-  }
-  for (const auto& column : group_by_list) {
-    new_column_list.push_back(column->column());
-  }
-  return MakeResolvedAggregateScan(
-      new_column_list, std::move(input_scan), std::move(group_by_list),
-      std::move(aggregate_list),
-      /* grouping_set_list= */ {}, /* rollup_column_list= */ {},
-      /* grouping_call_list= */ {});
-}
 
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
 RewriterVisitor::ChooseUidColumn(
@@ -3797,6 +3835,19 @@ bool IsSelectDistinctSubquery(const ResolvedScan* node) {
       }
       return IsSelectDistinctSubquery(project_scan->input_scan());
     }
+    case RESOLVED_LIMIT_OFFSET_SCAN:
+      // Supporting (SELECT DISTINCT ... LIMIT x) queries. There is no privacy
+      // impact, so we support this for completeness. Such queries would not
+      // make much sense in production queries, but can be used for testing.
+      return IsSelectDistinctSubquery(
+          node->GetAs<ResolvedLimitOffsetScan>()->input_scan());
+    case RESOLVED_SAMPLE_SCAN:
+      // Supporting (SELECT DISTINCT ...) TABLESAMPLE .. (x percent) queries.
+      // There is no privacy impact, so we support this for completeness. Such
+      // queries would not make much sense in production queries, but can be
+      // used for testing.
+      return IsSelectDistinctSubquery(
+          node->GetAs<ResolvedSampleScan>()->input_scan());
     case RESOLVED_AGGREGATE_SCAN: {
       // This is the common path for a SELECT DISTINCT subquery.
       const ResolvedAggregateScan* aggregate_scan =

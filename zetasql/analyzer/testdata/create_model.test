@@ -109,8 +109,6 @@ create model t1 remote
 ^
 ==
 
-# TODO: Enable Java once it supports connection.
-[no_java]
 [language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
 create model t1 with connection connection1 as select 1 a
 --
@@ -127,8 +125,6 @@ create model t1 with connection connection1 as select 1 a
                 ^
 ==
 
-# TODO: Enable Java once it supports connection.
-[no_java]
 [language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
 create model t1 remote with connection connection1
 --
@@ -941,8 +937,6 @@ create temp model T
 CreateModelStmt(name_path=T, create_scope=CREATE_TEMP)
 ==
 
-# TODO: Enable Java once it supports connection.
-[no_java]
 # All remote model clauses
 create model t1
 input (i1 INT64, i2 FLOAT64)
@@ -964,8 +958,6 @@ CreateModelStmt
   +-Connection(connection=connection1)
 ==
 
-# TODO: Enable Java once it supports connection.
-[no_java]
 # All clauses
 create model t1
 input (i1 INT64, i2 FLOAT64)
@@ -975,7 +967,7 @@ remote with connection connection1
 options (abc = def)
 as select * from t2;
 --
-ERROR: The AS SELECT clause cannot be used with REMOTE [at 8:4]
+ERROR: The AS SELECT clause cannot be used with REMOTE [at 7:4]
 as select * from t2;
    ^
 ==
